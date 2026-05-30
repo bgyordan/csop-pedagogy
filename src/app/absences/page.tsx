@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { getMonthName } from '@/lib/utils'
 
 export default async function AbsencesPage() {
@@ -19,7 +20,6 @@ export default async function AbsencesPage() {
     .eq('is_current', true)
     .single()
 
-  // Класният вижда само своята паралелка
   let classQuery = supabase
     .from('classes')
     .select('*')
@@ -52,18 +52,18 @@ export default async function AbsencesPage() {
               {MONTHS.map(month => {
                 const isCurrent = month === currentMonth
                 return (
-                  
+                  <Link
                     key={month}
                     href={`/absences/${cls.id}/${month}`}
-                    className={`flex flex-col items-center p-3 rounded-lg border text-sm transition-colors
-                      ${isCurrent
+                    className={`flex flex-col items-center p-3 rounded-lg border text-sm transition-colors ${
+                      isCurrent
                         ? 'border-blue-200 bg-blue-50 text-blue-700 font-medium'
                         : 'border-slate-200 hover:bg-slate-50 text-slate-600'
-                      }`}
+                    }`}
                   >
                     <span>{getMonthName(month)}</span>
                     {isCurrent && <span className="text-xs mt-0.5 opacity-70">текущ</span>}
-                  </a>
+                  </Link>
                 )
               })}
             </div>
