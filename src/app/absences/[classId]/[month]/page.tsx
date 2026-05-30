@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Save, Download } from 'lucide-react'
+import { Save } from 'lucide-react'
 import { BackButton } from '@/components/ui/BackButton'
 import { useToast } from '@/components/ui/Toast'
 import { getFullName, getMonthName } from '@/lib/utils'
@@ -26,11 +26,12 @@ export default function AbsenceEditorPage() {
   const { toast } = useToast()
   const supabase = createClient()
 
+  const year = month >= 9 ? new Date().getFullYear() - 1 : new Date().getFullYear()
+
   const [className, setClassName] = useState('')
   const [entries, setEntries] = useState<Entry[]>([])
   const [saving, setSaving] = useState(false)
   const [monthlyId, setMonthlyId] = useState<string | null>(null)
-  const year = month >= 9 ? new Date().getFullYear() : new Date().getFullYear()
 
   useEffect(() => { loadData() }, [classId, month])
 
@@ -91,12 +92,11 @@ export default function AbsenceEditorPage() {
       if (i !== index) return e
       const updated = { ...e, [field]: value }
 
-      // Auto-fill reason and compensation
       if (field === 'realized_hours' || field === 'planned_hours') {
         const planned = field === 'planned_hours' ? Number(value) : e.planned_hours
         const realized = field === 'realized_hours' ? Number(value) : e.realized_hours
 
-        if (realized > planned) return { ...e } // block — don't update
+        if (realized > planned) return { ...e }
 
         if (realized === planned) {
           updated.reason = 'Неприложимо'
@@ -142,7 +142,7 @@ export default function AbsenceEditorPage() {
       }))
     )
 
-    toast('Отсъствията са запазени')
+    toast('Данните са запазени')
     setSaving(false)
   }
 
@@ -175,7 +175,6 @@ export default function AbsenceEditorPage() {
             {entries.map((entry, idx) => {
               const diff = entry.planned_hours - entry.realized_hours
               const isEqual = entry.planned_hours > 0 && diff === 0
-              const hasAbsence = diff > 0
               return (
                 <tr key={entry.student_id} className={`border-b border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
                   <td className="px-4 py-2 font-medium text-slate-800">{entry.student_name}</td>
@@ -192,7 +191,7 @@ export default function AbsenceEditorPage() {
                       type="number" min="0" max={entry.planned_hours}
                       value={entry.realized_hours}
                       onChange={e => updateEntry(idx, 'realized_hours', parseInt(e.target.value) || 0)}
-                      className={`input text-center w-20 mx-auto block ${entry.realized_hours > entry.planned_hours ? 'border-red-400' : ''}`}
+                      className="input text-center w-20 mx-auto block"
                     />
                   </td>
                   <td className="px-3 py-2">
