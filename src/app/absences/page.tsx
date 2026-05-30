@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Calendar } from 'lucide-react'
 import { getMonthName } from '@/lib/utils'
 
 export default async function AbsencesPage() {
@@ -8,22 +7,30 @@ export default async function AbsencesPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
+  const { data: profile } = await supabase
+    .from('staff_profiles')
+    .select('role, class_id')
+    .eq('user_id', user.id)
+    .single()
+
   const { data: currentYear } = await supabase
     .from('academic_years')
     .select('*')
     .eq('is_current', true)
     .single()
 
-  const { data: profile } = await supabase
-    .from('staff_profiles')
-    .select('*, id')
-    .eq('user_id', user.id)
-    .single()
+  // Класният вижда само своята паралелка
+  let classQuery = supabase
+    .from('classes')
+    .select('*')
+    .eq('academic_year_id', currentYear?.id)
+    .order('name')
 
-  // Get classes based on role
-  let classQuery = supabase.from('classes').select('*').eq('academic_year_id', currentYear?.id)
+  if (profile?.role === 'class_teacher' && profile?.class_id) {
+    classQuery = classQuery.eq('id', profile.class_id)
+  }
 
-  const { data: classes } = await classQuery.order('name')
+  const { data: classes } = await classQuery
 
   const MONTHS = [9, 10, 11, 12, 1, 2, 3, 4, 5, 6]
   const currentMonth = new Date().getMonth() + 1
@@ -43,10 +50,9 @@ export default async function AbsencesPage() {
             <h2 className="font-medium text-slate-700 mb-4">Паралелка {cls.name}</h2>
             <div className="grid grid-cols-5 gap-2">
               {MONTHS.map(month => {
-                const isPast = month < currentMonth && month > 6
                 const isCurrent = month === currentMonth
                 return (
-                  <a
+                  
                     key={month}
                     href={`/absences/${cls.id}/${month}`}
                     className={`flex flex-col items-center p-3 rounded-lg border text-sm transition-colors
