@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { ROLE_LABELS, UserRole } from '@/types'
+import { ROLE_LABELS, UserRole, StaffProfile } from '@/types'
 import { getFullName } from '@/lib/utils'
 import { UserCircle } from 'lucide-react'
 
@@ -20,7 +20,7 @@ export default async function StaffPage() {
     if (!acc[role]) acc[role] = []
     acc[role].push(s)
     return acc
-  }, {} as Record<UserRole, typeof staff>)
+  }, {} as Record<UserRole, StaffProfile[]>)
 
   return (
     <div className="p-8">
