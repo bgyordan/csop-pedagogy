@@ -1,0 +1,190 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { Plus, Pencil, X } from 'lucide-react'
+import { useToast } from '@/components/ui/Toast'
+import { Modal } from '@/components/ui/Modal'
+import { getFullName } from '@/lib/utils'
+import { StaffProfile, UserRole, ROLE_LABELS } from '@/types'
+
+const EMPTY_FORM = {
+  first_name: '', middle_name: '', last_name: '',
+  role: 'class_teacher' as UserRole,
+  position: '', email: '', phone: '',
+}
+
+export default function AdminStaffPage() {
+  const supabase = createClient()
+  const { toast } = useToast()
+  const [staff, setStaff] = useState<StaffProfile[]>([])
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<StaffProfile | null>(null)
+  const [form, setForm] = useState(EMPTY_FORM)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => { load() }, [])
+
+  async function load() {
+    const { data } = await supabase.from('staff_profiles').select('*').order('last_name')
+    setStaff(data || [])
+  }
+
+  function openNew() {
+    setEditing(null)
+    setForm(EMPTY_FORM)
+    setOpen(true)
+  }
+
+  function openEdit(s: StaffProfile) {
+    setEditing(s)
+    setForm({
+      first_name: s.first_name,
+      middle_name: s.middle_name || '',
+      last_name: s.last_name,
+      role: s.role,
+      position: s.position || '',
+      email: s.email,
+      phone: s.phone || '',
+    })
+    setOpen(true)
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.first_name || !form.last_name || !form.email) {
+      toast('Попълни задължителните полета', 'error'); return
+    }
+    setSaving(true)
+
+    const payload = {
+      first_name: form.first_name,
+      middle_name: form.middle_name || null,
+      last_name: form.last_name,
+      role: form.role,
+      position: form.position || null,
+      email: form.email,
+      phone: form.phone || null,
+    }
+
+    let error
+    if (editing) {
+      ({ error } = await supabase.from('staff_profiles').update(payload).eq('id', editing.id))
+    } else {
+      ({ error } = await supabase.from('staff_profiles').insert({ ...payload, is_active: true }))
+    }
+
+    if (error) { toast('Грешка при запис', 'error'); setSaving(false); return }
+
+    toast(editing ? 'Промените са запазени' : 'Служителят е добавен')
+    setOpen(false)
+    setSaving(false)
+    load()
+  }
+
+  async function toggleActive(s: StaffProfile) {
+    await supabase.from('staff_profiles').update({ is_active: !s.is_active }).eq('id', s.id)
+    toast(s.is_active ? 'Деактивиран' : 'Активиран')
+    load()
+  }
+
+  return (
+    <div className="p-8">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-800">Управление на служители</h1>
+          <p className="text-slate-500 text-sm mt-1">{staff.length} служители</p>
+        </div>
+        <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#0f2240' }}>
+          <Plus size={16} />
+          Нов служител
+        </button>
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-100 bg-slate-50">
+              <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Три имена</th>
+              <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Роля</th>
+              <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Длъжност</th>
+              <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Имейл</th>
+              <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Статус</th>
+              <th className="px-5 py-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {staff.map(s => (
+              <tr key={s.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                <td className="px-5 py-3.5 font-medium text-slate-800">{getFullName(s)}</td>
+                <td className="px-5 py-3.5 text-slate-600">{ROLE_LABELS[s.role]}</td>
+                <td className="px-5 py-3.5 text-slate-600">{s.position || '—'}</td>
+                <td className="px-5 py-3.5 text-slate-600 font-mono text-xs">{s.email}</td>
+                <td className="px-5 py-3.5">
+                  <span className={s.is_active ? 'badge-completed' : 'badge-empty'}>
+                    {s.is_active ? 'Активен' : 'Неактивен'}
+                  </span>
+                </td>
+                <td className="px-5 py-3.5">
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => openEdit(s)} className="text-slate-400 hover:text-slate-700">
+                      <Pencil size={14} />
+                    </button>
+                    <button onClick={() => toggleActive(s)} className="text-xs text-slate-400 hover:text-slate-700">
+                      {s.is_active ? 'Деактивирай' : 'Активирай'}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <Modal open={open} onClose={() => setOpen(false)} title={editing ? 'Редактирай служител' : 'Нов служител'}>
+        <form onSubmit={handleSave} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Първо име <span className="text-red-500">*</span></label>
+              <input className="input" value={form.first_name} onChange={e => setForm(p => ({ ...p, first_name: e.target.value }))} />
+            </div>
+            <div>
+              <label className="label">Презиме</label>
+              <input className="input" value={form.middle_name} onChange={e => setForm(p => ({ ...p, middle_name: e.target.value }))} />
+            </div>
+          </div>
+          <div>
+            <label className="label">Фамилия <span className="text-red-500">*</span></label>
+            <input className="input" value={form.last_name} onChange={e => setForm(p => ({ ...p, last_name: e.target.value }))} />
+          </div>
+          <div>
+            <label className="label">Роля</label>
+            <select className="input" value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value as UserRole }))}>
+              {Object.entries(ROLE_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">Длъжност</label>
+            <input className="input" value={form.position} onChange={e => setForm(p => ({ ...p, position: e.target.value }))} placeholder="Напр. Психолог" />
+          </div>
+          <div>
+            <label className="label">Имейл <span className="text-red-500">*</span></label>
+            <input type="email" className="input" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="ime@csop-varna.bg" />
+          </div>
+          <div>
+            <label className="label">Телефон</label>
+            <input className="input" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="submit" disabled={saving} className="btn-primary" style={{ backgroundColor: '#0f2240' }}>
+              {saving ? 'Запазване...' : 'Запази'}
+            </button>
+            <button type="button" onClick={() => setOpen(false)} className="btn-secondary">Отказ</button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  )
+}
