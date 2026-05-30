@@ -30,7 +30,7 @@ export default function AbsenceEditorPage() {
   const [entries, setEntries] = useState<Entry[]>([])
   const [saving, setSaving] = useState(false)
   const [monthlyId, setMonthlyId] = useState<string | null>(null)
-  const year = month >= 9 ? new Date().getFullYear() : new Date().getFullYear() + 1
+  const year = month >= 9 ? new Date().getFullYear() : new Date().getFullYear()
 
   useEffect(() => { loadData() }, [classId, month])
 
