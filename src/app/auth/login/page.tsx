@@ -14,7 +14,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `https://csop-pedagogy.vercel.app/auth/callback`,
         queryParams: {
           hd: 'csop-varna.bg', // restrict to school domain
         },
