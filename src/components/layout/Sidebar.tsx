@@ -21,6 +21,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Начало', icon: <LayoutDashboard size={18} /> },
   { href: '/students', label: 'Ученици', icon: <Users size={18} /> },
+  { href: '/classes', label: 'Паралелки', icon: <BookOpen size={18} /> },
   { href: '/documents', label: 'Документи', icon: <FileText size={18} /> },
   { href: '/absences', label: 'Отсъствия', icon: <Calendar size={18} /> },
   { href: '/committees', label: 'Комисии', icon: <Building2 size={18} /> },
@@ -51,7 +52,6 @@ export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
   return (
     <aside className="w-56 min-h-screen bg-navy flex flex-col"
            style={{ backgroundColor: '#0f2240' }}>
-      {/* Logo */}
       <div className="p-5 border-b border-white/10">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center text-navy font-bold text-lg"
@@ -65,7 +65,6 @@ export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
         </div>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 py-4 px-2 space-y-0.5">
         {visibleItems.map(item => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/')
@@ -88,7 +87,6 @@ export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
         })}
       </nav>
 
-      {/* User */}
       <div className="p-4 border-t border-white/10">
         <div className="flex items-center gap-2.5 mb-3">
           <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white text-xs font-medium">
