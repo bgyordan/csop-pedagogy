@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Pencil, X } from 'lucide-react'
+import { Plus, Pencil } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { getFullName } from '@/lib/utils'
@@ -11,13 +11,14 @@ import { StaffProfile, UserRole, ROLE_LABELS } from '@/types'
 const EMPTY_FORM = {
   first_name: '', middle_name: '', last_name: '',
   role: 'class_teacher' as UserRole,
-  position: '', email: '', phone: '',
+  position: '', email: '', phone: '', class_id: '',
 }
 
 export default function AdminStaffPage() {
   const supabase = createClient()
   const { toast } = useToast()
   const [staff, setStaff] = useState<StaffProfile[]>([])
+  const [classes, setClasses] = useState<{ id: string; name: string }[]>([])
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<StaffProfile | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -28,6 +29,9 @@ export default function AdminStaffPage() {
   async function load() {
     const { data } = await supabase.from('staff_profiles').select('*').order('last_name')
     setStaff(data || [])
+    const { data: year } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
+    const { data: cls } = await supabase.from('classes').select('id, name').eq('academic_year_id', year?.id).order('name')
+    setClasses(cls || [])
   }
 
   function openNew() {
@@ -36,7 +40,7 @@ export default function AdminStaffPage() {
     setOpen(true)
   }
 
-  function openEdit(s: StaffProfile) {
+  function openEdit(s: any) {
     setEditing(s)
     setForm({
       first_name: s.first_name,
@@ -46,6 +50,7 @@ export default function AdminStaffPage() {
       position: s.position || '',
       email: s.email,
       phone: s.phone || '',
+      class_id: s.class_id || '',
     })
     setOpen(true)
   }
@@ -65,11 +70,12 @@ export default function AdminStaffPage() {
       position: form.position || null,
       email: form.email,
       phone: form.phone || null,
+      class_id: form.role === 'class_teacher' && form.class_id ? form.class_id : null,
     }
 
     let error
     if (editing) {
-      ({ error } = await supabase.from('staff_profiles').update(payload).eq('id', editing.id))
+      ({ error } = await supabase.from('staff_profiles').update(payload).eq('id', (editing as any).id))
     } else {
       ({ error } = await supabase.from('staff_profiles').insert({ ...payload, is_active: true }))
     }
@@ -104,28 +110,30 @@ export default function AdminStaffPage() {
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-100 bg-slate-50">
-              <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Три имена</th>
-              <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Роля</th>
-              <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Длъжност</th>
-              <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Имейл</th>
-              <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Статус</th>
-              <th className="px-5 py-3"></th>
+            <tr className="bg-slate-50 border-b border-slate-200">
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Три имена</th>
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Роля</th>
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Паралелка</th>
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Имейл</th>
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Статус</th>
+              <th className="px-4 py-2.5"></th>
             </tr>
           </thead>
           <tbody>
-            {staff.map(s => (
-              <tr key={s.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                <td className="px-5 py-3.5 font-medium text-slate-800">{getFullName(s)}</td>
-                <td className="px-5 py-3.5 text-slate-600">{ROLE_LABELS[s.role]}</td>
-                <td className="px-5 py-3.5 text-slate-600">{s.position || '—'}</td>
-                <td className="px-5 py-3.5 text-slate-600 font-mono text-xs">{s.email}</td>
-                <td className="px-5 py-3.5">
+            {staff.map((s, idx) => (
+              <tr key={s.id} className={`border-b border-slate-100 hover:bg-blue-50 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
+                <td className="px-4 py-2 font-medium text-slate-800">{getFullName(s)}</td>
+                <td className="px-4 py-2 text-slate-600">{ROLE_LABELS[s.role]}</td>
+                <td className="px-4 py-2 text-slate-600">
+                  {(s as any).class_id ? classes.find(c => c.id === (s as any).class_id)?.name || '—' : '—'}
+                </td>
+                <td className="px-4 py-2 text-slate-600 font-mono text-xs">{s.email}</td>
+                <td className="px-4 py-2">
                   <span className={s.is_active ? 'badge-completed' : 'badge-empty'}>
                     {s.is_active ? 'Активен' : 'Неактивен'}
                   </span>
                 </td>
-                <td className="px-5 py-3.5">
+                <td className="px-4 py-2">
                   <div className="flex items-center gap-2">
                     <button onClick={() => openEdit(s)} className="text-slate-400 hover:text-slate-700">
                       <Pencil size={14} />
@@ -165,13 +173,22 @@ export default function AdminStaffPage() {
               ))}
             </select>
           </div>
+          {form.role === 'class_teacher' && (
+            <div>
+              <label className="label">Паралелка</label>
+              <select className="input" value={form.class_id} onChange={e => setForm(p => ({ ...p, class_id: e.target.value }))}>
+                <option value="">— Избери паралелка —</option>
+                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+          )}
           <div>
             <label className="label">Длъжност</label>
-            <input className="input" value={form.position} onChange={e => setForm(p => ({ ...p, position: e.target.value }))} placeholder="Напр. Психолог" />
+            <input className="input" value={form.position} onChange={e => setForm(p => ({ ...p, position: e.target.value }))} />
           </div>
           <div>
             <label className="label">Имейл <span className="text-red-500">*</span></label>
-            <input type="email" className="input" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="ime@csop-varna.bg" />
+            <input type="email" className="input" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} />
           </div>
           <div>
             <label className="label">Телефон</label>
