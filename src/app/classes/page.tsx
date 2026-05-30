@@ -68,9 +68,9 @@ export default async function ClassesPage() {
               return (
                 <tr key={cls.id} className={`border-b border-slate-100 hover:bg-blue-50 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
                   <td className="px-4 py-2">
-                    <Link href={`/classes/${cls.id}`} className="font-medium text-slate-800 hover:underline">
-                      Паралелка {cls.name}
-                    </Link>
+                    <Link href={`/classes/${cls.id}`} className="font-semibold text-slate-800 hover:underline">
+          {cls.name}
+            </Link>
                   </td>
                   <td className="text-center px-2 py-2 text-slate-600 text-xs">{students.length}</td>
                   {ALL_DOC_TYPES.map(dt => {
