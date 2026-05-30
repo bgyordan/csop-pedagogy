@@ -1,237 +1,486 @@
 import {
-  Document,
-  Packer,
-  Paragraph,
-  TextRun,
-  Table,
-  TableRow,
-  TableCell,
-  WidthType,
-  BorderStyle,
-  HeadingLevel,
-  AlignmentType,
-  PageOrientation,
+  Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+  WidthType, HeadingLevel, AlignmentType, BorderStyle, ShadingType,
+  convertInchesToTwip, PageOrientation,
 } from 'docx'
 import { saveAs } from 'file-saver'
 import { DocumentType, StaffProfile, Student } from '@/types'
 import { formatDate, getFullName } from './utils'
 
-function makeHeader(title: string, subtitle: string, year: string) {
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+const BORDER_NONE = {
+  top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+}
+
+function header(yearName: string): Paragraph[] {
   return [
     new Paragraph({
-      text: 'ЦСОП — гр. Варна',
-      heading: HeadingLevel.HEADING_1,
       alignment: AlignmentType.CENTER,
+      children: [new TextRun({ text: 'Център за специална образователна подкрепа - гр. Варна', bold: true, size: 24 })],
     }),
     new Paragraph({
-      text: title,
-      heading: HeadingLevel.HEADING_2,
       alignment: AlignmentType.CENTER,
-    }),
-    new Paragraph({
-      text: subtitle,
-      alignment: AlignmentType.CENTER,
-    }),
-    new Paragraph({
-      text: `Учебна година ${year}`,
-      alignment: AlignmentType.CENTER,
+      children: [new TextRun({ text: 'ул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 052 619 456', size: 18, italics: true })],
     }),
     new Paragraph({ text: '' }),
   ]
 }
 
-function labeledField(label: string, value: string = '') {
+function bold(text: string, size = 22): TextRun {
+  return new TextRun({ text, bold: true, size })
+}
+
+function normal(text: string, size = 22): TextRun {
+  return new TextRun({ text, size })
+}
+
+function line(label: string, value = ''): Paragraph {
   return new Paragraph({
-    children: [
-      new TextRun({ text: `${label}: `, bold: true }),
-      new TextRun({ text: value || '________________________________' }),
-    ],
     spacing: { after: 120 },
+    children: [
+      new TextRun({ text: `${label}: `, bold: true, size: 22 }),
+      new TextRun({ text: value || '................................................................', size: 22 }),
+    ],
   })
 }
 
-function sectionTitle(text: string) {
+function dotLine(label: string): Paragraph {
   return new Paragraph({
-    text,
-    heading: HeadingLevel.HEADING_3,
-    spacing: { before: 240, after: 120 },
+    spacing: { after: 100 },
+    children: [
+      new TextRun({ text: `${label}`, bold: true, size: 22 }),
+      new TextRun({ text: '  .....................................................', size: 22 }),
+    ],
   })
 }
 
-// ---- ПРОТОКОЛ 1 ----
-export function generateProtocol1(
-  student: Student,
-  team: { psychologist?: StaffProfile; speech_therapist?: StaffProfile; rehabilitator?: StaffProfile; class_teacher?: StaffProfile },
-  data: Record<string, string>,
-  yearName: string
-) {
-  const doc = new Document({
+function sectionTitle(text: string): Paragraph {
+  return new Paragraph({
+    spacing: { before: 200, after: 100 },
+    children: [new TextRun({ text, bold: true, size: 22 })],
+  })
+}
+
+function textBlock(text: string, minLines = 3): Paragraph[] {
+  const lines = text ? [new Paragraph({ children: [new TextRun({ text, size: 22 })] })] : []
+  const dots = Array.from({ length: Math.max(0, minLines - (text ? 1 : 0)) }, () =>
+    new Paragraph({ children: [new TextRun({ text: '...........................................................................................................................................', size: 22 })] })
+  )
+  return [...lines, ...dots]
+}
+
+// ── ПРОТОКОЛ 1 ───────────────────────────────────────────────────────────────
+
+function generateProtocol1(student: Student, team: any, data: Record<string, string>, yearName: string): Document {
+  const studentName = getFullName(student)
+  const sessionDate = data.session_date ? formatDate(data.session_date) : '..................'
+
+  return new Document({
     sections: [{
       properties: {},
       children: [
-        ...makeHeader('ПРОТОКОЛ № ___', 'от заседание на ЕПЛР — начало на учебната година', yearName),
-        labeledField('Ученик', getFullName(student)),
-        labeledField('Дата на раждане', formatDate(student.birth_date)),
-        labeledField('Дата на заседание', data.session_date),
+        ...header(yearName),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 100 },
+          children: [bold(`Протокол № ___ / ${sessionDate} г.`, 26)],
+        }),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 200 },
+          children: [new TextRun({ text: 'от заседание на Екипа за подкрепа на личностното развитие', bold: true, size: 22, italics: true })],
+        }),
+        new Paragraph({
+          spacing: { after: 120 },
+          children: [
+            normal('Днес, '), bold(sessionDate), normal(` г. в ЦСОП–Варна се проведе заседание на Екипа за подкрепа на личностното развитие на `),
+            bold(studentName), normal(', ученик от '), bold(data.class_name || '___ клас'), normal('.'),
+          ],
+        }),
+        new Paragraph({
+          spacing: { after: 200 },
+          children: [normal('На заседанието присъства '), normal(data.parent_name || '................................................................'), normal(', родител на '), normal(studentName), normal('.')],
+        }),
+        sectionTitle('I. Обсъждани теми:'),
+        new Paragraph({ spacing: { after: 80 }, children: [normal('1. Екипът запозна родителя с направената функционална оценка на ученика')] }),
+        new Paragraph({ spacing: { after: 80 }, children: [normal('2. Разгледаха се вида и формата на обучение на ученика, индивидуалния учебен план и индивидуалните учебни програми')] }),
+        new Paragraph({ spacing: { after: 80 }, children: [normal('3. Обсъди се вид, форма и честота на допълнителната подкрепа, предложени в плана за подкрепа')] }),
+        new Paragraph({ spacing: { after: 80 }, children: [normal('4. '), normal(data.other_topics || 'Други')] }),
         new Paragraph({ text: '' }),
-        sectionTitle('Членове на ЕПЛР:'),
-        labeledField('Психолог', team.psychologist ? getFullName(team.psychologist) : ''),
-        labeledField('Логопед', team.speech_therapist ? getFullName(team.speech_therapist) : ''),
-        labeledField('Рехабилитатор', team.rehabilitator ? getFullName(team.rehabilitator) : ''),
-        labeledField('Класен ръководител', team.class_teacher ? getFullName(team.class_teacher) : ''),
+        sectionTitle('II. Приети решения:'),
+        ...textBlock(data.decisions || '', 4),
         new Paragraph({ text: '' }),
-        sectionTitle('Актуално ниво на развитие:'),
-        new Paragraph({ text: data.current_level || '________________________________' }),
+        sectionTitle('Екип за подкрепа на личностното развитие:'),
+        dotLine(`- ${team?.class_teacher ? getFullName(team.class_teacher) : '................................................'} /председател, ръководител група в ЦСОП/`),
+        dotLine(`- ${team?.psychologist ? getFullName(team.psychologist) : '................................................'} /психолог/`),
+        dotLine(`- ${team?.speech_therapist ? getFullName(team.speech_therapist) : '................................................'} /логопед/`),
+        dotLine(`- ${team?.rehabilitator ? getFullName(team.rehabilitator) : '................................................'} /рехабилитатор/`),
         new Paragraph({ text: '' }),
-        sectionTitle('Цели за учебната година:'),
-        new Paragraph({ text: data.goals || '________________________________' }),
-        new Paragraph({ text: '' }),
-        sectionTitle('Препоръки:'),
-        new Paragraph({ text: data.recommendations || '________________________________' }),
-        new Paragraph({ text: '' }),
-        new Paragraph({ text: '' }),
-        sectionTitle('Подписи:'),
-        labeledField('Психолог'),
-        labeledField('Логопед'),
-        labeledField('Рехабилитатор'),
-        labeledField('Класен ръководител'),
+        line('Име и фамилия на родителя', data.parent_name),
+        new Paragraph({ spacing: { after: 80 }, children: [bold('Мнение на родителя:')] }),
+        ...textBlock(data.parent_opinion || '', 3),
+        new Paragraph({ spacing: { before: 200 }, children: [bold('Подпис: '), normal('................................')] }),
       ],
     }],
   })
-  return doc
 }
 
-// ---- ИУП ----
-export function generateIUP(
-  student: Student,
-  team: { class_teacher?: StaffProfile },
-  data: Record<string, string>,
-  yearName: string
-) {
-  const doc = new Document({
+// ── ПРОТОКОЛ 2 ───────────────────────────────────────────────────────────────
+
+function generateProtocol2(student: Student, team: any, data: Record<string, string>, yearName: string): Document {
+  const studentName = getFullName(student)
+  const sessionDate = data.session_date ? formatDate(data.session_date) : '..................'
+  const subjects: { name: string; result: string }[] = data.subjects_json
+    ? JSON.parse(data.subjects_json)
+    : [
+        { name: 'Български език и литература', result: '' },
+        { name: 'Математика', result: '' },
+        { name: 'Компютърно моделиране', result: '' },
+        { name: 'История и цивилизации', result: '' },
+        { name: 'География и икономика', result: '' },
+        { name: 'Човекът и природата', result: '' },
+        { name: 'Музика', result: '' },
+        { name: 'Изобразително изкуство', result: '' },
+        { name: 'Технологии и предприемачество', result: '' },
+        { name: 'Физическо възпитание и спорт', result: '' },
+      ]
+
+  return new Document({
     sections: [{
       properties: {},
       children: [
-        ...makeHeader('ИНДИВИДУАЛЕН УЧЕБЕН ПЛАН (ИУП)', '', yearName),
-        labeledField('Ученик', getFullName(student)),
-        labeledField('Дата на раждане', formatDate(student.birth_date)),
-        labeledField('Класен ръководител', team.class_teacher ? getFullName(team.class_teacher) : ''),
+        ...header(yearName),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 100 },
+          children: [bold(`Протокол № ___ / ${sessionDate} г.`, 24)],
+        }),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 100 },
+          children: [new TextRun({ text: `От проведено заседание на Екип за подкрепа за личностно развитие, за извършване на преглед на напредъка в развитието и резултатите от обучението по индивидуалните учебни програми и постигнатото равнище на компетентност за I учебен срок на ${yearName} учебна година`, size: 20, italics: true })],
+        }),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 200 },
+          children: [new TextRun({ text: `на ученика: ${studentName}`, size: 22, bold: true, italics: true })],
+        }),
+        new Paragraph({
+          spacing: { after: 200 },
+          children: [normal(`Днес ${sessionDate} г., се проведе заседание на Екип за подкрепа на личностното развитие.`)],
+        }),
+        sectionTitle('Обсъждани теми:'),
+        new Paragraph({ spacing: { after: 80 }, children: [normal('1. Обсъден бе напредъкът в развитието и постигнатите резултати от обучението на ученика')] }),
+        new Paragraph({ spacing: { after: 80 }, children: [normal('2. Обсъдени бяха резултатите от предоставената допълнителна подкрепа за личностно развитие')] }),
+        new Paragraph({ spacing: { after: 80 }, children: [normal('3. Обсъдена бе необходимостта от промяна в индивидуалните учебни програми')] }),
         new Paragraph({ text: '' }),
-        sectionTitle('Учебни предмети и часове:'),
+        new Paragraph({ spacing: { after: 100 }, children: [bold('Резултати от обучението по индивидуалните учебни програми:')] }),
         new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
           rows: [
             new TableRow({
               tableHeader: true,
               children: [
-                new TableCell({ children: [new Paragraph({ text: 'Предмет', alignment: AlignmentType.CENTER })] }),
-                new TableCell({ children: [new Paragraph({ text: 'Часове седмично', alignment: AlignmentType.CENTER })] }),
-                new TableCell({ children: [new Paragraph({ text: 'Забележки', alignment: AlignmentType.CENTER })] }),
+                new TableCell({ width: { size: 40, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Учебни предмети:')] })] }),
+                new TableCell({ width: { size: 60, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Постигнато равнище на компетентности:')] })] }),
               ],
             }),
-            ...Array(8).fill(null).map(() =>
-              new TableRow({
-                children: [
-                  new TableCell({ children: [new Paragraph({ text: '' })] }),
-                  new TableCell({ children: [new Paragraph({ text: '' })] }),
-                  new TableCell({ children: [new Paragraph({ text: '' })] }),
-                ],
-              })
-            ),
+            ...subjects.map(s => new TableRow({
+              children: [
+                new TableCell({ children: [new Paragraph({ children: [normal(s.name)] })] }),
+                new TableCell({ children: [new Paragraph({ children: [normal(s.result)] })] }),
+              ],
+            })),
           ],
         }),
         new Paragraph({ text: '' }),
-        sectionTitle('Допълнителна подкрепа:'),
-        new Paragraph({ text: data.additional_support || '________________________________' }),
+        sectionTitle('Взети решения:'),
+        ...textBlock(data.decisions || '', 3),
         new Paragraph({ text: '' }),
-        labeledField('Дата на утвърждаване', data.approved_date),
-        labeledField('Директор'),
+        sectionTitle('ЕПЛР:'),
+        dotLine(`- ${team?.class_teacher ? getFullName(team.class_teacher) : '................................................'} /председател/`),
+        dotLine(`- ${team?.psychologist ? getFullName(team.psychologist) : '................................................'} /психолог/`),
+        dotLine(`- ${team?.speech_therapist ? getFullName(team.speech_therapist) : '................................................'} /логопед/`),
+        dotLine(`- ${team?.rehabilitator ? getFullName(team.rehabilitator) : '................................................'} /рехабилитатор/`),
+        new Paragraph({ text: '' }),
+        line('Име и фамилия на родителя', data.parent_name),
+        new Paragraph({ spacing: { after: 80 }, children: [bold('Мнение на родителя:')] }),
+        ...textBlock(data.parent_opinion || '', 3),
+        new Paragraph({ spacing: { before: 200 }, children: [bold('Подпис: '), normal('................................')] }),
       ],
     }],
   })
-  return doc
 }
 
-// ---- ПЛАН ЗА ДОПЪЛНИТЕЛНА ПОДКРЕПА ----
-export function generateSupportPlan(
-  student: Student,
-  data: Record<string, string>,
-  yearName: string
-) {
-  const doc = new Document({
+// ── ПРОТОКОЛ 3 ───────────────────────────────────────────────────────────────
+
+function generateProtocol3(student: Student, team: any, data: Record<string, string>, yearName: string): Document {
+  const studentName = getFullName(student)
+  const sessionDate = data.session_date ? formatDate(data.session_date) : '..................'
+  const subjects: { name: string; result: string }[] = data.subjects_json
+    ? JSON.parse(data.subjects_json)
+    : [
+        { name: 'Български език и литература', result: 'Среща затруднения' },
+        { name: 'Математика', result: 'Среща затруднения' },
+        { name: 'Компютърно моделиране', result: 'Среща затруднения' },
+        { name: 'История и цивилизации', result: 'Среща затруднения' },
+        { name: 'География и икономика', result: 'Среща затруднения' },
+        { name: 'Човекът и природата', result: 'Среща затруднения' },
+        { name: 'Музика', result: 'Среща затруднения' },
+        { name: 'Изобразително изкуство', result: 'Среща затруднения' },
+        { name: 'Технологии и предприемачество', result: 'Среща затруднения' },
+        { name: 'Физическо възпитание и спорт', result: 'Среща затруднения' },
+      ]
+
+  return new Document({
     sections: [{
       properties: {},
       children: [
-        ...makeHeader('ПЛАН ЗА ДОПЪЛНИТЕЛНА ПОДКРЕПА', '', yearName),
-        labeledField('Ученик', getFullName(student)),
-        labeledField('Период', data.period || yearName),
-        new Paragraph({ text: '' }),
-        sectionTitle('Цели:'),
-        new Paragraph({ text: data.goals || '________________________________' }),
-        new Paragraph({ text: '' }),
-        sectionTitle('Дейности:'),
+        ...header(yearName),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 100 },
+          children: [bold(`Протокол № ___ / ${sessionDate} г.`, 24)],
+        }),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 200 },
+          children: [new TextRun({ text: `От проведено заседание на Екип за подкрепа за личностно развитие, за извършване на цялостен преглед на резултатите от обучението по индивидуалните учебни програми и постигнатото равнище на компетентност на ученика: ${studentName}`, size: 20, italics: true })],
+        }),
+        new Paragraph({
+          spacing: { after: 80 },
+          children: [bold('Ученикът се оценява с оценки с качествен показател:', 20), new TextRun({ text: ' „постига изискванията", „справя се", „среща затруднения"', size: 20, italics: true })],
+        }),
         new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
           rows: [
             new TableRow({
               tableHeader: true,
               children: [
-                new TableCell({ children: [new Paragraph({ text: 'Дейност' })] }),
-                new TableCell({ children: [new Paragraph({ text: 'Отговорник' })] }),
-                new TableCell({ children: [new Paragraph({ text: 'Срок' })] }),
-                new TableCell({ children: [new Paragraph({ text: 'Резултат' })] }),
+                new TableCell({ width: { size: 40, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Учебни предмети:')] })] }),
+                new TableCell({ width: { size: 60, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Постигнато равнище на компетентности:')] })] }),
               ],
             }),
-            ...Array(6).fill(null).map(() =>
-              new TableRow({
-                children: [
-                  new TableCell({ children: [new Paragraph({ text: '' })] }),
-                  new TableCell({ children: [new Paragraph({ text: '' })] }),
-                  new TableCell({ children: [new Paragraph({ text: '' })] }),
-                  new TableCell({ children: [new Paragraph({ text: '' })] }),
-                ],
-              })
-            ),
+            ...subjects.map(s => new TableRow({
+              children: [
+                new TableCell({ children: [new Paragraph({ children: [normal(s.name)] })] }),
+                new TableCell({ children: [new Paragraph({ children: [normal(s.result)] })] }),
+              ],
+            })),
           ],
         }),
         new Paragraph({ text: '' }),
-        sectionTitle('Оценка на резултатите:'),
-        new Paragraph({ text: data.evaluation || '________________________________' }),
+        sectionTitle('ЕПЛР:'),
+        dotLine(`- ${team?.class_teacher ? getFullName(team.class_teacher) : '................................................'} /председател, класен ръководител в ЦСОП/`),
+        dotLine(`- ${team?.psychologist ? getFullName(team.psychologist) : '................................................'} /психолог/`),
+        dotLine(`- ${team?.speech_therapist ? getFullName(team.speech_therapist) : '................................................'} /логопед/`),
+        dotLine(`- ${team?.rehabilitator ? getFullName(team.rehabilitator) : '................................................'} /рехабилитатор/`),
+        new Paragraph({ text: '' }),
+        line('Ime и фамилия на родителя', data.parent_name),
+        new Paragraph({ spacing: { after: 80 }, children: [bold('Мнение на родителя:')] }),
+        ...textBlock(data.parent_opinion || '', 3),
+        new Paragraph({ spacing: { before: 200 }, children: [bold('Подпис: '), normal('................................')] }),
       ],
     }],
   })
-  return doc
 }
 
-// ---- MAIN EXPORT FUNCTION ----
+// ── ИУП ──────────────────────────────────────────────────────────────────────
+
+function generateIUP(student: Student, team: any, data: Record<string, string>, yearName: string): Document {
+  const studentName = getFullName(student)
+  const subjects = [
+    { name: 'Български език и литература', weekly1: '', weekly2: '', annual: '' },
+    { name: 'Математика', weekly1: '', weekly2: '', annual: '' },
+    { name: 'Компютърно моделиране', weekly1: '', weekly2: '', annual: '' },
+    { name: 'История и цивилизации', weekly1: '', weekly2: '', annual: '' },
+    { name: 'География и икономика', weekly1: '', weekly2: '', annual: '' },
+    { name: 'Човекът и природата', weekly1: '', weekly2: '', annual: '' },
+    { name: 'Музика', weekly1: '', weekly2: '', annual: '' },
+    { name: 'Изобразително изкуство', weekly1: '', weekly2: '', annual: '' },
+    { name: 'Технологии и предприемачество', weekly1: '', weekly2: '', annual: '' },
+    { name: 'Физическо възпитание и спорт', weekly1: '', weekly2: '', annual: '' },
+  ]
+
+  return new Document({
+    sections: [{
+      properties: {},
+      children: [
+        new Paragraph({ alignment: AlignmentType.RIGHT, children: [bold('УТВЪРДИЛ:')] }),
+        new Paragraph({ alignment: AlignmentType.RIGHT, children: [normal('ДИРЕКТОР НА ЦСОП - Варна')] }),
+        new Paragraph({ alignment: AlignmentType.RIGHT, children: [normal('...............................')] }),
+        new Paragraph({ text: '' }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('ИНДИВИДУАЛЕН УЧЕБЕН ПЛАН', 28)] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [normal(`за обучение на ${studentName}`)] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [normal(`${data.class_name || '___ клас'}`)] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(`Учебна година: ${yearName}`)] }),
+        new Paragraph({ text: '' }),
+        line('Форма на обучение', data.study_form || 'Дневна'),
+        line('Организация на учебния ден', data.day_org || 'Целодневна'),
+        new Paragraph({ text: '' }),
+        sectionTitle('УЧЕБНИ ПРЕДМЕТИ, СЕДМИЧЕН И ГОДИШЕН БРОЙ НА УЧЕБНИТЕ ЧАСОВЕ'),
+        new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: [
+            new TableRow({
+              tableHeader: true,
+              children: [
+                new TableCell({ width: { size: 5, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('№')] })] }),
+                new TableCell({ width: { size: 45, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Учебни предмети')] })] }),
+                new TableCell({ width: { size: 17, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Седм. ч. I срок')] })] }),
+                new TableCell({ width: { size: 17, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Седм. ч. II срок')] })] }),
+                new TableCell({ width: { size: 16, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Годишно')] })] }),
+              ],
+            }),
+            ...subjects.map((s, i) => new TableRow({
+              children: [
+                new TableCell({ children: [new Paragraph({ children: [normal(String(i + 1))] })] }),
+                new TableCell({ children: [new Paragraph({ children: [normal(s.name)] })] }),
+                new TableCell({ children: [new Paragraph({ children: [normal(s.weekly1)] })] }),
+                new TableCell({ children: [new Paragraph({ children: [normal(s.weekly2)] })] }),
+                new TableCell({ children: [new Paragraph({ children: [normal(s.annual)] })] }),
+              ],
+            })),
+          ],
+        }),
+        new Paragraph({ text: '' }),
+        sectionTitle('ПОЯСНИТЕЛНИ БЕЛЕЖКИ'),
+        line('Място на провеждане', data.location || 'На територията на ЦСОП–Варна'),
+        new Paragraph({ text: '' }),
+        line('Специфични методи', data.methods || ''),
+        new Paragraph({ text: '' }),
+        sectionTitle('Форми и методи на проверка и оценка:'),
+        new Paragraph({ children: [normal(data.assessment || 'А) текущи изпитвания\nБ) оценяването е с качествени показатели: „Постига изискванията", „Справя се", „Среща затруднения"')] }),
+        new Paragraph({ text: '' }),
+        new Paragraph({ spacing: { before: 300 }, children: [bold('Класен ръководител: '), normal(team?.class_teacher ? getFullName(team.class_teacher) : '...............................')] }),
+        new Paragraph({ spacing: { before: 100 }, children: [bold('Директор на ЦСОП: '), normal('...............................')] }),
+      ],
+    }],
+  })
+}
+
+// ── ПЛАН ЗА ДОПЪЛНИТЕЛНА ПОДКРЕПА ────────────────────────────────────────────
+
+function generateSupportPlan(student: Student, data: Record<string, string>, yearName: string): Document {
+  const studentName = getFullName(student)
+
+  return new Document({
+    sections: [{
+      properties: {},
+      children: [
+        new Paragraph({ alignment: AlignmentType.RIGHT, children: [bold('УТВЪРДИЛ:')] }),
+        new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: 'ДИРЕКТОР:', italics: true, size: 22 })] }),
+        new Paragraph({ text: '' }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('ПЛАН', 28)] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('ЗА ДОПЪЛНИТЕЛНА ПОДКРЕПА ЗА ЛИЧНОСТНО РАЗВИТИЕ', 24)] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [normal(`за ${yearName} учебна година`)] }),
+        new Paragraph({ text: '' }),
+        sectionTitle('I. Основна информация'),
+        line('Трите имена на ученика', studentName),
+        line('Възраст', data.age || ''),
+        line('Група/клас', data.class_name || ''),
+        line('Вид на допълнителната подкрепа', data.support_type || 'дългосрочна'),
+        line('Форма на обучение', data.study_form || 'дневна'),
+        new Paragraph({ text: '' }),
+        sectionTitle('II. Когнитивно развитие на детето/ученика:'),
+        ...textBlock(data.cognitive_development || '', 4),
+        new Paragraph({ text: '' }),
+        sectionTitle('III. Емоционално състояние и поведение:'),
+        ...textBlock(data.emotional_state || '', 4),
+        new Paragraph({ text: '' }),
+        sectionTitle('IV. Описание на възможностите за обучение, силните страни и потенциала:'),
+        ...textBlock(data.strengths || '', 4),
+        new Paragraph({ text: '' }),
+        sectionTitle('V. Цели и задачи на допълнителната подкрепа:'),
+        ...textBlock(data.goals || '', 5),
+        new Paragraph({ text: '' }),
+        sectionTitle('VI. Специални методи и средства:'),
+        ...textBlock(data.methods || '', 3),
+        new Paragraph({ text: '' }),
+        new Paragraph({ spacing: { before: 200 }, children: [bold('Учител на паралелка: '), normal('...............................')] }),
+        new Paragraph({ spacing: { before: 100 }, children: [bold('Директор на ЦСОП: '), normal('...............................')] }),
+      ],
+    }],
+  })
+}
+
+// ── ПРОГРАМА ЗА РОДИТЕЛИ ─────────────────────────────────────────────────────
+
+function generateParentProgram(student: Student, team: any, data: Record<string, string>, yearName: string): Document {
+  const studentName = getFullName(student)
+
+  return new Document({
+    sections: [{
+      properties: {},
+      children: [
+        ...header(yearName),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('ПРОГРАМА ЗА ПОДКРЕПА И ОБУЧЕНИЕ НА СЕМЕЙСТВОТО', 24)] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(`на ${studentName}`)] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [normal(`ученик в ЦСОП – Варна през ${yearName} учебна година`)] }),
+        new Paragraph({ text: '' }),
+        new Paragraph({ spacing: { after: 120 }, children: [normal(data.intro || 'През учебната година ЦСОП – Варна ще продължи да развива партньорството със семействата чрез целенасочени дейности за подкрепа и обучение на родителите.')] }),
+        new Paragraph({ text: '' }),
+        line('Цел', data.goal || 'Подобряване качеството на живот на детето и семейството му'),
+        new Paragraph({ text: '' }),
+        sectionTitle('Програми за обучение и подкрепа на родителите:'),
+        new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: [
+            new TableRow({
+              tableHeader: true,
+              children: [
+                new TableCell({ width: { size: 5, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('№')] })] }),
+                new TableCell({ width: { size: 40, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Теми по месеци')] })] }),
+                new TableCell({ width: { size: 20, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Форма')] })] }),
+                new TableCell({ width: { size: 20, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Период')] })] }),
+                new TableCell({ width: { size: 15, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Специалист')] })] }),
+              ],
+            }),
+            ...Array.from({ length: 8 }, (_, i) => new TableRow({
+              children: [
+                new TableCell({ children: [new Paragraph({ children: [normal(String(i + 1))] })] }),
+                new TableCell({ children: [new Paragraph({ children: [normal('')] })] }),
+                new TableCell({ children: [new Paragraph({ children: [normal('')] })] }),
+                new TableCell({ children: [new Paragraph({ children: [normal('')] })] }),
+                new TableCell({ children: [new Paragraph({ children: [normal('')] })] }),
+              ],
+            })),
+          ],
+        }),
+        new Paragraph({ text: '' }),
+        sectionTitle('Работа заедно със семействата:'),
+        ...textBlock(data.family_work || '', 3),
+        new Paragraph({ text: '' }),
+        new Paragraph({ spacing: { before: 200 }, children: [bold('Учител на паралелка: '), normal(team?.class_teacher ? getFullName(team.class_teacher) : '...............................')] }),
+        new Paragraph({ spacing: { before: 100 }, children: [bold('Координатор ЦСОП: '), normal('...............................')] }),
+      ],
+    }],
+  })
+}
+
+// ── MAIN EXPORT ───────────────────────────────────────────────────────────────
+
 export async function generateAndDownloadDocument(
   docType: DocumentType,
   student: Student,
-  team: {
-    psychologist?: StaffProfile
-    speech_therapist?: StaffProfile
-    rehabilitator?: StaffProfile
-    class_teacher?: StaffProfile
-  },
+  team: { psychologist?: StaffProfile; speech_therapist?: StaffProfile; rehabilitator?: StaffProfile; class_teacher?: StaffProfile },
   data: Record<string, string>,
   yearName: string
 ) {
   let doc: Document
 
   switch (docType) {
-    case 'protocol_1':
-    case 'protocol_2':
-    case 'protocol_3':
-      doc = generateProtocol1(student, team, data, yearName)
-      break
-    case 'iup':
-      doc = generateIUP(student, team, data, yearName)
-      break
-    case 'support_plan':
-      doc = generateSupportPlan(student, data, yearName)
-      break
-    default:
-      doc = generateProtocol1(student, team, data, yearName)
+    case 'protocol_1': doc = generateProtocol1(student, team, data, yearName); break
+    case 'protocol_2': doc = generateProtocol2(student, team, data, yearName); break
+    case 'protocol_3': doc = generateProtocol3(student, team, data, yearName); break
+    case 'iup':        doc = generateIUP(student, team, data, yearName); break
+    case 'support_plan': doc = generateSupportPlan(student, data, yearName); break
+    case 'parent_program': doc = generateParentProgram(student, team, data, yearName); break
+    default:           doc = generateProtocol1(student, team, data, yearName)
   }
 
   const blob = await Packer.toBlob(doc)
