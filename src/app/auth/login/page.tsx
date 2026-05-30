@@ -15,8 +15,7 @@ export default function LoginPage() {
       provider: 'google',
       options: {
         redirectTo: `https://csop-pedagogy.vercel.app/auth/callback`,
-        queryParams: {
-          hd: 'csop-varna.bg', // restrict to school domain
+        
         },
       },
     })
