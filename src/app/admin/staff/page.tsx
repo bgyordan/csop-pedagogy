@@ -47,7 +47,6 @@ export default function AdminStaffPage() {
       middle_name: s.middle_name || '',
       last_name: s.last_name,
       role: s.role,
-      position: s.position || '',
       email: s.email,
       phone: s.phone || '',
       class_id: s.class_id || '',
