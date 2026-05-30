@@ -1,55 +1,65 @@
 'use client'
-
+import { BackButton } from '@/components/ui/BackButton'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Save, Download, ArrowLeft } from 'lucide-react'
-import Link from 'next/link'
+import { Save, Download } from 'lucide-react'
 import { DOCUMENT_TYPE_LABELS, DocumentType, DocumentStatus } from '@/types'
 import { generateAndDownloadDocument } from '@/lib/docx-generator'
+import { getFullName } from '@/lib/utils'
 
-// Field definitions per document type
 const DOCUMENT_FIELDS: Record<DocumentType, { key: string; label: string; type: 'text' | 'textarea' | 'date' }[]> = {
   protocol_1: [
     { key: 'session_date', label: 'Дата на заседание', type: 'date' },
-    { key: 'current_level', label: 'Актуално ниво на развитие', type: 'textarea' },
-    { key: 'goals', label: 'Цели за учебната година', type: 'textarea' },
-    { key: 'recommendations', label: 'Препоръки', type: 'textarea' },
+    { key: 'class_name', label: 'Клас на ученика', type: 'text' },
+    { key: 'parent_name', label: 'Име на родителя', type: 'text' },
+    { key: 'other_topics', label: 'Други обсъждани теми', type: 'textarea' },
+    { key: 'decisions', label: 'Приети решения', type: 'textarea' },
+    { key: 'parent_opinion', label: 'Мнение на родителя', type: 'textarea' },
   ],
   protocol_2: [
     { key: 'session_date', label: 'Дата на заседание', type: 'date' },
-    { key: 'progress', label: 'Постигнат напредък', type: 'textarea' },
-    { key: 'challenges', label: 'Затруднения', type: 'textarea' },
-    { key: 'adjustments', label: 'Корекции в плана', type: 'textarea' },
+    { key: 'parent_name', label: 'Име на родителя', type: 'text' },
+    { key: 'results_summary', label: 'Резултати по учебни предмети (обобщение)', type: 'textarea' },
+    { key: 'decisions', label: 'Взети решения', type: 'textarea' },
+    { key: 'parent_opinion', label: 'Мнение на родителя', type: 'textarea' },
   ],
   protocol_3: [
     { key: 'session_date', label: 'Дата на заседание', type: 'date' },
-    { key: 'annual_summary', label: 'Годишно обобщение', type: 'textarea' },
-    { key: 'achievements', label: 'Постижения', type: 'textarea' },
-    { key: 'next_year_recommendations', label: 'Препоръки за следващата година', type: 'textarea' },
+    { key: 'parent_name', label: 'Име на родителя', type: 'text' },
+    { key: 'annual_results', label: 'Годишни резултати (обобщение)', type: 'textarea' },
+    { key: 'parent_opinion', label: 'Мнение на родителя', type: 'textarea' },
   ],
   iup: [
-    { key: 'approved_date', label: 'Дата на утвърждаване', type: 'date' },
-    { key: 'learning_objectives', label: 'Учебни цели', type: 'textarea' },
-    { key: 'additional_support', label: 'Допълнителна подкрепа', type: 'textarea' },
-    { key: 'evaluation_criteria', label: 'Критерии за оценяване', type: 'textarea' },
+    { key: 'class_name', label: 'Клас', type: 'text' },
+    { key: 'study_form', label: 'Форма на обучение', type: 'text' },
+    { key: 'day_org', label: 'Организация на учебния ден', type: 'text' },
+    { key: 'location', label: 'Място на провеждане', type: 'text' },
+    { key: 'methods', label: 'Специфични методи на обучение', type: 'textarea' },
+    { key: 'assessment', label: 'Форми и методи на проверка и оценка', type: 'textarea' },
   ],
   iu_program: [
-    { key: 'subjects', label: 'Учебни предмети и съдържание', type: 'textarea' },
+    { key: 'subject', label: 'Учебен предмет', type: 'text' },
+    { key: 'goals', label: 'Цели по предмета', type: 'textarea' },
+    { key: 'content', label: 'Учебно съдържание', type: 'textarea' },
     { key: 'methods', label: 'Методи и подходи', type: 'textarea' },
-    { key: 'materials', label: 'Материали и ресурси', type: 'textarea' },
+    { key: 'assessment', label: 'Оценяване', type: 'textarea' },
   ],
   support_plan: [
-    { key: 'period', label: 'Период', type: 'text' },
-    { key: 'goals', label: 'Цели', type: 'textarea' },
-    { key: 'activities', label: 'Дейности', type: 'textarea' },
-    { key: 'evaluation', label: 'Оценка на резултатите', type: 'textarea' },
+    { key: 'age', label: 'Възраст', type: 'text' },
+    { key: 'class_name', label: 'Група/клас', type: 'text' },
+    { key: 'support_type', label: 'Вид на допълнителната подкрепа', type: 'text' },
+    { key: 'study_form', label: 'Форма на обучение', type: 'text' },
+    { key: 'cognitive_development', label: 'Когнитивно развитие', type: 'textarea' },
+    { key: 'emotional_state', label: 'Емоционално състояние и поведение', type: 'textarea' },
+    { key: 'strengths', label: 'Силни страни и потенциал', type: 'textarea' },
+    { key: 'goals', label: 'Цели и задачи на допълнителната подкрепа', type: 'textarea' },
+    { key: 'methods', label: 'Специални методи и средства', type: 'textarea' },
   ],
   parent_program: [
-    { key: 'goals', label: 'Цели на програмата', type: 'textarea' },
-    { key: 'activities', label: 'Дейности с родителите', type: 'textarea' },
-    { key: 'schedule', label: 'График на срещите', type: 'textarea' },
-    { key: 'notes', label: 'Бележки', type: 'textarea' },
+    { key: 'goal', label: 'Цел на програмата', type: 'textarea' },
+    { key: 'intro', label: 'Въведение', type: 'textarea' },
+    { key: 'family_work', label: 'Работа заедно със семействата', type: 'textarea' },
   ],
 }
 
@@ -68,54 +78,30 @@ export default function DocumentEditorPage({ params }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
-  useEffect(() => {
-    params.then(setResolvedParams)
-  }, [params])
-
-  useEffect(() => {
-    if (!resolvedParams) return
-    loadData()
-  }, [resolvedParams])
+  useEffect(() => { params.then(setResolvedParams) }, [params])
+  useEffect(() => { if (resolvedParams) loadData() }, [resolvedParams])
 
   async function loadData() {
     if (!resolvedParams) return
     const { studentId, docType } = resolvedParams
 
-    const { data: year } = await supabase
-      .from('academic_years')
-      .select('*')
-      .eq('is_current', true)
-      .single()
+    const { data: year } = await supabase.from('academic_years').select('*').eq('is_current', true).single()
     setYearName(year?.name || '')
 
-    const { data: s } = await supabase
-      .from('students')
-      .select('*')
-      .eq('id', studentId)
-      .single()
+    const { data: s } = await supabase.from('students').select('*').eq('id', studentId).single()
     setStudent(s)
 
-    const { data: t } = await supabase
-      .from('eplr_teams')
-      .select(`
-        *,
-        psychologist:staff_profiles!eplr_teams_psychologist_id_fkey(*),
-        speech_therapist:staff_profiles!eplr_teams_speech_therapist_id_fkey(*),
-        rehabilitator:staff_profiles!eplr_teams_rehabilitator_id_fkey(*),
-        class_teacher:staff_profiles!eplr_teams_class_teacher_id_fkey(*)
-      `)
-      .eq('student_id', studentId)
-      .eq('academic_year_id', year?.id)
-      .single()
+    const { data: t } = await supabase.from('eplr_teams').select(`
+      *,
+      psychologist:staff_profiles!eplr_teams_psychologist_id_fkey(*),
+      speech_therapist:staff_profiles!eplr_teams_speech_therapist_id_fkey(*),
+      rehabilitator:staff_profiles!eplr_teams_rehabilitator_id_fkey(*),
+      class_teacher:staff_profiles!eplr_teams_class_teacher_id_fkey(*)
+    `).eq('student_id', studentId).eq('academic_year_id', year?.id).single()
     setTeam(t)
 
-    const { data: doc } = await supabase
-      .from('documents')
-      .select('*')
-      .eq('student_id', studentId)
-      .eq('academic_year_id', year?.id)
-      .eq('doc_type', docType)
-      .single()
+    const { data: doc } = await supabase.from('documents').select('*')
+      .eq('student_id', studentId).eq('academic_year_id', year?.id).eq('doc_type', docType).single()
 
     if (doc) {
       setFormData(doc.data as Record<string, string> || {})
@@ -128,36 +114,22 @@ export default function DocumentEditorPage({ params }: Props) {
     const { studentId, docType } = resolvedParams
     setSaving(true)
 
-    const { data: year } = await supabase
-      .from('academic_years')
-      .select('id')
-      .eq('is_current', true)
-      .single()
+    const { data: year } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: profile } = await supabase.from('staff_profiles').select('id').eq('user_id', user?.id!).single()
 
-    const { data: profile } = await supabase
-      .from('staff_profiles')
-      .select('id')
-      .eq('user_id', (await supabase.auth.getUser()).data.user?.id!)
-      .single()
+    const saveStatus = newStatus || (Object.values(formData).some(v => v) ? 'in_progress' : 'empty')
 
-    const saveStatus = newStatus || status
-    if (saveStatus === 'empty' && Object.values(formData).some(v => v)) {
-      setStatus('in_progress')
-    }
+    await supabase.from('documents').upsert({
+      student_id: studentId,
+      academic_year_id: year?.id,
+      doc_type: docType,
+      data: formData,
+      status: saveStatus,
+      updated_by: profile?.id,
+    }, { onConflict: 'student_id,academic_year_id,doc_type' })
 
-    await supabase
-      .from('documents')
-      .upsert({
-        student_id: studentId,
-        academic_year_id: year?.id,
-        doc_type: docType,
-        data: formData,
-        status: newStatus || (Object.values(formData).some(v => v) ? 'in_progress' : 'empty'),
-        updated_by: profile?.id,
-      }, {
-        onConflict: 'student_id,academic_year_id,doc_type',
-      })
-
+    setStatus(saveStatus)
     setSaving(false)
     if (newStatus === 'completed') router.push(`/students/${studentId}`)
   }
@@ -181,19 +153,12 @@ export default function DocumentEditorPage({ params }: Props) {
 
   return (
     <div className="p-8 max-w-3xl">
-      <Link href={`/students/${studentId}`} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6">
-        <ArrowLeft size={15} />
-        Назад към ученика
-      </Link>
+      <BackButton />
 
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-slate-800">{docLabel}</h1>
-          {student && (
-            <p className="text-slate-500 text-sm mt-1">
-              {[student.first_name, student.middle_name, student.last_name].filter(Boolean).join(' ')}
-            </p>
-          )}
+          {student && <p className="text-slate-500 text-sm mt-1">{getFullName(student)}</p>}
         </div>
         <span className={
           status === 'completed' ? 'badge-completed' :
@@ -213,54 +178,29 @@ export default function DocumentEditorPage({ params }: Props) {
                 rows={4}
                 value={formData[field.key] || ''}
                 onChange={e => setFormData(prev => ({ ...prev, [field.key]: e.target.value }))}
-                className="input resize-none"
+                className="input resize-y"
                 placeholder={`Въведете ${field.label.toLowerCase()}...`}
               />
             ) : field.type === 'date' ? (
-              <input
-                type="date"
-                value={formData[field.key] || ''}
-                onChange={e => setFormData(prev => ({ ...prev, [field.key]: e.target.value }))}
-                className="input"
-              />
+              <input type="date" value={formData[field.key] || ''} onChange={e => setFormData(prev => ({ ...prev, [field.key]: e.target.value }))} className="input" />
             ) : (
-              <input
-                type="text"
-                value={formData[field.key] || ''}
-                onChange={e => setFormData(prev => ({ ...prev, [field.key]: e.target.value }))}
-                className="input"
-                placeholder={`Въведете ${field.label.toLowerCase()}...`}
-              />
+              <input type="text" value={formData[field.key] || ''} onChange={e => setFormData(prev => ({ ...prev, [field.key]: e.target.value }))} className="input" placeholder={`Въведете ${field.label.toLowerCase()}...`} />
             )}
           </div>
         ))}
       </div>
 
       <div className="flex items-center gap-3 mt-6">
-        <button
-          onClick={() => handleSave()}
-          disabled={saving}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
-          style={{ backgroundColor: '#0f2240' }}
-        >
+        <button onClick={() => handleSave()} disabled={saving} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#0f2240' }}>
           <Save size={15} />
           {saving ? 'Запазване...' : 'Запази'}
         </button>
-
         {status !== 'completed' && (
-          <button
-            onClick={() => handleSave('completed')}
-            disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
-          >
+          <button onClick={() => handleSave('completed')} disabled={saving} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700">
             Маркирай като завършен
           </button>
         )}
-
-        <button
-          onClick={handleDownload}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors ml-auto"
-        >
+        <button onClick={handleDownload} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-700 hover:bg-slate-50 ml-auto">
           <Download size={15} />
           Изтегли Word
         </button>
