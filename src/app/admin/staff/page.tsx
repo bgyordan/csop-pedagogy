@@ -11,7 +11,7 @@ import { StaffProfile, UserRole, ROLE_LABELS } from '@/types'
 const EMPTY_FORM = {
   first_name: '', middle_name: '', last_name: '',
   role: 'class_teacher' as UserRole,
-  position: '', email: '', phone: '', class_id: '',
+   email: '', phone: '', class_id: '',
 }
 
 export default function AdminStaffPage() {
@@ -67,7 +67,7 @@ export default function AdminStaffPage() {
       middle_name: form.middle_name || null,
       last_name: form.last_name,
       role: form.role,
-      position: form.position || null,
+      position: ROLE_LABELS[form.role],
       email: form.email,
       phone: form.phone || null,
       class_id: form.role === 'class_teacher' && form.class_id ? form.class_id : null,
