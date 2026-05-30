@@ -3,36 +3,34 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, Download, Save } from 'lucide-react'
-import Link from 'next/link'
+import { Save, Download } from 'lucide-react'
+import { BackButton } from '@/components/ui/BackButton'
 import { useToast } from '@/components/ui/Toast'
 import { getFullName, getMonthName } from '@/lib/utils'
-import { generateAbsencesExcel } from '@/lib/excel-generator'
 
 interface Entry {
   student_id: string
   student_name: string
-  subject: string
   planned_hours: number
   realized_hours: number
   reason: string
   compensation: string
 }
 
+const REASONS = ['Семейни', 'Здравословни', 'Семейни и здравословни']
+
 export default function AbsenceEditorPage() {
   const params = useParams()
   const classId = params.classId as string
   const month = parseInt(params.month as string)
-  const router = useRouter()
   const { toast } = useToast()
   const supabase = createClient()
 
   const [className, setClassName] = useState('')
-  const [students, setStudents] = useState<any[]>([])
   const [entries, setEntries] = useState<Entry[]>([])
   const [saving, setSaving] = useState(false)
   const [monthlyId, setMonthlyId] = useState<string | null>(null)
-  const year = month >= 9 ? new Date().getFullYear() : new Date().getFullYear()
+  const year = month >= 9 ? new Date().getFullYear() : new Date().getFullYear() + 1
 
   useEffect(() => { loadData() }, [classId, month])
 
@@ -44,14 +42,12 @@ export default function AbsenceEditorPage() {
 
     const { data: enrollments } = await supabase
       .from('student_enrollments')
-      .select('student:students(*)')
+      .select('*, student:students(*)')
       .eq('class_id', classId)
       .eq('academic_year_id', yearData?.id)
 
-    const studentList = enrollments?.map((e: any) => e.student).filter(Boolean) || []
-    setStudents(studentList)
+    const students = enrollments?.map((e: any) => e.student).filter(Boolean) || []
 
-    // Load existing
     const { data: existing } = await supabase
       .from('monthly_absences')
       .select('id')
@@ -67,35 +63,21 @@ export default function AbsenceEditorPage() {
         .select('*')
         .eq('monthly_absence_id', existing.id)
 
-      const mapped: Entry[] = studentList.map((s: any) => {
-        const found = existingEntries?.filter(e => e.student_id === s.id) || []
-        if (found.length > 0) {
-          return found.map(e => ({
-            student_id: s.id,
-            student_name: getFullName(s),
-            subject: e.subject,
-            planned_hours: e.planned_hours,
-            realized_hours: e.realized_hours,
-            reason: e.reason || '',
-            compensation: e.compensation || '',
-          }))
-        }
-        return [{
+      setEntries(students.map((s: any) => {
+        const found = existingEntries?.find(e => e.student_id === s.id)
+        return {
           student_id: s.id,
           student_name: getFullName(s),
-          subject: '',
-          planned_hours: 0,
-          realized_hours: 0,
-          reason: '',
-          compensation: '',
-        }]
-      }).flat()
-      setEntries(mapped)
+          planned_hours: found?.planned_hours || 0,
+          realized_hours: found?.realized_hours || 0,
+          reason: found?.reason || '',
+          compensation: found?.compensation || '',
+        }
+      }))
     } else {
-      setEntries(studentList.map((s: any) => ({
+      setEntries(students.map((s: any) => ({
         student_id: s.id,
         student_name: getFullName(s),
-        subject: '',
         planned_hours: 0,
         realized_hours: 0,
         reason: '',
@@ -105,40 +87,42 @@ export default function AbsenceEditorPage() {
   }
 
   function updateEntry(index: number, field: keyof Entry, value: string | number) {
-    setEntries(prev => prev.map((e, i) => i === index ? { ...e, [field]: value } : e))
-  }
+    setEntries(prev => prev.map((e, i) => {
+      if (i !== index) return e
+      const updated = { ...e, [field]: value }
 
-  function addRow(studentId: string, studentName: string) {
-    setEntries(prev => [...prev, {
-      student_id: studentId,
-      student_name: studentName,
-      subject: '',
-      planned_hours: 0,
-      realized_hours: 0,
-      reason: '',
-      compensation: '',
-    }])
+      // Auto-fill reason and compensation
+      if (field === 'realized_hours' || field === 'planned_hours') {
+        const planned = field === 'planned_hours' ? Number(value) : e.planned_hours
+        const realized = field === 'realized_hours' ? Number(value) : e.realized_hours
+
+        if (realized > planned) return { ...e } // block — don't update
+
+        if (realized === planned) {
+          updated.reason = 'Неприложимо'
+          updated.compensation = 'Неприложимо'
+        } else {
+          if (updated.reason === 'Неприложимо') updated.reason = ''
+          updated.compensation = 'Преразпределение на учебните часове'
+        }
+      }
+
+      return updated
+    }))
   }
 
   async function handleSave() {
     setSaving(true)
     const { data: yearData } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
-    const { data: profile } = await supabase.from('staff_profiles').select('id').eq('user_id', (await supabase.auth.getUser()).data.user?.id!).single()
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: profile } = await supabase.from('staff_profiles').select('id').eq('user_id', user?.id!).single()
 
     let absenceId = monthlyId
     if (!absenceId) {
       const { data: newAbsence } = await supabase
         .from('monthly_absences')
-        .insert({
-          class_id: classId,
-          academic_year_id: yearData?.id,
-          month,
-          year,
-          submitted_by: profile?.id,
-          submitted_at: new Date().toISOString(),
-        })
-        .select('id')
-        .single()
+        .insert({ class_id: classId, academic_year_id: yearData?.id, month, year, submitted_by: profile?.id, submitted_at: new Date().toISOString() })
+        .select('id').single()
       absenceId = newAbsence?.id
       setMonthlyId(absenceId)
     }
@@ -146,119 +130,94 @@ export default function AbsenceEditorPage() {
     if (!absenceId) { toast('Грешка', 'error'); setSaving(false); return }
 
     await supabase.from('absence_entries').delete().eq('monthly_absence_id', absenceId)
-
-    const validEntries = entries.filter(e => e.subject)
-    if (validEntries.length > 0) {
-      await supabase.from('absence_entries').insert(
-        validEntries.map(e => ({
-          monthly_absence_id: absenceId,
-          student_id: e.student_id,
-          subject: e.subject,
-          planned_hours: e.planned_hours,
-          realized_hours: e.realized_hours,
-          reason: e.reason || null,
-          compensation: e.compensation || null,
-        }))
-      )
-    }
+    await supabase.from('absence_entries').insert(
+      entries.map(e => ({
+        monthly_absence_id: absenceId,
+        student_id: e.student_id,
+        subject: 'ИУП',
+        planned_hours: e.planned_hours,
+        realized_hours: e.realized_hours,
+        reason: e.reason,
+        compensation: e.compensation,
+      }))
+    )
 
     toast('Отсъствията са запазени')
     setSaving(false)
   }
 
-  function handleExport() {
-    generateAbsencesExcel(
-      [{ id: monthlyId || '', class_id: classId, academic_year_id: '', month, year, created_at: '', updated_at: '', entries: entries.map(e => ({ ...e, id: '', monthly_absence_id: monthlyId || '', created_at: '' })) }],
-      students,
-      className,
-      month,
-      year
-    )
-  }
-
-  const grouped = students.map(s => ({
-    student: s,
-    rows: entries.filter(e => e.student_id === s.id),
-  }))
-
   return (
     <div className="p-8">
-      <Link href="/absences" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6">
-        <ArrowLeft size={15} />
-        Назад
-      </Link>
-
+      <BackButton />
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-800">
-            Отсъствия — {getMonthName(month)} {year}
-          </h1>
+          <h1 className="text-2xl font-semibold text-slate-800">Отсъствия — {getMonthName(month)} {year}</h1>
           <p className="text-slate-500 text-sm mt-1">Паралелка {className}</p>
         </div>
-        <div className="flex gap-3">
-          <button onClick={handleExport} className="btn-secondary flex items-center gap-2">
-            <Download size={15} />
-            Excel
-          </button>
-          <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center gap-2" style={{ backgroundColor: '#0f2240' }}>
-            <Save size={15} />
-            {saving ? 'Запазване...' : 'Запази'}
-          </button>
-        </div>
+        <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#0f2240' }}>
+          <Save size={15} />
+          {saving ? 'Запазване...' : 'Запази'}
+        </button>
       </div>
 
-      <div className="space-y-4">
-        {grouped.map(({ student, rows }) => (
-          <div key={student.id} className="card">
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
-              <h3 className="font-medium text-slate-700 text-sm">{getFullName(student)}</h3>
-              <button
-                onClick={() => addRow(student.id, getFullName(student))}
-                className="text-xs text-slate-400 hover:text-slate-700"
-              >
-                + Добави ред
-              </button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-xs text-slate-400">
-                    <th className="text-left pb-2 pr-3 font-medium w-40">Предмет/Терапия</th>
-                    <th className="text-center pb-2 pr-3 font-medium w-24">Планирани ч.</th>
-                    <th className="text-center pb-2 pr-3 font-medium w-24">Реализирани ч.</th>
-                    <th className="text-left pb-2 pr-3 font-medium">Причина</th>
-                    <th className="text-left pb-2 font-medium">Компенсиране</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, idx) => {
-                    const globalIdx = entries.indexOf(row)
-                    return (
-                      <tr key={idx}>
-                        <td className="pr-3 pb-2">
-                          <input className="input text-xs" value={row.subject} onChange={e => updateEntry(globalIdx, 'subject', e.target.value)} placeholder="Предмет..." />
-                        </td>
-                        <td className="pr-3 pb-2">
-                          <input type="number" min="0" className="input text-xs text-center" value={row.planned_hours} onChange={e => updateEntry(globalIdx, 'planned_hours', parseInt(e.target.value) || 0)} />
-                        </td>
-                        <td className="pr-3 pb-2">
-                          <input type="number" min="0" className="input text-xs text-center" value={row.realized_hours} onChange={e => updateEntry(globalIdx, 'realized_hours', parseInt(e.target.value) || 0)} />
-                        </td>
-                        <td className="pr-3 pb-2">
-                          <input className="input text-xs" value={row.reason} onChange={e => updateEntry(globalIdx, 'reason', e.target.value)} placeholder="Причина..." />
-                        </td>
-                        <td className="pb-2">
-                          <input className="input text-xs" value={row.compensation} onChange={e => updateEntry(globalIdx, 'compensation', e.target.value)} placeholder="Компенсиране..." />
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-200">
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Три имена</th>
+              <th className="text-center px-3 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Планирани ч.</th>
+              <th className="text-center px-3 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Реализирани ч.</th>
+              <th className="text-left px-3 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Причини</th>
+              <th className="text-left px-3 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Компенсиране</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((entry, idx) => {
+              const diff = entry.planned_hours - entry.realized_hours
+              const isEqual = entry.planned_hours > 0 && diff === 0
+              const hasAbsence = diff > 0
+              return (
+                <tr key={entry.student_id} className={`border-b border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
+                  <td className="px-4 py-2 font-medium text-slate-800">{entry.student_name}</td>
+                  <td className="px-3 py-2">
+                    <input
+                      type="number" min="0"
+                      value={entry.planned_hours}
+                      onChange={e => updateEntry(idx, 'planned_hours', parseInt(e.target.value) || 0)}
+                      className="input text-center w-20 mx-auto block"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <input
+                      type="number" min="0" max={entry.planned_hours}
+                      value={entry.realized_hours}
+                      onChange={e => updateEntry(idx, 'realized_hours', parseInt(e.target.value) || 0)}
+                      className={`input text-center w-20 mx-auto block ${entry.realized_hours > entry.planned_hours ? 'border-red-400' : ''}`}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    {isEqual || entry.planned_hours === 0 ? (
+                      <span className="text-xs text-slate-400">{entry.reason || '—'}</span>
+                    ) : (
+                      <select
+                        value={entry.reason === 'Неприложимо' ? '' : entry.reason}
+                        onChange={e => updateEntry(idx, 'reason', e.target.value)}
+                        className="input text-xs"
+                      >
+                        <option value="">— Избери —</option>
+                        {REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-slate-600">
+                    {entry.compensation || '—'}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        {entries.length === 0 && <div className="text-center py-12 text-slate-400 text-sm">Няма ученици в тази паралелка</div>}
       </div>
     </div>
   )
