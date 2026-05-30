@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Users, Download, ArrowRightLeft, Archive, UserCog } from 'lucide-react'
+import { ArrowLeft, FileText, Users, Download, ArrowRightLeft, Archive, UserCog, Pencil } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
 import { DOCUMENT_TYPE_LABELS, DocumentType, STATUS_LABELS } from '@/types'
 
@@ -16,53 +16,29 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  const { data: student } = await supabase
-    .from('students')
-    .select('*')
-    .eq('id', id)
-    .single()
-
+  const { data: student } = await supabase.from('students').select('*').eq('id', id).single()
   if (!student) notFound()
 
-  const { data: profile } = await supabase
-    .from('staff_profiles')
-    .select('role')
-    .eq('user_id', user.id)
-    .single()
-
+  const { data: profile } = await supabase.from('staff_profiles').select('role').eq('user_id', user.id).single()
   const canManage = ['admin', 'zdud'].includes(profile?.role || '')
 
-  const { data: currentYear } = await supabase
-    .from('academic_years')
-    .select('*')
-    .eq('is_current', true)
-    .single()
+  const { data: currentYear } = await supabase.from('academic_years').select('*').eq('is_current', true).single()
 
   const { data: enrollment } = await supabase
-    .from('student_enrollments')
-    .select('*, class:classes(*)')
-    .eq('student_id', id)
-    .eq('academic_year_id', currentYear?.id)
-    .single()
+    .from('student_enrollments').select('*, class:classes(*)')
+    .eq('student_id', id).eq('academic_year_id', currentYear?.id).single()
 
   const { data: eplr } = await supabase
-    .from('eplr_teams')
-    .select(`
+    .from('eplr_teams').select(`
       *,
       psychologist:staff_profiles!eplr_teams_psychologist_id_fkey(*),
       speech_therapist:staff_profiles!eplr_teams_speech_therapist_id_fkey(*),
       rehabilitator:staff_profiles!eplr_teams_rehabilitator_id_fkey(*),
       class_teacher:staff_profiles!eplr_teams_class_teacher_id_fkey(*)
-    `)
-    .eq('student_id', id)
-    .eq('academic_year_id', currentYear?.id)
-    .single()
+    `).eq('student_id', id).eq('academic_year_id', currentYear?.id).single()
 
   const { data: documents } = await supabase
-    .from('documents')
-    .select('*')
-    .eq('student_id', id)
-    .eq('academic_year_id', currentYear?.id)
+    .from('documents').select('*').eq('student_id', id).eq('academic_year_id', currentYear?.id)
 
   const docMap = new Map(documents?.map(d => [d.doc_type, d]) || [])
 
@@ -87,6 +63,10 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
 
         {canManage && student.status === 'active' && (
           <div className="flex items-center gap-2">
+            <Link href={`/students/${id}/edit`} className="btn-secondary flex items-center gap-1.5 text-xs">
+              <Pencil size={14} />
+              Редактирай
+            </Link>
             <Link href={`/students/${id}/eplr`} className="btn-secondary flex items-center gap-1.5 text-xs">
               <UserCog size={14} />
               ЕПЛР екип
@@ -111,7 +91,6 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       )}
 
       <div className="grid grid-cols-3 gap-6">
-        {/* EPLR */}
         <div className="card">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
             <Users size={16} className="text-slate-400" />
@@ -145,7 +124,6 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           )}
         </div>
 
-        {/* Documents */}
         <div className="card col-span-2">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
             <FileText size={16} className="text-slate-400" />
