@@ -182,10 +182,6 @@ export default function AdminStaffPage() {
             </div>
           )}
           <div>
-            <label className="label">Длъжност</label>
-            <input className="input" value={form.position} onChange={e => setForm(p => ({ ...p, position: e.target.value }))} />
-          </div>
-          <div>
             <label className="label">Имейл <span className="text-red-500">*</span></label>
             <input type="email" className="input" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} />
           </div>
