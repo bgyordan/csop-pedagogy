@@ -163,7 +163,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                       status === 'in_progress' ? 'badge-in-progress' :
                       'badge-empty'
                     }>
-                      {STATUS_LABELS[status]}
+                      {STATUS_LABELS[status as keyof typeof STATUS_LABELS]}
                     </span>
                     <span className="text-sm text-slate-700">{DOCUMENT_TYPE_LABELS[docType]}</span>
                   </div>
