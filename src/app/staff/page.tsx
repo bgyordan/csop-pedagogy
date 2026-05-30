@@ -39,7 +39,7 @@ export default async function StaffPage() {
                 {label} <span className="text-slate-400 font-normal">({members.length})</span>
               </h2>
               <div className="grid grid-cols-3 gap-3">
-                {members.map(member => (
+                {members.map((member: StaffProfile) => (
                   <div key={member.id} className="flex items-center gap-3 p-3 rounded-lg bg-slate-50">
                     <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-sm font-medium overflow-hidden flex-shrink-0">
                       {member.photo_url
