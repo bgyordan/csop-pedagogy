@@ -30,17 +30,19 @@ export default async function AbsencesPage() {
   const currentMonth = now.getMonth() + 1
   const currentDay = now.getDate()
   const currentYearNum = now.getFullYear()
+
+  // Отчита се миналия месец, срок до 8-мо на текущия
+  const reportMonth = currentMonth === 1 ? 12 : currentMonth - 1
+  const reportYear = currentMonth === 1 ? currentYearNum - 1 : currentYearNum
   const deadlinePassed = currentDay > 8
 
-  // Get submitted absences for current month
   const { data: submitted } = await supabase
     .from('monthly_absences')
     .select('class_id')
-    .eq('month', currentMonth)
-    .eq('year', currentYearNum)
+    .eq('month', reportMonth)
+    .eq('year', reportYear)
 
   const submittedClassIds = new Set(submitted?.map(s => s.class_id) || [])
-
   const isAdmin = ['admin', 'zdud', 'director'].includes(profile?.role || '')
 
   return (
@@ -48,18 +50,17 @@ export default async function AbsencesPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-slate-800">Реализация на ИУП</h1>
         <p className="text-slate-500 text-sm mt-1">
-          {currentYear?.name} · Текущ месец: <strong>{getMonthName(currentMonth)}</strong> · Срок за въвеждане: <strong className={deadlinePassed ? 'text-red-600' : 'text-green-600'}>до 8-мо число</strong>
+          {currentYear?.name} · Отчитан месец: <strong>{getMonthName(reportMonth)}</strong> · Срок: <strong className={deadlinePassed ? 'text-red-600' : 'text-green-600'}>до 8 {getMonthName(currentMonth)}</strong>
         </p>
       </div>
 
       {isAdmin ? (
-        // Admin/ZDUD view — all classes with status
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Паралелка</th>
-                <th className="text-center px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Статус — {getMonthName(currentMonth)}</th>
+                <th className="text-center px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Статус — {getMonthName(reportMonth)}</th>
                 <th className="px-4 py-2.5"></th>
               </tr>
             </thead>
@@ -83,7 +84,7 @@ export default async function AbsencesPage() {
                       )}
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      <Link href={`/absences/${cls.id}/${currentMonth}`} className="text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
+                      <Link href={`/absences/${cls.id}/${reportMonth}`} className="text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
                         Преглед →
                       </Link>
                     </td>
@@ -94,15 +95,13 @@ export default async function AbsencesPage() {
           </table>
         </div>
       ) : (
-        // Class teacher view — only their class, all months
         <div className="grid gap-4">
           {classes?.map(cls => (
             <div key={cls.id} className="card">
               <h2 className="font-medium text-slate-700 mb-4">Паралелка {cls.name}</h2>
               <div className="grid grid-cols-5 gap-2">
                 {[9, 10, 11, 12, 1, 2, 3, 4, 5, 6].map(month => {
-                  const isCurrent = month === currentMonth
-                  const isSubmittedMonth = submittedClassIds.has(cls.id) && isCurrent
+                  const isCurrent = month === reportMonth
                   return (
                     <Link
                       key={month}
