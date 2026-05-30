@@ -9,7 +9,6 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const response = NextResponse.redirect(`${origin}/dashboard`)
-
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -26,13 +25,12 @@ export async function GET(request: NextRequest) {
         },
       }
     )
-
     const { error } = await supabase.auth.exchangeCodeForSession(code)
-
     if (!error) {
       return response
     }
+    return NextResponse.redirect(`${origin}/auth/login?error=${encodeURIComponent(error.message)}`)
   }
 
-  return NextResponse.redirect(`${origin}/auth/login?error=${encodeURIComponent(error?.message || 'no_code')}`)
+  return NextResponse.redirect(`${origin}/auth/login?error=no_code`)
 }
