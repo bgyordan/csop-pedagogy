@@ -38,7 +38,7 @@ export default async function AbsencesPage() {
   return (
     <div className="p-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-slate-800">Месечни отсъствия</h1>
+        <h1 className="text-2xl font-semibold text-slate-800">Реализация на ИУП</h1>
         <p className="text-slate-500 text-sm mt-1">
           Класните въвеждат данните до 10-то число · {currentYear?.name}
         </p>
