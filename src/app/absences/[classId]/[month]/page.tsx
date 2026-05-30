@@ -151,7 +151,7 @@ export default function AbsenceEditorPage() {
       <BackButton />
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-800">Отсъствия — {getMonthName(month)} {year}</h1>
+          <h1 className="text-2xl font-semibold text-slate-800">Реализация на ИУП — {getMonthName(month)} {year}</h1>
           <p className="text-slate-500 text-sm mt-1">Паралелка {className}</p>
         </div>
         <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#0f2240' }}>
