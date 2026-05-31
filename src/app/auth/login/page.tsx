@@ -1,10 +1,14 @@
 'use client'
+
 import { createClient } from '@/lib/supabase/client'
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const searchParams = useSearchParams()
+  const urlError = searchParams.get('error')
   const supabase = createClient()
 
   async function handleGoogleLogin() {
@@ -26,23 +30,30 @@ export default function LoginPage() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-navy mb-4"
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4"
                style={{ backgroundColor: '#0f2240' }}>
             <span className="text-white text-2xl font-bold">Ц</span>
           </div>
           <h1 className="text-2xl font-semibold text-slate-800">ЦСОП Варна</h1>
           <p className="text-slate-500 text-sm mt-1">Педагогическа система</p>
         </div>
+
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
           <h2 className="text-lg font-semibold text-slate-800 mb-2">Влезте в системата</h2>
           <p className="text-sm text-slate-500 mb-6">
             Използвайте вашия служебен Google акаунт
           </p>
-          {error && (
+
+          {(error || urlError) && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-              {error}
+              {urlError === 'unauthorized'
+                ? 'Вашият имейл няма достъп до системата. Свържете се с администратора.'
+                : urlError === 'auth_failed'
+                ? 'Грешка при влизане. Моля опитайте отново.'
+                : error}
             </div>
           )}
+
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
@@ -58,6 +69,7 @@ export default function LoginPage() {
             </svg>
             {loading ? 'Влизане...' : 'Вход с Google'}
           </button>
+
           <p className="text-xs text-slate-400 text-center mt-6">
             Достъпът е само за служители на ЦСОП Варна
           </p>
