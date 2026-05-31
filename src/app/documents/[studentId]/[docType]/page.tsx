@@ -11,7 +11,6 @@ import { getFullName } from '@/lib/utils'
 const DOCUMENT_FIELDS: Record<DocumentType, { key: string; label: string; type: 'text' | 'textarea' | 'date' }[]> = {
   protocol_1: [
     { key: 'session_date', label: 'Дата на заседание', type: 'date' },
-    { key: 'class_name', label: 'Клас на ученика', type: 'text' },
     { key: 'parent_name', label: 'Име на родителя', type: 'text' },
     { key: 'other_topics', label: 'Други обсъждани теми', type: 'textarea' },
     { key: 'decisions', label: 'Приети решения', type: 'textarea' },
@@ -31,7 +30,6 @@ const DOCUMENT_FIELDS: Record<DocumentType, { key: string; label: string; type: 
     { key: 'parent_opinion', label: 'Мнение на родителя', type: 'textarea' },
   ],
   iup: [
-    { key: 'class_name', label: 'Клас', type: 'text' },
     { key: 'study_form', label: 'Форма на обучение', type: 'text' },
     { key: 'day_org', label: 'Организация на учебния ден', type: 'text' },
     { key: 'location', label: 'Място на провеждане', type: 'text' },
@@ -47,7 +45,6 @@ const DOCUMENT_FIELDS: Record<DocumentType, { key: string; label: string; type: 
   ],
   support_plan: [
     { key: 'age', label: 'Възраст', type: 'text' },
-    { key: 'class_name', label: 'Група/клас', type: 'text' },
     { key: 'support_type', label: 'Вид на допълнителната подкрепа', type: 'text' },
     { key: 'study_form', label: 'Форма на обучение', type: 'text' },
     { key: 'cognitive_development', label: 'Когнитивно развитие', type: 'textarea' },
@@ -75,6 +72,7 @@ export default function DocumentEditorPage({ params }: Props) {
   const [student, setStudent] = useState<any>(null)
   const [team, setTeam] = useState<any>(null)
   const [yearName, setYearName] = useState('')
+  const [className, setClassName] = useState('')
   const router = useRouter()
   const supabase = createClient()
 
@@ -90,6 +88,15 @@ export default function DocumentEditorPage({ params }: Props) {
 
     const { data: s } = await supabase.from('students').select('*').eq('id', studentId).single()
     setStudent(s)
+
+    // Get class name automatically
+    const { data: enrollment } = await supabase
+      .from('student_enrollments')
+      .select('class:classes(name)')
+      .eq('student_id', studentId)
+      .eq('academic_year_id', year?.id)
+      .single()
+    setClassName((enrollment?.class as any)?.name || '')
 
     const { data: t } = await supabase.from('eplr_teams').select(`
       *,
@@ -124,7 +131,7 @@ export default function DocumentEditorPage({ params }: Props) {
       student_id: studentId,
       academic_year_id: year?.id,
       doc_type: docType,
-      data: formData,
+      data: { ...formData, class_name: className },
       status: saveStatus,
       updated_by: profile?.id,
     }, { onConflict: 'student_id,academic_year_id,doc_type' })
@@ -140,7 +147,7 @@ export default function DocumentEditorPage({ params }: Props) {
       resolvedParams.docType as DocumentType,
       student,
       team || {},
-      formData,
+      { ...formData, class_name: className },
       yearName
     )
   }
@@ -158,7 +165,11 @@ export default function DocumentEditorPage({ params }: Props) {
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-slate-800">{docLabel}</h1>
-          {student && <p className="text-slate-500 text-sm mt-1">{getFullName(student)}</p>}
+          {student && (
+            <p className="text-slate-500 text-sm mt-1">
+              {getFullName(student)} · Паралелка {className}
+            </p>
+          )}
         </div>
         <span className={
           status === 'completed' ? 'badge-completed' :
