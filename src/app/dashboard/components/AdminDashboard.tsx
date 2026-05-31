@@ -85,19 +85,17 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
       </div>
 
       {notSubmitted > 0 && (
-        <div className={`mb-6 p-4 rounded-xl border flex items-center gap-3 ${deadlinePassed ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
-          <AlertTriangle size={18} className={deadlinePassed ? 'text-red-600' : 'text-amber-600'} />
-          <div>
-            <span className={`font-medium text-sm ${deadlinePassed ? 'text-red-700' : 'text-amber-700'}`}>
-              {notSubmitted} паралелки не са въвели реализация на ИУП за {getMonthName(reportMonth)}
-            </span>
-            {deadlinePassed && <span className="text-red-600 text-xs ml-2">— срокът е изтекъл!</span>}
-          </div>
-          <Link href="/absences" className="ml-auto text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
-            Виж →
-          </Link>
-        </div>
-      )}
+  <div className="mb-6 p-4 rounded-xl border border-slate-200 bg-slate-50 flex items-center gap-3">
+    <div className="flex-1">
+      <span className="font-medium text-sm text-slate-700">
+        {notSubmitted} паралелки не са въвели реализация на ИУП за {getMonthName(reportMonth)}
+      </span>
+    </div>
+    <Link href="/absences" className="text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
+      Виж →
+    </Link>
+  </div>
+)}
 
       <div className="grid grid-cols-2 gap-6">
         <div className="card">
