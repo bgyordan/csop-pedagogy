@@ -13,7 +13,7 @@ export default async function StaffPage({
   if (!user) redirect('/auth/login')
 
   const params = await searchParams
-  const sort = params.sort || 'last_name'
+  const sort = params.sort || 'first_name'
   const dir = params.dir || 'asc'
 
   const { data: staff } = await supabase
@@ -44,8 +44,8 @@ export default async function StaffPage({
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
               <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">
-                <a href={sortLink('last_name')} className="hover:text-slate-800">
-                  Три имена{sortIcon('last_name')}
+                <a href={sortLink('first_name')} className="hover:text-slate-800">
+                  Три имена{sortIcon('first_name')}
                 </a>
               </th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">
