@@ -2,17 +2,6 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Users, BookOpen, Clock, CheckCircle2, AlertTriangle, Calendar, AlertCircle } from 'lucide-react'
 import { formatDate, getDaysUntil, getMonthName } from '@/lib/utils'
-import { DocumentType, DOCUMENT_TYPE_LABELS } from '@/types'
-
-const ALL_DOC_TYPES: DocumentType[] = [
-  'protocol_1', 'protocol_2', 'protocol_3',
-  'iup', 'iu_program', 'support_plan', 'parent_program'
-]
-
-const DOC_SHORT: Record<DocumentType, string> = {
-  protocol_1: 'П1', protocol_2: 'П2', protocol_3: 'П3',
-  iup: 'ИУП', iu_program: 'ИУПр', support_plan: 'ПДП', parent_program: 'ПР',
-}
 
 export default async function AdminDashboard({ profile, currentYearId }: any) {
   const supabase = await createClient()
@@ -32,39 +21,23 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
     { data: announcements },
     { data: classes },
     { data: submitted },
-    { data: allEnrollments },
-    { data: allDocs },
   ] = await Promise.all([
     supabase.from('student_enrollments').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
     supabase.from('classes').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
     supabase.from('documents').select('status').eq('academic_year_id', currentYearId),
     supabase.from('calendar_deadlines').select('*').eq('academic_year_id', currentYearId).gte('deadline_date', now.toISOString().split('T')[0]).order('deadline_date').limit(5),
     supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
-    supabase.from('classes').select('*').eq('academic_year_id', currentYearId).order('name'),
+    supabase.from('classes').select('id').eq('academic_year_id', currentYearId),
     supabase.from('monthly_absences').select('class_id').eq('month', reportMonth).eq('year', reportYear),
-    supabase.from('student_enrollments').select('class_id, student_id').eq('academic_year_id', currentYearId),
-    supabase.from('documents').select('student_id, doc_type, status').eq('academic_year_id', currentYearId),
   ])
 
   const completed = docStats?.filter(d => d.status === 'completed').length || 0
   const inProgress = docStats?.filter(d => d.status === 'in_progress').length || 0
   const submittedIds = new Set(submitted?.map(s => s.class_id) || [])
-
   const notSubmitted = (classes?.length || 0) - submittedIds.size
-
-  // Build doc map for class matrix
-  const docMap = new Map<string, string>()
-  allDocs?.forEach(d => docMap.set(`${d.student_id}_${d.doc_type}`, d.status))
-
-  const studentsByClass = new Map<string, string[]>()
-  allEnrollments?.forEach(e => {
-    if (!studentsByClass.has(e.class_id)) studentsByClass.set(e.class_id, [])
-    studentsByClass.get(e.class_id)!.push(e.student_id)
-  })
 
   return (
     <>
-      {/* Stats */}
       <div className="grid grid-cols-4 gap-4 mb-8">
         <Link href="/students" className="card hover:shadow-md transition-shadow">
           <div className="flex items-center gap-3 mb-3">
@@ -111,7 +84,6 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
         </div>
       </div>
 
-      {/* IUP Status */}
       {notSubmitted > 0 && (
         <div className={`mb-6 p-4 rounded-xl border flex items-center gap-3 ${deadlinePassed ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
           <AlertTriangle size={18} className={deadlinePassed ? 'text-red-600' : 'text-amber-600'} />
@@ -127,69 +99,6 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
         </div>
       )}
 
-      {/* Class matrix */}
-      <div className="card mb-6">
-        <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-          <h2 className="font-medium text-slate-700 text-sm">Документи по паралелки</h2>
-          <Link href="/classes" className="text-xs text-slate-400 hover:text-slate-700">Виж всички →</Link>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-slate-50">
-                <th className="text-left px-3 py-2 text-xs font-medium text-slate-500">Паралелка</th>
-                <th className="text-center px-2 py-2 text-xs font-medium text-slate-500">Уч.</th>
-                {ALL_DOC_TYPES.map(dt => (
-                  <th key={dt} className="text-center px-2 py-2 text-xs font-medium text-slate-500" title={DOCUMENT_TYPE_LABELS[dt]}>
-                    {DOC_SHORT[dt]}
-                  </th>
-                ))}
-                <th className="text-center px-2 py-2 text-xs font-medium text-slate-500">ИУП</th>
-              </tr>
-            </thead>
-            <tbody>
-              {classes?.map((cls, idx) => {
-                const students = studentsByClass.get(cls.id) || []
-                const isSubmitted = submittedIds.has(cls.id)
-                return (
-                  <tr key={cls.id} className={`border-t border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
-                    <td className="px-3 py-2">
-                      <Link href={`/classes/${cls.id}`} className="font-medium text-slate-800 hover:underline">{cls.name}</Link>
-                    </td>
-                    <td className="text-center px-2 py-2 text-xs text-slate-500">{students.length}</td>
-                    {ALL_DOC_TYPES.map(dt => {
-                      const comp = students.filter(sid => docMap.get(`${sid}_${dt}`) === 'completed').length
-                      return (
-                        <td key={dt} className="text-center px-2 py-2">
-                          <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${
-                            students.length === 0 ? 'bg-slate-100 text-slate-400' :
-                            comp === students.length ? 'bg-green-100 text-green-700' :
-                            comp > 0 ? 'bg-amber-100 text-amber-700' :
-                            'bg-slate-100 text-slate-500'
-                          }`}>
-                            {comp}/{students.length}
-                          </span>
-                        </td>
-                      )
-                    })}
-                    <td className="text-center px-2 py-2">
-                      <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${
-                        isSubmitted ? 'bg-green-100 text-green-700' :
-                        deadlinePassed ? 'bg-red-100 text-red-700' :
-                        'bg-amber-100 text-amber-700'
-                      }`}>
-                        {isSubmitted ? '✓' : deadlinePassed ? '!' : '—'}
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Deadlines + Announcements */}
       <div className="grid grid-cols-2 gap-6">
         <div className="card">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
