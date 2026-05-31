@@ -54,7 +54,9 @@ export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
            style={{ backgroundColor: '#0f2240' }}>
       <div className="p-5 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <img src="/csop-varna-logo.jpg" alt="ЦСОП Варна" className="w-9 h-9 rounded-lg object-cover" />
+          <Link href="/dashboard">
+  <img src="/csop-varna-logo.jpg" alt="ЦСОП Варна" className="w-9 h-9 rounded-lg object-cover" />
+</Link>
           <div>
             <div className="text-white text-sm font-semibold">ЦСОП Варна</div>
             <div className="text-white/40 text-xs">ЕПЛР</div>
