@@ -8,7 +8,7 @@ const TIMEOUT = 30 * 60 * 1000 // 30 минути
 
 export function AutoLogout() {
   const router = useRouter()
-  const timer = useRef<NodeJS.Timeout>()
+  const timer = useRef<NodeJS.Timeout | null>(null)
   const supabase = createClient()
 
   function resetTimer() {
