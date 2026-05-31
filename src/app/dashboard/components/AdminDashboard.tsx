@@ -1,17 +1,20 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Users, BookOpen, Clock, CheckCircle2, AlertTriangle, Calendar, AlertCircle } from 'lucide-react'
+import { Users, BookOpen, Clock, CheckCircle2, Calendar, AlertCircle } from 'lucide-react'
 import { formatDate, getDaysUntil, getMonthName } from '@/lib/utils'
 
 export default async function AdminDashboard({ profile, currentYearId }: any) {
   const supabase = await createClient()
 
   const now = new Date()
-  const currentMonth = now.getMonth() + 1
   const currentDay = now.getDate()
-  const reportMonth = currentMonth === 1 ? 12 : currentMonth - 1
-  const reportYear = currentMonth === 1 ? now.getFullYear() - 1 : now.getFullYear()
-  const deadlinePassed = currentDay > 8
+  const currentMonth = now.getMonth() + 1
+  const currentYearNum = now.getFullYear()
+  const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1
+
+  const isActivePeriod = currentDay >= 28 || currentDay <= 8
+  const reportMonth = currentDay >= 28 ? currentMonth : (currentMonth === 1 ? 12 : currentMonth - 1)
+  const reportYear = currentDay >= 28 ? currentYearNum : (currentMonth === 1 ? currentYearNum - 1 : currentYearNum)
 
   const [
     { count: totalStudents },
@@ -34,11 +37,14 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
   const completed = docStats?.filter(d => d.status === 'completed').length || 0
   const inProgress = docStats?.filter(d => d.status === 'in_progress').length || 0
   const submittedIds = new Set(submitted?.map(s => s.class_id) || [])
-  const notSubmitted = (classes?.length || 0) - submittedIds.size
+  const submittedCount = submittedIds.size
+  const totalClassCount = classes?.length || 0
+  const notSubmitted = totalClassCount - submittedCount
 
   return (
     <>
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      {/* Stats */}
+      <div className="grid grid-cols-4 gap-4 mb-6">
         <Link href="/students" className="card hover:shadow-md transition-shadow">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
@@ -84,19 +90,34 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
         </div>
       </div>
 
-      {notSubmitted > 0 && (
-  <div className="mb-6 p-4 rounded-xl border border-slate-200 bg-slate-50 flex items-center gap-3">
-    <div className="flex-1">
-      <span className="font-medium text-sm text-slate-700">
-        {notSubmitted} паралелки не са въвели реализация на ИУП за {getMonthName(reportMonth)}
-      </span>
-    </div>
-    <Link href="/absences" className="text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
-      Виж →
-    </Link>
-  </div>
-)}
+      {/* IUP Banner */}
+      {isActivePeriod ? (
+        <div className="mb-6 p-4 rounded-xl border border-amber-200 bg-amber-50 flex items-center gap-3">
+          <div className="flex-1">
+            <div className="font-medium text-sm text-amber-800">
+              Протича въвеждане на реализация на ИУП за {getMonthName(reportMonth)}
+            </div>
+            <div className="text-xs text-amber-600 mt-0.5">
+              {submittedCount} от {totalClassCount} паралелки въведени · Срок до 8 {getMonthName(nextMonth)}
+            </div>
+          </div>
+          <Link href="/absences" className="text-xs font-medium px-3 py-1.5 rounded-lg border border-amber-200 bg-white hover:bg-amber-50 text-amber-700">
+            Виж →
+          </Link>
+          <Link href={`/absences/export/${reportMonth}/${reportYear}`} className="text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-600 text-white hover:bg-amber-700">
+            Генерирай Excel
+          </Link>
+        </div>
+      ) : (
+        <div className="mb-6 p-4 rounded-xl border border-slate-200 bg-slate-50 flex items-center gap-3">
+          <div className="text-sm text-slate-600 flex-1">
+            Предстои въвеждане на реализация на ИУП за <strong>{getMonthName(currentMonth)}</strong>
+            <span className="text-slate-400 ml-2">· от 28 {getMonthName(currentMonth)} до 8 {getMonthName(nextMonth)}</span>
+          </div>
+        </div>
+      )}
 
+      {/* Deadlines + Announcements */}
       <div className="grid grid-cols-2 gap-6">
         <div className="card">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
