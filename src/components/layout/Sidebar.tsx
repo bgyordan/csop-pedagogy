@@ -10,6 +10,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
 import { cn } from '@/lib/utils'
+import { AutoLogout } from '@/components/AutoLogout'
 
 interface NavItem {
   href: string
@@ -52,11 +53,12 @@ export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
   return (
     <aside className="w-56 h-screen sticky top-0 overflow-y-auto bg-navy flex flex-col"
            style={{ backgroundColor: '#0f2240' }}>
+      <AutoLogout />
       <div className="p-5 border-b border-white/10">
         <div className="flex items-center gap-3">
           <Link href="/dashboard">
-  <img src="/csop-varna-logo.jpg" alt="ЦСОП Варна" className="w-9 h-9 rounded-lg object-cover" />
-</Link>
+            <img src="/csop-varna-logo.jpg" alt="ЦСОП Варна" className="w-9 h-9 rounded-lg object-cover" />
+          </Link>
           <div>
             <div className="text-white text-sm font-semibold">ЦСОП Варна</div>
             <div className="text-white/40 text-xs">ЕПЛР</div>
