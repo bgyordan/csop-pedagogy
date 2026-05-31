@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import * as XLSX from 'xlsx'
+import XLSX from 'xlsx'
 import { getFullName, getMonthName } from '@/lib/utils'
 
 export async function GET(
