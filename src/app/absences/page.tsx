@@ -18,11 +18,17 @@ export default async function AbsencesPage() {
     .from('academic_years').select('*').eq('is_current', true).single()
 
   const now = new Date()
-  const currentMonth = now.getMonth() + 1
   const currentDay = now.getDate()
-  const reportMonth = currentMonth === 1 ? 12 : currentMonth - 1
-  const reportYear = currentMonth === 1 ? now.getFullYear() - 1 : now.getFullYear()
-  const deadlinePassed = currentDay > 8
+  const currentMonth = now.getMonth() + 1
+  const currentYearNum = now.getFullYear()
+
+  // Активен период: от 28-ми на текущия до 8-ми на следващия
+  const isActiveperiod = currentDay >= 28 || currentDay <= 8
+
+  // Отчитан месец
+  const reportMonth = currentDay >= 28 ? currentMonth : (currentMonth === 1 ? 12 : currentMonth - 1)
+  const reportYear = currentDay >= 28 ? currentYearNum : (currentMonth === 1 ? currentYearNum - 1 : currentYearNum)
+  const deadlinePassed = currentDay > 8 && currentDay < 28
 
   const isAdmin = ['admin', 'zdud', 'director'].includes(profile?.role || '')
 
@@ -33,7 +39,6 @@ export default async function AbsencesPage() {
       .from('classes').select('*').eq('academic_year_id', currentYear?.id).order('name')
     classes = data || []
   } else if (profile?.role === 'class_teacher') {
-    // Get classes from class_teacher_assignments
     const { data } = await supabase
       .from('class_teacher_assignments')
       .select('class:classes(*)')
@@ -50,12 +55,28 @@ export default async function AbsencesPage() {
 
   const submittedIds = new Set(submitted?.map(s => s.class_id) || [])
 
+  if (!isActiveperiod && !isAdmin) {
+    return (
+      <div className="p-8">
+        <h1 className="text-2xl font-semibold text-slate-800 mb-2">Реализация на ИУП</h1>
+        <p className="text-slate-500 text-sm mb-8">{currentYear?.name}</p>
+        <div className="card text-center py-12">
+          <p className="text-slate-500 text-sm">Периодът за въвеждане е от <strong>28-ми</strong> до <strong>8-ми на следващия месец</strong>.</p>
+          <p className="text-slate-400 text-xs mt-2">Следващ период: от 28 {getMonthName(currentMonth)} до 8 {getMonthName(currentMonth === 12 ? 1 : currentMonth + 1)}</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="p-8">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-slate-800">Реализация на ИУП</h1>
         <p className="text-slate-500 text-sm mt-1">
-          {currentYear?.name} · Отчитан месец: <strong>{getMonthName(reportMonth)}</strong> · Срок: <strong className={deadlinePassed ? 'text-red-600' : 'text-green-600'}>до 8 {getMonthName(currentMonth)}</strong>
+          {currentYear?.name} · Отчитан месец: <strong>{getMonthName(reportMonth)}</strong> · 
+          Срок: <strong className={currentDay > 8 && currentDay < 28 ? 'text-red-600' : 'text-green-600'}>
+            до 8 {getMonthName(currentMonth === 12 ? 1 : currentMonth + 1)}
+          </strong>
         </p>
       </div>
 
@@ -79,8 +100,8 @@ export default async function AbsencesPage() {
                       {isSubmitted ? (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">✓ Въведено</span>
                       ) : (
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${deadlinePassed ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                          {deadlinePassed ? '⚠ Просрочено' : '— Невъведено'}
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${currentDay > 8 && currentDay < 28 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {currentDay > 8 && currentDay < 28 ? '⚠ Просрочено' : '— Невъведено'}
                         </span>
                       )}
                     </td>
@@ -100,20 +121,20 @@ export default async function AbsencesPage() {
           {classes.map(cls => (
             <div key={cls.id} className="card">
               <h2 className="font-medium text-slate-700 mb-4">Паралелка {cls.name}</h2>
-              <div className="grid grid-cols-5 gap-2">
-                {[9, 10, 11, 12, 1, 2, 3, 4, 5, 6].map(month => {
-                  const isCurrent = month === reportMonth
-                  return (
-                    <Link key={month} href={`/absences/${cls.id}/${month}`}
-                      className={`flex flex-col items-center p-3 rounded-lg border text-sm transition-colors ${
-                        isCurrent ? 'border-blue-200 bg-blue-50 text-blue-700 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-600'
-                      }`}>
-                      <span>{getMonthName(month)}</span>
-                      {isCurrent && <span className="text-xs mt-0.5 opacity-70">текущ</span>}
-                    </Link>
-                  )
-                })}
-              </div>
+              <Link
+                href={`/absences/${cls.id}/${reportMonth}`}
+                className="flex items-center justify-between p-4 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
+              >
+                <div>
+                  <div className="font-medium text-slate-700">{getMonthName(reportMonth)} {reportYear}</div>
+                  <div className="text-xs text-slate-400 mt-0.5">Срок до 8 {getMonthName(currentMonth === 12 ? 1 : currentMonth + 1)}</div>
+                </div>
+                <span className={`text-xs font-medium px-3 py-1 rounded-full ${
+                  submittedIds.has(cls.id) ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                }`}>
+                  {submittedIds.has(cls.id) ? '✓ Въведено' : '— Невъведено'}
+                </span>
+              </Link>
             </div>
           ))}
         </div>
