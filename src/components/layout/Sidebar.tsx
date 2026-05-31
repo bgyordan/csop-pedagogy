@@ -60,7 +60,7 @@ export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
           </div>
           <div>
             <div className="text-white text-sm font-semibold">ЦСОП Варна</div>
-            <div className="text-white/40 text-xs">Педагогическа система</div>
+            <div className="text-white/40 text-xs">ЕПЛР</div>
           </div>
         </div>
       </div>
