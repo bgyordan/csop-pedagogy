@@ -17,8 +17,11 @@ function LoginForm() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `https://csop-pedagogy.vercel.app/auth/callback`,
-      },
+  redirectTo: `https://csop-pedagogy.vercel.app/auth/callback`,
+  queryParams: {
+    prompt: 'select_account',
+  },
+},
     })
     if (error) {
       setError('Грешка при влизане. Моля опитайте отново.')
