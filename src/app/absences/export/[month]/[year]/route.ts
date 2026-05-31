@@ -82,9 +82,9 @@ export async function GET(
   ]
   XLSX.utils.book_append_sheet(wb, ws, `ИУП ${getMonthName(parseInt(month))}`)
 
-  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+  const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) const buffer = Buffer.from(buf)
 
-  return new NextResponse(buf, {
+  return new NextResponse(buffer, {
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': `attachment; filename="IUP_${getMonthName(parseInt(month))}_${year}.xlsx"`,
