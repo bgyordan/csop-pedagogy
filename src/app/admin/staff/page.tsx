@@ -139,7 +139,7 @@ export default function AdminStaffPage() {
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
               <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide cursor-pointer hover:text-slate-800" onClick={() => toggleSort('name')}>
-                Три имена{sortIcon('name')}
+                Имена{sortIcon('name')}
               </th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide cursor-pointer hover:text-slate-800" onClick={() => toggleSort('role')}>
                 Роля{sortIcon('role')}
