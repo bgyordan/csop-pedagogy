@@ -87,7 +87,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
                 <Link key={cls.id} href={`/absences/${cls.id}/${reportMonth}`} className="flex items-center justify-between hover:underline">
                   <span className="text-xs text-slate-500">Гр. {cls.name}</span>
                   <span className={`text-xs font-medium ${submitted ? 'text-green-600' : deadlinePassed ? 'text-red-600' : 'text-amber-600'}`}>
-                    {submitted ? '✓' : deadlinePassed ? '⚠' : '—'}
+                    {submitted ? '✓ Въведено' : '— Невъведено'}
                   </span>
                 </Link>
               )
