@@ -6,8 +6,8 @@ import { ToastProvider } from '@/components/ui/Toast'
 const inter = Inter({ subsets: ['latin', 'cyrillic'] })
 
 export const metadata: Metadata = {
-  title: 'Педагогическа система — ЦСОП Варна',
-  description: 'Система за управление на педагогическата документация в ЦСОП Варна',
+  title: 'ЕПЛР — ЦСОП Варна',
+  description: 'Система за управление на ЕПЛР документация в ЦСОП Варна',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
