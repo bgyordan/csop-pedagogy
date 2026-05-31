@@ -50,7 +50,7 @@ export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
   )
 
   return (
-    <aside className="w-56 min-h-screen bg-navy flex flex-col"
+    <aside className="w-56 h-screen sticky top-0 overflow-y-auto bg-navy flex flex-col"
            style={{ backgroundColor: '#0f2240' }}>
       <div className="p-5 border-b border-white/10">
         <div className="flex items-center gap-3">
