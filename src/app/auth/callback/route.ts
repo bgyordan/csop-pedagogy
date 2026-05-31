@@ -15,9 +15,7 @@ export async function GET(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          getAll() {
-            return request.cookies.getAll()
-          },
+          getAll() { return request.cookies.getAll() },
           setAll(cookiesToSet: any[]) {
             cookiesToSet.forEach(({ name, value, options }) => {
               response.cookies.set(name, value, options)
@@ -30,18 +28,33 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
-      // Auto-link user_id to staff_profiles by email
       const { data: { user } } = await supabase.auth.getUser()
+      
       if (user?.email) {
+        // 1. Опитваме да свържем user_id с предварително създаден профил
         await supabase
           .from('staff_profiles')
           .update({ user_id: user.id })
           .eq('email', user.email)
           .is('user_id', null)
+
+        // 2. Проверяваме дали този потребител реално ИМА профил в системата
+        const { data: profile } = await supabase
+          .from('staff_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .single()
+
+        // 3. Ако няма профил (неодобрен имейл), прекратяваме сесията!
+        if (!profile) {
+          await supabase.auth.signOut()
+          return NextResponse.redirect(`${origin}/auth/login?error=unauthorized`)
+        }
       }
       return response
     }
   }
 
-  return NextResponse.redirect(`${origin}/auth/login`)
+  // Ако има грешка с кода
+  return NextResponse.redirect(`${origin}/auth/login?error=auth_failed`)
 }
