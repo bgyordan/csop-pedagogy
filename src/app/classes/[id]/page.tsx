@@ -29,15 +29,17 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
 
   if (!cls) notFound()
 
-  const { data: enrollments } = await supabase
-    .from('student_enrollments').select('*, student:students(*)')
-    .eq('class_id', id).eq('academic_year_id', currentYear?.id)
+  const [{ data: enrollments }, { data: assignments }] = await Promise.all([
+    supabase.from('student_enrollments').select('*, student:students(*)').eq('class_id', id).eq('academic_year_id', currentYear?.id),
+    supabase.from('class_teacher_assignments').select('staff:staff_profiles(first_name, last_name)').eq('class_id', id).eq('academic_year_id', currentYear?.id)
+  ])
 
   const students = enrollments?.map(e => e.student).filter(Boolean) || []
+  const teachers = assignments?.map((a: any) => a.staff ? getFullName(a.staff) : null).filter(Boolean) || []
 
-  const { data: documents } = await supabase
-    .from('documents').select('*').eq('academic_year_id', currentYear?.id)
-    .in('student_id', students.map((s: any) => s.id))
+  const { data: documents } = students.length > 0
+    ? await supabase.from('documents').select('*').eq('academic_year_id', currentYear?.id).in('student_id', students.map((s: any) => s.id))
+    : { data: [] }
 
   const docMap = new Map<string, string>()
   documents?.forEach(d => docMap.set(`${d.student_id}_${d.doc_type}`, d.status))
@@ -47,7 +49,12 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
       <BackButton />
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-slate-800">Паралелка {cls.name}</h1>
-        <p className="text-slate-500 text-sm mt-1">{students.length} ученика · {currentYear?.name}</p>
+        <div className="flex items-center gap-4 mt-1">
+          <p className="text-slate-500 text-sm">{students.length} ученика · {currentYear?.name}</p>
+          {teachers.length > 0 && (
+            <p className="text-slate-500 text-sm">Класен: <strong className="text-slate-700">{teachers.join(', ')}</strong></p>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
