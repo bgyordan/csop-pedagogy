@@ -1,4 +1,4 @@
-'use client'
+  'use client'
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -134,9 +134,10 @@ export default function AdminStaffPage() {
                 </td>
                 <td className="px-4 py-2">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => openEdit(s)} className="text-slate-400 hover:text-slate-700">
-                      <Pencil size={14} />
-                    </button>
+                    <button onClick={() => openEdit(s)} className="text-xs font-medium px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors flex items-center gap-1">
+                  <Pencil size={12} />
+                    Редактирай
+</button>
                     <button onClick={() => toggleActive(s)} className="text-xs text-slate-400 hover:text-slate-700">
                       {s.is_active ? 'Деактивирай' : 'Активирай'}
                     </button>
