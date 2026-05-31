@@ -24,6 +24,8 @@ export default function AdminStaffPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
+  const [sortCol, setSortCol] = useState<'name' | 'role'>('name')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
   useEffect(() => { load() }, [])
 
@@ -33,6 +35,16 @@ export default function AdminStaffPage() {
     const { data: year } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
     const { data: cls } = await supabase.from('classes').select('id, name').eq('academic_year_id', year?.id).order('name')
     setClasses(cls || [])
+  }
+
+  function toggleSort(col: 'name' | 'role') {
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortCol(col); setSortDir('asc') }
+  }
+
+  function sortIcon(col: 'name' | 'role') {
+    if (sortCol !== col) return ' ↕'
+    return sortDir === 'asc' ? ' ↑' : ' ↓'
   }
 
   function openNew() {
@@ -94,9 +106,13 @@ export default function AdminStaffPage() {
     load()
   }
 
-  const filtered = staff.filter(s =>
-    !search || getFullName(s).toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = staff
+    .filter(s => !search || getFullName(s).toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      let valA = sortCol === 'name' ? getFullName(a) : ROLE_LABELS[a.role]
+      let valB = sortCol === 'name' ? getFullName(b) : ROLE_LABELS[b.role]
+      return sortDir === 'asc' ? valA.localeCompare(valB, 'bg') : valB.localeCompare(valA, 'bg')
+    })
 
   return (
     <div className="p-8">
@@ -122,8 +138,12 @@ export default function AdminStaffPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Три имена</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Роля</th>
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide cursor-pointer hover:text-slate-800" onClick={() => toggleSort('name')}>
+                Три имена{sortIcon('name')}
+              </th>
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide cursor-pointer hover:text-slate-800" onClick={() => toggleSort('role')}>
+                Роля{sortIcon('role')}
+              </th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Паралелка</th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Имейл</th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Статус</th>
@@ -165,7 +185,7 @@ export default function AdminStaffPage() {
         <form onSubmit={handleSave} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label">Първо име <span className="text-red-500">*</span></label>
+              <label className="label">Първо ime <span className="text-red-500">*</span></label>
               <input className="input" value={form.first_name} onChange={e => setForm(p => ({ ...p, first_name: e.target.value }))} />
             </div>
             <div>
