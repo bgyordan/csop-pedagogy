@@ -1,4 +1,4 @@
-  'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -11,7 +11,7 @@ import { StaffProfile, UserRole, ROLE_LABELS } from '@/types'
 const EMPTY_FORM = {
   first_name: '', middle_name: '', last_name: '',
   role: 'class_teacher' as UserRole,
-   email: '', phone: '', class_id: '',
+  email: '', phone: '', class_id: '',
 }
 
 export default function AdminStaffPage() {
@@ -23,11 +23,12 @@ export default function AdminStaffPage() {
   const [editing, setEditing] = useState<StaffProfile | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+  const [search, setSearch] = useState('')
 
   useEffect(() => { load() }, [])
 
   async function load() {
-    const { data } = await supabase.from('staff_profiles').select('*').order('last_name')
+    const { data } = await supabase.from('staff_profiles').select('*').order('first_name')
     setStaff(data || [])
     const { data: year } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
     const { data: cls } = await supabase.from('classes').select('id, name').eq('academic_year_id', year?.id).order('name')
@@ -93,18 +94,29 @@ export default function AdminStaffPage() {
     load()
   }
 
+  const filtered = staff.filter(s =>
+    !search || getFullName(s).toLowerCase().includes(search.toLowerCase())
+  )
+
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-slate-800">Управление на служители</h1>
-          <p className="text-slate-500 text-sm mt-1">{staff.length} служители</p>
+          <p className="text-slate-500 text-sm mt-1">{filtered.length} служители</p>
         </div>
         <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#0f2240' }}>
           <Plus size={16} />
           Нов служител
         </button>
       </div>
+
+      <input
+        className="input max-w-sm mb-4"
+        placeholder="Търси по ime..."
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+      />
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
         <table className="w-full text-sm">
@@ -119,7 +131,7 @@ export default function AdminStaffPage() {
             </tr>
           </thead>
           <tbody>
-            {staff.map((s, idx) => (
+            {filtered.map((s, idx) => (
               <tr key={s.id} className={`border-b border-slate-100 hover:bg-blue-50 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
                 <td className="px-4 py-2 font-medium text-slate-800">{getFullName(s)}</td>
                 <td className="px-4 py-2 text-slate-600">{ROLE_LABELS[s.role]}</td>
@@ -135,9 +147,9 @@ export default function AdminStaffPage() {
                 <td className="px-4 py-2">
                   <div className="flex items-center gap-2">
                     <button onClick={() => openEdit(s)} className="text-xs font-medium px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors flex items-center gap-1">
-  <Pencil size={12} />
-  Редактирай
-</button>
+                      <Pencil size={12} />
+                      Редактирай
+                    </button>
                     <button onClick={() => toggleActive(s)} className="text-xs text-slate-400 hover:text-slate-700">
                       {s.is_active ? 'Деактивирай' : 'Активирай'}
                     </button>
