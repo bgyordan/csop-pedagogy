@@ -17,12 +17,13 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
   const reportYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear()
 
   // Find my students from eplr_teams based on role
-  const roleField = {
+ const roleMap: Record<string, string> = {
     psychologist: 'psychologist_id',
     speech_therapist: 'speech_therapist_id',
     rehabilitator: 'rehabilitator_id',
     class_teacher: 'class_teacher_id',
-  }[profile.role] || 'psychologist_id'
+  }
+  const roleField = roleMap[profile.role] || 'psychologist_id'
 
   const [{ data: eplrTeams }, { data: announcements }] = await Promise.all([
     supabase.from('eplr_teams')
