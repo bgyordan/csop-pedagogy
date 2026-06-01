@@ -142,4 +142,36 @@ export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
           </Link>
           <div>
             <div className="text-white text-sm font-semibold">ЦСОП Варна</div>
-            <div className
+            <div className="text-white/40 text-xs">ЕПЛР</div>
+          </div>
+        </div>
+        <button
+          onClick={() => setMobileOpen(prev => !prev)}
+          className="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors relative z-50"
+          aria-label="Меню"
+        >
+          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
+      </div>
+
+      {/* МОБИЛЕН: Тъмен фон зад менюто (Overlay) с повишен Z-index */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* МОБИЛЕН: Самото изскачащо меню (Sidebar) с повишен Z-index */}
+      <div className={cn(
+        'md:hidden fixed top-14 left-0 bottom-0 z-50 w-56 transition-transform duration-300 ease-in-out',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full'
+      )}>
+        {sidebarContent}
+      </div>
+
+      {/* Spacer за мобилната версия, за да не се скрива съдържанието зад fixed хедъра */}
+      <div className="md:hidden h-14 w-full flex-shrink-0" />
+    </>
+  )
+}
