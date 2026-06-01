@@ -1,14 +1,22 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Users, Download, ArrowRightLeft, Archive, UserCog, Pencil } from 'lucide-react'
+import { ArrowLeft, FileText, Users, Download, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
 import { DOCUMENT_TYPE_LABELS, DocumentType, STATUS_LABELS } from '@/types'
+import { AttachmentsSection } from './AttachmentsSection'
 
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
   'iup', 'iu_program', 'support_plan', 'parent_program'
 ]
+
+const ATTACHMENT_TYPE_LABELS: Record<string, string> = {
+  referral_order: 'Заповед за насочване',
+  rcpppo_assessment: 'Оценка от РЦПППО',
+  medical_expertise: 'Медицинска експертиза',
+  other: 'Друг документ',
+}
 
 export default async function StudentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -16,10 +24,10 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  const { data: student } = await supabase.from('students').select('*').eq('id', id).single()
+  const { data: student } = await supabase.from('students').select('*, sending_school:sending_schools(name, city)').eq('id', id).single()
   if (!student) notFound()
 
-  const { data: profile } = await supabase.from('staff_profiles').select('role').eq('user_id', user.id).single()
+  const { data: profile } = await supabase.from('staff_profiles').select('id, role').eq('user_id', user.id).single()
   const canManage = ['admin', 'zdud'].includes(profile?.role || '')
 
   const { data: currentYear } = await supabase.from('academic_years').select('*').eq('is_current', true).single()
@@ -40,7 +48,11 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   const { data: documents } = await supabase
     .from('documents').select('*').eq('student_id', id).eq('academic_year_id', currentYear?.id)
 
+  const { data: attachments } = await supabase
+    .from('student_attachments').select('*').eq('student_id', id).order('created_at', { ascending: false })
+
   const docMap = new Map(documents?.map(d => [d.doc_type, d]) || [])
+  const sendingSchool = student.sending_school as any
 
   return (
     <div className="p-4 md:p-8 max-w-5xl">
@@ -57,6 +69,12 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-slate-500">
               <span>Пар.: <strong className="text-slate-700">{(enrollment?.class as any)?.name || '—'}</strong></span>
               <span>Роден: <strong className="text-slate-700">{formatDate(student.birth_date)}</strong></span>
+              {sendingSchool && (
+                <span className="flex items-center gap-1">
+                  <School size={13} className="text-slate-400" />
+                  <strong className="text-slate-700">{sendingSchool.name} — {sendingSchool.city}</strong>
+                </span>
+              )}
               <span className={student.status === 'active' ? 'badge-completed' : 'badge-empty'}>
                 {student.status === 'active' ? 'Активен' : 'Архивиран'}
               </span>
@@ -64,7 +82,6 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
 
-        {/* Бутони за управление — wrap на мобилен */}
         {canManage && student.status === 'active' && (
           <div className="flex flex-wrap items-center gap-2 mt-4">
             <Link href={`/students/${id}/edit`} className="btn-secondary flex items-center gap-1.5 text-xs">
@@ -95,8 +112,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       )}
 
       {/* ДЕСКТОП: 3 колони */}
-      <div className="hidden md:grid grid-cols-3 gap-6">
-        {/* ЕПЛР екип */}
+      <div className="hidden md:grid grid-cols-3 gap-6 mb-6">
         <div className="card">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
             <Users size={16} className="text-slate-400" />
@@ -105,7 +121,6 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           <EplrTeam eplr={eplr} id={id} canManage={canManage} />
         </div>
 
-        {/* Документи */}
         <div className="card col-span-2">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
             <FileText size={16} className="text-slate-400" />
@@ -116,8 +131,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       </div>
 
       {/* МОБИЛЕН: 1 колона */}
-      <div className="md:hidden space-y-4">
-        {/* ЕПЛР екип */}
+      <div className="md:hidden space-y-4 mb-4">
         <div className="card">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
             <Users size={16} className="text-slate-400" />
@@ -126,7 +140,6 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           <EplrTeam eplr={eplr} id={id} canManage={canManage} />
         </div>
 
-        {/* Документи */}
         <div className="card">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
             <FileText size={16} className="text-slate-400" />
@@ -135,11 +148,24 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           <DocumentsList docMap={docMap} studentId={student.id} />
         </div>
       </div>
+
+      {/* Досие — прикачени файлове */}
+      <div className="card">
+        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+          <Paperclip size={16} className="text-slate-400" />
+          <h2 className="font-medium text-slate-700 text-sm">Досие — външни документи</h2>
+        </div>
+        <AttachmentsSection
+          studentId={id}
+          attachments={attachments || []}
+          canManage={canManage}
+          staffId={profile?.id || ''}
+          typeLabels={ATTACHMENT_TYPE_LABELS}
+        />
+      </div>
     </div>
   )
 }
-
-// ── Помощни компоненти ──────────────────────────────────────────────
 
 function EplrTeam({ eplr, id, canManage }: { eplr: any, id: string, canManage: boolean }) {
   if (!eplr) return (
