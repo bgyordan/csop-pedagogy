@@ -45,11 +45,11 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
   documents?.forEach(d => docMap.set(`${d.student_id}_${d.doc_type}`, d.status))
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <BackButton />
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-slate-800">Паралелка {cls.name}</h1>
-        <div className="flex items-center gap-4 mt-1">
+        <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Паралелка {cls.name}</h1>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
           <p className="text-slate-500 text-sm">{students.length} ученика · {currentYear?.name}</p>
           {teachers.length > 0 && (
             <p className="text-slate-500 text-sm">Класен: <strong className="text-slate-700">{teachers.join(', ')}</strong></p>
@@ -57,47 +57,99 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Ученик</th>
-              {ALL_DOC_TYPES.map(dt => (
-                <th key={dt} className="text-center px-2 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide" title={DOCUMENT_TYPE_LABELS[dt]}>
-                  {DOC_SHORT[dt]}
-                </th>
+      {/* ДЕСКТОП: таблица */}
+      <div className="hidden md:block bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Ученик</th>
+                {ALL_DOC_TYPES.map(dt => (
+                  <th key={dt} className="text-center px-2 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide"
+                      title={DOCUMENT_TYPE_LABELS[dt]}>
+                    {DOC_SHORT[dt]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {students.map((student: any, idx: number) => (
+                <tr key={student.id}
+                    className={`border-b border-slate-100 hover:bg-blue-50 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
+                  <td className="px-4 py-2">
+                    <Link href={`/students/${student.id}`} className="font-medium text-slate-800 hover:underline">
+                      {getFullName(student)}
+                    </Link>
+                  </td>
+                  {ALL_DOC_TYPES.map(dt => {
+                    const status = docMap.get(`${student.id}_${dt}`) || 'empty'
+                    return (
+                      <td key={dt} className="text-center px-2 py-2">
+                        <Link href={`/documents/${student.id}/${dt}`}>
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${
+                            status === 'completed' ? 'bg-green-100 text-green-700' :
+                            status === 'in_progress' ? 'bg-amber-100 text-amber-700' :
+                            'bg-slate-100 text-slate-400'
+                          }`}>
+                            {status === 'completed' ? '✓' : status === 'in_progress' ? '…' : '—'}
+                          </span>
+                        </Link>
+                      </td>
+                    )
+                  })}
+                </tr>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {students.map((student: any, idx: number) => (
-              <tr key={student.id} className={`border-b border-slate-100 hover:bg-blue-50 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
-                <td className="px-4 py-2">
-                  <Link href={`/students/${student.id}`} className="font-medium text-slate-800 hover:underline">
-                    {getFullName(student)}
-                  </Link>
-                </td>
+            </tbody>
+          </table>
+        </div>
+        {!students.length && <div className="text-center py-12 text-slate-400 text-sm">Няма ученици</div>}
+      </div>
+
+      {/* МОБИЛЕН: карти */}
+      <div className="md:hidden space-y-2">
+        {!students.length && <div className="text-center py-12 text-slate-400 text-sm">Няма ученици</div>}
+        {students.map((student: any) => {
+          const completedCount = ALL_DOC_TYPES.filter(dt =>
+            docMap.get(`${student.id}_${dt}`) === 'completed'
+          ).length
+          const inProgressCount = ALL_DOC_TYPES.filter(dt =>
+            docMap.get(`${student.id}_${dt}`) === 'in_progress'
+          ).length
+
+          return (
+            <div key={student.id} className="bg-white rounded-xl border border-slate-200 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <Link href={`/students/${student.id}`}
+                  className="font-medium text-slate-800 text-sm hover:underline truncate mr-2">
+                  {getFullName(student)}
+                </Link>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${
+                  completedCount === ALL_DOC_TYPES.length ? 'bg-green-100 text-green-700' :
+                  completedCount > 0 || inProgressCount > 0 ? 'bg-amber-100 text-amber-700' :
+                  'bg-slate-100 text-slate-500'
+                }`}>
+                  {completedCount}/{ALL_DOC_TYPES.length}
+                </span>
+              </div>
+              <div className="flex gap-1 flex-wrap">
                 {ALL_DOC_TYPES.map(dt => {
                   const status = docMap.get(`${student.id}_${dt}`) || 'empty'
                   return (
-                    <td key={dt} className="text-center px-2 py-2">
-                      <Link href={`/documents/${student.id}/${dt}`}>
-                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${
-                          status === 'completed' ? 'bg-green-100 text-green-700' :
-                          status === 'in_progress' ? 'bg-amber-100 text-amber-700' :
-                          'bg-slate-100 text-slate-400'
-                        }`}>
-                          {status === 'completed' ? '✓' : status === 'in_progress' ? '…' : '—'}
-                        </span>
-                      </Link>
-                    </td>
+                    <Link key={dt} href={`/documents/${student.id}/${dt}`}
+                      title={DOCUMENT_TYPE_LABELS[dt]}
+                      className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium ${
+                        status === 'completed' ? 'bg-green-100 text-green-700' :
+                        status === 'in_progress' ? 'bg-amber-100 text-amber-700' :
+                        'bg-slate-100 text-slate-400'
+                      }`}>
+                      {DOC_SHORT[dt]}
+                    </Link>
                   )
                 })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {!students.length && <div className="text-center py-12 text-slate-400 text-sm">Няма ученици</div>}
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
