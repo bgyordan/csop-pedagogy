@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowLeft, Plus, Calendar } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
 import { CommitteeMembers } from './CommitteeMembers'
+import { DeleteCommitteeButton } from './DeleteCommitteeButton'
 
 export default async function CommitteeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -26,7 +27,6 @@ export default async function CommitteeDetailPage({ params }: { params: Promise<
     .from('committee_sessions').select('*').eq('committee_id', id)
     .order('session_date', { ascending: false })
 
-  // Всички служители за добавяне към комисията
   const { data: allStaff } = await supabase
     .from('staff_profiles').select('id, first_name, middle_name, last_name, role')
     .eq('is_active', true).order('last_name')
@@ -38,11 +38,13 @@ export default async function CommitteeDetailPage({ params }: { params: Promise<
         Назад
       </Link>
 
-      <h1 className="text-xl md:text-2xl font-semibold text-slate-800 mb-2">{committee.name}</h1>
+      <div className="flex items-start justify-between mb-2">
+        <h1 className="text-xl md:text-2xl font-semibold text-slate-800">{committee.name}</h1>
+        {canManage && <DeleteCommitteeButton committeeId={id} committeeName={committee.name} />}
+      </div>
       {committee.description && <p className="text-slate-500 text-sm mb-6">{committee.description}</p>}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-        {/* Членове — client component за управление */}
         <CommitteeMembers
           committeeId={id}
           members={members || []}
@@ -50,7 +52,6 @@ export default async function CommitteeDetailPage({ params }: { params: Promise<
           canManage={canManage}
         />
 
-        {/* Заседания */}
         <div className="card md:col-span-2">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2">
