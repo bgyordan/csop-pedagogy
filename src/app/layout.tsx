@@ -1,9 +1,13 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Montserrat } from 'next/font/google'
 import './globals.css'
 import { ToastProvider } from '@/components/ui/Toast'
 
-const inter = Inter({ subsets: ['latin', 'cyrillic'] })
+const montserrat = Montserrat({
+  subsets: ['latin', 'cyrillic'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-montserrat',
+})
 
 export const metadata: Metadata = {
   title: 'ЕПЛР — ЦСОП Варна',
@@ -13,7 +17,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="bg">
-      <body className={inter.className}>
+      <body className={montserrat.className}>
         <ToastProvider>
           {children}
         </ToastProvider>
