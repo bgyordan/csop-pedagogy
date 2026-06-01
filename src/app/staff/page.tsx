@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { ROLE_LABELS, UserRole, StaffProfile } from '@/types'
 import { getFullName } from '@/lib/utils'
-import Link from 'next/link'
 
 const PER_PAGE = 15
 
@@ -51,9 +50,9 @@ export default async function StaffPage({
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-slate-800">Служители</h1>
+        <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Служители</h1>
         <p className="text-slate-500 text-sm mt-1">{total} активни служители</p>
       </div>
 
@@ -63,13 +62,14 @@ export default async function StaffPage({
           name="q"
           defaultValue={q}
           placeholder="Търси по име или имейл..."
-          className="input max-w-sm"
+          className="input w-full md:max-w-sm"
         />
         <input type="hidden" name="sort" value={sort} />
         <input type="hidden" name="dir" value={dir} />
       </form>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+      {/* ДЕСКТОП: таблица */}
+      <div className="hidden md:block bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
@@ -101,27 +101,69 @@ export default async function StaffPage({
           </tbody>
         </table>
 
-        {/* Pagination */}
+        <Pagination page={page} totalPages={totalPages} total={total} PER_PAGE={PER_PAGE} pageLink={pageLink} />
+      </div>
+
+      {/* МОБИЛЕН: карти */}
+      <div className="md:hidden space-y-2">
+        {staff.map((s: StaffProfile) => (
+          <div key={s.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="font-medium text-slate-800 text-sm">{getFullName(s)}</div>
+                <div className="text-xs text-slate-500 mt-0.5 truncate">{s.email}</div>
+              </div>
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 flex-shrink-0">
+                {ROLE_LABELS[s.role]}
+              </span>
+            </div>
+          </div>
+        ))}
+
+        {/* Pagination мобилен */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
+          <div className="flex items-center justify-between pt-2">
             <p className="text-xs text-slate-500">
               {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, total)} от {total}
             </p>
-            <div className="flex gap-1">
+            <div className="flex gap-2">
               {page > 1 && (
-                <a href={pageLink(page - 1)} className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 hover:bg-slate-50">← Предишна</a>
+                <a href={pageLink(page - 1)} className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 hover:bg-slate-50">← Пред.</a>
               )}
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                <a key={p} href={pageLink(p)} className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${p === page ? 'border-navy text-white' : 'border-slate-200 hover:bg-slate-50'}`}
-                  style={p === page ? { backgroundColor: '#0f2240', borderColor: '#0f2240' } : {}}>
-                  {p}
-                </a>
-              ))}
               {page < totalPages && (
-                <a href={pageLink(page + 1)} className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 hover:bg-slate-50">Следваща →</a>
+                <a href={pageLink(page + 1)} className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 hover:bg-slate-50">Следв. →</a>
               )}
             </div>
           </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function Pagination({ page, totalPages, total, PER_PAGE, pageLink }: {
+  page: number, totalPages: number, total: number, PER_PAGE: number,
+  pageLink: (p: number) => string
+}) {
+  if (totalPages <= 1) return null
+  return (
+    <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
+      <p className="text-xs text-slate-500">
+        {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, total)} от {total}
+      </p>
+      <div className="flex gap-1">
+        {page > 1 && (
+          <a href={pageLink(page - 1)} className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 hover:bg-slate-50">← Предишна</a>
+        )}
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+          <a key={p} href={pageLink(p)}
+            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${p === page ? 'text-white' : 'border-slate-200 hover:bg-slate-50'}`}
+            style={p === page ? { backgroundColor: '#0f2240', borderColor: '#0f2240' } : {}}>
+            {p}
+          </a>
+        ))}
+        {page < totalPages && (
+          <a href={pageLink(page + 1)} className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 hover:bg-slate-50">Следваща →</a>
         )}
       </div>
     </div>
