@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Plus, Building2, Users } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
 
 export default async function CommitteesPage() {
   const supabase = await createClient()
@@ -14,32 +13,30 @@ export default async function CommitteesPage() {
 
   const { data: committees } = await supabase
     .from('committees')
-    .select(`
-      *,
-      members:committee_members(count)
-    `)
+    .select('*, members:committee_members(count)')
     .order('name')
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-800">Комисии</h1>
+          <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Комисии</h1>
           <p className="text-slate-500 text-sm mt-1">{committees?.length || 0} комисии</p>
         </div>
         {canWrite && (
           <Link
             href="/committees/new"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white"
+            className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg text-sm font-medium text-white"
             style={{ backgroundColor: '#0f2240' }}
           >
             <Plus size={16} />
-            Нова комисия
+            <span className="hidden sm:inline">Нова комисия</span>
+            <span className="sm:hidden">Нова</span>
           </Link>
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
         {committees?.map(committee => (
           <Link
             key={committee.id}
@@ -50,7 +47,7 @@ export default async function CommitteesPage() {
               <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
                 <Building2 size={18} className="text-slate-500" />
               </div>
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 min-w-0">
                 <h2 className="font-medium text-slate-800 truncate">{committee.name}</h2>
                 {committee.description && (
                   <p className="text-xs text-slate-500 mt-1 line-clamp-2">{committee.description}</p>
@@ -66,7 +63,7 @@ export default async function CommitteesPage() {
         ))}
 
         {!committees?.length && (
-          <div className="col-span-2 text-center py-16 text-slate-400">
+          <div className="col-span-1 md:col-span-2 text-center py-16 text-slate-400">
             <Building2 className="mx-auto mb-2 opacity-30" size={32} />
             <p className="text-sm">Няма създадени комисии</p>
           </div>
