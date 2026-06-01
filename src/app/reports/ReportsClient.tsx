@@ -74,7 +74,20 @@ export default function ReportsClient({ allRows, workloadRows, delayedRows, scho
   }
 
   // Бутони за Export
-  function ExportButtons({ onExcel ?: () => void }: { onExcel?: () => void }) {
+   75 |
+  76 |   // Бутони за Export
+> 77 |   function ExportButtons({ onExcel ?: () => void }: { onExcel?: () => void }) {
+     |                                    ^
+  78 |     return (
+  79 |       <div className="flex items-center gap-2 print:hidden">
+  80 |         {onExcel && (
+Parsing ecmascript source code failed
+Import trace:
+  Server Component:
+    ./src/app/reports/ReportsClient.tsx
+    ./src/app/reports/page.tsx
+    at <unknown> (./src/app/reports/ReportsClient.tsx:77:36)
+Error: Command "npm run build" exited with 1
     return (
       <div className="flex items-center gap-2 print:hidden">
         {onExcel && (
