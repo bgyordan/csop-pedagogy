@@ -1,0 +1,210 @@
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { ReportsClient } from './ReportsClient'
+import { DOCUMENT_TYPE_LABELS, DocumentType } from '@/types'
+import { getFullName } from '@/lib/utils'
+
+const DOC_TYPES: DocumentType[] = [
+  'protocol_1', 'protocol_2', 'protocol_3',
+  'iup', 'iu_program', 'support_plan', 'parent_program'
+]
+
+const ROLE_LABELS_BG: Record<string, string> = {
+  psychologist: 'Психолог',
+  speech_therapist: 'Логопед',
+  rehabilitator: 'Рехабилитатор',
+}
+
+export default async function ReportsPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/auth/login')
+
+  const { data: profile } = await supabase
+    .from('staff_profiles').select('role').eq('user_id', user.id).single()
+
+  if (!['admin', 'zdud', 'director'].includes(profile?.role || '')) redirect('/dashboard')
+
+  const { data: currentYear } = await supabase
+    .from('academic_years').select('*').eq('is_current', true).single()
+
+  // Зареди всичко наведнъж
+  const [
+    { data: enrollments },
+    { data: eplrTeams },
+    { data: documents },
+    { data: schools },
+    { data: specialists },
+    { data: classTeachers },
+    { data: deadlines },
+  ] = await Promise.all([
+    supabase.from('student_enrollments')
+      .select('*, student:students(*, sending_school:sending_schools(name,city)), class:classes(*)')
+      .eq('academic_year_id', currentYear?.id),
+    supabase.from('eplr_teams')
+      .select(`*, psychologist:staff_profiles!eplr_teams_psychologist_id_fkey(id,first_name,last_name),
+        speech_therapist:staff_profiles!eplr_teams_speech_therapist_id_fkey(id,first_name,last_name),
+        rehabilitator:staff_profiles!eplr_teams_rehabilitator_id_fkey(id,first_name,last_name),
+        class_teacher:staff_profiles!eplr_teams_class_teacher_id_fkey(id,first_name,last_name)`)
+      .eq('academic_year_id', currentYear?.id),
+    supabase.from('documents').select('student_id, doc_type, status').eq('academic_year_id', currentYear?.id),
+    supabase.from('sending_schools').select('*').eq('is_active', true).order('name'),
+    supabase.from('staff_profiles').select('*')
+      .in('role', ['psychologist', 'speech_therapist', 'rehabilitator'])
+      .eq('is_active', true).order('first_name'),
+    supabase.from('class_teacher_assignments')
+      .select('class_id, staff:staff_profiles(id,first_name,last_name)')
+      .eq('academic_year_id', currentYear?.id),
+    supabase.from('calendar_deadlines')
+      .select('*').eq('academic_year_id', currentYear?.id).order('deadline_date'),
+  ])
+
+  // Изгради карти за бърз достъп
+  const eplrMap = new Map(eplrTeams?.map(t => [t.student_id, t]) || [])
+  const docMap = new Map<string, Map<string, string>>()
+  documents?.forEach(d => {
+    if (!docMap.has(d.student_id)) docMap.set(d.student_id, new Map())
+    docMap.get(d.student_id)!.set(d.doc_type, d.status)
+  })
+  const classTeacherMap = new Map<string, any>()
+  classTeachers?.forEach((ct: any) => {
+    if (ct.staff) classTeacherMap.set(ct.class_id, ct.staff)
+  })
+
+  // Изгради редовете за всички справки
+  const allRows = enrollments?.map(e => {
+    const student = e.student as any
+    const cls = e.class as any
+    const eplr = eplrMap.get(student?.id)
+    const docs = docMap.get(student?.id) || new Map()
+    const classTeacher = classTeacherMap.get(e.class_id)
+    const sendingSchool = student?.sending_school
+
+    const statusLabel = (status: string | undefined) => {
+      if (status === 'completed') return 'Завършен'
+      if (status === 'in_progress') return 'В процес'
+      return 'Непопълнен'
+    }
+
+    return {
+      studentId: student?.id,
+      name: getFullName(student),
+      className: cls?.name || '—',
+      classId: e.class_id,
+      sendingSchoolId: student?.sending_school_id || null,
+      sendingSchoolName: sendingSchool ? `${sendingSchool.name} — ${sendingSchool.city}` : '—',
+      psychologistId: eplr?.psychologist_id || null,
+      psychologist: eplr?.psychologist ? getFullName(eplr.psychologist) : '—',
+      speechTherapistId: eplr?.speech_therapist_id || null,
+      speechTherapist: eplr?.speech_therapist ? getFullName(eplr.speech_therapist) : '—',
+      rehabilitatorId: eplr?.rehabilitator_id || null,
+      rehabilitator: eplr?.rehabilitator ? getFullName(eplr.rehabilitator) : '—',
+      classTeacher: classTeacher ? getFullName(classTeacher) : '—',
+      p1: statusLabel(docs.get('protocol_1')),
+      p2: statusLabel(docs.get('protocol_2')),
+      p3: statusLabel(docs.get('protocol_3')),
+      iup: statusLabel(docs.get('iup')),
+      iuProgram: statusLabel(docs.get('iu_program')),
+      supportPlan: statusLabel(docs.get('support_plan')),
+      parentProgram: statusLabel(docs.get('parent_program')),
+      docsCompleted: DOC_TYPES.filter(dt => docs.get(dt) === 'completed').length,
+      docsTotal: DOC_TYPES.length,
+      missingPsychologist: !eplr?.psychologist_id,
+      missingSpeechTherapist: !eplr?.speech_therapist_id,
+      missingRehabilitator: !eplr?.rehabilitator_id,
+    }
+  }) || []
+
+  // Натовареност на специалистите
+  const workloadRows = specialists?.map(s => {
+    const fieldMap: Record<string, string> = {
+      psychologist: 'psychologist_id',
+      speech_therapist: 'speech_therapist_id',
+      rehabilitator: 'rehabilitator_id',
+    }
+    const field = fieldMap[s.role]
+    const myStudents = eplrTeams?.filter((t: any) => t[field] === s.id) || []
+    const myStudentIds = myStudents.map((t: any) => t.student_id)
+    const myDocs = documents?.filter(d => myStudentIds.includes(d.student_id)) || []
+    return {
+      id: s.id,
+      name: getFullName(s),
+      role: ROLE_LABELS_BG[s.role] || s.role,
+      studentCount: myStudents.length,
+      completedDocs: myDocs.filter(d => d.status === 'completed').length,
+      totalDocs: myStudentIds.length * DOC_TYPES.length,
+    }
+  }) || []
+
+  // Мониторинг забавени документи
+  const now = new Date()
+  const soonDate = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
+
+  const delayedRows: any[] = []
+  deadlines?.forEach(deadline => {
+    const deadlineDate = new Date(deadline.deadline_date)
+    if (deadlineDate > soonDate) return // Повече от 3 дни
+
+    const daysOverdue = Math.floor((now.getTime() - deadlineDate.getTime()) / (1000 * 60 * 60 * 24))
+    const docType = deadline.doc_type as DocumentType | undefined
+    if (!docType) return
+
+    allRows.forEach(row => {
+      const status = docType === 'protocol_1' ? row.p1
+        : docType === 'protocol_2' ? row.p2
+        : docType === 'protocol_3' ? row.p3
+        : docType === 'iup' ? row.iup
+        : docType === 'iu_program' ? row.iuProgram
+        : docType === 'support_plan' ? row.supportPlan
+        : row.parentProgram
+
+      if (status === 'Завършен') return
+
+      // Намери отговорния специалист
+      const eplr = eplrMap.get(row.studentId)
+      let specialist = '—'
+      if (docType === 'protocol_1' || docType === 'protocol_2' || docType === 'protocol_3') {
+        specialist = row.classTeacher
+      } else if (docType === 'iup' || docType === 'iu_program') {
+        specialist = row.classTeacher
+      } else if (docType === 'support_plan') {
+        specialist = row.psychologist !== '—' ? row.psychologist : row.speechTherapist
+      } else {
+        specialist = row.classTeacher
+      }
+
+      delayedRows.push({
+        docType: DOCUMENT_TYPE_LABELS[docType],
+        studentName: row.name,
+        className: row.className,
+        specialist,
+        deadlineDate: deadline.deadline_date,
+        daysOverdue: Math.max(0, daysOverdue),
+        status,
+        isOverdue: deadlineDate < now,
+      })
+    })
+  })
+
+  return (
+    <div className="p-4 md:p-8">
+      <div className="mb-6">
+        <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Справки</h1>
+        <p className="text-slate-500 text-sm mt-1">{currentYear?.name}</p>
+      </div>
+
+      <ReportsClient
+        allRows={allRows}
+        workloadRows={workloadRows}
+        delayedRows={delayedRows}
+        schools={schools || []}
+        specialists={specialists?.map(s => ({
+          id: s.id,
+          name: getFullName(s),
+          role: ROLE_LABELS_BG[s.role] || s.role,
+        })) || []}
+        yearName={currentYear?.name || ''}
+      />
+    </div>
+  )
+}
