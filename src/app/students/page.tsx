@@ -22,7 +22,6 @@ export default async function StudentsPage({
     .eq('is_current', true)
     .single()
 
-  // Вземи профила с id и роля
   const { data: profileData } = await supabase
     .from('staff_profiles')
     .select('id, role')
@@ -34,18 +33,33 @@ export default async function StudentsPage({
   const isSpecialist = ['psychologist', 'speech_therapist', 'rehabilitator'].includes(role)
   const canWrite = ['admin', 'zdud'].includes(role)
 
-  // Определи кои паралелки може да вижда
-  let allowedClassIds: string[] | null = null
+  // Вземи всички паралелки
+  const { data: allClasses } = await supabase
+    .from('classes')
+    .select('*')
+    .eq('academic_year_id', currentYear?.id)
+    .order('name')
+
+  // Изгради заявката за ученици
+  let query = supabase
+    .from('student_enrollments')
+    .select('*, student:students(*), class:classes(*)')
+    .eq('academic_year_id', currentYear?.id)
+
+  let visibleClasses = allClasses || []
 
   if (isClassTeacher) {
+    // Класен вижда само своите паралелки
     const { data: assignments } = await supabase
       .from('class_teacher_assignments')
       .select('class_id')
       .eq('staff_id', profileData!.id)
       .eq('academic_year_id', currentYear?.id)
-    allowedClassIds = assignments?.map(a => a.class_id) || []
+    const myClassIds = assignments?.map(a => a.class_id) || []
+    query = query.in('class_id', myClassIds.length > 0 ? myClassIds : ['no-results'])
+    visibleClasses = allClasses?.filter(c => myClassIds.includes(c.id)) || []
   } else if (isSpecialist) {
-    // Специалистът вижда само децата от ЕПЛР екипа си
+    // Специалистът вижда само своите деца от ЕПЛР
     const roleField = role === 'psychologist' ? 'psychologist_id'
       : role === 'speech_therapist' ? 'speech_therapist_id'
       : 'rehabilitator_id'
@@ -54,67 +68,8 @@ export default async function StudentsPage({
       .select('student_id')
       .eq(roleField, profileData!.id)
       .eq('academic_year_id', currentYear?.id)
-    // За специалиста ще филтрираме по student_id след заявката
-    const specialistStudentIds = eplrTeams?.map(t => t.student_id) || []
-    allowedClassIds = null // не филтрираме по клас
-    
-    // Зареди само паралелките на тези ученици
-    const { data: classes } = await supabase
-      .from('classes')
-      .select('*')
-      .eq('academic_year_id', currentYear?.id)
-      .order('name')
-
-    let query = supabase
-      .from('student_enrollments')
-      .select(`*, student:students(*), class:classes(*)`)
-      .eq('academic_year_id', currentYear?.id)
-      .in('student_id', specialistStudentIds.length > 0 ? specialistStudentIds : ['no-results'])
-
-    if (params.class) query = query.eq('class_id', params.class)
-
-    const { data: enrollments } = await query
-
-    const filtered = enrollments?.filter(e => {
-      if (!search) return true
-      return getFullName(e.student).toLowerCase().includes(search.toLowerCase())
-    })
-
-    // Паралелките само на тези ученици
-    const myClassIds = new Set(enrollments?.map(e => e.class_id) || [])
-    const myClasses = classes?.filter(c => myClassIds.has(c.id)) || []
-
-    return <StudentsView
-      filtered={filtered || []}
-      classes={myClasses}
-      search={search}
-      currentYear={currentYear}
-      canWrite={false}
-      params={params}
-    />
-  }
-
-  // Зареди паралелките (за филтъра)
-  let classesQuery = supabase
-    .from('classes')
-    .select('*')
-    .eq('academic_year_id', currentYear?.id)
-    .order('name')
-
-  const { data: classes } = await classesQuery
-
-  // Зареди учениците
-  let query = supabase
-    .from('student_enrollments')
-    .select(`*, student:students(*), class:classes(*)`)
-    .eq('academic_year_id', currentYear?.id)
-
-  if (allowedClassIds !== null) {
-    // Класен — само неговите паралелки
-    if (allowedClassIds.length === 0) {
-      return <StudentsView filtered={[]} classes={[]} search={search} currentYear={currentYear} canWrite={false} params={params} />
-    }
-    query = query.in('class_id', allowedClassIds)
+    const studentIds = eplrTeams?.map(t => t.student_id) || []
+    query = query.in('student_id', studentIds.length > 0 ? studentIds : ['no-results'])
   }
 
   if (params.class) {
@@ -123,34 +78,11 @@ export default async function StudentsPage({
 
   const { data: enrollments } = await query
 
-  const filtered = enrollments?.filter(e => {
+  const filtered = (enrollments || []).filter(e => {
     if (!search) return true
     return getFullName(e.student).toLowerCase().includes(search.toLowerCase())
   })
 
-  // Класният вижда само своите паралелки в dropdown-а
-  const visibleClasses = isClassTeacher && allowedClassIds
-    ? classes?.filter(c => allowedClassIds!.includes(c.id)) || []
-    : classes || []
-
-  return <StudentsView
-    filtered={filtered || []}
-    classes={visibleClasses}
-    search={search}
-    currentYear={currentYear}
-    canWrite={canWrite}
-    params={params}
-  />
-}
-
-function StudentsView({ filtered, classes, search, currentYear, canWrite, params }: {
-  filtered: any[]
-  classes: any[]
-  search: string
-  currentYear: any
-  canWrite: boolean
-  params: { q?: string; class?: string }
-}) {
   return (
     <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-6">
@@ -184,7 +116,7 @@ function StudentsView({ filtered, classes, search, currentYear, canWrite, params
               className="input pl-9 w-full"
             />
           </div>
-          {classes.length > 1 && (
+          {visibleClasses.length > 1 && (
             <select
               name="class"
               className="input sm:w-48"
@@ -195,7 +127,7 @@ function StudentsView({ filtered, classes, search, currentYear, canWrite, params
               }}
             >
               <option value="">Всички паралелки</option>
-              {classes.map(c => (
+              {visibleClasses.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
