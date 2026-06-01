@@ -20,10 +20,14 @@ export default async function DashboardPage() {
   const isSpecialist = ['psychologist', 'speech_therapist', 'rehabilitator'].includes(profile.role)
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-slate-800">Добре дошли, {profile.first_name}!</h1>
-        <p className="text-slate-500 text-sm mt-1">Учебна година {currentYear.name} · {new Date().toLocaleDateString('bg-BG', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+    <div className="p-4 md:p-8">
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-xl md:text-2xl font-semibold text-slate-800">
+          Добре дошли, {profile.first_name}!
+        </h1>
+        <p className="text-slate-500 text-sm mt-1">
+          Учебна година {currentYear.name} · {new Date().toLocaleDateString('bg-BG', { weekday: 'long', day: 'numeric', month: 'long' })}
+        </p>
       </div>
 
       {isAdmin && <AdminDashboard profile={profile} currentYearId={currentYear.id} />}
