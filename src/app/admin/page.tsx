@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Settings, Calendar, Bell } from 'lucide-react'
+import { Settings, Calendar, Bell, School } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 export default async function AdminPage() {
@@ -21,17 +21,16 @@ export default async function AdminPage() {
     .select('*')
     .order('start_date', { ascending: false })
 
-  const { data: announcements } = await supabase
-    .from('announcements')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(10)
-
   const { data: deadlines } = await supabase
     .from('calendar_deadlines')
     .select('*')
     .order('deadline_date')
     .limit(10)
+
+  const { count: schoolsCount } = await supabase
+    .from('sending_schools')
+    .select('*', { count: 'exact', head: true })
+    .eq('is_active', true)
 
   return (
     <div className="p-4 md:p-8">
@@ -40,16 +39,16 @@ export default async function AdminPage() {
         <p className="text-slate-500 text-sm mt-1">Управление на системата</p>
       </div>
 
-      {/* Навигационни карти — 1 колона на мобилен, 3 на десктоп */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
+      {/* Навигационни карти — 2 колони на мобилен, 4 на десктоп */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
         <a href="/admin/years" className="card hover:shadow-md transition-shadow cursor-pointer">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
               <Calendar size={18} className="text-blue-600" />
             </div>
-            <h2 className="font-medium text-slate-700">Учебни години</h2>
+            <h2 className="font-medium text-slate-700 text-sm">Учебни години</h2>
           </div>
-          <p className="text-sm text-slate-500">Управление на учебни години и паралелки</p>
+          <p className="text-xs text-slate-500">Управление на учебни години и паралелки</p>
         </a>
 
         <a href="/admin/staff" className="card hover:shadow-md transition-shadow cursor-pointer">
@@ -57,9 +56,9 @@ export default async function AdminPage() {
             <div className="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
               <Settings size={18} className="text-purple-600" />
             </div>
-            <h2 className="font-medium text-slate-700">Служители</h2>
+            <h2 className="font-medium text-slate-700 text-sm">Служители</h2>
           </div>
-          <p className="text-sm text-slate-500">Добавяне и управление на потребители</p>
+          <p className="text-xs text-slate-500">Добавяне и управление на потребители</p>
         </a>
 
         <a href="/admin/announcements" className="card hover:shadow-md transition-shadow cursor-pointer">
@@ -67,13 +66,23 @@ export default async function AdminPage() {
             <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
               <Bell size={18} className="text-amber-600" />
             </div>
-            <h2 className="font-medium text-slate-700">Съобщения</h2>
+            <h2 className="font-medium text-slate-700 text-sm">Съобщения</h2>
           </div>
-          <p className="text-sm text-slate-500">Публикуване на обяви и съобщения</p>
+          <p className="text-xs text-slate-500">Публикуване на обяви и съобщения</p>
+        </a>
+
+        <a href="/admin/schools" className="card hover:shadow-md transition-shadow cursor-pointer">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
+              <School size={18} className="text-green-600" />
+            </div>
+            <h2 className="font-medium text-slate-700 text-sm">Училища</h2>
+          </div>
+          <p className="text-xs text-slate-500">{schoolsCount || 0} активни изпращащи училища</p>
         </a>
       </div>
 
-      {/* Учебни години + Срокове — 1 колона на мобилен, 2 на десктоп */}
+      {/* Учебни години + Срокове */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         <div className="card">
           <h2 className="font-medium text-slate-700 text-sm mb-4 pb-3 border-b border-slate-100">
