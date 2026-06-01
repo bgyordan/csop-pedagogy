@@ -59,3 +59,57 @@
            bg-green-100 text-green-700;
   }
 }
+/* ── PRINT CSS за справки ── */
+@media print {
+  /* Скрий навигацията и sidebar */
+  aside,
+  nav,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Разгъни main на цяла страница */
+  body {
+    background: white !important;
+  }
+
+  main {
+    overflow: visible !important;
+  }
+
+  /* Таблиците да не се режат между страници */
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  /* Премахни сенките и заоблените ъгли */
+  .shadow-sm,
+  .rounded-xl {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Покажи скритите елементи за печат */
+  .print\:block {
+    display: block !important;
+  }
+
+  .hidden.print\:table-cell {
+    display: table-cell !important;
+  }
+
+  /* Размер на страницата */
+  @page {
+    size: A4 landscape;
+    margin: 1.5cm;
+  }
+}
