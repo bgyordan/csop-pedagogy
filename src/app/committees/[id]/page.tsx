@@ -5,6 +5,7 @@ import { ArrowLeft, Plus, Calendar } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
 import { CommitteeMembers } from './CommitteeMembers'
 import { DeleteCommitteeButton } from './DeleteCommitteeButton'
+import { SessionWordButton } from './SessionWordButton'
 
 export default async function CommitteeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -25,7 +26,7 @@ export default async function CommitteeDetailPage({ params }: { params: Promise<
 
   const { data: sessions } = await supabase
     .from('committee_sessions').select('*').eq('committee_id', id)
-    .order('session_date', { ascending: false })
+    .order('session_date', { ascending: true })
 
   const { data: allStaff } = await supabase
     .from('staff_profiles').select('id, first_name, middle_name, last_name, role')
@@ -68,15 +69,25 @@ export default async function CommitteeDetailPage({ params }: { params: Promise<
           </div>
 
           <div className="space-y-3">
-            {sessions?.map(session => (
+            {sessions?.map((session, idx) => (
               <div key={session.id} className="p-4 border border-slate-100 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-slate-700">{formatDate(session.session_date)}</span>
-                  {session.deadline && (
-                    <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-                      Срок: {formatDate(session.deadline)}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-slate-700">
+                      Протокол № {idx + 1} / {formatDate(session.session_date)}
                     </span>
-                  )}
+                    {session.deadline && (
+                      <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                        Срок: {formatDate(session.deadline)}
+                      </span>
+                    )}
+                  </div>
+                  <SessionWordButton
+                    session={session}
+                    committee={committee}
+                    members={members || []}
+                    sessionNumber={idx + 1}
+                  />
                 </div>
                 {session.agenda && (
                   <div className="text-xs text-slate-500 mb-2">
