@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Settings, Calendar, Bell, School } from 'lucide-react'
+import { Settings, Calendar, Bell, School, Users } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 export default async function AdminPage() {
@@ -39,8 +39,8 @@ export default async function AdminPage() {
         <p className="text-slate-500 text-sm mt-1">Управление на системата</p>
       </div>
 
-      {/* Навигационни карти — 2 колони на мобилен, 4 на десктоп */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+      {/* Навигационни карти — 2 колони на мобилен, 3 на десктоп */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-4">
         <a href="/admin/years" className="card hover:shadow-md transition-shadow cursor-pointer">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
@@ -79,6 +79,16 @@ export default async function AdminPage() {
             <h2 className="font-medium text-slate-700 text-sm">Училища</h2>
           </div>
           <p className="text-xs text-slate-500">{schoolsCount || 0} активни изпращащи училища</p>
+        </a>
+
+        <a href="/admin/eplr-assignment" className="card hover:shadow-md transition-shadow cursor-pointer col-span-2 md:col-span-2">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
+              <Users size={18} className="text-red-600" />
+            </div>
+            <h2 className="font-medium text-slate-700 text-sm">ЕПЛР Разпределение</h2>
+          </div>
+          <p className="text-xs text-slate-500">Разпределение на специалисти по ученици за учебната година</p>
         </a>
       </div>
 
