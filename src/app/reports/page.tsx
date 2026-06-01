@@ -162,7 +162,8 @@ export default async function ReportsPage() {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="mb-6">
+  <BackButton />
+  <div className="mb-6">
         <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Справки</h1>
         <p className="text-slate-500 text-sm mt-1">{currentYear?.name}</p>
       </div>
