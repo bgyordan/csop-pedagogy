@@ -22,16 +22,100 @@ export default async function StudentsPage({
     .eq('is_current', true)
     .single()
 
-  const { data: classes } = await supabase
+  // Вземи профила с id и роля
+  const { data: profileData } = await supabase
+    .from('staff_profiles')
+    .select('id, role')
+    .eq('user_id', user.id)
+    .single()
+
+  const role = profileData?.role || ''
+  const isClassTeacher = role === 'class_teacher'
+  const isSpecialist = ['psychologist', 'speech_therapist', 'rehabilitator'].includes(role)
+  const canWrite = ['admin', 'zdud'].includes(role)
+
+  // Определи кои паралелки може да вижда
+  let allowedClassIds: string[] | null = null
+
+  if (isClassTeacher) {
+    const { data: assignments } = await supabase
+      .from('class_teacher_assignments')
+      .select('class_id')
+      .eq('staff_id', profileData!.id)
+      .eq('academic_year_id', currentYear?.id)
+    allowedClassIds = assignments?.map(a => a.class_id) || []
+  } else if (isSpecialist) {
+    // Специалистът вижда само децата от ЕПЛР екипа си
+    const roleField = role === 'psychologist' ? 'psychologist_id'
+      : role === 'speech_therapist' ? 'speech_therapist_id'
+      : 'rehabilitator_id'
+    const { data: eplrTeams } = await supabase
+      .from('eplr_teams')
+      .select('student_id')
+      .eq(roleField, profileData!.id)
+      .eq('academic_year_id', currentYear?.id)
+    // За специалиста ще филтрираме по student_id след заявката
+    const specialistStudentIds = eplrTeams?.map(t => t.student_id) || []
+    allowedClassIds = null // не филтрираме по клас
+    
+    // Зареди само паралелките на тези ученици
+    const { data: classes } = await supabase
+      .from('classes')
+      .select('*')
+      .eq('academic_year_id', currentYear?.id)
+      .order('name')
+
+    let query = supabase
+      .from('student_enrollments')
+      .select(`*, student:students(*), class:classes(*)`)
+      .eq('academic_year_id', currentYear?.id)
+      .in('student_id', specialistStudentIds.length > 0 ? specialistStudentIds : ['no-results'])
+
+    if (params.class) query = query.eq('class_id', params.class)
+
+    const { data: enrollments } = await query
+
+    const filtered = enrollments?.filter(e => {
+      if (!search) return true
+      return getFullName(e.student).toLowerCase().includes(search.toLowerCase())
+    })
+
+    // Паралелките само на тези ученици
+    const myClassIds = new Set(enrollments?.map(e => e.class_id) || [])
+    const myClasses = classes?.filter(c => myClassIds.has(c.id)) || []
+
+    return <StudentsView
+      filtered={filtered || []}
+      classes={myClasses}
+      search={search}
+      currentYear={currentYear}
+      canWrite={false}
+      params={params}
+    />
+  }
+
+  // Зареди паралелките (за филтъра)
+  let classesQuery = supabase
     .from('classes')
     .select('*')
     .eq('academic_year_id', currentYear?.id)
     .order('name')
 
+  const { data: classes } = await classesQuery
+
+  // Зареди учениците
   let query = supabase
     .from('student_enrollments')
     .select(`*, student:students(*), class:classes(*)`)
     .eq('academic_year_id', currentYear?.id)
+
+  if (allowedClassIds !== null) {
+    // Класен — само неговите паралелки
+    if (allowedClassIds.length === 0) {
+      return <StudentsView filtered={[]} classes={[]} search={search} currentYear={currentYear} canWrite={false} params={params} />
+    }
+    query = query.in('class_id', allowedClassIds)
+  }
 
   if (params.class) {
     query = query.eq('class_id', params.class)
@@ -41,26 +125,39 @@ export default async function StudentsPage({
 
   const filtered = enrollments?.filter(e => {
     if (!search) return true
-    const name = getFullName(e.student).toLowerCase()
-    return name.includes(search.toLowerCase())
+    return getFullName(e.student).toLowerCase().includes(search.toLowerCase())
   })
 
-  const profile = await supabase
-    .from('staff_profiles')
-    .select('role')
-    .eq('user_id', user.id)
-    .single()
+  // Класният вижда само своите паралелки в dropdown-а
+  const visibleClasses = isClassTeacher && allowedClassIds
+    ? classes?.filter(c => allowedClassIds!.includes(c.id)) || []
+    : classes || []
 
-  const canWrite = ['admin', 'zdud'].includes(profile.data?.role || '')
+  return <StudentsView
+    filtered={filtered || []}
+    classes={visibleClasses}
+    search={search}
+    currentYear={currentYear}
+    canWrite={canWrite}
+    params={params}
+  />
+}
 
+function StudentsView({ filtered, classes, search, currentYear, canWrite, params }: {
+  filtered: any[]
+  classes: any[]
+  search: string
+  currentYear: any
+  canWrite: boolean
+  params: { q?: string; class?: string }
+}) {
   return (
     <div className="p-4 md:p-8">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Ученици</h1>
           <p className="text-slate-500 text-sm mt-1">
-            {filtered?.length || 0} ученика · {currentYear?.name}
+            {filtered.length} ученика · {currentYear?.name}
           </p>
         </div>
         {canWrite && (
@@ -76,7 +173,6 @@ export default async function StudentsPage({
         )}
       </div>
 
-      {/* Filters */}
       <div className="card mb-4 md:mb-6">
         <form id="filter-form" className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 relative">
@@ -88,20 +184,22 @@ export default async function StudentsPage({
               className="input pl-9 w-full"
             />
           </div>
-          <select
-            name="class"
-            className="input sm:w-48"
-            defaultValue={params.class || ''}
-            onChange={(e) => {
-              const form = document.getElementById('filter-form') as HTMLFormElement
-              form?.submit()
-            }}
-          >
-            <option value="">Всички паралелки</option>
-            {classes?.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+          {classes.length > 1 && (
+            <select
+              name="class"
+              className="input sm:w-48"
+              defaultValue={params.class || ''}
+              onChange={(e) => {
+                const form = document.getElementById('filter-form') as HTMLFormElement
+                form?.submit()
+              }}
+            >
+              <option value="">Всички паралелки</option>
+              {classes.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          )}
         </form>
       </div>
 
@@ -118,14 +216,10 @@ export default async function StudentsPage({
             </tr>
           </thead>
           <tbody>
-            {filtered?.map(enrollment => (
+            {filtered.map(enrollment => (
               <tr key={enrollment.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                <td className="px-5 py-3.5 font-medium text-slate-800">
-                  {getFullName(enrollment.student)}
-                </td>
-                <td className="px-5 py-3.5 text-slate-600">
-                  {(enrollment.class as any)?.name || '—'}
-                </td>
+                <td className="px-5 py-3.5 font-medium text-slate-800">{getFullName(enrollment.student)}</td>
+                <td className="px-5 py-3.5 text-slate-600">{(enrollment.class as any)?.name || '—'}</td>
                 <td className="px-5 py-3.5 text-slate-600">
                   {enrollment.student?.birth_date ? formatDate(enrollment.student.birth_date) : '—'}
                 </td>
@@ -135,11 +229,8 @@ export default async function StudentsPage({
                   </span>
                 </td>
                 <td className="px-5 py-3.5">
-                  <Link
-                    href={`/students/${enrollment.student?.id}`}
-                    className="text-xs font-medium hover:underline"
-                    style={{ color: '#0f2240' }}
-                  >
+                  <Link href={`/students/${enrollment.student?.id}`}
+                    className="text-xs font-medium hover:underline" style={{ color: '#0f2240' }}>
                     Преглед →
                   </Link>
                 </td>
@@ -147,7 +238,7 @@ export default async function StudentsPage({
             ))}
           </tbody>
         </table>
-        {(!filtered || filtered.length === 0) && (
+        {filtered.length === 0 && (
           <div className="text-center py-16 text-slate-400">
             <Users className="mx-auto mb-2 opacity-30" size={32} />
             <p className="text-sm">Няма намерени ученици</p>
@@ -157,22 +248,17 @@ export default async function StudentsPage({
 
       {/* МОБИЛЕН: карти */}
       <div className="md:hidden space-y-2">
-        {(!filtered || filtered.length === 0) && (
+        {filtered.length === 0 && (
           <div className="text-center py-16 text-slate-400">
             <Users className="mx-auto mb-2 opacity-30" size={32} />
             <p className="text-sm">Няма намерени ученици</p>
           </div>
         )}
-        {filtered?.map(enrollment => (
-          <Link
-            key={enrollment.id}
-            href={`/students/${enrollment.student?.id}`}
-            className="flex items-center justify-between bg-white rounded-xl border border-slate-200 px-4 py-3 hover:shadow-sm transition-shadow gap-3"
-          >
+        {filtered.map(enrollment => (
+          <Link key={enrollment.id} href={`/students/${enrollment.student?.id}`}
+            className="flex items-center justify-between bg-white rounded-xl border border-slate-200 px-4 py-3 hover:shadow-sm transition-shadow gap-3">
             <div className="min-w-0">
-              <div className="font-medium text-slate-800 text-sm truncate">
-                {getFullName(enrollment.student)}
-              </div>
+              <div className="font-medium text-slate-800 text-sm truncate">{getFullName(enrollment.student)}</div>
               <div className="text-xs text-slate-500 mt-0.5">
                 Пар. {(enrollment.class as any)?.name || '—'}
                 {enrollment.student?.birth_date && (
