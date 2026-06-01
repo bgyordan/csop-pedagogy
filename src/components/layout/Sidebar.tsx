@@ -23,7 +23,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Начало', icon: <LayoutDashboard size={18} /> },
   { href: '/students', label: 'Ученици', icon: <Users size={18} /> },
-  { href: '/classes', label: 'Паралелки', icon: <BookOpen size={18} /> },
+  { href: '/classes', label: 'Паралелки', icon: <BookOpen size={18} />, roles: ['admin', 'director', 'zdud', 'psychologist', 'speech_therapist', 'rehabilitator'] },
   { href: '/documents', label: 'Документи', icon: <FileText size={18} /> },
   { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={18} />, roles: ['admin', 'director', 'zdud', 'class_teacher'] },
   { href: '/committees', label: 'Комисии', icon: <Building2 size={18} /> },
