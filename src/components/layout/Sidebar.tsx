@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Users, FileText, BookOpen,
   Calendar, Shield, UserCircle, LogOut, ChevronRight,
-  Building2, Menu, X
+  Building2, Menu, X, GitBranch
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
@@ -28,6 +28,7 @@ const navItems: NavItem[] = [
   { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={18} />, roles: ['admin', 'director', 'zdud', 'class_teacher'] },
   { href: '/committees', label: 'Комисии', icon: <Building2 size={18} /> },
   { href: '/staff', label: 'Служители', icon: <UserCircle size={18} />, roles: ['admin', 'director', 'zdud'] },
+  { href: '/admin/eplr-assignment', label: 'ЕПЛР Разпределение', icon: <GitBranch size={18} />, roles: ['admin', 'zdud'] },
   { href: '/admin', label: 'Администрация', icon: <Shield size={18} />, roles: ['admin', 'zdud'] },
 ]
 
@@ -43,12 +44,10 @@ export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
   const supabase = createClient()
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  // Затваряй при смяна на страница
   useEffect(() => {
     setMobileOpen(false)
   }, [pathname])
 
-  // Блокирай scroll на body когато менюто е отворено
   useEffect(() => {
     if (mobileOpen) {
       document.body.style.overflow = 'hidden'
@@ -128,12 +127,10 @@ export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
 
   return (
     <>
-      {/* ── ДЕСКТОП: статичен sidebar ── */}
       <div className="hidden md:flex w-56 h-screen sticky top-0 overflow-y-auto flex-shrink-0">
         {sidebarContent}
       </div>
 
-      {/* ── МОБИЛЕН: топ лента с хамбургер ── */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14"
            style={{ backgroundColor: '#0f2240' }}>
         <div className="flex items-center gap-3">
@@ -154,7 +151,6 @@ export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
         </button>
       </div>
 
-      {/* ── МОБИЛЕН: overlay ── */}
       {mobileOpen && (
         <div
           className="md:hidden fixed inset-0 z-30 bg-black/50"
@@ -162,7 +158,6 @@ export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
         />
       )}
 
-      {/* ── МОБИЛЕН: drawer ── */}
       <div className={cn(
         'md:hidden fixed top-14 left-0 bottom-0 z-40 w-56 transition-transform duration-300',
         mobileOpen ? 'translate-x-0' : '-translate-x-full'
@@ -170,7 +165,6 @@ export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
         {sidebarContent}
       </div>
 
-      {/* ── МОБИЛЕН: spacer за топ лентата ── */}
       <div className="md:hidden h-14 w-full" />
     </>
   )
