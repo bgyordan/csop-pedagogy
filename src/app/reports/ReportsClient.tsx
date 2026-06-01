@@ -1,210 +1,470 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import ReportsClient from './ReportsClient'
-import { DOCUMENT_TYPE_LABELS, DocumentType } from '@/types'
-import { getFullName } from '@/lib/utils'
+'use client'
 
-const DOC_TYPES: DocumentType[] = [
-  'protocol_1', 'protocol_2', 'protocol_3',
-  'iup', 'iu_program', 'support_plan', 'parent_program'
-]
+import { useState } from 'react'
+import { Download, FileSpreadsheet, AlertTriangle, Users, School, BarChart3, FileX, FileText } from 'lucide-react'
+import {
+  generateSchoolReportExcel,
+  generateSpecialistReportExcel,
+  generateWorkloadReportExcel,
+  generateNoTeamReportExcel,
+  generateDelayedDocsExcel,
+  generateAnnualReportExcel,
+} from '@/lib/excel-generator'
 
-const ROLE_LABELS_BG: Record<string, string> = {
-  psychologist: 'Психолог',
-  speech_therapist: 'Логопед',
-  rehabilitator: 'Рехабилитатор',
+type ReportTab = 'delayed' | 'school' | 'specialist' | 'workload' | 'noteam' | 'annual'
+
+const STATUS_COLORS: Record<string, string> = {
+  'Завършен': 'bg-green-100 text-green-700',
+  'В процес': 'bg-amber-100 text-amber-700',
+  'Непопълнен': 'bg-slate-100 text-slate-500',
 }
 
-export default async function ReportsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
+interface Props {
+  allRows: any[]
+  workloadRows: any[]
+  delayedRows: any[]
+  schools: { id: string; name: string; city: string }[]
+  specialists: { id: string; name: string; role: string }[]
+  yearName: string
+}
 
-  const { data: profile } = await supabase
-    .from('staff_profiles').select('role').eq('user_id', user.id).single()
+export function ReportsClient({ allRows, workloadRows, delayedRows, schools, specialists, yearName }: Props) {
+  const [activeTab, setActiveTab] = useState<ReportTab>('delayed')
+  const [selectedSchool, setSelectedSchool] = useState('')
+  const [selectedSpecialist, setSelectedSpecialist] = useState('')
 
-  if (!['admin', 'zdud', 'director'].includes(profile?.role || '')) redirect('/dashboard')
+  const tabs = [
+    { id: 'delayed' as ReportTab, label: 'Забавени документи', icon: <AlertTriangle size={15} />, color: 'text-red-600' },
+    { id: 'school' as ReportTab, label: 'По училище', icon: <School size={15} />, color: 'text-blue-600' },
+    { id: 'specialist' as ReportTab, label: 'По специалист', icon: <Users size={15} />, color: 'text-purple-600' },
+    { id: 'workload' as ReportTab, label: 'Натовареност', icon: <BarChart3 size={15} />, color: 'text-green-600' },
+    { id: 'noteam' as ReportTab, label: 'Без екип', icon: <FileX size={15} />, color: 'text-orange-600' },
+    { id: 'annual' as ReportTab, label: 'Годишна', icon: <FileText size={15} />, color: 'text-slate-600' },
+  ]
 
-  const { data: currentYear } = await supabase
-    .from('academic_years').select('*').eq('is_current', true).single()
+  // Филтрирани данни
+  const schoolRows = selectedSchool
+    ? allRows.filter(r => r.sendingSchoolId === selectedSchool)
+    : []
 
-  // Зареди всичко наведнъж
-  const [
-    { data: enrollments },
-    { data: eplrTeams },
-    { data: documents },
-    { data: schools },
-    { data: specialists },
-    { data: classTeachers },
-    { data: deadlines },
-  ] = await Promise.all([
-    supabase.from('student_enrollments')
-      .select('*, student:students(*, sending_school:sending_schools(name,city)), class:classes(*)')
-      .eq('academic_year_id', currentYear?.id),
-    supabase.from('eplr_teams')
-      .select(`*, psychologist:staff_profiles!eplr_teams_psychologist_id_fkey(id,first_name,last_name),
-        speech_therapist:staff_profiles!eplr_teams_speech_therapist_id_fkey(id,first_name,last_name),
-        rehabilitator:staff_profiles!eplr_teams_rehabilitator_id_fkey(id,first_name,last_name),
-        class_teacher:staff_profiles!eplr_teams_class_teacher_id_fkey(id,first_name,last_name)`)
-      .eq('academic_year_id', currentYear?.id),
-    supabase.from('documents').select('student_id, doc_type, status').eq('academic_year_id', currentYear?.id),
-    supabase.from('sending_schools').select('*').eq('is_active', true).order('name'),
-    supabase.from('staff_profiles').select('*')
-      .in('role', ['psychologist', 'speech_therapist', 'rehabilitator'])
-      .eq('is_active', true).order('first_name'),
-    supabase.from('class_teacher_assignments')
-      .select('class_id, staff:staff_profiles(id,first_name,last_name)')
-      .eq('academic_year_id', currentYear?.id),
-    supabase.from('calendar_deadlines')
-      .select('*').eq('academic_year_id', currentYear?.id).order('deadline_date'),
-  ])
+  const specialistRows = selectedSpecialist
+    ? allRows.filter(r =>
+        r.psychologistId === selectedSpecialist ||
+        r.speechTherapistId === selectedSpecialist ||
+        r.rehabilitatorId === selectedSpecialist
+      )
+    : []
 
-  // Изгради карти за бърз достъп
-  const eplrMap = new Map(eplrTeams?.map(t => [t.student_id, t]) || [])
-  const docMap = new Map<string, Map<string, string>>()
-  documents?.forEach(d => {
-    if (!docMap.has(d.student_id)) docMap.set(d.student_id, new Map())
-    docMap.get(d.student_id)!.set(d.doc_type, d.status)
-  })
-  const classTeacherMap = new Map<string, any>()
-  classTeachers?.forEach((ct: any) => {
-    if (ct.staff) classTeacherMap.set(ct.class_id, ct.staff)
-  })
+  const noTeamRows = allRows.filter(r => r.missingPsychologist && r.missingSpeechTherapist)
 
-  // Изгради редовете за всички справки
-  const allRows = enrollments?.map(e => {
-    const student = e.student as any
-    const cls = e.class as any
-    const eplr = eplrMap.get(student?.id)
-    const docs = docMap.get(student?.id) || new Map()
-    const classTeacher = classTeacherMap.get(e.class_id)
-    const sendingSchool = student?.sending_school
-
-    const statusLabel = (status: string | undefined) => {
-      if (status === 'completed') return 'Завършен'
-      if (status === 'in_progress') return 'В процес'
-      return 'Непопълнен'
-    }
-
-    return {
-      studentId: student?.id,
-      name: getFullName(student),
-      className: cls?.name || '—',
-      classId: e.class_id,
-      sendingSchoolId: student?.sending_school_id || null,
-      sendingSchoolName: sendingSchool ? `${sendingSchool.name} — ${sendingSchool.city}` : '—',
-      psychologistId: eplr?.psychologist_id || null,
-      psychologist: eplr?.psychologist ? getFullName(eplr.psychologist) : '—',
-      speechTherapistId: eplr?.speech_therapist_id || null,
-      speechTherapist: eplr?.speech_therapist ? getFullName(eplr.speech_therapist) : '—',
-      rehabilitatorId: eplr?.rehabilitator_id || null,
-      rehabilitator: eplr?.rehabilitator ? getFullName(eplr.rehabilitator) : '—',
-      classTeacher: classTeacher ? getFullName(classTeacher) : '—',
-      p1: statusLabel(docs.get('protocol_1')),
-      p2: statusLabel(docs.get('protocol_2')),
-      p3: statusLabel(docs.get('protocol_3')),
-      iup: statusLabel(docs.get('iup')),
-      iuProgram: statusLabel(docs.get('iu_program')),
-      supportPlan: statusLabel(docs.get('support_plan')),
-      parentProgram: statusLabel(docs.get('parent_program')),
-      docsCompleted: DOC_TYPES.filter(dt => docs.get(dt) === 'completed').length,
-      docsTotal: DOC_TYPES.length,
-      missingPsychologist: !eplr?.psychologist_id,
-      missingSpeechTherapist: !eplr?.speech_therapist_id,
-      missingRehabilitator: !eplr?.rehabilitator_id,
-    }
-  }) || []
-
-  // Натовареност на специалистите
-  const workloadRows = specialists?.map(s => {
-    const fieldMap: Record<string, string> = {
-      psychologist: 'psychologist_id',
-      speech_therapist: 'speech_therapist_id',
-      rehabilitator: 'rehabilitator_id',
-    }
-    const field = fieldMap[s.role]
-    const myStudents = eplrTeams?.filter((t: any) => t[field] === s.id) || []
-    const myStudentIds = myStudents.map((t: any) => t.student_id)
-    const myDocs = documents?.filter(d => myStudentIds.includes(d.student_id)) || []
-    return {
-      id: s.id,
-      name: getFullName(s),
-      role: ROLE_LABELS_BG[s.role] || s.role,
-      studentCount: myStudents.length,
-      completedDocs: myDocs.filter(d => d.status === 'completed').length,
-      totalDocs: myStudentIds.length * DOC_TYPES.length,
-    }
-  }) || []
-
-  // Мониторинг забавени документи
-  const now = new Date()
-  const soonDate = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
-
-  const delayedRows: any[] = []
-  deadlines?.forEach(deadline => {
-    const deadlineDate = new Date(deadline.deadline_date)
-    if (deadlineDate > soonDate) return // Повече от 3 дни
-
-    const daysOverdue = Math.floor((now.getTime() - deadlineDate.getTime()) / (1000 * 60 * 60 * 24))
-    const docType = deadline.doc_type as DocumentType | undefined
-    if (!docType) return
-
-    allRows.forEach(row => {
-      const status = docType === 'protocol_1' ? row.p1
-        : docType === 'protocol_2' ? row.p2
-        : docType === 'protocol_3' ? row.p3
-        : docType === 'iup' ? row.iup
-        : docType === 'iu_program' ? row.iuProgram
-        : docType === 'support_plan' ? row.supportPlan
-        : row.parentProgram
-
-      if (status === 'Завършен') return
-
-      // Намери отговорния специалист
-      const eplr = eplrMap.get(row.studentId)
-      let specialist = '—'
-      if (docType === 'protocol_1' || docType === 'protocol_2' || docType === 'protocol_3') {
-        specialist = row.classTeacher
-      } else if (docType === 'iup' || docType === 'iu_program') {
-        specialist = row.classTeacher
-      } else if (docType === 'support_plan') {
-        specialist = row.psychologist !== '—' ? row.psychologist : row.speechTherapist
-      } else {
-        specialist = row.classTeacher
-      }
-
-      delayedRows.push({
-        docType: DOCUMENT_TYPE_LABELS[docType],
-        studentName: row.name,
-        className: row.className,
-        specialist,
-        deadlineDate: deadline.deadline_date,
-        daysOverdue: Math.max(0, daysOverdue),
-        status,
-        isOverdue: deadlineDate < now,
-      })
-    })
-  })
+  function StatusBadge({ status }: { status: string }) {
+    return (
+      <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${STATUS_COLORS[status] || 'bg-slate-100 text-slate-400'}`}>
+        {status === 'Завършен' ? '✓' : status === 'В процес' ? '…' : '—'}
+      </span>
+    )
+  }
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="mb-6">
-        <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Справки</h1>
-        <p className="text-slate-500 text-sm mt-1">{currentYear?.name}</p>
+    <div>
+      {/* Табове */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        {tabs.map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
+              activeTab === tab.id
+                ? 'text-white border-transparent'
+                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}
+            style={activeTab === tab.id ? { backgroundColor: '#0f2240' } : {}}>
+            <span className={activeTab === tab.id ? 'text-white' : tab.color}>{tab.icon}</span>
+            {tab.label}
+            {tab.id === 'delayed' && delayedRows.length > 0 && (
+              <span className="ml-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                {delayedRows.length}
+              </span>
+            )}
+            {tab.id === 'noteam' && noTeamRows.length > 0 && (
+              <span className="ml-1 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                {noTeamRows.length}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
-      <ReportsClient
-        allRows={allRows}
-        workloadRows={workloadRows}
-        delayedRows={delayedRows}
-        schools={schools || []}
-        specialists={specialists?.map(s => ({
-          id: s.id,
-          name: getFullName(s),
-          role: ROLE_LABELS_BG[s.role] || s.role,
-        })) || []}
-        yearName={currentYear?.name || ''}
-      />
+      {/* ── ЗАБАВЕНИ ДОКУМЕНТИ ── */}
+      {activeTab === 'delayed' && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-semibold text-slate-800">Мониторинг на забавени документи</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Документи с изтекъл или наближаващ краен срок (до 3 дни)</p>
+            </div>
+            {delayedRows.length > 0 && (
+              <button onClick={() => generateDelayedDocsExcel(delayedRows)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium hover:bg-slate-50">
+                <FileSpreadsheet size={13} className="text-green-600" />
+                Excel
+              </button>
+            )}
+          </div>
+          {delayedRows.length === 0 ? (
+            <div className="card text-center py-12 text-green-600">
+              <p className="text-lg mb-1">✓</p>
+              <p className="font-medium">Няма забавени документи</p>
+              <p className="text-xs text-slate-400 mt-1">Всички документи са в срок</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Документ</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Ученик</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Паралелка</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Специалист</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Статус</th>
+                      <th className="text-center px-4 py-2.5 text-xs font-medium text-slate-500">Краен срок</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {delayedRows.map((row, idx) => (
+                      <tr key={idx} className={`border-b border-slate-100 ${row.isOverdue ? 'bg-red-50/40' : 'bg-amber-50/30'}`}>
+                        <td className="px-4 py-2.5 text-xs font-medium text-slate-700">{row.docType}</td>
+                        <td className="px-4 py-2.5 font-medium text-slate-800 whitespace-nowrap">{row.studentName}</td>
+                        <td className="px-4 py-2.5 text-slate-600">{row.className}</td>
+                        <td className="px-4 py-2.5 text-slate-600">{row.specialist}</td>
+                        <td className="px-4 py-2.5"><StatusBadge status={row.status} /></td>
+                        <td className="px-4 py-2.5 text-center">
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                            row.isOverdue ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {row.isOverdue ? `+${row.daysOverdue} дни` : 'Скоро'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── ПО УЧИЛИЩЕ ── */}
+      {activeTab === 'school' && (
+        <div>
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <select className="input w-72" value={selectedSchool}
+              onChange={e => setSelectedSchool(e.target.value)}>
+              <option value="">— Избери училище —</option>
+              {schools.map(s => (
+                <option key={s.id} value={s.id}>{s.name} — {s.city}</option>
+              ))}
+            </select>
+            {schoolRows.length > 0 && (
+              <button onClick={() => generateSchoolReportExcel(
+                schools.find(s => s.id === selectedSchool)?.name || '',
+                schoolRows
+              )} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium hover:bg-slate-50">
+                <FileSpreadsheet size={13} className="text-green-600" />
+                Excel
+              </button>
+            )}
+          </div>
+          {!selectedSchool ? (
+            <div className="card text-center py-12 text-slate-400">
+              <School size={32} className="mx-auto mb-2 opacity-30" />
+              <p className="text-sm">Избери училище за да видиш справката</p>
+            </div>
+          ) : schoolRows.length === 0 ? (
+            <div className="card text-center py-12 text-slate-400">
+              <p className="text-sm">Няма ученици от това училище</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className="px-4 py-3 border-b border-slate-100 text-sm font-medium text-slate-700">
+                {schools.find(s => s.id === selectedSchool)?.name} — {schoolRows.length} ученика
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Три имена</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Паралелка</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Психолог</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Логопед</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Рехабилитатор</th>
+                      <th className="text-center px-4 py-2.5 text-xs font-medium text-slate-500">Документи</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {schoolRows.map((row, idx) => (
+                      <tr key={row.studentId} className={`border-b border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                        <td className="px-4 py-2.5 font-medium text-slate-800">{row.name}</td>
+                        <td className="px-4 py-2.5 text-slate-600">{row.className}</td>
+                        <td className="px-4 py-2.5 text-slate-600 text-xs">{row.psychologist}</td>
+                        <td className="px-4 py-2.5 text-slate-600 text-xs">{row.speechTherapist}</td>
+                        <td className="px-4 py-2.5 text-slate-600 text-xs">{row.rehabilitator}</td>
+                        <td className="px-4 py-2.5 text-center">
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                            row.docsCompleted === row.docsTotal ? 'bg-green-100 text-green-700' :
+                            row.docsCompleted > 0 ? 'bg-amber-100 text-amber-700' :
+                            'bg-slate-100 text-slate-500'
+                          }`}>
+                            {row.docsCompleted}/{row.docsTotal}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── ПО СПЕЦИАЛИСТ ── */}
+      {activeTab === 'specialist' && (
+        <div>
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <select className="input w-64" value={selectedSpecialist}
+              onChange={e => setSelectedSpecialist(e.target.value)}>
+              <option value="">— Избери специалист —</option>
+              {specialists.map(s => (
+                <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
+              ))}
+            </select>
+            {specialistRows.length > 0 && (
+              <button onClick={() => generateSpecialistReportExcel(
+                specialists.find(s => s.id === selectedSpecialist)?.name || '',
+                specialistRows
+              )} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium hover:bg-slate-50">
+                <FileSpreadsheet size={13} className="text-green-600" />
+                Excel
+              </button>
+            )}
+          </div>
+          {!selectedSpecialist ? (
+            <div className="card text-center py-12 text-slate-400">
+              <Users size={32} className="mx-auto mb-2 opacity-30" />
+              <p className="text-sm">Избери специалист за да видиш справката</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className="px-4 py-3 border-b border-slate-100 text-sm font-medium text-slate-700">
+                {specialists.find(s => s.id === selectedSpecialist)?.name} — {specialistRows.length} ученика
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Три имена</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Пар.</th>
+                      <th className="text-center px-2 py-2.5 text-xs font-medium text-slate-500">П1</th>
+                      <th className="text-center px-2 py-2.5 text-xs font-medium text-slate-500">П2</th>
+                      <th className="text-center px-2 py-2.5 text-xs font-medium text-slate-500">П3</th>
+                      <th className="text-center px-2 py-2.5 text-xs font-medium text-slate-500">ИУП</th>
+                      <th className="text-center px-2 py-2.5 text-xs font-medium text-slate-500">ИУПр</th>
+                      <th className="text-center px-2 py-2.5 text-xs font-medium text-slate-500">ПДП</th>
+                      <th className="text-center px-2 py-2.5 text-xs font-medium text-slate-500">ПР</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {specialistRows.map((row, idx) => (
+                      <tr key={row.studentId} className={`border-b border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                        <td className="px-4 py-2.5 font-medium text-slate-800 whitespace-nowrap">{row.name}</td>
+                        <td className="px-4 py-2.5 text-slate-600">{row.className}</td>
+                        {[row.p1, row.p2, row.p3, row.iup, row.iuProgram, row.supportPlan, row.parentProgram].map((s, i) => (
+                          <td key={i} className="text-center px-2 py-2.5"><StatusBadge status={s} /></td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── НАТОВАРЕНОСТ ── */}
+      {activeTab === 'workload' && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-slate-800">Натовареност на специалистите</h2>
+            <button onClick={() => generateWorkloadReportExcel(workloadRows)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium hover:bg-slate-50">
+              <FileSpreadsheet size={13} className="text-green-600" />
+              Excel
+            </button>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Специалист</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Роля</th>
+                  <th className="text-center px-4 py-2.5 text-xs font-medium text-slate-500">Ученици</th>
+                  <th className="text-center px-4 py-2.5 text-xs font-medium text-slate-500">Завършени</th>
+                  <th className="px-4 py-2.5 text-xs font-medium text-slate-500">Прогрес</th>
+                </tr>
+              </thead>
+              <tbody>
+                {workloadRows.map((row, idx) => {
+                  const pct = row.totalDocs > 0 ? Math.round(row.completedDocs / row.totalDocs * 100) : 0
+                  return (
+                    <tr key={row.id} className={`border-b border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                      <td className="px-4 py-2.5 font-medium text-slate-800">{row.name}</td>
+                      <td className="px-4 py-2.5 text-slate-600 text-xs">{row.role}</td>
+                      <td className="px-4 py-2.5 text-center">
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                          row.studentCount === 0 ? 'bg-slate-100 text-slate-400' :
+                          row.studentCount <= 20 ? 'bg-green-100 text-green-700' :
+                          row.studentCount <= 30 ? 'bg-amber-100 text-amber-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {row.studentCount}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-center text-xs text-slate-600">
+                        {row.completedDocs}/{row.totalDocs}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${
+                              pct >= 80 ? 'bg-green-500' : pct >= 40 ? 'bg-amber-500' : 'bg-red-400'
+                            }`} style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-xs text-slate-500 w-8">{pct}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── БЕЗ ЕКИП ── */}
+      {activeTab === 'noteam' && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-semibold text-slate-800">Деца без ЕПЛР екип</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Деца без назначен психолог И логопед</p>
+            </div>
+            {noTeamRows.length > 0 && (
+              <button onClick={() => generateNoTeamReportExcel(noTeamRows)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium hover:bg-slate-50">
+                <FileSpreadsheet size={13} className="text-green-600" />
+                Excel
+              </button>
+            )}
+          </div>
+          {noTeamRows.length === 0 ? (
+            <div className="card text-center py-12 text-green-600">
+              <p className="text-lg mb-1">✓</p>
+              <p className="font-medium">Всички деца имат ЕПЛР екип</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Три имена</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">Паралелка</th>
+                    <th className="text-center px-4 py-2.5 text-xs font-medium text-slate-500">Психолог</th>
+                    <th className="text-center px-4 py-2.5 text-xs font-medium text-slate-500">Логопед</th>
+                    <th className="text-center px-4 py-2.5 text-xs font-medium text-slate-500">Рехабилитатор</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {noTeamRows.map((row, idx) => (
+                    <tr key={row.studentId} className={`border-b border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                      <td className="px-4 py-2.5 font-medium text-slate-800">{row.name}</td>
+                      <td className="px-4 py-2.5 text-slate-600">{row.className}</td>
+                      <td className="px-4 py-2.5 text-center">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${row.missingPsychologist ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                          {row.missingPsychologist ? 'Липсва' : '✓'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-center">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${row.missingSpeechTherapist ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                          {row.missingSpeechTherapist ? 'Липсва' : '✓'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-center">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${row.missingRehabilitator ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                          {row.missingRehabilitator ? 'Липсва' : '✓'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── ГОДИШНА СПРАВКА ── */}
+      {activeTab === 'annual' && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-semibold text-slate-800">Обобщена годишна справка</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Всички ученици с екипи и статус на документите — {yearName}</p>
+            </div>
+            <button onClick={() => generateAnnualReportExcel(yearName, allRows)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium hover:bg-slate-50">
+              <FileSpreadsheet size={13} className="text-green-600" />
+              Excel
+            </button>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 whitespace-nowrap">Три имена</th>
+                    <th className="text-left px-2 py-2.5 text-xs font-medium text-slate-500">Пар.</th>
+                    <th className="text-left px-2 py-2.5 text-xs font-medium text-blue-500">Психолог</th>
+                    <th className="text-left px-2 py-2.5 text-xs font-medium text-purple-500">Логопед</th>
+                    <th className="text-center px-2 py-2.5 text-xs font-medium text-slate-500">П1</th>
+                    <th className="text-center px-2 py-2.5 text-xs font-medium text-slate-500">П2</th>
+                    <th className="text-center px-2 py-2.5 text-xs font-medium text-slate-500">П3</th>
+                    <th className="text-center px-2 py-2.5 text-xs font-medium text-slate-500">ИУП</th>
+                    <th className="text-center px-2 py-2.5 text-xs font-medium text-slate-500">ИУПр</th>
+                    <th className="text-center px-2 py-2.5 text-xs font-medium text-slate-500">ПДП</th>
+                    <th className="text-center px-2 py-2.5 text-xs font-medium text-slate-500">ПР</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allRows.map((row, idx) => (
+                    <tr key={row.studentId} className={`border-b border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                      <td className="px-4 py-2 font-medium text-slate-800 whitespace-nowrap">{row.name}</td>
+                      <td className="px-2 py-2 text-slate-600">{row.className}</td>
+                      <td className="px-2 py-2 text-slate-600 text-xs whitespace-nowrap">{row.psychologist}</td>
+                      <td className="px-2 py-2 text-slate-600 text-xs whitespace-nowrap">{row.speechTherapist}</td>
+                      {[row.p1, row.p2, row.p3, row.iup, row.iuProgram, row.supportPlan, row.parentProgram].map((s, i) => (
+                        <td key={i} className="text-center px-2 py-2"><StatusBadge status={s} /></td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
