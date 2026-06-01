@@ -78,7 +78,7 @@ export default async function StudentsPage({
 
       {/* Filters */}
       <div className="card mb-4 md:mb-6">
-        <form className="flex flex-col sm:flex-row gap-3">
+        <form id="filter-form" className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -92,6 +92,10 @@ export default async function StudentsPage({
             name="class"
             className="input sm:w-48"
             defaultValue={params.class || ''}
+            onChange={(e) => {
+              const form = document.getElementById('filter-form') as HTMLFormElement
+              form?.submit()
+            }}
           >
             <option value="">Всички паралелки</option>
             {classes?.map(c => (
@@ -120,7 +124,7 @@ export default async function StudentsPage({
                   {getFullName(enrollment.student)}
                 </td>
                 <td className="px-5 py-3.5 text-slate-600">
-                  {enrollment.class?.name || '—'}
+                  {(enrollment.class as any)?.name || '—'}
                 </td>
                 <td className="px-5 py-3.5 text-slate-600">
                   {enrollment.student?.birth_date ? formatDate(enrollment.student.birth_date) : '—'}
@@ -170,7 +174,7 @@ export default async function StudentsPage({
                 {getFullName(enrollment.student)}
               </div>
               <div className="text-xs text-slate-500 mt-0.5">
-                Пар. {enrollment.class?.name || '—'}
+                Пар. {(enrollment.class as any)?.name || '—'}
                 {enrollment.student?.birth_date && (
                   <span className="ml-2 text-slate-400">{formatDate(enrollment.student.birth_date)}</span>
                 )}
