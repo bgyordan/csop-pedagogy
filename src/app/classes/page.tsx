@@ -42,25 +42,21 @@ export default async function ClassesPage() {
   const docMap = new Map<string, string>()
   documents?.forEach(d => docMap.set(`${d.student_id}_${d.doc_type}`, d.status))
 
-  // Count students per class
   const countByClass = new Map<string, number>()
   enrollments?.forEach(e => countByClass.set(e.class_id, (countByClass.get(e.class_id) || 0) + 1))
 
-  // Students per class (for doc counting)
   const studentsByClass = new Map<string, string[]>()
   enrollments?.forEach(e => {
     if (!studentsByClass.has(e.class_id)) studentsByClass.set(e.class_id, [])
     studentsByClass.get(e.class_id)!.push(e.student_id)
   })
 
-  // Teachers per class
   const teachersByClass = new Map<string, string[]>()
   assignments?.forEach((a: any) => {
     if (!teachersByClass.has(a.class_id)) teachersByClass.set(a.class_id, [])
     if (a.staff) teachersByClass.get(a.class_id)!.push(getFullName(a.staff))
   })
 
-  // Doc completed count per class per type
   function getDocStats(classId: string, dt: DocumentType) {
     const studentIds = studentsByClass.get(classId) || []
     const completed = studentIds.filter(sid => docMap.get(`${sid}_${dt}`) === 'completed').length
@@ -98,7 +94,7 @@ export default async function ClassesPage() {
                 const teachers = teachersByClass.get(cls.id) || []
                 return (
                   <tr key={cls.id}
-                      className={`border-b border-slate-100 hover:bg-blue-50 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
+                      className={`border-b border-slate-100 hover:bg-blue-50/40 transition-colors ${idx % 2 === 1 ? 'bg-slate-50' : 'bg-white'}`}>
                     <td className="px-4 py-2">
                       <Link href={`/classes/${cls.id}`} className="font-semibold text-slate-800 hover:underline">
                         {cls.name}
@@ -153,20 +149,17 @@ export default async function ClassesPage() {
                   <div className="text-sm font-semibold text-slate-800">{count} уч.</div>
                   <div className={`text-xs font-medium mt-0.5 ${
                     completedDocs === totalDocs && totalDocs > 0 ? 'text-green-600' :
-                    completedDocs > 0 ? 'text-amber-600' :
-                    'text-slate-400'
+                    completedDocs > 0 ? 'text-amber-600' : 'text-slate-400'
                   }`}>
                     {completedDocs}/{totalDocs} док.
                   </div>
                 </div>
               </div>
-              {/* Мини статус по документи */}
               <div className="flex gap-1.5 flex-wrap">
                 {ALL_DOC_TYPES.map(dt => {
                   const { completed, total } = getDocStats(cls.id, dt)
                   return (
-                    <span key={dt}
-                      title={DOCUMENT_TYPE_LABELS[dt]}
+                    <span key={dt} title={DOCUMENT_TYPE_LABELS[dt]}
                       className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                         total === 0 ? 'bg-slate-100 text-slate-400' :
                         completed === total ? 'bg-green-100 text-green-700' :
