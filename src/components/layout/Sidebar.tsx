@@ -117,7 +117,7 @@ export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
         <button
           onClick={handleLogout}
           className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-white/50
-                     hover:text-white hover:bg-white/5 transition-colors text-xs"
+                      hover:text-white hover:bg-white/5 transition-colors text-xs"
         >
           <LogOut size={14} />
           Изход
@@ -128,45 +128,18 @@ export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
 
   return (
     <>
-      <div className="hidden md:flex w-56 h-screen sticky top-0 overflow-y-auto flex-shrink-0">
+      {/* ДЕСКТОП: Статичен Sidebar */}
+      <div className="hidden md:flex w-56 h-screen sticky top-0 overflow-y-auto flex-shrink-0 z-10">
         {sidebarContent}
       </div>
 
-      <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14"
+      {/* МОБИЛЕН: Горна лента (Header) */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 h-14"
            style={{ backgroundColor: '#0f2240' }}>
         <div className="flex items-center gap-3">
-          <Link href="/dashboard">
+          <Link href="/dashboard" onClick={() => setMobileOpen(false)}>
             <img src="/csop-varna-logo.jpg" alt="ЦСОП Варна" className="w-8 h-8 rounded-lg object-cover" />
           </Link>
           <div>
             <div className="text-white text-sm font-semibold">ЦСОП Варна</div>
-            <div className="text-white/40 text-xs">ЕПЛР</div>
-          </div>
-        </div>
-        <button
-          onClick={() => setMobileOpen(prev => !prev)}
-          className="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-          aria-label="Меню"
-        >
-          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
-      </div>
-
-      {mobileOpen && (
-        <div
-          className="md:hidden fixed inset-0 z-30 bg-black/50"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
-
-      <div className={cn(
-        'md:hidden fixed top-14 left-0 bottom-0 z-40 w-56 transition-transform duration-300',
-        mobileOpen ? 'translate-x-0' : '-translate-x-full'
-      )}>
-        {sidebarContent}
-      </div>
-
-      <div className="md:hidden h-14 w-full" />
-    </>
-  )
-}
+            <div className
