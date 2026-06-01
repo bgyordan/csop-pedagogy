@@ -10,6 +10,11 @@ const ALL_DOC_TYPES: DocumentType[] = [
   'iup', 'iu_program', 'support_plan', 'parent_program'
 ]
 
+const DOC_SHORT: Record<DocumentType, string> = {
+  protocol_1: 'П1', protocol_2: 'П2', protocol_3: 'П3',
+  iup: 'ИУП', iu_program: 'ИУПр', support_plan: 'ПДП', parent_program: 'ПР',
+}
+
 export default async function DocumentsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -38,18 +43,18 @@ export default async function DocumentsPage() {
   const students = enrollments?.map(e => e.student).filter(Boolean) || []
   const completed = documents?.filter(d => d.status === 'completed').length || 0
   const inProgress = documents?.filter(d => d.status === 'in_progress').length || 0
-  const total = (students.length * ALL_DOC_TYPES.length)
+  const total = students.length * ALL_DOC_TYPES.length
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-slate-800">Документи</h1>
+        <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Документи</h1>
         <p className="text-slate-500 text-sm mt-1">
           {currentYear?.name} · {completed} завършени · {inProgress} в процес · {total - completed - inProgress} непопълнени
         </p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3 md:space-y-4">
         {enrollments?.map(enrollment => {
           const student = enrollment.student
           if (!student) return null
@@ -57,14 +62,16 @@ export default async function DocumentsPage() {
             <div key={student.id} className="card">
               <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
                 <div>
-                  <h2 className="font-medium text-slate-800">{getFullName(student)}</h2>
+                  <h2 className="font-medium text-slate-800 text-sm md:text-base">{getFullName(student)}</h2>
                   <span className="text-xs text-slate-400">Паралелка {(enrollment.class as any)?.name || '—'}</span>
                 </div>
-                <Link href={`/students/${student.id}`} className="text-xs text-slate-400 hover:text-slate-700">
+                <Link href={`/students/${student.id}`} className="text-xs text-slate-400 hover:text-slate-700 flex-shrink-0">
                   Профил →
                 </Link>
               </div>
-              <div className="grid grid-cols-7 gap-2">
+
+              {/* ДЕСКТОП: 7 колони с пълни надписи */}
+              <div className="hidden md:grid grid-cols-7 gap-2">
                 {ALL_DOC_TYPES.map(docType => {
                   const doc = docMap.get(`${student.id}_${docType}`)
                   const status: DocumentStatus = doc?.status || 'empty'
@@ -88,9 +95,35 @@ export default async function DocumentsPage() {
                   )
                 })}
               </div>
+
+              {/* МОБИЛЕН: таблетки с кратки имена */}
+              <div className="md:hidden flex flex-wrap gap-1.5">
+                {ALL_DOC_TYPES.map(docType => {
+                  const doc = docMap.get(`${student.id}_${docType}`)
+                  const status: DocumentStatus = doc?.status || 'empty'
+                  return (
+                    <Link
+                      key={docType}
+                      href={`/documents/${student.id}/${docType}`}
+                      title={DOCUMENT_TYPE_LABELS[docType]}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                        status === 'completed'
+                          ? 'bg-green-50 border-green-200 text-green-700'
+                          : status === 'in_progress'
+                          ? 'bg-amber-50 border-amber-200 text-amber-700'
+                          : 'bg-slate-50 border-slate-200 text-slate-500'
+                      }`}
+                    >
+                      <span>{status === 'completed' ? '✓' : status === 'in_progress' ? '…' : '—'}</span>
+                      <span>{DOC_SHORT[docType]}</span>
+                    </Link>
+                  )
+                })}
+              </div>
             </div>
           )
         })}
+
         {!enrollments?.length && (
           <div className="text-center py-16 text-slate-400">
             <FileText className="mx-auto mb-2 opacity-30" size={32} />
