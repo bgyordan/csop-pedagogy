@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { ReportsClient } from './ReportsClient'
+import ReportsClient from './ReportsClient'
 import { DOCUMENT_TYPE_LABELS, DocumentType } from '@/types'
 import { getFullName } from '@/lib/utils'
 
