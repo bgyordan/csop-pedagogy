@@ -28,7 +28,7 @@ const navItems: NavItem[] = [
   { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={18} />, roles: ['admin', 'director', 'zdud', 'class_teacher'] },
   { href: '/committees', label: 'Комисии', icon: <Building2 size={18} /> },
   { href: '/staff', label: 'Служители', icon: <UserCircle size={18} />, roles: ['admin', 'director', 'zdud'] },
-  { href: '/admin', label: 'Администрация', icon: <Shield size={18} />, roles: ['admin'] },
+  { href: '/admin', label: 'Администрация', icon: <Shield size={18} />, roles: ['admin', 'zdud'] },
 ]
 
 interface SidebarProps {
