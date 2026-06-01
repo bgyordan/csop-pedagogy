@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Users, FileText, BookOpen,
   Calendar, Shield, UserCircle, LogOut, ChevronRight,
-  Building2, Menu, X, GitBranch
+  Building2, Menu, X, GitBranch, BarChart3
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
@@ -28,6 +28,7 @@ const navItems: NavItem[] = [
   { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={18} />, roles: ['admin', 'director', 'zdud', 'class_teacher'] },
   { href: '/committees', label: 'Комисии', icon: <Building2 size={18} /> },
   { href: '/staff', label: 'Служители', icon: <UserCircle size={18} />, roles: ['admin', 'director', 'zdud'] },
+  { href: '/reports', label: 'Справки', icon: <BarChart3 size={18} />, roles: ['admin', 'director', 'zdud'] },
   { href: '/admin/eplr-assignment', label: 'ЕПЛР Разпределение', icon: <GitBranch size={18} />, roles: ['admin', 'zdud'] },
   { href: '/admin', label: 'Администрация', icon: <Shield size={18} />, roles: ['admin', 'zdud'] },
 ]
