@@ -1,177 +1,120 @@
+
 'use client'
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import {
-  LayoutDashboard, Users, FileText, BookOpen,
-  Calendar, Shield, UserCircle, LogOut, ChevronRight,
-  Building2, Menu, X, GitBranch, BarChart3
+  LayoutDashboard, Users, FileText, Menu, X, LogOut
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { UserRole, ROLE_LABELS } from '@/types'
 import { cn } from '@/lib/utils'
-import { AutoLogout } from '@/components/AutoLogout'
 
-interface NavItem {
-  href: string
-  label: string
-  icon: React.ReactNode
-  roles?: UserRole[]
-}
-
-const navItems: NavItem[] = [
+const navItems = [
   { href: '/dashboard', label: 'Начало', icon: <LayoutDashboard size={18} /> },
   { href: '/students', label: 'Ученици', icon: <Users size={18} /> },
-  { href: '/classes', label: 'Паралелки', icon: <BookOpen size={18} />, roles: ['admin', 'director', 'zdud', 'psychologist', 'speech_therapist', 'rehabilitator'] },
   { href: '/documents', label: 'Документи', icon: <FileText size={18} /> },
-  { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={18} />, roles: ['admin', 'director', 'zdud', 'class_teacher'] },
-  { href: '/committees', label: 'Комисии', icon: <Building2 size={18} /> },
-  { href: '/staff', label: 'Служители', icon: <UserCircle size={18} />, roles: ['admin', 'director', 'zdud'] },
-  { href: '/reports', label: 'Справки', icon: <BarChart3 size={18} />, roles: ['admin', 'director', 'zdud'] },
-  { href: '/admin/eplr-assignment', label: 'ЕПЛР Разпределение', icon: <GitBranch size={18} />, roles: ['admin', 'zdud'] },
-  { href: '/admin', label: 'Администрация', icon: <Shield size={18} />, roles: ['admin', 'zdud'] },
 ]
 
-interface SidebarProps {
-  userRole: UserRole
+export function Sidebar({
+  userName,
+}: {
   userName: string
-  userEmail: string
-}
-
-export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
+}) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
-  const [mobileOpen, setMobileOpen] = useState(false)
+  const [open, setOpen] = useState(false)
 
   useEffect(() => {
-    setMobileOpen(false)
+    setOpen(false)
   }, [pathname])
 
   useEffect(() => {
-    if (mobileOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
+    document.body.style.overflow = open ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
-  }, [mobileOpen])
+  }, [open])
 
-  async function handleLogout() {
+  async function logout() {
     await supabase.auth.signOut()
     router.push('/auth/login')
   }
 
-  const visibleItems = navItems.filter(
-    item => !item.roles || item.roles.includes(userRole)
-  )
+  const content = (
+    <aside className="w-56 h-full bg-[#0f2240] text-white flex flex-col">
 
-  const sidebarContent = (
-    <aside className="w-56 h-full flex flex-col bg-navy" style={{ backgroundColor: '#0f2240' }}>
-      <AutoLogout />
-      <div className="p-5 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard" onClick={() => setMobileOpen(false)}>
-            <img src="/csop-varna-logo.jpg" alt="ЦСОП Варна" className="w-9 h-9 rounded-lg object-cover" />
-          </Link>
-          <div>
-            <div className="text-white text-sm font-semibold">ЦСОП Варна</div>
-            <div className="text-white/40 text-xs">ЕПЛР</div>
-          </div>
-        </div>
+      {/* LOGO */}
+      <div className="p-4 border-b border-white/10 font-semibold">
+        ЦСОП
       </div>
 
-      <nav className="flex-1 py-4 px-2 space-y-0.5 overflow-y-auto">
-        {visibleItems.map(item => {
-          const active = pathname === item.href || pathname.startsWith(item.href + '/')
+      {/* NAV */}
+      <nav className="flex-1 p-2 space-y-1">
+        {navItems.map(item => {
+          const active = pathname.startsWith(item.href)
+
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                'flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors',
+                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm',
                 active
-                  ? 'bg-white/10 text-white font-medium'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  ? 'bg-white/10'
+                  : 'text-white/60 hover:bg-white/10'
               )}
             >
               {item.icon}
-              <span className="flex-1">{item.label}</span>
-              {active && <ChevronRight size={14} className="opacity-50" />}
+              {item.label}
             </Link>
           )
         })}
       </nav>
 
-      <div className="p-4 border-t border-white/10">
-        <div className="flex items-center gap-2.5 mb-3">
-          <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white text-xs font-medium">
-            {userName.charAt(0)}
-          </div>
-          <div className="overflow-hidden">
-            <div className="text-white text-xs font-medium truncate">{userName}</div>
-            <div className="text-white/40 text-xs">{ROLE_LABELS[userRole]}</div>
-          </div>
-        </div>
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-white/50
-                      hover:text-white hover:bg-white/5 transition-colors text-xs"
-        >
+      {/* USER */}
+      <div className="p-3 border-t border-white/10 text-xs">
+        <div className="mb-2">{userName}</div>
+        <button onClick={logout} className="flex gap-2 items-center">
           <LogOut size={14} />
           Изход
         </button>
       </div>
+
     </aside>
   )
 
   return (
     <>
-      {/* ДЕСКТОП: Статичен Sidebar */}
-      <div className="hidden md:flex w-56 h-screen sticky top-0 overflow-y-auto flex-shrink-0 z-10">
-        {sidebarContent}
+      {/* DESKTOP */}
+      <div className="hidden md:flex w-56 h-screen sticky top-0">
+        {content}
       </div>
 
-      {/* МОБИЛЕН: Горна лента (Header) */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 h-14"
-           style={{ backgroundColor: '#0f2240' }}>
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard" onClick={() => setMobileOpen(false)}>
-            <img src="/csop-varna-logo.jpg" alt="ЦСОП Варна" className="w-8 h-8 rounded-lg object-cover" />
-          </Link>
-          <div>
-            <div className="text-white text-sm font-semibold">ЦСОП Варна</div>
-            <div className="text-white/40 text-xs">ЕПЛР</div>
-          </div>
-        </div>
-        <button
-          onClick={() => setMobileOpen(prev => !prev)}
-          className="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors relative z-50"
-          aria-label="Меню"
-        >
-          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+      {/* MOBILE HEADER */}
+      <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-[#0f2240] flex items-center justify-between px-4 text-white z-50">
+        <span>ЦСОП</span>
+        <button onClick={() => setOpen(!open)}>
+          {open ? <X size={20} /> : <Menu size={20} />}
         </button>
       </div>
 
-      {/* МОБИЛЕН: Тъмен фон зад менюто (Overlay) с повишен Z-index */}
-      {mobileOpen && (
+      {/* OVERLAY */}
+      {open && (
         <div
-          className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity"
-          onClick={() => setMobileOpen(false)}
+          className="md:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={() => setOpen(false)}
         />
       )}
 
-      {/* МОБИЛЕН: Самото изскачащо меню (Sidebar) с повишен Z-index */}
-      <div className={cn(
-        'md:hidden fixed top-14 left-0 bottom-0 z-50 w-56 transition-transform duration-300 ease-in-out',
-        mobileOpen ? 'translate-x-0' : '-translate-x-full'
-      )}>
-        {sidebarContent}
+      {/* MOBILE MENU */}
+      <div
+        className={cn(
+          'md:hidden fixed top-14 left-0 bottom-0 w-56 z-50 transition-transform',
+          open ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
+        {content}
       </div>
-
-      {/* Spacer за мобилната версия, за да не се скрива съдържанието зад fixed хедъра */}
-      <div className="md:hidden h-14 w-full flex-shrink-0" />
     </>
   )
 }
