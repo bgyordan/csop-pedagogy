@@ -113,3 +113,8 @@
     margin: 1.5cm;
   }
 }
+@media (max-width: 767px) {
+  main {
+    padding-top: 3.5rem;
+  }
+}
