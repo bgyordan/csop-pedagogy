@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Search, Users } from 'lucide-react'
+import { Plus, Users } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
+import { StudentsFilter } from './StudentsFilter'
 
 export default async function StudentsPage({
   searchParams,
@@ -17,30 +18,19 @@ export default async function StudentsPage({
   const search = params.q || ''
 
   const { data: currentYear } = await supabase
-    .from('academic_years')
-    .select('*')
-    .eq('is_current', true)
-    .single()
+    .from('academic_years').select('*').eq('is_current', true).single()
 
   const { data: profileData } = await supabase
-    .from('staff_profiles')
-    .select('id, role')
-    .eq('user_id', user.id)
-    .single()
+    .from('staff_profiles').select('id, role').eq('user_id', user.id).single()
 
   const role = profileData?.role || ''
   const isClassTeacher = role === 'class_teacher'
   const isSpecialist = ['psychologist', 'speech_therapist', 'rehabilitator'].includes(role)
   const canWrite = ['admin', 'zdud'].includes(role)
 
-  // Вземи всички паралелки
   const { data: allClasses } = await supabase
-    .from('classes')
-    .select('*')
-    .eq('academic_year_id', currentYear?.id)
-    .order('name')
+    .from('classes').select('*').eq('academic_year_id', currentYear?.id).order('name')
 
-  // Изгради заявката за ученици
   let query = supabase
     .from('student_enrollments')
     .select('*, student:students(*), class:classes(*)')
@@ -49,32 +39,23 @@ export default async function StudentsPage({
   let visibleClasses = allClasses || []
 
   if (isClassTeacher) {
-    // Класен вижда само своите паралелки
     const { data: assignments } = await supabase
-      .from('class_teacher_assignments')
-      .select('class_id')
-      .eq('staff_id', profileData!.id)
-      .eq('academic_year_id', currentYear?.id)
+      .from('class_teacher_assignments').select('class_id')
+      .eq('staff_id', profileData!.id).eq('academic_year_id', currentYear?.id)
     const myClassIds = assignments?.map(a => a.class_id) || []
     query = query.in('class_id', myClassIds.length > 0 ? myClassIds : ['no-results'])
     visibleClasses = allClasses?.filter(c => myClassIds.includes(c.id)) || []
   } else if (isSpecialist) {
-    // Специалистът вижда само своите деца от ЕПЛР
     const roleField = role === 'psychologist' ? 'psychologist_id'
-      : role === 'speech_therapist' ? 'speech_therapist_id'
-      : 'rehabilitator_id'
+      : role === 'speech_therapist' ? 'speech_therapist_id' : 'rehabilitator_id'
     const { data: eplrTeams } = await supabase
-      .from('eplr_teams')
-      .select('student_id')
-      .eq(roleField, profileData!.id)
-      .eq('academic_year_id', currentYear?.id)
+      .from('eplr_teams').select('student_id')
+      .eq(roleField, profileData!.id).eq('academic_year_id', currentYear?.id)
     const studentIds = eplrTeams?.map(t => t.student_id) || []
     query = query.in('student_id', studentIds.length > 0 ? studentIds : ['no-results'])
   }
 
-  if (params.class) {
-    query = query.eq('class_id', params.class)
-  }
+  if (params.class) query = query.eq('class_id', params.class)
 
   const { data: enrollments } = await query
 
@@ -93,11 +74,9 @@ export default async function StudentsPage({
           </p>
         </div>
         {canWrite && (
-          <Link
-            href="/students/new"
-            className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
-            style={{ backgroundColor: '#0f2240' }}
-          >
+          <Link href="/students/new"
+            className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg text-sm font-medium text-white"
+            style={{ backgroundColor: '#0f2240' }}>
             <Plus size={16} />
             <span className="hidden sm:inline">Нов ученик</span>
             <span className="sm:hidden">Нов</span>
@@ -105,35 +84,11 @@ export default async function StudentsPage({
         )}
       </div>
 
-      <div className="card mb-4 md:mb-6">
-        <form id="filter-form" className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              name="q"
-              defaultValue={search}
-              placeholder="Търси по три имена..."
-              className="input pl-9 w-full"
-            />
-          </div>
-          {visibleClasses.length > 1 && (
-            <select
-              name="class"
-              className="input sm:w-48"
-              defaultValue={params.class || ''}
-              onChange={(e) => {
-                const form = document.getElementById('filter-form') as HTMLFormElement
-                form?.submit()
-              }}
-            >
-              <option value="">Всички паралелки</option>
-              {visibleClasses.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          )}
-        </form>
-      </div>
+      <StudentsFilter
+        classes={visibleClasses}
+        currentSearch={search}
+        currentClass={params.class || ''}
+      />
 
       {/* ДЕСКТОП: таблица */}
       <div className="hidden md:block bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
