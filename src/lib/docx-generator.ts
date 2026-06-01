@@ -7,8 +7,6 @@ import { saveAs } from 'file-saver'
 import { DocumentType, StaffProfile, Student } from '@/types'
 import { formatDate, getFullName } from './utils'
 
-// ── helpers ──────────────────────────────────────────────────────────────────
-
 const BORDER_NONE = {
   top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
   bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -73,38 +71,18 @@ function textBlock(text: string, minLines = 3): Paragraph[] {
   return [...lines, ...dots]
 }
 
-// ── ПРОТОКОЛ 1 ───────────────────────────────────────────────────────────────
-
 function generateProtocol1(student: Student, team: any, data: Record<string, string>, yearName: string): Document {
   const studentName = getFullName(student)
   const sessionDate = data.session_date ? formatDate(data.session_date) : '..................'
-
   return new Document({
     sections: [{
       properties: {},
       children: [
         ...header(yearName),
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 100 },
-          children: [bold(`Протокол № ___ / ${sessionDate} г.`, 26)],
-        }),
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 200 },
-          children: [new TextRun({ text: 'от заседание на Екипа за подкрепа на личностното развитие', bold: true, size: 22, italics: true })],
-        }),
-        new Paragraph({
-          spacing: { after: 120 },
-          children: [
-            normal('Днес, '), bold(sessionDate), normal(` г. в ЦСОП–Варна се проведе заседание на Екипа за подкрепа на личностното развитие на `),
-            bold(studentName), normal(', ученик от '), bold(data.class_name || '___ клас'), normal('.'),
-          ],
-        }),
-        new Paragraph({
-          spacing: { after: 200 },
-          children: [normal('На заседанието присъства '), normal(data.parent_name || '................................................................'), normal(', родител на '), normal(studentName), normal('.')],
-        }),
+        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [bold(`Протокол № ___ / ${sessionDate} г.`, 26)] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: 'от заседание на Екипа за подкрепа на личностното развитие', bold: true, size: 22, italics: true })] }),
+        new Paragraph({ spacing: { after: 120 }, children: [normal('Днес, '), bold(sessionDate), normal(` г. в ЦСОП–Варна се проведе заседание на Екипа за подкрепа на личностното развитие на `), bold(studentName), normal(', ученик от '), bold(data.class_name || '___ клас'), normal('.')] }),
+        new Paragraph({ spacing: { after: 200 }, children: [normal('На заседанието присъства '), normal(data.parent_name || '................................................................'), normal(', родител на '), normal(studentName), normal('.')] }),
         sectionTitle('I. Обсъждани теми:'),
         new Paragraph({ spacing: { after: 80 }, children: [normal('1. Екипът запозна родителя с направената функционална оценка на ученика')] }),
         new Paragraph({ spacing: { after: 80 }, children: [normal('2. Разгледаха се вида и формата на обучение на ученика, индивидуалния учебен план и индивидуалните учебни програми')] }),
@@ -129,50 +107,25 @@ function generateProtocol1(student: Student, team: any, data: Record<string, str
   })
 }
 
-// ── ПРОТОКОЛ 2 ───────────────────────────────────────────────────────────────
-
 function generateProtocol2(student: Student, team: any, data: Record<string, string>, yearName: string): Document {
   const studentName = getFullName(student)
   const sessionDate = data.session_date ? formatDate(data.session_date) : '..................'
-  const subjects: { name: string; result: string }[] = data.subjects_json
-    ? JSON.parse(data.subjects_json)
-    : [
-        { name: 'Български език и литература', result: '' },
-        { name: 'Математика', result: '' },
-        { name: 'Компютърно моделиране', result: '' },
-        { name: 'История и цивилизации', result: '' },
-        { name: 'География и икономика', result: '' },
-        { name: 'Човекът и природата', result: '' },
-        { name: 'Музика', result: '' },
-        { name: 'Изобразително изкуство', result: '' },
-        { name: 'Технологии и предприемачество', result: '' },
-        { name: 'Физическо възпитание и спорт', result: '' },
-      ]
-
+  const subjects: { name: string; result: string }[] = data.subjects_json ? JSON.parse(data.subjects_json) : [
+    { name: 'Български език и литература', result: '' }, { name: 'Математика', result: '' },
+    { name: 'Компютърно моделиране', result: '' }, { name: 'История и цивилизации', result: '' },
+    { name: 'География и икономика', result: '' }, { name: 'Човекът и природата', result: '' },
+    { name: 'Музика', result: '' }, { name: 'Изобразително изкуство', result: '' },
+    { name: 'Технологии и предприемачество', result: '' }, { name: 'Физическо възпитание и спорт', result: '' },
+  ]
   return new Document({
     sections: [{
       properties: {},
       children: [
         ...header(yearName),
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 100 },
-          children: [bold(`Протокол № ___ / ${sessionDate} г.`, 24)],
-        }),
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 100 },
-          children: [new TextRun({ text: `От проведено заседание на Екип за подкрепа за личностно развитие, за извършване на преглед на напредъка в развитието и резултатите от обучението по индивидуалните учебни програми и постигнатото равнище на компетентност за I учебен срок на ${yearName} учебна година`, size: 20, italics: true })],
-        }),
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 200 },
-          children: [new TextRun({ text: `на ученика: ${studentName}`, size: 22, bold: true, italics: true })],
-        }),
-        new Paragraph({
-          spacing: { after: 200 },
-          children: [normal(`Днес ${sessionDate} г., се проведе заседание на Екип за подкрепа на личностното развитие.`)],
-        }),
+        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [bold(`Протокол № ___ / ${sessionDate} г.`, 24)] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [new TextRun({ text: `От проведено заседание на Екип за подкрепа за личностно развитие, за извършване на преглед на напредъка в развитието и резултатите от обучението по индивидуалните учебни програми и постигнатото равнище на компетентност за I учебен срок на ${yearName} учебна година`, size: 20, italics: true })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: `на ученика: ${studentName}`, size: 22, bold: true, italics: true })] }),
+        new Paragraph({ spacing: { after: 200 }, children: [normal(`Днес ${sessionDate} г., се проведе заседание на Екип за подкрепа на личностното развитие.`)] }),
         sectionTitle('Обсъждани теми:'),
         new Paragraph({ spacing: { after: 80 }, children: [normal('1. Обсъден бе напредъкът в развитието и постигнатите резултати от обучението на ученика')] }),
         new Paragraph({ spacing: { after: 80 }, children: [normal('2. Обсъдени бяха резултатите от предоставената допълнителна подкрепа за личностно развитие')] }),
@@ -182,19 +135,14 @@ function generateProtocol2(student: Student, team: any, data: Record<string, str
         new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
           rows: [
-            new TableRow({
-              tableHeader: true,
-              children: [
-                new TableCell({ width: { size: 40, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Учебни предмети:')] })] }),
-                new TableCell({ width: { size: 60, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Постигнато равнище на компетентности:')] })] }),
-              ],
-            }),
-            ...subjects.map(s => new TableRow({
-              children: [
-                new TableCell({ children: [new Paragraph({ children: [normal(s.name)] })] }),
-                new TableCell({ children: [new Paragraph({ children: [normal(s.result)] })] }),
-              ],
-            })),
+            new TableRow({ tableHeader: true, children: [
+              new TableCell({ width: { size: 40, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Учебни предмети:')] })] }),
+              new TableCell({ width: { size: 60, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Постигнато равнище на компетентности:')] })] }),
+            ]}),
+            ...subjects.map(s => new TableRow({ children: [
+              new TableCell({ children: [new Paragraph({ children: [normal(s.name)] })] }),
+              new TableCell({ children: [new Paragraph({ children: [normal(s.result)] })] }),
+            ]})),
           ],
         }),
         new Paragraph({ text: '' }),
@@ -216,61 +164,35 @@ function generateProtocol2(student: Student, team: any, data: Record<string, str
   })
 }
 
-// ── ПРОТОКОЛ 3 ───────────────────────────────────────────────────────────────
-
 function generateProtocol3(student: Student, team: any, data: Record<string, string>, yearName: string): Document {
   const studentName = getFullName(student)
   const sessionDate = data.session_date ? formatDate(data.session_date) : '..................'
-  const subjects: { name: string; result: string }[] = data.subjects_json
-    ? JSON.parse(data.subjects_json)
-    : [
-        { name: 'Български език и литература', result: 'Среща затруднения' },
-        { name: 'Математика', result: 'Среща затруднения' },
-        { name: 'Компютърно моделиране', result: 'Среща затруднения' },
-        { name: 'История и цивилизации', result: 'Среща затруднения' },
-        { name: 'География и икономика', result: 'Среща затруднения' },
-        { name: 'Човекът и природата', result: 'Среща затруднения' },
-        { name: 'Музика', result: 'Среща затруднения' },
-        { name: 'Изобразително изкуство', result: 'Среща затруднения' },
-        { name: 'Технологии и предприемачество', result: 'Среща затруднения' },
-        { name: 'Физическо възпитание и спорт', result: 'Среща затруднения' },
-      ]
-
+  const subjects: { name: string; result: string }[] = data.subjects_json ? JSON.parse(data.subjects_json) : [
+    { name: 'Български език и литература', result: 'Среща затруднения' }, { name: 'Математика', result: 'Среща затруднения' },
+    { name: 'Компютърно моделиране', result: 'Среща затруднения' }, { name: 'История и цивилизации', result: 'Среща затруднения' },
+    { name: 'География и икономика', result: 'Среща затруднения' }, { name: 'Човекът и природата', result: 'Среща затруднения' },
+    { name: 'Музика', result: 'Среща затруднения' }, { name: 'Изобразително изкуство', result: 'Среща затруднения' },
+    { name: 'Технологии и предприемачество', result: 'Среща затруднения' }, { name: 'Физическо възпитание и спорт', result: 'Среща затруднения' },
+  ]
   return new Document({
     sections: [{
       properties: {},
       children: [
         ...header(yearName),
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 100 },
-          children: [bold(`Протокол № ___ / ${sessionDate} г.`, 24)],
-        }),
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 200 },
-          children: [new TextRun({ text: `От проведено заседание на Екип за подкрепа за личностно развитие, за извършване на цялостен преглед на резултатите от обучението по индивидуалните учебни програми и постигнатото равнище на компетентност на ученика: ${studentName}`, size: 20, italics: true })],
-        }),
-        new Paragraph({
-          spacing: { after: 80 },
-          children: [bold('Ученикът се оценява с оценки с качествен показател:', 20), new TextRun({ text: ' „постига изискванията", „справя се", „среща затруднения"', size: 20, italics: true })],
-        }),
+        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [bold(`Протокол № ___ / ${sessionDate} г.`, 24)] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: `От проведено заседание на Екип за подкрепа за личностно развитие, за извършване на цялостен преглед на резултатите от обучението по индивидуалните учебни програми и постигнатото равнище на компетентност на ученика: ${studentName}`, size: 20, italics: true })] }),
+        new Paragraph({ spacing: { after: 80 }, children: [bold('Ученикът се оценява с оценки с качествен показател:', 20), new TextRun({ text: ' „постига изискванията", „справя се", „среща затруднения"', size: 20, italics: true })] }),
         new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
           rows: [
-            new TableRow({
-              tableHeader: true,
-              children: [
-                new TableCell({ width: { size: 40, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Учебни предмети:')] })] }),
-                new TableCell({ width: { size: 60, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Постигнато равнище на компетентности:')] })] }),
-              ],
-            }),
-            ...subjects.map(s => new TableRow({
-              children: [
-                new TableCell({ children: [new Paragraph({ children: [normal(s.name)] })] }),
-                new TableCell({ children: [new Paragraph({ children: [normal(s.result)] })] }),
-              ],
-            })),
+            new TableRow({ tableHeader: true, children: [
+              new TableCell({ width: { size: 40, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Учебни предмети:')] })] }),
+              new TableCell({ width: { size: 60, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Постигнато равнище на компетентности:')] })] }),
+            ]}),
+            ...subjects.map(s => new TableRow({ children: [
+              new TableCell({ children: [new Paragraph({ children: [normal(s.name)] })] }),
+              new TableCell({ children: [new Paragraph({ children: [normal(s.result)] })] }),
+            ]})),
           ],
         }),
         new Paragraph({ text: '' }),
@@ -289,8 +211,6 @@ function generateProtocol3(student: Student, team: any, data: Record<string, str
   })
 }
 
-// ── ИУП ──────────────────────────────────────────────────────────────────────
-
 function generateIUP(student: Student, team: any, data: Record<string, string>, yearName: string): Document {
   const studentName = getFullName(student)
   const subjects = [
@@ -305,7 +225,6 @@ function generateIUP(student: Student, team: any, data: Record<string, string>, 
     { name: 'Технологии и предприемачество', weekly1: '', weekly2: '', annual: '' },
     { name: 'Физическо възпитание и спорт', weekly1: '', weekly2: '', annual: '' },
   ]
-
   return new Document({
     sections: [{
       properties: {},
@@ -326,25 +245,20 @@ function generateIUP(student: Student, team: any, data: Record<string, string>, 
         new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
           rows: [
-            new TableRow({
-              tableHeader: true,
-              children: [
-                new TableCell({ width: { size: 5, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('№')] })] }),
-                new TableCell({ width: { size: 45, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Учебни предмети')] })] }),
-                new TableCell({ width: { size: 17, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Седм. ч. I срок')] })] }),
-                new TableCell({ width: { size: 17, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Седм. ч. II срок')] })] }),
-                new TableCell({ width: { size: 16, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Годишно')] })] }),
-              ],
-            }),
-            ...subjects.map((s, i) => new TableRow({
-              children: [
-                new TableCell({ children: [new Paragraph({ children: [normal(String(i + 1))] })] }),
-                new TableCell({ children: [new Paragraph({ children: [normal(s.name)] })] }),
-                new TableCell({ children: [new Paragraph({ children: [normal(s.weekly1)] })] }),
-                new TableCell({ children: [new Paragraph({ children: [normal(s.weekly2)] })] }),
-                new TableCell({ children: [new Paragraph({ children: [normal(s.annual)] })] }),
-              ],
-            })),
+            new TableRow({ tableHeader: true, children: [
+              new TableCell({ width: { size: 5, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('№')] })] }),
+              new TableCell({ width: { size: 45, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Учебни предмети')] })] }),
+              new TableCell({ width: { size: 17, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Седм. ч. I срок')] })] }),
+              new TableCell({ width: { size: 17, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Седм. ч. II срок')] })] }),
+              new TableCell({ width: { size: 16, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Годишно')] })] }),
+            ]}),
+            ...subjects.map((s, i) => new TableRow({ children: [
+              new TableCell({ children: [new Paragraph({ children: [normal(String(i + 1))] })] }),
+              new TableCell({ children: [new Paragraph({ children: [normal(s.name)] })] }),
+              new TableCell({ children: [new Paragraph({ children: [normal(s.weekly1)] })] }),
+              new TableCell({ children: [new Paragraph({ children: [normal(s.weekly2)] })] }),
+              new TableCell({ children: [new Paragraph({ children: [normal(s.annual)] })] }),
+            ]})),
           ],
         }),
         new Paragraph({ text: '' }),
@@ -363,11 +277,8 @@ function generateIUP(student: Student, team: any, data: Record<string, string>, 
   })
 }
 
-// ── ПЛАН ЗА ДОПЪЛНИТЕЛНА ПОДКРЕПА ────────────────────────────────────────────
-
 function generateSupportPlan(student: Student, data: Record<string, string>, yearName: string): Document {
   const studentName = getFullName(student)
-
   return new Document({
     sections: [{
       properties: {},
@@ -408,11 +319,8 @@ function generateSupportPlan(student: Student, data: Record<string, string>, yea
   })
 }
 
-// ── ПРОГРАМА ЗА РОДИТЕЛИ ─────────────────────────────────────────────────────
-
 function generateParentProgram(student: Student, team: any, data: Record<string, string>, yearName: string): Document {
   const studentName = getFullName(student)
-
   return new Document({
     sections: [{
       properties: {},
@@ -430,25 +338,20 @@ function generateParentProgram(student: Student, team: any, data: Record<string,
         new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
           rows: [
-            new TableRow({
-              tableHeader: true,
-              children: [
-                new TableCell({ width: { size: 5, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('№')] })] }),
-                new TableCell({ width: { size: 40, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Теми по месеци')] })] }),
-                new TableCell({ width: { size: 20, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Форма')] })] }),
-                new TableCell({ width: { size: 20, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Период')] })] }),
-                new TableCell({ width: { size: 15, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Специалист')] })] }),
-              ],
-            }),
-            ...Array.from({ length: 8 }, (_, i) => new TableRow({
-              children: [
-                new TableCell({ children: [new Paragraph({ children: [normal(String(i + 1))] })] }),
-                new TableCell({ children: [new Paragraph({ children: [normal('')] })] }),
-                new TableCell({ children: [new Paragraph({ children: [normal('')] })] }),
-                new TableCell({ children: [new Paragraph({ children: [normal('')] })] }),
-                new TableCell({ children: [new Paragraph({ children: [normal('')] })] }),
-              ],
-            })),
+            new TableRow({ tableHeader: true, children: [
+              new TableCell({ width: { size: 5, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('№')] })] }),
+              new TableCell({ width: { size: 40, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Теми по месеци')] })] }),
+              new TableCell({ width: { size: 20, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Форма')] })] }),
+              new TableCell({ width: { size: 20, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Период')] })] }),
+              new TableCell({ width: { size: 15, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [bold('Специалист')] })] }),
+            ]}),
+            ...Array.from({ length: 8 }, (_, i) => new TableRow({ children: [
+              new TableCell({ children: [new Paragraph({ children: [normal(String(i + 1))] })] }),
+              new TableCell({ children: [new Paragraph({ children: [normal('')] })] }),
+              new TableCell({ children: [new Paragraph({ children: [normal('')] })] }),
+              new TableCell({ children: [new Paragraph({ children: [normal('')] })] }),
+              new TableCell({ children: [new Paragraph({ children: [normal('')] })] }),
+            ]})),
           ],
         }),
         new Paragraph({ text: '' }),
@@ -462,6 +365,102 @@ function generateParentProgram(student: Student, team: any, data: Record<string,
   })
 }
 
+// ── ПРОТОКОЛ ОТ ЗАСЕДАНИЕ НА КОМИСИЯ ─────────────────────────────────────────
+
+export async function generateCommitteeProtocol(
+  committee: { name: string },
+  session: {
+    session_date: string
+    agenda?: string | null
+    protocol?: string | null
+    decisions?: string | null
+    deadline?: string | null
+  },
+  members: { staff: { first_name: string; last_name: string; middle_name?: string }; role?: string | null }[],
+  sessionNumber: number,
+  yearName: string
+) {
+  const sessionDate = session.session_date ? formatDate(session.session_date) : '..................'
+  const coordinator = members[0]
+  const otherMembers = members.slice(1)
+
+  const doc = new Document({
+    sections: [{
+      properties: {},
+      children: [
+        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 60 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 24 })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: 'бул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 0888 490 771', size: 18, italics: true })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [new TextRun({ text: `ПРОТОКОЛ № ${sessionNumber}/ ${sessionDate} г.`, bold: true, size: 26 })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: `от заседание на ${committee.name} към Център за специална образователна подкрепа – гр. Варна`, size: 22, italics: true })] }),
+        new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: `Днес, ${sessionDate} г., в ЦСОП–Варна се проведе заседание на ${committee.name} към ЦСОП–Варна.`, size: 22 })] }),
+        ...(coordinator ? [
+          new Paragraph({ spacing: { after: 80 }, children: [
+            new TextRun({ text: 'Координатор: ', bold: true, size: 22 }),
+            new TextRun({ text: `${getFullName(coordinator.staff as any)}${coordinator.role ? ` – ${coordinator.role}` : ''}`, size: 22 }),
+          ]}),
+        ] : []),
+        ...(otherMembers.length > 0 ? [
+          new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Членове:', bold: true, size: 22 })] }),
+          ...otherMembers.map((m, i) => new Paragraph({
+            spacing: { after: 60 },
+            indent: { left: 400 },
+            children: [
+              new TextRun({ text: `${i + 1}. ${getFullName(m.staff as any)}`, size: 22 }),
+              ...(m.role ? [new TextRun({ text: ` – ${m.role}`, size: 22 })] : []),
+            ],
+          })),
+        ] : []),
+        new Paragraph({ text: '' }),
+        new Paragraph({ spacing: { before: 200, after: 100 }, children: [new TextRun({ text: 'ДНЕВЕН РЕД:', bold: true, size: 22 })] }),
+        ...(session.agenda
+          ? session.agenda.split('\n').filter(Boolean).map((l, i) => new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: `${i + 1}. ${l}`, size: 22 })] }))
+          : [new Paragraph({ children: [new TextRun({ text: '................................................................................', size: 22 })] })]
+        ),
+        ...(session.protocol ? [
+          new Paragraph({ spacing: { before: 200, after: 100 }, children: [new TextRun({ text: 'ХОД НА ЗАСЕДАНИЕТО:', bold: true, size: 22 })] }),
+          ...session.protocol.split('\n').filter(Boolean).map(l => new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: l, size: 22 })] })),
+        ] : []),
+        new Paragraph({ text: '' }),
+        new Paragraph({ spacing: { before: 200, after: 100 }, children: [new TextRun({ text: 'РЕШЕНИЯ:', bold: true, size: 22 })] }),
+        ...(session.decisions
+          ? session.decisions.split('\n').filter(Boolean).map((l, i) => new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: `${i + 1}. ${l}`, size: 22 })] }))
+          : [new Paragraph({ children: [new TextRun({ text: '................................................................................', size: 22 })] }),
+             new Paragraph({ children: [new TextRun({ text: '................................................................................', size: 22 })] })]
+        ),
+        ...(session.deadline ? [
+          new Paragraph({ spacing: { before: 100, after: 200 }, children: [
+            new TextRun({ text: 'Срок за изпълнение: ', bold: true, size: 22 }),
+            new TextRun({ text: formatDate(session.deadline), size: 22 }),
+          ]}),
+        ] : [new Paragraph({ text: '' })]),
+        new Paragraph({ text: '' }),
+        ...(coordinator ? [
+          new Paragraph({ spacing: { before: 200, after: 80 }, children: [new TextRun({ text: 'Ръководител:', bold: true, size: 22 })] }),
+          new Paragraph({ spacing: { after: 200 }, children: [
+            new TextRun({ text: 'подпис: ................  /', size: 22 }),
+            new TextRun({ text: getFullName(coordinator.staff as any), size: 22 }),
+            new TextRun({ text: '/', size: 22 }),
+          ]}),
+        ] : []),
+        ...(otherMembers.length > 0 ? [
+          new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: 'Членове:', bold: true, size: 22 })] }),
+          ...otherMembers.map(m => new Paragraph({
+            spacing: { after: 120 },
+            children: [
+              new TextRun({ text: 'подпис: ................  /', size: 22 }),
+              new TextRun({ text: getFullName(m.staff as any), size: 22 }),
+              new TextRun({ text: '/', size: 22 }),
+            ],
+          })),
+        ] : []),
+      ],
+    }],
+  })
+
+  const blob = await Packer.toBlob(doc)
+  saveAs(blob, `протокол_${sessionNumber}_${committee.name.replace(/ /g, '_')}_${sessionDate}.docx`)
+}
+
 // ── MAIN EXPORT ───────────────────────────────────────────────────────────────
 
 export async function generateAndDownloadDocument(
@@ -472,18 +471,15 @@ export async function generateAndDownloadDocument(
   yearName: string
 ) {
   let doc: Document
-
   switch (docType) {
     case 'protocol_1': doc = generateProtocol1(student, team, data, yearName); break
     case 'protocol_2': doc = generateProtocol2(student, team, data, yearName); break
     case 'protocol_3': doc = generateProtocol3(student, team, data, yearName); break
-    case 'iup':        doc = generateIUP(student, team, data, yearName); break
+    case 'iup': doc = generateIUP(student, team, data, yearName); break
     case 'support_plan': doc = generateSupportPlan(student, data, yearName); break
     case 'parent_program': doc = generateParentProgram(student, team, data, yearName); break
-    default:           doc = generateProtocol1(student, team, data, yearName)
+    default: doc = generateProtocol1(student, team, data, yearName)
   }
-
   const blob = await Packer.toBlob(doc)
-  const fileName = `${docType}_${getFullName(student).replace(/ /g, '_')}_${yearName}.docx`
-  saveAs(blob, fileName)
+  saveAs(blob, `${docType}_${getFullName(student).replace(/ /g, '_')}_${yearName}.docx`)
 }
