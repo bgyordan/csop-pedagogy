@@ -28,7 +28,7 @@ interface Props {
   yearName: string
 }
 
-export function ReportsClient({ allRows, workloadRows, delayedRows, schools, specialists, yearName }: Props) {
+export default function ReportsClient({ allRows, workloadRows, delayedRows, schools, specialists, yearName }: Props) {
   const [activeTab, setActiveTab] = useState<ReportTab>('delayed')
   const [selectedSchool, setSelectedSchool] = useState('')
   const [selectedSpecialist, setSelectedSpecialist] = useState('')
