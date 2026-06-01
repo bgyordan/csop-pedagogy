@@ -2,10 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Users, FileText, BookOpen,
   Calendar, Shield, UserCircle, LogOut, ChevronRight,
-  Building2
+  Building2, Menu, X
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
@@ -40,6 +41,22 @@ export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  // Затваряй при смяна на страница
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [pathname])
+
+  // Блокирай scroll на body когато менюто е отворено
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [mobileOpen])
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -50,13 +67,12 @@ export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
     item => !item.roles || item.roles.includes(userRole)
   )
 
-  return (
-    <aside className="w-56 h-screen sticky top-0 overflow-y-auto bg-navy flex flex-col"
-           style={{ backgroundColor: '#0f2240' }}>
+  const sidebarContent = (
+    <aside className="w-56 h-full flex flex-col bg-navy" style={{ backgroundColor: '#0f2240' }}>
       <AutoLogout />
       <div className="p-5 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard">
+          <Link href="/dashboard" onClick={() => setMobileOpen(false)}>
             <img src="/csop-varna-logo.jpg" alt="ЦСОП Варна" className="w-9 h-9 rounded-lg object-cover" />
           </Link>
           <div>
@@ -66,7 +82,7 @@ export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
         </div>
       </div>
 
-      <nav className="flex-1 py-4 px-2 space-y-0.5">
+      <nav className="flex-1 py-4 px-2 space-y-0.5 overflow-y-auto">
         {visibleItems.map(item => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/')
           return (
@@ -108,5 +124,54 @@ export function Sidebar({ userRole, userName, userEmail }: SidebarProps) {
         </button>
       </div>
     </aside>
+  )
+
+  return (
+    <>
+      {/* ── ДЕСКТОП: статичен sidebar ── */}
+      <div className="hidden md:flex w-56 h-screen sticky top-0 overflow-y-auto flex-shrink-0">
+        {sidebarContent}
+      </div>
+
+      {/* ── МОБИЛЕН: топ лента с хамбургер ── */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14"
+           style={{ backgroundColor: '#0f2240' }}>
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard">
+            <img src="/csop-varna-logo.jpg" alt="ЦСОП Варна" className="w-8 h-8 rounded-lg object-cover" />
+          </Link>
+          <div>
+            <div className="text-white text-sm font-semibold">ЦСОП Варна</div>
+            <div className="text-white/40 text-xs">ЕПЛР</div>
+          </div>
+        </div>
+        <button
+          onClick={() => setMobileOpen(prev => !prev)}
+          className="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+          aria-label="Меню"
+        >
+          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
+      </div>
+
+      {/* ── МОБИЛЕН: overlay ── */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-30 bg-black/50"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* ── МОБИЛЕН: drawer ── */}
+      <div className={cn(
+        'md:hidden fixed top-14 left-0 bottom-0 z-40 w-56 transition-transform duration-300',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full'
+      )}>
+        {sidebarContent}
+      </div>
+
+      {/* ── МОБИЛЕН: spacer за топ лентата ── */}
+      <div className="md:hidden h-14 w-full" />
+    </>
   )
 }
