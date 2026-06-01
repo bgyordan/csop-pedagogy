@@ -94,7 +94,7 @@ export default async function StudentsPage({
       <div className="hidden md:block bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-100 bg-slate-50">
+            <tr className="bg-slate-50 border-b border-slate-200">
               <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Три имена</th>
               <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Паралелка</th>
               <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Дата на раждане</th>
@@ -103,8 +103,9 @@ export default async function StudentsPage({
             </tr>
           </thead>
           <tbody>
-            {filtered.map(enrollment => (
-              <tr key={enrollment.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+            {filtered.map((enrollment, idx) => (
+              <tr key={enrollment.id}
+                className={`border-b border-slate-100 hover:bg-blue-50/40 transition-colors ${idx % 2 === 1 ? 'bg-slate-50' : 'bg-white'}`}>
                 <td className="px-5 py-3.5 font-medium text-slate-800">{getFullName(enrollment.student)}</td>
                 <td className="px-5 py-3.5 text-slate-600">{(enrollment.class as any)?.name || '—'}</td>
                 <td className="px-5 py-3.5 text-slate-600">
