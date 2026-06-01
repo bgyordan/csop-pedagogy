@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import ReportsClient from './ReportsClient'
 import { DOCUMENT_TYPE_LABELS, DocumentType } from '@/types'
 import { getFullName } from '@/lib/utils'
+import { BackButton } from '@/components/ui/BackButton'
 
 const DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
