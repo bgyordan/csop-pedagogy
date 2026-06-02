@@ -166,7 +166,7 @@ export default function ReportsClient({ allRows, workloadRows, delayedRows, scho
               <p className="text-xs text-slate-400 mt-0.5">{schoolsWithStudents.length} активни училища с разпределени деца</p>
             </div>
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-              <Link href="/students" className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition-all">
+              <Link href="/admin/eplr-assignment" className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition-all">
                 Корекция разпределение екипи
                 <ArrowRight size={13} className="text-slate-400" />
               </Link>
