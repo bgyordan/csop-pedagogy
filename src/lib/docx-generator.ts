@@ -483,3 +483,95 @@ export async function generateAndDownloadDocument(
   const blob = await Packer.toBlob(doc)
   saveAs(blob, `${docType}_${getFullName(student).replace(/ /g, '_')}_${yearName}.docx`)
 }
+
+// ── ПИСМО ДО УЧИЛИЩЕ ─────────────────────────────────────────────────────────
+
+export async function generateSchoolLetter(
+  schoolName: string,
+  schoolCity: string,
+  rows: {
+    name: string
+    className: string
+    psychologist: string
+    speechTherapist: string
+    rehabilitator: string
+    classTeacher: string
+  }[],
+  yearName: string
+) {
+  const children: any[] = []
+
+  // Хедър
+  children.push(
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 60 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 24 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: 'бул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 0888 490 771', size: 18, italics: true })] }),
+    new Paragraph({ text: '' }),
+  )
+
+  // До директора
+  children.push(
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 40 }, children: [new TextRun({ text: `До директора на`, size: 22 })] }),
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 40 }, children: [new TextRun({ text: schoolName, bold: true, size: 22 })] }),
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 200 }, children: [new TextRun({ text: schoolCity, size: 22 })] }),
+    new Paragraph({ text: '' }),
+  )
+
+  // Уводен текст
+  children.push(
+    new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: 'Здравейте,', size: 22 })] }),
+    new Paragraph({ text: '' }),
+    new Paragraph({
+      spacing: { after: 200 },
+      children: [new TextRun({
+        text: 'С цел по-добра координация, намаляване на административната тежест и оптимизиране на резултатите, както и въз основа на чл. 128 ал. 4 от Наредба за приобщаващо образование, отправяме предложение за включване на специалисти от ЦСОП – Варна в заповедите за ЕПЛР на децата и учениците записани във Вашето училище и обучаващи се в ЦСОП – Варна. Молим при готовност, да ни предоставите сканирано копие на заповедта за съответното дете/ученик.',
+        size: 22,
+      })],
+    }),
+    new Paragraph({ text: '' }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: `${schoolName} ${schoolCity}`, bold: true, size: 22 })] }),
+    new Paragraph({ text: '' }),
+  )
+
+  // Списък с деца
+  rows.forEach((row, idx) => {
+    // Заглавие на дете
+    children.push(
+      new Paragraph({
+        spacing: { before: 160, after: 60 },
+        children: [
+          new TextRun({ text: `${idx + 1}. ${row.name}`, bold: true, size: 22 }),
+          new TextRun({ text: ` – паралелка ${row.className}`, size: 22 }),
+        ],
+      }),
+      new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Екип:', size: 22, bold: true })] }),
+    )
+
+    // Членове на екипа
+    if (row.classTeacher && row.classTeacher !== '—') {
+      children.push(new Paragraph({ indent: { left: 400 }, spacing: { after: 40 }, children: [new TextRun({ text: `• ${row.classTeacher} – председател/ръководител група`, size: 22 })] }))
+    }
+    if (row.psychologist && row.psychologist !== '—') {
+      children.push(new Paragraph({ indent: { left: 400 }, spacing: { after: 40 }, children: [new TextRun({ text: `• ${row.psychologist} – психолог`, size: 22 })] }))
+    }
+    if (row.speechTherapist && row.speechTherapist !== '—') {
+      children.push(new Paragraph({ indent: { left: 400 }, spacing: { after: 40 }, children: [new TextRun({ text: `• ${row.speechTherapist} – логопед`, size: 22 })] }))
+    }
+    if (row.rehabilitator && row.rehabilitator !== '—') {
+      children.push(new Paragraph({ indent: { left: 400 }, spacing: { after: 40 }, children: [new TextRun({ text: `• ${row.rehabilitator} – рехабилитатор`, size: 22 })] }))
+    }
+  })
+
+  // Подпис
+  children.push(
+    new Paragraph({ text: '' }),
+    new Paragraph({ text: '' }),
+    new Paragraph({ spacing: { before: 200, after: 40 }, children: [new TextRun({ text: 'С уважение,', size: 22 })] }),
+    new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Директор на ЦСОП – Варна:', size: 22 })] }),
+    new Paragraph({ children: [new TextRun({ text: '..............................', size: 22 })] }),
+  )
+
+  const doc = new Document({ sections: [{ properties: {}, children }] })
+  const blob = await Packer.toBlob(doc)
+  const safeName = `${schoolName} ${schoolCity}`.replace(/["„"\/\\:*?<>|]/g, '').replace(/\s+/g, '_')
+  saveAs(blob, `Писмо_${safeName}_${yearName}.docx`)
+}
