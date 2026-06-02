@@ -80,15 +80,22 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
 
       {/* ── ИУП БАНЕР ── */}
       {isActivePeriod ? (
-        <div className="mb-8 p-6 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white shadow-sm flex items-center justify-between">
+        <div className="mb-8 p-6 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white shadow-sm flex items-center justify-between gap-4">
           <div>
             <div className="font-semibold text-amber-900 text-sm">Въвеждане на реализация на ИУП — {getMonthName(reportMonth)}</div>
             <div className="text-xs text-amber-700/80 mt-1 font-medium">
               {submittedCount} от {totalClassCount} паралелки готови · Срок: 8 {getMonthName(deadlineMonth)}
             </div>
           </div>
-          <div className="flex gap-2">
-            <Link href="/absences" className="px-4 py-2 rounded-xl bg-white border border-amber-200 text-amber-800 text-xs font-bold hover:bg-amber-100 transition-colors shadow-sm">Преглед</Link>
+          <div className="flex gap-2 flex-shrink-0">
+            <Link href="/absences" className="px-4 py-2 rounded-xl bg-white border border-amber-200 text-amber-800 text-xs font-bold hover:bg-amber-100 transition-colors shadow-sm">
+              Преглед
+            </Link>
+            <Link href={`/absences/export/${reportMonth}/${reportYear}`}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-white shadow-sm hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: '#0f2240' }}>
+              Генерирай Excel
+            </Link>
           </div>
         </div>
       ) : (
