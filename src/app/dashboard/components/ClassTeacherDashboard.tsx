@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Users, FileText, Calendar } from 'lucide-react'
-import { getFullName, getMonthName } from '@/lib/utils'
+import { getFullName, getMonthName, formatDate, getDaysUntil } from '@/lib/utils'
 import { DocumentType, DOCUMENT_TYPE_LABELS } from '@/types'
 
 const ALL_DOC_TYPES: DocumentType[] = [
@@ -40,10 +40,14 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
 
   const classIds = myClasses.map((c: any) => c.id)
 
-  const [{ data: allEnrollments }, { data: iupSubmissions }, { data: announcements }] = await Promise.all([
+  const [{ data: allEnrollments }, { data: iupSubmissions }, { data: announcements }, { data: deadlines }] = await Promise.all([
     supabase.from('student_enrollments').select('*, student:students(*), class_id').in('class_id', classIds).eq('academic_year_id', currentYearId),
     supabase.from('monthly_absences').select('class_id').in('class_id', classIds).eq('month', reportMonth).eq('year', reportYear),
-    supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3)
+    supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
+    supabase.from('calendar_deadlines')
+      .select('*').eq('academic_year_id', currentYearId)
+      .gte('deadline_date', now.toISOString().split('T')[0])
+      .order('deadline_date').limit(5),
   ])
 
   const submittedIds = new Set(iupSubmissions?.map(s => s.class_id) || [])
@@ -57,7 +61,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
 
   return (
     <>
-      {/* Stats — 1 колона на мобилен, 3 на десктоп */}
+      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6">
         <div className="card">
           <div className="flex items-center gap-3 mb-2 md:mb-3">
@@ -109,7 +113,37 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
         </div>
       </div>
 
-      {/* Per class — таблица на десктоп, карти на мобилен */}
+      {/* Предстоящи срокове */}
+      {deadlines && deadlines.length > 0 && (
+        <div className="card mb-6">
+          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+            <Calendar size={16} className="text-slate-400" />
+            <h2 className="font-medium text-slate-700 text-sm">Предстоящи срокове</h2>
+          </div>
+          <div className="space-y-2">
+            {deadlines.map(d => {
+              const days = getDaysUntil(d.deadline_date)
+              return (
+                <div key={d.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 gap-2">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-slate-700 truncate">{d.title}</div>
+                    <div className="text-xs text-slate-400 mt-0.5">{formatDate(d.deadline_date)}</div>
+                  </div>
+                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 ${
+                    days <= 7 ? 'bg-red-100 text-red-700' :
+                    days <= 30 ? 'bg-amber-100 text-amber-700' :
+                    'bg-green-100 text-green-700'
+                  }`}>
+                    {days === 0 ? 'Днес' : `${days} дни`}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Per class */}
       {myClasses.map((cls: any) => {
         const classStudents = allEnrollments
           ?.filter(e => e.class_id === cls.id)
@@ -120,9 +154,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
           <div key={cls.id} className="card mb-4">
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
               <h2 className="font-medium text-slate-700 text-sm">Паралелка {cls.name} — документи</h2>
-              <Link href={`/classes/${cls.id}`} className="text-xs text-slate-400 hover:text-slate-700">
-                Виж →
-              </Link>
+              <Link href={`/classes/${cls.id}`} className="text-xs text-slate-400 hover:text-slate-700">Виж →</Link>
             </div>
 
             {/* ДЕСКТОП: таблица */}
@@ -132,8 +164,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
                   <tr className="bg-slate-50">
                     <th className="text-left px-3 py-2 text-xs font-medium text-slate-500">Ученик</th>
                     {ALL_DOC_TYPES.map(dt => (
-                      <th key={dt} className="text-center px-2 py-2 text-xs font-medium text-slate-500"
-                          title={DOCUMENT_TYPE_LABELS[dt]}>
+                      <th key={dt} className="text-center px-2 py-2 text-xs font-medium text-slate-500" title={DOCUMENT_TYPE_LABELS[dt]}>
                         {DOC_SHORT[dt]}
                       </th>
                     ))}
@@ -173,18 +204,12 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
             {/* МОБИЛЕН: карти */}
             <div className="md:hidden space-y-2">
               {classStudents.map((student) => {
-                const completedCount = ALL_DOC_TYPES.filter(dt =>
-                  docMap.get(`${student.id}_${dt}`)?.status === 'completed'
-                ).length
-                const inProgressCount = ALL_DOC_TYPES.filter(dt =>
-                  docMap.get(`${student.id}_${dt}`)?.status === 'in_progress'
-                ).length
-
+                const completedCount = ALL_DOC_TYPES.filter(dt => docMap.get(`${student.id}_${dt}`)?.status === 'completed').length
+                const inProgressCount = ALL_DOC_TYPES.filter(dt => docMap.get(`${student.id}_${dt}`)?.status === 'in_progress').length
                 return (
                   <div key={student.id} className="border border-slate-100 rounded-lg p-3">
                     <div className="flex items-center justify-between mb-2">
-                      <Link href={`/students/${student.id}`}
-                        className="font-medium text-slate-800 text-sm hover:underline truncate mr-2">
+                      <Link href={`/students/${student.id}`} className="font-medium text-slate-800 text-sm hover:underline truncate mr-2">
                         {getFullName(student)}
                       </Link>
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${
@@ -200,8 +225,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
                         const doc = docMap.get(`${student.id}_${dt}`)
                         const status = doc?.status || 'empty'
                         return (
-                          <Link key={dt} href={`/documents/${student.id}/${dt}`}
-                            title={DOCUMENT_TYPE_LABELS[dt]}
+                          <Link key={dt} href={`/documents/${student.id}/${dt}`} title={DOCUMENT_TYPE_LABELS[dt]}
                             className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium ${
                               status === 'completed' ? 'bg-green-100 text-green-700' :
                               status === 'in_progress' ? 'bg-amber-100 text-amber-700' :
