@@ -22,9 +22,10 @@ export default async function ReportsPage() {
   if (!user) redirect('/auth/login')
 
   const { data: profile } = await supabase
-    .from('staff_profiles').select('role').eq('user_id', user.id).single()
+    .from('staff_profiles').select('role, is_coordinator').eq('user_id', user.id).single()
 
-  if (!['admin', 'zdud', 'director'].includes(profile?.role || '')) redirect('/dashboard')
+  const canAccess = ['admin', 'zdud', 'director'].includes(profile?.role || '') || profile?.is_coordinator === true
+  if (!canAccess) redirect('/dashboard')
 
   const { data: currentYear } = await supabase
     .from('academic_years').select('*').eq('is_current', true).single()
@@ -163,8 +164,8 @@ export default async function ReportsPage() {
 
   return (
     <div className="p-4 md:p-8">
-  <BackButton />
-  <div className="mb-6">
+      <BackButton />
+      <div className="mb-6">
         <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Справки</h1>
         <p className="text-slate-500 text-sm mt-1">{currentYear?.name}</p>
       </div>
