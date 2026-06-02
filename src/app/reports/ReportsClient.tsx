@@ -194,7 +194,8 @@ export default function ReportsClient({ allRows, workloadRows, delayedRows, scho
                     const school = schools.find(s => s.id === selectedSchool)
                     if (school) generateSchoolLetter(school.name, school.city, schoolRows, yearName)
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 text-xs font-medium text-blue-700 hover:bg-blue-50">
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-colors"
+                  style={{ backgroundColor: '#0f2240' }}>
                   <LetterIcon size={13} />
                   Писмо Word
                 </button>
