@@ -16,9 +16,9 @@ export default function EditStudentPage() {
   const [form, setForm] = useState({
     first_name: '', middle_name: '', last_name: '', birth_date: '',
     sending_school_id: '' as string | null,
+    external_class: '',
   })
 
-  // Combobox state
   const [schools, setSchools] = useState<{ id: string; name: string; city: string }[]>([])
   const [schoolSearch, setSchoolSearch] = useState('')
   const [schoolOpen, setSchoolOpen] = useState(false)
@@ -26,11 +26,9 @@ export default function EditStudentPage() {
   const comboRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    // Зареди училищата
     supabase.from('sending_schools').select('*').eq('is_active', true).order('name')
       .then(({ data }) => setSchools(data || []))
 
-    // Зареди данните на ученика
     supabase.from('students').select('*').eq('id', id).single()
       .then(({ data }) => {
         if (data) {
@@ -40,12 +38,12 @@ export default function EditStudentPage() {
             last_name: data.last_name,
             birth_date: data.birth_date,
             sending_school_id: data.sending_school_id || null,
+            external_class: data.external_class || '',
           })
         }
       })
   }, [id])
 
-  // Когато се заредят и училищата и данните — намери избраното
   useEffect(() => {
     if (form.sending_school_id && schools.length > 0) {
       const found = schools.find(s => s.id === form.sending_school_id)
@@ -56,7 +54,6 @@ export default function EditStudentPage() {
     }
   }, [form.sending_school_id, schools])
 
-  // Затвори при клик извън
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (comboRef.current && !comboRef.current.contains(e.target as Node)) {
@@ -97,6 +94,7 @@ export default function EditStudentPage() {
       last_name: form.last_name,
       birth_date: form.birth_date,
       sending_school_id: form.sending_school_id || null,
+      external_class: form.external_class || null,
     }).eq('id', id)
     if (error) { toast('Грешка при запис', 'error'); setSaving(false); return }
     toast('Данните са обновени')
@@ -156,12 +154,8 @@ export default function EditStudentPage() {
             {schoolOpen && filteredSchools.length > 0 && (
               <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                 {filteredSchools.map(school => (
-                  <button
-                    key={school.id}
-                    type="button"
-                    onClick={() => selectSchool(school)}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 transition-colors"
-                  >
+                  <button key={school.id} type="button" onClick={() => selectSchool(school)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 transition-colors">
                     <div className="font-medium text-slate-800">{school.name}</div>
                     <div className="text-xs text-slate-400">{school.city}</div>
                   </button>
@@ -174,6 +168,18 @@ export default function EditStudentPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Клас в изпращащото училище */}
+        <div>
+          <label className="label">Клас в изпращащото училище</label>
+          <input
+            className="input"
+            placeholder="напр. 2 а, 5 б, ПГ..."
+            value={form.external_class}
+            onChange={e => setForm(p => ({ ...p, external_class: e.target.value }))}
+          />
+          <p className="text-xs text-slate-400 mt-1">Класът по който се обучава в изпращащото училище</p>
         </div>
 
         <div className="flex gap-3 pt-2">
