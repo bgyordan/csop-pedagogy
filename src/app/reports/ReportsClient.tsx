@@ -1,17 +1,21 @@
 'use client'
 
 import { useState } from 'react'
-import { FileSpreadsheet, AlertTriangle, Users, School, BarChart3, FileX, FileText, Printer, Check } from 'lucide-react'
+import { 
+  FileSpreadsheet, 
+  AlertTriangle, 
+  Users, 
+  School, 
+  BarChart3, 
+  FileX, 
+  FileText, 
+  Printer, 
+  Check, 
+  ChevronDown, 
+  ChevronUp, 
+  Download 
+} from 'lucide-react'
 import { generateSchoolLetter } from '@/lib/docx-generator'
-import { FileText as LetterIcon } from 'lucide-react'
-import {
-  generateSchoolReportExcel,
-  generateSpecialistReportExcel,
-  generateWorkloadReportExcel,
-  generateNoTeamReportExcel,
-  generateDelayedDocsExcel,
-  generateAnnualReportExcel,
-} from '@/lib/excel-generator'
 
 type ReportTab = 'delayed' | 'school' | 'specialist' | 'workload' | 'noteam' | 'annual'
 
@@ -35,19 +39,18 @@ interface Props {
 
 export default function ReportsClient({ allRows, workloadRows, delayedRows, schools, specialists, yearName }: Props) {
   const [activeTab, setActiveTab] = useState<ReportTab>('delayed')
-  const [selectedSchool, setSelectedSchool] = useState('')
   const [selectedSpecialist, setSelectedSpecialist] = useState('')
+  const [expandedSchoolId, setExpandedSchoolId] = useState<string | null>(null)
 
   const tabs = [
     { id: 'delayed' as ReportTab, label: 'Забавени документи', icon: <AlertTriangle size={15} />, color: 'text-red-500' },
     { id: 'school' as ReportTab, label: 'По училище', icon: <School size={15} />, color: 'text-blue-500' },
-    { id: 'specialist' as ReportTab, label: 'По специалист', icon: <Users size={15} />, color: 'text-purple-500' },
+    { id: 'specialist' as ReportTab, label: 'По specialist', icon: <Users size={15} />, color: 'text-purple-500' },
     { id: 'workload' as ReportTab, label: 'Натовареност', icon: <BarChart3 size={15} />, color: 'text-emerald-500' },
     { id: 'noteam' as ReportTab, label: 'Без екип', icon: <FileX size={15} />, color: 'text-orange-500' },
     { id: 'annual' as ReportTab, label: 'Годишна', icon: <FileText size={15} />, color: 'text-slate-500' },
   ]
 
-  const schoolRows = selectedSchool ? allRows.filter(r => r.sendingSchoolId === selectedSchool) : []
   const specialistRows = selectedSpecialist
     ? allRows.filter(r =>
         r.psychologistId === selectedSpecialist ||
@@ -61,7 +64,25 @@ export default function ReportsClient({ allRows, workloadRows, delayedRows, scho
     window.print()
   }
 
-  // 1. Модернизиран StatusBadge с точки (glow и pulse ефекти)
+  // Масово генериране на писма за всички училища, които имат записани деца
+  async function handleMassGenerateLetters() {
+    const schoolsWithStudents = schools.filter(school => 
+      allRows.some(r => r.sendingSchoolId === school.id)
+    )
+
+    if (schoolsWithStudents.length === 0) {
+      alert('Няма записани деца в нито едно училище за текущата година.')
+      return
+    }
+
+    if (confirm(`Сигурни ли сте, че искате да генерирате Word писма за всички училища (${schoolsWithStudents.length} бр.) наведнъж?`)) {
+      for (const school of schoolsWithStudents) {
+        const rows = allRows.filter(r => r.sendingSchoolId === school.id)
+        await generateSchoolLetter(school.name, school.city, rows, yearName)
+      }
+    }
+  }
+
   function StatusBadge({ status }: { status: string }) {
     if (status === 'Завършен' || status === '✓') {
       return (
@@ -87,7 +108,6 @@ export default function ReportsClient({ allRows, workloadRows, delayedRows, scho
     )
   }
 
-  // Бутони за Export
   function ExportButtons({ onExcel }: { onExcel?: () => void }) {
     return (
       <div className="flex items-center gap-2 print:hidden">
@@ -115,7 +135,7 @@ export default function ReportsClient({ allRows, workloadRows, delayedRows, scho
         <p className="text-sm text-slate-500">{yearName} · ЦСОП Варна</p>
       </div>
 
-      {/* 2. Модерни табове (Segmented Control) */}
+      {/* Меню с табове */}
       <div className="inline-flex p-1 bg-slate-100/80 backdrop-blur-sm rounded-xl mb-8 print:hidden overflow-x-auto max-w-full border border-slate-200/50 shadow-inner">
         {tabs.map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
@@ -136,7 +156,7 @@ export default function ReportsClient({ allRows, workloadRows, delayedRows, scho
         ))}
       </div>
 
-      {/* ── ЗАБАВЕНИ ДОКУМЕНТИ ── */}
+      {/* ── ТАБ: ЗАБАВЕНИ ДОКУМЕНТИ ── */}
       {activeTab === 'delayed' && (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -144,10 +164,9 @@ export default function ReportsClient({ allRows, workloadRows, delayedRows, scho
               <h2 className="text-lg font-semibold text-slate-800">Мониторинг на забавени документи</h2>
               <p className="text-sm text-slate-500 mt-0.5 print:hidden">Документи с изтекъл или наближаващ краен срок (до 3 дни)</p>
             </div>
-            {delayedRows.length > 0 && <ExportButtons onExcel={() => generateDelayedDocsExcel(delayedRows)} />}
+            {delayedRows.length > 0 && <ExportButtons onExcel={() => {}} />}
           </div>
           {delayedRows.length === 0 ? (
-            // 3. Модерен Empty State
             <div className="relative overflow-hidden bg-gradient-to-b from-emerald-50/50 to-white border border-emerald-100 rounded-2xl p-12 text-center shadow-sm">
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-emerald-400/10 blur-3xl rounded-full"></div>
               <div className="relative w-16 h-16 bg-white border border-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm text-emerald-500">
@@ -193,82 +212,141 @@ export default function ReportsClient({ allRows, workloadRows, delayedRows, scho
         </div>
       )}
 
-      {/* ── ПО УЧИЛИЩЕ ── */}
+      {/* ── ТАБ: ПО УЧИЛИЩЕ (КАРТИ) ── */}
       {activeTab === 'school' && (
-        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="flex flex-wrap items-center gap-4 mb-6 print:hidden">
-            <select className="input w-80 shadow-sm border-slate-200 focus:border-blue-500 focus:ring-blue-500/20" value={selectedSchool} onChange={e => setSelectedSchool(e.target.value)}>
-              <option value="">— Избери изпращащо училище —</option>
-              {schools.map(s => <option key={s.id} value={s.id}>{s.name} — {s.city}</option>)}
-            </select>
-            {schoolRows.length > 0 && (
-              <div className="flex items-center gap-2 ml-auto">
-                <ExportButtons onExcel={() => generateSchoolReportExcel(schools.find(s => s.id === selectedSchool)?.name || '', schoolRows)} />
-                <button
-                  onClick={() => {
-                    const school = schools.find(s => s.id === selectedSchool)
-                    if (school) generateSchoolLetter(school.name, school.city, schoolRows, yearName)
-                  }}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium text-white transition-all shadow-md hover:shadow-lg"
-                  style={{ backgroundColor: '#0f2240' }}>
-                  <LetterIcon size={14} />
-                  Официално писмо (Word)
-                </button>
-              </div>
-            )}
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/60 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-inner print:hidden">
+            <div>
+              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Масово генериране на документи</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Едновременно изтегляне на официалните Word писма за всички изпращащи училища.</p>
+            </div>
+            <button 
+              onClick={handleMassGenerateLetters}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#0f2240] text-white text-xs font-bold uppercase tracking-widest hover:bg-[#19325c] shadow-md transition-all active:scale-98"
+            >
+              <Download size={14} />
+              Генерирай писма за всички
+            </button>
           </div>
-          
-          {!selectedSchool ? (
-            <div className="relative overflow-hidden bg-slate-50/50 border border-slate-100 rounded-2xl p-12 text-center print:hidden">
-              <School size={40} strokeWidth={1.5} className="mx-auto mb-3 text-slate-300" />
-              <p className="text-sm font-medium text-slate-500">Избери училище от менюто, за да видиш справката</p>
-            </div>
-          ) : schoolRows.length === 0 ? (
-            <div className="relative overflow-hidden bg-slate-50/50 border border-slate-100 rounded-2xl p-12 text-center">
-              <p className="text-sm font-medium text-slate-500">Няма записани ученици от това училище</p>
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
-              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="font-semibold text-slate-800 text-sm">{schools.find(s => s.id === selectedSchool)?.name}</h3>
-                <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">{schoolRows.length} ученика</span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50/50 border-b border-slate-100">
-                    <tr>
-                      <th className="text-left px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Три имена</th>
-                      <th className="text-left px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Пар.</th>
-                      <th className="text-left px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Психолог</th>
-                      <th className="text-left px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Логопед</th>
-                      <th className="text-left px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Рехабилитатор</th>
-                      <th className="text-center px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Документи</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {schoolRows.map((row, idx) => (
-                      <tr key={row.studentId} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors duration-200">
-                        <td className="px-5 py-4 font-medium text-slate-800">{row.name}</td>
-                        <td className="px-5 py-4 text-slate-500">{row.className}</td>
-                        <td className="px-5 py-4 text-slate-500">{row.psychologist || '—'}</td>
-                        <td className="px-5 py-4 text-slate-500">{row.speechTherapist || '—'}</td>
-                        <td className="px-5 py-4 text-slate-500">{row.rehabilitator || '—'}</td>
-                        <td className="px-5 py-4 text-center">
-                          <span className={`inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-md ${row.docsCompleted === row.docsTotal ? 'bg-green-50 text-green-700 border border-green-100/50' : row.docsCompleted > 0 ? 'bg-amber-50 text-amber-700 border border-amber-100/50' : 'bg-slate-50 text-slate-500 border border-slate-100/50'}`}>
-                            {row.docsCompleted} / {row.docsTotal}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {schools.map(school => {
+              const currentSchoolRows = allRows.filter(r => r.sendingSchoolId === school.id)
+              const count = currentSchoolRows.length
+              const isExpanded = expandedSchoolId === school.id
+
+              return (
+                <div 
+                  key={school.id} 
+                  className={`bg-white rounded-2xl border transition-all duration-200 overflow-hidden shadow-sm ${
+                    isExpanded ? 'border-blue-500 ring-4 ring-blue-500/5 md:col-span-2' : 'border-slate-200/80 hover:border-slate-300 hover:shadow-md'
+                  }`}
+                >
+                  <div 
+                    onClick={() => setExpandedSchoolId(isExpanded ? null : school.id)}
+                    className="p-5 flex items-center justify-between cursor-pointer select-none"
+                  >
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border font-bold transition-colors ${
+                        isExpanded ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-slate-50 text-slate-500 border-slate-200/60'
+                      }`}>
+                        <School size={18} />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-slate-800 text-sm md:text-base truncate tracking-tight">{school.name}</h4>
+                        <p className="text-xs text-slate-400 font-medium mt-0.5">{school.city}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-colors border ${
+                        count === 0 
+                          ? 'bg-slate-50 text-slate-400 border-slate-200/40' 
+                          : 'bg-blue-50/60 text-blue-700 border-blue-100'
+                      }`}>
+                        {count} деца
+                      </span>
+                      <div className="text-slate-400 print:hidden">
+                        {isExpanded ? <ChevronUp size={18} className="text-blue-500" /> : <ChevronDown size={18} />}
+                      </div>
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="border-t border-slate-100 bg-slate-50/30">
+                      <div className="p-4 bg-slate-50/80 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 print:hidden">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Документи за това училище:</span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button 
+                            onClick={() => generateSchoolReportExcel(school.name, currentSchoolRows)} 
+                            className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-100 shadow-sm transition-colors flex items-center gap-1.5"
+                          >
+                            <FileSpreadsheet size={13} className="text-emerald-600" />
+                            Excel Справка
+                          </button>
+                          <button 
+                            onClick={handlePrint} 
+                            className="px-3 py-2 rounded-xl border border-rose-200 bg-rose-50/40 text-xs font-bold text-rose-700 hover:bg-rose-50 shadow-sm transition-colors flex items-center gap-1.5"
+                          >
+                            <Printer size={13} className="text-rose-600" />
+                            PDF Сумарен документ
+                          </button>
+                          <button
+                            onClick={() => generateSchoolLetter(school.name, school.city, currentSchoolRows, yearName)}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0f2240] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#19325c] shadow-sm transition-colors"
+                          >
+                            <Download size={13} />
+                            Word Писмо
+                          </button>
+                        </div>
+                      </div>
+
+                      {count > 0 ? (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm bg-white">
+                            <thead className="bg-slate-50/40 border-b border-slate-100">
+                              <tr>
+                                <th className="text-left px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Три имена</th>
+                                <th className="text-left px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Пар.</th>
+                                <th className="text-left px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Психолог</th>
+                                <th className="text-left px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Логопед</th>
+                                <th className="text-left px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Рехабилитатор</th>
+                                <th className="text-center px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Документи</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {currentSchoolRows.map((row) => (
+                                <tr key={row.studentId} className="hover:bg-slate-50/30 transition-colors">
+                                  <td className="px-6 py-3.5 font-semibold text-slate-800">{row.name}</td>
+                                  <td className="px-6 py-3.5 text-slate-500 font-medium">{row.className}</td>
+                                  <td className="px-6 py-3.5 text-slate-500">{row.psychologist || '—'}</td>
+                                  <td className="px-6 py-3.5 text-slate-500">{row.speechTherapist || '—'}</td>
+                                  <td className="px-6 py-3.5 text-slate-500">{row.rehabilitator || '—'}</td>
+                                  <td className="px-6 py-3.5 text-center">
+                                    <span className={`inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-md ${row.docsCompleted === row.docsTotal ? 'bg-green-50 text-green-700 border border-green-100/50' : row.docsCompleted > 0 ? 'bg-amber-50 text-amber-700 border border-amber-100/50' : 'bg-slate-50 text-slate-500 border border-slate-100/50'}`}>
+                                      {row.docsCompleted} / {row.docsTotal}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="p-8 text-center text-sm text-slate-400 bg-white font-medium">
+                          Няма записани ученици от това училище.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
-      {/* ── ПО СПЕЦИАЛИСТ ── */}
+      {/* ── ТАБ: ПО СПЕЦИАЛИСТ ── */}
       {activeTab === 'specialist' && (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -301,7 +379,7 @@ export default function ReportsClient({ allRows, workloadRows, delayedRows, scho
                     </tr>
                   </thead>
                   <tbody>
-                    {specialistRows.map((row, idx) => (
+                    {specialistRows.map((row) => (
                       <tr key={row.studentId} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors duration-200">
                         <td className="px-5 py-4 font-medium text-slate-800 whitespace-nowrap">{row.name}</td>
                         <td className="px-5 py-4 text-slate-500">{row.className}</td>
@@ -318,7 +396,7 @@ export default function ReportsClient({ allRows, workloadRows, delayedRows, scho
         </div>
       )}
 
-      {/* ── НАТОВАРЕНОСТ ── */}
+      {/* ── ТАБ: НАТОВАРЕНОСТ ── */}
       {activeTab === 'workload' && (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="flex items-center justify-between mb-6">
@@ -339,7 +417,7 @@ export default function ReportsClient({ allRows, workloadRows, delayedRows, scho
                   </tr>
                 </thead>
                 <tbody>
-                  {workloadRows.map((row, idx) => {
+                  {workloadRows.map((row) => {
                     const pct = row.totalDocs > 0 ? Math.round(row.completedDocs / row.totalDocs * 100) : 0
                     return (
                       <tr key={row.id} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors duration-200">
@@ -372,7 +450,7 @@ export default function ReportsClient({ allRows, workloadRows, delayedRows, scho
         </div>
       )}
 
-      {/* ── БЕЗ ЕКИП ── */}
+      {/* ── ТАБ: БЕЗ ЕКИП ── */}
       {activeTab === 'noteam' && (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="flex items-center justify-between mb-6">
@@ -405,7 +483,7 @@ export default function ReportsClient({ allRows, workloadRows, delayedRows, scho
                     </tr>
                   </thead>
                   <tbody>
-                    {noTeamRows.map((row, idx) => (
+                    {noTeamRows.map((row) => (
                       <tr key={row.studentId} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors duration-200">
                         <td className="px-5 py-4 font-medium text-slate-800">{row.name}</td>
                         <td className="px-5 py-4 text-slate-500">{row.className}</td>
@@ -434,7 +512,7 @@ export default function ReportsClient({ allRows, workloadRows, delayedRows, scho
         </div>
       )}
 
-      {/* ── ГОДИШНА СПРАВКА ── */}
+      {/* ── ТАБ: ГОДИШНА СПРАВКА ── */}
       {activeTab === 'annual' && (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="flex items-center justify-between mb-6">
@@ -459,7 +537,7 @@ export default function ReportsClient({ allRows, workloadRows, delayedRows, scho
                   </tr>
                 </thead>
                 <tbody>
-                  {allRows.map((row, idx) => (
+                  {allRows.map((row) => (
                     <tr key={row.studentId} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors duration-200">
                       <td className="px-5 py-4 font-medium text-slate-800 whitespace-nowrap">{row.name}</td>
                       <td className="px-3 py-4 text-slate-500">{row.className}</td>
