@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Users, FileText, Calendar } from 'lucide-react'
+import { Users, FileText, Calendar, Check, Sparkles, Bell, ArrowRight, AlertCircle } from 'lucide-react'
 import { getFullName, getMonthName, formatDate, getDaysUntil } from '@/lib/utils'
-import { DocumentType, DOCUMENT_TYPE_LABELS } from '@/types'
+import { DocumentType, DOCUMENT_TYPE_LABELS, DocumentStatus } from '@/types'
 
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
@@ -32,8 +32,10 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
 
   if (myClasses.length === 0) {
     return (
-      <div className="card text-center py-12 text-slate-400">
-        <p>Нямате назначена паралелка. Свържете се с администратора.</p>
+      <div className="text-center py-20 bg-white rounded-2xl border border-slate-200 shadow-sm">
+        <Users className="mx-auto mb-3 text-slate-300" size={48} />
+        <h3 className="text-lg font-medium text-slate-700">Няма назначена паралелка</h3>
+        <p className="text-sm text-slate-400">Свържете се с администратора за достъп.</p>
       </div>
     )
   }
@@ -44,10 +46,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
     supabase.from('student_enrollments').select('*, student:students(*), class_id').in('class_id', classIds).eq('academic_year_id', currentYearId),
     supabase.from('monthly_absences').select('class_id').in('class_id', classIds).eq('month', reportMonth).eq('year', reportYear),
     supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
-    supabase.from('calendar_deadlines')
-      .select('*').eq('academic_year_id', currentYearId)
-      .gte('deadline_date', now.toISOString().split('T')[0])
-      .order('deadline_date').limit(5),
+    supabase.from('calendar_deadlines').select('*').eq('academic_year_id', currentYearId).gte('deadline_date', now.toISOString().split('T')[0]).order('deadline_date').limit(5),
   ])
 
   const submittedIds = new Set(iupSubmissions?.map(s => s.class_id) || [])
@@ -59,204 +58,113 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
 
   const docMap = new Map(documents?.map(d => [`${d.student_id}_${d.doc_type}`, d]) || [])
 
-  return (
-    <>
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6">
-        <div className="card">
-          <div className="flex items-center gap-3 mb-2 md:mb-3">
-            <div className="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-              <Users size={16} className="text-blue-600" />
-            </div>
-            <span className="text-xs md:text-sm text-slate-500">
-              {myClasses.length === 1 ? `Паралелка ${myClasses[0].name}` : `${myClasses.length} паралелки`}
-            </span>
-          </div>
-          <div className="text-2xl md:text-3xl font-semibold text-slate-800">{allStudents.length}</div>
-          <div className="text-xs text-slate-400 mt-1">ученика</div>
-        </div>
+  const getModernBadge = (status: DocumentStatus) => {
+    if (status === 'completed') return <span className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-50 border border-emerald-100/50 shadow-sm text-emerald-500"><Check size={14} strokeWidth={2.5} /></span>
+    if (status === 'in_progress') return <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-50 border border-amber-100/50 text-amber-500"><span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span></span>
+    return <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-50 border border-slate-100/50"><span className="w-1 h-1 rounded-full bg-slate-300"></span></span>
+  }
 
-        <div className="card">
-          <div className="flex items-center gap-3 mb-2 md:mb-3">
-            <div className="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
-              <Calendar size={16} className="text-amber-600" />
-            </div>
-            <span className="text-xs md:text-sm text-slate-500">ИУП — {getMonthName(reportMonth)}</span>
+  return (
+    <div className="animate-in fade-in duration-500">
+      {/* СТАТИСТИКА */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
+          <div className="flex items-center gap-3 mb-3 text-blue-600">
+            <Users size={18} />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Ученици</span>
           </div>
-          <div className="space-y-1 mt-1">
+          <div className="text-3xl font-bold text-slate-800">{allStudents.length}</div>
+        </div>
+        <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
+          <div className="flex items-center gap-3 mb-3 text-amber-600">
+            <Calendar size={18} />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">ИУП — {getMonthName(reportMonth)}</span>
+          </div>
+          <div className="space-y-1">
             {myClasses.map((cls: any) => {
               const submitted = submittedIds.has(cls.id)
               return (
-                <Link key={cls.id} href={`/absences/${cls.id}/${reportMonth}`}
-                  className="flex items-center justify-between hover:underline">
-                  <span className="text-xs text-slate-500">Гр. {cls.name}</span>
-                  <span className={`text-xs font-medium ${submitted ? 'text-green-600' : deadlinePassed ? 'text-red-600' : 'text-amber-600'}`}>
-                    {submitted ? '✓ Въведено' : '— Невъведено'}
-                  </span>
-                </Link>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center gap-3 mb-2 md:mb-3">
-            <div className="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
-              <FileText size={16} className="text-green-600" />
-            </div>
-            <span className="text-xs md:text-sm text-slate-500">Завършени документи</span>
-          </div>
-          <div className="text-2xl md:text-3xl font-semibold text-slate-800">
-            {documents?.filter(d => d.status === 'completed').length || 0}
-            <span className="text-lg text-slate-400"> / {allStudents.length * ALL_DOC_TYPES.length}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Предстоящи срокове */}
-      {deadlines && deadlines.length > 0 && (
-        <div className="card mb-6">
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
-            <Calendar size={16} className="text-slate-400" />
-            <h2 className="font-medium text-slate-700 text-sm">Предстоящи срокове</h2>
-          </div>
-          <div className="space-y-2">
-            {deadlines.map(d => {
-              const days = getDaysUntil(d.deadline_date)
-              return (
-                <div key={d.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 gap-2">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-slate-700 truncate">{d.title}</div>
-                    <div className="text-xs text-slate-400 mt-0.5">{formatDate(d.deadline_date)}</div>
-                  </div>
-                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 ${
-                    days <= 7 ? 'bg-red-100 text-red-700' :
-                    days <= 30 ? 'bg-amber-100 text-amber-700' :
-                    'bg-green-100 text-green-700'
-                  }`}>
-                    {days === 0 ? 'Днес' : `${days} дни`}
-                  </span>
+                <div key={cls.id} className="flex items-center justify-between text-xs font-medium text-slate-600">
+                  <span>{cls.name}</span>
+                  <span className={submitted ? 'text-emerald-600' : 'text-rose-500'}>{submitted ? '✓' : '—'}</span>
                 </div>
               )
             })}
           </div>
         </div>
-      )}
+        <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
+          <div className="flex items-center gap-3 mb-3 text-emerald-600">
+            <FileText size={18} />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Документи</span>
+          </div>
+          <div className="text-3xl font-bold text-slate-800">
+            {documents?.filter(d => d.status === 'completed').length || 0}
+            <span className="text-lg font-normal text-slate-400 ml-1">/ {allStudents.length * ALL_DOC_TYPES.length}</span>
+          </div>
+        </div>
+      </div>
 
-      {/* Per class */}
-      {myClasses.map((cls: any) => {
-        const classStudents = allEnrollments
-          ?.filter(e => e.class_id === cls.id)
-          .map(e => e.student as any)
-          .filter(Boolean) || []
-
-        return (
-          <div key={cls.id} className="card mb-4">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-              <h2 className="font-medium text-slate-700 text-sm">Паралелка {cls.name} — документи</h2>
-              <Link href={`/classes/${cls.id}`} className="text-xs text-slate-400 hover:text-slate-700">Виж →</Link>
-            </div>
-
-            {/* ДЕСКТОП: таблица */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50">
-                    <th className="text-left px-3 py-2 text-xs font-medium text-slate-500">Ученик</th>
-                    {ALL_DOC_TYPES.map(dt => (
-                      <th key={dt} className="text-center px-2 py-2 text-xs font-medium text-slate-500" title={DOCUMENT_TYPE_LABELS[dt]}>
-                        {DOC_SHORT[dt]}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {classStudents.map((student, idx) => (
-                    <tr key={student.id} className={`border-t border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
-                      <td className="px-3 py-2">
-                        <Link href={`/students/${student.id}`} className="font-medium text-slate-800 hover:underline">
-                          {getFullName(student)}
-                        </Link>
-                      </td>
-                      {ALL_DOC_TYPES.map(dt => {
-                        const doc = docMap.get(`${student.id}_${dt}`)
-                        const status = doc?.status || 'empty'
-                        return (
-                          <td key={dt} className="text-center px-2 py-2">
-                            <Link href={`/documents/${student.id}/${dt}`}>
-                              <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${
-                                status === 'completed' ? 'bg-green-100 text-green-700' :
-                                status === 'in_progress' ? 'bg-amber-100 text-amber-700' :
-                                'bg-slate-100 text-slate-400'
-                              }`}>
-                                {status === 'completed' ? '✓' : status === 'in_progress' ? '…' : '—'}
-                              </span>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          {myClasses.map((cls: any) => {
+            const classStudents = allEnrollments?.filter(e => e.class_id === cls.id).map(e => e.student as any).filter(Boolean) || []
+            return (
+              <div key={cls.id} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
+                  <h2 className="font-semibold text-slate-800">Паралелка {cls.name}</h2>
+                  <Link href={`/classes/${cls.id}`} className="text-xs font-bold text-blue-600 hover:underline">ПРЕГЛЕД →</Link>
+                </div>
+                <div className="divide-y divide-slate-50">
+                  {classStudents.map(s => {
+                    const completed = ALL_DOC_TYPES.filter(dt => docMap.get(`${s.id}_${dt}`)?.status === 'completed').length
+                    const pct = Math.round((completed / ALL_DOC_TYPES.length) * 100)
+                    return (
+                      <div key={s.id} className="p-4 hover:bg-slate-50/50 transition-colors">
+                        <div className="flex justify-between mb-3">
+                          <Link href={`/students/${s.id}`} className="text-sm font-medium text-slate-800 hover:text-blue-600">{getFullName(s)}</Link>
+                          <span className="text-[10px] font-bold text-slate-400">{pct}% Готовност</span>
+                        </div>
+                        <div className="flex gap-2">
+                          {ALL_DOC_TYPES.map(dt => (
+                            <Link key={dt} href={`/documents/${s.id}/${dt}`} className="hover:scale-110 transition-transform">
+                              {getModernBadge(docMap.get(`${s.id}_${dt}`)?.status || 'empty')}
                             </Link>
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
 
-            {/* МОБИЛЕН: карти */}
-            <div className="md:hidden space-y-2">
-              {classStudents.map((student) => {
-                const completedCount = ALL_DOC_TYPES.filter(dt => docMap.get(`${student.id}_${dt}`)?.status === 'completed').length
-                const inProgressCount = ALL_DOC_TYPES.filter(dt => docMap.get(`${student.id}_${dt}`)?.status === 'in_progress').length
-                return (
-                  <div key={student.id} className="border border-slate-100 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <Link href={`/students/${student.id}`} className="font-medium text-slate-800 text-sm hover:underline truncate mr-2">
-                        {getFullName(student)}
-                      </Link>
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${
-                        completedCount === ALL_DOC_TYPES.length ? 'bg-green-100 text-green-700' :
-                        completedCount > 0 || inProgressCount > 0 ? 'bg-amber-100 text-amber-700' :
-                        'bg-slate-100 text-slate-500'
-                      }`}>
-                        {completedCount}/{ALL_DOC_TYPES.length}
-                      </span>
-                    </div>
-                    <div className="flex gap-1 flex-wrap">
-                      {ALL_DOC_TYPES.map(dt => {
-                        const doc = docMap.get(`${student.id}_${dt}`)
-                        const status = doc?.status || 'empty'
-                        return (
-                          <Link key={dt} href={`/documents/${student.id}/${dt}`} title={DOCUMENT_TYPE_LABELS[dt]}
-                            className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium ${
-                              status === 'completed' ? 'bg-green-100 text-green-700' :
-                              status === 'in_progress' ? 'bg-amber-100 text-amber-700' :
-                              'bg-slate-100 text-slate-400'
-                            }`}>
-                            {DOC_SHORT[dt]}
-                          </Link>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              })}
+        <div className="space-y-6">
+          {/* Срокове */}
+          <div className="bg-white rounded-2xl border border-slate-200/70 p-6 shadow-sm">
+            <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Предстоящи срокове</h2>
+            <div className="space-y-4">
+              {deadlines?.map(d => (
+                <div key={d.id} className="flex justify-between items-center">
+                  <div className="text-sm font-medium text-slate-700">{d.title}</div>
+                  <span className="text-[10px] font-bold bg-slate-100 px-2 py-1 rounded">{formatDate(d.deadline_date)}</span>
+                </div>
+              ))}
             </div>
           </div>
-        )
-      })}
-
-      {announcements && announcements.length > 0 && (
-        <div className="card mt-2">
-          <h2 className="font-medium text-slate-700 text-sm mb-4 pb-3 border-b border-slate-100">Съобщения</h2>
-          <div className="space-y-3">
-            {announcements.map(ann => (
-              <div key={ann.id} className="p-3 rounded-lg border border-slate-100">
-                <div className="text-sm font-medium text-slate-700">{ann.title}</div>
-                <div className="text-xs text-slate-500 mt-1 line-clamp-2">{ann.body}</div>
+          {/* Съобщения */}
+          <div className="bg-white rounded-2xl border border-slate-200/70 p-6 shadow-sm">
+            <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Съобщения</h2>
+            {announcements?.map(a => (
+              <div key={a.id} className="mb-4">
+                <div className="text-sm font-semibold text-slate-800">{a.title}</div>
+                <p className="text-xs text-slate-500 mt-1">{a.body}</p>
               </div>
             ))}
           </div>
         </div>
-      )}
-    </>
+      </div>
+    </div>
   )
 }
