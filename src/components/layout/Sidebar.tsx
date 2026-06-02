@@ -6,12 +6,17 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Users, FileText, BookOpen,
   Calendar, Shield, UserCircle, LogOut, ChevronRight,
-  Building2, Menu, X, GitBranch, BarChart3
+  Building2, Menu, X, GitBranch, BarChart3, Mail
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
 import { cn } from '@/lib/utils'
 import { AutoLogout } from '@/components/AutoLogout'
+
+// Небесно синьо с тъмно сини текстове
+const SIDEBAR_BG = '#1a3a5c'
+const SIDEBAR_ACTIVE = 'rgba(255,255,255,0.12)'
+const SIDEBAR_HOVER = 'rgba(255,255,255,0.06)'
 
 interface NavItem {
   href: string
@@ -30,6 +35,7 @@ const navItems: NavItem[] = [
   { href: '/committees', label: 'Комисии', icon: <Building2 size={18} /> },
   { href: '/staff', label: 'Служители', icon: <UserCircle size={18} />, roles: ['admin', 'director', 'zdud'] },
   { href: '/reports', label: 'Справки', icon: <BarChart3 size={18} />, roles: ['admin', 'director', 'zdud'], coordinatorOnly: true },
+  { href: '/correspondence', label: 'Кореспонденция', icon: <Mail size={18} />, roles: ['admin', 'director', 'zdud'], coordinatorOnly: true },
   { href: '/admin/eplr-assignment', label: 'ЕПЛР Разпределение', icon: <GitBranch size={18} />, roles: ['admin', 'zdud'], coordinatorOnly: true },
   { href: '/admin', label: 'Администрация', icon: <Shield size={18} />, roles: ['admin', 'zdud'] },
 ]
@@ -64,15 +70,13 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false }
   }
 
   const visibleItems = navItems.filter(item => {
-    // coordinatorOnly елементи са видими за координатори независимо от ролята
     if (item.coordinatorOnly && isCoordinator) return true
-    // Стандартна проверка по роля
     if (!item.roles) return true
     return item.roles.includes(userRole)
   })
 
   const sidebarContent = (
-    <aside className="w-56 h-full flex flex-col" style={{ backgroundColor: '#0f2240' }}>
+    <aside className="w-56 h-full flex flex-col" style={{ backgroundColor: SIDEBAR_BG }}>
       <AutoLogout />
       <div className="p-5 border-b border-white/10">
         <div className="flex items-center gap-3">
@@ -81,7 +85,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false }
           </Link>
           <div>
             <div className="text-white text-sm font-semibold">ЦСОП Варна</div>
-            <div className="text-white/40 text-xs">ЕПЛР</div>
+            <div className="text-sky-200/60 text-xs">ЕПЛР</div>
           </div>
         </div>
       </div>
@@ -94,12 +98,14 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false }
               key={item.href}
               href={item.href}
               onClick={() => setMobileOpen(false)}
-              className={cn(
-                'flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors',
-                active
-                  ? 'bg-white/10 text-white font-medium'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
-              )}
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors"
+              style={{
+                backgroundColor: active ? SIDEBAR_ACTIVE : 'transparent',
+                color: active ? '#ffffff' : 'rgba(186,230,253,0.75)',
+                fontWeight: active ? 500 : 400,
+              }}
+              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER }}
+              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
             >
               {item.icon}
               <span className="flex-1">{item.label}</span>
@@ -111,21 +117,23 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false }
 
       <div className="p-4 border-t border-white/10">
         <div className="flex items-center gap-2.5 mb-3">
-          <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white text-xs font-medium">
+          <div className="w-8 h-8 rounded-full bg-sky-400/20 flex items-center justify-center text-white text-xs font-medium">
             {userName.charAt(0)}
           </div>
           <div className="overflow-hidden">
             <div className="text-white text-xs font-medium truncate">{userName}</div>
-            <div className="text-white/40 text-xs">
+            <div className="text-sky-200/60 text-xs">
               {ROLE_LABELS[userRole]}
-              {isCoordinator && <span className="ml-1 text-indigo-300">· Координатор</span>}
+              {isCoordinator && <span className="ml-1 text-sky-300">· Координатор</span>}
             </div>
           </div>
         </div>
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-white/50
-                     hover:text-white hover:bg-white/5 transition-colors text-xs"
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-xs"
+          style={{ color: 'rgba(186,230,253,0.5)' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER; (e.currentTarget as HTMLElement).style.color = '#ffffff' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'rgba(186,230,253,0.5)' }}
         >
           <LogOut size={14} />
           Изход
@@ -143,19 +151,19 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false }
 
       {/* МОБИЛЕН: топ лента */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 h-14"
-           style={{ backgroundColor: '#0f2240' }}>
+           style={{ backgroundColor: SIDEBAR_BG }}>
         <div className="flex items-center gap-3">
           <Link href="/dashboard">
             <img src="/csop-varna-logo.jpg" alt="ЦСОП Варна" className="w-8 h-8 rounded-lg object-cover" />
           </Link>
           <div>
             <div className="text-white text-sm font-semibold">ЦСОП Варна</div>
-            <div className="text-white/40 text-xs">ЕПЛР</div>
+            <div className="text-sky-200/60 text-xs">ЕПЛР</div>
           </div>
         </div>
         <button
           onClick={() => setMobileOpen(prev => !prev)}
-          className="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+          className="text-sky-200/70 hover:text-white p-1.5 rounded-lg transition-colors"
           aria-label="Меню"
         >
           {mobileOpen ? <X size={22} /> : <Menu size={22} />}
