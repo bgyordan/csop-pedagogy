@@ -76,7 +76,6 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
     .from('student_attachments').select('*').eq('student_id', id)
     .order('created_at', { ascending: false })
 
-  // История — всички учебни години на ученика
   const { data: allEnrollments } = await supabase
     .from('student_enrollments')
     .select('*, class:classes(*), academic_year:academic_years(*)')
@@ -100,29 +99,26 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       {/* ── ХЕДЪР 2.0 ── */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-6 mb-6">
         <div className="flex items-start gap-4 md:gap-5">
-          {/* Монограм */}
           <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl flex items-center justify-center text-white text-xl md:text-2xl font-bold flex-shrink-0"
             style={{ backgroundColor: '#0f2240' }}>
             {getInitials(student.first_name, student.last_name)}
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h1 className="text-xl md:text-2xl font-semibold text-slate-800">{getFullName(student)}</h1>
-                <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                  <span className={student.status === 'active' ? 'badge-completed' : 'badge-empty'}>
-                    {student.status === 'active' ? 'Активен' : 'Архивиран'}
-                  </span>
-                  {age && <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{age}</span>}
-                </div>
+            <div>
+              <h1 className="text-xl md:text-2xl font-semibold text-slate-800">{getFullName(student)}</h1>
+              <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                <span className={student.status === 'active' ? 'badge-completed' : 'badge-empty'}>
+                  {student.status === 'active' ? 'Активен' : 'Архивиран'}
+                </span>
+                {age && <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{age}</span>}
               </div>
             </div>
 
             {/* Детайли */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-4">
               <div>
-                <div className="text-xs text-slate-400 mb-0.5">Паралелка</div>
+                <div className="text-xs text-slate-400 mb-0.5">Паралелка ЦСОП</div>
                 <div className="text-sm font-medium text-slate-700">
                   {(enrollment?.class as any)?.name || '—'}
                 </div>
@@ -141,6 +137,12 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                     {sendingSchool.name}
                     <span className="text-slate-400 font-normal">— {sendingSchool.city}</span>
                   </div>
+                </div>
+              )}
+              {student.external_class && (
+                <div>
+                  <div className="text-xs text-slate-400 mb-0.5">Клас в изпращащото училище</div>
+                  <div className="text-sm font-medium text-slate-700">{student.external_class}</div>
                 </div>
               )}
             </div>
@@ -196,7 +198,6 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
 
       {/* ── ОСНОВНО СЪДЪРЖАНИЕ ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6">
-        {/* ЕПЛР екип */}
         <div className="card">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
             <Users size={16} className="text-slate-400" />
@@ -205,7 +206,6 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           <EplrTeam eplr={eplr} id={id} canManage={canManage} />
         </div>
 
-        {/* Документи */}
         <div className="card md:col-span-2">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
             <FileText size={16} className="text-slate-400" />
