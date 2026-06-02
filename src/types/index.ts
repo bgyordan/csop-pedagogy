@@ -2,6 +2,7 @@ export type UserRole =
   | 'admin'
   | 'director'
   | 'zdud'
+  | 'coordinator'
   | 'psychologist'
   | 'speech_therapist'
   | 'rehabilitator'
@@ -193,6 +194,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   admin: 'Администратор',
   director: 'Директор',
   zdud: 'ЗДУД',
+  coordinator: 'Координатор',
   psychologist: 'Психолог',
   speech_therapist: 'Логопед',
   rehabilitator: 'Рехабилитатор',
