@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Users, FileText, CheckCircle2, Clock } from 'lucide-react'
-import { getFullName } from '@/lib/utils'
-import { DocumentType, DOCUMENT_TYPE_LABELS, ROLE_LABELS } from '@/types'
+import { Users, FileText, CheckCircle2, Clock, Calendar } from 'lucide-react'
+import { getFullName, formatDate, getDaysUntil } from '@/lib/utils'
+import { DocumentType, DOCUMENT_TYPE_LABELS } from '@/types'
 
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
@@ -20,14 +20,18 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
   }
   const roleField = roleMap[profile.role] || 'psychologist_id'
 
-  const [{ data: eplrTeams }, { data: announcements }] = await Promise.all([
+  const [{ data: eplrTeams }, { data: announcements }, { data: deadlines }] = await Promise.all([
     supabase.from('eplr_teams')
-      .select(`student_id, student:students(*)`)
+      .select('student_id, student:students(*)')
       .eq(roleField, profile.id)
       .eq('academic_year_id', currentYearId),
     supabase.from('announcements')
       .select('*').eq('is_active', true)
-      .order('created_at', { ascending: false }).limit(3)
+      .order('created_at', { ascending: false }).limit(3),
+    supabase.from('calendar_deadlines')
+      .select('*').eq('academic_year_id', currentYearId)
+      .gte('deadline_date', new Date().toISOString().split('T')[0])
+      .order('deadline_date').limit(5),
   ])
 
   const studentIds = eplrTeams?.map(e => e.student_id) || []
@@ -45,7 +49,7 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
 
   return (
     <>
-      {/* Stats — 1 колона на мобилен, 3 на десктоп */}
+      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
         <div className="card">
           <div className="flex items-center gap-3 mb-2 md:mb-3">
@@ -83,7 +87,37 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
         </div>
       </div>
 
-      {/* Ученици + Съобщения — 1 колона на мобилен, 2 на десктоп */}
+      {/* Предстоящи срокове */}
+      {deadlines && deadlines.length > 0 && (
+        <div className="card mb-6">
+          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+            <Calendar size={16} className="text-slate-400" />
+            <h2 className="font-medium text-slate-700 text-sm">Предстоящи срокове</h2>
+          </div>
+          <div className="space-y-2">
+            {deadlines.map(d => {
+              const days = getDaysUntil(d.deadline_date)
+              return (
+                <div key={d.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 gap-2">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-slate-700 truncate">{d.title}</div>
+                    <div className="text-xs text-slate-400 mt-0.5">{formatDate(d.deadline_date)}</div>
+                  </div>
+                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 ${
+                    days <= 7 ? 'bg-red-100 text-red-700' :
+                    days <= 30 ? 'bg-amber-100 text-amber-700' :
+                    'bg-green-100 text-green-700'
+                  }`}>
+                    {days === 0 ? 'Днес' : `${days} дни`}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Ученици + Съобщения */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         <div className="card">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
@@ -99,11 +133,8 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
                 const myDocs = ALL_DOC_TYPES.map(dt => docMap.get(`${e.student_id}_${dt}`))
                 const doneCount = myDocs.filter(d => d?.status === 'completed').length
                 return (
-                  <Link
-                    key={e.student_id}
-                    href={`/students/${e.student_id}`}
-                    className="flex items-center justify-between p-3 rounded-lg border border-slate-100 hover:bg-slate-50 transition-colors gap-2"
-                  >
+                  <Link key={e.student_id} href={`/students/${e.student_id}`}
+                    className="flex items-center justify-between p-3 rounded-lg border border-slate-100 hover:bg-slate-50 transition-colors gap-2">
                     <span className="text-sm font-medium text-slate-800 truncate">{getFullName(student)}</span>
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${
                       doneCount === ALL_DOC_TYPES.length ? 'bg-green-100 text-green-700' :
