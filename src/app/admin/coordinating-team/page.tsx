@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { BackButton } from '@/components/ui/BackButton'
 import { useToast } from '@/components/ui/Toast'
 import { getFullName, formatDate } from '@/lib/utils'
-import { Plus, X, Star, Calendar, Download } from 'lucide-react'
+import { Plus, X, Star, Calendar, Download, Pencil, Trash2, Check } from 'lucide-react'
 import { generateCommitteeProtocol } from '@/lib/docx-generator'
 
 interface TeamMember {
@@ -46,6 +46,11 @@ const ROLE_LABELS: Record<string, string> = {
   class_teacher: 'Класен ръководител',
 }
 
+const emptySession = {
+  session_date: new Date().toISOString().split('T')[0],
+  agenda: '', protocol: '', decisions: '', deadline: '',
+}
+
 export default function CoordinatingTeamPage() {
   const supabase = createClient()
   const { toast } = useToast()
@@ -65,10 +70,12 @@ export default function CoordinatingTeamPage() {
   // Форма за заседание
   const [showSessionForm, setShowSessionForm] = useState(false)
   const [savingSession, setSavingSession] = useState(false)
-  const [sessionForm, setSessionForm] = useState({
-    session_date: new Date().toISOString().split('T')[0],
-    agenda: '', protocol: '', decisions: '', deadline: '',
-  })
+  const [sessionForm, setSessionForm] = useState(emptySession)
+
+  // Редактиране на заседание
+  const [editSessionId, setEditSessionId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState(emptySession)
+  const [savingEdit, setSavingEdit] = useState(false)
 
   useEffect(() => { loadData() }, [])
 
@@ -76,7 +83,6 @@ export default function CoordinatingTeamPage() {
     setLoading(true)
     const { data: year } = await supabase
       .from('academic_years').select('id, name').eq('is_current', true).single()
-
     if (!year) { setLoading(false); return }
     setCurrentYearId(year.id)
     setCurrentYearName(year.name)
@@ -104,22 +110,13 @@ export default function CoordinatingTeamPage() {
   async function handleAddMember() {
     if (!selectedStaff) { toast('Избери служител', 'error'); return }
     setSavingMember(true)
-
-    const { data, error } = await supabase
-      .from('coordinating_team')
+    const { data, error } = await supabase.from('coordinating_team')
       .insert({ staff_id: selectedStaff, academic_year_id: currentYearId, role_in_team: roleInTeam || null })
-      .select('*, staff:staff_profiles(first_name, middle_name, last_name, role, position)')
-      .single()
-
+      .select('*, staff:staff_profiles(first_name, middle_name, last_name, role, position)').single()
     if (error) { toast('Грешка при добавяне', 'error'); setSavingMember(false); return }
-
     await supabase.from('staff_profiles').update({ role: 'coordinator' }).eq('id', selectedStaff)
-
     setMembers(prev => [...prev, data])
-    setSelectedStaff('')
-    setRoleInTeam('')
-    setShowMemberForm(false)
-    setSavingMember(false)
+    setSelectedStaff(''); setRoleInTeam(''); setShowMemberForm(false); setSavingMember(false)
     toast('Членът е добавен и ролята е обновена на Координатор')
   }
 
@@ -134,13 +131,10 @@ export default function CoordinatingTeamPage() {
   async function handleAddSession() {
     if (!sessionForm.session_date) { toast('Въведи дата', 'error'); return }
     setSavingSession(true)
-
-    const { data: user } = await supabase.auth.getUser()
-    const { data: profile } = await supabase
-      .from('staff_profiles').select('id').eq('user_id', user.user?.id!).single()
-
-    const { data, error } = await supabase
-      .from('coordinating_team_sessions')
+    const { data: authData } = await supabase.auth.getUser()
+    const { data: profile } = await supabase.from('staff_profiles')
+      .select('id').eq('user_id', authData.user?.id!).single()
+    const { data, error } = await supabase.from('coordinating_team_sessions')
       .insert({
         academic_year_id: currentYearId,
         session_date: sessionForm.session_date,
@@ -149,16 +143,47 @@ export default function CoordinatingTeamPage() {
         decisions: sessionForm.decisions || null,
         deadline: sessionForm.deadline || null,
         created_by: profile?.id,
-      })
-      .select().single()
-
+      }).select().single()
     if (error) { toast('Грешка при запис', 'error'); setSavingSession(false); return }
-
     setSessions(prev => [...prev, data])
-    setSessionForm({ session_date: new Date().toISOString().split('T')[0], agenda: '', protocol: '', decisions: '', deadline: '' })
-    setShowSessionForm(false)
-    setSavingSession(false)
+    setSessionForm(emptySession); setShowSessionForm(false); setSavingSession(false)
     toast('Заседанието е записано')
+  }
+
+  function startEdit(session: Session) {
+    setEditSessionId(session.id)
+    setEditForm({
+      session_date: session.session_date,
+      agenda: session.agenda || '',
+      protocol: session.protocol || '',
+      decisions: session.decisions || '',
+      deadline: session.deadline || '',
+    })
+  }
+
+  async function handleSaveEdit() {
+    if (!editSessionId) return
+    setSavingEdit(true)
+    const { error } = await supabase.from('coordinating_team_sessions')
+      .update({
+        session_date: editForm.session_date,
+        agenda: editForm.agenda || null,
+        protocol: editForm.protocol || null,
+        decisions: editForm.decisions || null,
+        deadline: editForm.deadline || null,
+      }).eq('id', editSessionId)
+    if (error) { toast('Грешка при запис', 'error'); setSavingEdit(false); return }
+    setSessions(prev => prev.map(s => s.id === editSessionId ? { ...s, ...editForm } : s))
+    setEditSessionId(null); setSavingEdit(false)
+    toast('Заседанието е обновено')
+  }
+
+  async function handleDeleteSession(sessionId: string) {
+    if (!confirm('Изтрий заседанието?')) return
+    const { error } = await supabase.from('coordinating_team_sessions').delete().eq('id', sessionId)
+    if (error) { toast('Грешка', 'error'); return }
+    setSessions(prev => prev.filter(s => s.id !== sessionId))
+    toast('Заседанието е изтрито')
   }
 
   async function handleDownloadProtocol(session: Session, idx: number) {
@@ -267,7 +292,7 @@ export default function CoordinatingTeamPage() {
             </div>
 
             {showSessionForm && (
-              <div className="mb-4 p-3 bg-slate-50 rounded-lg space-y-3">
+              <div className="mb-4 p-3 bg-slate-50 rounded-lg space-y-3 border border-slate-200">
                 <div>
                   <label className="label">Дата <span className="text-red-500">*</span></label>
                   <input type="date" className="input" value={sessionForm.session_date}
@@ -276,20 +301,17 @@ export default function CoordinatingTeamPage() {
                 <div>
                   <label className="label">Дневен ред</label>
                   <textarea rows={3} className="input resize-y" placeholder="Точки от дневния ред..."
-                    value={sessionForm.agenda}
-                    onChange={e => setSessionForm(p => ({ ...p, agenda: e.target.value }))} />
+                    value={sessionForm.agenda} onChange={e => setSessionForm(p => ({ ...p, agenda: e.target.value }))} />
                 </div>
                 <div>
                   <label className="label">Протокол</label>
-                  <textarea rows={3} className="input resize-y" placeholder="Съдържание на протокола..."
-                    value={sessionForm.protocol}
-                    onChange={e => setSessionForm(p => ({ ...p, protocol: e.target.value }))} />
+                  <textarea rows={3} className="input resize-y" placeholder="Съдържание..."
+                    value={sessionForm.protocol} onChange={e => setSessionForm(p => ({ ...p, protocol: e.target.value }))} />
                 </div>
                 <div>
                   <label className="label">Решения</label>
                   <textarea rows={3} className="input resize-y" placeholder="Взети решения..."
-                    value={sessionForm.decisions}
-                    onChange={e => setSessionForm(p => ({ ...p, decisions: e.target.value }))} />
+                    value={sessionForm.decisions} onChange={e => setSessionForm(p => ({ ...p, decisions: e.target.value }))} />
                 </div>
                 <div>
                   <label className="label">Срок за изпълнение</label>
@@ -312,32 +334,85 @@ export default function CoordinatingTeamPage() {
 
             <div className="space-y-3">
               {sessions.map((session, idx) => (
-                <div key={session.id} className="p-4 border border-slate-100 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-slate-700">
-                      Протокол № {idx + 1} / {formatDate(session.session_date)}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {session.deadline && (
-                        <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-                          Срок: {formatDate(session.deadline)}
+                <div key={session.id} className="border border-slate-100 rounded-lg overflow-hidden">
+                  {editSessionId === session.id ? (
+                    // Режим редактиране
+                    <div className="p-4 space-y-3 bg-amber-50/30">
+                      <div>
+                        <label className="label">Дата</label>
+                        <input type="date" className="input" value={editForm.session_date}
+                          onChange={e => setEditForm(p => ({ ...p, session_date: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="label">Дневен ред</label>
+                        <textarea rows={3} className="input resize-y" value={editForm.agenda}
+                          onChange={e => setEditForm(p => ({ ...p, agenda: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="label">Протокол</label>
+                        <textarea rows={3} className="input resize-y" value={editForm.protocol}
+                          onChange={e => setEditForm(p => ({ ...p, protocol: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="label">Решения</label>
+                        <textarea rows={3} className="input resize-y" value={editForm.decisions}
+                          onChange={e => setEditForm(p => ({ ...p, decisions: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="label">Срок за изпълнение</label>
+                        <input type="date" className="input" value={editForm.deadline}
+                          onChange={e => setEditForm(p => ({ ...p, deadline: e.target.value }))} />
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={handleSaveEdit} disabled={savingEdit}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white"
+                          style={{ backgroundColor: '#0f2240' }}>
+                          <Check size={14} />
+                          {savingEdit ? 'Запазване...' : 'Запази'}
+                        </button>
+                        <button onClick={() => setEditSessionId(null)}
+                          className="px-4 py-2 rounded-lg text-sm border border-slate-200 hover:bg-slate-50">
+                          Отказ
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    // Нормален изглед
+                    <div className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-slate-700">
+                          Протокол № {idx + 1} / {formatDate(session.session_date)}
                         </span>
+                        <div className="flex items-center gap-1.5">
+                          {session.deadline && (
+                            <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                              Срок: {formatDate(session.deadline)}
+                            </span>
+                          )}
+                          <button onClick={() => handleDownloadProtocol(session, idx)}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">
+                            <Download size={12} /> Word
+                          </button>
+                          <button onClick={() => startEdit(session)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                            <Pencil size={13} />
+                          </button>
+                          <button onClick={() => handleDeleteSession(session.id)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                      {session.agenda && (
+                        <div className="text-xs text-slate-500 mb-1">
+                          <span className="font-medium">Дневен ред:</span> {session.agenda}
+                        </div>
                       )}
-                      <button onClick={() => handleDownloadProtocol(session, idx)}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">
-                        <Download size={12} />
-                        Word
-                      </button>
-                    </div>
-                  </div>
-                  {session.agenda && (
-                    <div className="text-xs text-slate-500 mb-1">
-                      <span className="font-medium">Дневен ред:</span> {session.agenda}
-                    </div>
-                  )}
-                  {session.decisions && (
-                    <div className="text-xs text-slate-500">
-                      <span className="font-medium">Решения:</span> {session.decisions}
+                      {session.decisions && (
+                        <div className="text-xs text-slate-500">
+                          <span className="font-medium">Решения:</span> {session.decisions}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
