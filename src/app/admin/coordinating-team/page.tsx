@@ -114,18 +114,20 @@ export default function CoordinatingTeamPage() {
       .insert({ staff_id: selectedStaff, academic_year_id: currentYearId, role_in_team: roleInTeam || null })
       .select('*, staff:staff_profiles(first_name, middle_name, last_name, role, position)').single()
     if (error) { toast('Грешка при добавяне', 'error'); setSavingMember(false); return }
-    await supabase.from('staff_profiles').update({ role: 'coordinator' }).eq('id', selectedStaff)
+    await supabase.from('staff_profiles').update({ is_coordinator: true }).eq('id', selectedStaff)
     setMembers(prev => [...prev, data])
     setSelectedStaff(''); setRoleInTeam(''); setShowMemberForm(false); setSavingMember(false)
-    toast('Членът е добавен и ролята е обновена на Координатор')
+    toast('Членът е добавен в координиращия екип')
   }
 
   async function handleRemoveMember(member: TeamMember) {
     if (!confirm(`Премахни ${getFullName(member.staff)} от координиращия екип?`)) return
     const { error } = await supabase.from('coordinating_team').delete().eq('id', member.id)
     if (error) { toast('Грешка', 'error'); return }
+    // Върни is_coordinator на false само ако няма друг запис за текущата година
+    await supabase.from('staff_profiles').update({ is_coordinator: false }).eq('id', member.staff_id)
     setMembers(prev => prev.filter(m => m.id !== member.id))
-    toast('Членът е премахнат')
+    toast('Членът е премахнат от координиращия екип')
   }
 
   async function handleAddSession() {
@@ -233,7 +235,7 @@ export default function CoordinatingTeamPage() {
                 </select>
                 <input className="input text-sm w-full" placeholder="Роля в екипа (Председател, Секретар...)"
                   value={roleInTeam} onChange={e => setRoleInTeam(e.target.value)} />
-                <p className="text-xs text-indigo-600">ℹ️ Ролята на служителя се обновява автоматично на Координатор</p>
+                <p className="text-xs text-indigo-600">ℹ️ Служителят запазва основната си роля и получава допълнителни права на координатор</p>
                 <div className="flex gap-2">
                   <button onClick={handleAddMember} disabled={savingMember}
                     className="flex-1 py-1.5 rounded-lg text-xs font-medium text-white"
