@@ -44,11 +44,12 @@ export function AttachmentsSection({ studentId, attachments: initial, canManage,
     if (!file) return
 
     // Проверка за тип файл
-    const allowed = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword']
-    if (!allowed.includes(file.type)) {
-      toast('Позволени са само PDF и Word файлове', 'error')
-      return
-    }
+    const allowed = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword', 'application/octet-stream', '']
+const ext = file.name.split('.').pop()?.toLowerCase()
+if (!['pdf', 'doc', 'docx'].includes(ext || '')) {
+  toast('Позволени са само PDF и Word файлове', 'error')
+  return
+}
 
     // Макс 10MB
     if (file.size > 10 * 1024 * 1024) {
