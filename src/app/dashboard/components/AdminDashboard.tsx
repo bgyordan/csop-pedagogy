@@ -10,11 +10,18 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
   const currentDay = now.getDate()
   const currentMonth = now.getMonth() + 1
   const currentYearNum = now.getFullYear()
-  const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1
 
   const isActivePeriod = currentDay >= 28 || currentDay <= 8
+
+  // Отчитан месец — миналия месец ако сме от 1-8, текущия ако сме от 28-31
   const reportMonth = currentDay >= 28 ? currentMonth : (currentMonth === 1 ? 12 : currentMonth - 1)
   const reportYear = currentDay >= 28 ? currentYearNum : (currentMonth === 1 ? currentYearNum - 1 : currentYearNum)
+
+  // Срокът е до 8-ми на месеца СЛЕД отчитания
+  const deadlineMonth = reportMonth === 12 ? 1 : reportMonth + 1
+
+  // nextMonth за "предстои" банера — следващия от текущия
+  const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1
 
   const [
     { count: totalStudents },
@@ -42,7 +49,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
 
   return (
     <>
-      {/* Stats — 2 колони на мобилен, 4 на десктоп */}
+      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
         <Link href="/students" className="card hover:shadow-md transition-shadow">
           <div className="flex items-center gap-2 mb-2 md:mb-3">
@@ -98,7 +105,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
                 Протича въвеждане на реализация на ИУП за {getMonthName(reportMonth)}
               </div>
               <div className="text-xs text-amber-600 mt-0.5">
-                {submittedCount} от {totalClassCount} паралелки въведени · Срок до 8 {getMonthName(nextMonth)}
+                {submittedCount} от {totalClassCount} паралелки въведени · Срок до 8 {getMonthName(deadlineMonth)}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -120,7 +127,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
         </div>
       )}
 
-      {/* Deadlines + Announcements — 1 колона на мобилен, 2 на десктоп */}
+      {/* Deadlines + Announcements */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         <div className="card">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
