@@ -1,5 +1,4 @@
 export const runtime = 'nodejs'
-
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
@@ -11,7 +10,6 @@ export async function GET(
 ) {
   const { month, year } = await params
   const supabase = await createClient()
-
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -41,34 +39,20 @@ export async function GET(
   absences?.forEach(a => absenceByClass.set(a.class_id, a))
 
   const rows: any[] = []
-
   for (const cls of classes || []) {
     const absence = absenceByClass.get(cls.id)
     const teacher = teachersByClass.get(cls.id) || '—'
-
-    if (!absence || !absence.entries?.length) {
-      rows.push({
-        'Паралелка': cls.name,
-        'Класен ръководител': teacher,
-        'Три имена': '',
-        'Планирани часове': '',
-        'Реализирани часове': '',
-        'Причини': '',
-        'Компенсиране': '',
-        'Статус': 'Невъведено',
-      })
-    } else {
+    if (absence?.entries?.length) {
       for (const entry of absence.entries) {
         const student = studentsMap.get(entry.student_id)
         rows.push({
-          'Паралелка': cls.name,
+          'Паралелка/Група в ЦСОП-Варна': cls.name,
           'Класен ръководител': teacher,
           'Три имена': student ? getFullName(student) : '—',
-          'Планирани часове': entry.planned_hours,
-          'Реализирани часове': entry.realized_hours,
-          'Причини': entry.reason || '',
-          'Компенсиране': entry.compensation || '',
-          'Статус': 'Въведено',
+          'Планирани учебни часове': entry.planned_hours,
+          'Реализирани учебни часове': entry.realized_hours,
+          'Причини за нереализираните часове': entry.reason || '',
+          'Компенсиране на нереализираните часове': entry.compensation || '',
         })
       }
     }
@@ -77,18 +61,14 @@ export async function GET(
   const wb = XLSX.utils.book_new()
   const ws = XLSX.utils.json_to_sheet(rows)
   ws['!cols'] = [
-    { wch: 12 }, { wch: 25 }, { wch: 30 },
-    { wch: 16 }, { wch: 18 }, { wch: 30 }, { wch: 35 }, { wch: 12 },
+    { wch: 24 }, { wch: 25 }, { wch: 30 },
+    { wch: 20 }, { wch: 22 }, { wch: 35 }, { wch: 38 },
   ]
   XLSX.utils.book_append_sheet(wb, ws, `ИУП ${getMonthName(parseInt(month))}`)
-
   const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
   const buffer = Buffer.from(buf)
-
-  // Генерираме името на файла
   const fileName = `IUP_${getMonthName(parseInt(month))}_${year}.xlsx`
 
-  // Връщаме буфера с правилно кодиран UTF-8 хедър
   return new NextResponse(buffer, {
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
