@@ -20,19 +20,31 @@ export default async function DashboardPage() {
   const isSpecialist = ['psychologist', 'speech_therapist', 'rehabilitator'].includes(profile.role)
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-xl md:text-2xl font-semibold text-slate-800">
-          Добре дошли, {profile.first_name}!
-        </h1>
-        <p className="text-slate-500 text-sm mt-1">
-          Учебна година {currentYear.name} · {new Date().toLocaleDateString('bg-BG', { weekday: 'long', day: 'numeric', month: 'long' })}
-        </p>
+    <div className="max-w-7xl mx-auto p-4 md:p-8 animate-in fade-in duration-700">
+      {/* ── HEADER ── */}
+      <div className="mb-8 md:mb-10">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">
+              Добре дошли, {profile.first_name}!
+            </h1>
+            <p className="text-slate-500 text-sm mt-2 font-medium bg-slate-100/50 inline-block px-3 py-1 rounded-full border border-slate-200">
+              {new Date().toLocaleDateString('bg-BG', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </p>
+          </div>
+          <div className="text-right">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Учебна година</span>
+            <div className="text-lg font-semibold text-slate-700">{currentYear.name}</div>
+          </div>
+        </div>
       </div>
 
-      {isAdmin && <AdminDashboard profile={profile} currentYearId={currentYear.id} />}
-      {isSpecialist && <SpecialistDashboard profile={profile} currentYearId={currentYear.id} />}
-      {profile.role === 'class_teacher' && <ClassTeacherDashboard profile={profile} currentYearId={currentYear.id} />}
+      {/* ── DASHBOARD CONTENT ── */}
+      <div className="transition-all duration-500">
+        {isAdmin && <AdminDashboard profile={profile} currentYearId={currentYear.id} />}
+        {isSpecialist && <SpecialistDashboard profile={profile} currentYearId={currentYear.id} />}
+        {profile.role === 'class_teacher' && <ClassTeacherDashboard profile={profile} currentYearId={currentYear.id} />}
+      </div>
     </div>
   )
 }
