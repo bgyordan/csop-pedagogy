@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { FileSpreadsheet, AlertTriangle, Users, School, BarChart3, FileX, FileText, Printer } from 'lucide-react'
+import { generateSchoolLetter } from '@/lib/docx-generator'
+import { FileText as LetterIcon } from 'lucide-react'
 import {
   generateSchoolReportExcel,
   generateSpecialistReportExcel,
@@ -185,7 +187,18 @@ export default function ReportsClient({ allRows, workloadRows, delayedRows, scho
               {schools.map(s => <option key={s.id} value={s.id}>{s.name} — {s.city}</option>)}
             </select>
             {schoolRows.length > 0 && (
-              <ExportButtons onExcel={() => generateSchoolReportExcel(schools.find(s => s.id === selectedSchool)?.name || '', schoolRows)} />
+              <div className="flex items-center gap-2">
+                <ExportButtons onExcel={() => generateSchoolReportExcel(schools.find(s => s.id === selectedSchool)?.name || '', schoolRows)} />
+                <button
+                  onClick={() => {
+                    const school = schools.find(s => s.id === selectedSchool)
+                    if (school) generateSchoolLetter(school.name, school.city, schoolRows, yearName)
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 text-xs font-medium text-blue-700 hover:bg-blue-50">
+                  <LetterIcon size={13} />
+                  Писмо Word
+                </button>
+              </div>
             )}
           </div>
           {!selectedSchool ? (
