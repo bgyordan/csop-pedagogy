@@ -9,22 +9,24 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
+  // Използваме maybeSingle() за да не гърми с 500 грешка ако профилът липсва
   const { data: profile } = await supabase
     .from('staff_profiles')
     .select('*')
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
   if (!profile) redirect('/auth/login')
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-slate-50">
       <Sidebar
         userRole={profile.role as UserRole}
         userName={getFullName(profile)}
         userEmail={profile.email}
       />
-      <main className="flex-1 overflow-auto bg-slate-50 pt-14 md:pt-0">
+      {/* Премахнахме твърдия paddingTop. Spacer-ът в Sidebar.tsx върши тази работа за мобилни. */}
+      <main className="flex-1 overflow-auto">
         {children}
       </main>
     </div>
