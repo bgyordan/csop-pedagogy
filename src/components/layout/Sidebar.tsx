@@ -13,12 +13,12 @@ import { UserRole, ROLE_LABELS } from '@/types'
 import { cn } from '@/lib/utils'
 import { AutoLogout } from '@/components/AutoLogout'
 
-const SIDEBAR_BG = '#e0f2fe'
-const SIDEBAR_ACTIVE = 'rgba(15,34,64,0.10)'
-const SIDEBAR_HOVER = 'rgba(15,34,64,0.05)'
+const SIDEBAR_BG = '#f0f7ff'
+const SIDEBAR_ACTIVE = 'rgba(15,34,64,0.08)'
+const SIDEBAR_HOVER = 'rgba(15,34,64,0.04)'
 const TEXT_PRIMARY = '#0f2240'
-const TEXT_SECONDARY = '#3b6fa0'
-const TEXT_MUTED = '#64a0c8'
+const TEXT_SECONDARY = '#1e4070'
+const TEXT_MUTED = '#4a7fa8'
 
 interface NavItem {
   href: string
@@ -36,7 +36,7 @@ const navItems: NavItem[] = [
   { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={18} />, roles: ['admin', 'director', 'zdud', 'class_teacher'] },
   { href: '/committees', label: 'Комисии', icon: <Building2 size={18} /> },
   { href: '/staff', label: 'Служители', icon: <UserCircle size={18} />, roles: ['admin', 'director', 'zdud'] },
-  { href: '/reports', label: 'Справки', icon: <BarChart3 size={18} />, roles: ['admin', 'director', 'zdud'], coordinatorOnly: true },
+  { href: '/reports', label: 'Писма и справки', icon: <BarChart3 size={18} />, roles: ['admin', 'director', 'zdud'], coordinatorOnly: true },
   { href: '/admin/eplr-assignment', label: 'ЕПЛР Разпределение', icon: <GitBranch size={18} />, roles: ['admin', 'zdud'], coordinatorOnly: true },
   { href: '/admin', label: 'Администрация', icon: <Shield size={18} />, roles: ['admin', 'zdud'] },
 ]
