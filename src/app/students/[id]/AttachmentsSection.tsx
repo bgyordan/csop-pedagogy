@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Upload, Download, Trash2, FileText, Loader2 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { useRouter } from 'next/navigation'
 
 interface Attachment {
   id: string
@@ -33,7 +32,6 @@ function formatSize(bytes: number | null) {
 export function AttachmentsSection({ studentId, attachments: initial, canManage, staffId, typeLabels }: Props) {
   const supabase = createClient()
   const { toast } = useToast()
-  const router = useRouter()
   const [attachments, setAttachments] = useState<Attachment[]>(initial)
   const [uploading, setUploading] = useState(false)
   const [docType, setDocType] = useState('referral_order')
@@ -43,15 +41,12 @@ export function AttachmentsSection({ studentId, attachments: initial, canManage,
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Проверка за тип файл
-    const allowed = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword', 'application/octet-stream', '']
-const ext = file.name.split('.').pop()?.toLowerCase()
-if (!['pdf', 'doc', 'docx'].includes(ext || '')) {
-  toast('Позволени са само PDF и Word файлове', 'error')
-  return
-}
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    if (!['pdf', 'doc', 'docx'].includes(ext || '')) {
+      toast('Позволени са само PDF и Word файлове', 'error')
+      return
+    }
 
-    // Макс 10MB
     if (file.size > 10 * 1024 * 1024) {
       toast('Файлът е прекалено голям (макс. 10MB)', 'error')
       return
@@ -92,7 +87,6 @@ if (!['pdf', 'doc', 'docx'].includes(ext || '')) {
     toast('Файлът е качен успешно')
     setAttachments(prev => [newAttachment, ...prev])
     setUploading(false)
-    // Reset input
     e.target.value = ''
   }
 
@@ -100,7 +94,7 @@ if (!['pdf', 'doc', 'docx'].includes(ext || '')) {
     setDownloading(attachment.id)
     const { data, error } = await supabase.storage
       .from('student-dossiers')
-      .createSignedUrl(attachment.file_path, 60) // 60 секунди
+      .createSignedUrl(attachment.file_path, 60)
 
     if (error || !data) {
       toast('Грешка при изтегляне', 'error')
@@ -113,7 +107,7 @@ if (!['pdf', 'doc', 'docx'].includes(ext || '')) {
   }
 
   async function handleDelete(attachment: Attachment) {
-    if (!confirm(`Изтрий "${attachment.file_name}"?`)) return
+    if (!confirm(`Изтрий "${typeLabels[attachment.doc_type] || attachment.doc_type}"?`)) return
 
     await supabase.storage.from('student-dossiers').remove([attachment.file_path])
     await supabase.from('student_attachments').delete().eq('id', attachment.id)
@@ -124,7 +118,6 @@ if (!['pdf', 'doc', 'docx'].includes(ext || '')) {
 
   return (
     <div>
-      {/* Качване — само за admin/zdud */}
       {canManage && (
         <div className="flex flex-col sm:flex-row gap-3 mb-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
           <select
@@ -152,7 +145,6 @@ if (!['pdf', 'doc', 'docx'].includes(ext || '')) {
         </div>
       )}
 
-      {/* Списък с файлове */}
       {attachments.length === 0 ? (
         <p className="text-sm text-slate-400">Няма прикачени документи</p>
       ) : (
@@ -163,7 +155,13 @@ if (!['pdf', 'doc', 'docx'].includes(ext || '')) {
               <div className="flex items-center gap-2 min-w-0">
                 <FileText size={16} className="text-slate-400 flex-shrink-0" />
                 <div className="min-w-0">
-                  <div className="tex
+                  <div className="text-sm font-medium text-slate-800">
+                    {typeLabels[att.doc_type] || att.doc_type}
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {att.file_name}
+                    {att.file_size && <span className="ml-1">· {formatSize(att.file_size)}</span>}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
