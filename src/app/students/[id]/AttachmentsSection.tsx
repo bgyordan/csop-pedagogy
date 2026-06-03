@@ -163,11 +163,7 @@ if (!['pdf', 'doc', 'docx'].includes(ext || '')) {
               <div className="flex items-center gap-2 min-w-0">
                 <FileText size={16} className="text-slate-400 flex-shrink-0" />
                 <div className="min-w-0">
-                  <div className="text-sm font-medium text-slate-800 truncate">{att.file_name}</div>
-                  <div className="text-xs text-slate-400">
-                    {typeLabels[att.doc_type] || att.doc_type}
-                    {att.file_size && <span className="ml-2">{formatSize(att.file_size)}</span>}
-                  </div>
+                  <div className="tex
                 </div>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
