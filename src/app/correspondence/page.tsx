@@ -52,6 +52,13 @@ export default async function CorrespondencePage({
     .eq('status', 'active')
     .order('last_name')
 
+  // Служители (Персонал) за dropdown в умните шаблони
+  const { data: staff } = await supabase
+    .from('staff_profiles')
+    .select('id, first_name, last_name')
+    .eq('status', 'active')
+    .order('first_name')
+
   return (
     <div className="p-4 md:p-8">
       <BackButton />
@@ -69,6 +76,7 @@ export default async function CorrespondencePage({
         canEdit={canEdit}
         currentUserId={profile?.id || ''}
         students={students || []}
+        staff={staff || []}
       />
     </div>
   )
