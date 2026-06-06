@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { BackButton } from '@/components/ui/BackButton'
+import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 import CorrespondenceClient from './CorrespondenceClient'
-import { getFullName } from '@/lib/utils'
 
 const PAGE_SIZE = 20
 
@@ -45,14 +45,12 @@ export default async function CorrespondencePage({
 
   const { data: correspondence, count } = await query
 
-  // Ученици за dropdown
   const { data: students } = await supabase
     .from('students')
     .select('id, first_name, last_name')
     .eq('status', 'active')
     .order('last_name')
 
-  // Служители (Персонал) за dropdown в умните шаблони
   const { data: staff } = await supabase
     .from('staff_profiles')
     .select('id, first_name, last_name')
@@ -61,11 +59,17 @@ export default async function CorrespondencePage({
 
   return (
     <div className="p-4 md:p-8">
-      <BackButton />
+      {/* ТВЪРД ЛИНК КЪМ ДАШБОРДА (Главното меню) */}
+      <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-[#0f2240] transition-colors mb-6 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-sm">
+        <ArrowLeft className="w-4 h-4" />
+        Към главното меню
+      </Link>
+
       <div className="mb-6">
         <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Кореспонденция</h1>
         <p className="text-slate-500 text-sm mt-1">Регистър на входящи, изходящи и вътрешни документи</p>
       </div>
+      
       <CorrespondenceClient
         correspondence={correspondence || []}
         totalCount={count || 0}
