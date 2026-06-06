@@ -1,42 +1,28 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   Plus, Search, X, Upload, FileText, Loader2,
-  ArrowDownLeft, ArrowUpRight, ArrowRightLeft, ChevronLeft, ChevronRight, Paperclip
+  ChevronLeft, ChevronRight, Paperclip, User, GraduationCap, FolderOpen
 } from 'lucide-react'
 
 const FROM_SUGGESTIONS = [
   'МОН — Министерство на образованието и науката',
   'РУО — Варна',
   'Община Варна',
-  'Агенция за социално подпомагане',
-  'РЗОК — Варна',
   'РЦПППО — Варна',
-  'Национален осигурителен институт (НОИ)',
-  'Инспекторат по образованието',
-  'Дирекция "Социално подпомагане"',
   'ЦСОП — Варна',
-  'Светлана Иванова — Директор',
-  'Силвия Кьошкерян — ЗДУД',
 ]
 
 const SUBJECT_SUGGESTIONS = [
   'Докладна записка',
-  'Заявление за отпуск',
-  'Протокол от ЕПЛР',
   'Служебна бележка',
   'Доклад',
   'Уведомление',
-  'Покана',
-  'Молба за записване',
-  'Заповед за насочване',
   'Медицинска документация',
   'Оценка от РЦПППО',
-  'Становище',
-  'Информация',
 ]
 
 interface Props {
@@ -49,11 +35,12 @@ interface Props {
   canEdit: boolean
   currentUserId: string
   students: { id: string; first_name: string; last_name: string }[]
+  staff: { id: string; first_name: string; last_name: string }[] // НОВО: Списък с колеги
 }
 
 export default function CorrespondenceClient({
   correspondence, totalCount, page, pageSize,
-  searchValue, directionValue, canEdit, currentUserId, students
+  searchValue, directionValue, canEdit, currentUserId, students, staff
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
@@ -67,21 +54,41 @@ export default function CorrespondenceClient({
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // УМНИ ШАБЛОНИ (Режими на регистрация)
+  const [regMode, setRegMode] = useState<'standard' | 'staff_leave' | 'student_req'>('standard')
+
   // Form State
   const [direction, setDirection] = useState<'incoming' | 'outgoing' | 'internal'>('incoming')
+  const [docDate, setDocDate] = useState(new Date().toISOString().split('T')[0])
+  const [folderIndex, setFolderIndex] = useState('АСД-02')
+  const [folderNumber, setFolderNumber] = useState('')
   const [fromWhom, setFromWhom] = useState('')
   const [toWhom, setToWhom] = useState('')
   const [subject, setSubject] = useState('')
-  const [docDate, setDocDate] = useState(new Date().toISOString().split('T')[0])
   const [description, setDescription] = useState('')
+  
+  // Релации
   const [studentId, setStudentId] = useState('')
+  const [staffId, setStaffId] = useState('')
+  const [requestType, setRequestType] = useState<'none' | 'enrollment' | 'coud'>('none')
 
   const totalPages = Math.ceil(totalCount / pageSize)
   const currentYear = new Date().getFullYear()
 
-  // ------------------------------------------------------------------
+  // Автоматична смяна на посоката при избор на умен шаблон
+  useEffect(() => {
+    if (regMode === 'staff_leave') {
+      setDirection('internal')
+      setFolderIndex('ЧР-05') // Примерна папка за Човешки ресурси
+    }
+    if (regMode === 'student_req') {
+      setDirection('incoming')
+      setFolderIndex('УД-01') // Примерна папка за Учебна дейност
+      setRequestType('enrollment')
+    }
+  }, [regMode])
+
   // Навигация и Филтриране (Сървърно)
-  // ------------------------------------------------------------------
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
     const params = new URLSearchParams()
@@ -107,51 +114,74 @@ export default function CorrespondenceClient({
     router.push(`/correspondence?${params.toString()}`)
   }
 
-  // ------------------------------------------------------------------
-  // Обработка на формата
-  // ------------------------------------------------------------------
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 10 * 1024 * 1024) { alert('Файлът е прекалено голям (макс. 10MB)'); return }
-    const ext = file.name.split('.').pop()?.toLowerCase()
-    if (!['pdf', 'doc', 'docx'].includes(ext || '')) { alert('Позволени са само PDF и Word файлове'); return }
     setUploadedFile(file)
   }
 
   function resetForm() {
+    setRegMode('standard')
     setDirection('incoming')
+    setFolderIndex('АСД-02')
+    setFolderNumber('')
     setFromWhom('')
     setToWhom('')
     setSubject('')
     setDocDate(new Date().toISOString().split('T')[0])
     setDescription('')
     setStudentId('')
+    setStaffId('')
+    setRequestType('none')
     setUploadedFile(null)
     setIsOpeningForm(false)
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!subject) return
-
     setSaving(true)
 
-    // Динамично определяне на подател/получател спрямо посоката
-    const finalFromWhom = direction === 'outgoing' ? 'ЦСОП Варна' : fromWhom
-    const finalToWhom = direction === 'incoming' ? 'ЦСОП Варна' : toWhom
+    const selectedStaff = staff.find(s => s.id === staffId)
+    const selectedStudent = students.find(s => s.id === studentId)
 
-    // 1. Генерирай номер
-    const { data: existing } = await supabase
+    // Изчисляване на финалните полета спрямо избрания шаблон
+    let finalSubject = subject
+    let finalFrom = fromWhom
+    let finalTo = toWhom
+
+    if (regMode === 'staff_leave' && selectedStaff) {
+      finalSubject = `Заявление за отпуск на ${selectedStaff.first_name} ${selectedStaff.last_name}`
+      finalFrom = `${selectedStaff.first_name} ${selectedStaff.last_name}`
+      finalTo = 'Директор ЦСОП Варна'
+    } else if (regMode === 'student_req' && selectedStudent) {
+      const reqLabel = requestType === 'coud' ? 'ЦОУД' : 'записване'
+      finalSubject = `Заявление за ${reqLabel} на ${selectedStudent.first_name} ${selectedStudent.last_name}`
+      finalTo = 'Директор ЦСОП Варна'
+    } else {
+      if (direction === 'outgoing') finalFrom = 'ЦСОП Варна'
+      if (direction === 'incoming') finalTo = 'ЦСОП Варна'
+    }
+
+    if (!finalSubject) {
+      alert("Моля, попълнете темата/относно.");
+      setSaving(false); return;
+    }
+
+    // 1. Генериране на глобален номер
+    const startOfYear = `${currentYear}-01-01`
+    const endOfYear = `${currentYear}-12-31`
+    const { count } = await supabase
       .from('correspondence')
       .select('id', { count: 'exact', head: true })
-      .like('number', `%/${currentYear}`)
+      .gte('date', startOfYear)
+      .lte('date', endOfYear)
+
+    const nextNum = (count || 0) + 1
+    const paddedNum = String(nextNum).padStart(3, '0')
+    const formattedDate = docDate.split('-').reverse().join('.')
     
-    const nextNum = (existing as any)?.length !== undefined 
-      ? (existing as any).length + 1 
-      : totalCount + 1
-    
-    const docNumber = `${nextNum}/${currentYear}`
+    // Формат: АСД-02-001/21.04.2026г.
+    const docNumber = `${folderIndex}-${paddedNum}/${formattedDate}г.`
 
     // 2. Upload файл
     let fileUrl = ''
@@ -160,7 +190,7 @@ export default function CorrespondenceClient({
       const ext = uploadedFile.name.split('.').pop()
       const filePath = `correspondence/${currentYear}/${Date.now()}.${ext}`
       const { error: uploadError } = await supabase.storage
-        .from('documents') // Ако нямаш такъв, върни 'student-dossiers'
+        .from('documents') 
         .upload(filePath, uploadedFile, { upsert: true })
       if (!uploadError) {
         const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)
@@ -174,13 +204,17 @@ export default function CorrespondenceClient({
       number: docNumber,
       date: docDate,
       direction,
-      from_whom: finalFromWhom,
-      to_whom: finalToWhom,
-      subject,
+      from_whom: finalFrom,
+      to_whom: finalTo,
+      subject: finalSubject,
       description: description || null,
       file_url: fileUrl || null,
       file_name: fileName || null,
       student_id: studentId || null,
+      staff_id: staffId || null,
+      request_type: requestType !== 'none' ? requestType : null,
+      folder_index: folderIndex || null,
+      folder_number: folderNumber ? parseInt(folderNumber) : null,
       created_by: currentUserId,
       status: 'active',
     })
@@ -204,9 +238,9 @@ export default function CorrespondenceClient({
         <div className="flex flex-wrap gap-2">
           {[
             { key: 'all', label: 'Всички' },
-            { key: 'incoming', label: '↙ Входяща' },
-            { key: 'outgoing', label: '↗ Изходяща' },
-            { key: 'internal', label: '⇄ Вътрешна' },
+            { key: 'incoming', label: '↙ Входящи' },
+            { key: 'outgoing', label: '↗ Изходящи' },
+            { key: 'internal', label: '⇄ Вътрешни' },
           ].map(({ key, label }) => {
             const isActive = (directionValue || 'all') === key
             return (
@@ -233,7 +267,7 @@ export default function CorrespondenceClient({
             <button onClick={() => setIsOpeningForm(true)}
               className="bg-[#0f2240] hover:bg-slate-800 transition-colors text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm flex items-center gap-1.5">
               <Plus className="h-4 w-4" />
-              Нов документ
+              Нов запис
             </button>
           )}
         </div>
@@ -242,64 +276,73 @@ export default function CorrespondenceClient({
       {/* Таблица */}
       <div className="bg-white border rounded-2xl overflow-hidden shadow-sm flex flex-col">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs font-semibold text-slate-700 min-w-[800px]">
+          <table className="w-full text-left text-xs font-semibold text-slate-700 min-w-[900px]">
             <thead className="bg-[#f0f7ff] text-[10px] uppercase font-bold text-slate-400 border-b border-slate-100">
               <tr>
-                <th className="p-4 pl-6">№</th>
-                <th className="p-4">Вид</th>
-                <th className="p-4">Дата</th>
-                <th className="p-4">От кого</th>
-                <th className="p-4">До кого</th>
-                <th className="p-4 w-1/4">Относно</th>
-                <th className="p-4">Ученик</th>
+                <th className="p-4 pl-6">Рег. Индекс</th>
+                <th className="p-4">Дело/№</th>
+                <th className="p-4">От/До</th>
+                <th className="p-4 w-1/3">Относно (Тема)</th>
+                <th className="p-4">Свързано лице</th>
                 <th className="p-4 text-right">Файл</th>
               </tr>
             </thead>
             <tbody className="divide-y font-medium text-slate-800">
               {correspondence.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400">
-                    Няма намерени документи в регистъра.
-                  </td>
+                  <td colSpan={6} className="p-8 text-center text-slate-400">Няма намерени документи.</td>
                 </tr>
               ) : (
                 correspondence.map((item) => {
                   const student = students.find(s => s.id === item.student_id)
+                  const staffMember = staff?.find(s => s.id === item.staff_id)
+                  
                   return (
                     <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="p-4 pl-6">
-                        <span className="font-mono font-bold text-[#0f2240]">№ {item.number}</span>
+                        <span className="font-mono font-bold text-[#0f2240] block">{item.number}</span>
+                        <span className="text-[10px] text-slate-400 mt-0.5 block">{item.date}</span>
                       </td>
                       <td className="p-4">
-                        {item.direction === 'incoming' && <span className="bg-amber-100 text-amber-800 text-[10px] px-2.5 py-0.5 rounded-md font-bold uppercase">Входящ</span>}
-                        {item.direction === 'outgoing' && <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2.5 py-0.5 rounded-md font-bold uppercase">Изходящ</span>}
-                        {item.direction === 'internal' && <span className="bg-purple-100 text-purple-800 text-[10px] px-2.5 py-0.5 rounded-md font-bold uppercase">Вътрешен</span>}
+                        {item.folder_index ? (
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border block w-max">{item.folder_index}</span>
+                            {item.folder_number && <span className="text-[10px] text-slate-400 mt-1 block">№ {item.folder_number}</span>}
+                          </div>
+                        ) : '—'}
                       </td>
-                      <td className="p-4 text-slate-500 font-mono">{item.date}</td>
-                      <td className="p-4 font-bold text-slate-700">{item.from_whom}</td>
-                      <td className="p-4 text-slate-600">{item.to_whom}</td>
+                      <td className="p-4 text-[11px] leading-tight text-slate-600">
+                        {item.direction === 'incoming' && <div><span className="text-amber-600 font-bold">От:</span> {item.from_whom}</div>}
+                        {item.direction === 'outgoing' && <div><span className="text-emerald-600 font-bold">До:</span> {item.to_whom}</div>}
+                        {item.direction === 'internal' && <div><span className="text-purple-600 font-bold">Вътр:</span> {item.from_whom}</div>}
+                      </td>
                       <td className="p-4">
-                        <div className="font-bold text-slate-800">{item.subject}</div>
+                        <div className="font-bold text-slate-800 flex items-center gap-2">
+                          {item.request_type === 'enrollment' && <span className="bg-blue-100 text-blue-700 text-[9px] px-1.5 rounded">ЗАПИСВАНЕ</span>}
+                          {item.request_type === 'coud' && <span className="bg-orange-100 text-orange-700 text-[9px] px-1.5 rounded">ЦОУД</span>}
+                          {item.subject}
+                        </div>
                         {item.description && <p className="text-[10px] text-slate-400 mt-0.5 max-w-xs line-clamp-1">{item.description}</p>}
                       </td>
                       <td className="p-4">
-                        {student ? (
-                          <span className="text-[10px] font-bold text-[#0f2240] bg-slate-100 px-2 py-1 rounded-md">
-                            {student.first_name} {student.last_name}
+                        {student && (
+                          <span className="text-[10px] font-bold text-[#0f2240] bg-blue-50 border border-blue-100 px-2 py-1 rounded-md flex items-center gap-1 w-max">
+                            <GraduationCap className="w-3 h-3"/> {student.first_name} {student.last_name}
                           </span>
-                        ) : (
-                          <span className="text-[10px] text-slate-300">—</span>
+                        )}
+                        {staffMember && (
+                          <span className="text-[10px] font-bold text-[#0f2240] bg-purple-50 border border-purple-100 px-2 py-1 rounded-md flex items-center gap-1 w-max mt-1">
+                            <User className="w-3 h-3"/> {staffMember.first_name} {staffMember.last_name}
+                          </span>
                         )}
                       </td>
                       <td className="p-4 text-right">
                         {item.file_url ? (
                           <a href={item.file_url} target="_blank" rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-[#0f2240] hover:underline text-[10px] font-bold">
-                            <Paperclip className="h-3.5 w-3.5" /> Преглед
+                            <Paperclip className="h-3.5 w-3.5" /> Файл
                           </a>
-                        ) : (
-                          <span className="text-[10px] text-slate-300">—</span>
-                        )}
+                        ) : <span className="text-[10px] text-slate-300">—</span>}
                       </td>
                     </tr>
                   )
@@ -309,152 +352,160 @@ export default function CorrespondenceClient({
           </table>
         </div>
 
-        {/* Пагинация (Сървърна) */}
+        {/* Пагинация */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between p-4 bg-slate-50 border-t border-slate-100 text-xs font-semibold text-slate-500">
-            <span>Показване на {((page - 1) * pageSize) + 1} до {Math.min(page * pageSize, totalCount)} от общо {totalCount} записа</span>
+            <span>Показване на {((page - 1) * pageSize) + 1} до {Math.min(page * pageSize, totalCount)}</span>
             <div className="flex gap-2">
-              <button disabled={page <= 1} onClick={() => handlePageChange(page - 1)}
-                className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition-colors">
-                <ChevronLeft className="h-4 w-4 text-slate-700" />
-              </button>
-              <button disabled={page >= totalPages} onClick={() => handlePageChange(page + 1)}
-                className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition-colors">
-                <ChevronRight className="h-4 w-4 text-slate-700" />
-              </button>
+              <button disabled={page <= 1} onClick={() => handlePageChange(page - 1)} className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
+              <button disabled={page >= totalPages} onClick={() => handlePageChange(page + 1)} className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Модал за Нов Документ */}
+      {/* МОДАЛ: Нов Документ */}
       {isOpeningForm && (
         <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl border max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
-            <button onClick={resetForm} className="absolute right-4 top-4 p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors">
-              <X className="h-5 w-5" />
-            </button>
+          <div className="bg-white rounded-3xl border max-w-2xl w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button onClick={resetForm} className="absolute right-4 top-4 p-1.5 hover:bg-slate-100 rounded-lg text-slate-400"><X className="h-5 w-5" /></button>
             
-            <h3 className="font-bold text-slate-800 text-sm uppercase mb-1">Деловодно Вписване</h3>
-            <p className="text-[10px] text-slate-500 mb-5 font-semibold">
-              Записът ще бъде генериран с текущата година ({currentYear})
-            </p>
+            <h3 className="font-bold text-slate-800 text-sm uppercase mb-4 flex items-center gap-2">
+              <FolderOpen className="w-5 h-5 text-[#0f2240]" /> Деловодно Вписване
+            </h3>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Посока (Вид) */}
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Вид документ *</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { key: 'incoming', label: 'Входяща' },
-                    { key: 'outgoing', label: 'Изходяща' },
-                    { key: 'internal', label: 'Вътрешна' },
-                  ].map(({ key, label }) => (
-                    <button key={key} type="button"
-                      onClick={() => setDirection(key as 'incoming' | 'outgoing' | 'internal')}
-                      className={`py-2 text-xs font-bold rounded-xl border transition-colors ${
-                        direction === key
-                          ? key === 'incoming' ? 'bg-amber-100 border-amber-300 text-amber-800'
-                          : key === 'outgoing' ? 'bg-emerald-100 border-emerald-300 text-emerald-800'
-                          : 'bg-purple-100 border-purple-300 text-purple-800'
-                          : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600'
-                      }`}>
-                      {label}
-                    </button>
-                  ))}
+            <form onSubmit={handleSubmit} className="space-y-5">
+              
+              {/* УМНИ ШАБЛОНИ ТАБОВЕ */}
+              <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
+                <button type="button" onClick={() => setRegMode('standard')} className={`flex-1 text-xs font-bold py-2 rounded-lg transition-colors ${regMode === 'standard' ? 'bg-white shadow-sm text-[#0f2240]' : 'text-slate-500 hover:text-slate-700'}`}>Обикновен документ</button>
+                <button type="button" onClick={() => setRegMode('student_req')} className={`flex-1 text-xs font-bold py-2 rounded-lg transition-colors ${regMode === 'student_req' ? 'bg-blue-500 shadow-sm text-white' : 'text-slate-500 hover:text-slate-700'}`}>Ученическо заявление</button>
+                <button type="button" onClick={() => setRegMode('staff_leave')} className={`flex-1 text-xs font-bold py-2 rounded-lg transition-colors ${regMode === 'staff_leave' ? 'bg-purple-500 shadow-sm text-white' : 'text-slate-500 hover:text-slate-700'}`}>Заявление от персонал</button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Дата */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Дата *</label>
+                  <input type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-[#0f2240]/20 outline-none" required />
+                </div>
+                
+                {/* Папка & Номер (Винаги видими, но с различни default-и) */}
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Папка/Индекс *</label>
+                    <input type="text" value={folderIndex} onChange={(e) => setFolderIndex(e.target.value)} className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-[#0f2240]/20 outline-none" required />
+                  </div>
+                  <div className="w-20">
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">№ в папка</label>
+                    <input type="number" value={folderNumber} onChange={(e) => setFolderNumber(e.target.value)} className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-[#0f2240]/20 outline-none" />
+                  </div>
                 </div>
               </div>
 
-              {/* Дата */}
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Дата на документа *</label>
-                <input type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0f2240]/20" required />
-              </div>
-
-              {/* Динамични полета: От кого / До кого */}
-              <div className="grid grid-cols-1 gap-3">
-                {direction !== 'outgoing' && (
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">От кого (Подател) *</label>
-                    <input type="text" list="from-suggestions" required placeholder="напр. РУО Варна"
-                      value={fromWhom} onChange={(e) => setFromWhom(e.target.value)}
-                      className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0f2240]/20" />
-                  </div>
-                )}
+              {/* ДИНАМИЧНА СЕКЦИЯ СПРЯМО ШАБЛОНА */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
                 
-                {direction !== 'incoming' && (
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">До кого (Получател) *</label>
-                    <input type="text" list="to-suggestions" required placeholder="напр. РЦПППО Варна"
-                      value={toWhom} onChange={(e) => setToWhom(e.target.value)}
-                      className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0f2240]/20" />
+                {/* 1. СТАНДАРТЕН РЕЖИМ */}
+                {regMode === 'standard' && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Посока</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button type="button" onClick={() => setDirection('incoming')} className={`py-2 text-xs font-bold rounded-xl border ${direction === 'incoming' ? 'bg-amber-100 border-amber-300 text-amber-800' : 'bg-white border-slate-200 text-slate-500'}`}>Входяща</button>
+                        <button type="button" onClick={() => setDirection('outgoing')} className={`py-2 text-xs font-bold rounded-xl border ${direction === 'outgoing' ? 'bg-emerald-100 border-emerald-300 text-emerald-800' : 'bg-white border-slate-200 text-slate-500'}`}>Изходяща</button>
+                        <button type="button" onClick={() => setDirection('internal')} className={`py-2 text-xs font-bold rounded-xl border ${direction === 'internal' ? 'bg-purple-100 border-purple-300 text-purple-800' : 'bg-white border-slate-200 text-slate-500'}`}>Вътрешна</button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {direction !== 'outgoing' && (
+                        <div><label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">От кого *</label><input type="text" value={fromWhom} onChange={(e) => setFromWhom(e.target.value)} list="from-list" className="w-full border border-slate-200 rounded-xl p-2 text-xs outline-none" required /></div>
+                      )}
+                      {direction !== 'incoming' && (
+                        <div><label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">До кого *</label><input type="text" value={toWhom} onChange={(e) => setToWhom(e.target.value)} list="to-list" className="w-full border border-slate-200 rounded-xl p-2 text-xs outline-none" required /></div>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Тема / Относно *</label>
+                      <input type="text" value={subject} onChange={(e) => setSubject(e.target.value)} list="subj-list" className="w-full border border-slate-200 rounded-xl p-2 text-xs outline-none" required />
+                    </div>
+                  </>
+                )}
+
+                {/* 2. РЕЖИМ: ЗАЯВЛЕНИЕ ЗА ОТПУСК (ПЕРСОНАЛ) */}
+                {regMode === 'staff_leave' && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-purple-500 mb-1.5 uppercase flex items-center gap-1"><User className="w-3 h-3"/> Избери служител *</label>
+                      <select value={staffId} onChange={(e) => setStaffId(e.target.value)} className="w-full border border-purple-200 bg-white rounded-xl p-2.5 text-xs outline-none focus:border-purple-500" required>
+                        <option value="">-- Избери колега --</option>
+                        {staff?.sort((a,b) => a.first_name.localeCompare(b.first_name)).map(s => (
+                          <option key={s.id} value={s.id}>{s.first_name} {s.last_name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="p-3 bg-purple-50 border border-purple-100 rounded-xl text-xs text-purple-800 font-medium">
+                      Темата и подателят ще бъдат попълнени автоматично като "Заявление за отпуск на...".
+                    </div>
                   </div>
                 )}
-                <datalist id="from-suggestions">{FROM_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
-                <datalist id="to-suggestions">{FROM_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
+
+                {/* 3. РЕЖИМ: УЧЕНИЧЕСКО ЗАЯВЛЕНИЕ (ЦОУД/ЗАПИСВАНЕ) */}
+                {regMode === 'student_req' && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-blue-500 mb-1.5 uppercase flex items-center gap-1"><GraduationCap className="w-3 h-3"/> За кой ученик се отнася? *</label>
+                      <select value={studentId} onChange={(e) => setStudentId(e.target.value)} className="w-full border border-blue-200 bg-white rounded-xl p-2.5 text-xs outline-none focus:border-blue-500" required>
+                        <option value="">-- Избери ученик --</option>
+                        {students.sort((a,b) => a.last_name.localeCompare(b.last_name)).map(s => (
+                          <option key={s.id} value={s.id}>{s.first_name} {s.last_name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Вид заявление *</label>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                          <input type="radio" name="reqType" checked={requestType === 'enrollment'} onChange={() => setRequestType('enrollment')} className="accent-blue-600 w-4 h-4" />
+                          За Записване
+                        </label>
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                          <input type="radio" name="reqType" checked={requestType === 'coud'} onChange={() => setRequestType('coud')} className="accent-blue-600 w-4 h-4" />
+                          За ЦОУД
+                        </label>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-800 font-medium">
+                      Темата ще се генерира автоматично спрямо избора. Системата ще отчита тези данни в управленските справки.
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Тема */}
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Тема / Относно *</label>
-                <input type="text" list="subject-suggestions" required placeholder="напр. Молба за записване"
-                  value={subject} onChange={(e) => setSubject(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0f2240]/20" />
-                <datalist id="subject-suggestions">{SUBJECT_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
-              </div>
-
-              {/* Описание */}
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Допълнителни бележки</label>
-                <textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Кратко описание..."
-                  className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0f2240]/20 resize-none" />
-              </div>
-
-              {/* Ученик */}
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Свързан ученик (опционално)</label>
-                <select value={studentId} onChange={(e) => setStudentId(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl p-2.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#0f2240]/20">
-                  <option value="">Няма връзка към ученик</option>
-                  {students.sort((a, b) => a.last_name.localeCompare(b.last_name)).map(s => (
-                    <option key={s.id} value={s.id}>{s.first_name} {s.last_name}</option>
-                  ))}
-                </select>
-              </div>
+              {/* Datalists за autocomplete */}
+              <datalist id="from-list">{FROM_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
+              <datalist id="to-list">{FROM_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
+              <datalist id="subj-list">{SUBJECT_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
 
               {/* Файл */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Прикачен документ (PDF/Word)</label>
+                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Прикачен документ (Опционално)</label>
                 {uploadedFile ? (
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    <FileText className="h-5 w-5 text-slate-600 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-bold text-slate-800 truncate">{uploadedFile.name}</div>
-                      <div className="text-[10px] text-slate-400">{(uploadedFile.size / 1024).toFixed(0)} KB</div>
-                    </div>
-                    <button type="button" onClick={() => setUploadedFile(null)} className="text-slate-400 hover:text-red-500 transition-colors p-1">
-                      <X className="h-4 w-4" />
-                    </button>
+                    <FileText className="h-5 w-5 text-slate-600" />
+                    <div className="flex-1 min-w-0"><div className="text-xs font-bold text-slate-800 truncate">{uploadedFile.name}</div></div>
+                    <button type="button" onClick={() => setUploadedFile(null)} className="text-slate-400 hover:text-red-500"><X className="h-4 w-4" /></button>
                   </div>
                 ) : (
-                  <label className="flex flex-col items-center justify-center w-full h-16 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-[#0f2240] hover:bg-slate-50 transition-all">
-                    <div className="flex items-center gap-2 text-slate-400">
-                      <Upload className="h-4 w-4" />
-                      <span className="text-xs font-bold">Избери файл</span>
-                    </div>
-                    <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
-                  </label>
+                  <input type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} className="text-xs w-full file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-100 file:text-[#0f2240] hover:file:bg-slate-200 cursor-pointer" />
                 )}
               </div>
 
-              <div className="flex gap-3 justify-end border-t border-slate-100 pt-4 mt-2">
-                <button type="button" onClick={resetForm} className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors">
-                  Отказ
-                </button>
-                <button type="submit" disabled={saving} className="px-5 py-2.5 bg-[#0f2240] hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 disabled:opacity-60 shadow-sm transition-all">
-                  {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  {saving ? 'Записване...' : 'Впиши в регистъра'}
+              <div className="flex gap-3 justify-end border-t border-slate-100 pt-4">
+                <button type="button" onClick={resetForm} className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold">Отказ</button>
+                <button type="submit" disabled={saving} className="px-6 py-2.5 bg-[#0f2240] hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 disabled:opacity-60">
+                  {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {saving ? 'Вписване...' : 'Регистрирай документа'}
                 </button>
               </div>
             </form>
