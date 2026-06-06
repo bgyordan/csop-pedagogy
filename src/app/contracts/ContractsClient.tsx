@@ -397,11 +397,5 @@ export default function ContractsClient({
     </div>
   )
 
-  function ExpiryBadge({ endDate }: { endDate: string }) {
-    const days = daysUntil(endDate)
-    if (days === null) return null
-    if (days < 0) return <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">Изтекъл</span>
-    if (days < 30) return <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">→ {days} дни</span>
-    return null
-  }
+  
 }
