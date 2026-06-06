@@ -42,9 +42,9 @@ const navItems: NavItem[] = [
   { href: '/admin/eplr-assignment', label: 'ЕПЛР Разпределение', icon: <GitBranch size={18} />, roles: ['admin', 'zdud'], coordinatorOnly: true },
   { href: '/admin', label: 'Администрация', icon: <Shield size={18} />, roles: ['admin', 'zdud'] },
   // Деловодство
-  { href: '/correspondence', label: 'Кореспонденция', icon: <Inbox size={18} />, roles: ['admin', 'director', 'zdud'], section: 'delo' },
-  { href: '/orders', label: 'Заповеди', icon: <ClipboardList size={18} />, roles: ['admin', 'director', 'zdud'], section: 'delo' },
-  { href: '/contracts', label: 'Договори', icon: <FileSignature size={18} />, roles: ['admin', 'director', 'zdud'], section: 'delo' },
+  { href: '/correspondence', label: 'Кореспонденция', icon: <Inbox size={18} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
+  { href: '/orders', label: 'Заповеди', icon: <ClipboardList size={18} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
+  { href: '/contracts', label: 'Договори', icon: <FileSignature size={18} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
 ]
 
 interface SidebarProps {
@@ -118,7 +118,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false }
           </Link>
           <div>
             <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>ЦСОП Варна</div>
-            <div className="text-xs" style={{ color: TEXT_MUTED }}>ЕПЛР</div>
+            <div className="text-xs" style={{ color: TEXT_MUTED }}>{userRole === 'secretary' ? 'Деловодство' : 'ЕПЛР'}</div>
           </div>
         </div>
       </div>
@@ -192,7 +192,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false }
           </Link>
           <div>
             <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>ЦСОП Варна</div>
-            <div className="text-xs" style={{ color: TEXT_MUTED }}>ЕПЛР</div>
+            <div className="text-xs" style={{ color: TEXT_MUTED }}>{userRole === 'secretary' ? 'Деловодство' : 'ЕПЛР'}</div>
           </div>
         </div>
         <button onClick={() => setMobileOpen(prev => !prev)}
