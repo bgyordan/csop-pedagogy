@@ -6,10 +6,9 @@ import { createClient } from '@/lib/supabase/client'
 import {
   Plus, Search, X, Upload, FileText, Loader2,
   ChevronLeft, ChevronRight, Paperclip, User, GraduationCap, FolderOpen,
-  ArrowDownLeft, ArrowUpRight, ArrowRightLeft
+  ArrowDownLeft, ArrowUpRight, ArrowRightLeft, Download
 } from 'lucide-react'
 
-// 1. ОФИЦИАЛНИ НОМЕНКЛАТУРИ (Можеш да ги допълниш с вашите реални)
 const OFFICIAL_NOMENCLATURES = [
   'АСД-01', 'АСД-02', 'АСД-03', 'АСД-04',
   'УД-01', 'УД-02', 'УД-03',
@@ -51,6 +50,7 @@ export default function CorrespondenceClient({
   const [search, setSearch] = useState(searchValue || '')
   
   const [isOpeningForm, setIsOpeningForm] = useState(false)
+  const [viewItem, setViewItem] = useState<any | null>(null) // НОВО: State за преглед на документ
   const [saving, setSaving] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -60,7 +60,7 @@ export default function CorrespondenceClient({
   const [docType, setDocType] = useState<'standard' | 'staff_leave' | 'student_enroll' | 'student_coud'>('standard')
   
   const [docDate, setDocDate] = useState(new Date().toISOString().split('T')[0])
-  const [folderIndex, setFolderIndex] = useState('АСД-02') // Default номенклатура
+  const [folderIndex, setFolderIndex] = useState('АСД-02')
   const [folderNumber, setFolderNumber] = useState('')
   const [fromWhom, setFromWhom] = useState('')
   const [toWhom, setToWhom] = useState('')
@@ -73,7 +73,6 @@ export default function CorrespondenceClient({
   const totalPages = Math.ceil(totalCount / pageSize)
   const currentYear = new Date().getFullYear()
 
-  // Хендлъри за навигация
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
     const params = new URLSearchParams()
@@ -105,7 +104,6 @@ export default function CorrespondenceClient({
     setUploadedFile(file)
   }
 
-  // При смяна на таба (Входящ/Изходящ), рестартираме типа документ на "стандартен"
   function changeDirectionTab(newDir: 'incoming' | 'outgoing' | 'internal') {
     setDirection(newDir)
     setDocType('standard')
@@ -141,7 +139,6 @@ export default function CorrespondenceClient({
     let finalTo = toWhom
     let requestType = 'none'
 
-    // АВТОМАТИЗАЦИЯ СПРЯМО ИЗБРАНИЯ ВИД В ТАБОВЕТЕ
     if (direction === 'internal' && docType === 'staff_leave' && selectedStaff) {
       finalSubject = `Заявление за отпуск на ${selectedStaff.first_name} ${selectedStaff.last_name}`
       finalFrom = `${selectedStaff.first_name} ${selectedStaff.last_name}`
@@ -151,7 +148,6 @@ export default function CorrespondenceClient({
       const reqLabel = requestType === 'coud' ? 'ЦОУД' : 'записване'
       finalSubject = `Заявление за ${reqLabel} на ${selectedStudent.first_name} ${selectedStudent.last_name}`
       finalTo = 'Директор ЦСОП Варна'
-      // finalFrom остава това, което секретарят е въвел (напр. името на родителя)
     } else {
       if (direction === 'outgoing') finalFrom = 'ЦСОП Варна'
       if (direction === 'incoming') finalTo = 'ЦСОП Варна'
@@ -163,7 +159,6 @@ export default function CorrespondenceClient({
       setSaving(false); return;
     }
 
-    // 1. Генериране на номер
     const startOfYear = `${currentYear}-01-01`
     const endOfYear = `${currentYear}-12-31`
     const { count } = await supabase
@@ -176,10 +171,8 @@ export default function CorrespondenceClient({
     const paddedNum = String(nextNum).padStart(3, '0')
     const formattedDate = docDate.split('-').reverse().join('.')
     
-    // Формат: АСД-02-001/21.04.2026г.
     const docNumber = `${folderIndex}-${paddedNum}/${formattedDate}г.`
 
-    // 2. Upload файл
     let fileUrl = ''
     let fileName = ''
     if (uploadedFile) {
@@ -193,7 +186,6 @@ export default function CorrespondenceClient({
       }
     }
 
-    // 3. Запис
     const { error } = await supabase.from('correspondence').insert({
       number: docNumber,
       date: docDate,
@@ -292,7 +284,8 @@ export default function CorrespondenceClient({
                   const staffMember = staff?.find(s => s.id === item.staff_id)
                   
                   return (
-                    <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                    <tr key={item.id} onClick={() => setViewItem({ ...item, student, staffMember })} 
+                        className="hover:bg-slate-50/50 transition-colors cursor-pointer">
                       <td className="p-4 pl-6">
                         <span className="font-mono font-bold text-[#0f2240] block">{item.number}</span>
                         <span className="text-[10px] text-slate-400 mt-0.5 block">{item.date}</span>
@@ -330,10 +323,10 @@ export default function CorrespondenceClient({
                           </span>
                         )}
                       </td>
-                      <td className="p-4 text-right">
+                      <td className="p-4 text-right" onClick={(e) => e.stopPropagation() /* Предотвратява отварянето на модала, ако кликне директно на файла */}>
                         {item.file_url ? (
                           <a href={item.file_url} target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-[#0f2240] hover:underline text-[10px] font-bold">
+                            className="inline-flex items-center gap-1 text-[#0f2240] hover:underline text-[10px] font-bold bg-slate-100 px-2 py-1 rounded">
                             <Paperclip className="h-3.5 w-3.5" /> Файл
                           </a>
                         ) : <span className="text-[10px] text-slate-300">—</span>}
@@ -357,6 +350,87 @@ export default function CorrespondenceClient({
           </div>
         )}
       </div>
+
+      {/* МОДАЛ: Преглед на Документ */}
+      {viewItem && (
+        <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl border max-w-2xl w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+            <button onClick={() => setViewItem(null)} className="absolute right-4 top-4 p-1.5 hover:bg-slate-100 rounded-lg text-slate-400"><X className="h-5 w-5" /></button>
+            
+            <h3 className="font-bold text-slate-800 text-sm uppercase mb-4 flex items-center gap-2">
+              <FolderOpen className="w-5 h-5 text-[#0f2240]" /> Детайли за документ
+            </h3>
+
+            <div className="space-y-6">
+              {/* Header Info */}
+              <div className="flex items-start justify-between border-b pb-4">
+                <div>
+                  <div className="text-xl font-mono font-bold text-[#0f2240]">{viewItem.number}</div>
+                  <div className="text-sm font-semibold text-slate-500 mt-1">Регистриран на: {viewItem.date}</div>
+                </div>
+                <div className="text-right">
+                  {viewItem.direction === 'incoming' && <span className="bg-amber-100 text-amber-800 text-xs px-3 py-1 rounded-md font-bold uppercase">Входящ</span>}
+                  {viewItem.direction === 'outgoing' && <span className="bg-emerald-100 text-emerald-800 text-xs px-3 py-1 rounded-md font-bold uppercase">Изходящ</span>}
+                  {viewItem.direction === 'internal' && <span className="bg-purple-100 text-purple-800 text-xs px-3 py-1 rounded-md font-bold uppercase">Вътрешен</span>}
+                </div>
+              </div>
+
+              {/* Grid Info */}
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">От кого (Подател)</div>
+                  <div className="text-sm font-bold text-slate-800">{viewItem.from_whom || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">До кого (Получател)</div>
+                  <div className="text-sm font-bold text-slate-800">{viewItem.to_whom || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Дело / Папка</div>
+                  <div className="text-sm font-bold text-slate-800">
+                    {viewItem.folder_index || '—'} {viewItem.folder_number ? `(№ ${viewItem.folder_number})` : ''}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Свързано лице</div>
+                  {viewItem.student ? (
+                    <div className="text-sm font-bold text-[#0f2240] flex items-center gap-1"><GraduationCap className="w-4 h-4" /> {viewItem.student.first_name} {viewItem.student.last_name}</div>
+                  ) : viewItem.staffMember ? (
+                    <div className="text-sm font-bold text-[#0f2240] flex items-center gap-1"><User className="w-4 h-4" /> {viewItem.staffMember.first_name} {viewItem.staffMember.last_name}</div>
+                  ) : (
+                    <div className="text-sm font-bold text-slate-400">—</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Subject & Description */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Тема / Относно</div>
+                <div className="text-sm font-bold text-slate-800 mb-4">{viewItem.subject}</div>
+                
+                <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Описание / Бележки</div>
+                <div className="text-xs text-slate-600 whitespace-pre-wrap">{viewItem.description || 'Няма въведени допълнителни бележки.'}</div>
+              </div>
+
+              {/* File Button */}
+              {viewItem.file_url ? (
+                <div className="pt-2">
+                  <a href={viewItem.file_url} target="_blank" rel="noopener noreferrer" 
+                     className="w-full flex items-center justify-center gap-2 bg-[#0f2240] hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition-all shadow-md">
+                    <Download className="w-5 h-5" /> Изтегли / Отвори файла
+                  </a>
+                </div>
+              ) : (
+                <div className="pt-2">
+                  <div className="w-full flex items-center justify-center gap-2 bg-slate-100 text-slate-400 font-bold py-3 rounded-xl border border-slate-200">
+                    <FileText className="w-5 h-5" /> Няма прикачен файл
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* МОДАЛ: Нов Документ */}
       {isOpeningForm && (
@@ -391,7 +465,7 @@ export default function CorrespondenceClient({
                 <label className="block text-[10px] font-bold text-[#0f2240] mb-1.5 uppercase">Опции за документа</label>
                 
                 {direction === 'incoming' && (
-                  <select value={docType} onChange={(e) => setDocType(e.target.value as any)} className="w-full border border-blue-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700 bg-white">
+                  <select value={docType} onChange={(e) => setDocType(e.target.value as any)} className="w-full border border-blue-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700 bg-white cursor-pointer">
                     <option value="standard">Обикновен входящ документ</option>
                     <option value="student_enroll">Заявление за записване на ученик</option>
                     <option value="student_coud">Заявление за ЦОУД</option>
@@ -399,7 +473,7 @@ export default function CorrespondenceClient({
                 )}
 
                 {direction === 'internal' && (
-                  <select value={docType} onChange={(e) => setDocType(e.target.value as any)} className="w-full border border-blue-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700 bg-white">
+                  <select value={docType} onChange={(e) => setDocType(e.target.value as any)} className="w-full border border-blue-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700 bg-white cursor-pointer">
                     <option value="standard">Обикновен вътрешен документ</option>
                     <option value="staff_leave">Заявление за отпуск (от персонал)</option>
                   </select>
@@ -416,12 +490,12 @@ export default function CorrespondenceClient({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Дата *</label>
-                  <input type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-[#0f2240]/20 outline-none" required />
+                  <input type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-[#0f2240]/20 outline-none cursor-pointer" required />
                 </div>
                 
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Папка/Индекс *</label>
-                  <select value={folderIndex} onChange={(e) => setFolderIndex(e.target.value)} className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-[#0f2240]/20 outline-none bg-white font-bold text-[#0f2240]" required>
+                  <select value={folderIndex} onChange={(e) => setFolderIndex(e.target.value)} className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-[#0f2240]/20 outline-none bg-white font-bold text-[#0f2240] cursor-pointer" required>
                     {OFFICIAL_NOMENCLATURES.map(nom => <option key={nom} value={nom}>{nom}</option>)}
                   </select>
                 </div>
@@ -458,7 +532,7 @@ export default function CorrespondenceClient({
                   <div className="space-y-4">
                     <div>
                       <label className="block text-[10px] font-bold text-purple-600 mb-1.5 uppercase flex items-center gap-1"><User className="w-3 h-3"/> Избери служител (Подател) *</label>
-                      <select value={staffId} onChange={(e) => setStaffId(e.target.value)} className="w-full border border-purple-200 bg-white rounded-xl p-2.5 text-xs outline-none focus:border-purple-500 font-bold" required>
+                      <select value={staffId} onChange={(e) => setStaffId(e.target.value)} className="w-full border border-purple-200 bg-white rounded-xl p-2.5 text-xs outline-none focus:border-purple-500 font-bold cursor-pointer" required>
                         <option value="">-- Избери колега --</option>
                         {staff?.sort((a,b) => a.first_name.localeCompare(b.first_name)).map(s => (
                           <option key={s.id} value={s.id}>{s.first_name} {s.last_name}</option>
@@ -476,7 +550,7 @@ export default function CorrespondenceClient({
                   <div className="space-y-4">
                     <div>
                       <label className="block text-[10px] font-bold text-blue-600 mb-1.5 uppercase flex items-center gap-1"><GraduationCap className="w-3 h-3"/> За кой ученик се отнася? *</label>
-                      <select value={studentId} onChange={(e) => setStudentId(e.target.value)} className="w-full border border-blue-200 bg-white rounded-xl p-2.5 text-xs outline-none focus:border-blue-500 font-bold" required>
+                      <select value={studentId} onChange={(e) => setStudentId(e.target.value)} className="w-full border border-blue-200 bg-white rounded-xl p-2.5 text-xs outline-none focus:border-blue-500 font-bold cursor-pointer" required>
                         <option value="">-- Избери ученик --</option>
                         {students.sort((a,b) => a.last_name.localeCompare(b.last_name)).map(s => (
                           <option key={s.id} value={s.id}>{s.first_name} {s.last_name}</option>
@@ -500,22 +574,32 @@ export default function CorrespondenceClient({
                 </div>
               </div>
 
-              {/* Datalists */}
               <datalist id="from-list">{FROM_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
               <datalist id="to-list">{FROM_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
               <datalist id="subj-list">{SUBJECT_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
 
-              {/* 5. ПРИКАЧВАНЕ НА ФАЙЛ */}
+              {/* 5. КРАСИВ БУТОН ЗА ПРИКАЧВАНЕ НА ФАЙЛ */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Прикачен документ</label>
                 {uploadedFile ? (
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    <FileText className="h-5 w-5 text-slate-600" />
-                    <div className="flex-1 min-w-0"><div className="text-xs font-bold text-slate-800 truncate">{uploadedFile.name}</div></div>
-                    <button type="button" onClick={() => setUploadedFile(null)} className="text-slate-400 hover:text-red-500"><X className="h-4 w-4" /></button>
+                  <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-300">
+                    <FileText className="h-6 w-6 text-[#0f2240]" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-bold text-slate-800 truncate">{uploadedFile.name}</div>
+                      <div className="text-xs text-slate-500">{(uploadedFile.size / 1024).toFixed(0)} KB</div>
+                    </div>
+                    <button type="button" onClick={() => setUploadedFile(null)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                      <X className="h-5 w-5" />
+                    </button>
                   </div>
                 ) : (
-                  <input type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} className="text-xs w-full file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-100 file:text-[#0f2240] hover:file:bg-slate-200 cursor-pointer" />
+                  <div className="relative">
+                    <input type="file" id="file-upload" accept=".pdf,.doc,.docx" onChange={handleFileChange} className="hidden" />
+                    <label htmlFor="file-upload" className="flex flex-col items-center justify-center gap-2 w-full border-2 border-dashed border-slate-300 rounded-xl p-6 cursor-pointer hover:bg-slate-50 hover:border-[#0f2240] transition-colors group">
+                      <Upload className="h-6 w-6 text-slate-400 group-hover:text-[#0f2240] transition-colors" />
+                      <span className="text-xs font-bold text-slate-600 group-hover:text-[#0f2240]">ПРИКАЧИ ФАЙЛ (PDF / Word)</span>
+                    </label>
+                  </div>
                 )}
               </div>
 
