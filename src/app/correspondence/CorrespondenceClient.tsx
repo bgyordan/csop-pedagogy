@@ -297,11 +297,10 @@ export default function CorrespondenceClient({
       const ext = uploadedFile.name.split('.').pop()
       const filePath = `correspondence/${currentYear}/${Date.now()}.${ext}`
       const { error: uploadError } = await supabase.storage
-        .from('student-dossiers')
+        .from('documents')
         .upload(filePath, uploadedFile, { upsert: true })
       if (!uploadError) {
-        const { data: urlData } = supabase.storage.from('student-dossiers').getPublicUrl(filePath)
-        fileUrl = urlData.publicUrl
+        fileUrl = filePath  // Записваме пътя, не публичния URL
         fileName = uploadedFile.name
       }
     }
@@ -513,11 +512,18 @@ export default function CorrespondenceClient({
                 </div>
               )}
               {viewItem.file_url ? (
-                <a href={viewItem.file_url} target="_blank" rel="noopener noreferrer"
+                <button type="button"
+                  onClick={async () => {
+                    const { data, error } = await supabase.storage
+                      .from('documents')
+                      .createSignedUrl(viewItem.file_url, 120)
+                    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+                    else alert('Грешка при изтегляне')
+                  }}
                   className="w-full flex items-center justify-center gap-2 text-white font-bold py-3 rounded-xl shadow-md transition-all"
                   style={{ backgroundColor: '#0f2240' }}>
                   <Download size={18} /> Изтегли / Отвори файла
-                </a>
+                </button>
               ) : (
                 <div className="w-full flex items-center justify-center gap-2 bg-slate-100 text-slate-400 font-bold py-3 rounded-xl border">
                   <FileText size={18} /> Няма прикачен файл
