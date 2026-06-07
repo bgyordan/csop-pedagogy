@@ -37,18 +37,15 @@ export default async function CorrespondencePage({
     .order('created_at', { ascending: false })
     .range(from, to)
 
-  if (q) {
-    query = query.or(`number.ilike.%${q}%,subject.ilike.%${q}%,from_whom.ilike.%${q}%,to_whom.ilike.%${q}%`)
-  }
-  if (direction) {
-    query = query.eq('direction', direction)
-  }
+  if (q) query = query.or(`number.ilike.%${q}%,subject.ilike.%${q}%,from_whom.ilike.%${q}%,to_whom.ilike.%${q}%`)
+  if (direction) query = query.eq('direction', direction)
 
   const { data: correspondence, count } = await query
 
-  const [{ data: students }, { data: staff }] = await Promise.all([
+  const [{ data: students }, { data: staff }, { data: nomenclature }] = await Promise.all([
     supabase.from('students').select('id, first_name, last_name').eq('status', 'active').order('last_name'),
     supabase.from('staff_profiles').select('id, first_name, last_name').eq('is_active', true).order('last_name'),
+    supabase.from('nomenclature_items').select('*').order('section_code').order('item_code'),
   ])
 
   return (
@@ -69,6 +66,7 @@ export default async function CorrespondencePage({
         currentUserId={profile?.id || ''}
         students={students || []}
         staff={staff || []}
+        nomenclature={nomenclature || []}
       />
     </div>
   )
