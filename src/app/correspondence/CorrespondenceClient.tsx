@@ -70,6 +70,42 @@ interface Props {
   nomenclature: NomenclatureItem[]
 }
 
+// Компонент за показване на позицията в папката
+function FolderPosition({ number, supabase }: { number: string; supabase: any }) {
+  const [pos, setPos] = React.useState<number | null>(null)
+  
+  React.useEffect(() => {
+    // Извличаме индекса от номера (напр. АСД-02 от АСД-02-007/...)
+    const parts = number.split('-')
+    if (parts.length < 2) return
+    const folderCode = parts.slice(0, 2).join('-')
+    
+    supabase
+      .from('correspondence')
+      .select('id, created_at')
+      .like('number', `${folderCode}-%`)
+      .order('created_at', { ascending: true })
+      .then(({ data }: any) => {
+        if (!data) return
+        // Намираме позицията на текущия документ
+        const currentNum = number
+        const idx = data.findIndex((d: any) => {
+          const n = d.number || ''
+          return n === currentNum
+        })
+        if (idx >= 0) setPos(idx + 1)
+        else setPos(data.length)
+      })
+  }, [number])
+
+  if (pos === null) return null
+  return (
+    <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+      №{pos} в папката
+    </span>
+  )
+}
+
 export default function CorrespondenceClient({
   correspondence, totalCount, page, pageSize,
   searchValue, directionValue, canEdit, currentUserId, students, staff = [], nomenclature
@@ -333,7 +369,7 @@ export default function CorrespondenceClient({
             <thead className="bg-[#f0f7ff] text-[10px] uppercase font-bold text-slate-400 border-b border-slate-100">
               <tr>
                 <th className="px-4 py-2.5 pl-5">Номер</th>
-                <th className="px-3 py-2.5">Вид</th>
+                <th className="px-3 py-2.5 w-[80px]">Вид</th>
                 <th className="px-3 py-2.5">От / До</th>
                 <th className="px-3 py-2.5">Относно</th>
                 <th className="px-3 py-2.5">Лице</th>
@@ -351,12 +387,9 @@ export default function CorrespondenceClient({
                 return (
                   <tr key={item.id}
                     onClick={() => setViewItem({ ...item, student, staffMember })}
-                    className={`cursor-pointer transition-colors ${cfg.row} ${idx % 2 === 0 ? 'bg-white hover:bg-slate-50/60' : 'bg-slate-50/30 hover:bg-slate-100/40'}`}>
+                    className={`cursor-pointer transition-colors ${cfg.row} ${idx % 2 === 0 ? 'bg-white hover:bg-blue-50/20' : 'bg-slate-50/40 hover:bg-blue-50/20'}`}>
                     <td className="px-4 py-2 pl-5">
-                      <span className="font-mono font-bold text-[#0f2240] text-[11px]">{item.number}</span>
-                      <span className="block text-[10px] text-slate-400 mt-0.5">
-                        {item.date ? new Date(item.date).toLocaleDateString('bg-BG') : ''}
-                      </span>
+                      <span className="font-mono font-bold text-[#0f2240] text-[11px] whitespace-nowrap">{item.number}</span>
                     </td>
                     <td className="px-3 py-2">
                       <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${cfg.badge}`}>
@@ -454,7 +487,12 @@ export default function CorrespondenceClient({
                 </div>
               </div>
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Тема / Относно</div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase">Тема / Относно</div>
+                  {viewItem.number && (
+                    <FolderPosition number={viewItem.number} supabase={supabase} />
+                  )}
+                </div>
                 <div className="text-sm font-bold text-slate-800 mb-3">{viewItem.subject}</div>
                 {viewItem.description && <>
                   <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Бележки</div>
@@ -498,14 +536,16 @@ export default function CorrespondenceClient({
         </div>
       )}
 
-      {/* МОДАЛ: Нов запис */}
+      {/* Inline форма за нов запис */}
       {isOpeningForm && (
-        <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl border max-w-2xl w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <button onClick={resetForm} className="absolute right-4 top-4 p-1.5 hover:bg-slate-100 rounded-lg text-slate-400"><X size={18} /></button>
-            <h3 className="font-bold text-slate-800 text-sm uppercase mb-5 flex items-center gap-2">
-              <FolderOpen size={18} className="text-[#0f2240]" /> Деловодно вписване
+        <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <FolderOpen size={16} className="text-[#0f2240]" /> Деловодно вписване
             </h3>
+            <button onClick={resetForm} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-400"><X size={16} /></button>
+          </div>
+          <div className="p-6">
 
             <form onSubmit={handleSubmit} className="space-y-5">
 
@@ -677,12 +717,8 @@ export default function CorrespondenceClient({
                     </div>
                   )}
                   {direction === 'internal' && (
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">До кого (длъжностно лице) *</label>
-                      <input type="text" list="internal-list"
-                        value={toWhom} onChange={e => setToWhom(e.target.value)} required
-                        placeholder="Длъжностно лице..."
-                        className="input w-full" />
+                    <div className="p-3 bg-purple-50 border border-purple-100 rounded-xl text-[11px] text-purple-700">
+                      Вътрешен документ — завежда се само за архивни цели.
                     </div>
                   )}
                   <div>
