@@ -368,8 +368,10 @@ export default function ContractsClient({
                         <button type="button"
                           onClick={async (e) => {
                             e.stopPropagation()
+                            const win = window.open('', '_blank')
                             const { data } = await supabase.storage.from('documents').createSignedUrl(item.file_url, 120)
-                            if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+                            if (data?.signedUrl && win) win.location.href = data.signedUrl
+                            else if (win) win.close()
                           }}
                           className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0f2240] hover:underline">
                           <FileText size={12} />PDF
