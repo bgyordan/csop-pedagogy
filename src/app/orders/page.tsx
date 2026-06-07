@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
 import OrdersClient from './OrdersClient'
 
+export const dynamic = 'force-dynamic'
+
 const PAGE_SIZE = 20
 
 export default async function OrdersPage({
@@ -34,17 +36,17 @@ export default async function OrdersPage({
     .order('created_at', { ascending: false })
     .range(from, to)
 
-  if (q) {
-    query = query.or(`number.ilike.%${q}%,title.ilike.%${q}%`)
-  }
+  if (q) query = query.or(`number.ilike.%${q}%,title.ilike.%${q}%`)
 
   const { data: orders, count } = await query
 
-  const { data: students } = await supabase
-    .from('students')
-    .select('id, first_name, last_name')
-    .eq('status', 'active')
-    .order('last_name')
+  const [{ data: students }, { data: nomenclature }] = await Promise.all([
+    supabase.from('students').select('id, first_name, last_name').eq('status', 'active').order('last_name'),
+    supabase.from('nomenclature_items')
+      .select('*')
+      .in('section_code', ['РД', 'УВД', 'ФСД', 'ЛС', 'БУТ'])
+      .order('section_code').order('item_code'),
+  ])
 
   return (
     <div className="p-4 md:p-8">
@@ -62,6 +64,7 @@ export default async function OrdersPage({
         canEdit={canEdit}
         currentUserId={profile?.id || ''}
         students={students || []}
+        nomenclature={nomenclature || []}
       />
     </div>
   )
