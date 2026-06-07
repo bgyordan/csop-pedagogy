@@ -47,6 +47,10 @@ function getSchoolYear(): number {
   return now >= new Date(now.getFullYear(), 8, 15) ? now.getFullYear() : now.getFullYear() - 1
 }
 
+interface NomenclatureItem {
+  id: string; section_code: string; item_code: string; name: string; retention_years: string
+}
+
 interface Props {
   orders: any[]
   totalCount: number
@@ -56,11 +60,12 @@ interface Props {
   canEdit: boolean
   currentUserId: string
   students: { id: string; first_name: string; last_name: string }[]
+  nomenclature: NomenclatureItem[]
 }
 
 export default function OrdersClient({
   orders, totalCount, page, pageSize,
-  searchValue, canEdit, currentUserId, students
+  searchValue, canEdit, currentUserId, students, nomenclature
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
@@ -404,8 +409,9 @@ export default function OrdersClient({
         <NewOrderForm
           currentUserId={currentUserId}
           students={students}
+          nomenclature={nomenclature}
           onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); }}
+          onSaved={() => setShowForm(false)}
         />
       )}
     </div>
