@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 import { Plus, Inbox, ClipboardList, FileSignature } from 'lucide-react'
-import NewCorrespondenceForm from '../../(dashboard)/correspondence/NewCorrespondenceForm'
-import NewOrderForm from '../../(dashboard)/orders/NewOrderForm'
-import NewContractForm from '../../(dashboard)/contracts/NewContractForm'
 import { useRouter } from 'next/navigation'
+import NewCorrespondenceForm from '@/app/(dashboard)/correspondence/NewCorrespondenceForm'
+import NewOrderForm from '@/app/(dashboard)/orders/NewOrderForm'
+import NewContractForm from '@/app/(dashboard)/contracts/NewContractForm'
 
 interface NomenclatureItem {
   id: string; section_code: string; item_code: string; name: string; retention_years: string
@@ -25,7 +25,6 @@ export default function SecretaryDashboardClient({ currentUserId, students, staf
 
   return (
     <>
-      {/* Бързи действия */}
       <div className="grid grid-cols-3 gap-3">
         <button onClick={() => setOpenModal('corr')}
           className="flex items-center justify-center gap-2 p-3 bg-[#0f2240] text-white rounded-xl text-xs font-bold hover:opacity-90 transition-opacity shadow-md">
