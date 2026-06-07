@@ -16,8 +16,12 @@ const SMART_CODES: Record<string, { type: 'staff' | 'student'; subjectTemplate: 
   'УВД-12': { type: 'student', subjectTemplate: 'Молба за ЦОУД на {name}' },
 }
 
-// Бързи кодове — най-използвани
-const QUICK_CODES = ['АСД-02', 'АСД-01', 'УВД-07', 'УВД-08', 'УВД-09', 'УВД-12', 'ЛС-02', 'РД-06']
+// Бързи кодове по посока
+const QUICK_CODES: Record<string, string[]> = {
+  incoming: ['АСД-02', 'УВД-09', 'УВД-12', 'УВД-07', 'УВД-08', 'РД-10', 'ФСД-02'],
+  outgoing: ['АСД-02', 'УВД-07', 'УВД-08', 'РД-06', 'ФСД-02', 'ОД-01'],
+  internal: ['АСД-05', 'ЛС-02', 'РД-07', 'УВД-10', 'БУТ-01'],
+}
 
 const EXTERNAL_SUGGESTIONS = [
   'МОН — Министерство на образованието и науката',
@@ -83,7 +87,10 @@ export default function CorrespondenceClient({
 
   const [direction, setDirection] = useState<'incoming' | 'outgoing' | 'internal'>('incoming')
   const [folderIndex, setFolderIndex] = useState('АСД-02')
+  const [folderCount, setFolderCount] = useState<number | null>(null)
   const [docDate, setDocDate] = useState(new Date().toISOString().split('T')[0])
+  const [toWhomSuggestions, setToWhomSuggestions] = useState<string[]>([...EXTERNAL_SUGGESTIONS])
+  const [fromWhomSuggestions, setFromWhomSuggestions] = useState<string[]>([...EXTERNAL_SUGGESTIONS])
   const [fromWhom, setFromWhom] = useState('')
   const [toWhom, setToWhom] = useState('')
   const [subject, setSubject] = useState('')
@@ -108,7 +115,8 @@ export default function CorrespondenceClient({
   }, {} as Record<string, NomenclatureItem[]>)
 
   // Генериране на следващ номер за preview
-  const nextNumPreview = `${folderIndex}-${String(totalCount + 1).padStart(3, '0')}/${docDate.split('-').reverse().join('.')}г.`
+  const nextFolderNum = folderCount !== null ? folderCount + 1 : '???'
+  const nextNumPreview = `${folderIndex}-${String(nextFolderNum).padStart(3, '0')}/${docDate.split('-').reverse().join('.')}г.`
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -135,16 +143,22 @@ export default function CorrespondenceClient({
     router.push(`/correspondence?${params.toString()}`)
   }
 
-  function selectNomCode(code: string) {
+  async function selectNomCode(code: string) {
     setFolderIndex(code)
     setShowAllNom(false)
     setNomSearch('')
     setStudentId('')
     setStaffId('')
     setSubject('')
-    // Автоматичен От/До при смяна на посока
     if (direction === 'incoming') setToWhom('ЦСОП Варна')
     if (direction === 'outgoing') setFromWhom('ЦСОП Варна')
+    // Броим документи в тази папка
+    setFolderCount(null)
+    const { count } = await supabase
+      .from('correspondence')
+      .select('id', { count: 'exact', head: true })
+      .like('number', `${code}-%`)
+    setFolderCount(count || 0)
   }
 
   function changeDirectionTab(d: 'incoming' | 'outgoing' | 'internal') {
@@ -192,6 +206,38 @@ export default function CorrespondenceClient({
     setNomSearch('')
     setShowAllNom(false)
     setIsOpeningForm(false)
+  }
+
+  async function fetchFrequentRecipients() {
+    // Зарежда получателите наредени по честота на ползване
+    const { data } = await supabase
+      .from('correspondence')
+      .select('to_whom, from_whom, direction')
+      .not('to_whom', 'is', null)
+    
+    if (!data) return
+
+    // Брой за изходящи получатели
+    const toCount: Record<string, number> = {}
+    data.filter(r => r.direction === 'outgoing' && r.to_whom).forEach(r => {
+      toCount[r.to_whom] = (toCount[r.to_whom] || 0) + 1
+    })
+    const sortedTo = [...new Set([
+      ...Object.entries(toCount).sort((a,b) => b[1]-a[1]).map(([k]) => k),
+      ...EXTERNAL_SUGGESTIONS
+    ])]
+    setToWhomSuggestions(sortedTo)
+
+    // Брой за входящи изпращачи
+    const fromCount: Record<string, number> = {}
+    data.filter(r => r.direction === 'incoming' && r.from_whom).forEach(r => {
+      fromCount[r.from_whom] = (fromCount[r.from_whom] || 0) + 1
+    })
+    const sortedFrom = [...new Set([
+      ...Object.entries(fromCount).sort((a,b) => b[1]-a[1]).map(([k]) => k),
+      ...EXTERNAL_SUGGESTIONS
+    ])]
+    setFromWhomSuggestions(sortedFrom)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -480,7 +526,7 @@ export default function CorrespondenceClient({
               <div>
                 <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Индекс от номенклатурата *</label>
                 <div className="flex flex-wrap gap-1.5 mb-2">
-                  {QUICK_CODES.map(code => {
+                  {(QUICK_CODES[direction] || []).map(code => {
                     const item = nomenclature.find(n => n.item_code === code)
                     if (!item) return null
                     return (
@@ -539,9 +585,16 @@ export default function CorrespondenceClient({
                         <span className="text-[10px] text-slate-400">Срок: {selectedNomItem.retention_years}г.</span>
                       )}
                     </div>
-                    <div className="mt-2 pt-2 border-t border-blue-100">
-                      <span className="text-[10px] text-slate-400">Следващ номер: </span>
-                      <span className="font-mono font-bold text-[#0f2240] text-sm">{nextNumPreview}</span>
+                    <div className="mt-2 pt-2 border-t border-blue-100 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] text-slate-400">Следващ номер: </span>
+                        <span className="font-mono font-bold text-[#0f2240] text-sm">{nextNumPreview}</span>
+                      </div>
+                      {folderCount !== null && (
+                        <span className="text-[10px] text-slate-400">
+                          {folderCount} документа в тази папка
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}
@@ -602,37 +655,33 @@ export default function CorrespondenceClient({
               {/* Стандартни полета */}
               {!smartCode && (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    {direction !== 'outgoing' && (
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">От кого *</label>
-                        <input type="text"
-                          list={direction === 'internal' ? 'internal-list' : 'external-list'}
-                          value={fromWhom} onChange={e => setFromWhom(e.target.value)} required
-                          placeholder={direction === 'internal' ? 'Длъжностно лице...' : 'Институция / лице...'}
-                          className="input w-full" />
-                      </div>
-                    )}
-                    {direction !== 'incoming' && (
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">До кого *</label>
-                        <input type="text"
-                          list={direction === 'internal' ? 'internal-list' : 'external-list'}
-                          value={toWhom} onChange={e => setToWhom(e.target.value)} required
-                          placeholder={direction === 'internal' ? 'Длъжностно лице...' : 'Институция / лице...'}
-                          className="input w-full" />
-                      </div>
-                    )}
-                    {direction === 'incoming' && (
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">От кого *</label>
-                        <input type="text" list="external-list"
-                          value={fromWhom} onChange={e => setFromWhom(e.target.value)} required
-                          placeholder="Институция / лице..."
-                          className="input w-full" />
-                      </div>
-                    )}
-                  </div>
+                  {direction === 'incoming' && (
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">От кого *</label>
+                      <input type="text" list="from-list"
+                        value={fromWhom} onChange={e => setFromWhom(e.target.value)} required
+                        placeholder="Институция / лице..."
+                        className="input w-full" />
+                    </div>
+                  )}
+                  {direction === 'outgoing' && (
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">До кого *</label>
+                      <input type="text" list="to-list"
+                        value={toWhom} onChange={e => setToWhom(e.target.value)} required
+                        placeholder="Институция / лице..."
+                        className="input w-full" />
+                    </div>
+                  )}
+                  {direction === 'internal' && (
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">До кого (длъжностно лице) *</label>
+                      <input type="text" list="internal-list"
+                        value={toWhom} onChange={e => setToWhom(e.target.value)} required
+                        placeholder="Длъжностно лице..."
+                        className="input w-full" />
+                    </div>
+                  )}
                   <div>
                     <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Тема / Относно *</label>
                     <input type="text" value={subject} onChange={e => setSubject(e.target.value)} required
@@ -657,7 +706,8 @@ export default function CorrespondenceClient({
                   placeholder="Допълнителна информация..." className="input w-full resize-none" />
               </div>
 
-              <datalist id="external-list">{EXTERNAL_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
+              <datalist id="from-list">{fromWhomSuggestions.map(s => <option key={s} value={s} />)}</datalist>
+              <datalist id="to-list">{toWhomSuggestions.map(s => <option key={s} value={s} />)}</datalist>
               <datalist id="internal-list">{INTERNAL_PERSONS.map(s => <option key={s} value={s} />)}</datalist>
 
               {/* Файл */}
