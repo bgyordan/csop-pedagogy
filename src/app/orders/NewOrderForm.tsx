@@ -5,26 +5,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { X, Upload, FileText, Loader2, ChevronDown } from 'lucide-react'
 
-const QUICK_ORDER_ITEMS = [
-  { code: 'РД-08', name: 'Заповеди на директора' },
-  { code: 'РД-09', name: 'Трудови договори и заповеди' },
-  { code: 'УВД-22', name: 'Заповеди за ЕПЛР' },
-  { code: 'УВД-23', name: 'Заповеди за ИУП' },
-]
-
-const ALL_ORDER_ITEMS = [
-  { code: 'РД-06', name: 'Докладни записки на директора' },
-  { code: 'РД-07', name: 'Наредби по вътрешен ред' },
-  { code: 'РД-08', name: 'Заповеди на директора' },
-  { code: 'РД-09', name: 'Трудови договори и заповеди' },
-  { code: 'УВД-10', name: 'План за контролната дейност' },
-  { code: 'УВД-22', name: 'Заповеди за определяне на ЕПЛР' },
-  { code: 'УВД-23', name: 'Заповеди за утвърждаване на ИУП' },
-  { code: 'ФСД-01', name: 'Указания по финансови въпроси' },
-  { code: 'ЛС-03', name: 'Заповеди за назначаване/освобождаване' },
-  { code: 'ЛС-04', name: 'Заповеди за отпуски' },
-  { code: 'БУТ-01', name: 'Правилник за охрана на труда' },
-]
+// Бързи кодове за заповеди
+const QUICK_ORDER_CODES = ['РД-08', 'РД-09', 'УВД-22', 'УВД-23']
 
 const TITLE_SUGGESTIONS = [
   'Заповед за назначаване',
@@ -50,14 +32,19 @@ function getSchoolYear(): number {
   return now >= new Date(now.getFullYear(), 8, 15) ? now.getFullYear() : now.getFullYear() - 1
 }
 
+interface NomenclatureItem {
+  id: string; section_code: string; item_code: string; name: string; retention_years: string
+}
+
 interface Props {
   currentUserId: string
   students: { id: string; first_name: string; last_name: string }[]
+  nomenclature: NomenclatureItem[]
   onClose: () => void
   onSaved: () => void
 }
 
-export default function NewOrderForm({ currentUserId, students, onClose, onSaved }: Props) {
+export default function NewOrderForm({ currentUserId, students, nomenclature, onClose, onSaved }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const schoolYear = getSchoolYear()
@@ -73,9 +60,14 @@ export default function NewOrderForm({ currentUserId, students, onClose, onSaved
   const [studentId, setStudentId] = useState('')
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
 
-  const filteredItems = ALL_ORDER_ITEMS.filter(i =>
-    !itemSearch || i.code.toLowerCase().includes(itemSearch.toLowerCase()) || i.name.toLowerCase().includes(itemSearch.toLowerCase())
+  const filteredItems = nomenclature.filter(i =>
+    !itemSearch || i.item_code.toLowerCase().includes(itemSearch.toLowerCase()) || i.name.toLowerCase().includes(itemSearch.toLowerCase())
   )
+  const filteredBySection = filteredItems.reduce((acc, item) => {
+    if (!acc[item.section_code]) acc[item.section_code] = []
+    acc[item.section_code].push(item)
+    return acc
+  }, {} as Record<string, NomenclatureItem[]>)
 
   function resetForm() {
     setOrderTypeCode('РД-08')
@@ -148,18 +140,22 @@ export default function NewOrderForm({ currentUserId, students, onClose, onSaved
             <div className="flex-1">
               <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Дело от номенклатурата *</label>
               <div className="flex flex-wrap gap-1.5 mb-2">
-                {QUICK_ORDER_ITEMS.map(item => (
-                  <button key={item.code} type="button"
-                    onClick={() => { setOrderTypeCode(item.code); setShowAllItems(false) }}
-                    title={item.name}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
-                      orderTypeCode === item.code
-                        ? 'bg-[#0f2240] text-white border-[#0f2240]'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}>
-                    <span className="font-mono">{item.code}</span>
-                  </button>
-                ))}
+                {QUICK_ORDER_CODES.map(code => {
+                  const item = nomenclature.find(n => n.item_code === code)
+                  if (!item) return null
+                  return (
+                    <button key={code} type="button"
+                      onClick={() => { setOrderTypeCode(code); setShowAllItems(false) }}
+                      title={item.name}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                        orderTypeCode === code
+                          ? 'bg-[#0f2240] text-white border-[#0f2240]'
+                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      }`}>
+                      <span className="font-mono">{code}</span>
+                    </button>
+                  )
+                })}
                 <button type="button" onClick={() => setShowAllItems(!showAllItems)}
                   className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${showAllItems ? 'bg-slate-200 border-slate-300' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>
                   <ChevronDown size={12} className={showAllItems ? 'rotate-180 transition-transform' : ''} />
@@ -171,16 +167,21 @@ export default function NewOrderForm({ currentUserId, students, onClose, onSaved
                 <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2 mb-2">
                   <input autoFocus placeholder="Търси..." value={itemSearch}
                     onChange={e => setItemSearch(e.target.value)} className="input w-full text-xs" />
-                  <div className="max-h-36 overflow-y-auto">
-                    {filteredItems.map(item => (
-                      <button key={item.code} type="button"
-                        onClick={() => { setOrderTypeCode(item.code); setShowAllItems(false); setItemSearch('') }}
-                        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors ${
-                          orderTypeCode === item.code ? 'bg-[#0f2240] text-white' : 'hover:bg-white text-slate-700'
-                        }`}>
-                        <span className="font-mono font-bold">{item.code}</span>
-                        <span className="ml-2 opacity-70">{item.name}</span>
-                      </button>
+                  <div className="max-h-40 overflow-y-auto space-y-2">
+                    {Object.entries(filteredBySection).map(([section, items]) => (
+                      <div key={section}>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase px-2 mb-1">{section}</div>
+                        {items.map(item => (
+                          <button key={item.item_code} type="button"
+                            onClick={() => { setOrderTypeCode(item.item_code); setShowAllItems(false); setItemSearch('') }}
+                            className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                              orderTypeCode === item.item_code ? 'bg-[#0f2240] text-white' : 'hover:bg-white text-slate-700'
+                            }`}>
+                            <span className="font-mono font-bold">{item.item_code}</span>
+                            <span className="ml-2 opacity-70">{item.name}</span>
+                          </button>
+                        ))}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -189,7 +190,7 @@ export default function NewOrderForm({ currentUserId, students, onClose, onSaved
               {orderTypeCode && (
                 <div className="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs">
                   <span className="font-mono font-bold text-[#0f2240]">{orderTypeCode}</span>
-                  <span className="ml-2 text-slate-500 truncate">{ALL_ORDER_ITEMS.find(i => i.code === orderTypeCode)?.name || QUICK_ORDER_ITEMS.find(i => i.code === orderTypeCode)?.name}</span>
+                  <span className="ml-2 text-slate-500 truncate">{nomenclature.find(i => i.item_code === orderTypeCode)?.name}</span>
                   <span className="ml-auto text-slate-400 flex-shrink-0">Уч. год. {schoolYear}/{schoolYear+1}</span>
                 </div>
               )}
