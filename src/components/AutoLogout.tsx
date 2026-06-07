@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 const TIMEOUT = 30 * 60 * 1000       // 30 минути → изход
-const WARNING = 10 * 1000       // 25 минути → предупреждение
+const WARNING = 25 * 60 * 1000       // 25 минути → предупреждение
 const REMAINING = TIMEOUT - WARNING  // 5 минути за реакция
 
 export function AutoLogout() {
