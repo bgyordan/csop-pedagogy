@@ -36,7 +36,7 @@ export default function EnrollmentsClient({ rows, yearLabel }: { rows: Row[], ye
     const ws = XLSX.utils.json_to_sheet(data)
     ws['!cols'] = [{ wch: 4 }, { wch: 14 }, { wch: 16 }, { wch: 10 }, { wch: 30 }, { wch: 8 }, { wch: 12 }, { wch: 12 }]
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, `Заявления ${yearLabel}`)
+    XLSX.utils.book_append_sheet(wb, ws, `Заявления ${yearLabel.replace('/', '-')}`)
     XLSX.writeFile(wb, `Заявления_${yearLabel.replace('/', '-')}.xlsx`)
   }
 
