@@ -63,11 +63,11 @@ export default function OrdersClient({
           </span>
         </p>
         {canEdit && (
-          <button onClick={() => setShowForm(!showForm)}
+          <button onClick={() => setShowForm(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white shadow-md"
             style={{ backgroundColor: '#0f2240' }}>
-            {showForm ? <X size={16} /> : <Plus size={16} />}
-            {showForm ? 'Затвори' : 'Нова заповед'}
+            <Plus size={16} />
+            Нова заповед
           </button>
         )}
       </div>
