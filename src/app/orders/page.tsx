@@ -23,7 +23,7 @@ export default async function OrdersPage({
   const canAccess = ['admin', 'zdud', 'director', 'secretary'].includes(profile?.role || '')
   if (!canAccess) redirect('/dashboard')
 
-  const canEdit = ['admin', 'zdud', 'director'].includes(profile?.role || '')
+  const canEdit = ['admin', 'zdud', 'director', 'secretary'].includes(profile?.role || '')
 
   const page = Math.max(1, parseInt(params.page || '1'))
   const q = params.q || ''
