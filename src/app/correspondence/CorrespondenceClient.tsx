@@ -158,6 +158,8 @@ export default function CorrespondenceClient({
       .from('correspondence')
       .select('id', { count: 'exact', head: true })
       .like('number', `${code}-%`)
+      .gte('date', `${currentYear}-01-01`)
+      .lte('date', `${currentYear}-12-31`)
     setFolderCount(count || 0)
   }
 
