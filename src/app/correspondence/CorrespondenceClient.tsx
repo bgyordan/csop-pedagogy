@@ -115,8 +115,9 @@ export default function CorrespondenceClient({
   }, {} as Record<string, NomenclatureItem[]>)
 
   // Генериране на следващ номер за preview
-  const nextFolderNum = folderCount !== null ? folderCount + 1 : '???'
-  const nextNumPreview = `${folderIndex}-${String(nextFolderNum).padStart(3, '0')}/${docDate.split('-').reverse().join('.')}г.`
+  // Глобален пореден номер за годината
+  const nextGlobalNum = String(totalCount + 1).padStart(3, '0')
+  const nextNumPreview = `${folderIndex}-${nextGlobalNum}/${docDate.split('-').reverse().join('.')}г.`
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -594,7 +595,7 @@ export default function CorrespondenceClient({
                       </div>
                       {folderCount !== null && (
                         <span className="text-[10px] text-slate-400">
-                          {folderCount} документа в тази папка
+                          {folderCount} документа в папка {folderIndex}
                         </span>
                       )}
                     </div>
