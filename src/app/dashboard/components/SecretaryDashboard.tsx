@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Inbox, ClipboardList, FileSignature, AlertTriangle, ArrowRight, Plus } from 'lucide-react'
+import { Inbox, ClipboardList, FileSignature, AlertTriangle, ArrowRight } from 'lucide-react'
 
 export default async function SecretaryDashboard({ profile }: any) {
   const supabase = await createClient()
@@ -147,19 +147,6 @@ export default async function SecretaryDashboard({ profile }: any) {
           </div>
         </div>
       )}
-
-      {/* Бързи действия — линкове към страниците */}
-      <div className="grid grid-cols-3 gap-3">
-        <Link href="/correspondence" className="flex items-center justify-center gap-2 p-3 bg-[#0f2240] text-white rounded-xl text-xs font-bold hover:opacity-90 transition-opacity shadow-md">
-          <Plus size={14} /> Нова кореспонденция
-        </Link>
-        <Link href="/orders" className="flex items-center justify-center gap-2 p-3 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition-colors">
-          <Plus size={14} /> Нова заповед
-        </Link>
-        <Link href="/contracts" className="flex items-center justify-center gap-2 p-3 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition-colors">
-          <Plus size={14} /> Нов договор
-        </Link>
-      </div>
 
     </div>
   )
