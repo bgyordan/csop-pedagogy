@@ -5,9 +5,9 @@ import { X, FolderOpen, GraduationCap, User, Download, FileText } from 'lucide-r
 import { createClient } from '@/lib/supabase/client'
 
 const DIRECTION_CONFIG = {
-  incoming: { label: 'Входящ', badge: 'bg-blue-100 text-blue-800 border-blue-200', icon: '↙' },
-  outgoing: { label: 'Изходящ', badge: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: '↗' },
-  internal: { label: 'Вътрешен', badge: 'bg-purple-100 text-purple-800 border-purple-200', icon: '⇄' },
+  incoming: { label: 'Вх.', badge: 'bg-blue-100 text-blue-800 border-blue-200', icon: '↙' },
+  outgoing: { label: 'Изх.', badge: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: '↗' },
+  internal: { label: 'Вътр.', badge: 'bg-purple-100 text-purple-800 border-purple-200', icon: '⇄' },
 }
 
 function FolderPosition({ number }: { number: string }) {
@@ -83,17 +83,19 @@ export default function ViewCorrespondenceModal({ item, students, staff, onClose
             </span>
           </div>
 
-          {/* От / До */}
-          <div className="grid grid-cols-2 gap-5">
-            <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">От кого</div>
-              <div className="text-sm font-bold text-slate-800">{item.from_whom || '—'}</div>
+          {/* От / До — само за вх/изх */}
+          {item.direction !== 'internal' && (
+            <div className="grid grid-cols-2 gap-5">
+              <div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">От кого</div>
+                <div className="text-sm font-bold text-slate-800">{item.from_whom || '—'}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">До кого</div>
+                <div className="text-sm font-bold text-slate-800">{item.to_whom || '—'}</div>
+              </div>
             </div>
-            <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">До кого</div>
-              <div className="text-sm font-bold text-slate-800">{item.to_whom || '—'}</div>
-            </div>
-          </div>
+          )}
 
           {/* Тема */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
