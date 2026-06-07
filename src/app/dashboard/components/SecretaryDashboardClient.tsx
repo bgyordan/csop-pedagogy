@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { Plus, Inbox, ClipboardList, FileSignature } from 'lucide-react'
-import NewCorrespondenceForm from '@/app/(dashboard)/correspondence/NewCorrespondenceForm'
-import NewOrderForm from '@/app/(dashboard)/orders/NewOrderForm'
-import NewContractForm from '@/app/(dashboard)/contracts/NewContractForm'
+import NewCorrespondenceForm from '../../(dashboard)/correspondence/NewCorrespondenceForm'
+import NewOrderForm from '../../(dashboard)/orders/NewOrderForm'
+import NewContractForm from '../../(dashboard)/contracts/NewContractForm'
 import { useRouter } from 'next/navigation'
 
 interface NomenclatureItem {
