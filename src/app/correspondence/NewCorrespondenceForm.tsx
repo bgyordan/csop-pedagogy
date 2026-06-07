@@ -12,11 +12,11 @@ const SMART_CODES: Record<string, { type: 'staff' | 'student'; template: string 
   'УВД-12': { type: 'student', template: 'Молба за ЦОУД на {name}' },
 }
 
-// Бързи кодове по посока
+// Бързи кодове по посока — само 4
 const QUICK_CODES: Record<string, string[]> = {
-  incoming: ['АСД-02', 'УВД-09', 'УВД-12', 'УВД-07', 'УВД-08', 'РД-10', 'ФСД-02'],
-  outgoing: ['АСД-02', 'УВД-07', 'УВД-08', 'РД-06', 'ФСД-02', 'ОД-01'],
-  internal: ['АСД-05', 'ЛС-02', 'РД-07', 'УВД-10', 'БУТ-01'],
+  incoming: ['АСД-02', 'УВД-09', 'УВД-12', 'УВД-07'],
+  outgoing: ['АСД-02', 'УВД-07', 'УВД-08', 'РД-06'],
+  internal: ['АСД-05', 'ЛС-02', 'РД-07', 'УВД-10'],
 }
 
 const EXTERNAL_SUGGESTIONS = [
@@ -207,10 +207,11 @@ export default function NewCorrespondenceForm({
           ))}
         </div>
 
-        {/* Номенклатура */}
-        <div>
-          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Индекс от номенклатурата *</label>
-          <div className="flex flex-wrap gap-1.5 mb-2">
+        {/* Номенклатура + Дата на един ред */}
+        <div className="flex items-end gap-3">
+          <div className="flex-1">
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Индекс от номенклатурата *</label>
+            <div className="flex flex-wrap gap-1.5 mb-2">
             {(QUICK_CODES[direction] || []).map(code => {
               const item = nomenclature.find(n => n.item_code === code)
               if (!item) return null
@@ -267,13 +268,15 @@ export default function NewCorrespondenceForm({
               </div>
             </div>
           )}
+          </div>
+          {/* Дата до номенклатурата */}
+          <div className="w-36 flex-shrink-0">
+            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Дата *</label>
+            <input type="date" value={docDate} onChange={e => setDocDate(e.target.value)} required className="input w-full" />
+          </div>
         </div>
 
-        {/* Дата */}
-        <div>
-          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Дата *</label>
-          <input type="date" value={docDate} onChange={e => setDocDate(e.target.value)} required className="input w-44" />
-        </div>
+
 
         {/* Умни полета при специални кодове */}
         {smartCode?.type === 'staff' && (
@@ -316,41 +319,29 @@ export default function NewCorrespondenceForm({
         {/* Стандартни полета */}
         {!smartCode && (
           <div className="space-y-3">
-            {direction === 'incoming' && (
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">От кого *</label>
-                <input type="text" list="from-list" value={fromWhom} onChange={e => setFromWhom(e.target.value)}
-                  required placeholder="Институция / лице..." className="input w-full" />
-              </div>
-            )}
-            {direction === 'outgoing' && (
-              <div className="grid grid-cols-2 gap-3">
+            {/* От/До кого */}
+            <div className="grid grid-cols-1 gap-3">
+              {direction === 'incoming' && (
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">От кого *</label>
+                  <input type="text" list="from-list" value={fromWhom} onChange={e => setFromWhom(e.target.value)}
+                    required placeholder="Институция / лице..." className="input w-full" />
+                </div>
+              )}
+              {direction === 'outgoing' && (
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">До кого *</label>
                   <input type="text" list="to-list" value={toWhom} onChange={e => setToWhom(e.target.value)}
                     required placeholder="Институция / лице..." className="input w-full" />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Тема / Относно *</label>
-                  <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
-                    required placeholder="Кратко описание..." className="input w-full" />
-                </div>
-              </div>
-            )}
-            {direction === 'internal' && (
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Тема / Относно *</label>
-                <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
-                  required placeholder="Кратко описание..." className="input w-full" />
-              </div>
-            )}
-            {direction === 'incoming' && (
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Тема / Относно *</label>
-                <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
-                  required placeholder="Кратко описание..." className="input w-full" />
-              </div>
-            )}
+              )}
+            </div>
+            {/* Ред 2: Тема */}
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Тема / Относно *</label>
+              <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
+                required placeholder="Кратко описание..." className="input w-full" />
+            </div>
           </div>
         )}
 
@@ -366,7 +357,7 @@ export default function NewCorrespondenceForm({
         {/* Бележки */}
         <div>
           <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Бележки</label>
-          <textarea rows={2} value={description} onChange={e => setDescription(e.target.value)}
+          <textarea rows={1} value={description} onChange={e => setDescription(e.target.value)}
             placeholder="Допълнителна информация..." className="input w-full resize-none" />
         </div>
 
