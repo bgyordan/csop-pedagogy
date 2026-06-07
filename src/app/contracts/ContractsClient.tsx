@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import NewContractForm from './NewContractForm'
 import ViewContractModal from './ViewContractModal'
+import EditContractModal from './EditContractModal'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, Search, FileText, FileSignature, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -33,6 +34,7 @@ export default function ContractsClient({
   const [search, setSearch] = useState(searchValue)
   const [showForm, setShowForm] = useState(false)
   const [viewItem, setViewItem] = useState<any | null>(null)
+  const [editItem, setEditItem] = useState<any | null>(null)
 
   const totalPages = Math.ceil(totalCount / pageSize)
 
@@ -124,6 +126,13 @@ export default function ContractsClient({
                       </div>
                     </td>
                     <td className="px-4 py-2.5" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center gap-2">
+                      {canEdit && (
+                        <button type="button" onClick={() => setEditItem(item)}
+                          className="p-1 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100" title="Редакция">
+                          ✏️
+                        </button>
+                      )}
                       {item.file_url ? (
                         <button type="button"
                           onClick={async () => {
@@ -136,6 +145,7 @@ export default function ContractsClient({
                           <FileText size={12} />PDF
                         </button>
                       ) : <span className="text-slate-300 text-[10px]">—</span>}
+                      </div>
                     </td>
                   </tr>
                 )
@@ -162,6 +172,7 @@ export default function ContractsClient({
       )}
 
       {viewItem && <ViewContractModal item={viewItem} onClose={() => setViewItem(null)} />}
+      {editItem && <EditContractModal item={editItem} onClose={() => setEditItem(null)} />}
 
       {showForm && (
         <NewContractForm
