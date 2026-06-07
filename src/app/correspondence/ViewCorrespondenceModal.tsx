@@ -83,17 +83,17 @@ export default function ViewCorrespondenceModal({ item, students, staff, onClose
             </span>
           </div>
 
-          {/* От / До — само за вх/изх */}
-          {item.direction !== 'internal' && (
-            <div className="grid grid-cols-2 gap-5">
-              <div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">От кого</div>
-                <div className="text-sm font-bold text-slate-800">{item.from_whom || '—'}</div>
-              </div>
-              <div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">До кого</div>
-                <div className="text-sm font-bold text-slate-800">{item.to_whom || '—'}</div>
-              </div>
+          {/* От / До — само релевантното поле */}
+          {item.direction === 'incoming' && item.from_whom && (
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">От кого</div>
+              <div className="text-sm font-bold text-slate-800">{item.from_whom}</div>
+            </div>
+          )}
+          {item.direction === 'outgoing' && item.to_whom && (
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">До кого</div>
+              <div className="text-sm font-bold text-slate-800">{item.to_whom}</div>
             </div>
           )}
 
