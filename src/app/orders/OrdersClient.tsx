@@ -122,11 +122,11 @@ export default function OrdersClient({
                   </td>
                   <td className="px-3 py-1.5" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center gap-1.5">
+                      <button type="button" onClick={() => setViewItem(item)}
+                        className="p-1 rounded-lg text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-colors" title="Преглед">
+                        <Eye size={13} />
+                      </button>
                       {canEdit && (
-                        <button type="button" onClick={() => setViewItem(item)}
-                          className="p-1 rounded-lg text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-colors" title="Преглед">
-                          <Eye size={13} />
-                        </button>
                         <button type="button" onClick={() => setEditItem(item)}
                           className="p-1 rounded-lg text-slate-300 hover:text-[#0f2240] hover:bg-slate-100 transition-colors" title="Редакция">
                           <Pencil size={13} />
