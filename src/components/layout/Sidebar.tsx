@@ -76,7 +76,10 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false }
     router.push('/auth/login')
   }
 
+  const isSecretary = userRole === 'secretary'
   const visibleItems = navItems.filter(item => {
+    // Секретарят вижда само деловодството
+    if (isSecretary) return item.section === 'delo'
     if (item.coordinatorOnly && isCoordinator) return true
     if (!item.roles) return true
     return item.roles.includes(userRole)
