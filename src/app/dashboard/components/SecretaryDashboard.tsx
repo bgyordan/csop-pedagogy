@@ -152,56 +152,21 @@ export default async function SecretaryDashboard({ profile }: any) {
         </div>
       )}
 
-      {/* Заявления */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Записвания */}
+      {/* Заявления — само броеве */}
+      <div className="grid grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">📋</span>
-              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Заявления за записване</span>
-            </div>
-            <span className="text-lg font-bold text-[#0f2240]">{enrollments?.length || 0}</span>
+          <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center mb-3">
+            <span className="text-green-600 text-lg font-bold">{enrollments?.length || 0}</span>
           </div>
-          {enrollments && enrollments.length > 0 ? (
-            <div className="space-y-1.5 max-h-48 overflow-y-auto">
-              {enrollments.map((e: any, idx: number) => (
-                <div key={idx} className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-lg">
-                  <span className="text-xs font-semibold text-slate-800">
-                    {(e.students as any)?.last_name} {(e.students as any)?.first_name}
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    {e.date ? new Date(e.date).toLocaleDateString('bg-BG') : ''}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : <p className="text-xs text-slate-400">Няма подадени заявления</p>}
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Заявления за записване</div>
+          <div className="text-[10px] text-slate-400 mt-1">{currentYear}г.</div>
         </div>
-
-        {/* ЦОУД */}
         <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">🏫</span>
-              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Заявления за ЦОУД</span>
-            </div>
-            <span className="text-lg font-bold text-[#0f2240]">{couds?.length || 0}</span>
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center mb-3">
+            <span className="text-indigo-600 text-lg font-bold">{couds?.length || 0}</span>
           </div>
-          {couds && couds.length > 0 ? (
-            <div className="space-y-1.5 max-h-48 overflow-y-auto">
-              {couds.map((c: any, idx: number) => (
-                <div key={idx} className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-lg">
-                  <span className="text-xs font-semibold text-slate-800">
-                    {(c.students as any)?.last_name} {(c.students as any)?.first_name}
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    {c.date ? new Date(c.date).toLocaleDateString('bg-BG') : ''}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : <p className="text-xs text-slate-400">Няма подадени заявления</p>}
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Заявления за ЦОУД</div>
+          <div className="text-[10px] text-slate-400 mt-1">{currentYear}г.</div>
         </div>
       </div>
 
