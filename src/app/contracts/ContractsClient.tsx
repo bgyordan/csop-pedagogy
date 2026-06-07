@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import NewContractForm from './NewContractForm'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
