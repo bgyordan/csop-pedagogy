@@ -84,16 +84,40 @@ const NOMENCLATURE: { section: string; code: string; name: string }[] = [
 
 const QUICK_NOM_CODES = ['АСД-01', 'АСД-02', 'АСД-03', 'УВД-04', 'УВД-07', 'УВД-08', 'ЛС-06', 'РД-08']
 
-const FROM_SUGGESTIONS = [
+const EXTERNAL_SUGGESTIONS = [
   'МОН — Министерство на образованието и науката',
-  'РУО — Варна', 'Община Варна', 'РЦПППО — Варна',
+  'РУО — Варна',
+  'Община Варна',
+  'РЦПППО — Варна',
   'Агенция за социално подпомагане',
-  'РЗОК — Варна', 'НОИ — Варна',
+  'РЗОК — Варна',
+  'НОИ — Варна',
   'Дирекция "Социално подпомагане"',
-  'Светлана Иванова — Директор ЦСОП',
+  'Инспекторат по образованието',
+]
+
+const INTERNAL_PERSONS = [
+  'Светлана Иванова — Директор',
   'Йордан Йорданов — ЗДАСД',
   'Силвия Кьошкерян — ЗДУД',
+  'Радка Георгиева — Счетоводство',
 ]
+
+const DOC_TYPES = {
+  incoming: [
+    { value: 'standard', label: 'Обикновен входящ документ' },
+    { value: 'student_enroll', label: 'Заявление за записване на ученик' },
+    { value: 'student_coud', label: 'Заявление за ЦОУД' },
+    { value: 'staff_leave', label: 'Молба за отпуск от служител' },
+  ],
+  outgoing: [
+    { value: 'standard', label: 'Обикновен изходящ документ' },
+  ],
+  internal: [
+    { value: 'standard', label: 'Обикновен вътрешен документ' },
+    { value: 'staff_leave', label: 'Молба за отпуск от служител' },
+  ],
+}
 
 const DIRECTION_CONFIG = {
   incoming: {
@@ -202,7 +226,9 @@ export default function CorrespondenceClient({
     setDocType('standard')
     setStudentId('')
     setStaffId('')
-    // Предлагаме подходящ индекс
+    setFromWhom('')
+    setToWhom('')
+    setSubject('')
     if (d === 'incoming') setFolderIndex('АСД-01')
     else if (d === 'outgoing') setFolderIndex('АСД-02')
     else setFolderIndex('АСД-03')
@@ -530,23 +556,16 @@ export default function CorrespondenceClient({
               </div>
 
               {/* Вид документ */}
-              {(direction === 'incoming' || direction === 'internal') && (
-                <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
-                  <label className="block text-[10px] font-bold text-[#0f2240] mb-1.5 uppercase">Вид документ</label>
-                  <select value={docType} onChange={e => setDocType(e.target.value as any)}
-                    className="w-full border border-blue-200 rounded-xl p-2.5 text-xs bg-white font-semibold text-slate-700 focus:outline-none">
-                    {direction === 'incoming' && <>
-                      <option value="standard">Обикновен входящ документ</option>
-                      <option value="student_enroll">Заявление за записване на ученик</option>
-                      <option value="student_coud">Заявление за ЦОУД</option>
-                    </>}
-                    {direction === 'internal' && <>
-                      <option value="standard">Обикновен вътрешен документ</option>
-                      <option value="staff_leave">Заявление за отпуск (от персонал)</option>
-                    </>}
-                  </select>
-                </div>
-              )}
+              <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
+                <label className="block text-[10px] font-bold text-[#0f2240] mb-1.5 uppercase">Вид документ</label>
+                <select value={docType}
+                  onChange={e => { setDocType(e.target.value as any); setStudentId(''); setStaffId(''); setSubject(''); }}
+                  className="w-full border border-blue-200 rounded-xl p-2.5 text-xs bg-white font-semibold text-slate-700 focus:outline-none">
+                  {DOC_TYPES[direction].map(t => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
 
               {/* Дата */}
               <div>
@@ -614,25 +633,50 @@ export default function CorrespondenceClient({
               {/* Динамични полета */}
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
 
+                {/* Молба за отпуск — избор на служител */}
                 {docType === 'staff_leave' && (
                   <div>
-                    <label className="block text-[10px] font-bold text-purple-600 uppercase mb-1.5 flex items-center gap-1"><User size={11} /> Служител (подател) *</label>
-                    <select value={staffId} onChange={e => setStaffId(e.target.value)} required
-                      className="input w-full">
-                      <option value="">— Избери колега —</option>
+                    <label className="block text-[10px] font-bold text-purple-600 uppercase mb-1.5 flex items-center gap-1">
+                      <User size={11} /> Служител (подател) *
+                    </label>
+                    <select value={staffId}
+                      onChange={e => {
+                        setStaffId(e.target.value)
+                        const s = staff.find(x => x.id === e.target.value)
+                        if (s) setSubject(`Молба за отпуск от ${s.first_name} ${s.last_name}`)
+                      }}
+                      required className="input w-full">
+                      <option value="">— Избери служител —</option>
                       {staff.sort((a,b) => a.last_name.localeCompare(b.last_name)).map(s => (
                         <option key={s.id} value={s.id}>{s.last_name} {s.first_name}</option>
                       ))}
                     </select>
-                    <p className="text-[10px] text-purple-600 mt-1.5">Темата ще се генерира автоматично.</p>
+                    {staffId && (
+                      <div className="mt-2 p-2 bg-purple-50 border border-purple-100 rounded-lg text-[11px] text-purple-700 font-semibold">
+                        Относно: {subject}
+                      </div>
+                    )}
                   </div>
                 )}
 
+                {/* Заявление за записване / ЦОУД — избор на ученик */}
                 {(docType === 'student_enroll' || docType === 'student_coud') && (
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-[10px] font-bold text-blue-600 uppercase mb-1.5 flex items-center gap-1"><GraduationCap size={11} /> Ученик *</label>
-                      <select value={studentId} onChange={e => setStudentId(e.target.value)} required className="input w-full">
+                      <label className="block text-[10px] font-bold text-blue-600 uppercase mb-1.5 flex items-center gap-1">
+                        <GraduationCap size={11} /> Ученик *
+                      </label>
+                      <select value={studentId}
+                        onChange={e => {
+                          setStudentId(e.target.value)
+                          const s = students.find(x => x.id === e.target.value)
+                          if (s) {
+                            const label = docType === 'student_coud' ? 'ЦОУД' : 'записване'
+                            setSubject(`Заявление за ${label} на ${s.first_name} ${s.last_name}`)
+                            setToWhom('Директор ЦСОП Варна')
+                          }
+                        }}
+                        required className="input w-full">
                         <option value="">— Избери ученик —</option>
                         {students.sort((a,b) => a.last_name.localeCompare(b.last_name)).map(s => (
                           <option key={s.id} value={s.id}>{s.last_name} {s.first_name}</option>
@@ -644,26 +688,45 @@ export default function CorrespondenceClient({
                       <input type="text" value={fromWhom} onChange={e => setFromWhom(e.target.value)} required
                         placeholder="Трите имена на родителя" className="input w-full" />
                     </div>
+                    {studentId && (
+                      <div className="p-2 bg-blue-50 border border-blue-100 rounded-lg text-[11px] text-blue-700 font-semibold">
+                        Относно: {subject}
+                      </div>
+                    )}
                   </div>
                 )}
 
+                {/* Стандартен документ */}
                 {docType === 'standard' && (
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                       {direction !== 'outgoing' && (
                         <div>
                           <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">От кого *</label>
-                          <input type="text" list="from-list" value={fromWhom}
-                            onChange={e => setFromWhom(e.target.value)} required
-                            placeholder="Подател..." className="input w-full" />
+                          <input type="text"
+                            list={direction === 'internal' ? 'internal-list' : 'external-list'}
+                            value={fromWhom} onChange={e => setFromWhom(e.target.value)} required
+                            placeholder={direction === 'internal' ? 'Длъжностно лице...' : 'Институция / лице...'}
+                            className="input w-full" />
                         </div>
                       )}
                       {direction !== 'incoming' && (
                         <div>
                           <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">До кого *</label>
-                          <input type="text" list="to-list" value={toWhom}
-                            onChange={e => setToWhom(e.target.value)} required
-                            placeholder="Получател..." className="input w-full" />
+                          <input type="text"
+                            list={direction === 'internal' ? 'internal-list' : 'external-list'}
+                            value={toWhom} onChange={e => setToWhom(e.target.value)} required
+                            placeholder={direction === 'internal' ? 'Длъжностно лице...' : 'Институция / лице...'}
+                            className="input w-full" />
+                        </div>
+                      )}
+                      {direction === 'incoming' && (
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">От кого *</label>
+                          <input type="text" list="external-list"
+                            value={fromWhom} onChange={e => setFromWhom(e.target.value)} required
+                            placeholder="Институция / лице..."
+                            className="input w-full" />
                         </div>
                       )}
                     </div>
@@ -682,8 +745,8 @@ export default function CorrespondenceClient({
                 </div>
               </div>
 
-              <datalist id="from-list">{FROM_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
-              <datalist id="to-list">{FROM_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
+              <datalist id="external-list">{EXTERNAL_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
+              <datalist id="internal-list">{INTERNAL_PERSONS.map(s => <option key={s} value={s} />)}</datalist>
 
               {/* Файл */}
               <div>
