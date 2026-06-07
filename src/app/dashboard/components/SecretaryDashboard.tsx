@@ -152,23 +152,23 @@ export default async function SecretaryDashboard({ profile }: any) {
         </div>
       )}
 
-      {/* Заявления — само броеве */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-          <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center mb-3">
-            <span className="text-green-600 text-lg font-bold">{enrollments?.length || 0}</span>
-          </div>
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Заявления за записване</div>
-          <div className="text-[10px] text-slate-400 mt-1">{currentYear}г.</div>
+      {/* Заявления — линк към справката */}
+      <Link href="/reports/enrollments" className="block bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm hover:shadow-md transition-all">
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">Справка — Заявления {currentYear}г.</div>
+          <ArrowRight size={16} className="text-slate-400" />
         </div>
-        <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center mb-3">
-            <span className="text-indigo-600 text-lg font-bold">{couds?.length || 0}</span>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <div className="text-2xl font-bold text-green-600">{enrollments?.length || 0}</div>
+            <div className="text-[10px] text-slate-400 mt-1">За записване</div>
           </div>
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Заявления за ЦОУД</div>
-          <div className="text-[10px] text-slate-400 mt-1">{currentYear}г.</div>
+          <div>
+            <div className="text-2xl font-bold text-indigo-600">{couds?.length || 0}</div>
+            <div className="text-[10px] text-slate-400 mt-1">За ЦОУД</div>
+          </div>
         </div>
-      </div>
+      </Link>
 
     </div>
   )
