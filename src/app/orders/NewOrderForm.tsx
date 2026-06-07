@@ -86,8 +86,6 @@ export default function NewOrderForm({ currentUserId, students, nomenclature, on
     const { count } = await supabase
       .from('orders')
       .select('id', { count: 'exact', head: true })
-      .gte('date', `${schoolYear}-09-15`)
-      .lte('date', `${schoolYear + 1}-09-14`)
     const nextNum = String((count || 0) + 1).padStart(3, '0')
     const formattedDate = orderDate.split('-').reverse().join('.')
     const docNumber = `${orderTypeCode}-${nextNum}/${formattedDate}г.`
@@ -123,7 +121,7 @@ export default function NewOrderForm({ currentUserId, students, nomenclature, on
           <div>
             <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Нова заповед</h3>
             <p className="text-[11px] font-mono text-orange-600 font-bold mt-0.5">
-              {orderTypeCode}-{String(1).padStart(3,'0')}/{orderDate.split('-').reverse().join('.')}г.
+              {orderTypeCode}-???/{orderDate.split('-').reverse().join('.')}г.
             </p>
           </div>
           <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors">
@@ -133,9 +131,9 @@ export default function NewOrderForm({ currentUserId, students, nomenclature, on
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
 
-          {/* Дело от номенклатурата + Дата */}
-          <div className="flex items-end gap-3">
-            <div className="flex-1">
+          {/* Дело от номенклатурата */}
+          <div>
+            <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Дело от номенклатурата *</label>
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {QUICK_ORDER_CODES.map(code => {
@@ -193,10 +191,12 @@ export default function NewOrderForm({ currentUserId, students, nomenclature, on
                 </div>
               )}
             </div>
-            <div className="w-36 flex-shrink-0">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Дата *</label>
-              <input type="date" value={orderDate} onChange={e => setOrderDate(e.target.value)} required className="input w-full" />
-            </div>
+          </div>
+
+          {/* Дата */}
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Дата *</label>
+            <input type="date" value={orderDate} onChange={e => setOrderDate(e.target.value)} required className="input w-44" />
           </div>
 
           {/* Заглавие */}
