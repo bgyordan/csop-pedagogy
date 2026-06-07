@@ -54,6 +54,7 @@ export default function NewCorrespondenceForm({
   const supabase = createClient()
 
   const [saving, setSaving] = useState(false)
+  const [saveAction, setSaveAction] = useState<'save_close' | 'save_new'>('save_close')
   const [direction, setDirection] = useState<'incoming' | 'outgoing' | 'internal'>('incoming')
   const [folderIndex, setFolderIndex] = useState('АСД-02')
   const [folderCount, setFolderCount] = useState<number | null>(null)
@@ -153,19 +154,45 @@ export default function NewCorrespondenceForm({
 
     if (error) { alert(`Грешка: ${error.message}`); setSaving(false); return }
     setSaving(false)
-    onSaved()
     router.refresh()
+    if (saveAction === 'save_new') {
+      // Нулираме формата за нов запис
+      setDirection('incoming')
+      setFolderIndex('АСД-02')
+      setFolderCount(null)
+      setDocDate(new Date().toISOString().split('T')[0])
+      setFromWhom('')
+      setToWhom('')
+      setSubject('')
+      setDescription('')
+      setStudentId('')
+      setStaffId('')
+      setUploadedFile(null)
+      setNomSearch('')
+      setShowAllNom(false)
+    } else {
+      onSaved()
+    }
   }
 
   return (
-    <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
-      {/* Хедър на формата */}
-      <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-100 bg-slate-50/60">
-        <h3 className="font-semibold text-slate-800 text-sm">Деловодно вписване</h3>
-        <button onClick={onClose} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-400">
-          <X size={15} />
-        </button>
-      </div>
+    <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+      <div className="bg-white rounded-3xl border border-slate-200/80 max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+        {/* Хедър */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white rounded-t-3xl z-10">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#0f2240' }}>
+              <span className="text-white text-sm">📋</span>
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm">Деловодно вписване</h3>
+              <p className="text-[10px] text-slate-400">Регистрация на нов документ</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
 
       <form onSubmit={handleSubmit} className="p-6 space-y-5">
 
@@ -373,19 +400,27 @@ export default function NewCorrespondenceForm({
         </div>
 
         {/* Бутони */}
-        <div className="flex gap-3 justify-end pt-3 border-t border-slate-100">
+        <div className="flex gap-3 justify-end pt-4 border-t border-slate-100">
           <button type="button" onClick={onClose}
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold">
+            className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors">
             Отказ
           </button>
-          <button type="submit" disabled={saving}
-            className="px-6 py-2 text-white rounded-xl text-xs font-bold flex items-center gap-2 disabled:opacity-60 shadow-md"
+          <button type="submit" name="action" value="save_new" disabled={saving}
+            onClick={() => setSaveAction('save_new')}
+            className="px-4 py-2.5 border border-[#0f2240] text-[#0f2240] rounded-xl text-xs font-bold flex items-center gap-2 disabled:opacity-60 hover:bg-slate-50 transition-colors">
+            {saving && saveAction === 'save_new' && <Loader2 size={13} className="animate-spin" />}
+            Запази и нов
+          </button>
+          <button type="submit" name="action" value="save_close" disabled={saving}
+            onClick={() => setSaveAction('save_close')}
+            className="px-5 py-2.5 text-white rounded-xl text-xs font-bold flex items-center gap-2 disabled:opacity-60 shadow-md transition-colors hover:opacity-90"
             style={{ backgroundColor: '#0f2240' }}>
-            {saving && <Loader2 size={13} className="animate-spin" />}
-            {saving ? 'Вписване...' : 'Регистрирай документа'}
+            {saving && saveAction === 'save_close' && <Loader2 size={13} className="animate-spin" />}
+            {saving ? 'Записване...' : 'Запази и затвори'}
           </button>
         </div>
       </form>
+      </div>
     </div>
   )
 }
