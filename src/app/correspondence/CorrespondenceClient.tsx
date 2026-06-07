@@ -3,14 +3,14 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, ChevronLeft, ChevronRight, Paperclip, GraduationCap, User, ArrowDownLeft, ArrowUpRight, ArrowRightLeft } from 'lucide-react'
+import { Plus, Search, ChevronLeft, ChevronRight, Paperclip, ArrowDownLeft, ArrowUpRight, ArrowRightLeft } from 'lucide-react'
 import NewCorrespondenceForm from './NewCorrespondenceForm'
 import ViewCorrespondenceModal from './ViewCorrespondenceModal'
 
 const DIRECTION_CONFIG = {
-  incoming: { label: 'Входящ', badge: 'bg-blue-100 text-blue-800 border-blue-200', icon: <ArrowDownLeft size={10} />, row: 'border-l-2 border-l-blue-300' },
-  outgoing: { label: 'Изходящ', badge: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: <ArrowUpRight size={10} />, row: 'border-l-2 border-l-emerald-300' },
-  internal: { label: 'Вътрешен', badge: 'bg-purple-100 text-purple-800 border-purple-200', icon: <ArrowRightLeft size={10} />, row: 'border-l-2 border-l-purple-300' },
+  incoming: { label: 'Вх.', badge: 'bg-blue-100 text-blue-800 border-blue-200', icon: <ArrowDownLeft size={10} />, row: 'border-l-2 border-l-blue-300' },
+  outgoing: { label: 'Изх.', badge: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: <ArrowUpRight size={10} />, row: 'border-l-2 border-l-emerald-300' },
+  internal: { label: 'Вътр.', badge: 'bg-purple-100 text-purple-800 border-purple-200', icon: <ArrowRightLeft size={10} />, row: 'border-l-2 border-l-purple-300' },
 }
 
 interface NomenclatureItem {
@@ -130,7 +130,6 @@ export default function CorrespondenceClient({
                 <th className="px-3 py-2.5 w-[85px]">Вид</th>
                 <th className="px-3 py-2.5">От / До</th>
                 <th className="px-3 py-2.5">Относно</th>
-                <th className="px-3 py-2.5">Лице</th>
                 <th className="px-3 py-2.5 text-right pr-5">Файл</th>
               </tr>
             </thead>
@@ -140,8 +139,7 @@ export default function CorrespondenceClient({
               ) : correspondence.map((item, idx) => {
                 const dir = item.direction as keyof typeof DIRECTION_CONFIG
                 const cfg = DIRECTION_CONFIG[dir] || DIRECTION_CONFIG.incoming
-                const student = students.find(s => s.id === item.student_id)
-                const staffMember = staff.find(s => s.id === item.staff_id)
+
                 return (
                   <tr key={item.id}
                     onClick={() => setViewItem(item)}
@@ -163,19 +161,7 @@ export default function CorrespondenceClient({
                       <div className="font-semibold text-slate-800 text-[11px] truncate">{item.subject}</div>
                       {item.description && <p className="text-[10px] text-slate-400 mt-0.5 truncate">{item.description}</p>}
                     </td>
-                    <td className="px-3 py-2">
-                      {student && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0f2240] bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded-md">
-                          <GraduationCap size={10} />{student.last_name}
-                        </span>
-                      )}
-                      {staffMember && !student && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded-md">
-                          <User size={10} />{staffMember.last_name}
-                        </span>
-                      )}
-                      {!student && !staffMember && <span className="text-slate-300">—</span>}
-                    </td>
+
                     <td className="px-3 py-2 text-right pr-5" onClick={e => e.stopPropagation()}>
                       {item.file_url ? (
                         <button type="button"
