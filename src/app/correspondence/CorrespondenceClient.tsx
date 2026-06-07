@@ -143,7 +143,7 @@ export default function CorrespondenceClient({
                 return (
                   <tr key={item.id}
                     onClick={() => setViewItem(item)}
-                    className={`cursor-pointer transition-colors ${cfg.row} ${idx % 2 === 0 ? 'bg-white hover:bg-blue-50/20' : 'bg-slate-50/40 hover:bg-blue-50/20'}`}>
+                    className={`cursor-pointer transition-colors ${cfg.row} ${idx % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-100/60 hover:bg-slate-100'}`}>
                     <td className="px-4 py-2 pl-5">
                       <span className="font-mono font-bold text-[#0f2240] text-[11px] whitespace-nowrap">{item.number}</span>
                     </td>
@@ -159,7 +159,6 @@ export default function CorrespondenceClient({
                     </td>
                     <td className="px-3 py-2 max-w-[220px]">
                       <div className="font-semibold text-slate-800 text-[11px] truncate">{item.subject}</div>
-                      {item.description && <p className="text-[10px] text-slate-400 mt-0.5 truncate">{item.description}</p>}
                     </td>
 
                     <td className="px-3 py-2 text-right pr-5" onClick={e => e.stopPropagation()}>
