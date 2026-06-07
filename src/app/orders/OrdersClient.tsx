@@ -38,6 +38,8 @@ export default function OrdersClient({
   const [search, setSearch] = useState(searchValue)
   const [showForm, setShowForm] = useState(false)
 
+  const totalPages = Math.ceil(totalCount / pageSize)
+
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
     const params = new URLSearchParams()
