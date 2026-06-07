@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Plus, Search, ChevronLeft, ChevronRight, Paperclip, ArrowDownLeft, ArrowUpRight, ArrowRightLeft } from 'lucide-react'
 import NewCorrespondenceForm from './NewCorrespondenceForm'
 import ViewCorrespondenceModal from './ViewCorrespondenceModal'
+import EditCorrespondenceModal from './EditCorrespondenceModal'
 
 const DIRECTION_CONFIG = {
   incoming: { label: 'Вх.', badge: 'bg-blue-100 text-blue-800 border-blue-200', icon: <ArrowDownLeft size={10} />, row: 'border-l-2 border-l-blue-300' },
@@ -29,6 +30,7 @@ interface Props {
   students: { id: string; first_name: string; last_name: string }[]
   staff: { id: string; first_name: string; last_name: string }[]
   nomenclature: NomenclatureItem[]
+  canEdit: boolean
 }
 
 export default function CorrespondenceClient({
@@ -41,6 +43,7 @@ export default function CorrespondenceClient({
   const [search, setSearch] = useState(searchValue || '')
   const [showForm, setShowForm] = useState(false)
   const [viewItem, setViewItem] = useState<any | null>(null)
+  const [editItem, setEditItem] = useState<any | null>(null)
 
   const totalPages = Math.ceil(totalCount / pageSize)
 
@@ -162,18 +165,28 @@ export default function CorrespondenceClient({
                     </td>
 
                     <td className="px-3 py-2 text-right pr-5" onClick={e => e.stopPropagation()}>
-                      {item.file_url ? (
-                        <button type="button"
-                          onClick={async () => {
-                            const win = window.open('', '_blank')
-                            const { data } = await supabase.storage.from('documents').createSignedUrl(item.file_url, 120)
-                            if (data?.signedUrl && win) win.location.href = data.signedUrl
-                            else if (win) win.close()
-                          }}
-                          className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0f2240] bg-slate-100 px-2 py-0.5 rounded hover:bg-slate-200">
-                          <Paperclip size={10} />PDF
-                        </button>
-                      ) : <span className="text-slate-300 text-[10px]">—</span>}
+                      <div className="flex items-center justify-end gap-2">
+                        {item.file_url ? (
+                          <button type="button"
+                            onClick={async () => {
+                              const win = window.open('', '_blank')
+                              const { data } = await supabase.storage.from('documents').createSignedUrl(item.file_url, 120)
+                              if (data?.signedUrl && win) win.location.href = data.signedUrl
+                              else if (win) win.close()
+                            }}
+                            className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0f2240] bg-slate-100 px-2 py-0.5 rounded hover:bg-slate-200">
+                            <Paperclip size={10} />PDF
+                          </button>
+                        ) : <span className="text-slate-300 text-[10px]">—</span>}
+                        {canEdit && (
+                          <button type="button"
+                            onClick={() => setEditItem(item)}
+                            className="p-1 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition-colors"
+                            title="Редакция">
+                            ✏️
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )
@@ -198,6 +211,10 @@ export default function CorrespondenceClient({
           </div>
         )}
       </div>
+
+      {editItem && (
+        <EditCorrespondenceModal item={editItem} onClose={() => setEditItem(null)} />
+      )}
 
       {/* Модал за преглед */}
       {viewItem && (
