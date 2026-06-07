@@ -322,26 +322,16 @@ export default function NewCorrespondenceForm({
             {/* От/До кого */}
             <div className="grid grid-cols-1 gap-3">
               {direction === 'incoming' && (
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">От кого *</label>
-                  <input type="text" list="from-list" value={fromWhom} onChange={e => setFromWhom(e.target.value)}
-                    required placeholder="Институция / лице..." className="input w-full" />
-                </div>
+                <input type="text" list="from-list" value={fromWhom} onChange={e => setFromWhom(e.target.value)}
+                  required placeholder="От кого *" className="input w-full" />
               )}
               {direction === 'outgoing' && (
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">До кого *</label>
-                  <input type="text" list="to-list" value={toWhom} onChange={e => setToWhom(e.target.value)}
-                    required placeholder="Институция / лице..." className="input w-full" />
-                </div>
+                <input type="text" list="to-list" value={toWhom} onChange={e => setToWhom(e.target.value)}
+                  required placeholder="До кого *" className="input w-full" />
               )}
             </div>
-            {/* Ред 2: Тема */}
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Тема / Относно *</label>
-              <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
-                required placeholder="Кратко описание..." className="input w-full" />
-            </div>
+            <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
+              required placeholder="Тема / Относно *" className="input w-full" />
           </div>
         )}
 
