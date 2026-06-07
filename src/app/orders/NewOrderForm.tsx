@@ -57,7 +57,6 @@ export default function NewOrderForm({ currentUserId, students, nomenclature, on
   const [title, setTitle] = useState('')
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0])
   const [description, setDescription] = useState('')
-  const [studentId, setStudentId] = useState('')
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
 
   const filteredItems = nomenclature.filter(i =>
@@ -76,7 +75,6 @@ export default function NewOrderForm({ currentUserId, students, nomenclature, on
     setTitle('')
     setOrderDate(new Date().toISOString().split('T')[0])
     setDescription('')
-    setStudentId('')
     setUploadedFile(null)
   }
 
@@ -106,7 +104,7 @@ export default function NewOrderForm({ currentUserId, students, nomenclature, on
       number: docNumber, date: orderDate, title,
       description: description || null,
       file_url: fileUrl || null, file_name: fileName || null,
-      student_id: studentId || null, created_by: currentUserId,
+      created_by: currentUserId,
     })
 
     if (error) { alert(`Грешка: ${error.message}`); setSaving(false); return }
@@ -214,14 +212,6 @@ export default function NewOrderForm({ currentUserId, students, nomenclature, on
           <textarea rows={1} value={description} onChange={e => setDescription(e.target.value)}
             placeholder="Бележки (незадължително)..."
             className="input w-full resize-none" />
-
-          {/* Ученик */}
-          <select value={studentId} onChange={e => setStudentId(e.target.value)} className="input w-full">
-            <option value="">Свързан ученик (опционално)</option>
-            {students.sort((a,b) => a.last_name.localeCompare(b.last_name)).map(s => (
-              <option key={s.id} value={s.id}>{s.last_name} {s.first_name}</option>
-            ))}
-          </select>
 
           {/* Файл */}
           {uploadedFile ? (
