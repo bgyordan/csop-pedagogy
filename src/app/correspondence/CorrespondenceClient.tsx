@@ -30,8 +30,7 @@ interface Props {
   students: { id: string; first_name: string; last_name: string }[]
   staff: { id: string; first_name: string; last_name: string }[]
   nomenclature: NomenclatureItem[]
-  canEdit: boolean
-}
+  }
 
 export default function CorrespondenceClient({
   correspondence, totalCount, page, pageSize,
