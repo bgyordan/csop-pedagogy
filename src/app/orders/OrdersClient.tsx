@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, Search, ChevronLeft, ChevronRight, ClipboardList, FileText } from 'lucide-react'
 import ViewOrderModal from './ViewOrderModal'
+import EditOrderModal from './EditOrderModal'
 
 function getSchoolYear(): number {
   const now = new Date()
@@ -39,6 +40,7 @@ export default function OrdersClient({
   const [search, setSearch] = useState(searchValue)
   const [showForm, setShowForm] = useState(false)
   const [viewItem, setViewItem] = useState<any | null>(null)
+  const [editItem, setEditItem] = useState<any | null>(null)
 
   const totalPages = Math.ceil(totalCount / pageSize)
 
@@ -119,6 +121,13 @@ export default function OrdersClient({
                     <div className="text-xs font-semibold text-slate-800">{item.title}</div>
                   </td>
                   <td className="px-4 py-2.5" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-2">
+                    {canEdit && (
+                      <button type="button" onClick={() => setEditItem(item)}
+                        className="p-1 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100" title="Редакция">
+                        ✏️
+                      </button>
+                    )}
                     {item.file_url ? (
                       <button type="button"
                         onClick={async () => {
@@ -131,6 +140,7 @@ export default function OrdersClient({
                         <FileText size={12} />PDF
                       </button>
                     ) : <span className="text-slate-300 text-[10px]">—</span>}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -156,6 +166,7 @@ export default function OrdersClient({
       )}
 
       {viewItem && <ViewOrderModal item={viewItem} onClose={() => setViewItem(null)} />}
+      {editItem && <EditOrderModal item={editItem} onClose={() => setEditItem(null)} />}
 
       {showForm && (
         <NewOrderForm
