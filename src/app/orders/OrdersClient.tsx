@@ -141,7 +141,7 @@ export default function OrdersClient({
       const ext = uploadedFile.name.split('.').pop()
       const filePath = `orders/${Date.now()}.${ext}`
       const { error: uploadError } = await supabase.storage
-        .from('student-dossiers')
+        .from('documents')
         .upload(filePath, uploadedFile, { upsert: true })
       if (!uploadError) {
         const { data: urlData } = supabase.storage.from('student-dossiers').getPublicUrl(filePath)
