@@ -365,10 +365,15 @@ export default function ContractsClient({
                     </td>
                     <td className="px-4 py-3">
                       {item.file_url ? (
-                        <a href={item.file_url} target="_blank" rel="noopener noreferrer"
+                        <button type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            const { data } = await supabase.storage.from('documents').createSignedUrl(item.file_url, 120)
+                            if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+                          }}
                           className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0f2240] hover:underline">
                           <FileText size={12} />PDF
-                        </a>
+                        </button>
                       ) : <span className="text-slate-300 text-[10px]">—</span>}
                     </td>
                   </tr>
@@ -397,5 +402,11 @@ export default function ContractsClient({
     </div>
   )
 
-  
+  function ExpiryBadge({ endDate }: { endDate: string }) {
+    const days = daysUntil(endDate)
+    if (days === null) return null
+    if (days < 0) return <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">Изтекъл</span>
+    if (days < 30) return <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">→ {days} дни</span>
+    return null
+  }
 }
