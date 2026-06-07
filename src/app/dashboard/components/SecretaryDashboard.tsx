@@ -17,6 +17,8 @@ export default async function SecretaryDashboard({ profile }: any) {
     { data: lastContract },
     { count: contractCount },
     { data: expiringContracts },
+    { data: enrollments },
+    { data: couds },
   ] = await Promise.all([
     supabase.from('correspondence').select('number, date, subject, direction').order('created_at', { ascending: false }).limit(1),
     supabase.from('correspondence').select('*', { count: 'exact', head: true }).gte('date', `${currentYear}-01-01`),
@@ -25,6 +27,8 @@ export default async function SecretaryDashboard({ profile }: any) {
     supabase.from('contracts').select('number, date, subject, counterparty').order('created_at', { ascending: false }).limit(1),
     supabase.from('contracts').select('*', { count: 'exact', head: true }),
     supabase.from('contracts').select('number, subject, counterparty, end_date').gte('end_date', today).lte('end_date', in30days).order('end_date'),
+    supabase.from('correspondence').select('subject, student_id, date, students(first_name, last_name)').like('number', 'УВД-09-%').order('created_at', { ascending: false }),
+    supabase.from('correspondence').select('subject, student_id, date, students(first_name, last_name)').like('number', 'УВД-12-%').order('created_at', { ascending: false }),
   ])
 
   const dirLabel: Record<string, string> = { incoming: 'Вх.', outgoing: 'Изх.', internal: 'Вътр.' }
@@ -147,6 +151,59 @@ export default async function SecretaryDashboard({ profile }: any) {
           </div>
         </div>
       )}
+
+      {/* Заявления */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Записвания */}
+        <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">📋</span>
+              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Заявления за записване</span>
+            </div>
+            <span className="text-lg font-bold text-[#0f2240]">{enrollments?.length || 0}</span>
+          </div>
+          {enrollments && enrollments.length > 0 ? (
+            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+              {enrollments.map((e: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-lg">
+                  <span className="text-xs font-semibold text-slate-800">
+                    {(e.students as any)?.last_name} {(e.students as any)?.first_name}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {e.date ? new Date(e.date).toLocaleDateString('bg-BG') : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-xs text-slate-400">Няма подадени заявления</p>}
+        </div>
+
+        {/* ЦОУД */}
+        <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🏫</span>
+              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Заявления за ЦОУД</span>
+            </div>
+            <span className="text-lg font-bold text-[#0f2240]">{couds?.length || 0}</span>
+          </div>
+          {couds && couds.length > 0 ? (
+            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+              {couds.map((c: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-lg">
+                  <span className="text-xs font-semibold text-slate-800">
+                    {(c.students as any)?.last_name} {(c.students as any)?.first_name}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {c.date ? new Date(c.date).toLocaleDateString('bg-BG') : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-xs text-slate-400">Няма подадени заявления</p>}
+        </div>
+      </div>
 
     </div>
   )
