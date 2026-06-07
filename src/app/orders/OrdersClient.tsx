@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import NewOrderForm from './NewOrderForm'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -67,7 +68,6 @@ export default function OrdersClient({
 
   const [search, setSearch] = useState(searchValue)
   const [showForm, setShowForm] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -398,6 +398,15 @@ export default function OrdersClient({
             </button>
           </div>
         </div>
+      )}
+      {/* Модал за нова заповед */}
+      {showForm && (
+        <NewOrderForm
+          currentUserId={currentUserId}
+          students={students}
+          onClose={() => setShowForm(false)}
+          onSaved={() => { setShowForm(false); }}
+        />
       )}
     </div>
   )
