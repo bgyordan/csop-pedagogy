@@ -70,8 +70,7 @@ export default function OrdersClient({
           <button onClick={() => setShowForm(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white shadow-md"
             style={{ backgroundColor: '#0f2240' }}>
-            <Plus size={16} />
-            Нова заповед
+            <Plus size={16} /> Нова заповед
           </button>
         )}
       </div>
@@ -97,37 +96,40 @@ export default function OrdersClient({
                 <th className="text-left px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">№</th>
                 <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Дата</th>
                 <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Заглавие</th>
-                <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ученик</th>
                 <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Файл</th>
               </tr>
             </thead>
             <tbody>
               {orders.length === 0 ? (
-                <tr><td colSpan={5} className="px-5 py-16 text-center">
+                <tr><td colSpan={4} className="px-5 py-16 text-center">
                   <ClipboardList size={32} className="mx-auto mb-3 text-slate-300" />
                   <p className="text-slate-400 text-sm">Няма регистрирани заповеди</p>
                 </td></tr>
               ) : orders.map((item, idx) => (
-                <tr key={item.id} className={`border-b border-slate-50 hover:bg-slate-50/60 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/30' : ''}`}>
-                  <td className="px-5 py-3"><span className="font-mono font-bold text-orange-700 text-xs">{item.number}</span></td>
-                  <td className="px-4 py-3 text-xs text-slate-500 font-mono whitespace-nowrap">
+                <tr key={item.id}
+                  onClick={() => setViewItem(item)}
+                  className={`cursor-pointer border-b border-slate-50 transition-colors ${idx % 2 === 0 ? 'bg-white hover:bg-blue-50/20' : 'bg-slate-50/40 hover:bg-blue-50/20'}`}>
+                  <td className="px-5 py-2.5">
+                    <span className="font-mono font-bold text-orange-700 text-xs">{item.number}</span>
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-slate-500 font-mono whitespace-nowrap">
                     {item.date ? new Date(item.date).toLocaleDateString('bg-BG') : '—'}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-2.5">
                     <div className="text-xs font-semibold text-slate-800">{item.title}</div>
-                    {item.description && <div className="text-[10px] text-slate-400 mt-0.5 truncate max-w-xs">{item.description}</div>}
                   </td>
-                  <td className="px-4 py-3 text-xs">
-                    {item.student ? (
-                      <span className="text-[10px] font-bold text-[#0f2240]">{item.student.last_name} {item.student.first_name}</span>
-                    ) : <span className="text-slate-300">—</span>}
-                  </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-2.5" onClick={e => e.stopPropagation()}>
                     {item.file_url ? (
-                      <a href={item.file_url} target="_blank" rel="noopener noreferrer"
+                      <button type="button"
+                        onClick={async () => {
+                          const win = window.open('', '_blank')
+                          const { data } = await supabase.storage.from('documents').createSignedUrl(item.file_url, 120)
+                          if (data?.signedUrl && win) win.location.href = data.signedUrl
+                          else if (win) win.close()
+                        }}
                         className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0f2240] hover:underline">
                         <FileText size={12} />PDF
-                      </a>
+                      </button>
                     ) : <span className="text-slate-300 text-[10px]">—</span>}
                   </td>
                 </tr>
@@ -152,12 +154,9 @@ export default function OrdersClient({
           </div>
         </div>
       )}
-      {/* Модал за преглед */}
-      {viewItem && (
-        <ViewOrderModal item={viewItem} onClose={() => setViewItem(null)} />
-      )}
 
-      {/* Модал за нова заповед */}
+      {viewItem && <ViewOrderModal item={viewItem} onClose={() => setViewItem(null)} />}
+
       {showForm && (
         <NewOrderForm
           currentUserId={currentUserId}
