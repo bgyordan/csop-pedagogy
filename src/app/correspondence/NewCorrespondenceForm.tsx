@@ -180,27 +180,22 @@ export default function NewCorrespondenceForm({
       <div className="bg-white rounded-3xl border border-slate-200/80 max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
         {/* Хедър */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white rounded-t-3xl z-10">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#0f2240' }}>
-              <span className="text-white text-sm">📋</span>
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-800 text-sm">Деловодно вписване</h3>
-              <p className="text-[10px] text-slate-400">Регистрация на нов документ</p>
-            </div>
+          <div>
+            <h3 className="font-bold text-slate-800 text-sm tracking-wide uppercase">Деловодно вписване</h3>
+            <p className="text-[11px] font-mono text-[#0f2240] font-bold mt-0.5">{nextNumPreview}</p>
           </div>
           <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors">
             <X size={18} />
           </button>
         </div>
 
-      <form onSubmit={handleSubmit} className="p-6 space-y-5">
+      <form onSubmit={handleSubmit} className="p-5 space-y-3">
 
         {/* Посока */}
-        <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
+        <div className="flex gap-1.5 p-1 bg-slate-100 rounded-xl">
           {(['incoming', 'outgoing', 'internal'] as const).map(d => (
             <button key={d} type="button" onClick={() => changeDirection(d)}
-              className={`flex-1 text-xs font-bold py-2 rounded-lg transition-all ${
+              className={`flex-1 text-xs font-bold py-1.5 rounded-lg transition-all ${
                 direction === d
                   ? d === 'incoming' ? 'bg-blue-100 text-blue-800 shadow-sm border border-blue-200'
                   : d === 'outgoing' ? 'bg-emerald-100 text-emerald-800 shadow-sm border border-emerald-200'
@@ -214,7 +209,7 @@ export default function NewCorrespondenceForm({
 
         {/* Номенклатура */}
         <div>
-          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Индекс от номенклатурата *</label>
+          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Индекс от номенклатурата *</label>
           <div className="flex flex-wrap gap-1.5 mb-2">
             {(QUICK_CODES[direction] || []).map(code => {
               const item = nomenclature.find(n => n.item_code === code)
@@ -261,22 +256,14 @@ export default function NewCorrespondenceForm({
             </div>
           )}
 
-          {/* Избраната номенклатура + следващ номер */}
+          {/* Избраната номенклатура */}
           {selectedNomItem && (
-            <div className="p-3 bg-[#f0f7ff] border border-blue-100 rounded-xl text-xs">
-              <div className="flex items-center justify-between">
-                <span className="font-mono font-bold text-[#0f2240]">{folderIndex}</span>
-                <span className="text-slate-500">{selectedNomItem.name}</span>
-                {selectedNomItem.retention_years && <span className="text-slate-400 text-[10px]">Срок: {selectedNomItem.retention_years}г.</span>}
-              </div>
-              <div className="mt-2 pt-2 border-t border-blue-100 flex items-center justify-between">
-                <div>
-                  <span className="text-slate-400 text-[10px]">Следващ номер: </span>
-                  <span className="font-mono font-bold text-[#0f2240]">{nextNumPreview}</span>
-                </div>
-                {folderCount !== null && (
-                  <span className="text-[10px] text-slate-400">{folderCount} в папката тази година</span>
-                )}
+            <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs">
+              <span className="font-mono font-bold text-[#0f2240]">{folderIndex}</span>
+              <span className="text-slate-500 truncate mx-2">{selectedNomItem.name}</span>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {folderCount !== null && <span className="text-slate-400">{folderCount} в папката</span>}
+                {selectedNomItem.retention_years && <span className="text-slate-400">Срок: {selectedNomItem.retention_years}г.</span>}
               </div>
             </div>
           )}
@@ -284,13 +271,13 @@ export default function NewCorrespondenceForm({
 
         {/* Дата */}
         <div>
-          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Дата *</label>
+          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Дата *</label>
           <input type="date" value={docDate} onChange={e => setDocDate(e.target.value)} required className="input w-44" />
         </div>
 
         {/* Умни полета при специални кодове */}
         {smartCode?.type === 'staff' && (
-          <div className="p-4 bg-purple-50 rounded-xl border border-purple-100 space-y-3">
+          <div className="p-3 bg-purple-50 rounded-xl border border-purple-100 space-y-2">
             <label className="block text-[11px] font-bold text-purple-700 uppercase flex items-center gap-1">
               <User size={12} /> Служител *
             </label>
@@ -305,7 +292,7 @@ export default function NewCorrespondenceForm({
         )}
 
         {smartCode?.type === 'student' && (
-          <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 space-y-3">
+          <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 space-y-2">
             <label className="block text-[11px] font-bold text-blue-700 uppercase flex items-center gap-1">
               <GraduationCap size={12} /> Ученик *
             </label>
@@ -331,35 +318,46 @@ export default function NewCorrespondenceForm({
           <div className="space-y-3">
             {direction === 'incoming' && (
               <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">От кого *</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">От кого *</label>
                 <input type="text" list="from-list" value={fromWhom} onChange={e => setFromWhom(e.target.value)}
                   required placeholder="Институция / лице..." className="input w-full" />
               </div>
             )}
             {direction === 'outgoing' && (
-              <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">До кого *</label>
-                <input type="text" list="to-list" value={toWhom} onChange={e => setToWhom(e.target.value)}
-                  required placeholder="Институция / лице..." className="input w-full" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">До кого *</label>
+                  <input type="text" list="to-list" value={toWhom} onChange={e => setToWhom(e.target.value)}
+                    required placeholder="Институция / лице..." className="input w-full" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Тема / Относно *</label>
+                  <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
+                    required placeholder="Кратко описание..." className="input w-full" />
+                </div>
               </div>
             )}
             {direction === 'internal' && (
-              <div className="p-3 bg-purple-50 border border-purple-100 rounded-xl text-[11px] text-purple-700">
-                Вътрешен документ — завежда се само за архивни цели.
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Тема / Относно *</label>
+                <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
+                  required placeholder="Кратко описание..." className="input w-full" />
               </div>
             )}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Тема / Относно *</label>
-              <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
-                required placeholder="Кратко описание..." className="input w-full" />
-            </div>
+            {direction === 'incoming' && (
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Тема / Относно *</label>
+                <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
+                  required placeholder="Кратко описание..." className="input w-full" />
+              </div>
+            )}
           </div>
         )}
 
         {/* Относно при умни кодове */}
         {smartCode && !subject && (
           <div>
-            <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Тема / Относно *</label>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Тема / Относно *</label>
             <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
               required placeholder="Ще се попълни автоматично..." className="input w-full" />
           </div>
@@ -367,7 +365,7 @@ export default function NewCorrespondenceForm({
 
         {/* Бележки */}
         <div>
-          <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Бележки</label>
+          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Бележки</label>
           <textarea rows={2} value={description} onChange={e => setDescription(e.target.value)}
             placeholder="Допълнителна информация..." className="input w-full resize-none" />
         </div>
@@ -378,7 +376,7 @@ export default function NewCorrespondenceForm({
 
         {/* Файл */}
         <div>
-          <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Прикачен документ (PDF/Word, макс. 10MB)</label>
+          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Прикачен документ (PDF/Word, макс. 10MB)</label>
           {uploadedFile ? (
             <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl border border-emerald-200">
               <FileText size={16} className="text-emerald-600 flex-shrink-0" />
@@ -389,7 +387,7 @@ export default function NewCorrespondenceForm({
               <button type="button" onClick={() => setUploadedFile(null)} className="text-slate-400 hover:text-red-500 p-1"><X size={14} /></button>
             </div>
           ) : (
-            <label className="flex items-center justify-center w-full h-12 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-[#0f2240] hover:bg-slate-50 transition-all">
+            <label className="flex items-center justify-center w-full h-10 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-[#0f2240] hover:bg-slate-50 transition-all">
               <div className="flex items-center gap-2 text-slate-400">
                 <Upload size={15} /><span className="text-xs font-semibold">Прикачи файл</span>
               </div>
