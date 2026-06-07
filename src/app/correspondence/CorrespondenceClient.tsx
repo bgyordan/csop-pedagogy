@@ -373,8 +373,8 @@ export default function CorrespondenceClient({
             <thead className="bg-[#f0f7ff] text-[10px] uppercase font-bold text-slate-400 border-b border-slate-100">
               <tr>
                 <th className="p-4 pl-6 w-[140px]">Рег. номер</th>
-                <th className="p-4 w-[90px]">Вид</th>
-                <th className="p-4 w-[80px]">Дата</th>
+                <th className="px-3 py-2.5 w-[90px]">Вид</th>
+                <th className="px-3 py-2.5 w-[80px]">Дата</th>
                 <th className="p-4">От / До</th>
                 <th className="p-4">Относно</th>
                 <th className="p-4">Лице</th>
@@ -393,8 +393,9 @@ export default function CorrespondenceClient({
                   <tr key={item.id}
                     onClick={() => setViewItem({ ...item, student, staffMember })}
                     className={`hover:bg-slate-50/60 transition-colors cursor-pointer ${cfg.row}`}>
-                    <td className="p-4 pl-5">
+                    <td className="px-4 py-2.5 pl-5">
                       <span className="font-mono font-bold text-[#0f2240] text-xs block">{item.number}</span>
+                      <span className="text-[10px] text-slate-400">{item.date ? new Date(item.date).toLocaleDateString('bg-BG') : ''}</span>
                     </td>
                     <td className="p-4">
                       <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${cfg.badge}`}>
