@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Inbox, ClipboardList, FileSignature, AlertTriangle, ArrowRight, Plus } from 'lucide-react'
+import { Inbox, ClipboardList, FileSignature, AlertTriangle, ArrowRight } from 'lucide-react'
+import SecretaryDashboardClient from './SecretaryDashboardClient'
 
 export default async function SecretaryDashboard({ profile }: any) {
   const supabase = await createClient()
@@ -17,6 +18,9 @@ export default async function SecretaryDashboard({ profile }: any) {
     { data: lastContract },
     { count: contractCount },
     { data: expiringContracts },
+    { data: students },
+    { data: staff },
+    { data: nomenclature },
   ] = await Promise.all([
     supabase.from('correspondence').select('number, date, subject, direction').order('created_at', { ascending: false }).limit(1),
     supabase.from('correspondence').select('*', { count: 'exact', head: true }).gte('date', `${currentYear}-01-01`),
@@ -25,6 +29,9 @@ export default async function SecretaryDashboard({ profile }: any) {
     supabase.from('contracts').select('number, date, subject, counterparty').order('created_at', { ascending: false }).limit(1),
     supabase.from('contracts').select('*', { count: 'exact', head: true }),
     supabase.from('contracts').select('number, subject, counterparty, end_date').gte('end_date', today).lte('end_date', in30days).order('end_date'),
+    supabase.from('students').select('id, first_name, last_name').eq('status', 'active').order('last_name'),
+    supabase.from('staff_profiles').select('id, first_name, last_name').eq('is_active', true).order('last_name'),
+    supabase.from('nomenclature_items').select('*').order('section_code').order('item_code'),
   ])
 
   const dirLabel: Record<string, string> = { incoming: 'Вх.', outgoing: 'Изх.', internal: 'Вътр.' }
@@ -61,8 +68,6 @@ export default async function SecretaryDashboard({ profile }: any) {
 
       {/* Последни записи */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-        {/* Последна кореспонденция */}
         <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2">
@@ -79,15 +84,12 @@ export default async function SecretaryDashboard({ profile }: any) {
               <div className="text-xs text-slate-500 mt-1 truncate">{lastCorr[0].subject}</div>
               <div className="flex items-center justify-between mt-3">
                 <span className="text-[10px] text-slate-400">{lastCorr[0].date ? new Date(lastCorr[0].date).toLocaleDateString('bg-BG') : ''}</span>
-                <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
-                  {dirLabel[lastCorr[0].direction] || ''}
-                </span>
+                <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{dirLabel[lastCorr[0].direction] || ''}</span>
               </div>
             </div>
           ) : <p className="text-xs text-slate-400">Няма записи</p>}
         </div>
 
-        {/* Последна заповед */}
         <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2">
@@ -102,14 +104,11 @@ export default async function SecretaryDashboard({ profile }: any) {
             <div>
               <div className="font-mono font-bold text-orange-700 text-sm">{lastOrder[0].number}</div>
               <div className="text-xs text-slate-500 mt-1 truncate">{lastOrder[0].title}</div>
-              <div className="text-[10px] text-slate-400 mt-3">
-                {lastOrder[0].date ? new Date(lastOrder[0].date).toLocaleDateString('bg-BG') : ''}
-              </div>
+              <div className="text-[10px] text-slate-400 mt-3">{lastOrder[0].date ? new Date(lastOrder[0].date).toLocaleDateString('bg-BG') : ''}</div>
             </div>
           ) : <p className="text-xs text-slate-400">Няма записи</p>}
         </div>
 
-        {/* Последен договор */}
         <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2">
@@ -146,9 +145,7 @@ export default async function SecretaryDashboard({ profile }: any) {
                     <div className="font-mono font-bold text-[#0f2240] text-xs">{c.number}</div>
                     <div className="text-xs text-slate-600 truncate mt-0.5">{c.counterparty} — {c.subject}</div>
                   </div>
-                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg flex-shrink-0 ml-3 ${
-                    days <= 7 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
-                  }`}>
+                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg flex-shrink-0 ml-3 ${days <= 7 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
                     {days === 0 ? 'Днес!' : `${days} дни`}
                   </span>
                 </div>
@@ -158,19 +155,14 @@ export default async function SecretaryDashboard({ profile }: any) {
         </div>
       )}
 
-      {/* Бързи действия */}
-      <div className="grid grid-cols-3 gap-3">
-        <Link href="/correspondence" className="flex items-center justify-center gap-2 p-3 bg-[#0f2240] text-white rounded-xl text-xs font-bold hover:opacity-90 transition-opacity shadow-md">
-          <Plus size={14} /> Нова кореспонденция
-        </Link>
-        <Link href="/orders" className="flex items-center justify-center gap-2 p-3 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition-colors">
-          <Plus size={14} /> Нова заповед
-        </Link>
-        <Link href="/contracts" className="flex items-center justify-center gap-2 p-3 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition-colors">
-          <Plus size={14} /> Нов договор
-        </Link>
-      </div>
-
+      {/* Бързи действия — client component */}
+      <SecretaryDashboardClient
+        currentUserId={profile.id}
+        students={students || []}
+        staff={staff || []}
+        nomenclature={nomenclature || []}
+        totalCorr={corrCount || 0}
+      />
     </div>
   )
 }
