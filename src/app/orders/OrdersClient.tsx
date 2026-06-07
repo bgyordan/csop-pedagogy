@@ -5,6 +5,7 @@ import NewOrderForm from './NewOrderForm'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, Search, ChevronLeft, ChevronRight, ClipboardList, FileText } from 'lucide-react'
+import ViewOrderModal from './ViewOrderModal'
 
 function getSchoolYear(): number {
   const now = new Date()
@@ -37,6 +38,7 @@ export default function OrdersClient({
 
   const [search, setSearch] = useState(searchValue)
   const [showForm, setShowForm] = useState(false)
+  const [viewItem, setViewItem] = useState<any | null>(null)
 
   const totalPages = Math.ceil(totalCount / pageSize)
 
@@ -150,6 +152,11 @@ export default function OrdersClient({
           </div>
         </div>
       )}
+      {/* Модал за преглед */}
+      {viewItem && (
+        <ViewOrderModal item={viewItem} onClose={() => setViewItem(null)} />
+      )}
+
       {/* Модал за нова заповед */}
       {showForm && (
         <NewOrderForm
