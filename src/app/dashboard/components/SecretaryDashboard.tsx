@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Inbox, ClipboardList, FileSignature, AlertTriangle, ArrowRight } from 'lucide-react'
-import SecretaryDashboardClient from './SecretaryDashboardClient'
+import { Inbox, ClipboardList, FileSignature, AlertTriangle, ArrowRight, Plus } from 'lucide-react'
 
 export default async function SecretaryDashboard({ profile }: any) {
   const supabase = await createClient()
@@ -18,9 +17,6 @@ export default async function SecretaryDashboard({ profile }: any) {
     { data: lastContract },
     { count: contractCount },
     { data: expiringContracts },
-    { data: students },
-    { data: staff },
-    { data: nomenclature },
   ] = await Promise.all([
     supabase.from('correspondence').select('number, date, subject, direction').order('created_at', { ascending: false }).limit(1),
     supabase.from('correspondence').select('*', { count: 'exact', head: true }).gte('date', `${currentYear}-01-01`),
@@ -29,9 +25,6 @@ export default async function SecretaryDashboard({ profile }: any) {
     supabase.from('contracts').select('number, date, subject, counterparty').order('created_at', { ascending: false }).limit(1),
     supabase.from('contracts').select('*', { count: 'exact', head: true }),
     supabase.from('contracts').select('number, subject, counterparty, end_date').gte('end_date', today).lte('end_date', in30days).order('end_date'),
-    supabase.from('students').select('id, first_name, last_name').eq('status', 'active').order('last_name'),
-    supabase.from('staff_profiles').select('id, first_name, last_name').eq('is_active', true).order('last_name'),
-    supabase.from('nomenclature_items').select('*').order('section_code').order('item_code'),
   ])
 
   const dirLabel: Record<string, string> = { incoming: 'Вх.', outgoing: 'Изх.', internal: 'Вътр.' }
@@ -155,14 +148,19 @@ export default async function SecretaryDashboard({ profile }: any) {
         </div>
       )}
 
-      {/* Бързи действия — client component */}
-      <SecretaryDashboardClient
-        currentUserId={profile.id}
-        students={students || []}
-        staff={staff || []}
-        nomenclature={nomenclature || []}
-        totalCorr={corrCount || 0}
-      />
+      {/* Бързи действия — линкове към страниците */}
+      <div className="grid grid-cols-3 gap-3">
+        <Link href="/correspondence" className="flex items-center justify-center gap-2 p-3 bg-[#0f2240] text-white rounded-xl text-xs font-bold hover:opacity-90 transition-opacity shadow-md">
+          <Plus size={14} /> Нова кореспонденция
+        </Link>
+        <Link href="/orders" className="flex items-center justify-center gap-2 p-3 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition-colors">
+          <Plus size={14} /> Нова заповед
+        </Link>
+        <Link href="/contracts" className="flex items-center justify-center gap-2 p-3 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition-colors">
+          <Plus size={14} /> Нов договор
+        </Link>
+      </div>
+
     </div>
   )
 }
