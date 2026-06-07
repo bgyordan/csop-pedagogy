@@ -106,7 +106,7 @@ export default function ViewContractModal({ item, onClose }: Props) {
           {item.contract_value && (
             <div>
               <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Стойност</div>
-              <div className="text-sm font-semibold text-slate-700">{Number(item.contract_value).toLocaleString('bg-BG')} лв.</div>
+              <div className="text-sm font-semibold text-slate-700">{Number(item.contract_value).toLocaleString('bg-BG')} EUR</div>
             </div>
           )}
 
