@@ -178,7 +178,7 @@ export default function NewContractForm({ currentUserId, onClose, onSaved }: Pro
 
           {/* Стойност + Титуляр */}
           <div className="grid grid-cols-2 gap-3">
-            <input type="number" min="0" step="0.01" placeholder="Стойност (лв.) — незадължително"
+            <input type="number" min="0" step="0.01" placeholder="Стойност (EUR) — незадължително"
               value={contractValue} onChange={e => setContractValue(e.target.value)} className="input w-full" />
             <select value={internalOwner} onChange={e => setInternalOwner(e.target.value)} className="input w-full">
               <option value="">Вътрешен титуляр</option>
