@@ -64,6 +64,7 @@ export default function ContractsClient({
 
   const [search, setSearch] = useState(searchValue)
   const [showForm, setShowForm] = useState(false)
+  const [viewItem, setViewItem] = useState<any | null>(null)
   const [saving, setSaving] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
