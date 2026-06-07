@@ -514,11 +514,12 @@ export default function CorrespondenceClient({
               {viewItem.file_url ? (
                 <button type="button"
                   onClick={async () => {
-                    const { data, error } = await supabase.storage
+                    const win = window.open('', '_blank')
+                    const { data } = await supabase.storage
                       .from('documents')
                       .createSignedUrl(viewItem.file_url, 120)
-                    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
-                    else alert('Грешка при изтегляне')
+                    if (data?.signedUrl && win) win.location.href = data.signedUrl
+                    else { if (win) win.close(); alert('Грешка при изтегляне') }
                   }}
                   className="w-full flex items-center justify-center gap-2 text-white font-bold py-3 rounded-xl shadow-md transition-all"
                   style={{ backgroundColor: '#0f2240' }}>
