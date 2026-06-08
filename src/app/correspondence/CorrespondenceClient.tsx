@@ -9,9 +9,24 @@ import ViewCorrespondenceModal from './ViewCorrespondenceModal'
 import EditCorrespondenceModal from './EditCorrespondenceModal'
 
 const DIRECTION_CONFIG = {
-  incoming: { label: 'Вх.', badge: 'bg-blue-100 text-blue-800 border-blue-200', icon: <ArrowDownLeft size={10} />, row: 'border-l-2 border-l-blue-300' },
-  outgoing: { label: 'Изх.', badge: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: <ArrowUpRight size={10} />, row: 'border-l-2 border-l-emerald-300' },
-  internal: { label: 'Вътр.', badge: 'bg-purple-100 text-purple-800 border-purple-200', icon: <ArrowRightLeft size={10} />, row: 'border-l-2 border-l-purple-300' },
+  incoming: {
+    label: 'Входящ',
+    filterLabel: 'Входящи',
+    badge: 'bg-amber-100 text-amber-800 border-amber-200',
+    icon: <ArrowDownLeft size={11} />,
+  },
+  outgoing: {
+    label: 'Изходящ',
+    filterLabel: 'Изходящи',
+    badge: 'bg-blue-100 text-blue-800 border-blue-200',
+    icon: <ArrowUpRight size={11} />,
+  },
+  internal: {
+    label: 'Вътрешен',
+    filterLabel: 'Вътрешни',
+    badge: 'bg-purple-100 text-purple-800 border-purple-200',
+    icon: <ArrowRightLeft size={11} />,
+  },
 }
 
 interface NomenclatureItem {
@@ -30,7 +45,7 @@ interface Props {
   students: { id: string; first_name: string; last_name: string }[]
   staff: { id: string; first_name: string; last_name: string }[]
   nomenclature: NomenclatureItem[]
-  }
+}
 
 export default function CorrespondenceClient({
   correspondence, totalCount, page, pageSize,
@@ -71,39 +86,44 @@ export default function CorrespondenceClient({
     router.push(`/correspondence?${params.toString()}`)
   }
 
-  return (
-    <div className="space-y-5">
+  const activeDir = directionValue || 'all'
 
-      {/* Филтри и бутон */}
-      <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="flex flex-wrap gap-2">
+  return (
+    <div className="space-y-4">
+
+      {/* Филтри + Търсене + Бутон — един ред */}
+      <div className="flex flex-wrap items-center gap-2 justify-between">
+        <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-2xl p-1 shadow-sm">
           {[
-            { key: 'all', label: 'Всички' },
+            { key: 'all', label: 'Всички', icon: null },
             { key: 'incoming', label: 'Входящи', icon: <ArrowDownLeft size={13} /> },
             { key: 'outgoing', label: 'Изходящи', icon: <ArrowUpRight size={13} /> },
             { key: 'internal', label: 'Вътрешни', icon: <ArrowRightLeft size={13} /> },
           ].map(({ key, label, icon }) => (
             <button key={key} onClick={() => handleDirectionFilter(key)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                (directionValue || 'all') === key ? 'bg-[#0f2240] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50 border border-slate-200'
+                activeDir === key
+                  ? 'bg-[#0f2240] text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
               }`}>
               {icon}{label}
             </button>
           ))}
         </div>
-        <div className="flex gap-3 items-center w-full md:w-auto justify-end">
+
+        <div className="flex items-center gap-2">
           <form onSubmit={handleSearch} className="relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             <input type="text" placeholder="Търсене..." value={search}
               onChange={e => setSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none w-48" />
+              className="pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-400 w-44 bg-white" />
           </form>
           {canEdit && (
             <button onClick={() => setShowForm(v => !v)}
-              className="text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm flex items-center gap-1.5 whitespace-nowrap transition-all"
+              className="flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-sm transition-all whitespace-nowrap"
               style={{ backgroundColor: showForm ? '#374151' : '#0f2240' }}>
-              <Plus size={15} className={showForm ? 'rotate-45 transition-transform' : 'transition-transform'} />
-              {showForm ? 'Затвори' : 'Нов запис'}
+              <Plus size={14} className={`transition-transform duration-200 ${showForm ? 'rotate-45' : ''}`} />
+              {showForm ? 'Затвори' : 'Нов документ'}
             </button>
           )}
         </div>
@@ -118,52 +138,69 @@ export default function CorrespondenceClient({
           staff={staff}
           nomenclature={nomenclature}
           onClose={() => setShowForm(false)}
-          onSaved={() => setShowForm(false)}
+          onSaved={() => { setShowForm(false); router.refresh() }}
         />
       )}
 
       {/* Таблица */}
       <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs min-w-[650px]">
-            <thead className="bg-[#f0f7ff] text-[10px] uppercase font-bold text-slate-400 border-b border-slate-100">
-              <tr>
-                <th className="px-4 py-2.5 pl-5">Номер</th>
-                <th className="px-3 py-2.5 w-[85px]">Вид</th>
-                <th className="px-3 py-2.5">От / До</th>
-                <th className="px-3 py-2.5">Относно</th>
-                <th className="px-3 py-2.5 text-right pr-5">Файл</th>
+          <table className="w-full text-left text-xs min-w-[600px]">
+            <thead>
+              <tr className="bg-slate-50/80 border-b border-slate-100">
+                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">№</th>
+                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 w-[100px]">Вид</th>
+                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Дата</th>
+                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">От кого / До кого</th>
+                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Относно</th>
+                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 text-right pr-5">Файл</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100">
               {correspondence.length === 0 ? (
-                <tr><td colSpan={6} className="p-12 text-center text-slate-400">Няма намерени документи.</td></tr>
-              ) : correspondence.map((item, idx) => {
+                <tr>
+                  <td colSpan={6} className="p-16 text-center text-slate-400 italic text-sm">
+                    Няма намерени документи.
+                  </td>
+                </tr>
+              ) : correspondence.map((item) => {
                 const dir = item.direction as keyof typeof DIRECTION_CONFIG
                 const cfg = DIRECTION_CONFIG[dir] || DIRECTION_CONFIG.incoming
+
+                const personLabel = dir === 'incoming'
+                  ? item.from_whom
+                  : dir === 'outgoing'
+                  ? item.to_whom
+                  : item.from_whom
+                    ? `${item.from_whom} → ${item.to_whom || ''}`
+                    : item.to_whom
 
                 return (
                   <tr key={item.id}
                     onClick={() => setViewItem(item)}
-                    className={`cursor-pointer transition-colors ${cfg.row} ${idx % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-100/60 hover:bg-slate-100'}`}>
-                    <td className="px-4 py-2 pl-5">
-                      <span className="font-mono font-bold text-[#0f2240] text-[11px] whitespace-nowrap">{item.number}</span>
+                    className="cursor-pointer hover:bg-slate-50/70 transition-colors group">
+                    <td className="px-5 py-3">
+                      <span className="font-mono font-bold text-[#0f2240] text-[11px] whitespace-nowrap">
+                        {item.number}
+                      </span>
                     </td>
-                    <td className="px-3 py-2">
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${cfg.badge}`}>
+                    <td className="px-3 py-3">
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-lg border ${cfg.badge}`}>
                         {cfg.icon}{cfg.label}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-[11px] text-slate-600 max-w-[130px] truncate">
-                      {dir === 'incoming' && item.from_whom && <span><span className="text-blue-600 font-bold">От:</span> {item.from_whom}</span>}
-                      {dir === 'outgoing' && item.to_whom && <span><span className="text-emerald-600 font-bold">До:</span> {item.to_whom}</span>}
-                      {dir === 'internal' && <span className="text-purple-500 font-bold">Вътр.</span>}
+                    <td className="px-3 py-3 text-[11px] text-slate-500 whitespace-nowrap font-mono">
+                      {item.date ? new Date(item.date).toLocaleDateString('bg-BG') : '—'}
                     </td>
-                    <td className="px-3 py-2 max-w-[220px]">
-                      <div className="font-semibold text-slate-800 text-[11px] truncate">{item.subject}</div>
+                    <td className="px-3 py-3 text-[11px] text-slate-700 max-w-[160px] truncate font-medium">
+                      {personLabel || '—'}
                     </td>
-
-                    <td className="px-3 py-2 text-right pr-5" onClick={e => e.stopPropagation()}>
+                    <td className="px-3 py-3 max-w-[220px]">
+                      <span className="font-semibold text-slate-800 text-[11px] truncate block">
+                        {item.subject || '—'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-right pr-5" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-2">
                         {item.file_url ? (
                           <button type="button"
@@ -173,14 +210,16 @@ export default function CorrespondenceClient({
                               if (data?.signedUrl && win) win.location.href = data.signedUrl
                               else if (win) win.close()
                             }}
-                            className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0f2240] bg-slate-100 px-2 py-0.5 rounded hover:bg-slate-200">
-                            <Paperclip size={10} />PDF
+                            className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0f2240] bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition-colors">
+                            <Paperclip size={10} /> Преглед
                           </button>
-                        ) : <span className="text-slate-300 text-[10px]">—</span>}
+                        ) : (
+                          <span className="text-slate-300 text-[10px]">—</span>
+                        )}
                         {canEdit && (
                           <button type="button"
                             onClick={() => setEditItem(item)}
-                            className="p-1 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition-colors opacity-0 group-hover:opacity-100"
                             title="Редакция">
                             ✏️
                           </button>
@@ -194,16 +233,19 @@ export default function CorrespondenceClient({
           </table>
         </div>
 
+        {/* Пагинация */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between p-3 bg-slate-50 border-t border-slate-100 text-xs font-semibold text-slate-500">
-            <span>{((page-1)*pageSize)+1}–{Math.min(page*pageSize, totalCount)} от {totalCount}</span>
-            <div className="flex gap-2">
+          <div className="flex items-center justify-between px-5 py-3 bg-slate-50/50 border-t border-slate-100">
+            <span className="text-[11px] font-semibold text-slate-400">
+              {((page-1)*pageSize)+1}–{Math.min(page*pageSize, totalCount)} от {totalCount} записа
+            </span>
+            <div className="flex gap-1.5">
               <button disabled={page <= 1} onClick={() => handlePageChange(page-1)}
-                className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40">
+                className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition-colors">
                 <ChevronLeft size={14} />
               </button>
               <button disabled={page >= totalPages} onClick={() => handlePageChange(page+1)}
-                className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40">
+                className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition-colors">
                 <ChevronRight size={14} />
               </button>
             </div>
@@ -215,7 +257,6 @@ export default function CorrespondenceClient({
         <EditCorrespondenceModal item={editItem} onClose={() => setEditItem(null)} />
       )}
 
-      {/* Модал за преглед */}
       {viewItem && (
         <ViewCorrespondenceModal
           item={viewItem}
