@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
+import { Header } from '@/components/layout/Header'
 import { UserRole } from '@/types'
 import { getFullName } from '@/lib/utils'
 
@@ -25,9 +26,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
         userEmail={profile.email}
         isCoordinator={profile.is_coordinator === true}
       />
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
+      <div className="flex-1 flex flex-col min-w-0 overflow-auto">
+        <Header />
+        <main className="flex-1">
+          {children}
+        </main>
+      </div>
     </div>
   )
 }
