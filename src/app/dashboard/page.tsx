@@ -4,6 +4,7 @@ import AdminDashboard from './components/AdminDashboard'
 import SpecialistDashboard from './components/SpecialistDashboard'
 import ClassTeacherDashboard from './components/ClassTeacherDashboard'
 import SecretaryDashboard from './components/SecretaryDashboard'
+import { SessionTimerBadge } from '@/components/SessionTimerBadge'
 import { Megaphone } from 'lucide-react'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -31,7 +32,6 @@ export default async function DashboardPage() {
   const isAdmin = ['admin', 'director', 'zdud'].includes(profile.role)
   const isSpecialist = ['psychologist', 'speech_therapist', 'rehabilitator'].includes(profile.role)
   const isSecretary = profile.role === 'secretary'
-
   const roleLabel = ROLE_LABELS[profile.role] || profile.role
   const isCoordinator = profile.is_coordinator
 
@@ -49,6 +49,9 @@ export default async function DashboardPage() {
               Влязохте като <strong>{profile.first_name} {profile.last_name}</strong>{' '}
               ({roleLabel}{isCoordinator ? ' & Координатор' : ''}).
             </p>
+            <div className="mt-3">
+              <SessionTimerBadge />
+            </div>
           </div>
           <div className="flex-shrink-0 text-right">
             <div className="text-[10px] font-bold uppercase tracking-widest text-sky-200/60 mb-1">
