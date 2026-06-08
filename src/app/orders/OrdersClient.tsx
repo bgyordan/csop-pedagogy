@@ -4,7 +4,7 @@ import { useState } from 'react'
 import NewOrderForm from './NewOrderForm'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, ChevronLeft, ChevronRight, ClipboardList, Eye, Pencil, Download } from 'lucide-react'
+import { Plus, Search, ChevronLeft, ChevronRight, ClipboardList, Paperclip, Pencil } from 'lucide-react'
 import ViewOrderModal from './ViewOrderModal'
 import EditOrderModal from './EditOrderModal'
 
@@ -61,78 +61,72 @@ export default function OrdersClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <p className="text-sm text-slate-500">
-          Общо <span className="font-semibold text-slate-800">{totalCount}</span> заповеди
-          <span className="ml-2 text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md font-semibold">
+
+      {/* Филтри + Търсене + Бутон */}
+      <div className="flex flex-wrap items-center gap-2 justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-500">
+            Общо <span className="text-slate-800">{totalCount}</span> заповеди
+          </span>
+          <span className="text-xs bg-orange-50 text-orange-700 border border-orange-100 px-2.5 py-1 rounded-xl font-bold">
             Уч. год. {schoolYear}/{schoolYear + 1}
           </span>
-        </p>
-        {canEdit && (
-          <button onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white shadow-sm"
-            style={{ backgroundColor: '#0f2240' }}>
-            <Plus size={15} /> Нова заповед
-          </button>
-        )}
-      </div>
+        </div>
 
-      {/* Търсене */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-3">
-        <form onSubmit={handleSearch} className="flex items-center gap-2">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input placeholder="Търсене по №, заглавие..." value={search}
-              onChange={e => setSearch(e.target.value)} className="input pl-9 w-64 text-xs" />
-          </div>
-          <button type="submit" className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700">Търси</button>
-        </form>
+        <div className="flex items-center gap-2">
+          <form onSubmit={handleSearch} className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <input type="text" placeholder="Търсене по №, заглавие..." value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-400 w-48 bg-white" />
+          </form>
+          {canEdit && (
+            <button onClick={() => setShowForm(v => !v)}
+              className="flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-sm transition-all whitespace-nowrap"
+              style={{ backgroundColor: showForm ? '#374151' : '#0f2240' }}>
+              <Plus size={14} className={`transition-transform duration-200 ${showForm ? 'rotate-45' : ''}`} />
+              {showForm ? 'Затвори' : 'Нова заповед'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Таблица */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
+      <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-[#f0f7ff] border-b border-slate-100">
-              <tr>
-                <th className="text-left px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">№</th>
-                <th className="text-left px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Дата</th>
-                <th className="text-left px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Заглавие</th>
-                <th className="text-left px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Действия</th>
+          <table className="w-full text-left text-xs min-w-[500px]">
+            <thead>
+              <tr className="bg-slate-50/80 border-b border-slate-100">
+                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">№</th>
+                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Дата</th>
+                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Заглавие</th>
+                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 text-right pr-5">Файл</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100">
               {orders.length === 0 ? (
-                <tr><td colSpan={4} className="px-5 py-12 text-center">
-                  <ClipboardList size={28} className="mx-auto mb-2 text-slate-300" />
-                  <p className="text-slate-400 text-sm">Няма регистрирани заповеди</p>
-                </td></tr>
-              ) : orders.map((item, idx) => (
+                <tr>
+                  <td colSpan={4} className="p-16 text-center">
+                    <ClipboardList size={28} className="mx-auto mb-2 text-slate-300" />
+                    <p className="text-slate-400 text-sm italic">Няма регистрирани заповеди</p>
+                  </td>
+                </tr>
+              ) : orders.map((item) => (
                 <tr key={item.id}
                   onClick={() => setViewItem(item)}
-                  className={`cursor-pointer border-b border-slate-100 transition-colors ${idx % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/40 hover:bg-slate-100/60'}`}>
-                  <td className="px-4 py-1.5">
-                    <span className="font-mono font-bold text-orange-700 text-xs">{item.number}</span>
+                  className="cursor-pointer hover:bg-slate-50/70 transition-colors group">
+                  <td className="px-5 py-3">
+                    <span className="font-mono font-bold text-orange-700 text-[11px] whitespace-nowrap">{item.number}</span>
                   </td>
-                  <td className="px-3 py-1.5 text-xs text-slate-500 whitespace-nowrap">
+                  <td className="px-3 py-3 text-[11px] text-slate-500 whitespace-nowrap font-mono">
                     {item.date ? new Date(item.date).toLocaleDateString('bg-BG') : '—'}
                   </td>
-                  <td className="px-3 py-1.5">
-                    <span className="text-xs font-medium text-slate-800">{item.title}</span>
+                  <td className="px-3 py-3 max-w-[300px]">
+                    <span className="text-[11px] font-semibold text-slate-800 truncate block">{item.title}</span>
                   </td>
-                  <td className="px-3 py-1.5" onClick={e => e.stopPropagation()}>
-                    <div className="flex items-center gap-1.5">
-                      <button type="button" onClick={() => setViewItem(item)}
-                        className="p-1 rounded-lg text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-colors" title="Преглед">
-                        <Eye size={13} />
-                      </button>
-                      {canEdit && (
-                        <button type="button" onClick={() => setEditItem(item)}
-                          className="p-1 rounded-lg text-slate-300 hover:text-[#0f2240] hover:bg-slate-100 transition-colors" title="Редакция">
-                          <Pencil size={13} />
-                        </button>
-                      )}
-                      {item.file_url && (
+                  <td className="px-3 py-3 text-right pr-5" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-2">
+                      {item.file_url ? (
                         <button type="button"
                           onClick={async () => {
                             const win = window.open('', '_blank')
@@ -140,8 +134,18 @@ export default function OrdersClient({
                             if (data?.signedUrl && win) win.location.href = data.signedUrl
                             else if (win) win.close()
                           }}
-                          className="p-1 rounded-lg text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-colors" title="PDF">
-                          <Download size={13} />
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0f2240] bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition-colors">
+                          <Paperclip size={10} /> Преглед
+                        </button>
+                      ) : (
+                        <span className="text-slate-300 text-[10px]">—</span>
+                      )}
+                      {canEdit && (
+                        <button type="button"
+                          onClick={() => setEditItem(item)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition-colors opacity-0 group-hover:opacity-100"
+                          title="Редакция">
+                          <Pencil size={13} />
                         </button>
                       )}
                     </div>
@@ -151,23 +155,25 @@ export default function OrdersClient({
             </tbody>
           </table>
         </div>
-      </div>
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-1">
-          <p className="text-xs text-slate-400">{page} / {totalPages} стр.</p>
-          <div className="flex gap-2">
-            <button disabled={page <= 1} onClick={() => handlePageChange(page - 1)}
-              className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40">
-              ← Назад
-            </button>
-            <button disabled={page >= totalPages} onClick={() => handlePageChange(page + 1)}
-              className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40">
-              Напред →
-            </button>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-5 py-3 bg-slate-50/50 border-t border-slate-100">
+            <span className="text-[11px] font-semibold text-slate-400">
+              {((page-1)*pageSize)+1}–{Math.min(page*pageSize, totalCount)} от {totalCount} записа
+            </span>
+            <div className="flex gap-1.5">
+              <button disabled={page <= 1} onClick={() => handlePageChange(page-1)}
+                className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition-colors">
+                <ChevronLeft size={14} />
+              </button>
+              <button disabled={page >= totalPages} onClick={() => handlePageChange(page+1)}
+                className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition-colors">
+                <ChevronRight size={14} />
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {viewItem && <ViewOrderModal item={viewItem} onClose={() => setViewItem(null)} />}
       {editItem && <EditOrderModal item={editItem} onClose={() => setEditItem(null)} />}
@@ -178,7 +184,7 @@ export default function OrdersClient({
           students={students}
           nomenclature={nomenclature}
           onClose={() => setShowForm(false)}
-          onSaved={() => setShowForm(false)}
+          onSaved={() => { setShowForm(false); router.refresh() }}
         />
       )}
     </div>
