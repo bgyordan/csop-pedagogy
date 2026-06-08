@@ -61,7 +61,16 @@ export default function NewOrderForm({ currentUserId, students, nomenclature, on
   }, {} as Record<string, NomenclatureItem[]>)
 
   const selectedItem = nomenclature.find(i => i.item_code === orderTypeCode)
-  const previewNumber = `${orderTypeCode}-???/${orderDate.split('-').reverse().join('.')}г.`
+  const [nextCount, setNextCount] = useState<number | null>(null)
+
+// Зареди count при отваряне
+useEffect(() => {
+  supabase.from('orders').select('id', { count: 'exact', head: true })
+    .then(({ count }) => setNextCount(count || 0))
+}, [])
+
+const nextNum = nextCount !== null ? String(nextCount + 1).padStart(3, '0') : '???'
+const previewNumber = `${orderTypeCode}-${nextNum}/${orderDate.split('-').reverse().join('.')}г.`
 
   function resetForm() {
     setOrderTypeCode('РД-08')
