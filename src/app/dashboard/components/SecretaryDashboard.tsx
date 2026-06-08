@@ -1,210 +1,79 @@
 import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
-import { Inbox, ClipboardList, FileSignature, AlertTriangle, ArrowRight, Megaphone } from 'lucide-react'
+import { redirect } from 'next/navigation'
+import AdminDashboard from './components/AdminDashboard'
+import SpecialistDashboard from './components/SpecialistDashboard'
+import ClassTeacherDashboard from './components/ClassTeacherDashboard'
+import SecretaryDashboard from './components/SecretaryDashboard'
+import { Megaphone } from 'lucide-react'
 
-export default async function SecretaryDashboard({ profile }: any) {
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'Администратор',
+  director: 'Директор',
+  zdud: 'ЗДУД',
+  secretary: 'Деловодител',
+  psychologist: 'Психолог',
+  speech_therapist: 'Логопед',
+  rehabilitator: 'Рехабилитатор',
+  class_teacher: 'Класен ръководител',
+}
+
+export default async function DashboardPage() {
   const supabase = await createClient()
-  const now = new Date()
-  const currentYear = now.getFullYear()
-  const today = now.toISOString().split('T')[0]
-  const in30days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/auth/login')
 
-  const [
-    { data: lastCorr },
-    { count: corrCount },
-    { data: lastOrder },
-    { count: orderCount },
-    { data: lastContract },
-    { count: contractCount },
-    { data: expiringContracts },
-    { data: enrollments },
-    { data: couds },
-  ] = await Promise.all([
-    supabase.from('correspondence').select('number, date, subject, direction').order('created_at', { ascending: false }).limit(1),
-    supabase.from('correspondence').select('*', { count: 'exact', head: true }).gte('date', `${currentYear}-01-01`),
-    supabase.from('orders').select('number, date, title').order('created_at', { ascending: false }).limit(1),
-    supabase.from('orders').select('*', { count: 'exact', head: true }).gte('date', `${currentYear}-01-01`),
-    supabase.from('contracts').select('number, date, subject, counterparty').order('created_at', { ascending: false }).limit(1),
-    supabase.from('contracts').select('*', { count: 'exact', head: true }),
-    supabase.from('contracts').select('number, subject, counterparty, end_date').gte('end_date', today).lte('end_date', in30days).order('end_date'),
-    supabase.from('correspondence').select('subject, student_id, date, students(first_name, last_name)').like('number', 'УВД-09-%').order('created_at', { ascending: false }),
-    supabase.from('correspondence').select('subject, student_id, date, students(first_name, last_name)').like('number', 'УВД-12-%').order('created_at', { ascending: false }),
+  const [{ data: profile }, { data: currentYear }] = await Promise.all([
+    supabase.from('staff_profiles').select('*').eq('user_id', user.id).single(),
+    supabase.from('academic_years').select('*').eq('is_current', true).single()
   ])
+  if (!profile || !currentYear) redirect('/auth/login')
 
-  const dirLabel: Record<string, string> = { incoming: 'Вх.', outgoing: 'Изх.', internal: 'Вътр.' }
-  const dirColor: Record<string, string> = {
-    incoming: 'bg-amber-50 text-amber-700',
-    outgoing: 'bg-blue-50 text-blue-700',
-    internal: 'bg-purple-50 text-purple-700',
-  }
+  const isAdmin = ['admin', 'director', 'zdud'].includes(profile.role)
+  const isSpecialist = ['psychologist', 'speech_therapist', 'rehabilitator'].includes(profile.role)
+  const isSecretary = profile.role === 'secretary'
+
+  const roleLabel = ROLE_LABELS[profile.role] || profile.role
+  const isCoordinator = profile.is_coordinator
 
   return (
-    <div className="animate-in fade-in duration-500 space-y-6">
+    <div className="max-w-7xl mx-auto p-4 md:p-8 animate-in fade-in duration-700 space-y-6">
 
-      {/* Хедър — тъмносин с фонов icon */}
-      <div className="bg-[#0f2240] text-white p-6 rounded-3xl shadow-sm relative overflow-hidden">
-        <div className="relative z-10">
-          <h2 className="text-xl md:text-2xl font-bold tracking-tight">
-            Добре дошли, {profile.first_name}!
-          </h2>
-          <p className="text-sm text-sky-100/80 mt-1">
-            Деловодна система на ЦСОП гр. Варна — единен регистър на кореспонденцията, заповедите и договорите.
-          </p>
+      {/* Тъмносин хедър */}
+      <div className="bg-[#0f2240] text-white p-6 md:p-8 rounded-3xl shadow-sm relative overflow-hidden">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight">
+              Добре дошли в Обединената система на ЦСОП гр. Варна!
+            </h1>
+            <p className="text-sm text-sky-100/80 mt-1.5">
+              Влязохте като <strong>{profile.first_name} {profile.last_name}</strong>{' '}
+              ({roleLabel}{isCoordinator ? ' & Координатор' : ''}).
+            </p>
+          </div>
+          <div className="flex-shrink-0 text-right">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-sky-200/60 mb-1">
+              {isSecretary ? 'Деловодство' : 'Учебна година'}
+            </div>
+            <div className="text-base font-bold text-white bg-white/10 px-4 py-1.5 rounded-xl border border-white/10">
+              {isSecretary ? 'ЦСОП Варна' : currentYear.name}
+            </div>
+            <div className="text-[10px] text-sky-100/50 mt-1.5 font-mono">
+              {new Date().toLocaleDateString('bg-BG', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </div>
+          </div>
         </div>
         <div className="absolute right-0 top-0 bottom-0 opacity-10 flex items-center pr-8 pointer-events-none">
           <Megaphone className="h-40 w-40 rotate-12" />
         </div>
       </div>
 
-      {/* Статистика */}
-      <div className="grid grid-cols-3 gap-4">
-        <Link href="/correspondence" className="bg-white p-5 rounded-2xl border border-slate-200/70 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-            <Inbox size={18} className="text-blue-600" />
-          </div>
-          <div className="text-2xl font-bold text-slate-800">{corrCount || 0}</div>
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Кореспонденция {currentYear}</div>
-          {lastCorr?.[0] && (
-            <div className="text-[10px] font-mono text-slate-400 mt-1 truncate">последен: {lastCorr[0].number}</div>
-          )}
-        </Link>
-
-        <Link href="/orders" className="bg-white p-5 rounded-2xl border border-slate-200/70 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group">
-          <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-            <ClipboardList size={18} className="text-orange-600" />
-          </div>
-          <div className="text-2xl font-bold text-slate-800">{orderCount || 0}</div>
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Заповеди {currentYear}</div>
-          {lastOrder?.[0] && (
-            <div className="text-[10px] font-mono text-slate-400 mt-1 truncate">последна: {lastOrder[0].number}</div>
-          )}
-        </Link>
-
-        <Link href="/contracts" className="bg-white p-5 rounded-2xl border border-slate-200/70 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-            <FileSignature size={18} className="text-purple-600" />
-          </div>
-          <div className="text-2xl font-bold text-slate-800">{contractCount || 0}</div>
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Договори общо</div>
-          {lastContract?.[0] && (
-            <div className="text-[10px] font-mono text-slate-400 mt-1 truncate">последен: {lastContract[0].number}</div>
-          )}
-        </Link>
+      {/* Dashboard по роля */}
+      <div className="transition-all duration-500">
+        {isAdmin && <AdminDashboard profile={profile} currentYearId={currentYear.id} />}
+        {isSpecialist && <SpecialistDashboard profile={profile} currentYearId={currentYear.id} />}
+        {profile.role === 'class_teacher' && <ClassTeacherDashboard profile={profile} currentYearId={currentYear.id} />}
+        {isSecretary && <SecretaryDashboard profile={profile} />}
       </div>
-
-      {/* Последни записи */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <Inbox size={14} className="text-blue-500" />
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Последен документ</span>
-            </div>
-            <Link href="/correspondence" className="text-[10px] font-bold text-blue-600 flex items-center gap-0.5 hover:underline">
-              Всички <ArrowRight size={10} />
-            </Link>
-          </div>
-          {lastCorr?.[0] ? (
-            <div>
-              <div className="font-mono font-bold text-[#0f2240] text-sm">{lastCorr[0].number}</div>
-              <div className="text-xs text-slate-500 mt-1 truncate">{lastCorr[0].subject}</div>
-              <div className="flex items-center justify-between mt-3">
-                <span className="text-[10px] text-slate-400 font-mono">
-                  {lastCorr[0].date ? new Date(lastCorr[0].date).toLocaleDateString('bg-BG') : ''}
-                </span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg ${dirColor[lastCorr[0].direction] || 'bg-slate-50 text-slate-500'}`}>
-                  {dirLabel[lastCorr[0].direction] || ''}
-                </span>
-              </div>
-            </div>
-          ) : <p className="text-xs text-slate-400 italic">Няма записи</p>}
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <ClipboardList size={14} className="text-orange-500" />
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Последна заповед</span>
-            </div>
-            <Link href="/orders" className="text-[10px] font-bold text-orange-600 flex items-center gap-0.5 hover:underline">
-              Всички <ArrowRight size={10} />
-            </Link>
-          </div>
-          {lastOrder?.[0] ? (
-            <div>
-              <div className="font-mono font-bold text-orange-700 text-sm">{lastOrder[0].number}</div>
-              <div className="text-xs text-slate-500 mt-1 truncate">{lastOrder[0].title}</div>
-              <div className="text-[10px] text-slate-400 font-mono mt-3">
-                {lastOrder[0].date ? new Date(lastOrder[0].date).toLocaleDateString('bg-BG') : ''}
-              </div>
-            </div>
-          ) : <p className="text-xs text-slate-400 italic">Няма записи</p>}
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <FileSignature size={14} className="text-purple-500" />
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Последен договор</span>
-            </div>
-            <Link href="/contracts" className="text-[10px] font-bold text-purple-600 flex items-center gap-0.5 hover:underline">
-              Всички <ArrowRight size={10} />
-            </Link>
-          </div>
-          {lastContract?.[0] ? (
-            <div>
-              <div className="font-mono font-bold text-purple-700 text-sm">{lastContract[0].number}</div>
-              <div className="text-xs text-slate-500 mt-1 truncate">{lastContract[0].subject}</div>
-              <div className="text-[10px] text-slate-400 mt-1 truncate">{lastContract[0].counterparty}</div>
-            </div>
-          ) : <p className="text-xs text-slate-400 italic">Няма записи</p>}
-        </div>
-      </div>
-
-      {/* Изтичащи договори */}
-      {expiringContracts && expiringContracts.length > 0 && (
-        <div className="bg-white rounded-2xl border border-amber-200 p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-amber-100">
-            <AlertTriangle size={14} className="text-amber-500 animate-pulse" />
-            <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Изтичащи договори в следващите 30 дни</span>
-          </div>
-          <div className="space-y-2">
-            {expiringContracts.map((c, idx) => {
-              const days = Math.ceil((new Date(c.end_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-              return (
-                <div key={idx} className="flex items-center justify-between p-3 bg-amber-50/50 rounded-xl border border-amber-100">
-                  <div className="min-w-0">
-                    <div className="font-mono font-bold text-[#0f2240] text-xs">{c.number}</div>
-                    <div className="text-xs text-slate-600 truncate mt-0.5">{c.counterparty} — {c.subject}</div>
-                  </div>
-                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-xl flex-shrink-0 ml-3 ${days <= 7 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {days === 0 ? 'Днес!' : days === 1 ? 'Утре!' : `${days} дни`}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Заявления */}
-      <Link href="/reports/enrollments" className="block bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
-        <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Справка — Заявления {currentYear}г.</span>
-          <ArrowRight size={14} className="text-slate-400" />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <div className="text-2xl font-bold text-green-600">{enrollments?.length || 0}</div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">За записване</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-indigo-600">{couds?.length || 0}</div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">За ЦОУД</div>
-          </div>
-        </div>
-      </Link>
-
     </div>
   )
 }
