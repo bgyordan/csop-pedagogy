@@ -43,9 +43,9 @@ export default async function OrdersPage({
   const [{ data: students }, { data: nomenclature }] = await Promise.all([
     supabase.from('students').select('id, first_name, last_name').eq('status', 'active').order('last_name'),
     supabase.from('nomenclature_items')
-      .select('*')
-      .in('section_code', ['РД', 'УВД', 'ФСД', 'ЛС', 'БУТ'])
-      .order('section_code').order('item_code'),
+  .select('*')
+  .eq('for_orders', true)
+  .order('section_code').order('item_code'),
   ])
 
   return (
