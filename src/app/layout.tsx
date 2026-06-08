@@ -10,8 +10,8 @@ const montserrat = Montserrat({
 })
 
 export const metadata: Metadata = {
-  title: 'ЕПЛР — ЦСОП Варна',
-  description: 'Система за управление на ЕПЛР документация в ЦСОП Варна',
+  title: 'Единна информационна система — ЦСОП Варна',
+  description: 'Единна информационна система за управление на ЕПЛР и деловодство в ЦСОП Варна',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
