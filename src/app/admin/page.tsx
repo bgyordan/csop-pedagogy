@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Settings, Calendar, Bell, School, Users, Star } from 'lucide-react'
+import { Settings, Calendar, Bell, School, Users, Star, BookOpen } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 export default async function AdminPage() {
@@ -110,6 +110,16 @@ export default async function AdminPage() {
             <h2 className="font-medium text-slate-700 text-sm">ЕПЛР Разпределение</h2>
           </div>
           <p className="text-xs text-slate-500">Разпределение на специалисти по ученици</p>
+        </a>
+
+        <a href="/admin/nomenclature" className="card hover:shadow-md transition-shadow cursor-pointer">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-9 h-9 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+              <BookOpen size={18} className="text-teal-600" />
+            </div>
+            <h2 className="font-medium text-slate-700 text-sm">Номенклатури</h2>
+          </div>
+          <p className="text-xs text-slate-500">Настройка на дела за кореспонденция и заповеди</p>
         </a>
       </div>
 
