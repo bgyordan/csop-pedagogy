@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+iimport { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { X, Upload, FileText, Loader2, ChevronDown } from 'lucide-react'
