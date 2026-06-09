@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, ChevronLeft, ChevronRight, Paperclip, ArrowDownLeft, ArrowUpRight, ArrowRightLeft, SlidersHorizontal } from 'lucide-react'
+import { Plus, Search, ChevronLeft, ChevronRight, Paperclip, ArrowDownLeft, ArrowUpRight, ArrowRightLeft, SlidersHorizontal, Eye } from 'lucide-react'
 import NewCorrespondenceForm from './NewCorrespondenceForm'
 import ViewCorrespondenceModal from './ViewCorrespondenceModal'
 import EditCorrespondenceModal from './EditCorrespondenceModal'
@@ -172,14 +172,14 @@ export default function CorrespondenceClient({
                   <tr key={item.id} onClick={() => setViewItem(item)}
                     className="cursor-pointer hover:bg-slate-50/70 transition-colors group">
                     <td className="px-5 py-3">
-                      <span className="font-mono font-bold text-[#0f2240] text-xs whitespace-nowrap">{item.number}</span>
+                      <span className="font-bold text-[#0f2240] text-sm tracking-wide whitespace-nowrap">{item.number}</span>
                     </td>
                     <td className="px-3 py-3">
                       <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-lg border ${cfg.badge}`}>
                         {cfg.icon}{cfg.label}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-xs text-slate-600 whitespace-nowrap font-mono">
+                    <td className="px-3 py-3 text-xs text-slate-600 whitespace-nowrap">
                       {item.date ? new Date(item.date).toLocaleDateString('bg-BG') : '—'}
                     </td>
                     <td className="px-3 py-3 text-xs text-slate-700 max-w-[140px] truncate font-medium">{personLabel || '—'}</td>
@@ -200,7 +200,7 @@ export default function CorrespondenceClient({
                               else if (win) win.close()
                             }}
                             className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0f2240] bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition-colors">
-                            <Paperclip size={10} /> Преглед
+                            <Eye size={11} /> Преглед
                           </button>
                         ) : <span className="text-slate-300 text-[10px]">—</span>}
                         {canEdit && (
