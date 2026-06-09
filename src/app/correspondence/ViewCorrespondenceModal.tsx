@@ -1,8 +1,9 @@
 'use client'
 
-import React from 'react'
-import { X, FolderOpen, GraduationCap, User, Download, FileText } from 'lucide-react'
+import React, { useState } from 'react'
+import { X, FolderOpen, GraduationCap, User, Download, FileText, ClipboardList, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 
 const DIRECTION_CONFIG = {
   incoming: { label: 'Вх.', badge: 'bg-blue-100 text-blue-800 border-blue-200', icon: '↙' },
@@ -18,11 +19,8 @@ function FolderPosition({ number }: { number: string }) {
     const parts = number.split('-')
     if (parts.length < 2) return
     const folderCode = parts.slice(0, 2).join('-')
-    supabase
-      .from('correspondence')
-      .select('number')
-      .like('number', `${folderCode}-%`)
-      .order('created_at', { ascending: true })
+    supabase.from('correspondence').select('number')
+      .like('number', `${folderCode}-%`).order('created_at', { ascending: true })
       .then(({ data }: any) => {
         if (!data) return
         const idx = data.findIndex((d: any) => d.number === number)
@@ -47,15 +45,56 @@ interface Props {
 
 export default function ViewCorrespondenceModal({ item, students, staff, onClose }: Props) {
   const supabase = createClient()
+  const router = useRouter()
   const cfg = DIRECTION_CONFIG[item.direction as keyof typeof DIRECTION_CONFIG] || DIRECTION_CONFIG.incoming
   const student = students.find(s => s.id === item.student_id)
   const staffMember = staff.find(s => s.id === item.staff_id)
+  const [issuingOrder, setIssuingOrder] = useState(false)
+  const [orderIssued, setOrderIssued] = useState<string | null>(null)
+
+  const isLS02 = item.nomenclature_item === 'ЛС-02' || item.number?.startsWith('ЛС-02')
 
   async function handleDownload() {
     const win = window.open('', '_blank')
     const { data } = await supabase.storage.from('documents').createSignedUrl(item.file_url, 120)
     if (data?.signedUrl && win) win.location.href = data.signedUrl
     else { if (win) win.close(); alert('Грешка при изтегляне') }
+  }
+
+  async function handleIssueOrder() {
+    setIssuingOrder(true)
+
+    const currentYear = new Date().getFullYear()
+    const today = new Date().toISOString().split('T')[0]
+
+    // Следващ номер за РД-09
+    const { count } = await supabase.from('orders')
+      .select('id', { count: 'exact', head: true })
+
+    const nextNum = String((count || 0) + 1).padStart(3, '0')
+    const formattedDate = today.split('-').reverse().join('.')
+    const orderNumber = `РД-09-${nextNum}/${formattedDate}г.`
+
+    // Заглавие от "от кого"
+    const personName = item.from_whom || ''
+    const orderTitle = `Заповед за отпуск на ${personName}`
+
+    const { data: profile } = await supabase
+      .from('staff_profiles').select('id').eq('user_id', (await supabase.auth.getUser()).data.user?.id!).single()
+
+    const { error } = await supabase.from('orders').insert({
+      number: orderNumber,
+      date: today,
+      title: orderTitle,
+      description: `Издадена въз основа на Вх. ${item.number}`,
+      created_by: profile?.id,
+    })
+
+    if (error) { alert(`Грешка: ${error.message}`); setIssuingOrder(false); return }
+
+    setOrderIssued(orderNumber)
+    setIssuingOrder(false)
+    router.refresh()
   }
 
   return (
@@ -83,7 +122,7 @@ export default function ViewCorrespondenceModal({ item, students, staff, onClose
             </span>
           </div>
 
-          {/* От / До — само релевантното поле */}
+          {/* От / До */}
           {item.direction === 'incoming' && item.from_whom && (
             <div>
               <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">От кого</div>
@@ -94,6 +133,12 @@ export default function ViewCorrespondenceModal({ item, students, staff, onClose
             <div>
               <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">До кого</div>
               <div className="text-sm font-bold text-slate-800">{item.to_whom}</div>
+            </div>
+          )}
+          {item.direction === 'internal' && item.from_whom && (
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">От кого</div>
+              <div className="text-sm font-bold text-slate-800">{item.from_whom}</div>
             </div>
           )}
 
@@ -125,6 +170,34 @@ export default function ViewCorrespondenceModal({ item, students, staff, onClose
                 <span className="inline-flex items-center gap-1.5 text-sm font-bold text-purple-700 bg-purple-50 border border-purple-100 px-3 py-1.5 rounded-xl">
                   <User size={15} />{staffMember.first_name} {staffMember.last_name}
                 </span>
+              )}
+            </div>
+          )}
+
+          {/* Издай заповед — само за ЛС-02 */}
+          {isLS02 && (
+            <div className={`p-4 rounded-xl border ${orderIssued ? 'bg-emerald-50 border-emerald-200' : 'bg-orange-50 border-orange-200'}`}>
+              {orderIssued ? (
+                <div className="flex items-center gap-2 text-emerald-700">
+                  <ClipboardList size={16} />
+                  <div>
+                    <div className="text-xs font-bold">Заповедта е издадена!</div>
+                    <div className="text-[11px] font-mono mt-0.5">{orderIssued}</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-bold text-orange-800">Необходима е заповед за отпуск</div>
+                    <div className="text-[11px] text-orange-600 mt-0.5">Ще се издаде РД-09 автоматично</div>
+                  </div>
+                  <button type="button" onClick={handleIssueOrder} disabled={issuingOrder}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-sm disabled:opacity-60 whitespace-nowrap"
+                    style={{ backgroundColor: '#0f2240' }}>
+                    {issuingOrder ? <Loader2 size={13} className="animate-spin" /> : <ClipboardList size={13} />}
+                    {issuingOrder ? 'Издаване...' : 'Издай заповед'}
+                  </button>
+                </div>
               )}
             </div>
           )}
