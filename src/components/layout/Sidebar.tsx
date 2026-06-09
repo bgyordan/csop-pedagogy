@@ -156,7 +156,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false }
           <div className="overflow-hidden">
             <div className="text-xs font-semibold truncate" style={{ color: TEXT_PRIMARY }}>{userName}</div>
             <div className="text-xs" style={{ color: TEXT_MUTED }}>
-              {ROLE_LABELS[userRole]}
+              {userPosition || ROLE_LABELS[userRole]}
               {isCoordinator && <span className="ml-1" style={{ color: '#2563a8' }}>· Координатор</span>}
             </div>
           </div>
