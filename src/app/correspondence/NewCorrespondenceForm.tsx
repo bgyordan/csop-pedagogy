@@ -265,7 +265,7 @@ export default function NewCorrespondenceForm({
               <select value={staffId} onChange={e => handleStaffSelect(e.target.value)} required className="input w-full">
                 <option value="">— Избери служител —</option>
                 {staff.sort((a,b) => a.last_name.localeCompare(b.last_name)).map(s => (
-                  <option key={s.id} value={s.id}>{s.last_name} {s.first_name}</option>
+                 <option key={s.id} value={s.id}>{s.first_name} {s.last_name}</option>
                 ))}
               </select>
               {subject && <div className="text-xs text-purple-700 font-semibold bg-white border border-purple-100 rounded-lg px-3 py-2">{subject}</div>}
