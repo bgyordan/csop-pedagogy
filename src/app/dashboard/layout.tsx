@@ -20,11 +20,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <div className="flex min-h-screen bg-slate-50">
       <Sidebar
-        userRole={profile.role as UserRole}
-        userName={getFullName(profile)}
-        userEmail={profile.email}
-        isCoordinator={profile.is_coordinator === true}
-      />
+  userRole={profile.role as UserRole}
+  userName={getFullName(profile)}
+  userEmail={profile.email}
+  isCoordinator={profile.is_coordinator === true}
+  userPosition={profile.position || ''}
+/>
       <main className="flex-1 overflow-auto">
         {children}
       </main>
