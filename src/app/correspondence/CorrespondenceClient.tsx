@@ -80,7 +80,6 @@ export default function CorrespondenceClient({
       <div className="bg-white border border-slate-200 rounded-2xl p-2 shadow-sm">
         <div className="flex items-center gap-2">
 
-          {/* Нов документ — outline + пулсира */}
           {canEdit && (
             <button onClick={() => setShowForm(v => !v)}
               className={`flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl border-2 transition-all whitespace-nowrap flex-shrink-0 ${
@@ -93,7 +92,6 @@ export default function CorrespondenceClient({
             </button>
           )}
 
-          {/* Търсене — свива се при филтри */}
           <form onSubmit={handleSearch} className={`relative transition-all duration-300 ${showFilters ? 'w-28' : 'flex-1'}`}>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             <input type="text" placeholder="Търсене..." value={search}
@@ -101,7 +99,6 @@ export default function CorrespondenceClient({
               className="pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-400 w-full bg-white" />
           </form>
 
-          {/* Филтри с отметки — изплуват плавно */}
           <div className={`flex items-center gap-1 transition-all duration-300 overflow-hidden ${showFilters ? 'flex-1 opacity-100' : 'w-0 opacity-0 pointer-events-none'}`}>
             {[
               { key: 'all', label: 'Всички' },
@@ -123,7 +120,6 @@ export default function CorrespondenceClient({
             ))}
           </div>
 
-          {/* Филтър бутон */}
           <button onClick={() => setShowFilters(v => !v)}
             className={`flex items-center p-2 rounded-xl border transition-all flex-shrink-0 ${
               showFilters || activeDir !== 'all'
@@ -135,7 +131,6 @@ export default function CorrespondenceClient({
         </div>
       </div>
 
-      {/* Форма за нов запис */}
       {showForm && (
         <NewCorrespondenceForm
           totalCount={totalCount}
@@ -151,21 +146,22 @@ export default function CorrespondenceClient({
       {/* Таблица */}
       <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs min-w-[600px]">
+          <table className="w-full text-left text-xs min-w-[700px]">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-100">
                 <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">№</th>
-                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 w-[100px]">Вид</th>
+                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 w-[95px]">Вид</th>
                 <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Дата</th>
                 <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">От кого / До кого</th>
                 <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Относно</th>
+                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Забележка</th>
                 <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 text-right pr-5">Файл</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {correspondence.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-16 text-center text-slate-400 italic text-sm">Няма намерени документи.</td>
+                  <td colSpan={7} className="p-16 text-center text-slate-400 italic text-sm">Няма намерени документи.</td>
                 </tr>
               ) : correspondence.map((item) => {
                 const dir = item.direction as keyof typeof DIRECTION_CONFIG
@@ -176,19 +172,22 @@ export default function CorrespondenceClient({
                   <tr key={item.id} onClick={() => setViewItem(item)}
                     className="cursor-pointer hover:bg-slate-50/70 transition-colors group">
                     <td className="px-5 py-3">
-                      <span className="font-mono font-bold text-[#0f2240] text-[11px] whitespace-nowrap">{item.number}</span>
+                      <span className="font-mono font-bold text-[#0f2240] text-xs whitespace-nowrap">{item.number}</span>
                     </td>
                     <td className="px-3 py-3">
                       <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-lg border ${cfg.badge}`}>
                         {cfg.icon}{cfg.label}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-[11px] text-slate-500 whitespace-nowrap font-mono">
+                    <td className="px-3 py-3 text-xs text-slate-600 whitespace-nowrap font-mono">
                       {item.date ? new Date(item.date).toLocaleDateString('bg-BG') : '—'}
                     </td>
-                    <td className="px-3 py-3 text-[11px] text-slate-700 max-w-[160px] truncate font-medium">{personLabel || '—'}</td>
-                    <td className="px-3 py-3 max-w-[220px]">
-                      <span className="font-semibold text-slate-800 text-[11px] truncate block">{item.subject || '—'}</span>
+                    <td className="px-3 py-3 text-xs text-slate-700 max-w-[140px] truncate font-medium">{personLabel || '—'}</td>
+                    <td className="px-3 py-3 max-w-[200px]">
+                      <span className="text-slate-800 text-xs truncate block">{item.subject || '—'}</span>
+                    </td>
+                    <td className="px-3 py-3 max-w-[120px]">
+                      <span className="text-slate-500 text-xs truncate block italic">{item.description || '—'}</span>
                     </td>
                     <td className="px-3 py-3 text-right pr-5" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-2">
