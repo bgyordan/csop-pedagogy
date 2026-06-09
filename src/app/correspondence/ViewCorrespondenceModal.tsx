@@ -83,14 +83,12 @@ export default function ViewCorrespondenceModal({ item, students, staff, onClose
       .from('staff_profiles').select('id').eq('user_id', (await supabase.auth.getUser()).data.user?.id!).single()
 
     const { error } = await supabase.from('orders').insert({
-  number: orderNumber,
-  date: today,
-  title: orderTitle,
-  description: `Издадена въз основа на Вх. ${item.number}`,
-  file_url: item.file_url || null,
-  file_name: item.file_name || null,
-  created_by: profile?.id,
-})
+      number: orderNumber,
+      date: today,
+      title: orderTitle,
+      description: `Издадена въз основа на Вх. ${item.number}`,
+      created_by: profile?.id,
+    })
 
     if (error) { alert(`Грешка: ${error.message}`); setIssuingOrder(false); return }
 
@@ -176,7 +174,7 @@ export default function ViewCorrespondenceModal({ item, students, staff, onClose
             </div>
           )}
 
-          {/* Издай заповед — само за ЛС-02 */}
+          {/* Регистрирай заповед — само за ЛС-02 */}
           {isLS02 && (
             <div className={`p-4 rounded-xl border ${orderIssued ? 'bg-emerald-50 border-emerald-200' : 'bg-orange-50 border-orange-200'}`}>
               {orderIssued ? (
@@ -197,7 +195,7 @@ export default function ViewCorrespondenceModal({ item, students, staff, onClose
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-sm disabled:opacity-60 whitespace-nowrap"
                     style={{ backgroundColor: '#0f2240' }}>
                     {issuingOrder ? <Loader2 size={13} className="animate-spin" /> : <ClipboardList size={13} />}
-                    {issuingOrder ? 'Издаване...' : 'Издай заповед'}
+                    {issuingOrder ? 'Регистриране...' : 'Регистрирай заповед'}
                   </button>
                 </div>
               )}
