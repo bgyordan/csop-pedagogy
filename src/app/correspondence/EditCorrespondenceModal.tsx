@@ -89,7 +89,14 @@ export default function EditCorrespondenceModal({ item, onClose }: Props) {
                 placeholder="Институция / лице..." className="input w-full" />
             </div>
           )}
-
+{dir === 'internal' && (
+  <div>
+    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">От кого</label>
+    <input type="text" value={fromWhom}
+      onChange={e => setFromWhom(e.target.value)}
+      placeholder="Длъжностно лице..." className="input w-full" />
+  </div>
+)}
           {/* До кого — само за изходящи */}
           {dir === 'outgoing' && (
             <div>
