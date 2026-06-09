@@ -9,9 +9,9 @@ import ViewCorrespondenceModal from './ViewCorrespondenceModal'
 import EditCorrespondenceModal from './EditCorrespondenceModal'
 
 const DIRECTION_CONFIG = {
-  incoming: { label: 'Входящ', filterLabel: 'Входящи', badge: 'bg-amber-100 text-amber-800 border-amber-200', icon: <ArrowDownLeft size={11} /> },
-  outgoing: { label: 'Изходящ', filterLabel: 'Изходящи', badge: 'bg-blue-100 text-blue-800 border-blue-200', icon: <ArrowUpRight size={11} /> },
-  internal: { label: 'Вътрешен', filterLabel: 'Вътрешни', badge: 'bg-purple-100 text-purple-800 border-purple-200', icon: <ArrowRightLeft size={11} /> },
+  incoming: { label: 'Входящ', badge: 'bg-amber-100 text-amber-800 border-amber-200', icon: <ArrowDownLeft size={11} /> },
+  outgoing: { label: 'Изходящ', badge: 'bg-blue-100 text-blue-800 border-blue-200', icon: <ArrowUpRight size={11} /> },
+  internal: { label: 'Вътрешен', badge: 'bg-purple-100 text-purple-800 border-purple-200', icon: <ArrowRightLeft size={11} /> },
 }
 
 interface NomenclatureItem {
@@ -80,57 +80,57 @@ export default function CorrespondenceClient({
       <div className="bg-white border border-slate-200 rounded-2xl p-2 shadow-sm">
         <div className="flex items-center gap-2">
 
-          {/* Нов документ */}
+          {/* Нов документ — outline + пулсира */}
           {canEdit && (
             <button onClick={() => setShowForm(v => !v)}
-              className="flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-sm transition-all whitespace-nowrap flex-shrink-0"
-              style={{ backgroundColor: showForm ? '#374151' : '#0f2240' }}>
+              className={`flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl border-2 transition-all whitespace-nowrap flex-shrink-0 ${
+                showForm
+                  ? 'bg-slate-100 text-slate-600 border-slate-300'
+                  : 'border-[#0f2240] text-[#0f2240] bg-white animate-pulse hover:bg-[#0f2240] hover:text-white hover:[animation:none]'
+              }`}>
               <Plus size={14} className={`transition-transform duration-200 ${showForm ? 'rotate-45' : ''}`} />
               {showForm ? 'Затвори' : 'Нов документ'}
             </button>
           )}
 
           {/* Търсене — свива се при филтри */}
-          <form onSubmit={handleSearch} className={`relative transition-all duration-300 ${showFilters ? 'w-32' : 'flex-1'}`}>
+          <form onSubmit={handleSearch} className={`relative transition-all duration-300 ${showFilters ? 'w-28' : 'flex-1'}`}>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             <input type="text" placeholder="Търсене..." value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-400 w-full bg-white" />
           </form>
 
-          {/* Филтри — изплуват плавно */}
+          {/* Филтри с отметки — изплуват плавно */}
           <div className={`flex items-center gap-1 transition-all duration-300 overflow-hidden ${showFilters ? 'flex-1 opacity-100' : 'w-0 opacity-0 pointer-events-none'}`}>
             {[
-              { key: 'all', label: 'Всички', icon: null },
-              { key: 'incoming', label: 'Входящи', icon: <ArrowDownLeft size={12} /> },
-              { key: 'outgoing', label: 'Изходящи', icon: <ArrowUpRight size={12} /> },
-              { key: 'internal', label: 'Вътрешни', icon: <ArrowRightLeft size={12} /> },
-            ].map(({ key, label, icon }) => (
+              { key: 'all', label: 'Всички' },
+              { key: 'incoming', label: 'Входящи' },
+              { key: 'outgoing', label: 'Изходящи' },
+              { key: 'internal', label: 'Вътрешни' },
+            ].map(({ key, label }) => (
               <button key={key} onClick={() => handleDirectionFilter(key)}
-                className={`flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                  activeDir === key
-                    ? 'bg-[#0f2240] text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                  activeDir === key ? 'text-[#0f2240] font-bold' : 'text-slate-400 hover:text-slate-600'
                 }`}>
-                {activeDir === key && <span className="text-[10px]">✓</span>}
-                {icon}{label}
+                <span className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                  activeDir === key ? 'bg-[#0f2240] border-[#0f2240]' : 'border-slate-300'
+                }`}>
+                  {activeDir === key && <span className="text-white text-[9px] font-black">✓</span>}
+                </span>
+                {label}
               </button>
             ))}
           </div>
 
-          {/* Бутон Филтър */}
+          {/* Филтър бутон */}
           <button onClick={() => setShowFilters(v => !v)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all flex-shrink-0 ${
+            className={`flex items-center p-2 rounded-xl border transition-all flex-shrink-0 ${
               showFilters || activeDir !== 'all'
                 ? 'bg-[#0f2240] text-white border-[#0f2240]'
                 : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
             }`}>
-            <SlidersHorizontal size={13} />
-            {activeDir !== 'all' && !showFilters && (
-              <span className="text-[10px]">
-                {activeDir === 'incoming' ? 'Вх.' : activeDir === 'outgoing' ? 'Изх.' : 'Вът.'}
-              </span>
-            )}
+            <SlidersHorizontal size={15} />
           </button>
         </div>
       </div>
