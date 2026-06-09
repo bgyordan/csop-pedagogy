@@ -190,21 +190,27 @@ export default function CorrespondenceClient({
                       <span className="text-slate-500 text-xs truncate block italic">{item.description || '—'}</span>
                     </td>
                     <td className="px-3 py-3 text-right pr-5" onClick={e => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1.5">
                         {item.file_url ? (
-  <button type="button"
-    onClick={async () => {
-      ...
-    }}
-    className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition-colors"
-    title="Отвори файл">
-    <Paperclip size={14} />
-  </button>
-) : <span className="text-slate-300 text-[10px]">—</span>}
+                          <button type="button" title="Отвори файл"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition-colors"
+                            onClick={async () => {
+                              const win = window.open('', '_blank')
+                              const { data } = await supabase.storage.from('documents').createSignedUrl(item.file_url, 120)
+                              if (data?.signedUrl && win) win.location.href = data.signedUrl
+                              else if (win) win.close()
+                            }}>
+                            <Paperclip size={14} />
+                          </button>
+                        ) : (
+                          <span className="text-slate-200 text-[10px] px-1.5">—</span>
+                        )}
                         {canEdit && (
                           <button type="button" onClick={() => setEditItem(item)}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition-colors opacity-0 group-hover:opacity-100"
-                            title="Редакция">✏️</button>
+                            title="Редакция">
+                            ✏️
+                          </button>
                         )}
                       </div>
                     </td>
