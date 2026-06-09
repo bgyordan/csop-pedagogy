@@ -177,7 +177,7 @@ export default function NewCorrespondenceForm({
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl border border-slate-200/80 max-w-xl w-full shadow-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-3xl border border-slate-200/80 max-w-xl w-full shadow-2xl h-[85vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
 
         {/* Хедър */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white rounded-t-3xl z-10">
