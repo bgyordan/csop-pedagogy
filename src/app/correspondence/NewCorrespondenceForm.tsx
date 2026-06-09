@@ -267,7 +267,7 @@ export default function NewCorrespondenceForm({
               </label>
               <select value={staffId} onChange={e => handleStaffSelect(e.target.value)} required className="input w-full">
                 <option value="">— Избери служител —</option>
-                {staff.sort((a,b) => a.last_name.localeCompare(b.last_name)).map(s => (
+                {staff.sort((a,b) => a.first_name.localeCompare(b.first_name, 'bg')).map(s => (
                  <option key={s.id} value={s.id}>{s.first_name} {s.last_name}</option>
                 ))}
               </select>
@@ -282,7 +282,7 @@ export default function NewCorrespondenceForm({
               </label>
               <select value={studentId} onChange={e => handleStudentSelect(e.target.value)} required className="input w-full">
                 <option value="">— Избери ученик —</option>
-                {students.sort((a,b) => a.last_name.localeCompare(b.last_name)).map(s => (
+                {students.sort((a,b) => a.first_name.localeCompare(b.first_name, 'bg')).map(s => (
                   <option key={s.id} value={s.id}>{s.last_name} {s.first_name}</option>
                 ))}
               </select>
