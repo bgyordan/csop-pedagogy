@@ -192,17 +192,15 @@ export default function CorrespondenceClient({
                     <td className="px-3 py-3 text-right pr-5" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-2">
                         {item.file_url ? (
-                          <button type="button"
-                            onClick={async () => {
-                              const win = window.open('', '_blank')
-                              const { data } = await supabase.storage.from('documents').createSignedUrl(item.file_url, 120)
-                              if (data?.signedUrl && win) win.location.href = data.signedUrl
-                              else if (win) win.close()
-                            }}
-                            className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0f2240] bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition-colors">
-                            <Eye size={11} /> Преглед
-                          </button>
-                        ) : <span className="text-slate-300 text-[10px]">—</span>}
+  <button type="button"
+    onClick={async () => {
+      ...
+    }}
+    className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition-colors"
+    title="Отвори файл">
+    <Paperclip size={14} />
+  </button>
+) : <span className="text-slate-300 text-[10px]">—</span>}
                         {canEdit && (
                           <button type="button" onClick={() => setEditItem(item)}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition-colors opacity-0 group-hover:opacity-100"
