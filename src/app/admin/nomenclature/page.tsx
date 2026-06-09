@@ -17,8 +17,8 @@ export default async function NomenclaturePage() {
   if (!['admin', 'zdud'].includes(profile?.role || '')) redirect('/dashboard')
 
   const { data: items } = await supabase
-    .from('nomenclature_items')
-    .select('id, item_code, name, section_code, retention_years, for_correspondence, for_orders')
+  .from('nomenclature_items')
+  .select('id, item_code, name, section_code, retention_years, for_correspondence, for_orders, allowed_directions, default_direction')
     .order('section_code')
     .order('item_code')
 
