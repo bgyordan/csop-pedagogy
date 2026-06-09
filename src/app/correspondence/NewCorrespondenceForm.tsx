@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { X, Upload, FileText, Loader2, User, GraduationCap, ChevronDown } from 'lucide-react'
 
 const SMART_CODES: Record<string, { type: 'staff' | 'student'; template: string }> = {
-  'ЛС-02': { type: 'staff', template: 'Заявление за отпуск от {name}' },
+  'ЛС-02': { type: 'staff', template: 'Заявление за отпуск' },
   'УВД-09': { type: 'student', template: 'Заявление за прием на {name}' },
   'УВД-12': { type: 'student', template: 'Молба за ЦОУД на {name}' },
 }
@@ -105,10 +105,13 @@ export default function NewCorrespondenceForm({
   }
 
   function handleStaffSelect(id: string) {
-    setStaffId(id)
-    const s = staff.find(x => x.id === id)
-    if (s && smartCode) setSubject(smartCode.template.replace('{name}', `${s.first_name} ${s.last_name}`))
+  setStaffId(id)
+  const s = staff.find(x => x.id === id)
+  if (s && smartCode) {
+    setSubject(smartCode.template)
+    setFromWhom(`${s.first_name} ${s.last_name}`)
   }
+}
 
   function handleStudentSelect(id: string) {
     setStudentId(id)
