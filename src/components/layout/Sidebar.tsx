@@ -41,7 +41,6 @@ const navItems: NavItem[] = [
   { href: '/reports', label: 'Писма и справки', icon: <BarChart3 size={18} />, roles: ['admin', 'director', 'zdud'], coordinatorOnly: true },
   { href: '/admin/eplr-assignment', label: 'ЕПЛР Разпределение', icon: <GitBranch size={18} />, roles: ['admin', 'zdud'], coordinatorOnly: true },
   { href: '/admin', label: 'Администрация', icon: <Shield size={18} />, roles: ['admin', 'zdud'] },
-  // Деловодство
   { href: '/correspondence', label: 'Кореспонденция', icon: <Inbox size={18} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/orders', label: 'Заповеди', icon: <ClipboardList size={18} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/contracts', label: 'Договори', icon: <FileSignature size={18} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
@@ -52,9 +51,10 @@ interface SidebarProps {
   userName: string
   userEmail: string
   isCoordinator?: boolean
+  userPosition?: string
 }
 
-export function Sidebar({ userRole, userName, userEmail, isCoordinator = false }: SidebarProps) {
+export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, userPosition = '' }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -78,7 +78,6 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false }
 
   const isSecretary = userRole === 'secretary'
   const visibleItems = navItems.filter(item => {
-    // Секретарят вижда само деловодството
     if (isSecretary) return item.section === 'delo'
     if (item.coordinatorOnly && isCoordinator) return true
     if (!item.roles) return true
@@ -121,18 +120,16 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false }
           </Link>
           <div>
             <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>ЦСОП Варна</div>
-            <div className="text-xs" style={{ color: TEXT_MUTED }}>{userRole === 'secretary' ? 'Деловодство' : 'ЕПЛР'}</div>
+            <div className="text-xs" style={{ color: TEXT_MUTED }}>{isSecretary ? 'Деловодство' : 'ЕПЛР'}</div>
           </div>
         </div>
       </div>
 
       <nav className="flex-1 py-4 px-2 overflow-y-auto">
-        {/* Основни */}
         <div className="space-y-0.5">
           {mainItems.map(item => <NavLink key={item.href} item={item} />)}
         </div>
 
-        {/* Деловодство */}
         {deloItems.length > 0 && (
           <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(15,34,64,0.08)' }}>
             <div className="px-3 mb-2">
@@ -195,7 +192,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false }
           </Link>
           <div>
             <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>ЦСОП Варна</div>
-            <div className="text-xs" style={{ color: TEXT_MUTED }}>{userRole === 'secretary' ? 'Деловодство' : 'ЕПЛР'}</div>
+            <div className="text-xs" style={{ color: TEXT_MUTED }}>{isSecretary ? 'Деловодство' : 'ЕПЛР'}</div>
           </div>
         </div>
         <button onClick={() => setMobileOpen(prev => !prev)}
