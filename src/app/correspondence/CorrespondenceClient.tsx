@@ -3,30 +3,15 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, ChevronLeft, ChevronRight, Paperclip, ArrowDownLeft, ArrowUpRight, ArrowRightLeft } from 'lucide-react'
+import { Plus, Search, ChevronLeft, ChevronRight, Paperclip, ArrowDownLeft, ArrowUpRight, ArrowRightLeft, SlidersHorizontal } from 'lucide-react'
 import NewCorrespondenceForm from './NewCorrespondenceForm'
 import ViewCorrespondenceModal from './ViewCorrespondenceModal'
 import EditCorrespondenceModal from './EditCorrespondenceModal'
 
 const DIRECTION_CONFIG = {
-  incoming: {
-    label: 'Входящ',
-    filterLabel: 'Входящи',
-    badge: 'bg-amber-100 text-amber-800 border-amber-200',
-    icon: <ArrowDownLeft size={11} />,
-  },
-  outgoing: {
-    label: 'Изходящ',
-    filterLabel: 'Изходящи',
-    badge: 'bg-blue-100 text-blue-800 border-blue-200',
-    icon: <ArrowUpRight size={11} />,
-  },
-  internal: {
-    label: 'Вътрешен',
-    filterLabel: 'Вътрешни',
-    badge: 'bg-purple-100 text-purple-800 border-purple-200',
-    icon: <ArrowRightLeft size={11} />,
-  },
+  incoming: { label: 'Входящ', filterLabel: 'Входящи', badge: 'bg-amber-100 text-amber-800 border-amber-200', icon: <ArrowDownLeft size={11} /> },
+  outgoing: { label: 'Изходящ', filterLabel: 'Изходящи', badge: 'bg-blue-100 text-blue-800 border-blue-200', icon: <ArrowUpRight size={11} /> },
+  internal: { label: 'Вътрешен', filterLabel: 'Вътрешни', badge: 'bg-purple-100 text-purple-800 border-purple-200', icon: <ArrowRightLeft size={11} /> },
 }
 
 interface NomenclatureItem {
@@ -56,10 +41,12 @@ export default function CorrespondenceClient({
 
   const [search, setSearch] = useState(searchValue || '')
   const [showForm, setShowForm] = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
   const [viewItem, setViewItem] = useState<any | null>(null)
   const [editItem, setEditItem] = useState<any | null>(null)
 
   const totalPages = Math.ceil(totalCount / pageSize)
+  const activeDir = directionValue || 'all'
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -86,46 +73,65 @@ export default function CorrespondenceClient({
     router.push(`/correspondence?${params.toString()}`)
   }
 
-  const activeDir = directionValue || 'all'
-
   return (
     <div className="space-y-4">
 
-      {/* Филтри + Търсене + Бутон — един ред */}
-      <div className="flex flex-wrap items-center gap-2 justify-between">
-        <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-2xl p-1 shadow-sm">
-          {[
-            { key: 'all', label: 'Всички', icon: null },
-            { key: 'incoming', label: 'Входящи', icon: <ArrowDownLeft size={13} /> },
-            { key: 'outgoing', label: 'Изходящи', icon: <ArrowUpRight size={13} /> },
-            { key: 'internal', label: 'Вътрешни', icon: <ArrowRightLeft size={13} /> },
-          ].map(({ key, label, icon }) => (
-            <button key={key} onClick={() => handleDirectionFilter(key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                activeDir === key
-                  ? 'bg-[#0f2240] text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-              }`}>
-              {icon}{label}
-            </button>
-          ))}
-        </div>
-
+      {/* Лента с контроли */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-2 shadow-sm">
         <div className="flex items-center gap-2">
-          <form onSubmit={handleSearch} className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <input type="text" placeholder="Търсене..." value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-400 w-44 bg-white" />
-          </form>
+
+          {/* Нов документ */}
           {canEdit && (
             <button onClick={() => setShowForm(v => !v)}
-              className="flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-sm transition-all whitespace-nowrap"
+              className="flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-sm transition-all whitespace-nowrap flex-shrink-0"
               style={{ backgroundColor: showForm ? '#374151' : '#0f2240' }}>
               <Plus size={14} className={`transition-transform duration-200 ${showForm ? 'rotate-45' : ''}`} />
               {showForm ? 'Затвори' : 'Нов документ'}
             </button>
           )}
+
+          {/* Търсене — свива се при филтри */}
+          <form onSubmit={handleSearch} className={`relative transition-all duration-300 ${showFilters ? 'w-32' : 'flex-1'}`}>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <input type="text" placeholder="Търсене..." value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-400 w-full bg-white" />
+          </form>
+
+          {/* Филтри — изплуват плавно */}
+          <div className={`flex items-center gap-1 transition-all duration-300 overflow-hidden ${showFilters ? 'flex-1 opacity-100' : 'w-0 opacity-0 pointer-events-none'}`}>
+            {[
+              { key: 'all', label: 'Всички', icon: null },
+              { key: 'incoming', label: 'Входящи', icon: <ArrowDownLeft size={12} /> },
+              { key: 'outgoing', label: 'Изходящи', icon: <ArrowUpRight size={12} /> },
+              { key: 'internal', label: 'Вътрешни', icon: <ArrowRightLeft size={12} /> },
+            ].map(({ key, label, icon }) => (
+              <button key={key} onClick={() => handleDirectionFilter(key)}
+                className={`flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                  activeDir === key
+                    ? 'bg-[#0f2240] text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                }`}>
+                {activeDir === key && <span className="text-[10px]">✓</span>}
+                {icon}{label}
+              </button>
+            ))}
+          </div>
+
+          {/* Бутон Филтър */}
+          <button onClick={() => setShowFilters(v => !v)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all flex-shrink-0 ${
+              showFilters || activeDir !== 'all'
+                ? 'bg-[#0f2240] text-white border-[#0f2240]'
+                : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+            }`}>
+            <SlidersHorizontal size={13} />
+            {activeDir !== 'all' && !showFilters && (
+              <span className="text-[10px]">
+                {activeDir === 'incoming' ? 'Вх.' : activeDir === 'outgoing' ? 'Изх.' : 'Вът.'}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
@@ -159,30 +165,18 @@ export default function CorrespondenceClient({
             <tbody className="divide-y divide-slate-100">
               {correspondence.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-16 text-center text-slate-400 italic text-sm">
-                    Няма намерени документи.
-                  </td>
+                  <td colSpan={6} className="p-16 text-center text-slate-400 italic text-sm">Няма намерени документи.</td>
                 </tr>
               ) : correspondence.map((item) => {
                 const dir = item.direction as keyof typeof DIRECTION_CONFIG
                 const cfg = DIRECTION_CONFIG[dir] || DIRECTION_CONFIG.incoming
-
-                const personLabel = dir === 'incoming'
-                  ? item.from_whom
-                  : dir === 'outgoing'
-                  ? item.to_whom
-                  : item.from_whom
-                    ? `${item.from_whom} → ${item.to_whom || ''}`
-                    : item.to_whom
+                const personLabel = dir === 'incoming' ? item.from_whom : dir === 'outgoing' ? item.to_whom : item.from_whom ? `${item.from_whom} → ${item.to_whom || ''}` : item.to_whom
 
                 return (
-                  <tr key={item.id}
-                    onClick={() => setViewItem(item)}
+                  <tr key={item.id} onClick={() => setViewItem(item)}
                     className="cursor-pointer hover:bg-slate-50/70 transition-colors group">
                     <td className="px-5 py-3">
-                      <span className="font-mono font-bold text-[#0f2240] text-[11px] whitespace-nowrap">
-                        {item.number}
-                      </span>
+                      <span className="font-mono font-bold text-[#0f2240] text-[11px] whitespace-nowrap">{item.number}</span>
                     </td>
                     <td className="px-3 py-3">
                       <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-lg border ${cfg.badge}`}>
@@ -192,13 +186,9 @@ export default function CorrespondenceClient({
                     <td className="px-3 py-3 text-[11px] text-slate-500 whitespace-nowrap font-mono">
                       {item.date ? new Date(item.date).toLocaleDateString('bg-BG') : '—'}
                     </td>
-                    <td className="px-3 py-3 text-[11px] text-slate-700 max-w-[160px] truncate font-medium">
-                      {personLabel || '—'}
-                    </td>
+                    <td className="px-3 py-3 text-[11px] text-slate-700 max-w-[160px] truncate font-medium">{personLabel || '—'}</td>
                     <td className="px-3 py-3 max-w-[220px]">
-                      <span className="font-semibold text-slate-800 text-[11px] truncate block">
-                        {item.subject || '—'}
-                      </span>
+                      <span className="font-semibold text-slate-800 text-[11px] truncate block">{item.subject || '—'}</span>
                     </td>
                     <td className="px-3 py-3 text-right pr-5" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-2">
@@ -213,16 +203,11 @@ export default function CorrespondenceClient({
                             className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0f2240] bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition-colors">
                             <Paperclip size={10} /> Преглед
                           </button>
-                        ) : (
-                          <span className="text-slate-300 text-[10px]">—</span>
-                        )}
+                        ) : <span className="text-slate-300 text-[10px]">—</span>}
                         {canEdit && (
-                          <button type="button"
-                            onClick={() => setEditItem(item)}
+                          <button type="button" onClick={() => setEditItem(item)}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition-colors opacity-0 group-hover:opacity-100"
-                            title="Редакция">
-                            ✏️
-                          </button>
+                            title="Редакция">✏️</button>
                         )}
                       </div>
                     </td>
@@ -233,7 +218,6 @@ export default function CorrespondenceClient({
           </table>
         </div>
 
-        {/* Пагинация */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-5 py-3 bg-slate-50/50 border-t border-slate-100">
             <span className="text-[11px] font-semibold text-slate-400">
@@ -253,18 +237,8 @@ export default function CorrespondenceClient({
         )}
       </div>
 
-      {editItem && (
-        <EditCorrespondenceModal item={editItem} onClose={() => setEditItem(null)} />
-      )}
-
-      {viewItem && (
-        <ViewCorrespondenceModal
-          item={viewItem}
-          students={students}
-          staff={staff}
-          onClose={() => setViewItem(null)}
-        />
-      )}
+      {editItem && <EditCorrespondenceModal item={editItem} onClose={() => setEditItem(null)} />}
+      {viewItem && <ViewCorrespondenceModal item={viewItem} students={students} staff={staff} onClose={() => setViewItem(null)} />}
     </div>
   )
 }
