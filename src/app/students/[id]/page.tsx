@@ -1,10 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Users, Download, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Check } from 'lucide-react'
+import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Check } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
 import { DOCUMENT_TYPE_LABELS, DocumentType, STATUS_LABELS, DocumentStatus } from '@/types'
 import { AttachmentsSection } from './AttachmentsSection'
+import DocumentsList from './DocumentsList'
 
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
@@ -88,8 +89,9 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
     .eq('student_id', id)
     .order('enrolled_at', { ascending: false })
 
-  const docMap = new Map(documents?.map(d => [d.doc_type, d]) || [])
+  const docMap = Object.fromEntries(documents?.map(d => [d.doc_type, d]) || [])
   const sendingSchool = student.sending_school as any
+  const className = (enrollment?.class as any)?.name || ''
 
   const completedDocs = documents?.filter(d => d.status === 'completed').length || 0
   const inProgressDocs = documents?.filter(d => d.status === 'in_progress').length || 0
@@ -102,7 +104,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         Назад към учениците
       </Link>
 
-      {/* ── ХЕДЪР УЧЕНИК ── */}
+      {/* ХЕДЪР УЧЕНИК */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 md:p-6 mb-6">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
           <div className="flex items-start gap-4 md:gap-5">
@@ -124,13 +126,10 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                 </div>
               </div>
 
-              {/* Всички оригинални полета с детайли */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
                 <div>
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Паралелка ЦСОП</div>
-                  <div className="text-sm font-semibold text-slate-700 mt-0.5">
-                    {(enrollment?.class as any)?.name || '—'}
-                  </div>
+                  <div className="text-sm font-semibold text-slate-700 mt-0.5">{className || '—'}</div>
                 </div>
                 <div>
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Дата на раждане</div>
@@ -156,7 +155,6 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                 )}
               </div>
 
-              {/* Статистика на документите */}
               <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-slate-100">
                 <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
                   <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -175,7 +173,6 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
 
-        {/* Бутони за управление */}
         {canManage && student.status === 'active' && (
           <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-slate-100">
             <Link href={`/students/${id}/edit`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-100 transition-colors">
@@ -194,7 +191,6 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         )}
       </div>
 
-      {/* Банер ако е архивиран */}
       {student.status === 'archived' && student.archive_reason && (
         <div className="mb-6 p-4 bg-amber-50/40 border border-amber-200/60 rounded-2xl text-sm text-slate-700 shadow-sm">
           <span className="font-bold text-amber-800">Причина за напускане:</span> {student.archive_reason}
@@ -202,9 +198,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         </div>
       )}
 
-      {/* ── ОСНОВНО СЪДЪРЖАНИЕ (ГРИД) ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        {/* КАРТА ЕКИП */}
         <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm h-fit">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
             <Users size={16} className="text-blue-500" />
@@ -213,17 +207,22 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           <EplrTeam eplr={eplr} id={id} canManage={canManage} />
         </div>
 
-        {/* КАРТА ДОКУМЕНТИ */}
         <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm md:col-span-2">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
             <FileText size={16} className="text-emerald-500" />
             <h2 className="font-bold text-slate-800 text-sm">Документи — {currentYear?.name}</h2>
           </div>
-          <DocumentsList docMap={docMap} studentId={student.id} />
+          <DocumentsList
+            docMap={docMap}
+            studentId={student.id}
+            student={student}
+            eplr={eplr}
+            yearName={currentYear?.name || ''}
+            className={className}
+          />
         </div>
       </div>
 
-      {/* ── ИСТОРИЯ НА ОБУЧЕНИЕТО ── */}
       {allEnrollments && allEnrollments.length > 1 && (
         <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm mb-6">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
@@ -252,7 +251,6 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         </div>
       )}
 
-      {/* ── ВЪНШНИ ДОКУМЕНТИ (ДОСИЕ) ── */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
         <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
           <Paperclip size={16} className="text-amber-500" />
@@ -298,39 +296,5 @@ function EplrTeam({ eplr, id, canManage }: { eplr: any, id: string, canManage: b
         </div>
       ))}
     </dl>
-  )
-}
-
-function DocumentsList({ docMap, studentId }: { docMap: Map<string, any>, studentId: string }) {
-  return (
-    <div className="space-y-2">
-      {ALL_DOC_TYPES.map(docType => {
-        const doc = docMap.get(docType)
-        const status = doc?.status || 'empty'
-        return (
-          <div key={docType}
-            className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50/50 transition-colors gap-2">
-            <div className="flex items-center gap-3 min-w-0">
-              {getModernBadge(status as DocumentStatus)}
-              <span className="text-sm font-medium text-slate-700 truncate">{DOCUMENT_TYPE_LABELS[docType]}</span>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Link
-                href={`/documents/${studentId}/${docType}`}
-                className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 transition-colors whitespace-nowrap"
-              >
-                {doc ? 'Редактирай' : 'Попълни'}
-              </Link>
-              {doc && status === 'completed' && (
-                <button className="text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors flex items-center gap-1 text-slate-600">
-                  <Download size={13} />
-                  <span className="hidden sm:inline">Word</span>
-                </button>
-              )}
-            </div>
-          </div>
-        )
-      })}
-    </div>
   )
 }
