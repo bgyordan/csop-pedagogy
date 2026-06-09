@@ -62,32 +62,35 @@ export default function OrdersClient({
   return (
     <div className="space-y-4">
 
-      {/* Филтри + Търсене + Бутон */}
-      <div className="flex flex-wrap items-center gap-2 justify-between">
+      {/* Лента с контроли */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-2 shadow-sm">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-slate-500">
-            Общо <span className="text-slate-800">{totalCount}</span> заповеди
-          </span>
-          <span className="text-xs bg-orange-50 text-orange-700 border border-orange-100 px-2.5 py-1 rounded-xl font-bold">
-            Уч. год. {schoolYear}/{schoolYear + 1}
-          </span>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <form onSubmit={handleSearch} className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <input type="text" placeholder="Търсене по №, заглавие..." value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-400 w-48 bg-white" />
-          </form>
+          {/* Нова заповед — outline + пулсира */}
           {canEdit && (
             <button onClick={() => setShowForm(v => !v)}
-              className="flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-sm transition-all whitespace-nowrap"
-              style={{ backgroundColor: showForm ? '#374151' : '#0f2240' }}>
+              className={`flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl border-2 transition-all whitespace-nowrap flex-shrink-0 ${
+                showForm
+                  ? 'bg-slate-100 text-slate-600 border-slate-300'
+                  : 'border-[#0f2240] text-[#0f2240] bg-white animate-pulse hover:bg-[#0f2240] hover:text-white hover:[animation:none]'
+              }`}>
               <Plus size={14} className={`transition-transform duration-200 ${showForm ? 'rotate-45' : ''}`} />
               {showForm ? 'Затвори' : 'Нова заповед'}
             </button>
           )}
+
+          {/* Търсене */}
+          <form onSubmit={handleSearch} className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <input type="text" placeholder="Търсене по №, заглавие..." value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-400 w-full bg-white" />
+          </form>
+
+          {/* Учебна година badge */}
+          <span className="text-xs bg-orange-50 text-orange-700 border border-orange-100 px-3 py-2 rounded-xl font-bold whitespace-nowrap flex-shrink-0">
+            {schoolYear}/{schoolYear + 1}
+          </span>
         </div>
       </div>
 
@@ -112,37 +115,35 @@ export default function OrdersClient({
                   </td>
                 </tr>
               ) : orders.map((item) => (
-                <tr key={item.id}
-                  onClick={() => setViewItem(item)}
+                <tr key={item.id} onClick={() => setViewItem(item)}
                   className="cursor-pointer hover:bg-slate-50/70 transition-colors group">
                   <td className="px-5 py-3">
-                    <span className="font-mono font-bold text-orange-700 text-[11px] whitespace-nowrap">{item.number}</span>
+                    <span className="font-bold text-orange-700 text-sm tracking-wide whitespace-nowrap">{item.number}</span>
                   </td>
-                  <td className="px-3 py-3 text-[11px] text-slate-500 whitespace-nowrap font-mono">
+                  <td className="px-3 py-3 text-xs text-slate-600 whitespace-nowrap">
                     {item.date ? new Date(item.date).toLocaleDateString('bg-BG') : '—'}
                   </td>
                   <td className="px-3 py-3 max-w-[300px]">
-                    <span className="text-[11px] font-semibold text-slate-800 truncate block">{item.title}</span>
+                    <span className="text-xs font-semibold text-slate-800 truncate block">{item.title}</span>
                   </td>
                   <td className="px-3 py-3 text-right pr-5" onClick={e => e.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-1.5">
                       {item.file_url ? (
-                        <button type="button"
+                        <button type="button" title="Отвори файл"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-orange-700 hover:bg-orange-50 transition-colors"
                           onClick={async () => {
                             const win = window.open('', '_blank')
                             const { data } = await supabase.storage.from('documents').createSignedUrl(item.file_url, 120)
                             if (data?.signedUrl && win) win.location.href = data.signedUrl
                             else if (win) win.close()
-                          }}
-                          className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0f2240] bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition-colors">
-                          <Paperclip size={10} /> Преглед
+                          }}>
+                          <Paperclip size={14} />
                         </button>
                       ) : (
-                        <span className="text-slate-300 text-[10px]">—</span>
+                        <span className="text-slate-200 text-[10px] px-1.5">—</span>
                       )}
                       {canEdit && (
-                        <button type="button"
-                          onClick={() => setEditItem(item)}
+                        <button type="button" onClick={() => setEditItem(item)}
                           className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition-colors opacity-0 group-hover:opacity-100"
                           title="Редакция">
                           <Pencil size={13} />
