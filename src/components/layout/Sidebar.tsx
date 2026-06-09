@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Users, FileText, BookOpen,
-  Calendar, Shield, UserCircle, LogOut, ChevronRight,
+  Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3,
   Inbox, ClipboardList, FileSignature
 } from 'lucide-react'
@@ -15,7 +15,6 @@ import { cn } from '@/lib/utils'
 import { AutoLogout } from '@/components/AutoLogout'
 
 const SIDEBAR_BG = '#f0f7ff'
-const SIDEBAR_ACTIVE = 'rgba(15,34,64,0.08)'
 const SIDEBAR_HOVER = 'rgba(15,34,64,0.04)'
 const TEXT_PRIMARY = '#0f2240'
 const TEXT_SECONDARY = '#1e4070'
@@ -31,19 +30,19 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Начало', icon: <LayoutDashboard size={18} /> },
-  { href: '/students', label: 'Ученици', icon: <Users size={18} /> },
-  { href: '/classes', label: 'Паралелки', icon: <BookOpen size={18} />, roles: ['admin', 'director', 'zdud'] },
-  { href: '/documents', label: 'Документи', icon: <FileText size={18} /> },
-  { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={18} />, roles: ['admin', 'director', 'zdud', 'class_teacher'] },
-  { href: '/committees', label: 'Комисии', icon: <Building2 size={18} /> },
-  { href: '/staff', label: 'Служители', icon: <UserCircle size={18} />, roles: ['admin', 'director', 'zdud'] },
-  { href: '/reports', label: 'Писма и справки', icon: <BarChart3 size={18} />, roles: ['admin', 'director', 'zdud'], coordinatorOnly: true },
-  { href: '/admin/eplr-assignment', label: 'ЕПЛР Разпределение', icon: <GitBranch size={18} />, roles: ['admin', 'zdud'], coordinatorOnly: true },
-  { href: '/admin', label: 'Администрация', icon: <Shield size={18} />, roles: ['admin', 'zdud'] },
-  { href: '/correspondence', label: 'Кореспонденция', icon: <Inbox size={18} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
-  { href: '/orders', label: 'Заповеди', icon: <ClipboardList size={18} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
-  { href: '/contracts', label: 'Договори', icon: <FileSignature size={18} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
+  { href: '/dashboard', label: 'Начало', icon: <LayoutDashboard size={16} /> },
+  { href: '/students', label: 'Ученици', icon: <Users size={16} /> },
+  { href: '/classes', label: 'Паралелки', icon: <BookOpen size={16} />, roles: ['admin', 'director', 'zdud'] },
+  { href: '/documents', label: 'Документи', icon: <FileText size={16} /> },
+  { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={16} />, roles: ['admin', 'director', 'zdud', 'class_teacher'] },
+  { href: '/committees', label: 'Комисии', icon: <Building2 size={16} /> },
+  { href: '/staff', label: 'Служители', icon: <UserCircle size={16} />, roles: ['admin', 'director', 'zdud'] },
+  { href: '/reports', label: 'Писма и справки', icon: <BarChart3 size={16} />, roles: ['admin', 'director', 'zdud'], coordinatorOnly: true },
+  { href: '/admin/eplr-assignment', label: 'ЕПЛР Разпределение', icon: <GitBranch size={16} />, roles: ['admin', 'zdud'], coordinatorOnly: true },
+  { href: '/admin', label: 'Администрация', icon: <Shield size={16} />, roles: ['admin', 'zdud'] },
+  { href: '/correspondence', label: 'Регистър', icon: <Inbox size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
+  { href: '/orders', label: 'Заповеди', icon: <ClipboardList size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
+  { href: '/contracts', label: 'Договори', icon: <FileSignature size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
 ]
 
 interface SidebarProps {
@@ -94,18 +93,28 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
         key={item.href}
         href={item.href}
         onClick={() => setMobileOpen(false)}
-        className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors"
+        className="flex items-center gap-2.5 px-3 py-2 text-sm transition-all rounded-full"
         style={{
-          backgroundColor: active ? SIDEBAR_ACTIVE : 'transparent',
+          backgroundColor: 'transparent',
           color: active ? TEXT_PRIMARY : TEXT_SECONDARY,
           fontWeight: active ? 600 : 400,
+          border: active ? `1.5px solid rgba(15,34,64,0.22)` : '1.5px solid transparent',
         }}
-        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER }}
-        onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
+        onMouseEnter={e => {
+          if (!active) {
+            (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER
+            ;(e.currentTarget as HTMLElement).style.border = '1.5px solid rgba(15,34,64,0.10)'
+          }
+        }}
+        onMouseLeave={e => {
+          if (!active) {
+            (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'
+            ;(e.currentTarget as HTMLElement).style.border = '1.5px solid transparent'
+          }
+        }}
       >
         {item.icon}
         <span className="flex-1">{item.label}</span>
-        {active && <ChevronRight size={14} style={{ color: TEXT_PRIMARY, opacity: 0.4 }} />}
       </Link>
     )
   }
@@ -160,14 +169,16 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
         </div>
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-xs"
-          style={{ color: TEXT_MUTED }}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-full transition-all text-xs"
+          style={{ color: TEXT_MUTED, border: '1.5px solid transparent' }}
           onMouseEnter={e => {
             (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER
+            ;(e.currentTarget as HTMLElement).style.border = '1.5px solid rgba(15,34,64,0.10)'
             ;(e.currentTarget as HTMLElement).style.color = TEXT_PRIMARY
           }}
           onMouseLeave={e => {
             (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'
+            ;(e.currentTarget as HTMLElement).style.border = '1.5px solid transparent'
             ;(e.currentTarget as HTMLElement).style.color = TEXT_MUTED
           }}
         >
