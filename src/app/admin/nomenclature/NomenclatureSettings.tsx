@@ -11,6 +11,8 @@ interface NomenclatureItem {
   retention_years: string
   for_correspondence: boolean
   for_orders: boolean
+  allowed_directions: string | null
+  default_direction: string | null
 }
 
 interface Props {
@@ -31,6 +33,14 @@ const SECTION_LABELS: Record<string, string> = {
   ФСД: 'ФСД — Финансово-счетоводна дейност',
 }
 
+const DIRECTION_OPTIONS = [
+  { value: '', label: '— свободен избор —' },
+  { value: 'incoming', label: '↙ Само Входящ' },
+  { value: 'outgoing', label: '↗ Само Изходящ' },
+  { value: 'internal', label: '⇄ Само Вътрешен' },
+  { value: 'incoming,outgoing', label: '↙↗ Входящ / Изходящ' },
+]
+
 export default function NomenclatureSettings({ items }: Props) {
   const supabase = createClient()
   const [data, setData] = useState<NomenclatureItem[]>(items)
@@ -42,6 +52,19 @@ export default function NomenclatureSettings({ items }: Props) {
     setSaving(`${id}-${field}`)
     setData(prev => prev.map(i => i.id === id ? { ...i, [field]: value } : i))
     await supabase.from('nomenclature_items').update({ [field]: value }).eq('id', id)
+    setSaving(null)
+  }
+
+  async function handleDirectionChange(id: string, value: string) {
+    setSaving(`${id}-direction`)
+    const allowed = value || null
+    // Ако е само една посока → задаваме и default
+    const defaultDir = ['incoming', 'outgoing', 'internal'].includes(value) ? value : null
+    setData(prev => prev.map(i => i.id === id ? { ...i, allowed_directions: allowed, default_direction: defaultDir } : i))
+    await supabase.from('nomenclature_items').update({
+      allowed_directions: allowed,
+      default_direction: defaultDir,
+    }).eq('id', id)
     setSaving(null)
   }
 
@@ -79,14 +102,17 @@ export default function NomenclatureSettings({ items }: Props) {
               {sectionItems.map(item => {
                 const isSavingCorr = saving === `${item.id}-for_correspondence`
                 const isSavingOrders = saving === `${item.id}-for_orders`
+                const isSavingDir = saving === `${item.id}-direction`
+                const currentDirection = item.allowed_directions || ''
+
                 return (
                   <div key={item.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50/50 transition-colors">
                     <span className="font-mono text-xs font-bold text-slate-500 w-16 flex-shrink-0">{item.item_code}</span>
                     <span className="text-sm text-slate-700 flex-1 min-w-0 truncate">{item.name}</span>
-                    <span className="text-[10px] text-slate-400 w-12 text-center flex-shrink-0">{item.retention_years} г.</span>
-                    
+                    <span className="text-[10px] text-slate-400 w-10 text-center flex-shrink-0">{item.retention_years} г.</span>
+
                     {/* Кореспонденция */}
-                    <label className="flex items-center gap-1.5 cursor-pointer flex-shrink-0 w-32">
+                    <label className="flex items-center gap-1.5 cursor-pointer flex-shrink-0 w-28">
                       <div className="relative">
                         <input type="checkbox" className="sr-only"
                           checked={item.for_correspondence}
@@ -100,7 +126,7 @@ export default function NomenclatureSettings({ items }: Props) {
                     </label>
 
                     {/* Заповеди */}
-                    <label className="flex items-center gap-1.5 cursor-pointer flex-shrink-0 w-28">
+                    <label className="flex items-center gap-1.5 cursor-pointer flex-shrink-0 w-24">
                       <div className="relative">
                         <input type="checkbox" className="sr-only"
                           checked={item.for_orders}
@@ -112,6 +138,21 @@ export default function NomenclatureSettings({ items }: Props) {
                       </div>
                       <span className={`text-xs font-medium ${item.for_orders ? 'text-orange-700' : 'text-slate-400'}`}>Заповеди</span>
                     </label>
+
+                    {/* Посока */}
+                    <div className="flex-shrink-0 w-44">
+                      <select
+                        value={currentDirection}
+                        onChange={e => handleDirectionChange(item.id, e.target.value)}
+                        disabled={!!saving}
+                        className={`w-full text-xs border rounded-lg px-2 py-1 transition-colors ${
+                          isSavingDir ? 'opacity-50' : ''
+                        } ${currentDirection ? 'border-slate-300 text-slate-700 bg-white' : 'border-slate-200 text-slate-400 bg-slate-50'}`}>
+                        {DIRECTION_OPTIONS.map(o => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 )
               })}
