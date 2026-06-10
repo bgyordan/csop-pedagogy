@@ -67,7 +67,7 @@ export default function ContractsClient({
       </div>
 
       {/* Търсене */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-3">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3">
         <form onSubmit={handleSearch} className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -80,7 +80,7 @@ export default function ContractsClient({
       </div>
 
       {/* Таблица */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-[#f0f7ff] border-b border-slate-100">
