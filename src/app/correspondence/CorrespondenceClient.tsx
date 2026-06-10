@@ -3,15 +3,15 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, ChevronLeft, ChevronRight, Paperclip, ArrowDownLeft, ArrowUpRight, ArrowRightLeft, SlidersHorizontal, Eye } from 'lucide-react'
+import { Plus, Search, ChevronLeft, ChevronRight, Paperclip, ArrowDownLeft, ArrowUpRight, ArrowRightLeft, SlidersHorizontal } from 'lucide-react'
 import NewCorrespondenceForm from './NewCorrespondenceForm'
 import ViewCorrespondenceModal from './ViewCorrespondenceModal'
 import EditCorrespondenceModal from './EditCorrespondenceModal'
 
 const DIRECTION_CONFIG = {
-  incoming: { label: 'Входящ', badge: 'bg-amber-100 text-amber-800 border-amber-200', icon: <ArrowDownLeft size={11} /> },
-  outgoing: { label: 'Изходящ', badge: 'bg-blue-100 text-blue-800 border-blue-200', icon: <ArrowUpRight size={11} /> },
-  internal: { label: 'Вътрешен', badge: 'bg-purple-100 text-purple-800 border-purple-200', icon: <ArrowRightLeft size={11} /> },
+  incoming: { label: 'Входящ', icon: <ArrowDownLeft size={11} /> },
+  outgoing: { label: 'Изходящ', icon: <ArrowUpRight size={11} /> },
+  internal: { label: 'Вътрешен', icon: <ArrowRightLeft size={11} /> },
 }
 
 interface NomenclatureItem {
@@ -77,12 +77,12 @@ export default function CorrespondenceClient({
     <div className="space-y-4">
 
       {/* Лента с контроли */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-2 shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-2xl p-2 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
         <div className="flex items-center gap-2">
 
           {canEdit && (
             <button onClick={() => setShowForm(v => !v)}
-              className={`flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl border-2 transition-all whitespace-nowrap flex-shrink-0 ${
+              className={`flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl border-2 transition-all whitespace-nowrap flex-shrink-0 ${
                 showForm
                   ? 'bg-slate-100 text-slate-600 border-slate-300'
                   : 'border-[#0f2240] text-[#0f2240] bg-white animate-pulse hover:bg-[#0f2240] hover:text-white hover:[animation:none]'
@@ -107,8 +107,8 @@ export default function CorrespondenceClient({
               { key: 'internal', label: 'Вътрешни' },
             ].map(({ key, label }) => (
               <button key={key} onClick={() => handleDirectionFilter(key)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
-                  activeDir === key ? 'text-[#0f2240] font-bold' : 'text-slate-400 hover:text-slate-600'
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs transition-all whitespace-nowrap ${
+                  activeDir === key ? 'text-[#0f2240] font-medium' : 'text-slate-400 hover:text-slate-600'
                 }`}>
                 <span className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                   activeDir === key ? 'bg-[#0f2240] border-[#0f2240]' : 'border-slate-300'
@@ -144,18 +144,18 @@ export default function CorrespondenceClient({
       )}
 
       {/* Таблица */}
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs min-w-[700px]">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-100">
-                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">№</th>
-                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 w-[95px]">Вид</th>
-                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Дата</th>
-                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">От кого / До кого</th>
-                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Относно</th>
-                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Забележка</th>
-                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 text-right pr-5">Файл</th>
+                <th className="px-5 py-3 text-[10px] font-medium uppercase tracking-wider text-slate-400">№</th>
+                <th className="px-3 py-3 text-[10px] font-medium uppercase tracking-wider text-slate-400 w-[95px]">Вид</th>
+                <th className="px-3 py-3 text-[10px] font-medium uppercase tracking-wider text-slate-400">Дата</th>
+                <th className="px-3 py-3 text-[10px] font-medium uppercase tracking-wider text-slate-400">От кого / До кого</th>
+                <th className="px-3 py-3 text-[10px] font-medium uppercase tracking-wider text-slate-400">Относно</th>
+                <th className="px-3 py-3 text-[10px] font-medium uppercase tracking-wider text-slate-400">Забележка</th>
+                <th className="px-3 py-3 text-[10px] font-medium uppercase tracking-wider text-slate-400 text-right pr-5">Файл</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -170,24 +170,24 @@ export default function CorrespondenceClient({
 
                 return (
                   <tr key={item.id} onClick={() => setViewItem(item)}
-                    className="cursor-pointer hover:bg-slate-50/70 transition-colors group">
+                    className="cursor-pointer hover:bg-slate-50/60 transition-colors group">
                     <td className="px-5 py-3">
-                      <span className="font-bold text-[#0f2240] text-sm tracking-wide whitespace-nowrap">{item.number}</span>
+                      <span className="font-medium text-slate-800 text-xs whitespace-nowrap">{item.number}</span>
                     </td>
                     <td className="px-3 py-3">
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-lg border ${cfg.badge}`}>
+                      <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 border border-slate-200 px-2 py-0.5 rounded-lg bg-slate-50">
                         {cfg.icon}{cfg.label}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-xs text-slate-600 whitespace-nowrap">
+                    <td className="px-3 py-3 text-xs text-slate-500 whitespace-nowrap">
                       {item.date ? new Date(item.date).toLocaleDateString('bg-BG') : '—'}
                     </td>
-                    <td className="px-3 py-3 text-xs text-slate-700 max-w-[140px] truncate font-medium">{personLabel || '—'}</td>
+                    <td className="px-3 py-3 text-xs text-slate-600 max-w-[140px] truncate">{personLabel || '—'}</td>
                     <td className="px-3 py-3 max-w-[200px]">
-                      <span className="text-slate-800 text-xs truncate block">{item.subject || '—'}</span>
+                      <span className="text-slate-700 text-xs truncate block">{item.subject || '—'}</span>
                     </td>
                     <td className="px-3 py-3 max-w-[120px]">
-                      <span className="text-slate-500 text-xs truncate block italic">{item.description || '—'}</span>
+                      <span className="text-slate-400 text-xs truncate block">{item.description || '—'}</span>
                     </td>
                     <td className="px-3 py-3 text-right pr-5" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1.5">
@@ -223,7 +223,7 @@ export default function CorrespondenceClient({
 
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-5 py-3 bg-slate-50/50 border-t border-slate-100">
-            <span className="text-[11px] font-semibold text-slate-400">
+            <span className="text-[11px] text-slate-400">
               {((page-1)*pageSize)+1}–{Math.min(page*pageSize, totalCount)} от {totalCount} записа
             </span>
             <div className="flex gap-1.5">
