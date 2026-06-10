@@ -39,11 +39,10 @@ export default async function CorrespondencePage({
   return (
     <div className="p-4 md:p-8">
       <BackButton />
-      <div className="mb-6 flex items-center gap-3">
-        <span className="inline-flex items-center px-5 py-2 rounded-full text-sm font-semibold text-[#0f2240] bg-blue-50/80 border border-blue-100/80 shadow-sm">
-          Единен деловоден регистър
-        </span>
-        <span className="text-slate-400 text-xs">входящи · изходящи · вътрешни</span>
+      <div className="mb-6">
+        <div className="w-full flex items-center px-6 py-3 rounded-2xl bg-white border border-slate-200 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
+          <span className="text-sm font-medium text-slate-700 tracking-wide">Единен деловоден регистър</span>
+        </div>
       </div>
       <CorrespondenceClient
         correspondence={correspondence || []}
