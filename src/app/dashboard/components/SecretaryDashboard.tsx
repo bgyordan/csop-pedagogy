@@ -31,139 +31,110 @@ export default async function SecretaryDashboard({ profile }: any) {
     supabase.from('correspondence').select('subject, student_id, date, students(first_name, last_name)').like('number', 'УВД-12-%').order('created_at', { ascending: false }),
   ])
 
-  const dirLabel: Record<string, string> = { incoming: 'Вх.', outgoing: 'Изх.', internal: 'Вътр.' }
-  const dirColor: Record<string, string> = {
-    incoming: 'bg-amber-50 text-amber-700',
-    outgoing: 'bg-blue-50 text-blue-700',
-    internal: 'bg-purple-50 text-purple-700',
-  }
+  const dirLabel: Record<string, string> = { incoming: 'Входящ', outgoing: 'Изходящ', internal: 'Вътрешен' }
 
   return (
-    <div className="animate-in fade-in duration-500 space-y-6">
+    <div className="animate-in fade-in duration-500 space-y-4">
 
-      {/* Статистика */}
+      {/* Статистика — три широки карти */}
       <div className="grid grid-cols-3 gap-4">
-        <Link href="/correspondence" className="bg-white p-5 rounded-2xl border border-slate-200/70 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-            <Inbox size={18} className="text-blue-600" />
-          </div>
-          <div className="text-2xl font-bold text-slate-800">{corrCount || 0}</div>
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Кореспонденция {currentYear}</div>
-          {lastCorr?.[0] && (
-            <div className="text-[10px] font-mono text-slate-400 mt-1 truncate">последен: {lastCorr[0].number}</div>
-          )}
-        </Link>
-
-        <Link href="/orders" className="bg-white p-5 rounded-2xl border border-slate-200/70 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group">
-          <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-            <ClipboardList size={18} className="text-orange-600" />
-          </div>
-          <div className="text-2xl font-bold text-slate-800">{orderCount || 0}</div>
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Заповеди {currentYear}</div>
-          {lastOrder?.[0] && (
-            <div className="text-[10px] font-mono text-slate-400 mt-1 truncate">последна: {lastOrder[0].number}</div>
-          )}
-        </Link>
-
-        <Link href="/contracts" className="bg-white p-5 rounded-2xl border border-slate-200/70 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-            <FileSignature size={18} className="text-purple-600" />
-          </div>
-          <div className="text-2xl font-bold text-slate-800">{contractCount || 0}</div>
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Договори общо</div>
-          {lastContract?.[0] && (
-            <div className="text-[10px] font-mono text-slate-400 mt-1 truncate">последен: {lastContract[0].number}</div>
-          )}
-        </Link>
+        {[
+          { href: '/correspondence', count: corrCount, label: 'Кореспонденция', sub: `${currentYear}`, last: lastCorr?.[0]?.number },
+          { href: '/orders', count: orderCount, label: 'Заповеди', sub: `${currentYear}`, last: lastOrder?.[0]?.number },
+          { href: '/contracts', count: contractCount, label: 'Договори', sub: 'общо', last: lastContract?.[0]?.number },
+        ].map(({ href, count, label, sub, last }) => (
+          <Link key={href} href={href}
+            className="bg-white px-6 py-5 rounded-2xl border border-slate-200 shadow-[0_1px_6px_rgba(15,34,64,0.08)] hover:border-slate-400 hover:shadow-[0_2px_10px_rgba(15,34,64,0.12)] transition-all">
+            <div className="text-4xl font-light text-slate-800 mb-2">{count || 0}</div>
+            <div className="text-sm font-medium text-slate-700">{label}</div>
+            <div className="text-xs text-slate-400 mt-0.5">{sub}</div>
+            {last && <div className="text-[10px] text-slate-400 mt-2 truncate">последен: {last}</div>}
+          </Link>
+        ))}
       </div>
 
       {/* Последни записи */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <Inbox size={14} className="text-blue-500" />
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Последен документ</span>
-            </div>
-            <Link href="/correspondence" className="text-[10px] font-bold text-blue-600 flex items-center gap-0.5 hover:underline">
+
+        {/* Последен документ */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
+          <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
+            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Последен документ</span>
+            <Link href="/correspondence" className="text-[10px] text-slate-500 flex items-center gap-0.5 hover:text-slate-800">
               Всички <ArrowRight size={10} />
             </Link>
           </div>
           {lastCorr?.[0] ? (
             <div>
-              <div className="font-mono font-bold text-[#0f2240] text-sm">{lastCorr[0].number}</div>
-              <div className="text-xs text-slate-500 mt-1 truncate">{lastCorr[0].subject}</div>
+              <div className="font-medium text-slate-800 text-base">{lastCorr[0].number}</div>
+              <div className="text-sm text-slate-600 mt-1 truncate">{lastCorr[0].subject}</div>
               <div className="flex items-center justify-between mt-3">
-                <span className="text-[10px] text-slate-400 font-mono">
+                <span className="text-xs text-slate-400">
                   {lastCorr[0].date ? new Date(lastCorr[0].date).toLocaleDateString('bg-BG') : ''}
                 </span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg ${dirColor[lastCorr[0].direction] || 'bg-slate-50 text-slate-500'}`}>
+                <span className="text-xs text-slate-500 border border-slate-200 px-2 py-0.5 rounded-lg bg-slate-50">
                   {dirLabel[lastCorr[0].direction] || ''}
                 </span>
               </div>
             </div>
-          ) : <p className="text-xs text-slate-400 italic">Няма записи</p>}
+          ) : <p className="text-sm text-slate-400">Няма записи</p>}
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <ClipboardList size={14} className="text-orange-500" />
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Последна заповед</span>
-            </div>
-            <Link href="/orders" className="text-[10px] font-bold text-orange-600 flex items-center gap-0.5 hover:underline">
+        {/* Последна заповед */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
+          <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
+            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Последна заповед</span>
+            <Link href="/orders" className="text-[10px] text-slate-500 flex items-center gap-0.5 hover:text-slate-800">
               Всички <ArrowRight size={10} />
             </Link>
           </div>
           {lastOrder?.[0] ? (
             <div>
-              <div className="font-mono font-bold text-orange-700 text-sm">{lastOrder[0].number}</div>
-              <div className="text-xs text-slate-500 mt-1 truncate">{lastOrder[0].title}</div>
-              <div className="text-[10px] text-slate-400 font-mono mt-3">
+              <div className="font-medium text-slate-800 text-base">{lastOrder[0].number}</div>
+              <div className="text-sm text-slate-600 mt-1 truncate">{lastOrder[0].title}</div>
+              <div className="text-xs text-slate-400 mt-3">
                 {lastOrder[0].date ? new Date(lastOrder[0].date).toLocaleDateString('bg-BG') : ''}
               </div>
             </div>
-          ) : <p className="text-xs text-slate-400 italic">Няма записи</p>}
+          ) : <p className="text-sm text-slate-400">Няма записи</p>}
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <FileSignature size={14} className="text-purple-500" />
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Последен договор</span>
-            </div>
-            <Link href="/contracts" className="text-[10px] font-bold text-purple-600 flex items-center gap-0.5 hover:underline">
+        {/* Последен договор */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
+          <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
+            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Последен договор</span>
+            <Link href="/contracts" className="text-[10px] text-slate-500 flex items-center gap-0.5 hover:text-slate-800">
               Всички <ArrowRight size={10} />
             </Link>
           </div>
           {lastContract?.[0] ? (
             <div>
-              <div className="font-mono font-bold text-purple-700 text-sm">{lastContract[0].number}</div>
-              <div className="text-xs text-slate-500 mt-1 truncate">{lastContract[0].subject}</div>
-              <div className="text-[10px] text-slate-400 mt-1 truncate">{lastContract[0].counterparty}</div>
+              <div className="font-medium text-slate-800 text-base">{lastContract[0].number}</div>
+              <div className="text-sm text-slate-600 mt-1 truncate">{lastContract[0].subject}</div>
+              <div className="text-xs text-slate-400 mt-1 truncate">{lastContract[0].counterparty}</div>
             </div>
-          ) : <p className="text-xs text-slate-400 italic">Няма записи</p>}
+          ) : <p className="text-sm text-slate-400">Няма записи</p>}
         </div>
       </div>
 
       {/* Изтичащи договори */}
       {expiringContracts && expiringContracts.length > 0 && (
-        <div className="bg-white rounded-2xl border border-amber-200 p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-amber-100">
-            <AlertTriangle size={14} className="text-amber-500 animate-pulse" />
-            <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Изтичащи договори в следващите 30 дни</span>
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
+          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+            <AlertTriangle size={14} className="text-slate-500" />
+            <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Изтичащи договори в следващите 30 дни</span>
           </div>
           <div className="space-y-2">
             {expiringContracts.map((c, idx) => {
               const days = Math.ceil((new Date(c.end_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
               return (
-                <div key={idx} className="flex items-center justify-between p-3 bg-amber-50/50 rounded-xl border border-amber-100">
+                <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
                   <div className="min-w-0">
-                    <div className="font-mono font-bold text-[#0f2240] text-xs">{c.number}</div>
-                    <div className="text-xs text-slate-600 truncate mt-0.5">{c.counterparty} — {c.subject}</div>
+                    <div className="font-medium text-slate-800 text-sm">{c.number}</div>
+                    <div className="text-xs text-slate-500 truncate mt-0.5">{c.counterparty} — {c.subject}</div>
                   </div>
-                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-xl flex-shrink-0 ml-3 ${days <= 7 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {days === 0 ? 'Днес!' : days === 1 ? 'Утре!' : `${days} дни`}
+                  <span className="text-xs font-medium px-2.5 py-1 rounded-xl flex-shrink-0 ml-3 border border-slate-200 text-slate-600 bg-white">
+                    {days === 0 ? 'Днес' : days === 1 ? 'Утре' : `${days} дни`}
                   </span>
                 </div>
               )
@@ -173,19 +144,20 @@ export default async function SecretaryDashboard({ profile }: any) {
       )}
 
       {/* Заявления */}
-      <Link href="/reports/enrollments" className="block bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
+      <Link href="/reports/enrollments"
+        className="block bg-white rounded-2xl border border-slate-200 p-5 shadow-[0_1px_6px_rgba(15,34,64,0.08)] hover:border-slate-400 transition-all">
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Справка — Заявления {currentYear}г.</span>
+          <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Справка — Заявления {currentYear}г.</span>
           <ArrowRight size={14} className="text-slate-400" />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <div className="text-2xl font-bold text-green-600">{enrollments?.length || 0}</div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">За записване</div>
+            <div className="text-3xl font-light text-slate-800">{enrollments?.length || 0}</div>
+            <div className="text-xs text-slate-500 mt-1">За записване</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-indigo-600">{couds?.length || 0}</div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">За ЦОУД</div>
+            <div className="text-3xl font-light text-slate-800">{couds?.length || 0}</div>
+            <div className="text-xs text-slate-500 mt-1">За ЦОУД</div>
           </div>
         </div>
       </Link>
