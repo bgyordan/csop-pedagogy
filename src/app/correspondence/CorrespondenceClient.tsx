@@ -143,7 +143,7 @@ export default function CorrespondenceClient({
       )}
 
       {/* Заглавен ред */}
-      <div className="hidden md:grid grid-cols-[140px_90px_90px_1fr_1fr_100px_60px] gap-3 px-4 py-2">
+      <div className="hidden md:grid grid-cols-[180px_90px_90px_1fr_1fr_100px_60px] gap-3 px-4 py-2">
         {['№', 'Вид', 'Дата', 'От кого / До кого', 'Относно', 'Забележка', 'Файл'].map(h => (
           <span key={h} className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{h}</span>
         ))}
@@ -163,7 +163,7 @@ export default function CorrespondenceClient({
           return (
             <div key={item.id}
               onClick={() => setViewItem(item)}
-              className="bg-white border border-slate-200 rounded-2xl px-4 py-3 cursor-pointer hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] transition-all group grid grid-cols-[140px_90px_90px_1fr_1fr_100px_60px] gap-3 items-center shadow-[0_1px_4px_rgba(15,34,64,0.06)]">
+              className="bg-white border border-slate-200 rounded-2xl px-4 py-3 cursor-pointer hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] transition-all group grid grid-cols-[180px_90px_90px_1fr_1fr_100px_60px] gap-3 items-center shadow-[0_1px_4px_rgba(15,34,64,0.06)]">
 
               <span className="font-medium text-slate-800 text-xs whitespace-nowrap truncate">{item.number}</span>
 
