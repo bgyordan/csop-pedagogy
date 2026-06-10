@@ -38,7 +38,7 @@ export default async function OrdersPage({
       <BackButton />
       <div className="mb-6">
   <div className="w-full flex items-center px-6 py-3 rounded-2xl bg-white border border-slate-200 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
-    <span className="text-sm font-semibold text-slate-700 tracking-wide">Регистър на заповедите</span>
+    <span className="text-sm font-semibold text-slate-700 tracking-wide">РЕГИСТЪР ЗАПОВЕДИ</span>
   </div>
 </div>
       <OrdersClient
