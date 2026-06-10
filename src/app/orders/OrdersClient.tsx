@@ -118,7 +118,7 @@ export default function OrdersClient({
                 <tr key={item.id} onClick={() => setViewItem(item)}
                   className="cursor-pointer hover:bg-slate-50/70 transition-colors group">
                   <td className="px-5 py-3">
-                    <span className="font-bold text-orange-700 text-sm tracking-wide whitespace-nowrap">{item.number}</span>
+                    <span className="font-bold text-slate-800 text-sm tracking-wide whitespace-nowrap">{item.number}</span>
                   </td>
                   <td className="px-3 py-3 text-xs text-slate-600 whitespace-nowrap">
                     {item.date ? new Date(item.date).toLocaleDateString('bg-BG') : '—'}
