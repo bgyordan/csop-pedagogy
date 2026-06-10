@@ -63,7 +63,7 @@ export default function OrdersClient({
     <div className="space-y-4">
 
       {/* Лента с контроли */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-2 shadow-sm">
+      <div className="bg-white border border-slate-300 rounded-2xl p-2 shadow-[0_1px_6px_rgba(15,34,64,0.10)] ring-1 ring-slate-100">
         <div className="flex items-center gap-2">
 
           {/* Нова заповед — outline + пулсира */}
@@ -95,7 +95,7 @@ export default function OrdersClient({
       </div>
 
       {/* Таблица */}
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs min-w-[500px]">
             <thead>
