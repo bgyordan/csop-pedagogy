@@ -41,7 +41,7 @@ export default async function CorrespondencePage({
       <BackButton />
       <div className="mb-6">
         <div className="w-full flex items-center px-6 py-3 rounded-2xl bg-white border border-slate-200 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
-          <span className="text-sm font-medium text-slate-700 tracking-wide">Единен деловоден регистър</span>
+          <span className="text-sm font-medium text-slate-700 tracking-wide">ЕДИНЕН ДЕЛОВОДЕН РЕГИСТЪР</span>
         </div>
       </div>
       <CorrespondenceClient
