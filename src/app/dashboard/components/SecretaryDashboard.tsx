@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Inbox, ClipboardList, FileSignature, AlertTriangle, ArrowRight } from 'lucide-react'
+import { ArrowRight, AlertTriangle } from 'lucide-react'
 
 export default async function SecretaryDashboard({ profile }: any) {
   const supabase = await createClient()
@@ -31,137 +31,151 @@ export default async function SecretaryDashboard({ profile }: any) {
     supabase.from('correspondence').select('subject, student_id, date, students(first_name, last_name)').like('number', 'УВД-12-%').order('created_at', { ascending: false }),
   ])
 
-  const dirLabel: Record<string, string> = { incoming: 'Входящ', outgoing: 'Изходящ', internal: 'Вътрешен' }
+  const dirLabel: Record<string, string> = { incoming: 'Вх.', outgoing: 'Изх.', internal: 'Вътр.' }
 
   return (
-    <div className="animate-in fade-in duration-500 space-y-4">
+    <div className="animate-in fade-in duration-500 space-y-4 max-w-7xl">
 
-      {/* Статистика — три широки карти */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Статистика — три компактни карти */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          { href: '/correspondence', count: corrCount, label: 'Кореспонденция', sub: `${currentYear}`, last: lastCorr?.[0]?.number },
-          { href: '/orders', count: orderCount, label: 'Заповеди', sub: `${currentYear}`, last: lastOrder?.[0]?.number },
+          { href: '/correspondence', count: corrCount, label: 'Кореспонденция', sub: `${currentYear} г.`, last: lastCorr?.[0]?.number },
+          { href: '/orders', count: orderCount, label: 'Заповеди', sub: `${currentYear} г.`, last: lastOrder?.[0]?.number },
           { href: '/contracts', count: contractCount, label: 'Договори', sub: 'общо', last: lastContract?.[0]?.number },
         ].map(({ href, count, label, sub, last }) => (
           <Link key={href} href={href}
-            className="bg-white px-6 py-5 rounded-2xl border border-slate-200 shadow-[0_1px_6px_rgba(15,34,64,0.08)] hover:border-slate-400 hover:shadow-[0_2px_10px_rgba(15,34,64,0.12)] transition-all">
-            <div className="text-4xl font-light text-slate-800 mb-2">{count || 0}</div>
-            <div className="text-sm font-medium text-slate-700">{label}</div>
-            <div className="text-xs text-slate-400 mt-0.5">{sub}</div>
-            {last && <div className="text-[10px] text-slate-400 mt-2 truncate">последен: {last}</div>}
+            className="block bg-white px-5 py-4 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 hover:bg-slate-50/50 transition-colors"
+          >
+            <div className="flex justify-between items-baseline mb-1">
+              <div className="text-sm font-semibold text-slate-600 uppercase tracking-wide">{label}</div>
+              <div className="text-[10px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{sub}</div>
+            </div>
+            <div className="text-3xl font-medium text-slate-800 tracking-tight my-2">{count || 0}</div>
+            <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-2 mt-2">
+              {last ? `Последен запис: ${last}` : 'Няма записи'}
+            </div>
           </Link>
         ))}
       </div>
 
       {/* Последни записи */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
         {/* Последен документ */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
-          <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
-            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Последен документ</span>
-            <Link href="/correspondence" className="text-[10px] text-slate-500 flex items-center gap-0.5 hover:text-slate-800">
-              Всички <ArrowRight size={10} />
+        <div className="bg-white flex flex-col rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Документ</span>
+            <Link href="/correspondence" className="text-[10px] font-medium text-slate-400 flex items-center gap-1 hover:text-slate-700 transition-colors">
+              Към регистъра <ArrowRight size={10} />
             </Link>
           </div>
           {lastCorr?.[0] ? (
-            <div>
-              <div className="font-medium text-slate-800 text-base">{lastCorr[0].number}</div>
-              <div className="text-sm text-slate-600 mt-1 truncate">{lastCorr[0].subject}</div>
-              <div className="flex items-center justify-between mt-3">
-                <span className="text-xs text-slate-400">
+            <div className="flex-1 flex flex-col">
+              <div className="font-mono font-medium text-slate-800 text-sm mb-1.5">{lastCorr[0].number}</div>
+              <div className="text-xs text-slate-600 line-clamp-2 leading-relaxed">{lastCorr[0].subject}</div>
+              <div className="flex items-center justify-between mt-auto pt-3">
+                <span className="text-[11px] text-slate-500">
                   {lastCorr[0].date ? new Date(lastCorr[0].date).toLocaleDateString('bg-BG') : ''}
                 </span>
-                <span className="text-xs text-slate-500 border border-slate-200 px-2 py-0.5 rounded-lg bg-slate-50">
+                <span className="text-[10px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
                   {dirLabel[lastCorr[0].direction] || ''}
                 </span>
               </div>
             </div>
-          ) : <p className="text-sm text-slate-400">Няма записи</p>}
+          ) : <p className="text-xs text-slate-400 m-auto">Няма данни</p>}
         </div>
 
         {/* Последна заповед */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
-          <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
-            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Последна заповед</span>
-            <Link href="/orders" className="text-[10px] text-slate-500 flex items-center gap-0.5 hover:text-slate-800">
-              Всички <ArrowRight size={10} />
+        <div className="bg-white flex flex-col rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Заповед</span>
+            <Link href="/orders" className="text-[10px] font-medium text-slate-400 flex items-center gap-1 hover:text-slate-700 transition-colors">
+              Към регистъра <ArrowRight size={10} />
             </Link>
           </div>
           {lastOrder?.[0] ? (
-            <div>
-              <div className="font-medium text-slate-800 text-base">{lastOrder[0].number}</div>
-              <div className="text-sm text-slate-600 mt-1 truncate">{lastOrder[0].title}</div>
-              <div className="text-xs text-slate-400 mt-3">
+            <div className="flex-1 flex flex-col">
+              <div className="font-mono font-medium text-slate-800 text-sm mb-1.5">{lastOrder[0].number}</div>
+              <div className="text-xs text-slate-600 line-clamp-2 leading-relaxed">{lastOrder[0].title}</div>
+              <div className="mt-auto pt-3 text-[11px] text-slate-500">
                 {lastOrder[0].date ? new Date(lastOrder[0].date).toLocaleDateString('bg-BG') : ''}
               </div>
             </div>
-          ) : <p className="text-sm text-slate-400">Няма записи</p>}
+          ) : <p className="text-xs text-slate-400 m-auto">Няма данни</p>}
         </div>
 
         {/* Последен договор */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
-          <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
-            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Последен договор</span>
-            <Link href="/contracts" className="text-[10px] text-slate-500 flex items-center gap-0.5 hover:text-slate-800">
-              Всички <ArrowRight size={10} />
+        <div className="bg-white flex flex-col rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Договор</span>
+            <Link href="/contracts" className="text-[10px] font-medium text-slate-400 flex items-center gap-1 hover:text-slate-700 transition-colors">
+              Към регистъра <ArrowRight size={10} />
             </Link>
           </div>
           {lastContract?.[0] ? (
-            <div>
-              <div className="font-medium text-slate-800 text-base">{lastContract[0].number}</div>
-              <div className="text-sm text-slate-600 mt-1 truncate">{lastContract[0].subject}</div>
-              <div className="text-xs text-slate-400 mt-1 truncate">{lastContract[0].counterparty}</div>
+            <div className="flex-1 flex flex-col">
+              <div className="font-mono font-medium text-slate-800 text-sm mb-1.5">{lastContract[0].number}</div>
+              <div className="text-xs text-slate-600 line-clamp-2 leading-relaxed">{lastContract[0].subject}</div>
+              <div className="mt-auto pt-3 text-[11px] font-medium text-slate-500 truncate">
+                {lastContract[0].counterparty}
+              </div>
             </div>
-          ) : <p className="text-sm text-slate-400">Няма записи</p>}
+          ) : <p className="text-xs text-slate-400 m-auto">Няма данни</p>}
         </div>
+
       </div>
 
-      {/* Изтичащи договори */}
-      {expiringContracts && expiringContracts.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
-            <AlertTriangle size={14} className="text-slate-500" />
-            <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Изтичащи договори в следващите 30 дни</span>
-          </div>
-          <div className="space-y-2">
-            {expiringContracts.map((c, idx) => {
-              const days = Math.ceil((new Date(c.end_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-              return (
-                <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <div className="min-w-0">
-                    <div className="font-medium text-slate-800 text-sm">{c.number}</div>
-                    <div className="text-xs text-slate-500 truncate mt-0.5">{c.counterparty} — {c.subject}</div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        
+        {/* Изтичащи договори */}
+        {expiringContracts && expiringContracts.length > 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100 bg-slate-50/50 rounded-t-xl">
+              <AlertTriangle size={14} className="text-slate-500" />
+              <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Изтичащи договори (30 дни)</span>
+            </div>
+            <div className="p-2 flex-1">
+              {expiringContracts.map((c, idx) => {
+                const days = Math.ceil((new Date(c.end_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+                return (
+                  <div key={idx} className="flex items-center justify-between px-3 py-2 hover:bg-slate-50 rounded-lg transition-colors border-b border-transparent hover:border-slate-100">
+                    <div className="min-w-0 pr-3">
+                      <div className="font-mono text-xs font-medium text-slate-700">{c.number}</div>
+                      <div className="text-[11px] text-slate-500 truncate mt-0.5">{c.counterparty}</div>
+                    </div>
+                    <span className="text-[10px] font-medium px-2 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 whitespace-nowrap">
+                      {days === 0 ? 'Днес' : days === 1 ? 'Утре' : `${days} дни`}
+                    </span>
                   </div>
-                  <span className="text-xs font-medium px-2.5 py-1 rounded-xl flex-shrink-0 ml-3 border border-slate-200 text-slate-600 bg-white">
-                    {days === 0 ? 'Днес' : days === 1 ? 'Утре' : `${days} дни`}
-                  </span>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Заявления */}
-      <Link href="/reports/enrollments"
-        className="block bg-white rounded-2xl border border-slate-200 p-5 shadow-[0_1px_6px_rgba(15,34,64,0.08)] hover:border-slate-400 transition-all">
-        <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-          <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Справка — Заявления {currentYear}г.</span>
-          <ArrowRight size={14} className="text-slate-400" />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <div className="text-3xl font-light text-slate-800">{enrollments?.length || 0}</div>
-            <div className="text-xs text-slate-500 mt-1">За записване</div>
+        {/* Заявления (Компактен вид) */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50 rounded-t-xl">
+            <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Заявления за прием ({currentYear})</span>
+            <Link href="/reports/enrollments" className="text-[10px] font-medium text-slate-400 flex items-center gap-1 hover:text-slate-700 transition-colors">
+              Справка <ArrowRight size={10} />
+            </Link>
           </div>
-          <div>
-            <div className="text-3xl font-light text-slate-800">{couds?.length || 0}</div>
-            <div className="text-xs text-slate-500 mt-1">За ЦОУД</div>
+          <div className="p-5 flex-1 flex flex-col justify-center">
+            <div className="grid grid-cols-2 gap-4 divide-x divide-slate-100">
+              <div className="pr-4">
+                <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">За записване</div>
+                <div className="text-3xl font-medium text-slate-800 tracking-tight">{enrollments?.length || 0}</div>
+              </div>
+              <div className="pl-4">
+                <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">За ЦОУД</div>
+                <div className="text-3xl font-medium text-slate-800 tracking-tight">{couds?.length || 0}</div>
+              </div>
+            </div>
           </div>
         </div>
-      </Link>
 
+      </div>
     </div>
   )
 }
