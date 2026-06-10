@@ -39,7 +39,7 @@ export default async function SecretaryDashboard({ profile }: any) {
       {/* Статистика — три компактни карти */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          { href: '/correspondence', count: corrCount, label: 'Кореспонденция', sub: `${currentYear} г.`, last: lastCorr?.[0]?.number },
+          { href: '/correspondence', count: corrCount, label: 'РЕГИСТЪР', sub: `${currentYear} г.`, last: lastCorr?.[0]?.number },
           { href: '/orders', count: orderCount, label: 'Заповеди', sub: `${currentYear} г.`, last: lastOrder?.[0]?.number },
           { href: '/contracts', count: contractCount, label: 'Договори', sub: 'общо', last: lastContract?.[0]?.number },
         ].map(({ href, count, label, sub, last }) => (
