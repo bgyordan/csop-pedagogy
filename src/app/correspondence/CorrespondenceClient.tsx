@@ -84,7 +84,7 @@ export default function CorrespondenceClient({
             <button onClick={() => setShowForm(v => !v)}
               className={`flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl border-2 transition-all whitespace-nowrap flex-shrink-0 ${
                 showForm
-                  ? 'bg-slate-100 text-slate-600 border-slate-300'
+                  ? 'bg-slate-100 text-slate-800 border-slate-300'
                   : 'border-[#0f2240] text-[#0f2240] bg-white animate-pulse hover:bg-[#0f2240] hover:text-white hover:[animation:none]'
               }`}>
               <Plus size={14} className={`transition-transform duration-200 ${showForm ? 'rotate-45' : ''}`} />
@@ -108,7 +108,7 @@ export default function CorrespondenceClient({
             ].map(({ key, label }) => (
               <button key={key} onClick={() => handleDirectionFilter(key)}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs transition-all whitespace-nowrap ${
-                  activeDir === key ? 'text-[#0f2240] font-medium' : 'text-slate-400 hover:text-slate-600'
+                  activeDir === key ? 'text-[#0f2240] font-medium' : 'text-slate-400 hover:text-slate-800'
                 }`}>
                 <span className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                   activeDir === key ? 'bg-[#0f2240] border-[#0f2240]' : 'border-slate-300'
@@ -124,7 +124,7 @@ export default function CorrespondenceClient({
             className={`flex items-center p-2 rounded-xl border transition-all flex-shrink-0 ${
               showFilters || activeDir !== 'all'
                 ? 'bg-[#0f2240] text-white border-[#0f2240]'
-                : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-50'
             }`}>
             <SlidersHorizontal size={15} />
           </button>
@@ -175,16 +175,16 @@ export default function CorrespondenceClient({
                       <span className="font-medium text-slate-800 text-xs whitespace-nowrap">{item.number}</span>
                     </td>
                     <td className="px-3 py-3">
-                      <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 border border-slate-200 px-2 py-0.5 rounded-lg bg-slate-50">
+                      <span className="inline-flex items-center gap-1 text-[10px] text-slate-800 border border-slate-200 px-2 py-0.5 rounded-lg bg-slate-50">
                         {cfg.icon}{cfg.label}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-xs text-slate-500 whitespace-nowrap">
+                    <td className="px-3 py-3 text-xs text-slate-800 whitespace-nowrap">
                       {item.date ? new Date(item.date).toLocaleDateString('bg-BG') : '—'}
                     </td>
-                    <td className="px-3 py-3 text-xs text-slate-600 max-w-[140px] truncate">{personLabel || '—'}</td>
+                    <td className="px-3 py-3 text-xs text-slate-800 max-w-[140px] truncate">{personLabel || '—'}</td>
                     <td className="px-3 py-3 max-w-[200px]">
-                      <span className="text-slate-700 text-xs truncate block">{item.subject || '—'}</span>
+                      <span className="text-slate-800 text-xs truncate block">{item.subject || '—'}</span>
                     </td>
                     <td className="px-3 py-3 max-w-[120px]">
                       <span className="text-slate-400 text-xs truncate block">{item.description || '—'}</span>
