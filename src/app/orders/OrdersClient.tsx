@@ -26,12 +26,13 @@ interface Props {
   canEdit: boolean
   currentUserId: string
   students: { id: string; first_name: string; last_name: string }[]
+  staff: { id: string; first_name: string; last_name: string }[]
   nomenclature: NomenclatureItem[]
 }
 
 export default function OrdersClient({
   orders, totalCount, page, pageSize,
-  searchValue, canEdit, currentUserId, students, nomenclature
+  searchValue, canEdit, currentUserId, students, staff, nomenclature
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
@@ -172,6 +173,7 @@ export default function OrdersClient({
         <NewOrderForm
           currentUserId={currentUserId}
           students={students}
+          staff={staff}
           nomenclature={nomenclature}
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); router.refresh() }}
