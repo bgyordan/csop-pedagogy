@@ -18,7 +18,7 @@ export default async function NomenclaturePage() {
 
   const { data: items } = await supabase
   .from('nomenclature_items')
-  .select('id, item_code, name, section_code, retention_years, for_correspondence, for_orders, allowed_directions, default_direction')
+  .select('id, item_code, name, section_code, retention_years, for_correspondence, for_orders, quick_incoming, quick_outgoing, quick_orders')
     .order('section_code')
     .order('item_code')
 
