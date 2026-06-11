@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { X, Upload, FileText, Loader2, ChevronDown } from 'lucide-react'
 
-const QUICK_ORDER_CODES = ['РД-08', 'РД-09', 'УВД-22', 'УВД-23']
-
 const TITLE_SUGGESTIONS = [
   'Заповед за назначаване',
   'Заповед за освобождаване',
@@ -21,6 +19,7 @@ const TITLE_SUGGESTIONS = [
 
 interface NomenclatureItem {
   id: string; section_code: string; item_code: string; name: string; retention_years: string
+  quick_orders?: boolean
 }
 
 interface Props {
@@ -147,7 +146,7 @@ export default function NewOrderForm({ currentUserId, students, nomenclature, on
             <div>
               <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">Архивен индекс</label>
               <div className="flex flex-wrap gap-1.5 mb-2">
-                {QUICK_ORDER_CODES.map(code => {
+                {nomenclature.filter(n => n.quick_orders).map(n => n.item_code).map(code => {
                   const item = nomenclature.find(n => n.item_code === code)
                   if (!item) return null
                   return (
