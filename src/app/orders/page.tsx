@@ -29,18 +29,19 @@ export default async function OrdersPage({
     .range(from, to)
   if (q) query = query.or(`number.ilike.%${q}%,title.ilike.%${q}%`)
   const { data: orders, count } = await query
-  const [{ data: students }, { data: nomenclature }] = await Promise.all([
+  const [{ data: students }, { data: staff }, { data: nomenclature }] = await Promise.all([
     supabase.from('students').select('id, first_name, last_name').eq('status', 'active').order('last_name'),
+    supabase.from('staff_profiles').select('id, first_name, last_name').eq('is_active', true).order('last_name'),
     supabase.from('nomenclature_items').select('*').eq('for_orders', true).order('section_code').order('item_code'),
   ])
   return (
     <div className="p-4 md:p-8">
       <BackButton />
       <div className="mb-6">
-  <div className="w-full flex items-center px-6 py-3 rounded-2xl bg-white border border-slate-200 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
-    <span className="text-sm font-semibold text-slate-700 tracking-wide">РЕГИСТЪР ЗАПОВЕДИ</span>
-  </div>
-</div>
+        <div className="w-full flex items-center px-6 py-3 rounded-2xl bg-white border border-slate-200 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
+          <span className="text-sm font-medium text-slate-700 tracking-wide">Регистър заповеди</span>
+        </div>
+      </div>
       <OrdersClient
         orders={orders || []}
         totalCount={count || 0}
@@ -50,6 +51,7 @@ export default async function OrdersPage({
         canEdit={canEdit}
         currentUserId={profile?.id || ''}
         students={students || []}
+        staff={staff || []}
         nomenclature={nomenclature || []}
       />
     </div>
