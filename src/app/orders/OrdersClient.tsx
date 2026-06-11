@@ -167,7 +167,7 @@ export default function OrdersClient({
       )}
 
       {viewItem && <ViewOrderModal item={viewItem} onClose={() => setViewItem(null)} />}
-      {editItem && <EditOrderModal item={editItem} onClose={() => setEditItem(null)} />}
+      {editItem && <EditOrderModal item={editItem} nomenclature={nomenclature} onClose={() => setEditItem(null)} />}
 
       {showForm && (
         <NewOrderForm
