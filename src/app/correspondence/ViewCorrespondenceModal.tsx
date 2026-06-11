@@ -77,14 +77,16 @@ export default function ViewCorrespondenceModal({ item, students, staff, onClose
   async function handleIssueOrder() {
     setIssuingOrder(true)
     const today = new Date().toISOString().split('T')[0]
-    const { count } = await supabase.from('orders').select('id', { count: 'exact', head: true })
-    const nextNum = String((count || 0) + 1).padStart(3, '0')
-    const formattedDate = today.split('-').reverse().join('.')
-    const orderNumber = `РД-09-${nextNum}/${formattedDate}г.`
+    const currentYear = new Date().getFullYear()
+const { count } = await supabase.from('orders').select('id', { count: 'exact', head: true })
+  .gte('date', `${currentYear}-01-01`).lte('date', `${currentYear}-12-31`)
+const nextNum = String((count || 0) + 1).padStart(3, '0')
+const formattedDate = today.split('-').reverse().join('.')
+const orderNumber = `${nextNum}/${formattedDate}г.`
     const orderTitle = `Заповед за отпуск на ${item.from_whom || ''}`
     const { data: profile } = await supabase.from('staff_profiles').select('id').eq('user_id', (await supabase.auth.getUser()).data.user?.id!).single()
     const { error } = await supabase.from('orders').insert({
-      number: orderNumber, date: today, title: orderTitle,
+      number: orderNumber, date: today, title: orderTitle, nomenclature_item: 'РД-09',
       description: `Издадена въз основа на Вх. ${item.number}`,
       file_url: item.file_url || null,
       file_name: item.file_name || null,
