@@ -1,14 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { X, Upload, FileText, Loader2, ChevronDown } from 'lucide-react'
+import { X, Upload, FileText, Loader2, ChevronDown, Zap, User } from 'lucide-react'
 
 const TITLE_SUGGESTIONS = [
+  'Заповед за отпуск',
   'Заповед за назначаване',
   'Заповед за освобождаване',
-  'Заповед за отпуск',
   'Заповед за командировка',
   'Заповед за насочване на ученик',
   'Заповед за ЕПЛР екип',
@@ -16,6 +16,20 @@ const TITLE_SUGGESTIONS = [
   'Заповед за вътрешно съвместителство',
   'Заповед за допълнително възнаграждение',
 ]
+
+const QUICK_SCENARIOS: Record<string, {
+  label: string
+  index: string
+  titleTemplate: string
+  needsStaff?: boolean
+}> = {
+  vacation: {
+    label: 'Отпуск',
+    index: 'РД-08',
+    titleTemplate: 'Заповед за отпуск на {name}',
+    needsStaff: true,
+  },
+}
 
 interface NomenclatureItem {
   id: string; section_code: string; item_code: string; name: string; retention_years: string
@@ -25,21 +39,25 @@ interface NomenclatureItem {
 interface Props {
   currentUserId: string
   students: { id: string; first_name: string; last_name: string }[]
+  staff: { id: string; first_name: string; last_name: string }[]
   nomenclature: NomenclatureItem[]
   onClose: () => void
   onSaved: () => void
 }
 
-export default function NewOrderForm({ currentUserId, students, nomenclature, onClose, onSaved }: Props) {
+export default function NewOrderForm({ currentUserId, students, staff, nomenclature, onClose, onSaved }: Props) {
   const router = useRouter()
   const supabase = createClient()
+  const descRef = useRef<HTMLTextAreaElement>(null)
 
   const [saving, setSaving] = useState(false)
   const [saveAction, setSaveAction] = useState<'save_close' | 'save_new'>('save_close')
+  const [scenario, setScenario] = useState<string | null>(null)
   const [orderTypeCode, setOrderTypeCode] = useState('')
   const [showAllItems, setShowAllItems] = useState(false)
   const [itemSearch, setItemSearch] = useState('')
   const [title, setTitle] = useState('')
+  const [staffId, setStaffId] = useState('')
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0])
   const [description, setDescription] = useState('')
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
@@ -52,6 +70,13 @@ export default function NewOrderForm({ currentUserId, students, nomenclature, on
       .gte('date', `${currentYear}-01-01`).lte('date', `${currentYear}-12-31`)
       .then(({ count }) => setNextCount(count || 0))
   }, [])
+
+  useEffect(() => {
+    if (descRef.current) {
+      descRef.current.style.height = 'auto'
+      descRef.current.style.height = descRef.current.scrollHeight + 'px'
+    }
+  }, [description])
 
   const nextNum = nextCount !== null ? String(nextCount + 1).padStart(3, '0') : '???'
   const previewNumber = `${nextNum}/${orderDate.split('-').reverse().join('.')}г.`
@@ -66,12 +91,39 @@ export default function NewOrderForm({ currentUserId, students, nomenclature, on
   }, {} as Record<string, NomenclatureItem[]>)
 
   const selectedItem = nomenclature.find(i => i.item_code === orderTypeCode)
+  const activeScenario = scenario ? QUICK_SCENARIOS[scenario] : null
+  const quickCodes = nomenclature.filter(n => n.quick_orders).map(n => n.item_code)
+
+  function selectScenario(key: string) {
+    if (scenario === key) {
+      setScenario(null)
+      setOrderTypeCode('')
+      setTitle('')
+      setStaffId('')
+      return
+    }
+    const s = QUICK_SCENARIOS[key]
+    setScenario(key)
+    setOrderTypeCode(s.index)
+    setTitle('')
+    setStaffId('')
+  }
+
+  function handleStaffSelect(id: string) {
+    setStaffId(id)
+    const s = staff.find(x => x.id === id)
+    if (s && activeScenario) {
+      setTitle(activeScenario.titleTemplate.replace('{name}', `${s.first_name} ${s.last_name}`))
+    }
+  }
 
   function resetForm() {
+    setScenario(null)
     setOrderTypeCode('')
     setShowAllItems(false)
     setItemSearch('')
     setTitle('')
+    setStaffId('')
     setOrderDate(new Date().toISOString().split('T')[0])
     setDescription('')
     setUploadedFile(null)
@@ -135,6 +187,26 @@ export default function NewOrderForm({ currentUserId, students, nomenclature, on
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
 
+            {/* Бързо регистриране */}
+            <div>
+              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                <Zap size={11} /> Бързо регистриране
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(QUICK_SCENARIOS).map(([key, s]) => (
+                  <button key={key} type="button" onClick={() => selectScenario(key)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                      scenario === key
+                        ? 'bg-[#0f2240] text-white border-[#0f2240]'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    }`}>
+                    <User size={12} />
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Дата */}
             <div>
               <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">Дата на издаване *</label>
@@ -142,67 +214,23 @@ export default function NewOrderForm({ currentUserId, students, nomenclature, on
                 required className="input w-44 text-xs" />
             </div>
 
-            {/* Архивен индекс */}
-            <div>
-              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">Архивен индекс</label>
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {nomenclature.filter(n => n.quick_orders).map(n => n.item_code).map(code => {
-                  const item = nomenclature.find(n => n.item_code === code)
-                  if (!item) return null
-                  return (
-                    <button key={code} type="button"
-                      onClick={() => { setOrderTypeCode(code); setShowAllItems(false) }}
-                      title={item.name}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
-                        orderTypeCode === code
-                          ? 'bg-[#0f2240] text-white border-[#0f2240]'
-                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                      }`}>
-                      {code}
-                    </button>
-                  )
-                })}
-                <button type="button" onClick={() => setShowAllItems(!showAllItems)}
-                  className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${showAllItems ? 'bg-slate-200 border-slate-300 text-slate-700' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>
-                  <ChevronDown size={12} className={`transition-transform ${showAllItems ? 'rotate-180' : ''}`} />
-                  Всички...
-                </button>
+            {/* Избор на служител при сценарий */}
+            {activeScenario?.needsStaff && (
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                  <User size={11} /> Служител *
+                </label>
+                <select value={staffId} onChange={e => handleStaffSelect(e.target.value)} required className="input w-full">
+                  <option value="">— Избери служител —</option>
+                  {staff.sort((a,b) => a.first_name.localeCompare(b.first_name, 'bg')).map(s => (
+                    <option key={s.id} value={s.id}>{s.first_name} {s.last_name}</option>
+                  ))}
+                </select>
+                {title && <div className="text-xs text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2">{title}</div>}
               </div>
+            )}
 
-              {showAllItems && (
-                <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2 mb-2">
-                  <input autoFocus placeholder="Търси по код или наименование..."
-                    value={itemSearch} onChange={e => setItemSearch(e.target.value)}
-                    className="input w-full text-xs" />
-                  <div className="max-h-36 overflow-y-auto space-y-2">
-                    {Object.entries(filteredBySection).map(([section, items]) => (
-                      <div key={section}>
-                        <div className="text-[10px] font-medium text-slate-400 uppercase px-2 mb-1">{section}</div>
-                        {items.map(item => (
-                          <button key={item.item_code} type="button"
-                            onClick={() => { setOrderTypeCode(item.item_code); setShowAllItems(false); setItemSearch('') }}
-                            className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors ${
-                              orderTypeCode === item.item_code ? 'bg-[#0f2240] text-white' : 'hover:bg-white text-slate-700'
-                            }`}>
-                            <span className="font-medium">{item.item_code}</span>
-                            <span className="ml-2 opacity-70">{item.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {selectedItem && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
-                  <span className="font-medium text-[#0f2240] flex-shrink-0">{orderTypeCode}</span>
-                  <span className="text-slate-500 truncate">{selectedItem.name}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Заглавие */}
+            {/* Относно */}
             <div>
               <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">Относно / Заглавие *</label>
               <input type="text" list="title-list" required value={title}
@@ -215,9 +243,83 @@ export default function NewOrderForm({ currentUserId, students, nomenclature, on
             </div>
 
             {/* Бележки */}
-            <textarea rows={2} value={description} onChange={e => setDescription(e.target.value)}
+            <textarea ref={descRef} rows={1} value={description} onChange={e => setDescription(e.target.value)}
               placeholder="Допълнителна информация..."
-              className="input w-full resize-none" />
+              className="input w-full resize-none overflow-hidden" />
+
+            {/* Архивен индекс — долу */}
+            <div className="pt-2 border-t border-slate-100">
+              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">
+                Архивен индекс {activeScenario && <span className="text-slate-300 normal-case">(зададен автоматично)</span>}
+              </label>
+
+              {activeScenario ? (
+                selectedItem && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs w-fit">
+                    <span className="font-medium text-[#0f2240]">{orderTypeCode}</span>
+                    <span className="text-slate-500 truncate">{selectedItem.name}</span>
+                  </div>
+                )
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {quickCodes.map(code => {
+                      const item = nomenclature.find(n => n.item_code === code)
+                      if (!item) return null
+                      return (
+                        <button key={code} type="button"
+                          onClick={() => setOrderTypeCode(orderTypeCode === code ? '' : code)}
+                          title={item.name}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                            orderTypeCode === code
+                              ? 'bg-[#0f2240] text-white border-[#0f2240]'
+                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                          }`}>
+                          {code}
+                        </button>
+                      )
+                    })}
+                    <button type="button" onClick={() => setShowAllItems(!showAllItems)}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${showAllItems ? 'bg-slate-200 border-slate-300' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>
+                      <ChevronDown size={12} className={`transition-transform ${showAllItems ? 'rotate-180' : ''}`} />
+                      Всички...
+                    </button>
+                  </div>
+
+                  {showAllItems && (
+                    <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2 mb-2">
+                      <input autoFocus placeholder="Търси по код или наименование..."
+                        value={itemSearch} onChange={e => setItemSearch(e.target.value)}
+                        className="input w-full text-xs" />
+                      <div className="max-h-36 overflow-y-auto space-y-2">
+                        {Object.entries(filteredBySection).map(([section, items]) => (
+                          <div key={section}>
+                            <div className="text-[10px] font-medium text-slate-400 uppercase px-2 mb-1">{section}</div>
+                            {items.map(item => (
+                              <button key={item.item_code} type="button"
+                                onClick={() => { setOrderTypeCode(item.item_code); setShowAllItems(false); setItemSearch('') }}
+                                className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                                  orderTypeCode === item.item_code ? 'bg-[#0f2240] text-white' : 'hover:bg-white text-slate-700'
+                                }`}>
+                                <span className="font-medium">{item.item_code}</span>
+                                <span className="ml-2 opacity-70">{item.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedItem && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs w-fit">
+                      <span className="font-medium text-[#0f2240]">{orderTypeCode}</span>
+                      <span className="text-slate-500 truncate">{selectedItem.name}</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
 
             {/* Файл */}
             {uploadedFile ? (
