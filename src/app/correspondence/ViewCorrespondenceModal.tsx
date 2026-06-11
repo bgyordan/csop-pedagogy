@@ -86,7 +86,7 @@ const orderNumber = `${nextNum}/${formattedDate}г.`
     const orderTitle = `Заповед за отпуск на ${item.from_whom || ''}`
     const { data: profile } = await supabase.from('staff_profiles').select('id').eq('user_id', (await supabase.auth.getUser()).data.user?.id!).single()
     const { error } = await supabase.from('orders').insert({
-      number: orderNumber, date: today, title: orderTitle, nomenclature_item: 'РД-09',
+      number: orderNumber, date: today, title: orderTitle, nomenclature_item: 'РД-08',
       description: `Издадена въз основа на Вх. ${item.number}`,
       file_url: item.file_url || null,
       file_name: item.file_name || null,
@@ -188,7 +188,7 @@ const orderNumber = `${nextNum}/${formattedDate}г.`
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-xs font-bold text-orange-800">Необходима е заповед за отпуск</div>
-                    <div className="text-[11px] text-orange-600 mt-0.5">Ще се регистрира РД-09 автоматично</div>
+                    <div className="text-[11px] text-orange-600 mt-0.5">Ще се регистрира РД-08 автоматично</div>
                   </div>
                   <button type="button" onClick={handleIssueOrder} disabled={issuingOrder}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-sm disabled:opacity-60 whitespace-nowrap"
