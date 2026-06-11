@@ -3,12 +3,19 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { X, Upload, FileText, Loader2, User, GraduationCap, ChevronDown, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
+import { X, Upload, FileText, Loader2, User, GraduationCap, ChevronDown, ArrowDownLeft, ArrowUpRight, Zap } from 'lucide-react'
 
-const SMART_CODES: Record<string, { type: 'staff' | 'student'; template: string }> = {
-  'ЛС-02': { type: 'staff', template: 'Заявление за отпуск' },
-  'УВД-09': { type: 'student', template: 'Заявление за прием на {name}' },
-  'УВД-12': { type: 'student', template: 'Молба за ЦОУД на {name}' },
+// Бързи сценарии
+const QUICK_SCENARIOS: Record<string, {
+  label: string
+  icon: 'staff' | 'student'
+  index: string
+  template: string
+  directions: ('incoming' | 'outgoing')[]
+}> = {
+  vacation: { label: 'Отпуск', icon: 'staff', index: 'ЛС-02', template: 'Заявление за отпуск', directions: ['incoming'] },
+  enrollment: { label: 'Прием на ученик', icon: 'student', index: 'УВД-09', template: 'Заявление за прием на {name}', directions: ['incoming'] },
+  coud: { label: 'ЦОУД', icon: 'student', index: 'УВД-12', template: 'Молба за ЦОУД на {name}', directions: ['incoming'] },
 }
 
 const EXTERNAL_SUGGESTIONS = [
@@ -26,8 +33,8 @@ interface NomenclatureItem {
   item_code: string
   name: string
   retention_years: string
-  default_direction?: string | null
-  allowed_directions?: string | null
+  quick_incoming?: boolean
+  quick_outgoing?: boolean
 }
 
 interface Props {
@@ -50,6 +57,7 @@ export default function NewCorrespondenceForm({
 
   const [saving, setSaving] = useState(false)
   const [saveAction, setSaveAction] = useState<'save_close' | 'save_new'>('save_close')
+  const [scenario, setScenario] = useState<string | null>(null)
   const [folderIndex, setFolderIndex] = useState('')
   const [docDate, setDocDate] = useState(new Date().toISOString().split('T')[0])
   const [fromWhom, setFromWhom] = useState('')
@@ -63,10 +71,9 @@ export default function NewCorrespondenceForm({
   const [showAllNom, setShowAllNom] = useState(false)
 
   const currentYear = new Date().getFullYear()
-  const smartCode = folderIndex ? SMART_CODES[folderIndex] : null
+  const activeScenario = scenario ? QUICK_SCENARIOS[scenario] : null
   const selectedNomItem = nomenclature.find(n => n.item_code === folderIndex)
 
-  // Номер преглед — само цифри + дата
   const nextNum = String(totalCount + 1).padStart(3, '0')
   const nextNumPreview = `${nextNum}/${docDate.split('-').reverse().join('.')}г.`
 
@@ -89,26 +96,42 @@ export default function NewCorrespondenceForm({
     return acc
   }, {} as Record<string, NomenclatureItem[]>)
 
-  const quickCodes = direction === 'incoming'
-    ? ['УВД-09', 'УВД-12', 'УВД-07', 'УВД-08', 'АСД-02', 'ЛС-02']
-    : ['АСД-02', 'УВД-07', 'УВД-08', 'РД-06', 'РД-21']
+  // Бързи индекси от настройките
+  const quickCodes = nomenclature
+    .filter(n => direction === 'incoming' ? n.quick_incoming : n.quick_outgoing)
+    .map(n => n.item_code)
 
-  async function selectNomCode(code: string) {
-    setFolderIndex(code)
-    setShowAllNom(false)
-    setNomSearch('')
-    setStudentId('')
-    setStaffId('')
+  // Сценарии валидни за тази посока
+  const availableScenarios = Object.entries(QUICK_SCENARIOS)
+    .filter(([_, s]) => s.directions.includes(direction))
+
+  function selectScenario(key: string) {
+    if (scenario === key) {
+      // Изключване
+      setScenario(null)
+      setFolderIndex('')
+      setSubject('')
+      setFromWhom('')
+      setToWhom('')
+      setStudentId('')
+      setStaffId('')
+      return
+    }
+    const s = QUICK_SCENARIOS[key]
+    setScenario(key)
+    setFolderIndex(s.index)
     setSubject('')
     setFromWhom('')
     setToWhom('')
+    setStudentId('')
+    setStaffId('')
   }
 
   function handleStaffSelect(id: string) {
     setStaffId(id)
     const s = staff.find(x => x.id === id)
-    if (s && smartCode) {
-      setSubject(smartCode.template)
+    if (s && activeScenario) {
+      setSubject(activeScenario.template)
       setFromWhom(`${s.first_name} ${s.last_name}`)
     }
   }
@@ -116,9 +139,8 @@ export default function NewCorrespondenceForm({
   function handleStudentSelect(id: string) {
     setStudentId(id)
     const s = students.find(x => x.id === id)
-    if (s && smartCode) {
-      setSubject(smartCode.template.replace('{name}', `${s.first_name} ${s.last_name}`))
-      setToWhom('Директор ЦСОП Варна')
+    if (s && activeScenario) {
+      setSubject(activeScenario.template.replace('{name}', `${s.first_name} ${s.last_name}`))
     }
   }
 
@@ -127,7 +149,6 @@ export default function NewCorrespondenceForm({
     if (!subject) { alert('Моля попълнете темата.'); return }
     setSaving(true)
 
-    // Броим само документи от същия регистър за годината
     const { count } = await supabase.from('correspondence')
       .select('id', { count: 'exact', head: true })
       .eq('direction', direction)
@@ -157,6 +178,7 @@ export default function NewCorrespondenceForm({
       file_url: fileUrl || null,
       file_name: fileName || null,
       student_id: studentId || null,
+      staff_id: staffId || null,
       created_by: currentUserId,
       status: 'active',
     })
@@ -165,7 +187,7 @@ export default function NewCorrespondenceForm({
     setSaving(false)
     router.refresh()
     if (saveAction === 'save_new') {
-      setFolderIndex('')
+      setScenario(null); setFolderIndex('')
       setDocDate(new Date().toISOString().split('T')[0])
       setFromWhom(''); setToWhom(''); setSubject(''); setDescription('')
       setStudentId(''); setStaffId(''); setUploadedFile(null)
@@ -198,71 +220,36 @@ export default function NewCorrespondenceForm({
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
 
+            {/* Бързо регистриране */}
+            {availableScenarios.length > 0 && (
+              <div>
+                <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                  <Zap size={11} /> Бързо регистриране
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {availableScenarios.map(([key, s]) => (
+                    <button key={key} type="button" onClick={() => selectScenario(key)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                        scenario === key
+                          ? 'bg-[#0f2240] text-white border-[#0f2240]'
+                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      }`}>
+                      {s.icon === 'staff' ? <User size={12} /> : <GraduationCap size={12} />}
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Дата */}
             <div>
               <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">Дата *</label>
               <input type="date" value={docDate} onChange={e => setDocDate(e.target.value)} required className="input w-44 text-xs" />
             </div>
 
-            {/* Номенклатура */}
-            <div>
-              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">
-                Архивен индекс
-              </label>
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {quickCodes.map(code => {
-                  const item = nomenclature.find(n => n.item_code === code)
-                  if (!item) return null
-                  return (
-                    <button key={code} type="button" onClick={() => selectNomCode(code)} title={item.name}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
-                        folderIndex === code ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                      }`}>
-                      {code}
-                    </button>
-                  )
-                })}
-                <button type="button" onClick={() => setShowAllNom(!showAllNom)}
-                  className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${showAllNom ? 'bg-slate-200 border-slate-300' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>
-                  <ChevronDown size={12} className={`transition-transform ${showAllNom ? 'rotate-180' : ''}`} />
-                  Всички...
-                </button>
-              </div>
-
-              {showAllNom && (
-                <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2 mb-2">
-                  <input autoFocus placeholder="Търси по код или наименование..."
-                    value={nomSearch} onChange={e => setNomSearch(e.target.value)}
-                    className="input w-full text-xs" />
-                  <div className="max-h-36 overflow-y-auto space-y-2">
-                    {Object.entries(nomBySection).map(([section, items]) => (
-                      <div key={section}>
-                        <div className="text-[10px] font-medium text-slate-400 uppercase px-2 mb-1">{section}</div>
-                        {items.map(item => (
-                          <button key={item.item_code} type="button" onClick={() => selectNomCode(item.item_code)}
-                            className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors ${
-                              folderIndex === item.item_code ? 'bg-[#0f2240] text-white' : 'hover:bg-white text-slate-700'
-                            }`}>
-                            <span className="font-medium">{item.item_code}</span>
-                            <span className="ml-2 opacity-70">{item.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {selectedNomItem && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
-                  <span className="font-medium text-[#0f2240] flex-shrink-0">{folderIndex}</span>
-                  <span className="text-slate-500 truncate">{selectedNomItem.name}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Умни полета */}
-            {smartCode?.type === 'staff' && (
+            {/* Сценарий: служител */}
+            {activeScenario?.icon === 'staff' && (
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
                 <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1">
                   <User size={11} /> Служител *
@@ -277,7 +264,8 @@ export default function NewCorrespondenceForm({
               </div>
             )}
 
-            {smartCode?.type === 'student' && (
+            {/* Сценарий: ученик */}
+            {activeScenario?.icon === 'student' && (
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
                 <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1">
                   <GraduationCap size={11} /> Ученик *
@@ -297,16 +285,15 @@ export default function NewCorrespondenceForm({
             )}
 
             {/* Стандартни полета */}
-            {!smartCode && (
+            {!activeScenario && (
               <div className="space-y-3">
-                {direction === 'incoming' && (
+                {direction === 'incoming' ? (
                   <>
                     <input type="text" list="from-list" value={fromWhom} onChange={e => setFromWhom(e.target.value)}
                       required placeholder="От кого *" className="input w-full" />
                     <datalist id="from-list">{EXTERNAL_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
                   </>
-                )}
-                {direction === 'outgoing' && (
+                ) : (
                   <>
                     <input type="text" list="to-list" value={toWhom} onChange={e => setToWhom(e.target.value)}
                       required placeholder="До кого *" className="input w-full" />
@@ -318,16 +305,87 @@ export default function NewCorrespondenceForm({
               </div>
             )}
 
-            {smartCode && !subject && (
+            {activeScenario && !subject && (
               <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
                 required placeholder="Тема / Относно *" className="input w-full" />
             )}
 
-            {/* Бележки и файл */}
+            {/* Бележки */}
             <textarea ref={descRef} rows={1} value={description} onChange={e => setDescription(e.target.value)}
               placeholder="Допълнителна информация..."
               className="input w-full resize-none overflow-hidden" />
 
+            {/* Архивен индекс — в дъното */}
+            <div className="pt-2 border-t border-slate-100">
+              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">
+                Архивен индекс {activeScenario && <span className="text-slate-300 normal-case">(зададен автоматично)</span>}
+              </label>
+
+              {activeScenario ? (
+                selectedNomItem && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs w-fit">
+                    <span className="font-medium text-[#0f2240]">{folderIndex}</span>
+                    <span className="text-slate-500 truncate">{selectedNomItem.name}</span>
+                  </div>
+                )
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {quickCodes.map(code => {
+                      const item = nomenclature.find(n => n.item_code === code)
+                      if (!item) return null
+                      return (
+                        <button key={code} type="button" onClick={() => setFolderIndex(folderIndex === code ? '' : code)} title={item.name}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                            folderIndex === code ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                          }`}>
+                          {code}
+                        </button>
+                      )
+                    })}
+                    <button type="button" onClick={() => setShowAllNom(!showAllNom)}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${showAllNom ? 'bg-slate-200 border-slate-300' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>
+                      <ChevronDown size={12} className={`transition-transform ${showAllNom ? 'rotate-180' : ''}`} />
+                      Всички...
+                    </button>
+                  </div>
+
+                  {showAllNom && (
+                    <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2 mb-2">
+                      <input autoFocus placeholder="Търси по код или наименование..."
+                        value={nomSearch} onChange={e => setNomSearch(e.target.value)}
+                        className="input w-full text-xs" />
+                      <div className="max-h-36 overflow-y-auto space-y-2">
+                        {Object.entries(nomBySection).map(([section, items]) => (
+                          <div key={section}>
+                            <div className="text-[10px] font-medium text-slate-400 uppercase px-2 mb-1">{section}</div>
+                            {items.map(item => (
+                              <button key={item.item_code} type="button"
+                                onClick={() => { setFolderIndex(item.item_code); setShowAllNom(false); setNomSearch('') }}
+                                className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                                  folderIndex === item.item_code ? 'bg-[#0f2240] text-white' : 'hover:bg-white text-slate-700'
+                                }`}>
+                                <span className="font-medium">{item.item_code}</span>
+                                <span className="ml-2 opacity-70">{item.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedNomItem && !activeScenario && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs w-fit">
+                      <span className="font-medium text-[#0f2240]">{folderIndex}</span>
+                      <span className="text-slate-500 truncate">{selectedNomItem.name}</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Файл */}
             {uploadedFile ? (
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
                 <FileText size={16} className="text-slate-500 flex-shrink-0" />
