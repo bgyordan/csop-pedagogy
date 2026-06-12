@@ -50,8 +50,11 @@ export default async function SecretaryDashboard({ profile }: any) {
           </div>
           <div className="text-3xl font-medium text-slate-800 tracking-tight my-2">{incomingCount || 0}</div>
           <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-2 mt-2 truncate">
-            {lastIncoming?.[0] ? `Последен: ${lastIncoming[0].number}` : 'Няма записи'}
+            {lastIncoming?.[0] ? lastIncoming[0].number : 'Няма записи'}
           </div>
+          {lastIncoming?.[0]?.subject && (
+            <div className="text-[11px] text-slate-500 truncate mt-0.5">{lastIncoming[0].subject}</div>
+          )}
         </Link>
 
         <Link href="/correspondence?direction=outgoing"
@@ -64,8 +67,11 @@ export default async function SecretaryDashboard({ profile }: any) {
           </div>
           <div className="text-3xl font-medium text-slate-800 tracking-tight my-2">{outgoingCount || 0}</div>
           <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-2 mt-2 truncate">
-            {lastOutgoing?.[0] ? `Последен: ${lastOutgoing[0].number}` : 'Няма записи'}
+            {lastOutgoing?.[0] ? lastOutgoing[0].number : 'Няма записи'}
           </div>
+          {lastOutgoing?.[0]?.subject && (
+            <div className="text-[11px] text-slate-500 truncate mt-0.5">{lastOutgoing[0].subject}</div>
+          )}
         </Link>
 
         <Link href="/orders"
@@ -76,8 +82,11 @@ export default async function SecretaryDashboard({ profile }: any) {
           </div>
           <div className="text-3xl font-medium text-slate-800 tracking-tight my-2">{orderCount || 0}</div>
           <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-2 mt-2 truncate">
-            {lastOrder?.[0] ? `Последна: ${lastOrder[0].number}` : 'Няма записи'}
+            {lastOrder?.[0] ? lastOrder[0].number : 'Няма записи'}
           </div>
+          {lastOrder?.[0]?.title && (
+            <div className="text-[11px] text-slate-500 truncate mt-0.5">{lastOrder[0].title}</div>
+          )}
         </Link>
 
         <Link href="/contracts"
@@ -88,88 +97,15 @@ export default async function SecretaryDashboard({ profile }: any) {
           </div>
           <div className="text-3xl font-medium text-slate-800 tracking-tight my-2">{contractCount || 0}</div>
           <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-2 mt-2 truncate">
-            {lastContract?.[0] ? `Последен: ${lastContract[0].number}` : 'Няма записи'}
+            {lastContract?.[0] ? lastContract[0].number : 'Няма записи'}
           </div>
+          {lastContract?.[0]?.counterparty && (
+            <div className="text-[11px] text-slate-500 truncate mt-0.5">{lastContract[0].counterparty}</div>
+          )}
         </Link>
       </div>
 
-      {/* Последни записи */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
 
-        <div className="bg-white flex flex-col rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-              <ArrowDownLeft size={12} /> Последен входящ
-            </span>
-            <Link href="/correspondence?direction=incoming" className="text-[10px] text-slate-400 flex items-center gap-1 hover:text-slate-700">
-              <ArrowRight size={10} />
-            </Link>
-          </div>
-          {lastIncoming?.[0] ? (
-            <div className="flex-1 flex flex-col">
-              <div className="font-medium text-slate-800 text-sm mb-1.5">{lastIncoming[0].number}</div>
-              <div className="text-xs text-slate-600 line-clamp-2">{lastIncoming[0].subject}</div>
-              <div className="mt-auto pt-3 text-[11px] text-slate-400">
-                {lastIncoming[0].date ? new Date(lastIncoming[0].date).toLocaleDateString('bg-BG') : ''}
-              </div>
-            </div>
-          ) : <p className="text-xs text-slate-400 m-auto">Няма данни</p>}
-        </div>
-
-        <div className="bg-white flex flex-col rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-              <ArrowUpRight size={12} /> Последен изходящ
-            </span>
-            <Link href="/correspondence?direction=outgoing" className="text-[10px] text-slate-400 flex items-center gap-1 hover:text-slate-700">
-              <ArrowRight size={10} />
-            </Link>
-          </div>
-          {lastOutgoing?.[0] ? (
-            <div className="flex-1 flex flex-col">
-              <div className="font-medium text-slate-800 text-sm mb-1.5">{lastOutgoing[0].number}</div>
-              <div className="text-xs text-slate-600 line-clamp-2">{lastOutgoing[0].subject}</div>
-              <div className="mt-auto pt-3 text-[11px] text-slate-400">
-                {lastOutgoing[0].date ? new Date(lastOutgoing[0].date).toLocaleDateString('bg-BG') : ''}
-              </div>
-            </div>
-          ) : <p className="text-xs text-slate-400 m-auto">Няма данни</p>}
-        </div>
-
-        <div className="bg-white flex flex-col rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Последна заповед</span>
-            <Link href="/orders" className="text-[10px] text-slate-400 flex items-center gap-1 hover:text-slate-700">
-              <ArrowRight size={10} />
-            </Link>
-          </div>
-          {lastOrder?.[0] ? (
-            <div className="flex-1 flex flex-col">
-              <div className="font-medium text-slate-800 text-sm mb-1.5">{lastOrder[0].number}</div>
-              <div className="text-xs text-slate-600 line-clamp-2">{lastOrder[0].title}</div>
-              <div className="mt-auto pt-3 text-[11px] text-slate-400">
-                {lastOrder[0].date ? new Date(lastOrder[0].date).toLocaleDateString('bg-BG') : ''}
-              </div>
-            </div>
-          ) : <p className="text-xs text-slate-400 m-auto">Няма данни</p>}
-        </div>
-
-        <div className="bg-white flex flex-col rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Последен договор</span>
-            <Link href="/contracts" className="text-[10px] text-slate-400 flex items-center gap-1 hover:text-slate-700">
-              <ArrowRight size={10} />
-            </Link>
-          </div>
-          {lastContract?.[0] ? (
-            <div className="flex-1 flex flex-col">
-              <div className="font-medium text-slate-800 text-sm mb-1.5">{lastContract[0].number}</div>
-              <div className="text-xs text-slate-600 line-clamp-2">{lastContract[0].subject}</div>
-              <div className="mt-auto pt-3 text-[11px] text-slate-400 truncate">{lastContract[0].counterparty}</div>
-            </div>
-          ) : <p className="text-xs text-slate-400 m-auto">Няма данни</p>}
-        </div>
-      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
