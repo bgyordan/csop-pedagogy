@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Check } from 'lucide-react'
+import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Check, Heart } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
 import { DOCUMENT_TYPE_LABELS, DocumentType, STATUS_LABELS, DocumentStatus } from '@/types'
 import { AttachmentsSection } from './AttachmentsSection'
@@ -17,6 +17,16 @@ const ATTACHMENT_TYPE_LABELS: Record<string, string> = {
   rcpppo_assessment: 'Оценка от РЦПППО',
   medical_expertise: 'Медицинска експертиза',
   other: 'Друг документ',
+}
+
+const RELATION_LABELS: Record<string, string> = {
+  'майка': 'Майка',
+  'баща': 'Баща',
+  'настойник': 'Настойник',
+  'баба': 'Баба',
+  'дядо': 'Дядо',
+  'приемен родител': 'Приемен родител',
+  'друг': 'Друг',
 }
 
 function calculateAge(birthDate: string): string {
@@ -88,6 +98,12 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
     .select('*, class:classes(*), academic_year:academic_years(*)')
     .eq('student_id', id)
     .order('enrolled_at', { ascending: false })
+
+  const { data: guardians } = await supabase
+    .from('student_guardians')
+    .select('*')
+    .eq('student_id', id)
+    .order('relation')
 
   const docMap = Object.fromEntries(documents?.map(d => [d.doc_type, d]) || [])
   const sendingSchool = student.sending_school as any
@@ -199,12 +215,40 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm h-fit">
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
-            <Users size={16} className="text-blue-500" />
-            <h2 className="font-bold text-slate-800 text-sm">ЕПЛР екип</h2>
+        <div className="space-y-6">
+          {/* ЕПЛР екип */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+              <Users size={16} className="text-blue-500" />
+              <h2 className="font-bold text-slate-800 text-sm">ЕПЛР екип</h2>
+            </div>
+            <EplrTeam eplr={eplr} id={id} canManage={canManage} />
           </div>
-          <EplrTeam eplr={eplr} id={id} canManage={canManage} />
+
+          {/* Родители/Настойници */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+              <Heart size={16} className="text-rose-400" />
+              <h2 className="font-bold text-slate-800 text-sm">Родители / Настойници</h2>
+            </div>
+            {guardians && guardians.length > 0 ? (
+              <div className="space-y-3">
+                {guardians.map((g: any) => (
+                  <div key={g.id}>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      {RELATION_LABELS[g.relation] || g.relation}
+                    </div>
+                    <div className="text-sm font-medium text-slate-700 mt-0.5">{g.full_name}</div>
+                    {g.phone && (
+                      <div className="text-xs text-slate-500 mt-0.5">{g.phone}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400">Няма данни</p>
+            )}
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm md:col-span-2">
