@@ -6,6 +6,7 @@ import { formatDate, getFullName } from '@/lib/utils'
 import { DOCUMENT_TYPE_LABELS, DocumentType, STATUS_LABELS, DocumentStatus } from '@/types'
 import { AttachmentsSection } from './AttachmentsSection'
 import DocumentsList from './DocumentsList'
+import GuardiansSection from './GuardiansSection'
 
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
@@ -231,23 +232,11 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
               <Heart size={16} className="text-rose-400" />
               <h2 className="font-bold text-slate-800 text-sm">Родители / Настойници</h2>
             </div>
-            {guardians && guardians.length > 0 ? (
-              <div className="space-y-3">
-                {guardians.map((g: any) => (
-                  <div key={g.id}>
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                      {RELATION_LABELS[g.relation] || g.relation}
-                    </div>
-                    <div className="text-sm font-medium text-slate-700 mt-0.5">{g.full_name}</div>
-                    {g.phone && (
-                      <div className="text-xs text-slate-500 mt-0.5">{g.phone}</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-slate-400">Няма данни</p>
-            )}
+            <GuardiansSection
+              studentId={id}
+              guardians={guardians || []}
+              canManage={canManage}
+            />
           </div>
         </div>
 
