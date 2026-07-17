@@ -119,6 +119,11 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   const educationForm = (enrollment as any)?.education_form || 'daily'
   const coudEnrolled = (enrollment as any)?.coud_enrolled || false
 
+  // Опции за валидност — текущата + следващите 4 учебни години
+  const currentYearName = currentYear?.name || ''
+  const baseYear = currentYearName ? parseInt(currentYearName.split('/')[0]) : new Date().getFullYear()
+  const yearOptions = Array.from({ length: 5 }, (_, i) => `${baseYear + i}/${baseYear + i + 1}`)
+
   const docMap = Object.fromEntries(documents?.map(d => [d.doc_type, d]) || [])
   const sendingSchool = student.sending_school as any
   const className = (enrollment?.class as any)?.name || ''
@@ -335,6 +340,8 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           canManage={canManage}
           staffId={profile?.id || ''}
           typeLabels={ATTACHMENT_TYPE_LABELS}
+          currentYearName={currentYearName}
+          yearOptions={yearOptions}
         />
       </div>
     </div>
