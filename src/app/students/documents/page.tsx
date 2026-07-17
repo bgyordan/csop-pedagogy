@@ -56,7 +56,7 @@ export default async function DocumentsMatrixPage() {
   const studentIds = (enrollments || []).map(e => e.student_id)
   const { data: attachments } = await supabase
     .from('student_attachments')
-    .select('student_id, doc_type, valid_until_year')
+    .select('id, student_id, doc_type, valid_until_year, file_name, file_path')
     .in('student_id', studentIds.length > 0 ? studentIds : ['none'])
 
   // Групиране по паралелка → ученици
@@ -66,10 +66,15 @@ export default async function DocumentsMatrixPage() {
       .map(e => {
         const student = e.student as any
         const studentDocs = (attachments || []).filter(a => a.student_id === student.id)
-        const docMap: Record<string, string | null | undefined> = {}
+        const docMap: Record<string, any> = {}
         ATTACHMENT_TYPES.forEach(t => {
           const found = studentDocs.find(d => d.doc_type === t.key)
-          docMap[t.key] = found ? (found.valid_until_year || 'permanent') : undefined
+          docMap[t.key] = found ? {
+            id: found.id,
+            valid_until_year: found.valid_until_year,
+            file_name: found.file_name,
+            file_path: found.file_path,
+          } : undefined
         })
         return {
           id: student.id,
@@ -84,6 +89,11 @@ export default async function DocumentsMatrixPage() {
       students: classEnrollments,
     }
   }).filter(c => c.students.length > 0)
+
+  const currentYearName = currentYear?.name || ''
+  const baseYear = currentYearName ? parseInt(currentYearName.split('/')[0]) : new Date().getFullYear()
+  const yearOptions = Array.from({ length: 5 }, (_, i) => `${baseYear + i}/${baseYear + i + 1}`)
+  const canManage = ['admin', 'zdud', 'director', 'class_teacher'].includes(role)
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8 animate-in fade-in duration-500">
@@ -100,7 +110,10 @@ export default async function DocumentsMatrixPage() {
       <DocumentsMatrixClient
         classes={byClass}
         docTypes={ATTACHMENT_TYPES}
-        currentYearName={currentYear?.name || ''}
+        currentYearName={currentYearName}
+        yearOptions={yearOptions}
+        canManage={canManage}
+        staffId={profile?.id || ''}
       />
     </div>
   )
