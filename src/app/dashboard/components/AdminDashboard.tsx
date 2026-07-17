@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Users, BookOpen, Clock, CheckCircle2, Calendar, AlertCircle, Bell, ArrowRight, GraduationCap, Home, Wifi, Coffee } from 'lucide-react'
+import { Users, BookOpen, Calendar, Bell, ArrowRight, GraduationCap, Home, Wifi, Coffee, ShieldX, ShieldAlert, ClipboardList, Clock, AlertTriangle } from 'lucide-react'
 import { formatDate, getDaysUntil, getMonthName } from '@/lib/utils'
 
 export default async function AdminDashboard({ profile, currentYearId }: any) {
@@ -10,91 +10,97 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
   const currentDay = now.getDate()
   const currentMonth = now.getMonth() + 1
   const currentYearNum = now.getFullYear()
+  const todayStr = now.toISOString().split('T')[0]
 
-  const isActivePeriod = currentDay >= 28 || currentDay <= 8
+  // ИУП период — само през учебните месеци (не юли/август)
+  const isSummer = currentMonth === 7 || currentMonth === 8
+  const isActivePeriod = !isSummer && (currentDay >= 28 || currentDay <= 8)
   const reportMonth = currentDay >= 28 ? currentMonth : (currentMonth === 1 ? 12 : currentMonth - 1)
-  const reportYear = currentDay >= 28 ? currentYearNum : (currentMonth === 1 ? currentYearNum - 1 : currentYearNum)
-  const deadlineMonth = reportMonth === 12 ? 1 : reportMonth + 1
   const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1
+
+  const { data: currentYear } = await supabase
+    .from('academic_years').select('name').eq('id', currentYearId).single()
+  const currentYearName = currentYear?.name || ''
 
   const [
     { count: totalStudents },
     { count: totalClasses },
-    { data: docStats },
     { data: deadlines },
     { data: announcements },
-    { data: classes },
-    { data: submitted },
     { data: formStats },
     { data: oresActive },
+    { data: attachments },
   ] = await Promise.all([
     supabase.from('student_enrollments').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
     supabase.from('classes').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
-    supabase.from('documents').select('status').eq('academic_year_id', currentYearId),
-    supabase.from('calendar_deadlines').select('*').eq('academic_year_id', currentYearId).gte('deadline_date', now.toISOString().split('T')[0]).order('deadline_date').limit(5),
+    supabase.from('calendar_deadlines').select('*').eq('academic_year_id', currentYearId).gte('deadline_date', todayStr).order('deadline_date').limit(5),
     supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
-    supabase.from('classes').select('id').eq('academic_year_id', currentYearId),
-    supabase.from('monthly_absences').select('class_id').eq('month', reportMonth).eq('year', reportYear),
     supabase.from('student_enrollments').select('education_form, coud_enrolled').eq('academic_year_id', currentYearId),
-    supabase.from('student_ores').select('student_id, from_date, to_date').lte('from_date', now.toISOString().split('T')[0]),
+    supabase.from('student_ores').select('student_id, from_date, to_date').lte('from_date', todayStr),
+    supabase.from('student_attachments').select('student_id, valid_until_year'),
   ])
-
-  const completed = docStats?.filter(d => d.status === 'completed').length || 0
-  const inProgress = docStats?.filter(d => d.status === 'in_progress').length || 0
-  const submittedIds = new Set(submitted?.map(s => s.class_id) || [])
-  const submittedCount = submittedIds.size
-  const totalClassCount = classes?.length || 0
 
   const dailyCount = formStats?.filter(e => (e.education_form || 'daily') === 'daily').length || 0
   const ifoCount = formStats?.filter(e => e.education_form === 'ifo').length || 0
   const coudCount = formStats?.filter(e => e.coud_enrolled).length || 0
-
-  const todayStr = now.toISOString().split('T')[0]
   const oresCount = (oresActive || []).filter(o => !o.to_date || o.to_date >= todayStr).length
+
+  // Документи — изтекли / изтичащи
+  const baseYear = currentYearName ? parseInt(currentYearName.split('/')[0]) : currentYearNum
+  const expiredStudents = new Set<string>()
+  const expiringStudents = new Set<string>()
+  ;(attachments || []).forEach(a => {
+    if (!a.valid_until_year) return
+    const y = parseInt(a.valid_until_year.split('/')[0])
+    if (y < baseYear) expiredStudents.add(a.student_id)
+    else if (y === baseYear) expiringStudents.add(a.student_id)
+  })
+  const expiredCount = expiredStudents.size
+  const expiringCount = expiringStudents.size
+
+  // Събиране на всички аларми
+  const alerts: { type: 'error' | 'warning' | 'info'; icon: any; text: string; href: string; badge?: string }[] = []
+
+  if (expiredCount > 0) {
+    alerts.push({ type: 'error', icon: <ShieldX size={16} />, text: `Изтекли документи`, href: '/students/documents', badge: `${expiredCount} ${expiredCount === 1 ? 'ученик' : 'ученика'}` })
+  }
+  if (expiringCount > 0) {
+    alerts.push({ type: 'warning', icon: <ShieldAlert size={16} />, text: `Изтичащи документи тази година`, href: '/students/documents', badge: `${expiringCount} ${expiringCount === 1 ? 'ученик' : 'ученика'}` })
+  }
+  if (isActivePeriod) {
+    alerts.push({ type: 'warning', icon: <ClipboardList size={16} />, text: `Въвеждане на реализация на ИУП — ${getMonthName(reportMonth)}`, href: '/absences', badge: 'До 8-ми' })
+  }
+  ;(deadlines || []).forEach(d => {
+    const days = getDaysUntil(d.deadline_date)
+    if (days <= 14) {
+      alerts.push({ type: days <= 3 ? 'error' : 'info', icon: <Calendar size={16} />, text: d.title, href: '/admin', badge: days === 0 ? 'Днес' : `${days} дни` })
+    }
+  })
 
   return (
     <div className="animate-in fade-in duration-500">
-      {/* ── СТАТИСТИКА ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Link href="/students" className="bg-white p-5 rounded-2xl border border-slate-200/70 shadow-sm hover:shadow-md transition-all group">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-            <Users size={18} className="text-blue-600" />
+      {/* ── КЛЮЧОВИ ЧИСЛА ── */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
+        <Link href="/students" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all group col-span-2 md:col-span-1">
+          <div className="flex items-center gap-2 mb-2">
+            <Users size={15} className="text-blue-500" />
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ученици</div>
           </div>
           <div className="text-2xl font-bold text-slate-800">{totalStudents || 0}</div>
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Активни ученици</div>
         </Link>
 
-        <Link href="/classes" className="bg-white p-5 rounded-2xl border border-slate-200/70 shadow-sm hover:shadow-md transition-all group">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-            <BookOpen size={18} className="text-purple-600" />
+        <Link href="/classes" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all col-span-2 md:col-span-1">
+          <div className="flex items-center gap-2 mb-2">
+            <BookOpen size={15} className="text-purple-500" />
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Паралелки</div>
           </div>
           <div className="text-2xl font-bold text-slate-800">{totalClasses || 0}</div>
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Паралелки</div>
         </Link>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/70 shadow-sm">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center mb-3">
-            <Clock size={18} className="text-amber-600" />
-          </div>
-          <div className="text-2xl font-bold text-slate-800">{inProgress}</div>
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Документи в процес</div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/70 shadow-sm">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center mb-3">
-            <CheckCircle2 size={18} className="text-emerald-600" />
-          </div>
-          <div className="text-2xl font-bold text-slate-800">{completed}</div>
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Завършени</div>
-        </div>
-      </div>
-
-      {/* ── ФОРМА НА ОБУЧЕНИЕ ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <Link href="/students?form=daily" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
           <div className="flex items-center gap-2 mb-2">
             <GraduationCap size={15} className="text-slate-400" />
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Дневна форма</div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Дневна</div>
           </div>
           <div className="text-2xl font-bold text-slate-800">{dailyCount}</div>
         </Link>
@@ -110,7 +116,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
         <Link href="/students?coud=1" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
           <div className="flex items-center gap-2 mb-2">
             <Coffee size={15} className="text-slate-400" />
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">ЦОУД (занималня)</div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">ЦОУД</div>
           </div>
           <div className="text-2xl font-bold text-slate-800">{coudCount}</div>
         </Link>
@@ -118,45 +124,59 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
         <Link href="/students?ores=1" className={`bg-white p-4 rounded-2xl border shadow-sm hover:border-slate-300 transition-all ${oresCount > 0 ? 'border-amber-200' : 'border-slate-200/70'}`}>
           <div className="flex items-center gap-2 mb-2">
             <Wifi size={15} className={oresCount > 0 ? 'text-amber-500' : 'text-slate-400'} />
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">В ОРЕС сега</div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">ОРЕС</div>
           </div>
           <div className={`text-2xl font-bold ${oresCount > 0 ? 'text-amber-600' : 'text-slate-800'}`}>{oresCount}</div>
         </Link>
       </div>
 
-      {/* ── ИУП БАНЕР ── */}
-      {isActivePeriod ? (
-        <div className="mb-8 p-6 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white shadow-sm flex items-center justify-between gap-4">
-          <div>
-            <div className="font-semibold text-amber-900 text-sm">Въвеждане на реализация на ИУП — {getMonthName(reportMonth)}</div>
-            <div className="text-xs text-amber-700/80 mt-1 font-medium">
-              {submittedCount} от {totalClassCount} паралелки готови · Срок: 8 {getMonthName(deadlineMonth)}
+      {/* ── АЛАРМИ / ИЗИСКВА ВНИМАНИЕ ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm mb-6 overflow-hidden">
+        <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-100 bg-slate-50/50">
+          <AlertTriangle size={16} className="text-slate-500" />
+          <h2 className="font-bold text-slate-700 text-sm uppercase tracking-wider">Изисква внимание</h2>
+          {alerts.length > 0 && (
+            <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{alerts.length}</span>
+          )}
+        </div>
+
+        {alerts.length === 0 ? (
+          <div className="px-5 py-8 text-center">
+            <div className="inline-flex items-center gap-2 text-sm text-slate-400">
+              <ShieldAlert size={16} className="text-emerald-400" />
+              Всичко е наред — няма спешни задачи
             </div>
           </div>
-          <div className="flex gap-2 flex-shrink-0">
-            <Link href="/absences" className="px-4 py-2 rounded-xl bg-white border border-amber-200 text-amber-800 text-xs font-bold hover:bg-amber-100 transition-colors shadow-sm">
-              Преглед
-            </Link>
-            <Link href={`/absences/export/${reportMonth}/${reportYear}`}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-white shadow-sm hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: '#0f2240' }}>
-              Генерирай Excel
-            </Link>
+        ) : (
+          <div className="divide-y divide-slate-50">
+            {alerts.map((a, i) => (
+              <Link key={i} href={a.href}
+                className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors group">
+                <span className={`flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 ${
+                  a.type === 'error' ? 'bg-red-50 text-red-500' :
+                  a.type === 'warning' ? 'bg-amber-50 text-amber-500' :
+                  'bg-blue-50 text-blue-500'
+                }`}>
+                  {a.icon}
+                </span>
+                <span className="text-sm text-slate-700 flex-1 font-medium">{a.text}</span>
+                {a.badge && (
+                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg ${
+                    a.type === 'error' ? 'bg-red-50 text-red-600' :
+                    a.type === 'warning' ? 'bg-amber-50 text-amber-600' :
+                    'bg-slate-100 text-slate-500'
+                  }`}>
+                    {a.badge}
+                  </span>
+                )}
+                <ArrowRight size={15} className="text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all" />
+              </Link>
+            ))}
           </div>
-        </div>
-      ) : (
-        <div className="mb-8 p-6 rounded-2xl border border-slate-200 bg-slate-50 flex items-center gap-4">
-          <div className="bg-white p-2 rounded-lg border border-slate-200">
-            <Clock size={16} className="text-slate-400" />
-          </div>
-          <div className="text-sm text-slate-600 font-medium">
-            Предстои въвеждане на ИУП за <span className="text-slate-900">{getMonthName(currentMonth)}</span>
-            <span className="text-slate-400 font-normal ml-2 text-xs">(28 {getMonthName(currentMonth)} - 8 {getMonthName(nextMonth)})</span>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* ── DEADLINES & ANNOUNCEMENTS ── */}
+      {/* ── СРОКОВЕ & СЪОБЩЕНИЯ ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl border border-slate-200/70 p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-6 pb-4 border-b border-slate-100">
