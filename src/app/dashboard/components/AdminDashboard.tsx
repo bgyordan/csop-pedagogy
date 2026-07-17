@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Users, BookOpen, Clock, CheckCircle2, Calendar, AlertCircle, Bell, ArrowRight } from 'lucide-react'
+import { Users, BookOpen, Clock, CheckCircle2, Calendar, AlertCircle, Bell, ArrowRight, GraduationCap, Home, Wifi, Coffee } from 'lucide-react'
 import { formatDate, getDaysUntil, getMonthName } from '@/lib/utils'
 
 export default async function AdminDashboard({ profile, currentYearId }: any) {
@@ -25,6 +25,8 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
     { data: announcements },
     { data: classes },
     { data: submitted },
+    { data: formStats },
+    { data: oresActive },
   ] = await Promise.all([
     supabase.from('student_enrollments').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
     supabase.from('classes').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
@@ -33,6 +35,8 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
     supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
     supabase.from('classes').select('id').eq('academic_year_id', currentYearId),
     supabase.from('monthly_absences').select('class_id').eq('month', reportMonth).eq('year', reportYear),
+    supabase.from('student_enrollments').select('education_form, coud_enrolled').eq('academic_year_id', currentYearId),
+    supabase.from('student_ores').select('student_id, from_date, to_date').lte('from_date', now.toISOString().split('T')[0]),
   ])
 
   const completed = docStats?.filter(d => d.status === 'completed').length || 0
@@ -41,10 +45,17 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
   const submittedCount = submittedIds.size
   const totalClassCount = classes?.length || 0
 
+  const dailyCount = formStats?.filter(e => (e.education_form || 'daily') === 'daily').length || 0
+  const ifoCount = formStats?.filter(e => e.education_form === 'ifo').length || 0
+  const coudCount = formStats?.filter(e => e.coud_enrolled).length || 0
+
+  const todayStr = now.toISOString().split('T')[0]
+  const oresCount = (oresActive || []).filter(o => !o.to_date || o.to_date >= todayStr).length
+
   return (
     <div className="animate-in fade-in duration-500">
       {/* ── СТАТИСТИКА ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Link href="/students" className="bg-white p-5 rounded-2xl border border-slate-200/70 shadow-sm hover:shadow-md transition-all group">
           <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
             <Users size={18} className="text-blue-600" />
@@ -76,6 +87,41 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
           <div className="text-2xl font-bold text-slate-800">{completed}</div>
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Завършени</div>
         </div>
+      </div>
+
+      {/* ── ФОРМА НА ОБУЧЕНИЕ ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <Link href="/students?form=daily" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
+          <div className="flex items-center gap-2 mb-2">
+            <GraduationCap size={15} className="text-slate-400" />
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Дневна форма</div>
+          </div>
+          <div className="text-2xl font-bold text-slate-800">{dailyCount}</div>
+        </Link>
+
+        <Link href="/students?form=ifo" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
+          <div className="flex items-center gap-2 mb-2">
+            <Home size={15} className="text-slate-400" />
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">ИФО</div>
+          </div>
+          <div className="text-2xl font-bold text-slate-800">{ifoCount}</div>
+        </Link>
+
+        <Link href="/students?coud=1" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
+          <div className="flex items-center gap-2 mb-2">
+            <Coffee size={15} className="text-slate-400" />
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">ЦОУД (занималня)</div>
+          </div>
+          <div className="text-2xl font-bold text-slate-800">{coudCount}</div>
+        </Link>
+
+        <Link href="/students?ores=1" className={`bg-white p-4 rounded-2xl border shadow-sm hover:border-slate-300 transition-all ${oresCount > 0 ? 'border-amber-200' : 'border-slate-200/70'}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <Wifi size={15} className={oresCount > 0 ? 'text-amber-500' : 'text-slate-400'} />
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">В ОРЕС сега</div>
+          </div>
+          <div className={`text-2xl font-bold ${oresCount > 0 ? 'text-amber-600' : 'text-slate-800'}`}>{oresCount}</div>
+        </Link>
       </div>
 
       {/* ── ИУП БАНЕР ── */}
