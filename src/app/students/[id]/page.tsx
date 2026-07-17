@@ -7,6 +7,8 @@ import { DOCUMENT_TYPE_LABELS, DocumentType, STATUS_LABELS, DocumentStatus } fro
 import { AttachmentsSection } from './AttachmentsSection'
 import DocumentsList from './DocumentsList'
 import GuardiansSection from './GuardiansSection'
+import StudentStatusSection from './StudentStatusSection'
+import { GraduationCap, Home, Wifi } from 'lucide-react'
 
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
@@ -106,6 +108,17 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
     .eq('student_id', id)
     .order('relation')
 
+  const { data: oresRecords } = await supabase
+    .from('student_ores')
+    .select('*')
+    .eq('student_id', id)
+    .order('from_date', { ascending: false })
+
+  const today = new Date().toISOString().split('T')[0]
+  const activeOres = (oresRecords || []).find(o => o.from_date <= today && (!o.to_date || o.to_date >= today))
+  const educationForm = (enrollment as any)?.education_form || 'daily'
+  const coudEnrolled = (enrollment as any)?.coud_enrolled || false
+
   const docMap = Object.fromEntries(documents?.map(d => [d.doc_type, d]) || [])
   const sendingSchool = student.sending_school as any
   const className = (enrollment?.class as any)?.name || ''
@@ -140,6 +153,17 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                     {student.status === 'active' ? 'Активен' : 'Архивиран'}
                   </span>
                   {age && <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">{age}</span>}
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                    {educationForm === 'ifo' ? <><Home size={11} /> ИФО</> : <><GraduationCap size={11} /> Дневна</>}
+                  </span>
+                  {coudEnrolled && (
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600">ЦОУД</span>
+                  )}
+                  {activeOres && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                      <Wifi size={11} /> ОРЕС
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -235,6 +259,22 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
             <GuardiansSection
               studentId={id}
               guardians={guardians || []}
+              canManage={canManage}
+            />
+          </div>
+
+          {/* Форма на обучение, ЦОУД, ОРЕС */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+              <GraduationCap size={16} className="text-blue-500" />
+              <h2 className="font-bold text-slate-800 text-sm">Обучение</h2>
+            </div>
+            <StudentStatusSection
+              studentId={id}
+              enrollmentId={enrollment?.id || null}
+              educationForm={educationForm}
+              coudEnrolled={coudEnrolled}
+              oresRecords={oresRecords || []}
               canManage={canManage}
             />
           </div>
