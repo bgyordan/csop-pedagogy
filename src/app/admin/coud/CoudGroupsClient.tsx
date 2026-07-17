@@ -129,7 +129,7 @@ export default function CoudGroupsClient({ groups, teachers, academicYearId }: P
                     </div>
                   </div>
                 ) : (
-                  <>
+                  <div onClick={() => setManageGroup(g)} className="cursor-pointer">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center">
@@ -143,17 +143,16 @@ export default function CoudGroupsClient({ groups, teachers, academicYearId }: P
                           </div>
                         </div>
                       </div>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                         <button onClick={() => startEdit(g)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"><Pencil size={13} /></button>
                         <button onClick={() => deleteGroup(g.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50"><Trash2 size={13} /></button>
                       </div>
                     </div>
-                    <button onClick={() => setManageGroup(g)}
-                      className="mt-3 w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors text-xs font-medium text-slate-600">
+                    <div className="mt-3 w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 text-xs font-medium text-slate-600">
                       <span className="flex items-center gap-1.5"><Users size={13} /> {count} ученика</span>
-                      <span className="text-slate-400">Управление →</span>
-                    </button>
-                  </>
+                      <span className="text-slate-400">Виж състава →</span>
+                    </div>
+                  </div>
                 )}
               </div>
             )
