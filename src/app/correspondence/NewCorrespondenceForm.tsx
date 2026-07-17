@@ -66,6 +66,7 @@ export default function NewCorrespondenceForm({
   const [description, setDescription] = useState('')
   const [studentId, setStudentId] = useState('')
   const [staffId, setStaffId] = useState('')
+  const [guardians, setGuardians] = useState<{ full_name: string; relation: string }[]>([])
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [nomSearch, setNomSearch] = useState('')
   const [showAllNom, setShowAllNom] = useState(false)
@@ -115,6 +116,7 @@ export default function NewCorrespondenceForm({
       setToWhom('')
       setStudentId('')
       setStaffId('')
+      setGuardians([])
       return
     }
     const s = QUICK_SCENARIOS[key]
@@ -125,6 +127,7 @@ export default function NewCorrespondenceForm({
     setToWhom('')
     setStudentId('')
     setStaffId('')
+    setGuardians([])
   }
 
   function handleStaffSelect(id: string) {
@@ -136,11 +139,20 @@ export default function NewCorrespondenceForm({
     }
   }
 
-  function handleStudentSelect(id: string) {
+  async function handleStudentSelect(id: string) {
     setStudentId(id)
+    setFromWhom('')
     const s = students.find(x => x.id === id)
     if (s && activeScenario) {
       setSubject(activeScenario.template.replace('{name}', `${s.first_name} ${s.last_name}`))
+    }
+    // Зареди родителите на ученика
+    const { data } = await supabase.from('student_guardians')
+      .select('full_name, relation').eq('student_id', id).order('relation')
+    setGuardians(data || [])
+    // Ако има само един родител — налей го автоматично
+    if (data && data.length === 1) {
+      setFromWhom(data[0].full_name)
     }
   }
 
@@ -191,6 +203,7 @@ export default function NewCorrespondenceForm({
       setDocDate(new Date().toISOString().split('T')[0])
       setFromWhom(''); setToWhom(''); setSubject(''); setDescription('')
       setStudentId(''); setStaffId(''); setUploadedFile(null)
+      setGuardians([])
       setNomSearch(''); setShowAllNom(false)
     } else {
       onSaved()
@@ -277,8 +290,30 @@ export default function NewCorrespondenceForm({
                   ))}
                 </select>
                 {studentId && (
-                  <input type="text" value={fromWhom} onChange={e => setFromWhom(e.target.value)} required
-                    placeholder="От кого (родител/настойник) *" className="input w-full" />
+                  <>
+                    <input type="text" list="guardian-list" value={fromWhom} onChange={e => setFromWhom(e.target.value)} required
+                      placeholder="От кого (родител/настойник) *" className="input w-full" />
+                    <datalist id="guardian-list">
+                      {guardians.map((g, i) => (
+                        <option key={i} value={g.full_name}>{g.relation}</option>
+                      ))}
+                    </datalist>
+                    {guardians.length > 1 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {guardians.map((g, i) => (
+                          <button key={i} type="button" onClick={() => setFromWhom(g.full_name)}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] border transition-all ${
+                              fromWhom === g.full_name ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            }`}>
+                            {g.full_name} <span className="opacity-60">({g.relation})</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {guardians.length === 0 && (
+                      <p className="text-[11px] text-slate-400">Няма записани родители за този ученик — въведете ръчно.</p>
+                    )}
+                  </>
                 )}
                 {subject && <div className="text-xs text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2">{subject}</div>}
               </div>
