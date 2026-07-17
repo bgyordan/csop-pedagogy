@@ -30,19 +30,20 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
     { data: formStats },
     { data: oresActive },
     { data: attachments },
+    { count: coudCount },
   ] = await Promise.all([
     supabase.from('student_enrollments').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
     supabase.from('classes').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
     supabase.from('calendar_deadlines').select('*').eq('academic_year_id', currentYearId).gte('deadline_date', todayStr).order('deadline_date').limit(5),
     supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
-    supabase.from('student_enrollments').select('education_form, coud_enrolled').eq('academic_year_id', currentYearId),
+    supabase.from('student_enrollments').select('education_form').eq('academic_year_id', currentYearId),
     supabase.from('student_ores').select('student_id, from_date, to_date').lte('from_date', todayStr),
     supabase.from('student_attachments').select('student_id, valid_until_year'),
+    supabase.from('coud_enrollments').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
   ])
 
   const dailyCount = formStats?.filter(e => (e.education_form || 'daily') === 'daily').length || 0
   const ifoCount = formStats?.filter(e => e.education_form === 'ifo').length || 0
-  const coudCount = formStats?.filter(e => e.coud_enrolled).length || 0
   const oresCount = (oresActive || []).filter(o => !o.to_date || o.to_date >= todayStr).length
 
   // Документи — изтекли / изтичащи
@@ -113,12 +114,12 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
           <div className="text-2xl font-bold text-slate-800">{ifoCount}</div>
         </Link>
 
-        <Link href="/students?coud=1" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
+        <Link href="/admin/coud" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
           <div className="flex items-center gap-2 mb-2">
             <Coffee size={15} className="text-slate-400" />
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">ЦОУД</div>
           </div>
-          <div className="text-2xl font-bold text-slate-800">{coudCount}</div>
+          <div className="text-2xl font-bold text-slate-800">{coudCount || 0}</div>
         </Link>
 
         <Link href="/students?ores=1" className={`bg-white p-4 rounded-2xl border shadow-sm hover:border-slate-300 transition-all ${oresCount > 0 ? 'border-amber-200' : 'border-slate-200/70'}`}>
