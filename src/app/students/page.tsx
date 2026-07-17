@@ -1,14 +1,21 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Users, Search, ChevronRight } from 'lucide-react'
+import { Plus, Users, ChevronRight, GraduationCap, Home, Coffee, Wifi, X } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
 import { StudentsFilter } from './StudentsFilter'
+
+const FILTER_LABELS: Record<string, string> = {
+  'form=daily': 'Дневна форма',
+  'form=ifo': 'ИФО',
+  'coud': 'Записани в ЦОУД',
+  'ores': 'В ОРЕС в момента',
+}
 
 export default async function StudentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; class?: string }>
+  searchParams: Promise<{ q?: string; class?: string; form?: string; coud?: string; ores?: string }>
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -56,22 +63,48 @@ export default async function StudentsPage({
   }
 
   if (params.class) query = query.eq('class_id', params.class)
+  if (params.form) query = query.eq('education_form', params.form)
+  if (params.coud === '1') query = query.eq('coud_enrolled', true)
 
   const { data: enrollments } = await query
-  const filtered = (enrollments || []).filter(e => {
-    if (!search) return true
-    return getFullName(e.student).toLowerCase().includes(search.toLowerCase())
+
+  // ОРЕС филтър — активни днес
+  let oresStudentIds: Set<string> | null = null
+  if (params.ores === '1') {
+    const today = new Date().toISOString().split('T')[0]
+    const { data: oresData } = await supabase
+      .from('student_ores')
+      .select('student_id, from_date, to_date')
+      .lte('from_date', today)
+    oresStudentIds = new Set(
+      (oresData || [])
+        .filter(o => !o.to_date || o.to_date >= today)
+        .map(o => o.student_id)
+    )
+  }
+
+  let filtered = (enrollments || []).filter(e => {
+    if (search && !getFullName(e.student).toLowerCase().includes(search.toLowerCase())) return false
+    if (oresStudentIds && !oresStudentIds.has(e.student?.id)) return false
+    return true
   })
+
+  // Активен специален филтър (за означение + печат)
+  let activeFilter = ''
+  if (params.form === 'daily') activeFilter = 'form=daily'
+  else if (params.form === 'ifo') activeFilter = 'form=ifo'
+  else if (params.coud === '1') activeFilter = 'coud'
+  else if (params.ores === '1') activeFilter = 'ores'
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8 animate-in fade-in duration-500">
-      {/* HEADER SECTION */}
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Ученици</h1>
           <p className="text-slate-500 text-sm mt-1">{filtered.length} записани ученици · {currentYear?.name}</p>
         </div>
-        
+
         {canWrite && (
           <Link href="/students/new" className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#0f2240] text-white text-sm font-semibold hover:bg-[#1e3a68] transition-all shadow-sm shadow-blue-900/20">
             <Plus size={18} />
@@ -80,7 +113,24 @@ export default async function StudentsPage({
         )}
       </div>
 
-      {/* FILTER SECTION */}
+      {/* Активен специален филтър */}
+      {activeFilter && (
+        <div className="mb-4 flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5">
+          <div className="flex items-center gap-2 text-sm text-slate-700">
+            {activeFilter.startsWith('form=daily') && <GraduationCap size={15} className="text-slate-400" />}
+            {activeFilter === 'form=ifo' && <Home size={15} className="text-slate-400" />}
+            {activeFilter === 'coud' && <Coffee size={15} className="text-slate-400" />}
+            {activeFilter === 'ores' && <Wifi size={15} className="text-amber-500" />}
+            <span className="font-medium">{FILTER_LABELS[activeFilter]}</span>
+            <span className="text-slate-400">· {filtered.length} ученика</span>
+          </div>
+          <Link href="/students" className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 transition-colors">
+            <X size={13} /> Изчисти
+          </Link>
+        </div>
+      )}
+
+      {/* FILTER */}
       <div className="mb-6">
         <StudentsFilter
           classes={visibleClasses}
@@ -89,7 +139,7 @@ export default async function StudentsPage({
         />
       </div>
 
-      {/* TABLE/LIST SECTION */}
+      {/* TABLE */}
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -125,7 +175,7 @@ export default async function StudentsPage({
             </tbody>
           </table>
         </div>
-        
+
         {filtered.length === 0 && (
           <div className="text-center py-20">
             <Users className="mx-auto mb-3 text-slate-300" size={40} />
