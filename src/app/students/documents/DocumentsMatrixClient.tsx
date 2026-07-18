@@ -216,7 +216,10 @@ function CellModal({ cell, yearOptions, currentYearName, staffId, onClose, onUpd
     if (file.size > 10 * 1024 * 1024) { alert('Макс. 10MB'); return }
 
     setUploading(true)
-    const filePath = `${cell.studentId}/${Date.now()}_${file.name}`
+    const safeName = file.name
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .replace(/_+/g, '_')
+    const filePath = `${cell.studentId}/${Date.now()}_${safeName}`
     const { error: upErr } = await supabase.storage.from('student-dossiers').upload(filePath, file)
     if (upErr) { alert('Грешка при качване'); setUploading(false); return }
 
