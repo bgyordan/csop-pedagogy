@@ -42,21 +42,35 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/auth/login?error=auth_failed`)
   }
 
-  // Свързваме user_id с предварително създаден профил
+  // Свързваме user_id с предварително създаден профил (по email)
   await supabase
     .from('staff_profiles')
     .update({ user_id: user.id })
     .eq('email', user.email)
     .is('user_id', null)
 
-  // Проверяваме дали потребителят има профил
-  const { data: profile } = await supabase
+  // Проверяваме дали има профил — по user_id ИЛИ по email
+  // (maybeSingle не хвърля грешка при 0 реда — избягва фалшив signOut)
+  const { data: profileByUser } = await supabase
     .from('staff_profiles')
     .select('id')
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
-  if (!profile) {
+  let hasProfile = !!profileByUser
+
+  // Резервна проверка по email, ако връзката още не се е "хванала"
+  if (!hasProfile) {
+    const { data: profileByEmail } = await supabase
+      .from('staff_profiles')
+      .select('id')
+      .eq('email', user.email)
+      .maybeSingle()
+    hasProfile = !!profileByEmail
+  }
+
+  // Само ако наистина няма профил (нито по user_id, нито по email) — изход
+  if (!hasProfile) {
     await supabase.auth.signOut()
     return NextResponse.redirect(`${origin}/auth/login?error=unauthorized`)
   }
