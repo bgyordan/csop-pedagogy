@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { ROLE_LABELS, UserRole, StaffProfile } from '@/types'
 import { getFullName } from '@/lib/utils'
 
@@ -13,6 +14,10 @@ export default async function StaffPage({
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
+
+  const { data: myProfile } = await supabase
+    .from('staff_profiles').select('role').eq('user_id', user.id).single()
+  const canOpenDetail = ['admin', 'zdud', 'director'].includes(myProfile?.role || '')
 
   const params = await searchParams
   const sort = params.sort || 'first_name'
@@ -93,7 +98,13 @@ export default async function StaffPage({
           <tbody>
             {staff.map((s: StaffProfile, idx: number) => (
               <tr key={s.id} className={`border-b border-slate-100 hover:bg-blue-50 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
-                <td className="px-4 py-2 font-medium text-slate-800">{getFullName(s)}</td>
+                <td className="px-4 py-2 font-medium text-slate-800">
+                  {canOpenDetail ? (
+                    <Link href={`/staff/${s.id}`} className="hover:underline hover:text-[#0f2240]">
+                      {getFullName(s)}
+                    </Link>
+                  ) : getFullName(s)}
+                </td>
                 <td className="px-4 py-2 text-slate-600">{ROLE_LABELS[s.role]}</td>
                 <td className="px-4 py-2 text-slate-500 text-xs font-mono">{s.email}</td>
               </tr>
@@ -106,8 +117,8 @@ export default async function StaffPage({
 
       {/* МОБИЛЕН: карти */}
       <div className="md:hidden space-y-2">
-        {staff.map((s: StaffProfile) => (
-          <div key={s.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3">
+        {staff.map((s: StaffProfile) => {
+          const inner = (
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <div className="font-medium text-slate-800 text-sm">{getFullName(s)}</div>
@@ -117,8 +128,17 @@ export default async function StaffPage({
                 {ROLE_LABELS[s.role]}
               </span>
             </div>
-          </div>
-        ))}
+          )
+          return canOpenDetail ? (
+            <Link key={s.id} href={`/staff/${s.id}`} className="block bg-white rounded-xl border border-slate-200 px-4 py-3 hover:shadow-sm transition-shadow">
+              {inner}
+            </Link>
+          ) : (
+            <div key={s.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3">
+              {inner}
+            </div>
+          )
+        })}
 
         {/* Pagination мобилен */}
         {totalPages > 1 && (
