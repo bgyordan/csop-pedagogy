@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Coffee, User } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { getFullName } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -30,12 +30,24 @@ export default async function CoudReportPage() {
     .select('coud_group_id, student:students(id, first_name, middle_name, last_name)')
     .eq('academic_year_id', currentYear?.id)
 
-  const groupsWithStudents = (groups || []).map(g => {
-    const students = (enrollments || [])
+  // Плосък списък редове: група, възпитател, ученик
+  type Row = { groupName: string; teacher: string; studentName: string; isFirstInGroup: boolean; groupSize: number }
+  const rows: Row[] = []
+
+  ;(groups || []).forEach(g => {
+    const teacher = (g.teacher as any) ? `${(g.teacher as any).first_name} ${(g.teacher as any).last_name}` : '—'
+    const groupStudents = (enrollments || [])
       .filter((e: any) => e.coud_group_id === g.id)
       .map((e: any) => getFullName(e.student))
       .sort((a: string, b: string) => a.localeCompare(b, 'bg'))
-    return { ...g, students }
+
+    if (groupStudents.length === 0) {
+      rows.push({ groupName: g.name, teacher, studentName: '—', isFirstInGroup: true, groupSize: 1 })
+    } else {
+      groupStudents.forEach((name, idx) => {
+        rows.push({ groupName: g.name, teacher, studentName: name, isFirstInGroup: idx === 0, groupSize: groupStudents.length })
+      })
+    }
   })
 
   const totalStudents = (enrollments || []).length
@@ -47,50 +59,42 @@ export default async function CoudReportPage() {
       </Link>
 
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">ЦОУД групи</h1>
+        <h1 className="text-xl md:text-2xl font-semibold text-slate-800">ЦОУД групи</h1>
         <p className="text-slate-500 text-sm mt-1">
-          {currentYear?.name} · {groupsWithStudents.length} групи · {totalStudents} ученика
+          {currentYear?.name} · {(groups || []).length} групи · {totalStudents} ученика
         </p>
       </div>
 
-      {groupsWithStudents.length === 0 ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-16 text-center">
-          <Coffee size={28} className="mx-auto mb-2 text-slate-300" />
+      {rows.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-16 text-center shadow-sm">
           <p className="text-slate-400 text-sm">Няма създадени ЦОУД групи</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {groupsWithStudents.map(g => (
-            <div key={g.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-              <div className="px-5 py-3 bg-slate-50 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center">
-                    <Coffee size={16} className="text-slate-500" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-slate-800 text-sm">{g.name}</div>
-                    <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                      <User size={11} />
-                      {g.teacher ? `${g.teacher.first_name} ${g.teacher.last_name}` : 'Без възпитател'}
-                    </div>
-                  </div>
-                  <span className="ml-auto text-xs text-slate-400">{g.students.length} уч.</span>
-                </div>
-              </div>
-              {g.students.length === 0 ? (
-                <p className="text-sm text-slate-400 px-5 py-4">Няма ученици</p>
-              ) : (
-                <ol className="divide-y divide-slate-50">
-                  {g.students.map((name: string, i: number) => (
-                    <li key={i} className="flex items-center gap-3 px-5 py-2">
-                      <span className="text-xs text-slate-400 w-6 flex-shrink-0 text-right">{i + 1}.</span>
-                      <span className="text-sm text-slate-700">{name}</span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </div>
-          ))}
+        <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50/50 border-b border-slate-100">
+                <tr>
+                  <th className="text-left px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Група</th>
+                  <th className="text-left px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Възпитател</th>
+                  <th className="text-left px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Ученик</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, idx) => (
+                  <tr key={idx} className={`border-b border-slate-50 hover:bg-slate-50/80 transition-colors ${row.isFirstInGroup && idx > 0 ? 'border-t-2 border-t-slate-200' : ''}`}>
+                    <td className="px-5 py-3 font-medium text-slate-800 whitespace-nowrap align-top">
+                      {row.isFirstInGroup ? row.groupName : ''}
+                    </td>
+                    <td className="px-5 py-3 text-slate-500 whitespace-nowrap align-top">
+                      {row.isFirstInGroup ? row.teacher : ''}
+                    </td>
+                    <td className="px-5 py-3 text-slate-700">{row.studentName}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
