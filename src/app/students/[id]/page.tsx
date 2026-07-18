@@ -117,7 +117,19 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   const today = new Date().toISOString().split('T')[0]
   const activeOres = (oresRecords || []).find(o => o.from_date <= today && (!o.to_date || o.to_date >= today))
   const educationForm = (enrollment as any)?.education_form || 'daily'
-  const coudEnrolled = (enrollment as any)?.coud_enrolled || false
+
+  // ЦОУД група на ученика (по текущата година)
+  const { data: coudEnroll } = await supabase
+    .from('coud_enrollments')
+    .select('coud_group:coud_groups(name, teacher:staff_profiles(first_name, last_name))')
+    .eq('student_id', id)
+    .eq('academic_year_id', currentYear?.id)
+    .maybeSingle()
+
+  const coudGroup = (coudEnroll as any)?.coud_group || null
+  const coudEnrolled = !!coudGroup
+  const coudGroupName = coudGroup?.name || null
+  const coudTeacher = coudGroup?.teacher ? `${coudGroup.teacher.first_name} ${coudGroup.teacher.last_name}` : null
 
   // Опции за валидност — текущата + следващите 4 учебни години
   const currentYearName = currentYear?.name || ''
@@ -162,7 +174,9 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                     {educationForm === 'ifo' ? <><Home size={11} /> ИФО</> : <><GraduationCap size={11} /> Дневна</>}
                   </span>
                   {coudEnrolled && (
-                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600">ЦОУД</span>
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                      {coudGroupName || 'ЦОУД'}
+                    </span>
                   )}
                   {activeOres && (
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
@@ -279,6 +293,8 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
               enrollmentId={enrollment?.id || null}
               educationForm={educationForm}
               coudEnrolled={coudEnrolled}
+              coudGroupName={coudGroupName}
+              coudTeacher={coudTeacher}
               oresRecords={oresRecords || []}
               canManage={canManage}
             />
