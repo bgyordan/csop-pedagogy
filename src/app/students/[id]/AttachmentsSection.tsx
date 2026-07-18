@@ -72,7 +72,11 @@ export function AttachmentsSection({ studentId, attachments: initial, canManage,
     }
 
     setUploading(true)
-    const filePath = `${studentId}/${Date.now()}_${file.name}`
+    // Изчистваме името за storage пътя (интервали и специални символи чупят качването)
+    const safeName = file.name
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .replace(/_+/g, '_')
+    const filePath = `${studentId}/${Date.now()}_${safeName}`
 
     const { error: uploadError } = await supabase.storage
       .from('student-dossiers')
