@@ -22,13 +22,34 @@ export default async function AbsencesPage() {
   const currentMonth = now.getMonth() + 1
   const currentYearNum = now.getFullYear()
 
-  const isActivePeriod = currentDay >= 28 || currentDay <= 8
+  // През юли и август няма реализация на ИУП (ваканция)
+  const isSummer = currentMonth === 7 || currentMonth === 8
+
+  const isActivePeriod = !isSummer && (currentDay >= 28 || currentDay <= 8)
   const reportMonth = currentDay >= 28 ? currentMonth : (currentMonth === 1 ? 12 : currentMonth - 1)
   const reportYear = currentDay >= 28 ? currentYearNum : (currentMonth === 1 ? currentYearNum - 1 : currentYearNum)
   const deadlinePassed = currentDay > 8 && currentDay < 28
   const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1
 
   const isAdmin = ['admin', 'zdud', 'director'].includes(profile?.role || '')
+
+  // Лятна ваканция — показваме съобщение на всички
+  if (isSummer) {
+    return (
+      <div className="p-4 md:p-8">
+        <h1 className="text-xl md:text-2xl font-semibold text-slate-800 mb-2">Реализация на ИУП</h1>
+        <p className="text-slate-500 text-sm mb-8">{currentYear?.name}</p>
+        <div className="card text-center py-12">
+          <p className="text-slate-500 text-sm">
+            През <strong>юли</strong> и <strong>август</strong> няма въвеждане на реализация на ИУП.
+          </p>
+          <p className="text-slate-400 text-xs mt-2">
+            Въвеждането се възобновява през септември.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   let classes: any[] = []
 
