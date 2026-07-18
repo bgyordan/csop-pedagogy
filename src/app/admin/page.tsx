@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Settings, Calendar, Bell, School, Users, Star, BookOpen, Coffee } from 'lucide-react'
+import { Settings, Calendar, Bell, School, Users, Star, BookOpen, Coffee, CalendarPlus } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 export default async function AdminPage() {
@@ -100,6 +100,15 @@ export default async function AdminPage() {
             <h2 className="font-medium text-slate-700 text-sm">Координиращ екип</h2>
           </div>
           <p className="text-xs text-slate-500">{teamCount || 0} члена за текущата година</p>
+        </a>
+        <a href="/admin/rollover" className="card hover:shadow-md transition-shadow cursor-pointer">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
+              <CalendarPlus size={18} className="text-amber-600" />
+            </div>
+            <h2 className="font-medium text-slate-700 text-sm">Нова учебна година</h2>
+          </div>
+          <p className="text-xs text-slate-500">Прехвърляне на ученици и паралелки</p>
         </a>
           <a href="/admin/coud" className="card hover:shadow-md transition-shadow cursor-pointer">
           <div className="flex items-center gap-3 mb-2">
