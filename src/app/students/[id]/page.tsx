@@ -116,6 +116,17 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
 
   const today = new Date().toISOString().split('T')[0]
   const activeOres = (oresRecords || []).find(o => o.from_date <= today && (!o.to_date || o.to_date >= today))
+  // Класният ръководител може да качва документи и родители за своите ученици
+  let canEditDossier = canManage
+  if (!canManage && profile?.role === 'class_teacher' && enrollment?.class_id) {
+    const { data: myClasses } = await supabase
+      .from('class_teacher_assignments')
+      .select('class_id')
+      .eq('staff_id', profile.id)
+      .eq('academic_year_id', currentYear?.id)
+    canEditDossier = (myClasses || []).some(c => c.class_id === enrollment.class_id)
+  }
+
   const educationForm = (enrollment as any)?.education_form || 'daily'
 
   // ЦОУД група на ученика (по текущата година)
@@ -278,7 +289,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
             <GuardiansSection
               studentId={id}
               guardians={guardians || []}
-              canManage={canManage}
+              canManage={canEditDossier}
             />
           </div>
 
@@ -304,7 +315,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm md:col-span-2">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
             <FileText size={16} className="text-emerald-500" />
-            <h2 className="font-bold text-slate-800 text-sm">Документи — {currentYear?.name}</h2>
+            <h2 className="font-bold text-slate-800 text-sm">Документи ЕПЛР — {currentYear?.name}</h2>
           </div>
           <DocumentsList
             docMap={docMap}
@@ -353,7 +364,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         <AttachmentsSection
           studentId={id}
           attachments={attachments || []}
-          canManage={canManage}
+          canManage={canEditDossier}
           staffId={profile?.id || ''}
           typeLabels={ATTACHMENT_TYPE_LABELS}
           currentYearName={currentYearName}
