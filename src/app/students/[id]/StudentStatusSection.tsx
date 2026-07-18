@@ -17,18 +17,19 @@ interface Props {
   enrollmentId: string | null
   educationForm: string
   coudEnrolled: boolean
+  coudGroupName?: string | null
+  coudTeacher?: string | null
   oresRecords: OresRecord[]
   canManage: boolean
 }
 
 export default function StudentStatusSection({
-  studentId, enrollmentId, educationForm: initialForm, coudEnrolled: initialCoud, oresRecords: initialOres, canManage
+  studentId, enrollmentId, educationForm: initialForm, coudGroupName, coudTeacher, oresRecords: initialOres, canManage
 }: Props) {
   const supabase = createClient()
   const router = useRouter()
 
   const [form, setForm] = useState(initialForm || 'daily')
-  const [coud, setCoud] = useState(initialCoud || false)
   const [ores, setOres] = useState<OresRecord[]>(initialOres || [])
   const [saving, setSaving] = useState(false)
   const [showOresForm, setShowOresForm] = useState(false)
@@ -44,16 +45,6 @@ export default function StudentStatusSection({
     setForm(newForm)
     setSaving(true)
     await supabase.from('student_enrollments').update({ education_form: newForm }).eq('id', enrollmentId)
-    setSaving(false)
-    router.refresh()
-  }
-
-  async function toggleCoud() {
-    if (!enrollmentId) return
-    const newVal = !coud
-    setCoud(newVal)
-    setSaving(true)
-    await supabase.from('student_enrollments').update({ coud_enrolled: newVal }).eq('id', enrollmentId)
     setSaving(false)
     router.refresh()
   }
@@ -119,17 +110,15 @@ export default function StudentStatusSection({
       {/* ЦОУД */}
       <div>
         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">ЦОУД (занималня)</div>
-        {canManage ? (
-          <button type="button" onClick={toggleCoud} disabled={saving}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
-              coud ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-            }`}>
-            {coud ? <Check size={13} /> : <span className="w-3 h-3 rounded border border-current" />}
-            {coud ? 'Записан' : 'Не е записан'}
-          </button>
+        {coudGroupName ? (
+          <div>
+            <div className="text-sm font-medium text-slate-700">{coudGroupName}</div>
+            {coudTeacher && <div className="text-xs text-slate-500 mt-0.5">Възпитател: {coudTeacher}</div>}
+          </div>
         ) : (
-          <div className="text-sm font-medium text-slate-700">{coud ? 'Записан' : 'Не е записан'}</div>
+          <div className="text-sm text-slate-400">Не е записан</div>
         )}
+        <p className="text-[10px] text-slate-300 mt-1">Групите се управляват в Администрация → ЦОУД групи</p>
       </div>
 
       {/* ОРЕС */}
