@@ -81,7 +81,7 @@ export default async function CoudReportPage() {
                 <p className="text-sm text-slate-400 px-5 py-4">Няма ученици</p>
               ) : (
                 <ol className="divide-y divide-slate-50">
-                  {g.students.map((name, i) => (
+                  {g.students.map((name: string, i: number) => (
                     <li key={i} className="flex items-center gap-3 px-5 py-2">
                       <span className="text-xs text-slate-400 w-6 flex-shrink-0 text-right">{i + 1}.</span>
                       <span className="text-sm text-slate-700">{name}</span>
