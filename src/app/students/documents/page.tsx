@@ -21,7 +21,7 @@ export default async function DocumentsMatrixPage() {
     .from('staff_profiles').select('id, role').eq('user_id', user.id).single()
 
   const role = profile?.role || ''
-  const canAccess = ['admin', 'zdud', 'director', 'class_teacher'].includes(role)
+  const canAccess = ['admin', 'zdud', 'director'].includes(role)
   if (!canAccess) redirect('/dashboard')
 
   const { data: currentYear } = await supabase
@@ -93,7 +93,7 @@ export default async function DocumentsMatrixPage() {
   const currentYearName = currentYear?.name || ''
   const baseYear = currentYearName ? parseInt(currentYearName.split('/')[0]) : new Date().getFullYear()
   const yearOptions = Array.from({ length: 5 }, (_, i) => `${baseYear + i}/${baseYear + i + 1}`)
-  const canManage = ['admin', 'zdud', 'director', 'class_teacher'].includes(role)
+  const canManage = ['admin', 'zdud', 'director'].includes(role)
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8 animate-in fade-in duration-500">
@@ -103,7 +103,7 @@ export default async function DocumentsMatrixPage() {
       </Link>
 
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Матрица на документите</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Досиета на учениците</h1>
         <p className="text-slate-500 text-sm mt-1">Валидност на външните документи · {currentYear?.name}</p>
       </div>
 
