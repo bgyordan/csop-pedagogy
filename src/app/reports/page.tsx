@@ -4,8 +4,6 @@ import ReportsClient from './ReportsClient'
 import { DOCUMENT_TYPE_LABELS, DocumentType } from '@/types'
 import { getFullName } from '@/lib/utils'
 import { BackButton } from '@/components/ui/BackButton'
-import Link from 'next/link'
-import { Coffee, ArrowRight } from 'lucide-react'
 
 const DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
@@ -171,18 +169,6 @@ export default async function ReportsPage() {
         <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Справки</h1>
         <p className="text-slate-500 text-sm mt-1">{currentYear?.name}</p>
       </div>
-      <Link href="/reports/coud"
-        className="flex items-center gap-3 bg-white border border-slate-200 rounded-2xl px-5 py-3 mb-6 shadow-sm hover:border-slate-300 hover:shadow-md transition-all group max-w-md">
-        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0">
-          <Coffee size={18} className="text-slate-500" />
-        </div>
-        <div className="flex-1">
-          <div className="text-sm font-semibold text-slate-800">ЦОУД групи</div>
-          <div className="text-xs text-slate-500">Списъци на групите и учениците</div>
-        </div>
-        <ArrowRight size={16} className="text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all" />
-      </Link>
-
       <ReportsClient
         allRows={allRows}
         workloadRows={workloadRows}
