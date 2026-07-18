@@ -106,10 +106,12 @@ export default async function StudentsPage({
         </div>
 
         <div className="flex items-center gap-2">
-          <Link href="/students/documents" className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all">
-            <LayoutGrid size={17} />
-            Матрица документи
-          </Link>
+          {['admin', 'zdud', 'director'].includes(role) && (
+            <Link href="/students/documents" className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all">
+              <LayoutGrid size={17} />
+              Досиета
+            </Link>
+          )}
           {canWrite && (
             <Link href="/students/new" className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#0f2240] text-white text-sm font-semibold hover:bg-[#1e3a68] transition-all shadow-sm shadow-blue-900/20">
               <Plus size={18} />
