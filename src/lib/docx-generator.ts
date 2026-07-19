@@ -519,6 +519,139 @@ export async function generateCommitteeProtocol(
   saveAs(blob, `протокол_${sessionNumber}_${committee.name.replace(/ /g, '_')}_${sessionDate}.docx`)
 }
 
+
+// ── ГРАФИК ЗА ЗАСЕДАНИЯ НА ЕПЛР ──────────────────────────────────────────────
+
+export async function generateEplrSchedule(
+  scheduleName: string,
+  yearName: string,
+  data: {
+    className: string
+    rows: { name: string; externalClass: string; date: string; time: string }[]
+  }[],
+) {
+  const BORDER_CELL = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const CELL_BORDERS = { top: BORDER_CELL, bottom: BORDER_CELL, left: BORDER_CELL, right: BORDER_CELL }
+
+  const fmtDate = (d: string) => {
+    if (!d) return ''
+    const [y, m, day] = d.split('-')
+    return `${day}.${m}.${y}`
+  }
+
+  const children: any[] = []
+
+  // Хедър
+  children.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 40 },
+      children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 200 },
+      children: [new TextRun({ text: 'ул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 052 619 456, 0888 490 771', size: 16, italics: true })],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.RIGHT,
+      spacing: { after: 20 },
+      children: [new TextRun({ text: 'Утвърдил: ........................', size: 20 })],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.RIGHT,
+      spacing: { after: 240 },
+      children: [new TextRun({ text: 'Директор ЦСОП-Варна', size: 20 })],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 60 },
+      children: [new TextRun({ text: 'ГРАФИК', bold: true, size: 28 })],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 240 },
+      children: [new TextRun({
+        text: `за провеждане на заседания на ЕПЛР, в изпълнение на чл. 128, ал. 5 и чл. 159, ал. 1 от Наредба за приобщаващото образование от 20.10.2017 г. за децата/учениците, обучаващи се в ЦСОП-Варна през ${yearName} учебна година`,
+        size: 20,
+      })],
+    }),
+  )
+
+  // Таблица за всяка паралелка
+  data.forEach((cls, idx) => {
+    const dates = [...new Set(cls.rows.map(r => r.date).filter(Boolean))]
+    const dateLabel = dates.length === 1 ? fmtDate(dates[0]) : 'Дата'
+
+    const tableRows: TableRow[] = []
+
+    // Заглавен ред
+    tableRows.push(new TableRow({
+      children: [new TableCell({
+        columnSpan: 4,
+        borders: CELL_BORDERS,
+        shading: { type: ShadingType.CLEAR, fill: 'E8EEF5' },
+        margins: { top: 60, bottom: 60, left: 100, right: 100 },
+        children: [new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text: cls.className, bold: true, size: 20 })],
+        })],
+      })],
+    }))
+
+    // Хедър колони
+    tableRows.push(new TableRow({
+      children: [
+        { t: '№', w: 8 },
+        { t: 'Име, презиме, фамилия', w: 52 },
+        { t: 'Клас', w: 14 },
+        { t: dates.length === 1 ? `Дата\n${dateLabel}` : 'Дата / час', w: 26 },
+      ].map(c => new TableCell({
+        width: { size: c.w, type: WidthType.PERCENTAGE },
+        borders: CELL_BORDERS,
+        shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
+        margins: { top: 40, bottom: 40, left: 80, right: 80 },
+        children: c.t.split('\n').map(line => new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text: line, bold: true, size: 18 })],
+        })),
+      })),
+    }))
+
+    // Редове с ученици
+    cls.rows.forEach((row, i) => {
+      const timeCell = dates.length === 1
+        ? row.time
+        : `${fmtDate(row.date)} ${row.time}`.trim()
+
+      tableRows.push(new TableRow({
+        children: [
+          { t: String(i + 1), align: AlignmentType.CENTER },
+          { t: row.name, align: AlignmentType.LEFT },
+          { t: row.externalClass || '', align: AlignmentType.CENTER },
+          { t: timeCell, align: AlignmentType.CENTER },
+        ].map(c => new TableCell({
+          borders: CELL_BORDERS,
+          margins: { top: 40, bottom: 40, left: 80, right: 80 },
+          children: [new Paragraph({
+            alignment: c.align,
+            children: [new TextRun({ text: c.t, size: 18 })],
+          })],
+        })),
+      }))
+    })
+
+    children.push(
+      new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: tableRows }),
+      new Paragraph({ text: '', spacing: { after: 160 } }),
+    )
+  })
+
+  const doc = new Document({ sections: [{ properties: {}, children }] })
+  const blob = await Packer.toBlob(doc)
+  saveAs(blob, `график_ЕПЛР_${scheduleName.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_')}.docx`)
+}
+
 // ── MAIN EXPORT ───────────────────────────────────────────────────────────────
 
 export async function generateAndDownloadDocument(
