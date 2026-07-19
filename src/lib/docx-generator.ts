@@ -1004,9 +1004,9 @@ export async function generateRuoClassesLetter(
     new Paragraph({ text: '' }),
 
     // До кого
-    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 20 }, children: [new TextRun({ text: addressee, bold: true, size: 22 })] }),
-    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 20 }, children: [new TextRun({ text: position, bold: true, size: 22 })] }),
-    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 320 }, children: [new TextRun({ text: institution, bold: true, size: 22 })] }),
+    new Paragraph({ alignment: AlignmentType.LEFT, spacing: { after: 20 }, children: [new TextRun({ text: addressee, bold: true, size: 22 })] }),
+    new Paragraph({ alignment: AlignmentType.LEFT, spacing: { after: 20 }, children: [new TextRun({ text: position, bold: true, size: 22 })] }),
+    new Paragraph({ alignment: AlignmentType.LEFT, spacing: { after: 320 }, children: [new TextRun({ text: institution, bold: true, size: 22 })] }),
 
     // Относно
     new Paragraph({
@@ -1053,19 +1053,20 @@ export async function generateRuoClassesLetter(
       width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
       shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
       margins: { top: 40, bottom: 40, left: 80, right: 80 },
-      children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 18 })] })],
+      children: [new Paragraph({ keepNext: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 18 })] })],
     }))}))
 
     cls.students.forEach((st, i) => {
       const num = classNumber(st.externalClass)
-      rows.push(new TableRow({ children: [
+      const notLast = i < cls.students.length - 1
+      rows.push(new TableRow({ cantSplit: true, children: [
         { t: String(i + 1), a: AlignmentType.CENTER },
         { t: st.name, a: AlignmentType.LEFT },
         { t: st.school || '—', a: AlignmentType.LEFT },
         { t: num !== null ? toRoman(num) : (st.externalClass || ''), a: AlignmentType.CENTER },
       ].map(c => new TableCell({
         borders: CELLS, margins: { top: 40, bottom: 40, left: 80, right: 80 },
-        children: [new Paragraph({ alignment: c.a, children: [new TextRun({ text: c.t, size: 18 })] })],
+        children: [new Paragraph({ keepNext: notLast, alignment: c.a, children: [new TextRun({ text: c.t, size: 18 })] })],
       }))}))
     })
 
