@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { FileText, Loader2, X } from 'lucide-react'
+import { FileText, Loader2, X, AlertTriangle } from 'lucide-react'
 import { generateRuoClassesLetter } from '@/lib/docx-generator'
 
 interface Props {
@@ -37,6 +37,18 @@ export default function RuoLetterButton({ yearName, classes }: Props) {
 
   const total = classes.reduce((s, c) => s + c.students.length, 0)
 
+  // Проверка за непълни данни
+  const missing = classes.flatMap(c =>
+    c.students
+      .filter(s => !s.school?.trim() || !s.externalClass?.trim())
+      .map(s => ({
+        name: s.name,
+        className: c.className,
+        what: [!s.school?.trim() ? 'училище' : null, !s.externalClass?.trim() ? 'клас' : null]
+          .filter(Boolean).join(' и '),
+      }))
+  )
+
   return (
     <>
       <button onClick={() => setOpen(true)}
@@ -58,6 +70,26 @@ export default function RuoLetterButton({ yearName, classes }: Props) {
             </div>
 
             <div className="p-6 space-y-3">
+              {missing.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 mb-2">
+                    <AlertTriangle size={13} />
+                    {missing.length} {missing.length === 1 ? 'ученик е с непълни данни' : 'ученика са с непълни данни'}
+                  </div>
+                  <div className="max-h-28 overflow-y-auto space-y-0.5">
+                    {missing.map((m, i) => (
+                      <div key={i} className="text-[11px] text-amber-900 flex justify-between gap-2">
+                        <span className="truncate">{m.name}</span>
+                        <span className="text-amber-600 whitespace-nowrap">липсва {m.what}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-amber-600 mt-2">
+                    Ще излязат с тире. Може да генерирате и да ги допълните после.
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">До кого</label>
                 <input value={addressee} onChange={e => setAddressee(e.target.value)} className="input w-full text-sm" />
