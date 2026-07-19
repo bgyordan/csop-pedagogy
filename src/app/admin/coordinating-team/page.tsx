@@ -7,6 +7,7 @@ import { useToast } from '@/components/ui/Toast'
 import { getFullName, formatDate } from '@/lib/utils'
 import { Plus, X, Star, Calendar, Download, Pencil, Trash2, Check } from 'lucide-react'
 import { generateCommitteeProtocol } from '@/lib/docx-generator'
+import CoordinatingDocs from './CoordinatingDocs'
 
 interface TeamMember {
   id: string
@@ -422,6 +423,9 @@ export default function CoordinatingTeamPage() {
               {sessions.length === 0 && <p className="text-sm text-slate-400">Няма заседания</p>}
             </div>
           </div>
+
+          {/* ── ДОКУМЕНТИ ── */}
+          <CoordinatingDocs academicYearId={currentYearId} />
         </div>
       )}
     </div>
