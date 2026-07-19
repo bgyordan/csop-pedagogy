@@ -6,6 +6,7 @@ import { formatDate, getFullName } from '@/lib/utils'
 import { StudentsFilter } from './StudentsFilter'
 
 const FILTER_LABELS: Record<string, string> = {
+  'incomplete': 'Непълни данни',
   'form=daily': 'Дневна форма',
   'form=ifo': 'ИФО',
   'coud': 'Записани в ЦОУД',
@@ -15,7 +16,7 @@ const FILTER_LABELS: Record<string, string> = {
 export default async function StudentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; class?: string; form?: string; coud?: string; ores?: string }>
+  searchParams: Promise<{ q?: string; class?: string; form?: string; coud?: string; ores?: string; incomplete?: string }>
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -86,12 +87,19 @@ export default async function StudentsPage({
   let filtered = (enrollments || []).filter(e => {
     if (search && !getFullName(e.student).toLowerCase().includes(search.toLowerCase())) return false
     if (oresStudentIds && !oresStudentIds.has(e.student?.id)) return false
+    if (params.incomplete === '1') {
+      const st = e.student as any
+      const noClass = !st?.external_class?.trim()
+      const noSchool = !st?.sending_school_id && !st?.sending_school_other?.trim()
+      if (!noClass && !noSchool) return false
+    }
     return true
   })
 
   // Активен специален филтър (за означение + печат)
   let activeFilter = ''
-  if (params.form === 'daily') activeFilter = 'form=daily'
+  if (params.incomplete === '1') activeFilter = 'incomplete'
+  else if (params.form === 'daily') activeFilter = 'form=daily'
   else if (params.form === 'ifo') activeFilter = 'form=ifo'
   else if (params.coud === '1') activeFilter = 'coud'
   else if (params.ores === '1') activeFilter = 'ores'
