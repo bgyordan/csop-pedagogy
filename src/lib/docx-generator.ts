@@ -674,12 +674,14 @@ export async function generateEplrSchedule(
 
     // Заглавен ред
     tableRows.push(new TableRow({
+      cantSplit: true,
       children: [new TableCell({
         columnSpan: 4,
         borders: CELL_BORDERS,
         shading: { type: ShadingType.CLEAR, fill: 'E8EEF5' },
         margins: { top: 60, bottom: 60, left: 100, right: 100 },
         children: [new Paragraph({
+          keepNext: true,
           alignment: AlignmentType.CENTER,
           children: [new TextRun({ text: title, bold: true, size: 20 })],
         })],
@@ -688,6 +690,7 @@ export async function generateEplrSchedule(
 
     // Хедър колони
     tableRows.push(new TableRow({
+      cantSplit: true,
       children: [
         { t: ['№'], w: 8 },
         { t: ['Име, презиме, фамилия'], w: 52 },
@@ -699,6 +702,7 @@ export async function generateEplrSchedule(
         shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
         margins: { top: 40, bottom: 40, left: 80, right: 80 },
         children: c.t.map(line => new Paragraph({
+          keepNext: true,
           alignment: AlignmentType.CENTER,
           children: [new TextRun({ text: line, bold: true, size: 18 })],
         })),
@@ -709,8 +713,10 @@ export async function generateEplrSchedule(
     cls.rows.forEach((row, i) => {
       const num = classNumber(row.externalClass)
       const timeCell = singleDate ? row.time : `${fmtDate(row.date)} ${row.time}`.trim()
+      const notLastRow = i < cls.rows.length - 1
 
       tableRows.push(new TableRow({
+        cantSplit: true,
         children: [
           { t: String(i + 1), align: AlignmentType.CENTER },
           { t: row.name, align: AlignmentType.LEFT },
@@ -720,6 +726,7 @@ export async function generateEplrSchedule(
           borders: CELL_BORDERS,
           margins: { top: 40, bottom: 40, left: 80, right: 80 },
           children: [new Paragraph({
+            keepNext: notLastRow,
             alignment: c.align,
             children: [new TextRun({ text: c.t, size: 18 })],
           })],
@@ -1024,22 +1031,23 @@ export async function generateRuoClassesLetter(
 
     children.push(
       new Paragraph({
+        keepNext: true,
         alignment: AlignmentType.JUSTIFIED, spacing: { before: 160, after: 100 },
         children: [new TextRun({ text: BASIS, size: 21 })],
       }),
-      new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: `${idx + 1}.`, bold: true, size: 22 })] }),
+      new Paragraph({ keepNext: true, spacing: { after: 80 }, children: [new TextRun({ text: `${idx + 1}.`, bold: true, size: 22 })] }),
     )
 
     const rows: TableRow[] = []
 
-    rows.push(new TableRow({ children: [new TableCell({
+    rows.push(new TableRow({ cantSplit: true, children: [new TableCell({
       columnSpan: 4, borders: CELLS,
       shading: { type: ShadingType.CLEAR, fill: 'E8EEF5' },
       margins: { top: 60, bottom: 60, left: 100, right: 100 },
-      children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: title, bold: true, size: 20 })] })],
+      children: [new Paragraph({ keepNext: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: title, bold: true, size: 20 })] })],
     })]}))
 
-    rows.push(new TableRow({ children: [
+    rows.push(new TableRow({ cantSplit: true, children: [
       { t: '№', w: 7 }, { t: 'Име, презиме, фамилия', w: 40 }, { t: 'Училище', w: 43 }, { t: 'Клас', w: 10 },
     ].map(c => new TableCell({
       width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
