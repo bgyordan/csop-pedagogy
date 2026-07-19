@@ -388,12 +388,66 @@ export async function generateCommitteeProtocol(
   const coordinator = members[0]
   const otherMembers = members.slice(1)
 
+  const PROTOCOL_BORDER_NONE = {
+    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  }
+
   const doc = new Document({
     sections: [{
       properties: {},
       children: [
-        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 60 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 24 })] }),
-        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: 'бул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 0888 490 771', size: 18, italics: true })] }),
+        // Хедър с лого — както в писмата до училищата
+        new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: [
+            new TableRow({
+              children: [
+                new TableCell({
+                  width: { size: 20, type: WidthType.PERCENTAGE },
+                  borders: PROTOCOL_BORDER_NONE,
+                  margins: { top: 0, bottom: 0, left: 0, right: 80 },
+                  children: [
+                    new Paragraph({
+                      alignment: AlignmentType.LEFT,
+                      children: [
+                        new ImageRun({
+                          data: Buffer.from(CSOP_LOGO_B64, 'base64'),
+                          transformation: { width: 60, height: 60 },
+                          type: 'jpg',
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
+                new TableCell({
+                  width: { size: 80, type: WidthType.PERCENTAGE },
+                  borders: PROTOCOL_BORDER_NONE,
+                  verticalAlign: 'center' as any,
+                  margins: { top: 0, bottom: 0, left: 80, right: 0 },
+                  children: [
+                    new Paragraph({
+                      spacing: { after: 40 },
+                      children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })],
+                    }),
+                    new Paragraph({
+                      spacing: { after: 0 },
+                      children: [new TextRun({ text: 'бул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 0888 490 771', size: 17, italics: true, color: '555555' })],
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+        new Paragraph({
+          spacing: { before: 80, after: 80 },
+          border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } },
+          children: [],
+        }),
+        new Paragraph({ text: '' }),
         new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [new TextRun({ text: `ПРОТОКОЛ № ${sessionNumber}/ ${sessionDate} г.`, bold: true, size: 26 })] }),
         new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: `от заседание на ${committee.name} към Център за специална образователна подкрепа – гр. Варна`, size: 22, italics: true })] }),
         new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: `Днес, ${sessionDate} г., в ЦСОП–Варна се проведе заседание на ${committee.name} към ЦСОП–Варна.`, size: 22 })] }),
