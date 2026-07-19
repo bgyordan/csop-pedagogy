@@ -30,8 +30,8 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
     { data: formStats },
     { data: oresActive },
     { data: attachments },
-    { count: coudCount },
     { data: dataCheck },
+    { count: coudCount },
   ] = await Promise.all([
     supabase.from('student_enrollments').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
     supabase.from('classes').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
