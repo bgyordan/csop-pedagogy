@@ -73,7 +73,7 @@ export default async function EplrSchedulePage() {
 
   // Специалисти по ученик (за конфликти) — без класния, той е само в своята паралелка
   const specialistsByStudent: Record<string, string[]> = {}
-  const teamByStudent: Record<string, { psy: string | null; log: string | null; reh: string | null }> = {}
+  const teamByStudent: Record<string, { psy: string | null; log: string | null; reh: string | null; ct: string | null }> = {}
   ;(teams || []).forEach((t: any) => {
     const ids = [t.psychologist_id, t.speech_therapist_id, t.rehabilitator_id].filter(Boolean)
     specialistsByStudent[t.student_id] = ids
@@ -81,6 +81,7 @@ export default async function EplrSchedulePage() {
       psy: t.psychologist_id || null,
       log: t.speech_therapist_id || null,
       reh: t.rehabilitator_id || null,
+      ct: t.class_teacher_id || null,
     }
   })
 
