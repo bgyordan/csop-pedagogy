@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Lock } from 'lucide-react'
 import Link from 'next/link'
 import { useToast } from '@/components/ui/Toast'
 import { getFullName } from '@/lib/utils'
@@ -21,8 +21,11 @@ export default function EplrPage() {
     psychologist_id: '',
     speech_therapist_id: '',
     rehabilitator_id: '',
-    class_teacher_id: '',
   })
+  // Класният идва от паралелката — не се избира тук
+  const [classTeacherId, setClassTeacherId] = useState<string | null>(null)
+  const [classTeacherName, setClassTeacherName] = useState<string>('')
+  const [className, setClassName] = useState<string>('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => { loadData() }, [id])
@@ -45,15 +48,37 @@ export default function EplrPage() {
       .select('*')
       .eq('student_id', id)
       .eq('academic_year_id', year?.id)
-      .single()
+      .maybeSingle()
 
     if (existing) {
       setEplr({
         psychologist_id: existing.psychologist_id || '',
         speech_therapist_id: existing.speech_therapist_id || '',
         rehabilitator_id: existing.rehabilitator_id || '',
-        class_teacher_id: existing.class_teacher_id || '',
       })
+    }
+
+    // Класният ръководител — от паралелката на ученика
+    const { data: enrollment } = await supabase
+      .from('student_enrollments')
+      .select('class_id, class:classes(name)')
+      .eq('student_id', id)
+      .eq('academic_year_id', year?.id)
+      .maybeSingle()
+
+    if (enrollment?.class_id) {
+      setClassName((enrollment.class as any)?.name || '')
+      const { data: assignment } = await supabase
+        .from('class_teacher_assignments')
+        .select('staff_id, staff:staff_profiles(first_name, middle_name, last_name)')
+        .eq('class_id', enrollment.class_id)
+        .eq('academic_year_id', year?.id)
+        .maybeSingle()
+
+      if (assignment) {
+        setClassTeacherId(assignment.staff_id)
+        setClassTeacherName(assignment.staff ? getFullName(assignment.staff as any) : '')
+      }
     }
   }
 
@@ -73,7 +98,8 @@ export default function EplrPage() {
       psychologist_id: eplr.psychologist_id || null,
       speech_therapist_id: eplr.speech_therapist_id || null,
       rehabilitator_id: eplr.rehabilitator_id || null,
-      class_teacher_id: eplr.class_teacher_id || null,
+      // Класният винаги следва паралелката
+      class_teacher_id: classTeacherId,
     }
 
     const { error } = await supabase
@@ -90,7 +116,6 @@ export default function EplrPage() {
     { label: 'Психолог', key: 'psychologist_id', role: 'psychologist' },
     { label: 'Логопед', key: 'speech_therapist_id', role: 'speech_therapist' },
     { label: 'Рехабилитатор', key: 'rehabilitator_id', role: 'rehabilitator' },
-    { label: 'Класен ръководител', key: 'class_teacher_id', role: 'class_teacher' },
   ]
 
   return (
@@ -125,6 +150,22 @@ export default function EplrPage() {
             </div>
           )
         })}
+
+        {/* Класен ръководител — само за четене */}
+        <div>
+          <label className="label flex items-center gap-1.5">
+            Класен ръководител
+            <Lock size={11} className="text-slate-300" />
+          </label>
+          <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-600">
+            {classTeacherName || <span className="text-slate-400">Няма назначен</span>}
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            {className
+              ? `Следва класния на паралелка ${className}. Променя се от страницата на паралелката.`
+              : 'Ученикът няма паралелка за текущата година.'}
+          </p>
+        </div>
 
         <div className="flex gap-3 pt-2">
           <button type="submit" disabled={saving} className="btn-primary" style={{ backgroundColor: '#0f2240' }}>
