@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowLeft, Users, BookOpen, ChevronRight, Mail } from 'lucide-react'
 import { ROLE_LABELS } from '@/types'
 import { getFullName } from '@/lib/utils'
+import StaffClassesSection from './StaffClassesSection'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,9 +48,34 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   // Паралелки като класен ръководител
   const { data: myClasses } = await supabase
     .from('class_teacher_assignments')
-    .select('class:classes(id, name)')
+    .select('id, class:classes(id, name)')
     .eq('staff_id', id)
     .eq('academic_year_id', currentYear?.id)
+
+  // Всички паралелки за избор (без тези които вече имат класен)
+  const { data: allClasses } = await supabase
+    .from('classes').select('id, name')
+    .eq('academic_year_id', currentYear?.id)
+    .order('name')
+
+  const { data: takenAssignments } = await supabase
+    .from('class_teacher_assignments')
+    .select('class_id, staff_id')
+    .eq('academic_year_id', currentYear?.id)
+
+  // Свободни са тези без класен, или вече назначени на този служител
+  const takenByOthers = new Set(
+    (takenAssignments || []).filter(a => a.staff_id !== id).map(a => a.class_id)
+  )
+  const freeClasses = (allClasses || []).filter(c => !takenByOthers.has(c.id))
+
+  const assignedClasses = (myClasses || []).map((c: any) => ({
+    assignmentId: c.id,
+    classId: c.class?.id,
+    name: c.class?.name || '—',
+  })).filter((c: any) => c.classId)
+
+  const canManageAssignments = ['admin', 'zdud'].includes(profile?.role || '')
 
   const classIds = (myClasses || []).map((c: any) => c.class?.id).filter(Boolean)
 
@@ -107,6 +133,14 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
           </div>
         </div>
       </div>
+
+      <StaffClassesSection
+        staffId={id}
+        academicYearId={currentYear?.id || ''}
+        assigned={assignedClasses}
+        options={freeClasses}
+        canManage={canManageAssignments}
+      />
 
       {/* Паралелки като класен */}
       {classStudents.length > 0 && (
