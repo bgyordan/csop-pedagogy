@@ -16,7 +16,9 @@ interface Props {
   schedules: any[]
   classData: ClassData[]
   specialistsByStudent: Record<string, string[]>
+  teamByStudent: Record<string, { psy: string | null; log: string | null; reh: string | null }>
   staffMap: Record<string, string>
+  staffShortMap: Record<string, string>
   academicYearId: string
   yearName: string
   staffId: string
@@ -24,6 +26,19 @@ interface Props {
 }
 
 const MEETING_MINUTES = 15
+const TIME_START_HOUR = 8
+const TIME_END_HOUR = 18
+
+const TIME_OPTIONS: string[] = (() => {
+  const list: string[] = []
+  for (let h = TIME_START_HOUR; h <= TIME_END_HOUR; h++) {
+    for (let m = 0; m < 60; m += MEETING_MINUTES) {
+      if (h === TIME_END_HOUR && m > 0) break
+      list.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+    }
+  }
+  return list
+})()
 
 function toMinutes(t: string): number {
   if (!t) return -1
@@ -38,7 +53,7 @@ function formatBgDate(d: string): string {
 }
 
 export default function ScheduleClient({
-  schedules: initialSchedules, classData, specialistsByStudent, staffMap,
+  schedules: initialSchedules, classData, specialistsByStudent, teamByStudent, staffMap, staffShortMap,
   academicYearId, yearName, staffId, canEdit,
 }: Props) {
   const supabase = createClient()
@@ -358,8 +373,11 @@ export default function ScheduleClient({
                             <tr className="border-b border-slate-100">
                               <th className="text-left px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-8">№</th>
                               <th className="text-left px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ученик</th>
-                              <th className="text-left px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-16">Клас</th>
-                              <th className="text-left px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-36">Дата</th>
+                              <th className="text-left px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-14">Клас</th>
+                              <th className="text-left px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider" title="Психолог">Псх</th>
+                              <th className="text-left px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider" title="Логопед">Лог</th>
+                              <th className="text-left px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider" title="Рехабилитатор">Рех</th>
+                              <th className="text-left px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-32">Дата</th>
                               <th className="text-left px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-24">Час</th>
                             </tr>
                           </thead>
@@ -379,6 +397,19 @@ export default function ScheduleClient({
                                     )}
                                   </td>
                                   <td className="px-2 py-1.5 text-xs text-slate-500">{st.externalClass}</td>
+                                  {(['psy', 'log', 'reh'] as const).map(key => {
+                                    const sid = teamByStudent[st.id]?.[key]
+                                    const busy = sid && conf && conf.includes(staffMap[sid] || '')
+                                    return (
+                                      <td key={key} className="px-2 py-1.5">
+                                        <span className={`text-[10px] whitespace-nowrap ${
+                                          busy ? 'text-red-600 font-semibold' : 'text-slate-400'
+                                        }`} title={sid ? staffMap[sid] : ''}>
+                                          {sid ? staffShortMap[sid] : '—'}
+                                        </span>
+                                      </td>
+                                    )
+                                  })}
                                   <td className="px-2 py-1.5">
                                     <input type="date" disabled={!canEdit}
                                       value={slot?.date || ''}
@@ -386,12 +417,15 @@ export default function ScheduleClient({
                                       className="px-2 py-1 border border-slate-200 rounded-lg text-xs w-full disabled:bg-slate-50" />
                                   </td>
                                   <td className="px-2 py-1.5">
-                                    <input type="time" disabled={!canEdit}
+                                    <select disabled={!canEdit}
                                       value={slot?.time || ''}
                                       onChange={e => saveSlot(st.id, cls.id, slot?.date || '', e.target.value)}
                                       className={`px-2 py-1 border rounded-lg text-xs w-full disabled:bg-slate-50 ${
                                         conf ? 'border-red-300 bg-red-50' : 'border-slate-200'
-                                      }`} />
+                                      }`}>
+                                      <option value="">—</option>
+                                      {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
                                   </td>
                                 </tr>
                               )
