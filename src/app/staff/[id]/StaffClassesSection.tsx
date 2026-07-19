@@ -35,6 +35,7 @@ export default function StaffClassesSection({ staffId, academicYearId, assigned:
     }).select('id').single()
 
     if (!error && data) {
+      await syncEplrTeacher(selected, staffId)
       const opt = options.find(o => o.id === selected)
       if (opt) setAssigned(prev => [...prev, { assignmentId: data.id, classId: opt.id, name: opt.name }])
       setSelected('')
@@ -48,11 +49,31 @@ export default function StaffClassesSection({ staffId, academicYearId, assigned:
 
   async function removeClass(assignmentId: string) {
     if (!confirm('Премахване от тази паралелка?')) return
+    const item = assigned.find(a => a.assignmentId === assignmentId)
     setBusy(assignmentId)
     await supabase.from('class_teacher_assignments').delete().eq('id', assignmentId)
+    if (item) await syncEplrTeacher(item.classId, null)
     setAssigned(prev => prev.filter(a => a.assignmentId !== assignmentId))
     setBusy(null)
     router.refresh()
+  }
+
+  // Обновява class_teacher_id в ЕПЛР екипите на учениците от паралелката
+  async function syncEplrTeacher(classId: string, teacherId: string | null) {
+    const { data: enrollments } = await supabase
+      .from('student_enrollments')
+      .select('student_id')
+      .eq('class_id', classId)
+      .eq('academic_year_id', academicYearId)
+
+    const studentIds = (enrollments || []).map(e => e.student_id)
+    if (studentIds.length === 0) return
+
+    await supabase
+      .from('eplr_teams')
+      .update({ class_teacher_id: teacherId })
+      .in('student_id', studentIds)
+      .eq('academic_year_id', academicYearId)
   }
 
   const available = options.filter(o => !assigned.some(a => a.classId === o.id))
