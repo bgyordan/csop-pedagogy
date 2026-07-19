@@ -60,11 +60,11 @@ export default function ClassTeachersSection({ classId, academicYearId, teachers
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4 mb-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Класни ръководители</span>
-        {canManage && !adding && available.length > 0 && (
+        <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Класен ръководител</span>
+        {canManage && !adding && teachers.length === 0 && available.length > 0 && (
           <button onClick={() => setAdding(true)}
             className="flex items-center gap-1 text-xs text-slate-500 hover:text-[#0f2240] transition-colors">
-            <UserPlus size={13} /> Добави
+            <UserPlus size={13} /> Назначи
           </button>
         )}
       </div>
@@ -87,6 +87,10 @@ export default function ClassTeachersSection({ classId, academicYearId, teachers
             </span>
           ))}
         </div>
+      )}
+
+      {canManage && teachers.length > 0 && !adding && (
+        <p className="text-[11px] text-slate-300 mt-2">Една паралелка има един класен ръководител. Премахни текущия, за да назначиш друг.</p>
       )}
 
       {adding && (
