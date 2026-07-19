@@ -522,6 +522,39 @@ export async function generateCommitteeProtocol(
 
 // ── ГРАФИК ЗА ЗАСЕДАНИЯ НА ЕПЛР ──────────────────────────────────────────────
 
+const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV']
+
+function toRoman(n: number): string {
+  return ROMAN[n] || String(n)
+}
+
+// "4 а" -> 4 ; "ПГ" -> null
+function classNumber(external: string): number | null {
+  if (!external) return null
+  const m = external.trim().match(/^(\d+)/)
+  return m ? parseInt(m[1]) : null
+}
+
+// Списък класове -> "V и IV клас" / "VII, VI и V клас"
+function classesLabel(externals: string[]): string {
+  const nums = [...new Set(externals.map(classNumber).filter((n): n is number => n !== null))]
+    .sort((a, b) => b - a)
+  if (nums.length === 0) return ''
+  const romans = nums.map(toRoman)
+  if (romans.length === 1) return `${romans[0]} клас`
+  const last = romans[romans.length - 1]
+  const rest = romans.slice(0, -1)
+  return `${rest.join(', ')} и ${last} клас`
+}
+
+// "01" -> "I паралелка" ; "ПГ 3" -> оставя се както е
+function classTitle(className: string, externals: string[]): string {
+  const label = classesLabel(externals)
+  const num = className.trim().match(/^0*(\d+)$/)
+  const base = num ? `${toRoman(parseInt(num[1]))} паралелка` : className
+  return label ? `${base} – ${label}` : base
+}
+
 export async function generateEplrSchedule(
   scheduleName: string,
   yearName: string,
@@ -532,6 +565,12 @@ export async function generateEplrSchedule(
 ) {
   const BORDER_CELL = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
   const CELL_BORDERS = { top: BORDER_CELL, bottom: BORDER_CELL, left: BORDER_CELL, right: BORDER_CELL }
+  const BORDER_NONE_CELL = {
+    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  }
 
   const fmtDate = (d: string) => {
     if (!d) return ''
@@ -541,18 +580,58 @@ export async function generateEplrSchedule(
 
   const children: any[] = []
 
-  // Хедър
+  // Хедър с лого — както в писмата
   children.push(
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 40 },
-      children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })],
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 20, type: WidthType.PERCENTAGE },
+              borders: BORDER_NONE_CELL,
+              margins: { top: 0, bottom: 0, left: 0, right: 80 },
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.LEFT,
+                  children: [
+                    new ImageRun({
+                      data: Buffer.from(CSOP_LOGO_B64, 'base64'),
+                      transformation: { width: 60, height: 60 },
+                      type: 'jpg',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+            new TableCell({
+              width: { size: 80, type: WidthType.PERCENTAGE },
+              borders: BORDER_NONE_CELL,
+              verticalAlign: 'center' as any,
+              margins: { top: 0, bottom: 0, left: 80, right: 0 },
+              children: [
+                new Paragraph({
+                  spacing: { after: 40 },
+                  children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })],
+                }),
+                new Paragraph({
+                  spacing: { after: 0 },
+                  children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456, 0888 490 771', size: 17, italics: true, color: '555555' })],
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
     }),
     new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 200 },
-      children: [new TextRun({ text: 'ул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 052 619 456, 0888 490 771', size: 16, italics: true })],
+      spacing: { before: 80, after: 80 },
+      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } },
+      children: [],
     }),
+    new Paragraph({ text: '' }),
+
+    // Утвърдил
     new Paragraph({
       alignment: AlignmentType.RIGHT,
       spacing: { after: 20 },
@@ -560,28 +639,36 @@ export async function generateEplrSchedule(
     }),
     new Paragraph({
       alignment: AlignmentType.RIGHT,
-      spacing: { after: 240 },
+      spacing: { after: 280 },
       children: [new TextRun({ text: 'Директор ЦСОП-Варна', size: 20 })],
     }),
+
+    // Заглавие
     new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { after: 60 },
-      children: [new TextRun({ text: 'ГРАФИК', bold: true, size: 28 })],
+      children: [new TextRun({ text: 'ГРАФИК', bold: true, size: 30 })],
     }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { after: 240 },
+      spacing: { after: 100 },
       children: [new TextRun({
         text: `за провеждане на заседания на ЕПЛР, в изпълнение на чл. 128, ал. 5 и чл. 159, ал. 1 от Наредба за приобщаващото образование от 20.10.2017 г. за децата/учениците, обучаващи се в ЦСОП-Варна през ${yearName} учебна година`,
         size: 20,
       })],
     }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 280 },
+      children: [new TextRun({ text: scheduleName, size: 20, italics: true, color: '555555' })],
+    }),
   )
 
   // Таблица за всяка паралелка
-  data.forEach((cls, idx) => {
+  data.forEach(cls => {
     const dates = [...new Set(cls.rows.map(r => r.date).filter(Boolean))]
-    const dateLabel = dates.length === 1 ? fmtDate(dates[0]) : 'Дата'
+    const singleDate = dates.length === 1
+    const title = classTitle(cls.className, cls.rows.map(r => r.externalClass))
 
     const tableRows: TableRow[] = []
 
@@ -594,7 +681,7 @@ export async function generateEplrSchedule(
         margins: { top: 60, bottom: 60, left: 100, right: 100 },
         children: [new Paragraph({
           alignment: AlignmentType.CENTER,
-          children: [new TextRun({ text: cls.className, bold: true, size: 20 })],
+          children: [new TextRun({ text: title, bold: true, size: 20 })],
         })],
       })],
     }))
@@ -602,33 +689,32 @@ export async function generateEplrSchedule(
     // Хедър колони
     tableRows.push(new TableRow({
       children: [
-        { t: '№', w: 8 },
-        { t: 'Име, презиме, фамилия', w: 52 },
-        { t: 'Клас', w: 14 },
-        { t: dates.length === 1 ? `Дата\n${dateLabel}` : 'Дата / час', w: 26 },
+        { t: ['№'], w: 8 },
+        { t: ['Име, презиме, фамилия'], w: 52 },
+        { t: ['Клас'], w: 14 },
+        { t: singleDate ? ['Дата', fmtDate(dates[0])] : ['Дата / час'], w: 26 },
       ].map(c => new TableCell({
         width: { size: c.w, type: WidthType.PERCENTAGE },
         borders: CELL_BORDERS,
         shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
         margins: { top: 40, bottom: 40, left: 80, right: 80 },
-        children: c.t.split('\n').map(line => new Paragraph({
+        children: c.t.map(line => new Paragraph({
           alignment: AlignmentType.CENTER,
           children: [new TextRun({ text: line, bold: true, size: 18 })],
         })),
       })),
     }))
 
-    // Редове с ученици
+    // Редове
     cls.rows.forEach((row, i) => {
-      const timeCell = dates.length === 1
-        ? row.time
-        : `${fmtDate(row.date)} ${row.time}`.trim()
+      const num = classNumber(row.externalClass)
+      const timeCell = singleDate ? row.time : `${fmtDate(row.date)} ${row.time}`.trim()
 
       tableRows.push(new TableRow({
         children: [
           { t: String(i + 1), align: AlignmentType.CENTER },
           { t: row.name, align: AlignmentType.LEFT },
-          { t: row.externalClass || '', align: AlignmentType.CENTER },
+          { t: num !== null ? toRoman(num) : (row.externalClass || ''), align: AlignmentType.CENTER },
           { t: timeCell, align: AlignmentType.CENTER },
         ].map(c => new TableCell({
           borders: CELL_BORDERS,
@@ -643,7 +729,7 @@ export async function generateEplrSchedule(
 
     children.push(
       new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: tableRows }),
-      new Paragraph({ text: '', spacing: { after: 160 } }),
+      new Paragraph({ text: '', spacing: { after: 200 } }),
     )
   })
 
