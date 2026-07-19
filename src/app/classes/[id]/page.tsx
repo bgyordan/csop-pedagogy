@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { BackButton } from '@/components/ui/BackButton'
 import { DocumentType, DOCUMENT_TYPE_LABELS } from '@/types'
 import { getFullName } from '@/lib/utils'
+import ClassTeachersSection from './ClassTeachersSection'
 
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
@@ -29,13 +30,24 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
 
   if (!cls) notFound()
 
-  const [{ data: enrollments }, { data: assignments }] = await Promise.all([
+  const [{ data: enrollments }, { data: assignments }, { data: myProfile }, { data: allStaff }] = await Promise.all([
     supabase.from('student_enrollments').select('*, student:students(*)').eq('class_id', id).eq('academic_year_id', currentYear?.id),
-    supabase.from('class_teacher_assignments').select('staff:staff_profiles(first_name, last_name)').eq('class_id', id).eq('academic_year_id', currentYear?.id)
+    supabase.from('class_teacher_assignments').select('id, staff_id, staff:staff_profiles(id, first_name, middle_name, last_name)').eq('class_id', id).eq('academic_year_id', currentYear?.id),
+    supabase.from('staff_profiles').select('role').eq('user_id', user.id).single(),
+    supabase.from('staff_profiles').select('id, first_name, middle_name, last_name').eq('is_active', true).order('first_name'),
   ])
 
   const students = enrollments?.map(e => e.student).filter(Boolean) || []
-  const teachers = assignments?.map((a: any) => a.staff ? getFullName(a.staff) : null).filter(Boolean) || []
+  const canManageTeachers = ['admin', 'zdud'].includes(myProfile?.role || '')
+
+  const teacherList = (assignments || []).map((a: any) => ({
+    assignmentId: a.id,
+    id: a.staff?.id || a.staff_id,
+    name: a.staff ? getFullName(a.staff) : '—',
+  }))
+  const teachers = teacherList.map(t => t.name)
+
+  const staffOptions = (allStaff || []).map((s: any) => ({ id: s.id, name: getFullName(s) }))
 
   const { data: documents } = students.length > 0
     ? await supabase.from('documents').select('*').eq('academic_year_id', currentYear?.id).in('student_id', students.map((s: any) => s.id))
@@ -56,6 +68,14 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
           )}
         </div>
       </div>
+
+      <ClassTeachersSection
+        classId={id}
+        academicYearId={currentYear?.id || ''}
+        teachers={teacherList}
+        options={staffOptions}
+        canManage={canManageTeachers}
+      />
 
       {/* ДЕСКТОП: таблица */}
       <div className="hidden md:block bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
