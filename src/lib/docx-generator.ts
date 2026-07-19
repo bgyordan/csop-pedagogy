@@ -942,6 +942,231 @@ export async function generateScheduleByDay(
   saveAs(blob, `график_по_дни_${scheduleName.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_')}.docx`)
 }
 
+
+// ── ПИСМО ДО РУО: организиране на паралелки ─────────────────────────────────
+
+export async function generateRuoClassesLetter(
+  yearName: string,
+  classes: {
+    className: string
+    students: { name: string; school: string; externalClass: string }[]
+  }[],
+  opts?: { addressee?: string; position?: string; institution?: string; directorName?: string },
+) {
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const CELLS = { top: B, bottom: B, left: B, right: B }
+  const NONE = {
+    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  }
+
+  const addressee = opts?.addressee || 'ДО Г-ЖА РАДЕВА'
+  const position = opts?.position || 'НАЧАЛНИК НА'
+  const institution = opts?.institution || 'РУО ВАРНА'
+  const directorName = opts?.directorName || 'Светлана Иванова'
+
+  const BASIS = 'Във връзка с чл. 53, Приложение №7, раздел IV, т. 3 от Наредбата за финансиране на институциите в системата на предучилищното и училищно образование от 05.09.2017 г., предлагам да се сформира следната паралелка:'
+
+  const children: any[] = []
+
+  // Хедър с лого
+  children.push(
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [new TableRow({ children: [
+        new TableCell({
+          width: { size: 20, type: WidthType.PERCENTAGE }, borders: NONE,
+          margins: { top: 0, bottom: 0, left: 0, right: 80 },
+          children: [new Paragraph({ alignment: AlignmentType.LEFT, children: [
+            new ImageRun({ data: Buffer.from(CSOP_LOGO_B64, 'base64'), transformation: { width: 60, height: 60 }, type: 'jpg' }),
+          ]})],
+        }),
+        new TableCell({
+          width: { size: 80, type: WidthType.PERCENTAGE }, borders: NONE,
+          verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
+          children: [
+            new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
+            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456, 0888 490 771', size: 17, italics: true, color: '555555' })] }),
+          ],
+        }),
+      ]})],
+    }),
+    new Paragraph({ spacing: { before: 80, after: 80 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
+    new Paragraph({ text: '' }),
+
+    // До кого
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 20 }, children: [new TextRun({ text: addressee, bold: true, size: 22 })] }),
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 20 }, children: [new TextRun({ text: position, bold: true, size: 22 })] }),
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 320 }, children: [new TextRun({ text: institution, bold: true, size: 22 })] }),
+
+    // Относно
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED, spacing: { after: 280 },
+      children: [
+        new TextRun({ text: 'Относно: ', bold: true, size: 22 }),
+        new TextRun({ text: `Организиране на групи на деца и ученици със специални образователни потребности от училищата от гр. Варна в ЦСОП–Варна за учебната ${yearName} г.`, size: 22 }),
+      ],
+    }),
+
+    new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: `УВАЖАЕМА ГОСПОЖО ${addressee.replace(/^ДО\s+Г-ЖА\s+/i, '').toUpperCase()},`, bold: true, size: 22 })] }),
+
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED, spacing: { after: 240 },
+      children: [new TextRun({ text: `Съгласно и при спазването на условията на чл. 195, ал. 2, ал. 3, ал. 5 от ЗПУО децата и учениците в ЦСОП-Варна за учебната ${yearName} са както следва:`, size: 22 })],
+    }),
+  )
+
+  // Всяка паралелка: основание + номер + таблица
+  classes.forEach((cls, idx) => {
+    const title = classTitle(cls.className, cls.students.map(s => s.externalClass))
+
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.JUSTIFIED, spacing: { before: 160, after: 100 },
+        children: [new TextRun({ text: BASIS, size: 21 })],
+      }),
+      new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: `${idx + 1}.`, bold: true, size: 22 })] }),
+    )
+
+    const rows: TableRow[] = []
+
+    rows.push(new TableRow({ children: [new TableCell({
+      columnSpan: 4, borders: CELLS,
+      shading: { type: ShadingType.CLEAR, fill: 'E8EEF5' },
+      margins: { top: 60, bottom: 60, left: 100, right: 100 },
+      children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: title, bold: true, size: 20 })] })],
+    })]}))
+
+    rows.push(new TableRow({ children: [
+      { t: '№', w: 7 }, { t: 'Име, презиме, фамилия', w: 40 }, { t: 'Училище', w: 43 }, { t: 'Клас', w: 10 },
+    ].map(c => new TableCell({
+      width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
+      shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
+      margins: { top: 40, bottom: 40, left: 80, right: 80 },
+      children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 18 })] })],
+    }))}))
+
+    cls.students.forEach((st, i) => {
+      const num = classNumber(st.externalClass)
+      rows.push(new TableRow({ children: [
+        { t: String(i + 1), a: AlignmentType.CENTER },
+        { t: st.name, a: AlignmentType.LEFT },
+        { t: st.school || '—', a: AlignmentType.LEFT },
+        { t: num !== null ? toRoman(num) : (st.externalClass || ''), a: AlignmentType.CENTER },
+      ].map(c => new TableCell({
+        borders: CELLS, margins: { top: 40, bottom: 40, left: 80, right: 80 },
+        children: [new Paragraph({ alignment: c.a, children: [new TextRun({ text: c.t, size: 18 })] })],
+      }))}))
+    })
+
+    children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }))
+  })
+
+  // Подпис
+  children.push(
+    new Paragraph({ text: '', spacing: { after: 400 } }),
+    new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: directorName, bold: true, size: 22 })] }),
+    new Paragraph({ children: [new TextRun({ text: 'Директор ЦСОП-Варна', size: 20 })] }),
+  )
+
+  const doc = new Document({ sections: [{ properties: {}, children }] })
+  const blob = await Packer.toBlob(doc)
+  saveAs(blob, `паралелки_РУО_${yearName.replace(/[^0-9]/g, '_')}.docx`)
+}
+
+// ── ЗАПОВЕД ЗА СФОРМИРАНЕ НА ЦОУД ГРУПИ ─────────────────────────────────────
+
+const NUM_WORDS = ['', 'една', 'две', 'три', 'четири', 'пет', 'шест', 'седем', 'осем', 'девет', 'десет', 'единадесет', 'дванадесет']
+
+export async function generateCoudOrder(
+  orderNumber: string,
+  orderDate: string,
+  yearName: string,
+  groups: { name: string; teacher: string; students: string[] }[],
+  directorName?: string,
+) {
+  const NONE = {
+    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  }
+
+  const count = groups.length
+  const countWord = NUM_WORDS[count] || String(count)
+
+  const children: any[] = []
+
+  children.push(
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [new TableRow({ children: [
+        new TableCell({
+          width: { size: 20, type: WidthType.PERCENTAGE }, borders: NONE,
+          margins: { top: 0, bottom: 0, left: 0, right: 80 },
+          children: [new Paragraph({ alignment: AlignmentType.LEFT, children: [
+            new ImageRun({ data: Buffer.from(CSOP_LOGO_B64, 'base64'), transformation: { width: 60, height: 60 }, type: 'jpg' }),
+          ]})],
+        }),
+        new TableCell({
+          width: { size: 80, type: WidthType.PERCENTAGE }, borders: NONE,
+          verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
+          children: [
+            new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
+            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456, 0878 521 823', size: 17, italics: true, color: '555555' })] }),
+          ],
+        }),
+      ]})],
+    }),
+    new Paragraph({ spacing: { before: 80, after: 80 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
+    new Paragraph({ text: '' }),
+
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 40 }, children: [new TextRun({ text: 'ЗАПОВЕД', bold: true, size: 30 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 280 }, children: [new TextRun({ text: `№ ${orderNumber} / ${orderDate} г.`, bold: true, size: 22 })] }),
+
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED, spacing: { after: 240 },
+      children: [new TextRun({
+        text: 'На основание чл. 259, ал. 1 от ЗПУО и чл. 17, ал. 3 от Наредба №10 от 2016 г. за организация на дейностите в училищното образование, чл. 191а, ал. 1 и ал. 2 от Наредба за приобщаващото образование',
+        size: 22,
+      })],
+    }),
+
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: 'ОПРЕДЕЛЯМ:', bold: true, size: 24 })] }),
+
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED, spacing: { after: 240 },
+      children: [new TextRun({ text: `Да бъдат сформирани ${countWord} групи ЦОУД за учебна ${yearName} година със следния списъчен състав:`, size: 22 })],
+    }),
+  )
+
+  groups.forEach(g => {
+    children.push(
+      new Paragraph({ spacing: { before: 160, after: 80 }, children: [new TextRun({ text: g.name, bold: true, size: 22 })] }),
+      ...g.students.map((s, i) => new Paragraph({
+        spacing: { after: 40 }, indent: { left: 300 },
+        children: [new TextRun({ text: `${i + 1}. ${s}`, size: 21 })],
+      })),
+      new Paragraph({
+        spacing: { before: 100, after: 60 },
+        children: [new TextRun({ text: `Учител ${g.name} – ${g.teacher || '—'}`, size: 21, italics: true })],
+      }),
+    )
+  })
+
+  children.push(
+    new Paragraph({ text: '', spacing: { after: 400 } }),
+    new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: 'Директор на ЦСОП-Варна', size: 20 })] }),
+    new Paragraph({ children: [new TextRun({ text: directorName || 'Светлана Иванова', bold: true, size: 22 })] }),
+  )
+
+  const doc = new Document({ sections: [{ properties: {}, children }] })
+  const blob = await Packer.toBlob(doc)
+  saveAs(blob, `заповед_ЦОУД_${orderNumber.replace(/[^0-9]/g, '')}.docx`)
+}
+
 // ── MAIN EXPORT ───────────────────────────────────────────────────────────────
 
 export async function generateAndDownloadDocument(
