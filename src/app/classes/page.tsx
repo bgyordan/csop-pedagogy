@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { BackButton } from '@/components/ui/BackButton'
 import { DocumentType, DOCUMENT_TYPE_LABELS } from '@/types'
 import { getFullName } from '@/lib/utils'
+import RuoLetterButton from './RuoLetterButton'
 
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
@@ -34,7 +35,8 @@ export default async function ClassesPage({
     .from('classes').select('*').eq('academic_year_id', currentYear?.id).order('name')
 
   const { data: enrollments } = await supabase
-    .from('student_enrollments').select('class_id, student_id')
+    .from('student_enrollments')
+    .select('class_id, student_id, student:students(id, first_name, middle_name, last_name, external_class, status, sending_school_other, sending_school:sending_schools(name, city))')
     .eq('academic_year_id', currentYear?.id)
 
   const { data: documents } = await supabase
@@ -69,6 +71,25 @@ export default async function ClassesPage({
     const completed = studentIds.filter(sid => docMap.get(`${sid}_${dt}`) === 'completed').length
     return { completed, total: studentIds.length }
   }
+
+  // Данни за писмото до РУО
+  const ruoData = (classes || []).map(c => ({
+    className: c.name,
+    students: (enrollments || [])
+      .filter((e: any) => e.class_id === c.id && e.student?.status === 'active')
+      .map((e: any) => {
+        const sch = e.student.sending_school as any
+        const schoolName = sch
+          ? `${sch.name}${sch.city ? `, ${sch.city}` : ''}`
+          : (e.student.sending_school_other || '')
+        return {
+          name: getFullName(e.student),
+          school: schoolName,
+          externalClass: e.student.external_class || '',
+        }
+      })
+      .sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg')),
+  }))
 
   // ── ЦОУД данни ──
   const { data: coudGroups } = await supabase
@@ -115,7 +136,8 @@ export default async function ClassesPage({
       </div>
 
       {/* ТАБОВЕ */}
-      <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl shadow-sm w-fit mb-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl shadow-sm w-fit">
         <Link href="/classes"
           className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
             tab === 'classes' ? 'bg-[#0f2240] text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
@@ -128,6 +150,9 @@ export default async function ClassesPage({
           }`}>
           ЦОУД групи
         </Link>
+      </div>
+
+      {tab === 'classes' && <RuoLetterButton yearName={currentYear?.name || ''} classes={ruoData} />}
       </div>
 
       {tab === 'coud' ? (
