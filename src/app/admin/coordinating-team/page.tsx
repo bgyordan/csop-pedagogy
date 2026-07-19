@@ -66,6 +66,7 @@ export default function CoordinatingTeamPage() {
   const [selectedStaff, setSelectedStaff] = useState('')
   const [roleInTeam, setRoleInTeam] = useState('')
   const [showMemberForm, setShowMemberForm] = useState(false)
+  const [canEditTeam, setCanEditTeam] = useState(false)
   const [savingMember, setSavingMember] = useState(false)
 
   // Форма за заседание
@@ -82,6 +83,15 @@ export default function CoordinatingTeamPage() {
 
   async function loadData() {
     setLoading(true)
+
+    // Само admin/zdud/director могат да редактират състава
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: me } = await supabase.from('staff_profiles')
+        .select('role').eq('user_id', user.id).single()
+      setCanEditTeam(['admin', 'zdud', 'director'].includes(me?.role || ''))
+    }
+
     const { data: year } = await supabase
       .from('academic_years').select('id, name').eq('is_current', true).single()
     if (!year) { setLoading(false); return }
@@ -218,7 +228,7 @@ export default function CoordinatingTeamPage() {
                 <Star size={16} className="text-indigo-500" />
                 <h2 className="font-medium text-slate-700 text-sm">Членове ({members.length})</h2>
               </div>
-              {!showMemberForm && (
+              {canEditTeam && !showMemberForm && (
                 <button onClick={() => setShowMemberForm(true)}
                   className="text-xs text-slate-400 hover:text-slate-700 flex items-center gap-1">
                   <Plus size={12} /> Добави
@@ -269,10 +279,12 @@ export default function CoordinatingTeamPage() {
                         </div>
                       </div>
                     </div>
-                    <button onClick={() => handleRemoveMember(member)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0">
-                      <X size={14} />
-                    </button>
+                    {canEditTeam && (
+                      <button onClick={() => handleRemoveMember(member)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0">
+                        <X size={14} />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
