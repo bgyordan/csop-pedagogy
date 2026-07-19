@@ -51,7 +51,11 @@ export default async function EplrSchedulePage() {
     .eq('is_active', true)
 
   const staffMap: Record<string, string> = {}
-  ;(staff || []).forEach((s: any) => { staffMap[s.id] = getFullName(s) })
+  const staffShortMap: Record<string, string> = {}
+  ;(staff || []).forEach((s: any) => {
+    staffMap[s.id] = getFullName(s)
+    staffShortMap[s.id] = `${s.first_name?.charAt(0)}. ${s.last_name}`
+  })
 
   // Структура: паралелка → ученици
   const classData = (classes || []).map(c => ({
@@ -69,9 +73,15 @@ export default async function EplrSchedulePage() {
 
   // Специалисти по ученик (за конфликти) — без класния, той е само в своята паралелка
   const specialistsByStudent: Record<string, string[]> = {}
+  const teamByStudent: Record<string, { psy: string | null; log: string | null; reh: string | null }> = {}
   ;(teams || []).forEach((t: any) => {
     const ids = [t.psychologist_id, t.speech_therapist_id, t.rehabilitator_id].filter(Boolean)
     specialistsByStudent[t.student_id] = ids
+    teamByStudent[t.student_id] = {
+      psy: t.psychologist_id || null,
+      log: t.speech_therapist_id || null,
+      reh: t.rehabilitator_id || null,
+    }
   })
 
   return (
@@ -86,7 +96,9 @@ export default async function EplrSchedulePage() {
         schedules={schedules || []}
         classData={classData}
         specialistsByStudent={specialistsByStudent}
+        teamByStudent={teamByStudent}
         staffMap={staffMap}
+        staffShortMap={staffShortMap}
         academicYearId={currentYear?.id || ''}
         yearName={currentYear?.name || ''}
         staffId={profile?.id || ''}
