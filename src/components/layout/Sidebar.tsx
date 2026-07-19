@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3,
-  Inbox, ClipboardList, FileSignature, Package, Star
+  Inbox, ClipboardList, FileSignature, Package, Star, CalendarClock
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
@@ -40,6 +40,7 @@ const navItems: NavItem[] = [
   { href: '/reports', label: 'Писма и справки', icon: <BarChart3 size={16} />, roles: ['admin', 'director', 'zdud'], coordinatorOnly: true },
   { href: '/admin/eplr-assignment', label: 'ЕПЛР Разпределение', icon: <GitBranch size={16} />, roles: ['admin', 'zdud'], coordinatorOnly: true },
   { href: '/admin/coordinating-team', label: 'Координиращ екип', icon: <Star size={16} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
+  { href: '/admin/eplr-schedule', label: 'График ЕПЛР', icon: <CalendarClock size={16} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
   { href: '/admin', label: 'Администрация', icon: <Shield size={16} />, roles: ['admin', 'zdud'] },
   { href: '/correspondence', label: 'Регистър', icon: <Inbox size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/orders', label: 'Заповеди', icon: <ClipboardList size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
