@@ -738,6 +738,210 @@ export async function generateEplrSchedule(
   saveAs(blob, `график_ЕПЛР_${scheduleName.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_')}.docx`)
 }
 
+
+// ── ГРАФИК ПО СПЕЦИАЛИСТИ ────────────────────────────────────────────────────
+
+export async function generateScheduleBySpecialist(
+  scheduleName: string,
+  yearName: string,
+  data: {
+    specialistName: string
+    role: string
+    rows: { date: string; time: string; student: string; studentClass: string; className: string; colleagues: string }[]
+  }[],
+) {
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const CELLS = { top: B, bottom: B, left: B, right: B }
+  const NONE = {
+    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  }
+  const fmt = (d: string) => { if (!d) return ''; const [y, m, dd] = d.split('-'); return `${dd}.${m}.${y}` }
+
+  const children: any[] = []
+
+  children.push(
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [new TableRow({ children: [
+        new TableCell({
+          width: { size: 20, type: WidthType.PERCENTAGE }, borders: NONE,
+          margins: { top: 0, bottom: 0, left: 0, right: 80 },
+          children: [new Paragraph({ alignment: AlignmentType.LEFT, children: [
+            new ImageRun({ data: Buffer.from(CSOP_LOGO_B64, 'base64'), transformation: { width: 60, height: 60 }, type: 'jpg' }),
+          ]})],
+        }),
+        new TableCell({
+          width: { size: 80, type: WidthType.PERCENTAGE }, borders: NONE,
+          verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
+          children: [
+            new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
+            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456', size: 17, italics: true, color: '555555' })] }),
+          ],
+        }),
+      ]})],
+    }),
+    new Paragraph({ spacing: { before: 80, after: 80 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
+    new Paragraph({ text: '' }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 60 },
+      children: [new TextRun({ text: 'ГРАФИК ПО СПЕЦИАЛИСТИ', bold: true, size: 28 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 240 },
+      children: [new TextRun({ text: `Заседания на ЕПЛР · ${scheduleName} · ${yearName}`, size: 20, italics: true, color: '555555' })] }),
+  )
+
+  data.forEach(sp => {
+    const rows: TableRow[] = []
+
+    rows.push(new TableRow({ children: [new TableCell({
+      columnSpan: 6, borders: CELLS,
+      shading: { type: ShadingType.CLEAR, fill: 'E8EEF5' },
+      margins: { top: 60, bottom: 60, left: 100, right: 100 },
+      children: [new Paragraph({ children: [
+        new TextRun({ text: sp.specialistName, bold: true, size: 20 }),
+        new TextRun({ text: `  —  ${sp.role}  ·  ${sp.rows.length} заседания`, size: 17, color: '555555' }),
+      ]})],
+    })]}))
+
+    rows.push(new TableRow({ children: [
+      { t: 'Дата', w: 15 }, { t: 'Час', w: 9 }, { t: 'Ученик', w: 30 },
+      { t: 'Клас', w: 9 }, { t: 'Паралелка', w: 15 }, { t: 'Колеги в екипа', w: 22 },
+    ].map(c => new TableCell({
+      width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
+      shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
+      margins: { top: 40, bottom: 40, left: 80, right: 80 },
+      children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 17 })] })],
+    })))}))
+
+    sp.rows.forEach(r => {
+      rows.push(new TableRow({ children: [
+        { t: fmt(r.date), a: AlignmentType.CENTER },
+        { t: r.time, a: AlignmentType.CENTER },
+        { t: r.student, a: AlignmentType.LEFT },
+        { t: r.studentClass, a: AlignmentType.CENTER },
+        { t: r.className, a: AlignmentType.CENTER },
+        { t: r.colleagues, a: AlignmentType.LEFT },
+      ].map(c => new TableCell({
+        borders: CELLS, margins: { top: 40, bottom: 40, left: 80, right: 80 },
+        children: [new Paragraph({ alignment: c.a, children: [new TextRun({ text: c.t, size: 17 })] })],
+      })))}))
+    })
+
+    children.push(
+      new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }),
+      new Paragraph({ text: '', spacing: { after: 200 } }),
+    )
+  })
+
+  const doc = new Document({ sections: [{ properties: { page: { size: { orientation: PageOrientation.LANDSCAPE } } }, children }] })
+  const blob = await Packer.toBlob(doc)
+  saveAs(blob, `график_по_специалисти_${scheduleName.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_')}.docx`)
+}
+
+// ── ГРАФИК ПО ДНИ ────────────────────────────────────────────────────────────
+
+export async function generateScheduleByDay(
+  scheduleName: string,
+  yearName: string,
+  data: {
+    date: string
+    weekday: string
+    rows: { time: string; student: string; studentClass: string; className: string; classTeacher: string; psy: string; log: string; reh: string; conflict: boolean }[]
+  }[],
+) {
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const CELLS = { top: B, bottom: B, left: B, right: B }
+  const NONE = {
+    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  }
+  const fmt = (d: string) => { if (!d) return ''; const [y, m, dd] = d.split('-'); return `${dd}.${m}.${y}` }
+
+  const children: any[] = []
+
+  children.push(
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [new TableRow({ children: [
+        new TableCell({
+          width: { size: 20, type: WidthType.PERCENTAGE }, borders: NONE,
+          margins: { top: 0, bottom: 0, left: 0, right: 80 },
+          children: [new Paragraph({ alignment: AlignmentType.LEFT, children: [
+            new ImageRun({ data: Buffer.from(CSOP_LOGO_B64, 'base64'), transformation: { width: 60, height: 60 }, type: 'jpg' }),
+          ]})],
+        }),
+        new TableCell({
+          width: { size: 80, type: WidthType.PERCENTAGE }, borders: NONE,
+          verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
+          children: [
+            new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
+            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456', size: 17, italics: true, color: '555555' })] }),
+          ],
+        }),
+      ]})],
+    }),
+    new Paragraph({ spacing: { before: 80, after: 80 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
+    new Paragraph({ text: '' }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 60 },
+      children: [new TextRun({ text: 'ГРАФИК ПО ДНИ', bold: true, size: 28 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 240 },
+      children: [new TextRun({ text: `Заседания на ЕПЛР · ${scheduleName} · ${yearName}`, size: 20, italics: true, color: '555555' })] }),
+  )
+
+  data.forEach(day => {
+    const rows: TableRow[] = []
+
+    rows.push(new TableRow({ children: [new TableCell({
+      columnSpan: 8, borders: CELLS,
+      shading: { type: ShadingType.CLEAR, fill: 'E8EEF5' },
+      margins: { top: 60, bottom: 60, left: 100, right: 100 },
+      children: [new Paragraph({ children: [
+        new TextRun({ text: fmt(day.date), bold: true, size: 20 }),
+        new TextRun({ text: `  ${day.weekday}  ·  ${day.rows.length} заседания`, size: 17, color: '555555' }),
+      ]})],
+    })]}))
+
+    rows.push(new TableRow({ children: [
+      { t: 'Час', w: 8 }, { t: 'Ученик', w: 24 }, { t: 'Клас', w: 7 }, { t: 'Паралелка', w: 12 },
+      { t: 'Класен', w: 13 }, { t: 'Психолог', w: 12 }, { t: 'Логопед', w: 12 }, { t: 'Рехабил.', w: 12 },
+    ].map(c => new TableCell({
+      width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
+      shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
+      margins: { top: 40, bottom: 40, left: 60, right: 60 },
+      children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 16 })] })],
+    })))}))
+
+    day.rows.forEach(r => {
+      rows.push(new TableRow({ children: [
+        { t: r.time, a: AlignmentType.CENTER },
+        { t: r.student, a: AlignmentType.LEFT },
+        { t: r.studentClass, a: AlignmentType.CENTER },
+        { t: r.className, a: AlignmentType.CENTER },
+        { t: r.classTeacher, a: AlignmentType.LEFT },
+        { t: r.psy, a: AlignmentType.LEFT },
+        { t: r.log, a: AlignmentType.LEFT },
+        { t: r.reh, a: AlignmentType.LEFT },
+      ].map(c => new TableCell({
+        borders: CELLS, margins: { top: 40, bottom: 40, left: 60, right: 60 },
+        ...(r.conflict ? { shading: { type: ShadingType.CLEAR, fill: 'FDECEC' } } : {}),
+        children: [new Paragraph({ alignment: c.a, children: [new TextRun({ text: c.t, size: 16 })] })],
+      })))}))
+    })
+
+    children.push(
+      new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }),
+      new Paragraph({ text: '', spacing: { after: 200 } }),
+    )
+  })
+
+  const doc = new Document({ sections: [{ properties: { page: { size: { orientation: PageOrientation.LANDSCAPE } } }, children }] })
+  const blob = await Packer.toBlob(doc)
+  saveAs(blob, `график_по_дни_${scheduleName.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_')}.docx`)
+}
+
 // ── MAIN EXPORT ───────────────────────────────────────────────────────────────
 
 export async function generateAndDownloadDocument(
