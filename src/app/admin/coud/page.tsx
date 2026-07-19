@@ -21,9 +21,26 @@ export default async function CoudPage() {
 
   const { data: groups } = await supabase
     .from('coud_groups')
-    .select('*, teacher:staff_profiles(id, first_name, last_name), enrollments:coud_enrollments(count)')
+    .select('*, teacher:staff_profiles(id, first_name, last_name)')
     .eq('academic_year_id', currentYear?.id)
     .order('name')
+
+  // Учениците във всяка група
+  const { data: coudEnrollments } = await supabase
+    .from('coud_enrollments')
+    .select('coud_group_id, student:students(id, first_name, middle_name, last_name)')
+    .eq('academic_year_id', currentYear?.id)
+
+  const groupsWithStudents = (groups || []).map(g => {
+    const students = (coudEnrollments || [])
+      .filter((e: any) => e.coud_group_id === g.id)
+      .map((e: any) => ({
+        id: e.student.id,
+        name: `${e.student.first_name} ${e.student.middle_name || ''} ${e.student.last_name}`.replace(/\s+/g, ' ').trim(),
+      }))
+      .sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
+    return { ...g, students }
+  })
 
   const { data: teachers } = await supabase
     .from('staff_profiles')
@@ -40,9 +57,10 @@ export default async function CoudPage() {
       </div>
 
       <CoudGroupsClient
-        groups={groups || []}
+        groups={groupsWithStudents}
         teachers={teachers || []}
         academicYearId={currentYear?.id || ''}
+        yearName={currentYear?.name || ''}
       />
     </div>
   )
