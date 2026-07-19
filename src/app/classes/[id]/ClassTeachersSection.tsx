@@ -35,6 +35,8 @@ export default function ClassTeachersSection({ classId, academicYearId, teachers
     }).select('id').single()
 
     if (!error && data) {
+      // Синхронизираме класния в ЕПЛР екипите на всички ученици от паралелката
+      await syncEplrTeacher(selected)
       const opt = options.find(o => o.id === selected)
       if (opt) setTeachers(prev => [...prev, { id: opt.id, name: opt.name, assignmentId: data.id }])
       setSelected('')
@@ -50,9 +52,29 @@ export default function ClassTeachersSection({ classId, academicYearId, teachers
     if (!confirm('Премахване на класния ръководител от тази паралелка?')) return
     setBusy(assignmentId)
     await supabase.from('class_teacher_assignments').delete().eq('id', assignmentId)
+    // Изчистваме класния и от ЕПЛР екипите на учениците
+    await syncEplrTeacher(null)
     setTeachers(prev => prev.filter(t => t.assignmentId !== assignmentId))
     setBusy(null)
     router.refresh()
+  }
+
+  // Обновява class_teacher_id в ЕПЛР екипите на всички ученици от паралелката
+  async function syncEplrTeacher(teacherId: string | null) {
+    const { data: enrollments } = await supabase
+      .from('student_enrollments')
+      .select('student_id')
+      .eq('class_id', classId)
+      .eq('academic_year_id', academicYearId)
+
+    const studentIds = (enrollments || []).map(e => e.student_id)
+    if (studentIds.length === 0) return
+
+    await supabase
+      .from('eplr_teams')
+      .update({ class_teacher_id: teacherId })
+      .in('student_id', studentIds)
+      .eq('academic_year_id', academicYearId)
   }
 
   const available = options.filter(o => !teachers.some(t => t.id === o.id))
