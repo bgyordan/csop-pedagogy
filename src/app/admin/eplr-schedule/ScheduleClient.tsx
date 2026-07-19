@@ -6,7 +6,7 @@ import {
   CalendarPlus, ChevronDown, ChevronRight, AlertTriangle, Check,
   Loader2, Plus, X, Download, Users, CalendarDays, LayoutList, Trash2
 } from 'lucide-react'
-import { generateEplrSchedule } from '@/lib/docx-generator'
+import { generateEplrSchedule, generateScheduleBySpecialist, generateScheduleByDay } from '@/lib/docx-generator'
 
 interface Student { id: string; name: string; externalClass: string }
 interface ClassData { id: string; name: string; students: Student[] }
@@ -16,7 +16,7 @@ interface Props {
   schedules: any[]
   classData: ClassData[]
   specialistsByStudent: Record<string, string[]>
-  teamByStudent: Record<string, { psy: string | null; log: string | null; reh: string | null }>
+  teamByStudent: Record<string, { psy: string | null; log: string | null; reh: string | null; ct: string | null }>
   staffMap: Record<string, string>
   staffShortMap: Record<string, string>
   academicYearId: string
@@ -44,6 +44,13 @@ function toMinutes(t: string): number {
   if (!t) return -1
   const [h, m] = t.split(':')
   return parseInt(h) * 60 + parseInt(m)
+}
+
+const WEEKDAYS = ['неделя', 'понеделник', 'вторник', 'сряда', 'четвъртък', 'петък', 'събота']
+
+function weekdayOf(d: string): string {
+  if (!d) return ''
+  return WEEKDAYS[new Date(d + 'T00:00:00').getDay()] || ''
 }
 
 function formatBgDate(d: string): string {
@@ -175,43 +182,65 @@ export default function ScheduleClient({
 
   // ── ИЗГЛЕД ПО СПЕЦИАЛИСТИ ──
   const bySpecialist = useMemo(() => {
-    const map: Record<string, { date: string; time: string; student: string; className: string }[]> = {}
+    const map: Record<string, {
+      date: string; time: string; student: string; studentClass: string
+      className: string; colleagues: string; conflict: boolean
+    }[]> = {}
     Object.values(slots).forEach(slot => {
       if (!slot.date || !slot.time) return
       const cls = classData.find(c => c.id === slot.classId)
       const st = cls?.students.find(s => s.id === slot.studentId)
       if (!st) return
       const specs = specialistsByStudent[slot.studentId] || []
+      const ct = teamByStudent[slot.studentId]?.ct
       specs.forEach(sid => {
         if (!map[sid]) map[sid] = []
-        map[sid].push({ date: slot.date, time: slot.time, student: st.name, className: cls?.name || '' })
+        const others = [...specs.filter(x => x !== sid), ct].filter(Boolean) as string[]
+        map[sid].push({
+          date: slot.date, time: slot.time, student: st.name,
+          studentClass: st.externalClass, className: cls?.name || '',
+          colleagues: others.map(id => staffShortMap[id] || '').filter(Boolean).join(', ') || '—',
+          conflict: (conflicts[slot.studentId] || []).includes(staffMap[sid] || ''),
+        })
       })
     })
     Object.values(map).forEach(list =>
       list.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
     )
     return map
-  }, [slots, classData, specialistsByStudent])
+  }, [slots, classData, specialistsByStudent, teamByStudent, staffShortMap, staffMap, conflicts])
 
   // ── ИЗГЛЕД ПО ДНИ ──
   const byDay = useMemo(() => {
-    const map: Record<string, { time: string; student: string; className: string; conflict: boolean }[]> = {}
+    const map: Record<string, {
+      time: string; student: string; studentClass: string; className: string
+      classTeacher: string; psy: string; log: string; reh: string
+      conflict: boolean; busyNames: string[]
+    }[]> = {}
     Object.values(slots).forEach(slot => {
       if (!slot.date || !slot.time) return
       const cls = classData.find(c => c.id === slot.classId)
       const st = cls?.students.find(s => s.id === slot.studentId)
       if (!st) return
+      const team = teamByStudent[slot.studentId] || { psy: null, log: null, reh: null, ct: null }
+      const short = (id: string | null) => id ? (staffShortMap[id] || '—') : '—'
       if (!map[slot.date]) map[slot.date] = []
       map[slot.date].push({
-        time: slot.time, student: st.name, className: cls?.name || '',
+        time: slot.time, student: st.name, studentClass: st.externalClass,
+        className: cls?.name || '',
+        classTeacher: short(team.ct), psy: short(team.psy), log: short(team.log), reh: short(team.reh),
         conflict: !!conflicts[slot.studentId],
+        busyNames: conflicts[slot.studentId] || [],
       })
     })
     Object.values(map).forEach(list => list.sort((a, b) => a.time.localeCompare(b.time)))
     return map
-  }, [slots, classData, conflicts])
+  }, [slots, classData, conflicts, teamByStudent, staffShortMap])
 
   function handleWord() {
+    if (view === 'specialists') return handleWordSpecialists()
+    if (view === 'days') return handleWordDays()
+
     const sch = schedules.find(s => s.id === activeId)
     const data = classData
       .map(cls => ({
@@ -230,6 +259,39 @@ export default function ScheduleClient({
 
     if (data.length === 0) { alert('Няма въведени часове'); return }
     generateEplrSchedule(sch?.name || 'График', yearName, data)
+  }
+
+  function handleWordSpecialists() {
+    const sch = schedules.find(s => s.id === activeId)
+    const entries = Object.entries(bySpecialist)
+    if (entries.length === 0) { alert('Няма въведени часове'); return }
+    const data = entries
+      .sort((a, b) => (staffMap[a[0]] || '').localeCompare(staffMap[b[0]] || '', 'bg'))
+      .map(([sid, list]) => ({
+        specialistName: staffMap[sid] || '—',
+        role: roleOf(sid),
+        rows: list,
+      }))
+    generateScheduleBySpecialist(sch?.name || 'График', yearName, data)
+  }
+
+  function handleWordDays() {
+    const sch = schedules.find(s => s.id === activeId)
+    const entries = Object.entries(byDay)
+    if (entries.length === 0) { alert('Няма въведени часове'); return }
+    const data = entries
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, rows]) => ({ date, weekday: weekdayOf(date), rows }))
+    generateScheduleByDay(sch?.name || 'График', yearName, data)
+  }
+
+  function roleOf(staffIdToCheck: string): string {
+    for (const t of Object.values(teamByStudent)) {
+      if (t.psy === staffIdToCheck) return 'психолог'
+      if (t.log === staffIdToCheck) return 'логопед'
+      if (t.reh === staffIdToCheck) return 'рехабилитатор'
+    }
+    return 'специалист'
   }
 
   const totalPlanned = Object.values(slots).filter(s => s.date && s.time).length
@@ -450,21 +512,51 @@ export default function ScheduleClient({
                 .map(([sid, list]) => (
                   <div key={sid} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                     <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-100">
-                      <span className="text-sm font-medium text-slate-800">{staffMap[sid] || '—'}</span>
-                      <span className="text-xs text-slate-400">{list.length} заседания</span>
+                      <div>
+                        <span className="text-sm font-medium text-slate-800">{staffMap[sid] || '—'}</span>
+                        <span className="text-xs text-slate-400 ml-2">{roleOf(sid)}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs">
+                        {list.some(i => i.conflict) && (
+                          <span className="flex items-center gap-1 font-semibold text-red-600">
+                            <AlertTriangle size={12} /> {list.filter(i => i.conflict).length}
+                          </span>
+                        )}
+                        <span className="text-slate-400">{list.length} заседания</span>
+                      </div>
                     </div>
-                    <table className="w-full text-sm">
-                      <tbody className="divide-y divide-slate-50">
-                        {list.map((item, i) => (
-                          <tr key={i} className="hover:bg-slate-50/50">
-                            <td className="px-4 py-1.5 text-xs text-slate-500 w-28">{formatBgDate(item.date)}</td>
-                            <td className="px-2 py-1.5 text-xs font-medium text-slate-700 w-16">{item.time}</td>
-                            <td className="px-2 py-1.5 text-sm text-slate-700">{item.student}</td>
-                            <td className="px-4 py-1.5 text-xs text-slate-400 text-right">{item.className}</td>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-100">
+                            <th className="text-left px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Дата</th>
+                            <th className="text-left px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Час</th>
+                            <th className="text-left px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ученик</th>
+                            <th className="text-left px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Клас</th>
+                            <th className="text-left px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Паралелка</th>
+                            <th className="text-left px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Колеги в екипа</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {list.map((item, i) => (
+                            <tr key={i} className={item.conflict ? 'bg-red-50/50' : 'hover:bg-slate-50/50'}>
+                              <td className="px-4 py-1.5 text-xs text-slate-500 whitespace-nowrap">
+                                {formatBgDate(item.date)}
+                                <span className="text-slate-300 ml-1.5">{weekdayOf(item.date).substring(0, 3)}</span>
+                              </td>
+                              <td className="px-2 py-1.5 text-xs font-semibold text-slate-700 whitespace-nowrap">
+                                {item.time}
+                                {item.conflict && <AlertTriangle size={10} className="inline ml-1 text-red-500" />}
+                              </td>
+                              <td className="px-2 py-1.5 text-sm text-slate-700">{item.student}</td>
+                              <td className="px-2 py-1.5 text-xs text-slate-500">{item.studentClass}</td>
+                              <td className="px-2 py-1.5 text-xs text-slate-500">{item.className}</td>
+                              <td className="px-4 py-1.5 text-[11px] text-slate-400">{item.colleagues}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 ))}
             </div>
@@ -478,23 +570,55 @@ export default function ScheduleClient({
               ) : Object.entries(byDay).sort((a, b) => a[0].localeCompare(b[0])).map(([date, list]) => (
                 <div key={date} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                   <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-100">
-                    <span className="text-sm font-medium text-slate-800">{formatBgDate(date)}</span>
-                    <span className="text-xs text-slate-400">{list.length} заседания</span>
+                    <div>
+                      <span className="text-sm font-medium text-slate-800">{formatBgDate(date)}</span>
+                      <span className="text-xs text-slate-400 ml-2">{weekdayOf(date)}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs">
+                      {list.some(i => i.conflict) && (
+                        <span className="flex items-center gap-1 font-semibold text-red-600">
+                          <AlertTriangle size={12} /> {list.filter(i => i.conflict).length}
+                        </span>
+                      )}
+                      <span className="text-slate-400">{list.length} заседания</span>
+                    </div>
                   </div>
-                  <table className="w-full text-sm">
-                    <tbody className="divide-y divide-slate-50">
-                      {list.map((item, i) => (
-                        <tr key={i} className={item.conflict ? 'bg-red-50/50' : 'hover:bg-slate-50/50'}>
-                          <td className="px-4 py-1.5 text-xs font-medium text-slate-700 w-16">{item.time}</td>
-                          <td className="px-2 py-1.5 text-sm text-slate-700">
-                            {item.student}
-                            {item.conflict && <AlertTriangle size={11} className="inline ml-1.5 text-red-500" />}
-                          </td>
-                          <td className="px-4 py-1.5 text-xs text-slate-400 text-right">{item.className}</td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-100">
+                          <th className="text-left px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Час</th>
+                          <th className="text-left px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ученик</th>
+                          <th className="text-left px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Клас</th>
+                          <th className="text-left px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Паралелка</th>
+                          <th className="text-left px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Класен</th>
+                          <th className="text-left px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Псх</th>
+                          <th className="text-left px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Лог</th>
+                          <th className="text-left px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Рех</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {list.map((item, i) => (
+                          <tr key={i} className={item.conflict ? 'bg-red-50/50' : 'hover:bg-slate-50/50'}>
+                            <td className="px-4 py-1.5 text-xs font-semibold text-slate-700 whitespace-nowrap">
+                              {item.time}
+                              {item.conflict && <AlertTriangle size={10} className="inline ml-1 text-red-500" />}
+                            </td>
+                            <td className="px-2 py-1.5 text-sm text-slate-700">{item.student}</td>
+                            <td className="px-2 py-1.5 text-xs text-slate-500">{item.studentClass}</td>
+                            <td className="px-2 py-1.5 text-xs text-slate-500">{item.className}</td>
+                            <td className="px-2 py-1.5 text-[11px] text-slate-400 whitespace-nowrap">{item.classTeacher}</td>
+                            {([['psy', item.psy], ['log', item.log], ['reh', item.reh]] as const).map(([k, val]) => (
+                              <td key={k} className={`px-2 py-1.5 text-[11px] whitespace-nowrap ${
+                                item.busyNames.some(n => val !== '—' && n.includes(val.split('. ')[1] || '###'))
+                                  ? 'text-red-600 font-semibold' : 'text-slate-400'
+                              }`}>{val}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               ))}
             </div>
