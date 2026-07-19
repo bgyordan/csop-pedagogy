@@ -812,7 +812,7 @@ export async function generateScheduleBySpecialist(
       shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
       margins: { top: 40, bottom: 40, left: 80, right: 80 },
       children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 17 })] })],
-    })))}))
+    }))}))
 
     sp.rows.forEach(r => {
       rows.push(new TableRow({ children: [
@@ -825,7 +825,7 @@ export async function generateScheduleBySpecialist(
       ].map(c => new TableCell({
         borders: CELLS, margins: { top: 40, bottom: 40, left: 80, right: 80 },
         children: [new Paragraph({ alignment: c.a, children: [new TextRun({ text: c.t, size: 17 })] })],
-      })))}))
+      }))}))
     })
 
     children.push(
@@ -912,7 +912,7 @@ export async function generateScheduleByDay(
       shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
       margins: { top: 40, bottom: 40, left: 60, right: 60 },
       children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 16 })] })],
-    })))}))
+    }))}))
 
     day.rows.forEach(r => {
       rows.push(new TableRow({ children: [
@@ -928,7 +928,7 @@ export async function generateScheduleByDay(
         borders: CELLS, margins: { top: 40, bottom: 40, left: 60, right: 60 },
         ...(r.conflict ? { shading: { type: ShadingType.CLEAR, fill: 'FDECEC' } } : {}),
         children: [new Paragraph({ alignment: c.a, children: [new TextRun({ text: c.t, size: 16 })] })],
-      })))}))
+      }))}))
     })
 
     children.push(
