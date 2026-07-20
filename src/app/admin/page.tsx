@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Settings, Calendar, Bell, School, Users, Star, BookOpen, Coffee, CalendarPlus } from 'lucide-react'
+import { Settings, Calendar, Bell, School, Users, Star, BookOpen, Coffee, CalendarPlus, LayoutGrid } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 export default async function AdminPage() {
@@ -55,11 +55,11 @@ export default async function AdminPage() {
         <a href="/admin/years" className="card hover:shadow-md transition-shadow cursor-pointer">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-              <Calendar size={18} className="text-blue-600" />
+             <LayoutGrid size={18} className="text-blue-600" />
             </div>
-            <h2 className="font-medium text-slate-700 text-sm">Учебни години</h2>
+            <h2 className="font-medium text-slate-700 text-sm">Паралелки</h2>
           </div>
-          <p className="text-xs text-slate-500">Управление на учебни години и паралелки</p>
+          <p className="text-xs text-slate-500">Паралелки и настройка на учебната година</p>
         </a>
 
         <a href="/admin/staff" className="card hover:shadow-md transition-shadow cursor-pointer">
