@@ -63,6 +63,26 @@ export default async function ReportsPage() {
     if (ct.staff) classTeacherMap.set(ct.class_id, ct.staff)
   })
 
+  // Графици за екипни срещи
+  const { data: schedules } = await supabase
+    .from('eplr_schedules')
+    .select('id, name')
+    .eq('academic_year_id', currentYear?.id)
+    .order('created_at', { ascending: false })
+
+  const { data: allSlots } = await supabase
+    .from('eplr_schedule_slots')
+    .select('schedule_id, student_id, meeting_date, meeting_time')
+
+  const slotsBySchedule: Record<string, Record<string, { date: string; time: string }>> = {}
+  ;(allSlots || []).forEach((s: any) => {
+    if (!slotsBySchedule[s.schedule_id]) slotsBySchedule[s.schedule_id] = {}
+    slotsBySchedule[s.schedule_id][s.student_id] = {
+      date: s.meeting_date || '',
+      time: s.meeting_time ? String(s.meeting_time).substring(0, 5) : '',
+    }
+  })
+
   const statusLabel = (status: string | undefined) => {
     if (status === 'completed') return 'Завършен'
     if (status === 'in_progress') return 'В процес'
@@ -80,6 +100,7 @@ export default async function ReportsPage() {
       studentId: student?.id,
       name: getFullName(student),
       className: cls?.name || '—',
+      externalClass: student?.external_class || '',
       classId: e.class_id,
       sendingSchoolId: student?.sending_school_id || null,
       sendingSchoolName: sendingSchool ? `${sendingSchool.name} — ${sendingSchool.city}` : '—',
@@ -170,6 +191,8 @@ export default async function ReportsPage() {
         <p className="text-slate-500 text-sm mt-1">{currentYear?.name}</p>
       </div>
       <ReportsClient
+        schedules={schedules || []}
+        slotsBySchedule={slotsBySchedule}
         allRows={allRows}
         workloadRows={workloadRows}
         delayedRows={delayedRows}
