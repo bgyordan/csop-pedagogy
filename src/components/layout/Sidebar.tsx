@@ -147,7 +147,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
 
         <div
           className="overflow-hidden transition-all duration-200"
-          style={{ maxHeight: open ? `${kids.length * 40}px` : '0px' }}
+          style={{ maxHeight: open ? `${kids.length * 46 + 8}px` : '0px' }}
         >
           <div className="pl-4 pt-0.5 space-y-0.5">
             {kids.map(kid => {
