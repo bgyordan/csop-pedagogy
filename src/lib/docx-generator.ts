@@ -535,16 +535,29 @@ function classNumber(external: string): number | null {
   return m ? parseInt(m[1]) : null
 }
 
-// Списък класове -> "V и IV клас" / "VII, VI и V клас"
+// Списък класове -> "V и IV клас" / "VII, VI и V клас" / "IX, VIII клас и ПГ"
 function classesLabel(externals: string[]): string {
-  const nums = [...new Set(externals.map(classNumber).filter((n): n is number => n !== null))]
+  const clean = externals.map(e => (e || '').trim()).filter(Boolean)
+  const nums = [...new Set(clean.map(classNumber).filter((n): n is number => n !== null))]
     .sort((a, b) => b - a)
-  if (nums.length === 0) return ''
+
+  // Нечислените стойности (ПГ и подобни) се добавят накрая
+  const nonNumeric = [...new Set(clean.filter(e => classNumber(e) === null))]
+
   const romans = nums.map(toRoman)
-  if (romans.length === 1) return `${romans[0]} клас`
-  const last = romans[romans.length - 1]
-  const rest = romans.slice(0, -1)
-  return `${rest.join(', ')} и ${last} клас`
+
+  if (romans.length === 0 && nonNumeric.length === 0) return ''
+  if (romans.length === 0) return nonNumeric.join(' и ')
+
+  const classPart = romans.length === 1
+    ? `${romans[0]} клас`
+    : `${romans.slice(0, -1).join(', ')} и ${romans[romans.length - 1]} клас`
+
+  if (nonNumeric.length === 0) return classPart
+
+  // При смесени: "IX, VIII клас и ПГ"
+  const numsJoined = romans.join(', ')
+  return `${numsJoined} клас и ${nonNumeric.join(' и ')}`
 }
 
 // "01" -> "I паралелка" ; "ПГ 3" -> оставя се както е
@@ -1032,10 +1045,12 @@ export async function generateRuoClassesLetter(
     children.push(
       new Paragraph({
         keepNext: true,
-        alignment: AlignmentType.JUSTIFIED, spacing: { before: 160, after: 100 },
-        children: [new TextRun({ text: BASIS, size: 21 })],
+        alignment: AlignmentType.JUSTIFIED, spacing: { before: 200, after: 100 },
+        children: [
+          new TextRun({ text: `${idx + 1}. `, bold: true, size: 21 }),
+          new TextRun({ text: BASIS, size: 21 }),
+        ],
       }),
-      new Paragraph({ keepNext: true, spacing: { after: 80 }, children: [new TextRun({ text: `${idx + 1}.`, bold: true, size: 22 })] }),
     )
 
     const rows: TableRow[] = []
