@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, Lock } from 'lucide-react'
+import { ArrowLeft, Lock, Plus, X, School } from 'lucide-react'
 import Link from 'next/link'
 import { useToast } from '@/components/ui/Toast'
 import { getFullName } from '@/lib/utils'
@@ -28,6 +28,11 @@ export default function EplrPage() {
   const [className, setClassName] = useState<string>('')
   const [saving, setSaving] = useState(false)
 
+  // Външни членове от изпращащото училище
+  const [externals, setExternals] = useState<{ id: string; full_name: string }[]>([])
+  const [newExternal, setNewExternal] = useState('')
+  const [yearId, setYearId] = useState<string>('')
+
   useEffect(() => { loadData() }, [id])
 
   async function loadData() {
@@ -42,6 +47,15 @@ export default function EplrPage() {
     setStaff(allStaff || [])
 
     const { data: year } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
+    setYearId(year?.id || '')
+
+    const { data: ext } = await supabase
+      .from('eplr_external_members')
+      .select('id, full_name')
+      .eq('student_id', id)
+      .eq('academic_year_id', year?.id)
+      .order('created_at')
+    setExternals(ext || [])
 
     const { data: existing } = await supabase
       .from('eplr_teams')
@@ -80,6 +94,24 @@ export default function EplrPage() {
         setClassTeacherName(assignment.staff ? getFullName(assignment.staff as any) : '')
       }
     }
+  }
+
+  async function addExternal() {
+    const name = newExternal.trim()
+    if (!name) return
+    const { data, error } = await supabase.from('eplr_external_members').insert({
+      student_id: id,
+      academic_year_id: yearId,
+      full_name: name,
+    }).select('id, full_name').single()
+    if (error) { toast(`Грешка: ${error.message}`, 'error'); return }
+    setExternals(prev => [...prev, data])
+    setNewExternal('')
+  }
+
+  async function removeExternal(extId: string) {
+    await supabase.from('eplr_external_members').delete().eq('id', extId)
+    setExternals(prev => prev.filter(e => e.id !== extId))
   }
 
   function staffByRole(role: UserRole) {
@@ -164,6 +196,46 @@ export default function EplrPage() {
             {className
               ? `Следва класния на паралелка ${className}. Променя се от страницата на паралелката.`
               : 'Ученикът няма паралелка за текущата година.'}
+          </p>
+        </div>
+
+        {/* Външни членове от изпращащото училище */}
+        <div className="pt-2 border-t border-slate-100">
+          <label className="label flex items-center gap-1.5">
+            <School size={12} className="text-slate-400" />
+            Членове от изпращащото училище
+          </label>
+
+          {externals.length > 0 && (
+            <div className="space-y-1.5 mb-2">
+              {externals.map(ext => (
+                <div key={ext.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200">
+                  <span className="flex-1 text-sm text-slate-700">{ext.full_name}</span>
+                  <button type="button" onClick={() => removeExternal(ext.id)}
+                    className="text-slate-300 hover:text-red-500 transition-colors">
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <input
+              value={newExternal}
+              onChange={e => setNewExternal(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExternal() } }}
+              placeholder="Име, презиме, фамилия"
+              className="input flex-1 text-sm"
+            />
+            <button type="button" onClick={addExternal} disabled={!newExternal.trim()}
+              className="px-3 py-2 rounded-xl text-white text-xs font-medium flex items-center gap-1 disabled:opacity-40"
+              style={{ backgroundColor: '#0f2240' }}>
+              <Plus size={13} /> Добави
+            </button>
+          </div>
+          <p className="text-xs text-slate-400 mt-1.5">
+            Вписват се след получаване на заповедта от училището. Влизат в протоколите за подпис.
           </p>
         </div>
 
