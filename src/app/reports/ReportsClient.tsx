@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { FileSpreadsheet, AlertTriangle, Users, School, BarChart3, FileX, FileText, Printer, Check, ChevronDown, ChevronUp, Mail, Download, ArrowRight } from 'lucide-react'
-import { generateSchoolLetter } from '@/lib/docx-generator'
+import { FileSpreadsheet, AlertTriangle, Users, School, BarChart3, FileX, FileText, Printer, Check, ChevronDown, ChevronUp, Mail, Download, ArrowRight, CalendarClock } from 'lucide-react'
+import { generateSchoolLetter, generateSchoolScheduleLetter } from '@/lib/docx-generator'
 import {
   generateSchoolReportExcel,
   generateSpecialistReportExcel,
@@ -25,6 +25,8 @@ const TAB_TITLES: Record<ReportTab, string> = {
 }
 
 interface Props {
+  schedules?: { id: string; name: string }[]
+  slotsBySchedule?: Record<string, Record<string, { date: string; time: string }>>
   allRows: any[]
   workloadRows: any[]
   delayedRows: any[]
@@ -33,12 +35,51 @@ interface Props {
   yearName: string
 }
 
-export default function ReportsClient({ allRows, workloadRows, delayedRows, schools, specialists, yearName }: Props) {
+export default function ReportsClient({ schedules = [], slotsBySchedule = {}, allRows, workloadRows, delayedRows, schools, specialists, yearName }: Props) {
   // Първият таб по подразбиране вече е "По училище"
   const [activeTab, setActiveTab] = useState<ReportTab>('school')
   const [expandedSchool, setExpandedSchool] = useState<string | null>(null)
   const [selectedSpecialist, setSelectedSpecialist] = useState('')
   const [generatingAll, setGeneratingAll] = useState(false)
+  const [scheduleId, setScheduleId] = useState(schedules[0]?.id || '')
+  const [generatingSchedules, setGeneratingSchedules] = useState(false)
+
+  const activeSlots = slotsBySchedule[scheduleId] || {}
+
+  function scheduleRowsFor(schoolId: string) {
+    return getSchoolRows(schoolId)
+      .map((r: any) => {
+        const slot = activeSlots[r.studentId]
+        if (!slot?.date && !slot?.time) return null
+        return {
+          name: r.name,
+          externalClass: r.externalClass || '',
+          className: r.className || '',
+          classTeacher: r.classTeacher || '',
+          date: slot.date, time: slot.time,
+        }
+      })
+      .filter(Boolean) as any[]
+  }
+
+  async function downloadSchedule(school: any) {
+    const rows = scheduleRowsFor(school.id)
+    if (rows.length === 0) { alert('Няма насрочени срещи за това училище в избрания график'); return }
+    const sch = schedules.find(s => s.id === scheduleId)
+    await generateSchoolScheduleLetter(school.name, school.city, yearName, sch?.name || '', rows)
+  }
+
+  async function downloadAllSchedules() {
+    setGeneratingSchedules(true)
+    const sch = schedules.find(s => s.id === scheduleId)
+    for (const school of schoolsWithStudents) {
+      const rows = scheduleRowsFor(school.id)
+      if (rows.length === 0) continue
+      await generateSchoolScheduleLetter(school.name, school.city, yearName, sch?.name || '', rows)
+      await new Promise(r => setTimeout(r, 500))
+    }
+    setGeneratingSchedules(false)
+  }
 
   const tabs = [
     { id: 'school' as ReportTab, label: 'По училище', icon: <School size={15} />, color: 'text-blue-500' },
@@ -181,6 +222,26 @@ export default function ReportsClient({ allRows, workloadRows, delayedRows, scho
             </div>
           </div>
 
+          {/* Графици на екипните срещи */}
+          {schedules.length > 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm print:hidden">
+              <div className="flex items-center gap-2 flex-1">
+                <CalendarClock size={15} className="text-slate-400 flex-shrink-0" />
+                <span className="text-xs font-semibold text-slate-600 whitespace-nowrap">График:</span>
+                <select value={scheduleId} onChange={e => setScheduleId(e.target.value)}
+                  className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs flex-1 sm:flex-none sm:min-w-56">
+                  <option value="">— Не е избран —</option>
+                  {schedules.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+              <button onClick={downloadAllSchedules} disabled={!scheduleId || generatingSchedules}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-all">
+                <CalendarClock size={13} />
+                {generatingSchedules ? 'Генериране...' : 'Графици за всички училища'}
+              </button>
+            </div>
+          )}
+
           {/* Компактна 3-колона мрежа от училища */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {schoolsWithStudents.map(school => {
@@ -240,8 +301,14 @@ export default function ReportsClient({ allRows, workloadRows, delayedRows, scho
                             <FileSpreadsheet size={12} className="text-emerald-600" /> Excel
                           </button>
                           <button onClick={() => generateSchoolLetter(school.name, school.city, rows, yearName)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0f2240] text-white text-xs font-bold hover:bg-[#19325c]">
-                            <Mail size={12} /> Изтегли писмо (Word)
+                            <Mail size={12} /> Писмо ЕПЛР
                           </button>
+                          {scheduleId && (
+                            <button onClick={() => downloadSchedule(school)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50">
+                              <CalendarClock size={12} /> График
+                            </button>
+                          )}
                         </div>
                       </div>
 
