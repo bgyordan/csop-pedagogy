@@ -17,6 +17,7 @@ const ALL_DOC_TYPES: DocumentType[] = [
 
 const ATTACHMENT_TYPE_LABELS: Record<string, string> = {
   referral_order: 'Заповед за насочване',
+  eplr_order: 'Заповед ЕПЛР (от училището)',
   rcpppo_assessment: 'Оценка от РЦПППО',
   medical_expertise: 'Медицинска експертиза',
   other: 'Друг документ',
@@ -79,6 +80,13 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   const { data: enrollment } = await supabase
     .from('student_enrollments').select('*, class:classes(*)')
     .eq('student_id', id).eq('academic_year_id', currentYear?.id).single()
+
+  const { data: externalMembers } = await supabase
+    .from('eplr_external_members')
+    .select('id, full_name')
+    .eq('student_id', id)
+    .eq('academic_year_id', currentYear?.id)
+    .order('created_at')
 
   const { data: eplr } = await supabase
     .from('eplr_teams').select(`
@@ -277,7 +285,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
               <Users size={16} className="text-blue-500" />
               <h2 className="font-bold text-slate-800 text-sm">ЕПЛР екип</h2>
             </div>
-            <EplrTeam eplr={eplr} id={id} canManage={canManage} />
+            <EplrTeam externals={externalMembers || []} eplr={eplr} id={id} canManage={canManage} />
           </div>
 
           {/* Родители/Настойници */}
@@ -375,7 +383,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   )
 }
 
-function EplrTeam({ eplr, id, canManage }: { eplr: any, id: string, canManage: boolean }) {
+function EplrTeam({ eplr, id, canManage, externals = [] }: { eplr: any, id: string, canManage: boolean, externals?: any[] }) {
   if (!eplr) return (
     <div>
       <p className="text-sm text-slate-400 mb-3">Няма назначен екип</p>
@@ -402,6 +410,15 @@ function EplrTeam({ eplr, id, canManage }: { eplr: any, id: string, canManage: b
           </dd>
         </div>
       ))}
+
+      {externals.length > 0 && (
+        <div className="pt-2 border-t border-slate-100">
+          <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">От изпращащото училище</dt>
+          {externals.map((ext: any) => (
+            <dd key={ext.id} className="text-sm font-semibold text-slate-700 mt-0.5">{ext.full_name}</dd>
+          ))}
+        </div>
+      )}
     </dl>
   )
 }
