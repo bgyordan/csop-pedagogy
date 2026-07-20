@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { FileSpreadsheet, AlertTriangle, Users, School, BarChart3, FileX, FileText, Printer, Check, ChevronDown, ChevronUp, Mail, Download, ArrowRight, CalendarClock } from 'lucide-react'
 import { generateSchoolLetter, generateSchoolScheduleLetter } from '@/lib/docx-generator'
+import RuoLetterButton from './RuoLetterButton'
 import {
   generateSchoolReportExcel,
   generateSpecialistReportExcel,
@@ -45,6 +46,26 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
   const [generatingSchedules, setGeneratingSchedules] = useState(false)
 
   const activeSlots = slotsBySchedule[scheduleId] || {}
+
+  // Данни за писмото до РУО — групирани по паралелка
+  const ruoData = (() => {
+    const byClass: Record<string, { className: string; students: any[] }> = {}
+    allRows.forEach((r: any) => {
+      const key = r.className || '—'
+      if (!byClass[key]) byClass[key] = { className: key, students: [] }
+      byClass[key].students.push({
+        name: r.name,
+        school: r.sendingSchoolName || '',
+        externalClass: r.externalClass || '',
+      })
+    })
+    return Object.values(byClass)
+      .sort((a, b) => a.className.localeCompare(b.className, 'bg', { numeric: true }))
+      .map(c => ({
+        ...c,
+        students: c.students.sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg')),
+      }))
+  })()
 
   function scheduleRowsFor(schoolId: string) {
     return getSchoolRows(schoolId)
@@ -217,6 +238,8 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
                 График екипни срещи
                 <ArrowRight size={13} className="text-slate-400" />
               </Link>
+
+              <RuoLetterButton yearName={yearName} classes={ruoData} />
             </div>
           </div>
 
