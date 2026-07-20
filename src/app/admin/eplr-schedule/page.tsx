@@ -71,11 +71,11 @@ export default async function EplrSchedulePage() {
       .sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg')),
   }))
 
-  // Специалисти по ученик (за конфликти) — без класния, той е само в своята паралелка
+  // Всички участници в срещата (за конфликти) — включително класният ръководител
   const specialistsByStudent: Record<string, string[]> = {}
   const teamByStudent: Record<string, { psy: string | null; log: string | null; reh: string | null; ct: string | null }> = {}
   ;(teams || []).forEach((t: any) => {
-    const ids = [t.psychologist_id, t.speech_therapist_id, t.rehabilitator_id].filter(Boolean)
+    const ids = [t.psychologist_id, t.speech_therapist_id, t.rehabilitator_id, t.class_teacher_id].filter(Boolean)
     specialistsByStudent[t.student_id] = ids
     teamByStudent[t.student_id] = {
       psy: t.psychologist_id || null,
