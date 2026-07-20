@@ -192,10 +192,9 @@ export default function ScheduleClient({
       const st = cls?.students.find(s => s.id === slot.studentId)
       if (!st) return
       const specs = specialistsByStudent[slot.studentId] || []
-      const ct = teamByStudent[slot.studentId]?.ct
       specs.forEach(sid => {
         if (!map[sid]) map[sid] = []
-        const others = [...specs.filter(x => x !== sid), ct].filter(Boolean) as string[]
+        const others = specs.filter(x => x !== sid)
         map[sid].push({
           date: slot.date, time: slot.time, student: st.name,
           studentClass: st.externalClass, className: cls?.name || '',
@@ -286,12 +285,14 @@ export default function ScheduleClient({
   }
 
   function roleOf(staffIdToCheck: string): string {
+    const roles = new Set<string>()
     for (const t of Object.values(teamByStudent)) {
-      if (t.psy === staffIdToCheck) return 'психолог'
-      if (t.log === staffIdToCheck) return 'логопед'
-      if (t.reh === staffIdToCheck) return 'рехабилитатор'
+      if (t.psy === staffIdToCheck) roles.add('психолог')
+      if (t.log === staffIdToCheck) roles.add('логопед')
+      if (t.reh === staffIdToCheck) roles.add('рехабилитатор')
+      if (t.ct === staffIdToCheck) roles.add('класен ръководител')
     }
-    return 'специалист'
+    return roles.size > 0 ? [...roles].join(', ') : 'специалист'
   }
 
   const totalPlanned = Object.values(slots).filter(s => s.date && s.time).length
@@ -607,8 +608,7 @@ export default function ScheduleClient({
                             <td className="px-2 py-1.5 text-sm text-slate-700">{item.student}</td>
                             <td className="px-2 py-1.5 text-xs text-slate-500">{item.studentClass}</td>
                             <td className="px-2 py-1.5 text-xs text-slate-500">{item.className}</td>
-                            <td className="px-2 py-1.5 text-[11px] text-slate-400 whitespace-nowrap">{item.classTeacher}</td>
-                            {([['psy', item.psy], ['log', item.log], ['reh', item.reh]] as const).map(([k, val]) => (
+                            {([['ct', item.classTeacher], ['psy', item.psy], ['log', item.log], ['reh', item.reh]] as const).map(([k, val]) => (
                               <td key={k} className={`px-2 py-1.5 text-[11px] whitespace-nowrap ${
                                 item.busyNames.some(n => val !== '—' && n.includes(val.split('. ')[1] || '###'))
                                   ? 'text-red-600 font-semibold' : 'text-slate-400'
