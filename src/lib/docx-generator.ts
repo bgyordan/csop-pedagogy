@@ -1191,6 +1191,126 @@ export async function generateCoudOrder(
   saveAs(blob, `заповед_ЦОУД_${orderNumber.replace(/[^0-9]/g, '')}.docx`)
 }
 
+
+// ── ПИСМО ДО УЧИЛИЩЕ: график на екипните срещи ──────────────────────────────
+
+export async function generateSchoolScheduleLetter(
+  schoolName: string,
+  schoolCity: string,
+  yearName: string,
+  scheduleName: string,
+  rows: {
+    name: string
+    externalClass: string
+    className: string
+    classTeacher: string
+    date: string
+    time: string
+  }[],
+  directorName?: string,
+) {
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const CELLS = { top: B, bottom: B, left: B, right: B }
+  const NONE = {
+    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  }
+  const fmt = (d: string) => { if (!d) return ''; const [y, m, dd] = d.split('-'); return `${dd}.${m}.${y} г.` }
+
+  const sorted = [...rows].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+
+  const children: any[] = [
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [new TableRow({ children: [
+        new TableCell({
+          width: { size: 20, type: WidthType.PERCENTAGE }, borders: NONE,
+          margins: { top: 0, bottom: 0, left: 0, right: 80 },
+          children: [new Paragraph({ alignment: AlignmentType.LEFT, children: [
+            new ImageRun({ data: Buffer.from(CSOP_LOGO_B64, 'base64'), transformation: { width: 60, height: 60 }, type: 'jpg' }),
+          ]})],
+        }),
+        new TableCell({
+          width: { size: 80, type: WidthType.PERCENTAGE }, borders: NONE,
+          verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
+          children: [
+            new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
+            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456, 0888 490 771', size: 17, italics: true, color: '555555' })] }),
+          ],
+        }),
+      ]})],
+    }),
+    new Paragraph({ spacing: { before: 80, after: 80 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
+    new Paragraph({ text: '' }),
+
+    new Paragraph({ alignment: AlignmentType.LEFT, spacing: { after: 20 }, children: [new TextRun({ text: 'ДО ДИРЕКТОРА', bold: true, size: 22 })] }),
+    new Paragraph({ alignment: AlignmentType.LEFT, spacing: { after: 20 }, children: [new TextRun({ text: `НА ${schoolName.toUpperCase()}`, bold: true, size: 22 })] }),
+    ...(schoolCity ? [new Paragraph({ alignment: AlignmentType.LEFT, spacing: { after: 320 }, children: [new TextRun({ text: `ГР. ${schoolCity.toUpperCase()}`, bold: true, size: 22 })] })] : [new Paragraph({ spacing: { after: 320 }, children: [] })]),
+
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED, spacing: { after: 280 },
+      children: [
+        new TextRun({ text: 'Относно: ', bold: true, size: 22 }),
+        new TextRun({ text: `График за провеждане на екипни срещи на ЕПЛР за учебната ${yearName} година`, size: 22 }),
+      ],
+    }),
+
+    new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: 'УВАЖАЕМА ГОСПОЖО / УВАЖАЕМИ ГОСПОДИН ДИРЕКТОР,', bold: true, size: 22 })] }),
+
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED, spacing: { after: 240 },
+      children: [new TextRun({
+        text: `Уведомяваме Ви за графика на екипните срещи на екипите за подкрепа за личностно развитие, в изпълнение на чл. 128, ал. 5 и чл. 159, ал. 1 от Наредбата за приобщаващото образование, за учениците от Вашето училище, обучаващи се в ЦСОП-Варна:`,
+        size: 22,
+      })],
+    }),
+  ]
+
+  const tableRows: TableRow[] = []
+
+  tableRows.push(new TableRow({ cantSplit: true, children: [
+    { t: '№', w: 6 }, { t: 'Име, презиме, фамилия', w: 30 }, { t: 'Клас', w: 8 },
+    { t: 'Паралелка', w: 14 }, { t: 'Класен ръководител', w: 22 },
+    { t: 'Дата', w: 12 }, { t: 'Час', w: 8 },
+  ].map(c => new TableCell({
+    width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
+    shading: { type: ShadingType.CLEAR, fill: 'E8EEF5' },
+    margins: { top: 50, bottom: 50, left: 70, right: 70 },
+    children: [new Paragraph({ keepNext: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 17 })] })],
+  }))}))
+
+  sorted.forEach((r, i) => {
+    const num = classNumber(r.externalClass)
+    const notLast = i < sorted.length - 1
+    tableRows.push(new TableRow({ cantSplit: true, children: [
+      { t: String(i + 1), a: AlignmentType.CENTER },
+      { t: r.name, a: AlignmentType.LEFT },
+      { t: num !== null ? toRoman(num) : (r.externalClass || '—'), a: AlignmentType.CENTER },
+      { t: classTitle(r.className, [r.externalClass]).split(' – ')[0], a: AlignmentType.CENTER },
+      { t: r.classTeacher || '—', a: AlignmentType.LEFT },
+      { t: fmt(r.date), a: AlignmentType.CENTER },
+      { t: r.time || '—', a: AlignmentType.CENTER },
+    ].map(c => new TableCell({
+      borders: CELLS, margins: { top: 50, bottom: 50, left: 70, right: 70 },
+      children: [new Paragraph({ keepNext: notLast, alignment: c.a, children: [new TextRun({ text: c.t, size: 17 })] })],
+    }))}))
+  })
+
+  children.push(
+    new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: tableRows }),
+    new Paragraph({ text: '', spacing: { after: 500 } }),
+    new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: directorName || 'Светлана Иванова', bold: true, size: 22 })] }),
+    new Paragraph({ children: [new TextRun({ text: 'Директор ЦСОП-Варна', size: 20 })] }),
+  )
+
+  const doc = new Document({ sections: [{ properties: {}, children }] })
+  const blob = await Packer.toBlob(doc)
+  const safe = schoolName.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_').substring(0, 50)
+  saveAs(blob, `график_${safe}.docx`)
+}
+
 // ── MAIN EXPORT ───────────────────────────────────────────────────────────────
 
 export async function generateAndDownloadDocument(
