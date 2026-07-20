@@ -1416,9 +1416,9 @@ export async function generateSchoolLetter(
 
   // До директора
   children.push(
-    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 40 }, children: [new TextRun({ text: 'До директора на', size: 22 })] }),
-    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 40 }, children: [new TextRun({ text: schoolName, bold: true, size: 22 })] }),
-    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 200 }, children: [new TextRun({ text: schoolCity, size: 22 })] }),
+    new Paragraph({ alignment: AlignmentType.LEFT, spacing: { after: 40 }, children: [new TextRun({ text: 'До директора на', size: 22 })] }),
+    new Paragraph({ alignment: AlignmentType.LEFT, spacing: { after: 40 }, children: [new TextRun({ text: schoolName, bold: true, size: 22 })] }),
+    new Paragraph({ alignment: AlignmentType.LEFT, spacing: { after: 200 }, children: [new TextRun({ text: schoolCity, size: 22 })] }),
     new Paragraph({ text: '' }),
   )
 
