@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3,
-  Inbox, ClipboardList, FileSignature, Package, Star, CalendarClock
+  Inbox, ClipboardList, FileSignature, Package, Star, CalendarClock, ChevronDown
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
@@ -27,6 +27,7 @@ interface NavItem {
   roles?: UserRole[]
   coordinatorOnly?: boolean
   section?: string
+  children?: NavItem[]
 }
 
 const navItems: NavItem[] = [
@@ -38,9 +39,18 @@ const navItems: NavItem[] = [
   { href: '/committees', label: 'Комисии', icon: <Building2 size={16} /> },
   { href: '/staff', label: 'Служители', icon: <UserCircle size={16} />, roles: ['admin', 'director', 'zdud'] },
   { href: '/reports', label: 'Писма и справки', icon: <BarChart3 size={16} />, roles: ['admin', 'director', 'zdud'], coordinatorOnly: true },
-  { href: '/admin/eplr-assignment', label: 'ЕПЛР Разпределение', icon: <GitBranch size={16} />, roles: ['admin', 'zdud'], coordinatorOnly: true },
-  { href: '/admin/coordinating-team', label: 'Координиращ екип', icon: <Star size={16} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
-  { href: '/admin/eplr-schedule', label: 'График ЕПЛР', icon: <CalendarClock size={16} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
+  {
+    href: '#coordinating',
+    label: 'Координиращ екип',
+    icon: <Star size={16} />,
+    roles: ['admin', 'zdud', 'director'],
+    coordinatorOnly: true,
+    children: [
+      { href: '/admin/coordinating-team', label: 'Заседания и документи', icon: <ClipboardList size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
+      { href: '/admin/eplr-assignment', label: 'Разпределение ЕПЛР', icon: <GitBranch size={14} />, roles: ['admin', 'zdud'], coordinatorOnly: true },
+      { href: '/admin/eplr-schedule', label: 'График ЕПЛР', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
+    ],
+  },
   { href: '/admin', label: 'Администрация', icon: <Shield size={16} />, roles: ['admin', 'zdud'] },
   { href: '/correspondence', label: 'Регистър', icon: <Inbox size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/orders', label: 'Заповеди', icon: <ClipboardList size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
@@ -79,12 +89,104 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   }
 
   const isSecretary = userRole === 'secretary'
-  const visibleItems = navItems.filter(item => {
+
+  function canSee(item: NavItem): boolean {
     if (isSecretary) return item.section === 'delo'
     if (item.coordinatorOnly && isCoordinator) return true
     if (!item.roles) return true
     return item.roles.includes(userRole)
-  })
+  }
+
+  const visibleItems = navItems
+    .map(item => item.children
+      ? { ...item, children: item.children.filter(canSee) }
+      : item)
+    .filter(item => item.children ? item.children.length > 0 : canSee(item))
+
+  function NavGroup({ item }: { item: NavItem }) {
+    const kids = item.children || []
+    const hasActiveChild = kids.some(k => pathname === k.href || pathname.startsWith(k.href + '/'))
+    const [open, setOpen] = useState(hasActiveChild)
+
+    useEffect(() => { if (hasActiveChild) setOpen(true) }, [hasActiveChild])
+
+    return (
+      <div
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => { if (!hasActiveChild) setOpen(false) }}
+      >
+        <button
+          onClick={() => setOpen(prev => !prev)}
+          className="w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-all rounded-full"
+          style={{
+            backgroundColor: 'transparent',
+            color: hasActiveChild ? TEXT_PRIMARY : TEXT_SECONDARY,
+            fontWeight: hasActiveChild ? 600 : 400,
+            border: '1.5px solid transparent',
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER
+            ;(e.currentTarget as HTMLElement).style.border = '1.5px solid rgba(15,34,64,0.10)'
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'
+            ;(e.currentTarget as HTMLElement).style.border = '1.5px solid transparent'
+          }}
+        >
+          {item.icon}
+          <span className="flex-1 text-left">{item.label}</span>
+          <ChevronDown
+            size={13}
+            style={{
+              transition: 'transform 0.2s',
+              transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
+              opacity: 0.5,
+            }}
+          />
+        </button>
+
+        <div
+          className="overflow-hidden transition-all duration-200"
+          style={{ maxHeight: open ? `${kids.length * 40}px` : '0px' }}
+        >
+          <div className="pl-4 pt-0.5 space-y-0.5">
+            {kids.map(kid => {
+              const active = pathname === kid.href || pathname.startsWith(kid.href + '/')
+              return (
+                <Link
+                  key={kid.href}
+                  href={kid.href}
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-2 px-3 py-1.5 text-[13px] transition-all rounded-full"
+                  style={{
+                    backgroundColor: 'transparent',
+                    color: active ? TEXT_PRIMARY : TEXT_MUTED,
+                    fontWeight: active ? 600 : 400,
+                    border: active ? '1.5px solid rgba(15,34,64,0.18)' : '1.5px solid transparent',
+                  }}
+                  onMouseEnter={e => {
+                    if (!active) {
+                      (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER
+                      ;(e.currentTarget as HTMLElement).style.color = TEXT_SECONDARY
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!active) {
+                      (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'
+                      ;(e.currentTarget as HTMLElement).style.color = TEXT_MUTED
+                    }
+                  }}
+                >
+                  {kid.icon}
+                  <span className="flex-1">{kid.label}</span>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const mainItems = visibleItems.filter(item => !item.section)
   const deloItems = visibleItems.filter(item => item.section === 'delo')
@@ -139,7 +241,11 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
 
       <nav className="flex-1 py-4 px-2 overflow-y-auto">
         <div className="space-y-0.5">
-          {mainItems.map(item => <NavLink key={item.href} item={item} />)}
+          {mainItems.map(item =>
+            item.children
+              ? <NavGroup key={item.href} item={item} />
+              : <NavLink key={item.href} item={item} />
+          )}
         </div>
 
         {deloItems.length > 0 && (
