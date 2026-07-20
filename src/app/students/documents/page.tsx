@@ -7,6 +7,7 @@ import DocumentsMatrixClient from './DocumentsMatrixClient'
 
 const ATTACHMENT_TYPES = [
   { key: 'referral_order', label: 'Заповед за насочване' },
+  { key: 'eplr_order', label: 'Заповед ЕПЛР' },
   { key: 'rcpppo_assessment', label: 'Оценка от РЦПППО' },
   { key: 'medical_expertise', label: 'Медицинска експертиза' },
   { key: 'other', label: 'Друг документ' },
