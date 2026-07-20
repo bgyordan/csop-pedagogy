@@ -208,17 +208,15 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
             </div>
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <Link href="/admin/eplr-assignment" className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition-all">
+                <Users size={13} className="text-slate-400" />
                 Корекция разпределение екипи
                 <ArrowRight size={13} className="text-slate-400" />
               </Link>
-              <button
-                onClick={generateAllLetters}
-                disabled={generatingAll}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-white shadow-md disabled:opacity-60 transition-all"
-                style={{ backgroundColor: '#0f2240' }}>
-                <Mail size={13} />
-                {generatingAll ? 'Генериране...' : 'Писма за всички училища'}
-              </button>
+              <Link href="/admin/eplr-schedule" className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition-all">
+                <CalendarClock size={13} className="text-slate-400" />
+                График екипни срещи
+                <ArrowRight size={13} className="text-slate-400" />
+              </Link>
             </div>
           </div>
 
@@ -234,11 +232,7 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
                   {schedules.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
-              <button onClick={downloadAllSchedules} disabled={!scheduleId || generatingSchedules}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-all">
-                <CalendarClock size={13} />
-                {generatingSchedules ? 'Генериране...' : 'Графици за всички училища'}
-              </button>
+              <span className="text-[11px] text-slate-400">Изберете график, за да се появи бутонът „Писмо график" на всяко училище</span>
             </div>
           )}
 
@@ -297,16 +291,16 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
                           <span>Учебен план прогрес: <strong className="text-slate-700">{stats.pct}%</strong></span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <button onClick={() => generateSchoolReportExcel(school.name, rows)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50">
-                            <FileSpreadsheet size={12} className="text-emerald-600" /> Excel
-                          </button>
                           <button onClick={() => generateSchoolLetter(school.name, school.city, rows, yearName)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0f2240] text-white text-xs font-bold hover:bg-[#19325c]">
-                            <Mail size={12} /> Писмо ЕПЛР
+                            <Mail size={12} /> Писмо екип
                           </button>
                           {scheduleId && (
                             <button onClick={() => downloadSchedule(school)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50">
-                              <CalendarClock size={12} /> График
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white text-xs font-bold transition-colors"
+                              style={{ border: '1px solid rgba(15,34,64,0.30)', color: '#0f2240' }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(15,34,64,0.05)' }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#ffffff' }}>
+                              <CalendarClock size={12} /> Писмо график
                             </button>
                           )}
                         </div>
