@@ -1,217 +1,148 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect, notFound } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft, Users, BookOpen, ChevronRight, Mail } from 'lucide-react'
-import { ROLE_LABELS } from '@/types'
-import { getFullName } from '@/lib/utils'
-import StaffClassesSection from './StaffClassesSection'
+'use client'
 
-export const dynamic = 'force-dynamic'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { BookOpen, X, Loader2, Plus } from 'lucide-react'
 
-export default async function StaffDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
+interface ClassItem { assignmentId: string; classId: string; name: string }
+interface Option { id: string; name: string; takenBy?: string | null }
 
-  const { data: profile } = await supabase
-    .from('staff_profiles').select('role').eq('user_id', user.id).single()
-  if (!['admin', 'zdud', 'director'].includes(profile?.role || '')) redirect('/dashboard')
+interface Props {
+  staffId: string
+  academicYearId: string
+  assigned: ClassItem[]
+  options: Option[]
+  canManage: boolean
+}
 
-  const { data: staff } = await supabase
-    .from('staff_profiles').select('*').eq('id', id).single()
-  if (!staff) notFound()
+export default function StaffClassesSection({ staffId, academicYearId, assigned: initial, options, canManage }: Props) {
+  const supabase = createClient()
+  const router = useRouter()
 
-  const { data: currentYear } = await supabase
-    .from('academic_years').select('*').eq('is_current', true).single()
+  const [assigned, setAssigned] = useState<ClassItem[]>(initial)
+  const [adding, setAdding] = useState(false)
+  const [selected, setSelected] = useState('')
+  const [busy, setBusy] = useState<string | null>(null)
 
-  // Ученици по ЕПЛР роля
-  const roleField: Record<string, string> = {
-    psychologist: 'psychologist_id',
-    speech_therapist: 'speech_therapist_id',
-    rehabilitator: 'rehabilitator_id',
+  async function addClass() {
+    if (!selected) return
+    setBusy('add')
+    const { data, error } = await supabase.from('class_teacher_assignments').insert({
+      staff_id: staffId,
+      class_id: selected,
+      academic_year_id: academicYearId,
+    }).select('id').single()
+
+    if (!error && data) {
+      await syncEplrTeacher(selected, staffId)
+      const opt = options.find(o => o.id === selected)
+      if (opt) setAssigned(prev => [...prev, { assignmentId: data.id, classId: opt.id, name: opt.name }])
+      setSelected('')
+      setAdding(false)
+      router.refresh()
+    } else if (error) {
+      alert(`Грешка: ${error.message}`)
+    }
+    setBusy(null)
   }
 
-  let eplrStudents: any[] = []
-  const field = roleField[staff.role]
-  if (field) {
-    const { data } = await supabase
-      .from('eplr_teams')
-      .select('student:students(id, first_name, middle_name, last_name, status)')
-      .eq(field, id)
-      .eq('academic_year_id', currentYear?.id)
-    eplrStudents = (data || [])
-      .map((t: any) => t.student)
-      .filter((s: any) => s && s.status === 'active')
+  async function removeClass(assignmentId: string) {
+    if (!confirm('Премахване от тази паралелка?')) return
+    const item = assigned.find(a => a.assignmentId === assignmentId)
+    setBusy(assignmentId)
+    await supabase.from('class_teacher_assignments').delete().eq('id', assignmentId)
+    if (item) await syncEplrTeacher(item.classId, null)
+    setAssigned(prev => prev.filter(a => a.assignmentId !== assignmentId))
+    setBusy(null)
+    router.refresh()
   }
 
-  // Паралелки като класен ръководител
-  const { data: myClasses } = await supabase
-    .from('class_teacher_assignments')
-    .select('id, class:classes(id, name)')
-    .eq('staff_id', id)
-    .eq('academic_year_id', currentYear?.id)
-
-  // Всички паралелки за избор (без тези които вече имат класен)
-  const { data: allClasses } = await supabase
-    .from('classes').select('id, name')
-    .eq('academic_year_id', currentYear?.id)
-    .order('name')
-
-  const { data: takenAssignments } = await supabase
-    .from('class_teacher_assignments')
-    .select('class_id, staff_id')
-    .eq('academic_year_id', currentYear?.id)
-
-  // Свободни са тези без класен, или вече назначени на този служител
-  const takenByOthers = new Set(
-    (takenAssignments || []).filter(a => a.staff_id !== id).map(a => a.class_id)
-  )
-  const freeClasses = (allClasses || []).filter(c => !takenByOthers.has(c.id))
-
-  const assignedClasses = (myClasses || []).map((c: any) => ({
-    assignmentId: c.id,
-    classId: c.class?.id,
-    name: c.class?.name || '—',
-  })).filter((c: any) => c.classId)
-
-  const canManageAssignments = ['admin', 'zdud'].includes(profile?.role || '')
-
-  const classIds = (myClasses || []).map((c: any) => c.class?.id).filter(Boolean)
-
-  let classStudents: any[] = []
-  if (classIds.length > 0) {
-    const { data } = await supabase
+  // Обновява class_teacher_id в ЕПЛР екипите на учениците от паралелката
+  async function syncEplrTeacher(classId: string, teacherId: string | null) {
+    const { data: enrollments } = await supabase
       .from('student_enrollments')
-      .select('class_id, student:students(id, first_name, middle_name, last_name, status), class:classes(name)')
-      .in('class_id', classIds)
-      .eq('academic_year_id', currentYear?.id)
-    classStudents = (data || []).filter((e: any) => e.student?.status === 'active')
+      .select('student_id')
+      .eq('class_id', classId)
+      .eq('academic_year_id', academicYearId)
+
+    const studentIds = (enrollments || []).map(e => e.student_id)
+    if (studentIds.length === 0) return
+
+    await supabase
+      .from('eplr_teams')
+      .update({ class_teacher_id: teacherId })
+      .in('student_id', studentIds)
+      .eq('academic_year_id', academicYearId)
   }
 
-  // ЦОУД групи като възпитател
-  const { data: coudGroups } = await supabase
-    .from('coud_groups')
-    .select('id, name')
-    .eq('teacher_id', id)
-    .eq('academic_year_id', currentYear?.id)
+  const available = options.filter(o => !assigned.some(a => a.classId === o.id))
+  const freeCount = available.filter(o => !o.takenBy).length
 
-  let coudStudents: any[] = []
-  if ((coudGroups || []).length > 0) {
-    const { data } = await supabase
-      .from('coud_enrollments')
-      .select('coud_group_id, student:students(id, first_name, middle_name, last_name, status)')
-      .in('coud_group_id', (coudGroups || []).map(g => g.id))
-      .eq('academic_year_id', currentYear?.id)
-    coudStudents = (data || []).filter((e: any) => e.student?.status === 'active')
-  }
-
-  const sortByName = (a: any, b: any) => getFullName(a).localeCompare(getFullName(b), 'bg')
+  if (!canManage && assigned.length === 0) return null
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto">
-      <Link href="/staff" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6 transition-colors">
-        <ArrowLeft size={15} /> Назад към служителите
-      </Link>
-
-      {/* Хедър */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-6 shadow-sm">
-        <div className="flex items-start gap-4">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-xl font-bold flex-shrink-0"
-            style={{ backgroundColor: '#0f2240' }}>
-            {staff.first_name?.charAt(0)}{staff.last_name?.charAt(0)}
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-800">{getFullName(staff)}</h1>
-            <div className="flex flex-wrap items-center gap-3 mt-1.5 text-sm text-slate-500">
-              <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-                {ROLE_LABELS[staff.role as keyof typeof ROLE_LABELS] || staff.role}
-              </span>
-              {staff.position && <span className="text-xs">{staff.position}</span>}
-              <span className="flex items-center gap-1 text-xs"><Mail size={12} />{staff.email}</span>
-            </div>
-          </div>
-        </div>
+    <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-5 shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <span className="flex items-center gap-2 text-xs font-medium text-slate-500 uppercase tracking-wide">
+          <BookOpen size={14} /> Класен ръководител на
+        </span>
+        {canManage && !adding && (
+          <button onClick={() => setAdding(true)}
+            className="flex items-center gap-1 text-xs text-slate-500 hover:text-[#0f2240] transition-colors">
+            <Plus size={13} /> Добави паралелка
+          </button>
+        )}
       </div>
 
-      <StaffClassesSection
-        staffId={id}
-        academicYearId={currentYear?.id || ''}
-        assigned={assignedClasses}
-        options={freeClasses}
-        canManage={canManageAssignments}
-      />
-
-      {/* Паралелки като класен */}
-      {classStudents.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm mb-5">
-          <div className="flex items-center gap-2 px-5 py-3 bg-slate-50 border-b border-slate-100">
-            <BookOpen size={15} className="text-slate-500" />
-            <span className="text-sm font-medium text-slate-700">Класен ръководител</span>
-            <span className="ml-auto text-xs text-slate-400">{classStudents.length} ученика</span>
-          </div>
-          <div className="divide-y divide-slate-50">
-            {classStudents.sort((a, b) => sortByName(a.student, b.student)).map((e: any) => (
-              <Link key={e.student.id} href={`/students/${e.student.id}`}
-                className="flex items-center justify-between px-5 py-2.5 hover:bg-slate-50 transition-colors group">
-                <span className="text-sm text-slate-700">{getFullName(e.student)}</span>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-slate-400">{e.class?.name}</span>
-                  <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500" />
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ЕПЛР ученици */}
-      {eplrStudents.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm mb-5">
-          <div className="flex items-center gap-2 px-5 py-3 bg-slate-50 border-b border-slate-100">
-            <Users size={15} className="text-slate-500" />
-            <span className="text-sm font-medium text-slate-700">
-              Ученици по ЕПЛР ({ROLE_LABELS[staff.role as keyof typeof ROLE_LABELS] || staff.role})
+      {assigned.length === 0 && !adding ? (
+        <p className="text-sm text-slate-400">Не е класен ръководител</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {assigned.map(a => (
+            <span key={a.assignmentId}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-700">
+              {a.name}
+              {canManage && (
+                <button onClick={() => removeClass(a.assignmentId)} disabled={busy === a.assignmentId}
+                  className="text-slate-300 hover:text-red-500 transition-colors">
+                  {busy === a.assignmentId ? <Loader2 size={12} className="animate-spin" /> : <X size={13} />}
+                </button>
+              )}
             </span>
-            <span className="ml-auto text-xs text-slate-400">{eplrStudents.length} ученика</span>
-          </div>
-          <div className="divide-y divide-slate-50">
-            {eplrStudents.sort(sortByName).map((s: any) => (
-              <Link key={s.id} href={`/students/${s.id}`}
-                className="flex items-center justify-between px-5 py-2.5 hover:bg-slate-50 transition-colors group">
-                <span className="text-sm text-slate-700">{getFullName(s)}</span>
-                <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500" />
-              </Link>
-            ))}
-          </div>
+          ))}
         </div>
       )}
 
-      {/* ЦОУД групи */}
-      {coudStudents.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm mb-5">
-          <div className="flex items-center gap-2 px-5 py-3 bg-slate-50 border-b border-slate-100">
-            <Users size={15} className="text-slate-500" />
-            <span className="text-sm font-medium text-slate-700">
-              ЦОУД {(coudGroups || []).map(g => g.name).join(', ')}
-            </span>
-            <span className="ml-auto text-xs text-slate-400">{coudStudents.length} ученика</span>
-          </div>
-          <div className="divide-y divide-slate-50">
-            {coudStudents.sort((a, b) => sortByName(a.student, b.student)).map((e: any) => (
-              <Link key={e.student.id} href={`/students/${e.student.id}`}
-                className="flex items-center justify-between px-5 py-2.5 hover:bg-slate-50 transition-colors group">
-                <span className="text-sm text-slate-700">{getFullName(e.student)}</span>
-                <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500" />
-              </Link>
-            ))}
-          </div>
-        </div>
+      {adding && freeCount === 0 && (
+        <p className="text-[11px] text-amber-600 mt-3">
+          Всички паралелки вече имат класен ръководител. За да преназначите, първо премахнете текущия от страницата на паралелката.
+        </p>
       )}
 
-      {classStudents.length === 0 && eplrStudents.length === 0 && coudStudents.length === 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
-          <p className="text-slate-400 text-sm">Няма назначени ученици за {currentYear?.name}</p>
+      {adding && (
+        <div className="flex flex-col sm:flex-row gap-2 mt-3">
+          <select autoFocus value={selected} onChange={e => setSelected(e.target.value)}
+            className="input flex-1 text-sm">
+            <option value="">— Избери паралелка —</option>
+            {available.map(o => (
+              <option key={o.id} value={o.id} disabled={!!o.takenBy}>
+                {o.name}{o.takenBy ? ` — зает (${o.takenBy})` : ''}
+              </option>
+            ))}
+          </select>
+          <div className="flex gap-2">
+            <button onClick={() => { setAdding(false); setSelected('') }}
+              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium">
+              Отказ
+            </button>
+            <button onClick={addClass} disabled={!selected || busy === 'add'}
+              className="px-4 py-2 text-white rounded-xl text-xs font-medium flex items-center gap-1.5 disabled:opacity-60"
+              style={{ backgroundColor: '#0f2240' }}>
+              {busy === 'add' && <Loader2 size={12} className="animate-spin" />}
+              Назначи
+            </button>
+          </div>
         </div>
       )}
     </div>
