@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Pencil } from 'lucide-react'
+import { Plus, Pencil, ExternalLink } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { getFullName } from '@/lib/utils'
@@ -11,14 +12,14 @@ import { StaffProfile, UserRole, ROLE_LABELS } from '@/types'
 const EMPTY_FORM = {
   first_name: '', middle_name: '', last_name: '',
   role: 'class_teacher' as UserRole,
-  email: '', phone: '', class_id: '',
+  email: '', phone: '',
 }
 
 export default function AdminStaffPage() {
   const supabase = createClient()
   const { toast } = useToast()
   const [staff, setStaff] = useState<StaffProfile[]>([])
-  const [classes, setClasses] = useState<{ id: string; name: string }[]>([])
+  const [classesByStaff, setClassesByStaff] = useState<Record<string, string[]>>({})
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<StaffProfile | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -32,9 +33,24 @@ export default function AdminStaffPage() {
   async function load() {
     const { data } = await supabase.from('staff_profiles').select('*').order('first_name')
     setStaff(data || [])
+
     const { data: year } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
-    const { data: cls } = await supabase.from('classes').select('id, name').eq('academic_year_id', year?.id).order('name')
-    setClasses(cls || [])
+
+    // Реалните назначения като класен ръководител
+    const { data: assignments } = await supabase
+      .from('class_teacher_assignments')
+      .select('staff_id, class:classes(name)')
+      .eq('academic_year_id', year?.id)
+
+    const map: Record<string, string[]> = {}
+    ;(assignments || []).forEach((a: any) => {
+      const name = a.class?.name
+      if (!name) return
+      if (!map[a.staff_id]) map[a.staff_id] = []
+      map[a.staff_id].push(name)
+    })
+    Object.values(map).forEach(list => list.sort((x, y) => x.localeCompare(y, 'bg', { numeric: true })))
+    setClassesByStaff(map)
   }
 
   function toggleSort(col: 'name' | 'role') {
@@ -62,7 +78,6 @@ export default function AdminStaffPage() {
       role: s.role,
       email: s.email,
       phone: s.phone || '',
-      class_id: s.class_id || '',
     })
     setOpen(true)
   }
@@ -82,7 +97,6 @@ export default function AdminStaffPage() {
       position: ROLE_LABELS[form.role],
       email: form.email,
       phone: form.phone || null,
-      class_id: form.role === 'class_teacher' && form.class_id ? form.class_id : null,
     }
 
     let error
@@ -92,7 +106,7 @@ export default function AdminStaffPage() {
       ({ error } = await supabase.from('staff_profiles').insert({ ...payload, is_active: true }))
     }
 
-    if (error) { toast('Грешка при запис', 'error'); setSaving(false); return }
+    if (error) { toast(`Грешка при запис: ${error.message}`, 'error'); setSaving(false); return }
 
     toast(editing ? 'Промените са запазени' : 'Служителят е добавен')
     setOpen(false)
@@ -109,13 +123,13 @@ export default function AdminStaffPage() {
   const filtered = staff
     .filter(s => !search || getFullName(s).toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
-      let valA = sortCol === 'name' ? getFullName(a) : ROLE_LABELS[a.role]
-      let valB = sortCol === 'name' ? getFullName(b) : ROLE_LABELS[b.role]
+      const valA = sortCol === 'name' ? getFullName(a) : ROLE_LABELS[a.role]
+      const valB = sortCol === 'name' ? getFullName(b) : ROLE_LABELS[b.role]
       return sortDir === 'asc' ? valA.localeCompare(valB, 'bg') : valB.localeCompare(valA, 'bg')
     })
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-slate-800">Управление на служители</h1>
@@ -129,63 +143,84 @@ export default function AdminStaffPage() {
 
       <input
         className="input max-w-sm mb-4"
-        placeholder="Търси по ime..."
+        placeholder="Търси по име..."
         value={search}
         onChange={e => setSearch(e.target.value)}
       />
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide cursor-pointer hover:text-slate-800" onClick={() => toggleSort('name')}>
-                Имена{sortIcon('name')}
-              </th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide cursor-pointer hover:text-slate-800" onClick={() => toggleSort('role')}>
-                Роля{sortIcon('role')}
-              </th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Паралелка</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Имейл</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Статус</th>
-              <th className="px-4 py-2.5"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((s, idx) => (
-              <tr key={s.id} className={`border-b border-slate-100 hover:bg-blue-50 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
-                <td className="px-4 py-2 font-medium text-slate-800">{getFullName(s)}</td>
-                <td className="px-4 py-2 text-slate-600">{ROLE_LABELS[s.role]}</td>
-                <td className="px-4 py-2 text-slate-600">
-                  {(s as any).class_id ? classes.find(c => c.id === (s as any).class_id)?.name || '—' : '—'}
-                </td>
-                <td className="px-4 py-2 text-slate-600 font-mono text-xs">{s.email}</td>
-                <td className="px-4 py-2">
-                  <span className={s.is_active ? 'badge-completed' : 'badge-empty'}>
-                    {s.is_active ? 'Активен' : 'Неактивен'}
-                  </span>
-                </td>
-                <td className="px-4 py-2">
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => openEdit(s)} className="text-xs font-medium px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors flex items-center gap-1">
-                      <Pencil size={12} />
-                      Редактирай
-                    </button>
-                    <button onClick={() => toggleActive(s)} className="text-xs text-slate-400 hover:text-slate-700">
-                      {s.is_active ? 'Деактивирай' : 'Активирай'}
-                    </button>
-                  </div>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide cursor-pointer hover:text-slate-800" onClick={() => toggleSort('name')}>
+                  Имена{sortIcon('name')}
+                </th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide cursor-pointer hover:text-slate-800" onClick={() => toggleSort('role')}>
+                  Роля{sortIcon('role')}
+                </th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Класен на</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Имейл</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Статус</th>
+                <th className="px-4 py-2.5"></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.map((s, idx) => {
+                const myClasses = classesByStaff[s.id] || []
+                return (
+                  <tr key={s.id} className={`border-b border-slate-100 hover:bg-blue-50 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
+                    <td className="px-4 py-2 font-medium text-slate-800">
+                      <Link href={`/staff/${s.id}`} className="hover:underline hover:text-[#0f2240] inline-flex items-center gap-1">
+                        {getFullName(s)}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2 text-slate-600 whitespace-nowrap">{ROLE_LABELS[s.role]}</td>
+                    <td className="px-4 py-2">
+                      {myClasses.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {myClasses.map(name => (
+                            <span key={name} className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px] font-medium">
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="px-4 py-2 text-slate-600 font-mono text-xs">{s.email}</td>
+                    <td className="px-4 py-2">
+                      <span className={s.is_active ? 'badge-completed' : 'badge-empty'}>
+                        {s.is_active ? 'Активен' : 'Неактивен'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => openEdit(s)} className="text-xs font-medium px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors flex items-center gap-1">
+                          <Pencil size={12} />
+                          Редактирай
+                        </button>
+                        <button onClick={() => toggleActive(s)} className="text-xs text-slate-400 hover:text-slate-700 whitespace-nowrap">
+                          {s.is_active ? 'Деактивирай' : 'Активирай'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      <p className="text-xs text-slate-400 mt-3">
+        Паралелките се назначават от страницата на служителя или от самата паралелка.
+      </p>
 
       <Modal open={open} onClose={() => setOpen(false)} title={editing ? 'Редактирай служител' : 'Нов служител'}>
         <form onSubmit={handleSave} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label">Първо ime <span className="text-red-500">*</span></label>
+              <label className="label">Първо име <span className="text-red-500">*</span></label>
               <input className="input" value={form.first_name} onChange={e => setForm(p => ({ ...p, first_name: e.target.value }))} />
             </div>
             <div>
@@ -205,13 +240,16 @@ export default function AdminStaffPage() {
               ))}
             </select>
           </div>
-          {form.role === 'class_teacher' && (
-            <div>
-              <label className="label">Паралелка</label>
-              <select className="input" value={form.class_id} onChange={e => setForm(p => ({ ...p, class_id: e.target.value }))}>
-                <option value="">— Избери паралелка —</option>
-                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+          {editing && form.role === 'class_teacher' && (
+            <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Класен на</div>
+              <div className="text-sm text-slate-700 mt-0.5">
+                {(classesByStaff[(editing as any).id] || []).join(', ') || 'няма назначени паралелки'}
+              </div>
+              <Link href={`/staff/${(editing as any).id}`}
+                className="text-[11px] text-slate-500 hover:text-[#0f2240] inline-flex items-center gap-1 mt-1">
+                Управление на паралелките <ExternalLink size={10} />
+              </Link>
             </div>
           )}
           <div>
