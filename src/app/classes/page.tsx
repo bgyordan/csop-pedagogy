@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Settings2 } from 'lucide-react'
 import { BackButton } from '@/components/ui/BackButton'
 import { DocumentType, DOCUMENT_TYPE_LABELS } from '@/types'
 import { getFullName } from '@/lib/utils'
@@ -116,7 +117,8 @@ export default async function ClassesPage({
       </div>
 
       {/* ТАБОВЕ */}
-      <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl shadow-sm w-fit mb-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl shadow-sm w-fit">
         <Link href="/classes"
           className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
             tab === 'classes' ? 'bg-[#0f2240] text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
@@ -129,6 +131,13 @@ export default async function ClassesPage({
           }`}>
           ЦОУД групи
         </Link>
+      </div>
+
+      <Link href={tab === 'coud' ? '/admin/coud' : '/admin/years'}
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 shadow-sm transition-all">
+        <Settings2 size={13} className="text-slate-400" />
+        {tab === 'coud' ? 'Редакция на ЦОУД групите' : 'Редакция на паралелките'}
+      </Link>
       </div>
 
       {tab === 'coud' ? (
