@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { ROLE_LABELS, UserRole, StaffProfile } from '@/types'
+import { ROLE_LABELS, StaffProfile } from '@/types'
 import { getFullName } from '@/lib/utils'
 
 const PER_PAGE = 15
@@ -25,11 +25,26 @@ export default async function StaffPage({
   const page = parseInt(params.page || '1')
   const q = params.q || ''
 
-  const { data: allStaff } = await supabase
-    .from('staff_profiles')
-    .select('*')
-    .eq('is_active', true)
-    .order(sort, { ascending: dir === 'asc' })
+  const { data: currentYear } = await supabase
+    .from('academic_years').select('id').eq('is_current', true).single()
+
+  const [{ data: allStaff }, { data: assignments }] = await Promise.all([
+    supabase.from('staff_profiles').select('*').eq('is_active', true).order(sort, { ascending: dir === 'asc' }),
+    supabase.from('class_teacher_assignments')
+      .select('staff_id, class:classes(name)')
+      .eq('academic_year_id', currentYear?.id),
+  ])
+
+  const classesByStaff: Record<string, string[]> = {}
+  ;(assignments || []).forEach((a: any) => {
+    const name = a.class?.name
+    if (!name) return
+    if (!classesByStaff[a.staff_id]) classesByStaff[a.staff_id] = []
+    classesByStaff[a.staff_id].push(name)
+  })
+  Object.values(classesByStaff).forEach(list =>
+    list.sort((x, y) => x.localeCompare(y, 'bg', { numeric: true }))
+  )
 
   const filtered = allStaff?.filter(s =>
     !q || getFullName(s).toLowerCase().includes(q.toLowerCase()) ||
@@ -61,7 +76,6 @@ export default async function StaffPage({
         <p className="text-slate-500 text-sm mt-1">{total} активни служители</p>
       </div>
 
-      {/* Search */}
       <form className="mb-4">
         <input
           name="q"
@@ -73,7 +87,7 @@ export default async function StaffPage({
         <input type="hidden" name="dir" value={dir} />
       </form>
 
-      {/* ДЕСКТОП: таблица */}
+      {/* ДЕСКТОП */}
       <div className="hidden md:block bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
         <table className="w-full text-sm">
           <thead>
@@ -89,6 +103,9 @@ export default async function StaffPage({
                 </a>
               </th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">
+                Класен на
+              </th>
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">
                 <a href={sortLink('email')} className="hover:text-slate-800">
                   Имейл{sortIcon('email')}
                 </a>
@@ -96,38 +113,64 @@ export default async function StaffPage({
             </tr>
           </thead>
           <tbody>
-            {staff.map((s: StaffProfile, idx: number) => (
-              <tr key={s.id} className={`border-b border-slate-100 hover:bg-blue-50 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
-                <td className="px-4 py-2 font-medium text-slate-800">
-                  {canOpenDetail ? (
-                    <Link href={`/staff/${s.id}`} className="hover:underline hover:text-[#0f2240]">
-                      {getFullName(s)}
-                    </Link>
-                  ) : getFullName(s)}
-                </td>
-                <td className="px-4 py-2 text-slate-600">{ROLE_LABELS[s.role]}</td>
-                <td className="px-4 py-2 text-slate-500 text-xs font-mono">{s.email}</td>
-              </tr>
-            ))}
+            {staff.map((s: StaffProfile, idx: number) => {
+              const myClasses = classesByStaff[s.id] || []
+              return (
+                <tr key={s.id} className={`border-b border-slate-100 hover:bg-blue-50 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
+                  <td className="px-4 py-2 font-medium text-slate-800">
+                    {canOpenDetail ? (
+                      <Link href={`/staff/${s.id}`} className="hover:underline hover:text-[#0f2240]">
+                        {getFullName(s)}
+                      </Link>
+                    ) : getFullName(s)}
+                  </td>
+                  <td className="px-4 py-2 text-slate-600 whitespace-nowrap">{ROLE_LABELS[s.role]}</td>
+                  <td className="px-4 py-2">
+                    {myClasses.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {myClasses.map(name => (
+                          <span key={name} className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px] font-medium">
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : <span className="text-slate-300">—</span>}
+                  </td>
+                  <td className="px-4 py-2 text-slate-500 text-xs font-mono">{s.email}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
 
         <Pagination page={page} totalPages={totalPages} total={total} PER_PAGE={PER_PAGE} pageLink={pageLink} />
       </div>
 
-      {/* МОБИЛЕН: карти */}
+      {/* МОБИЛЕН */}
       <div className="md:hidden space-y-2">
         {staff.map((s: StaffProfile) => {
+          const myClasses = classesByStaff[s.id] || []
           const inner = (
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="font-medium text-slate-800 text-sm">{getFullName(s)}</div>
-                <div className="text-xs text-slate-500 mt-0.5 truncate">{s.email}</div>
+            <>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-medium text-slate-800 text-sm">{getFullName(s)}</div>
+                  <div className="text-xs text-slate-500 mt-0.5 truncate">{s.email}</div>
+                </div>
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 flex-shrink-0">
+                  {ROLE_LABELS[s.role]}
+                </span>
               </div>
-              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 flex-shrink-0">
-                {ROLE_LABELS[s.role]}
-              </span>
-            </div>
+              {myClasses.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {myClasses.map(name => (
+                    <span key={name} className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px] font-medium">
+                      {name}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </>
           )
           return canOpenDetail ? (
             <Link key={s.id} href={`/staff/${s.id}`} className="block bg-white rounded-xl border border-slate-200 px-4 py-3 hover:shadow-sm transition-shadow">
@@ -140,7 +183,6 @@ export default async function StaffPage({
           )
         })}
 
-        {/* Pagination мобилен */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between pt-2">
             <p className="text-xs text-slate-500">
