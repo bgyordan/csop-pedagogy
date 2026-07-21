@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { BookOpen, X, Loader2, Plus } from 'lucide-react'
 
 interface ClassItem { assignmentId: string; classId: string; name: string }
-interface Option { id: string; name: string }
+interface Option { id: string; name: string; takenBy?: string | null }
 
 interface Props {
   staffId: string
@@ -77,6 +77,7 @@ export default function StaffClassesSection({ staffId, academicYearId, assigned:
   }
 
   const available = options.filter(o => !assigned.some(a => a.classId === o.id))
+  const freeCount = available.filter(o => !o.takenBy).length
 
   if (!canManage && assigned.length === 0) return null
 
@@ -86,7 +87,7 @@ export default function StaffClassesSection({ staffId, academicYearId, assigned:
         <span className="flex items-center gap-2 text-xs font-medium text-slate-500 uppercase tracking-wide">
           <BookOpen size={14} /> Класен ръководител на
         </span>
-        {canManage && !adding && available.length > 0 && (
+        {canManage && !adding && (
           <button onClick={() => setAdding(true)}
             className="flex items-center gap-1 text-xs text-slate-500 hover:text-[#0f2240] transition-colors">
             <Plus size={13} /> Добави паралелка
@@ -113,12 +114,22 @@ export default function StaffClassesSection({ staffId, academicYearId, assigned:
         </div>
       )}
 
+      {adding && freeCount === 0 && (
+        <p className="text-[11px] text-amber-600 mt-3">
+          Всички паралелки вече имат класен ръководител. За да преназначите, първо премахнете текущия от страницата на паралелката.
+        </p>
+      )}
+
       {adding && (
         <div className="flex flex-col sm:flex-row gap-2 mt-3">
           <select autoFocus value={selected} onChange={e => setSelected(e.target.value)}
             className="input flex-1 text-sm">
             <option value="">— Избери паралелка —</option>
-            {available.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+            {available.map(o => (
+              <option key={o.id} value={o.id} disabled={!!o.takenBy}>
+                {o.name}{o.takenBy ? ` — зает (${o.takenBy})` : ''}
+              </option>
+            ))}
           </select>
           <div className="flex gap-2">
             <button onClick={() => { setAdding(false); setSelected('') }}
