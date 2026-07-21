@@ -46,6 +46,7 @@ export default async function CoudPage() {
     .from('staff_profiles')
     .select('id, first_name, last_name')
     .eq('is_active', true)
+    .eq('role', 'educator')
     .order('last_name')
 
   return (
