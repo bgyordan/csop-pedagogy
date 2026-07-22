@@ -1,13 +1,16 @@
+cat > ~/csop-pedagogy/src/app/auth/login/page.tsx << 'EOF'
 'use client'
-
 import { createClient } from '@/lib/supabase/client'
 import { useState, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 
 function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const searchParams = useSearchParams()
+  const router = useRouter()
   const urlError = searchParams.get('error')
   const supabase = createClient()
 
@@ -17,16 +20,28 @@ function LoginForm() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-  redirectTo: `${window.location.origin}/auth/callback`,
-  queryParams: {
-    prompt: 'select_account',
-  },
-},
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: { prompt: 'select_account' },
+      },
     })
     if (error) {
       setError('Грешка при влизане. Моля опитайте отново.')
       setLoading(false)
     }
+  }
+
+  async function handleEmailLogin(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      setError('Грешен имейл или парола.')
+      setLoading(false)
+      return
+    }
+    router.push('/dashboard')
+    router.refresh()
   }
 
   return (
@@ -73,6 +88,39 @@ function LoginForm() {
             {loading ? 'Влизане...' : 'Вход с Google'}
           </button>
 
+          <div className="flex items-center gap-3 my-5">
+            <div className="flex-1 h-px bg-slate-200" />
+            <span className="text-xs text-slate-400">или</span>
+            <div className="flex-1 h-px bg-slate-200" />
+          </div>
+
+          <form onSubmit={handleEmailLogin} className="space-y-3">
+            <input
+              type="email"
+              required
+              placeholder="Служебен имейл"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+            />
+            <input
+              type="password"
+              required
+              placeholder="Парола"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 rounded-xl text-white text-sm font-medium disabled:opacity-50"
+              style={{ backgroundColor: '#0f2240' }}
+            >
+              {loading ? 'Влизане...' : 'Вход с имейл'}
+            </button>
+          </form>
+
           <p className="text-xs text-slate-400 text-center mt-6">
             Достъпът е само за служители на ЦСОП Варна
           </p>
@@ -89,3 +137,4 @@ export default function LoginPage() {
     </Suspense>
   )
 }
+EOF
