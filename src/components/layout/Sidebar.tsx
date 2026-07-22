@@ -263,7 +263,8 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
       </nav>
 
       <div className="p-4" style={{ borderTop: '1px solid rgba(15,34,64,0.12)' }}>
-        <div className="flex items-center gap-2.5 mb-3">
+        <Link href="/profile" onClick={() => setMobileOpen(false)}
+          className="flex items-center gap-2.5 mb-3 rounded-xl p-1.5 -m-1.5 transition-colors hover:bg-[rgba(15,34,64,0.04)]">
           <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold"
             style={{ backgroundColor: 'rgba(15,34,64,0.12)', color: TEXT_PRIMARY }}>
             {userName.charAt(0)}
@@ -275,7 +276,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
               {isCoordinator && <span className="ml-1" style={{ color: '#2563a8' }}>· Координатор</span>}
             </div>
           </div>
-        </div>
+        </Link>
         <button
           onClick={handleLogout}
           className="w-full flex items-center gap-2 px-3 py-2 rounded-full transition-all text-xs"
