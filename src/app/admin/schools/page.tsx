@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { BackButton } from '@/components/ui/BackButton'
 import { useToast } from '@/components/ui/Toast'
-import { Plus, Pencil, X, Check, School, MapPin, User, Phone, Mail, AlertCircle, Users, ChevronDown, ChevronUp, UserPlus, Loader2 } from 'lucide-react'
+import { Plus, Pencil, X, Check, School, MapPin, User, Phone, Mail, AlertCircle, Users, ChevronDown, ChevronUp, UserPlus, Loader2, ArrowUpDown } from 'lucide-react'
 
 interface SchoolRow {
   id: string
@@ -30,6 +30,10 @@ export default function SchoolsAdminPage() {
   const [loading, setLoading] = useState(true)
   const [showInactive, setShowInactive] = useState(false)
   const [onlyIncomplete, setOnlyIncomplete] = useState(false)
+  const [onlyEmpty, setOnlyEmpty] = useState(false)
+  const [sortBy, setSortBy] = useState<'name' | 'city' | 'students'>('name')
+  const [search, setSearch] = useState('')
+  const [cityFilter, setCityFilter] = useState('')
 
   const [adding, setAdding] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -162,7 +166,36 @@ export default function SchoolsAdminPage() {
     return !s.director_name?.trim() || !s.address?.trim()
   }
 
-  const visible = onlyIncomplete ? schools.filter(isIncomplete) : schools
+  const visible = schools
+    .filter(s => {
+      if (onlyIncomplete && !isIncomplete(s)) return false
+      if (onlyEmpty && (studentsBySchool[s.id] || []).length > 0) return false
+      if (cityFilter && s.city !== cityFilter) return false
+      if (search.trim()) {
+        const q = search.toLowerCase()
+        const hay = `${s.name} ${s.city} ${s.director_name || ''} ${s.address || ''}`.toLowerCase()
+        if (!hay.includes(q)) return false
+      }
+      return true
+    })
+    .sort((a, b) => {
+      if (sortBy === 'students') {
+        const diff = (studentsBySchool[b.id] || []).length - (studentsBySchool[a.id] || []).length
+        if (diff !== 0) return diff
+        return a.name.localeCompare(b.name, 'bg')
+      }
+      if (sortBy === 'city') {
+        const c = (a.city || '').localeCompare(b.city || '', 'bg')
+        if (c !== 0) return c
+        return a.name.localeCompare(b.name, 'bg')
+      }
+      return a.name.localeCompare(b.name, 'bg')
+    })
+
+  const emptyCount = schools.filter(s => (studentsBySchool[s.id] || []).length === 0).length
+
+  const cities = [...new Set(schools.map(s => s.city).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'bg'))
   const activeCount = schools.filter(s => s.is_active).length
   const incompleteCount = schools.filter(isIncomplete).length
 
@@ -236,7 +269,7 @@ export default function SchoolsAdminPage() {
         <div>
           <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Изпращащи училища</h1>
           <p className="text-slate-500 text-sm mt-1">
-            {activeCount} активни
+            {visible.length === schools.length ? `${activeCount} активни` : `${visible.length} от ${activeCount}`}
             {incompleteCount > 0 && (
               <span className="text-amber-600"> · {incompleteCount} с непълни данни</span>
             )}
@@ -261,6 +294,35 @@ export default function SchoolsAdminPage() {
         </div>
       )}
 
+      {/* Търсене и подредба */}
+      <div className="flex flex-col sm:flex-row gap-2 mb-3">
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Търси по име, град или директор..."
+          className="input flex-1 text-sm"
+        />
+        <select
+          value={cityFilter}
+          onChange={e => setCityFilter(e.target.value)}
+          className="input text-sm py-2 sm:w-44">
+          <option value="">Всички градове</option>
+          {cities.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+
+        <div className="flex items-center gap-1.5">
+          <ArrowUpDown size={13} className="text-slate-400 flex-shrink-0" />
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value as any)}
+            className="input text-sm py-2">
+            <option value="name">По име</option>
+            <option value="city">По град</option>
+            <option value="students">По брой ученици</option>
+          </select>
+        </div>
+      </div>
+
       {/* Филтри */}
       <div className="flex flex-wrap items-center gap-4 mb-4">
         <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
@@ -275,6 +337,13 @@ export default function SchoolsAdminPage() {
             Само с непълни данни
           </label>
         )}
+        {emptyCount > 0 && (
+          <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+            <input type="checkbox" checked={onlyEmpty}
+              onChange={e => setOnlyEmpty(e.target.checked)} className="rounded" />
+            Само без ученици ({emptyCount})
+          </label>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
@@ -283,7 +352,11 @@ export default function SchoolsAdminPage() {
         ) : visible.length === 0 ? (
           <div className="text-center py-12 text-slate-400">
             <School className="mx-auto mb-2 opacity-30" size={32} />
-            <p className="text-sm">{onlyIncomplete ? 'Всички са попълнени' : 'Няма добавени училища'}</p>
+            <p className="text-sm">
+              {onlyEmpty ? 'Всички училища имат ученици'
+                : onlyIncomplete ? 'Всички са попълнени'
+                : 'Няма добавени училища'}
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
