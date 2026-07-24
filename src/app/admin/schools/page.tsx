@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { BackButton } from '@/components/ui/BackButton'
 import { useToast } from '@/components/ui/Toast'
-import { Plus, Pencil, X, Check, School, MapPin, User, Phone, Mail, AlertCircle } from 'lucide-react'
+import { Plus, Pencil, X, Check, School, MapPin, User, Phone, Mail, AlertCircle, Users, ChevronDown, ChevronUp, UserPlus, Loader2 } from 'lucide-react'
 
 interface SchoolRow {
   id: string
@@ -36,6 +36,13 @@ export default function SchoolsAdminPage() {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
 
+  // Ученици по училища
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [studentsBySchool, setStudentsBySchool] = useState<Record<string, any[]>>({})
+  const [orphans, setOrphans] = useState<any[]>([])
+  const [linking, setLinking] = useState<string | null>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
+
   useEffect(() => { loadSchools() }, [showInactive])
 
   async function loadSchools() {
@@ -44,7 +51,59 @@ export default function SchoolsAdminPage() {
     if (!showInactive) query = query.eq('is_active', true)
     const { data } = await query
     setSchools(data || [])
+    await loadStudents()
     setLoading(false)
+  }
+
+  async function loadStudents() {
+    const { data } = await supabase
+      .from('students')
+      .select('id, first_name, middle_name, last_name, external_class, sending_school_id')
+      .eq('status', 'active')
+      .order('first_name')
+
+    const map: Record<string, any[]> = {}
+    const noSchool: any[] = []
+    ;(data || []).forEach((s: any) => {
+      if (s.sending_school_id) {
+        if (!map[s.sending_school_id]) map[s.sending_school_id] = []
+        map[s.sending_school_id].push(s)
+      } else {
+        noSchool.push(s)
+      }
+    })
+    setStudentsBySchool(map)
+    setOrphans(noSchool)
+  }
+
+  async function linkStudent(studentId: string, schoolId: string) {
+    setLinking(studentId)
+    const { error } = await supabase
+      .from('students')
+      .update({ sending_school_id: schoolId })
+      .eq('id', studentId)
+    setLinking(null)
+    if (error) { toast(`Грешка: ${error.message}`, 'error'); return }
+    toast('Ученикът е свързан с училището')
+    setPickerOpen(false)
+    loadStudents()
+  }
+
+  async function unlinkStudent(studentId: string) {
+    if (!confirm('Премахване на връзката с това училище?')) return
+    setLinking(studentId)
+    const { error } = await supabase
+      .from('students')
+      .update({ sending_school_id: null })
+      .eq('id', studentId)
+    setLinking(null)
+    if (error) { toast(`Грешка: ${error.message}`, 'error'); return }
+    toast('Връзката е премахната')
+    loadStudents()
+  }
+
+  function fullName(s: any) {
+    return [s.first_name, s.middle_name, s.last_name].filter(Boolean).join(' ')
   }
 
   function startAdd() {
@@ -181,6 +240,9 @@ export default function SchoolsAdminPage() {
             {incompleteCount > 0 && (
               <span className="text-amber-600"> · {incompleteCount} с непълни данни</span>
             )}
+            {orphans.length > 0 && (
+              <span className="text-blue-600"> · {orphans.length} ученика без училище</span>
+            )}
           </p>
         </div>
         <button onClick={startAdd}
@@ -275,6 +337,14 @@ export default function SchoolsAdminPage() {
                     </div>
 
                     <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <button
+                        onClick={() => setExpandedId(expandedId === school.id ? null : school.id)}
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-slate-500 hover:bg-slate-100 transition-colors"
+                        title="Ученици от това училище">
+                        <Users size={12} />
+                        {(studentsBySchool[school.id] || []).length}
+                        {expandedId === school.id ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                      </button>
                       <button onClick={() => startEdit(school)}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
                         title="Редактирай">
@@ -289,6 +359,76 @@ export default function SchoolsAdminPage() {
                         {school.is_active ? 'Скрий' : 'Активирай'}
                       </button>
                     </div>
+                  </div>
+                )}
+
+                {expandedId === school.id && editId !== school.id && (
+                  <div className="px-4 pb-4 bg-slate-50/40 border-t border-slate-100">
+                    <div className="flex items-center justify-between pt-3 pb-2">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        Ученици от това училище
+                      </span>
+                      {orphans.length > 0 && (
+                        <button
+                          onClick={() => setPickerOpen(true)}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
+                          style={{ backgroundColor: '#0f2240' }}>
+                          <UserPlus size={11} /> Добави ученик
+                        </button>
+                      )}
+                    </div>
+
+                    {(studentsBySchool[school.id] || []).length === 0 ? (
+                      <p className="text-xs text-slate-400 py-2">Няма записани ученици от това училище</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {(studentsBySchool[school.id] || []).map((s: any) => (
+                          <div key={s.id} className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-white border border-slate-100">
+                            <span className="text-xs text-slate-700">{fullName(s)}</span>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className="text-[11px] text-slate-400">{s.external_class || '—'}</span>
+                              <button
+                                onClick={() => unlinkStudent(s.id)}
+                                disabled={linking === s.id}
+                                className="text-slate-300 hover:text-red-500 transition-colors"
+                                title="Премахни от това училище">
+                                {linking === s.id ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {pickerOpen && (
+                      <div className="mt-3 p-3 rounded-xl bg-white border border-slate-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            Ученици без изпращащо училище ({orphans.length})
+                          </span>
+                          <button onClick={() => setPickerOpen(false)} className="text-slate-400 hover:text-slate-700">
+                            <X size={13} />
+                          </button>
+                        </div>
+                        <div className="space-y-1 max-h-56 overflow-y-auto">
+                          {orphans.map((s: any) => (
+                            <button
+                              key={s.id}
+                              onClick={() => linkStudent(s.id, school.id)}
+                              disabled={linking === s.id}
+                              className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg hover:bg-slate-50 text-left transition-colors">
+                              <span className="text-xs text-slate-700">{fullName(s)}</span>
+                              <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                                {s.external_class || '—'}
+                                {linking === s.id
+                                  ? <Loader2 size={11} className="animate-spin" />
+                                  : <UserPlus size={11} className="text-slate-300" />}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
