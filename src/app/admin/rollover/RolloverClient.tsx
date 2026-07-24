@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { ArrowRight, Check, Loader2, AlertTriangle, Archive, Pencil, CheckCheck, CalendarPlus } from 'lucide-react'
 import { runRollover, confirmEnrollment, confirmAllEnrollments, archiveStudent, updateExternalClass } from './actions'
 
@@ -27,11 +26,20 @@ interface Props {
   preview: { classes: number; students: number; coudGroups: number }
 }
 
-// Проверява дали класът е над 12 (завършващ)
 function isGraduating(external: string): boolean {
   const m = external.trim().match(/^(\d+)/)
   if (!m) return false
   return parseInt(m[1]) > 12
+}
+
+// Обратно пресмятане: какъв е бил класът преди вдигането
+function previousClass(external: string): string {
+  const m = external.trim().match(/^(\d+)\s*(.*)$/)
+  if (!m) return external
+  const num = parseInt(m[1])
+  const rest = m[2] || ''
+  if (num <= 1) return external
+  return `${num - 1}${rest ? ' ' + rest : ''}`
 }
 
 export default function RolloverClient({
@@ -113,7 +121,6 @@ export default function RolloverClient({
         </div>
       )}
 
-      {/* ── РЕЖИМ 1: ВЕРИФИКАЦИЯ ── */}
       {hasUnconfirmed ? (
         <>
           <div className="bg-white border border-amber-200 rounded-2xl p-5 shadow-sm">
@@ -122,8 +129,8 @@ export default function RolloverClient({
               <div className="flex-1">
                 <h2 className="font-semibold text-slate-800 text-sm">Верификация на прехвърлените ученици</h2>
                 <p className="text-xs text-slate-500 mt-1">
-                  Прегледай всеки ученик: провери класа в изпращащото училище и потвърди.
-                  Завършилите (над 12 клас) са отбелязани в червено — архивирай ги.
+                  Колоната „Беше" показва класа преди вдигането. Провери дали новият е правилен —
+                  ако не, редактирай го с моливчето. Завършилите (над 12 клас) са в червено — архивирай ги.
                 </p>
                 <div className="flex items-center gap-3 mt-3">
                   <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -152,17 +159,23 @@ export default function RolloverClient({
                 <tr>
                   <th className="text-left px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ученик</th>
                   <th className="text-left px-3 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Паралелка</th>
-                  <th className="text-left px-3 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Клас в училище</th>
+                  <th className="text-left px-3 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Беше</th>
+                  <th className="text-left px-3 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Сега</th>
                   <th className="px-5 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {rows.map(r => {
                   const graduating = isGraduating(r.externalClass)
+                  const before = previousClass(r.externalClass)
                   return (
                     <tr key={r.enrollmentId} className={`transition-colors ${graduating ? 'bg-red-50/40' : 'hover:bg-slate-50/50'}`}>
                       <td className="px-5 py-2.5 text-slate-700">{r.name}</td>
                       <td className="px-3 py-2.5 text-slate-500">{r.className}</td>
+                      <td className="px-3 py-2.5">
+                        <span className="text-xs text-slate-400">{before}</span>
+                        <ArrowRight size={10} className="inline mx-1.5 text-slate-300" />
+                      </td>
                       <td className="px-3 py-2.5">
                         {editing === r.studentId ? (
                           <div className="flex items-center gap-1">
@@ -174,7 +187,7 @@ export default function RolloverClient({
                         ) : (
                           <button onClick={() => { setEditing(r.studentId); setEditValue(r.externalClass) }}
                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs group ${
-                              graduating ? 'text-red-600 font-semibold bg-red-100/60' : 'text-slate-600 hover:bg-slate-100'
+                              graduating ? 'text-red-600 font-semibold bg-red-100/60' : 'text-slate-700 font-medium hover:bg-slate-100'
                             }`}>
                             {r.externalClass || '—'}
                             <Pencil size={10} className="opacity-0 group-hover:opacity-60" />
@@ -205,7 +218,6 @@ export default function RolloverClient({
           </div>
         </>
       ) : (
-        /* ── РЕЖИМ 2: СТАРТИРАНЕ ── */
         <>
           {totalEnrollments > 0 && confirmedCount === totalEnrollments && (
             <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-3 text-sm text-emerald-800 flex items-center gap-2">
