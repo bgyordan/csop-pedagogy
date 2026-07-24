@@ -7,7 +7,7 @@ import { getFullName } from '@/lib/utils'
 import StaffClassesSection from './StaffClassesSection'
 
 export const dynamic = 'force-dynamic'
-
+const CAN_BE_CLASS_TEACHER = ['class_teacher', 'psychologist', 'speech_therapist', 'rehabilitator', 'educator']
 export default async function StaffDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
@@ -141,13 +141,15 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      <StaffClassesSection
-        staffId={id}
-        academicYearId={currentYear?.id || ''}
-        assigned={assignedClasses}
-        options={classOptions}
-        canManage={canManageAssignments}
-      />
+      {(CAN_BE_CLASS_TEACHER.includes(staff.role) || assignedClasses.length > 0) && (
+        <StaffClassesSection
+          staffId={id}
+          academicYearId={currentYear?.id || ''}
+          assigned={assignedClasses}
+          options={classOptions}
+          canManage={canManageAssignments}
+        />
+      )}
 
       {/* Паралелки като класен */}
       {classStudents.length > 0 && (
