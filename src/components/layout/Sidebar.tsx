@@ -106,49 +106,21 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   function NavGroup({ item }: { item: NavItem }) {
     const kids = item.children || []
     const hasActiveChild = kids.some(k => pathname === k.href || pathname.startsWith(k.href + '/'))
-    const [open, setOpen] = useState(hasActiveChild)
-
-    useEffect(() => { if (hasActiveChild) setOpen(true) }, [hasActiveChild])
 
     return (
-      <div
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => { if (!hasActiveChild) setOpen(false) }}
-      >
-        <button
-          onClick={() => setOpen(prev => !prev)}
-          className="w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-all rounded-full"
+      <div>
+        <div
+          className="w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-full"
           style={{
-            backgroundColor: 'transparent',
             color: hasActiveChild ? TEXT_PRIMARY : TEXT_SECONDARY,
-            fontWeight: hasActiveChild ? 600 : 400,
-            border: '1.5px solid transparent',
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER
-            ;(e.currentTarget as HTMLElement).style.border = '1.5px solid rgba(15,34,64,0.10)'
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'
-            ;(e.currentTarget as HTMLElement).style.border = '1.5px solid transparent'
+            fontWeight: hasActiveChild ? 600 : 500,
           }}
         >
           {item.icon}
           <span className="flex-1 text-left">{item.label}</span>
-          <ChevronDown
-            size={13}
-            style={{
-              transition: 'transform 0.2s',
-              transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
-              opacity: 0.5,
-            }}
-          />
-        </button>
+        </div>
 
-        <div
-          className="overflow-hidden transition-all duration-200"
-          style={{ maxHeight: open ? `${kids.length * 46 + 8}px` : '0px' }}
-        >
+        <div>
           <div className="pl-4 pt-0.5 space-y-0.5">
             {kids.map(kid => {
               const active = pathname === kid.href || pathname.startsWith(kid.href + '/')
