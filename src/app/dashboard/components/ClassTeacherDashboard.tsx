@@ -112,7 +112,10 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
               <div key={cls.id} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
                 <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
                   <h2 className="font-semibold text-slate-800">Паралелка {cls.name}</h2>
-                  <Link href={`/classes/${cls.id}`} className="text-xs font-bold text-blue-600 hover:underline">ПРЕГЛЕД →</Link>
+                  <div className="flex items-center gap-3">
+                    <Link href={`/classes/${cls.id}/schedule`} className="text-xs font-bold text-teal-600 hover:underline">РАЗПИСАНИЕ →</Link>
+                    <Link href={`/classes/${cls.id}`} className="text-xs font-bold text-blue-600 hover:underline">ПРЕГЛЕД →</Link>
+                  </div>
                 </div>
                 <div className="divide-y divide-slate-50">
                   {classStudents.map(s => {
