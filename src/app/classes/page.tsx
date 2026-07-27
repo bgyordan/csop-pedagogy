@@ -223,6 +223,11 @@ export default async function ClassesPage({
                             </td>
                           )
                         })}
+                        <td className="text-center px-2 py-2">
+                          <Link href={`/classes/${cls.id}/schedule`} className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-700" title="Седмично разписание">
+                            <CalendarClock size={15} />
+                          </Link>
+                        </td>
                       </tr>
                     )
                   })}
