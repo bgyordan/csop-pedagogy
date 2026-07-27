@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Settings2 } from 'lucide-react'
+import { Settings2, CalendarClock } from 'lucide-react'
 import { BackButton } from '@/components/ui/BackButton'
 import { DocumentType, DOCUMENT_TYPE_LABELS } from '@/types'
 import { getFullName } from '@/lib/utils'
@@ -185,12 +185,13 @@ export default async function ClassesPage({
                     <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Паралелка</th>
                     <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Класен</th>
                     <th className="text-center px-2 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Уч.</th>
-                    {ALL_DOC_TYPES.map(dt => (
+                 {ALL_DOC_TYPES.map(dt => (
                       <th key={dt} className="text-center px-2 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide"
                           title={DOCUMENT_TYPE_LABELS[dt]}>
                         {DOC_SHORT[dt]}
                       </th>
                     ))}
+                    <th className="text-center px-2 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Разписание</th>
                   </tr>
                 </thead>
                 <tbody>
