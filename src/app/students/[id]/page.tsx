@@ -66,7 +66,12 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
 
   const { data: student } = await supabase
     .from('students')
-    .select('*, sending_school:sending_schools(name, city)')
+    .select(`*,
+      sending_school:sending_schools(name, city),
+      therapist_psychologist:staff_profiles!students_therapist_psychologist_id_fkey(id, first_name, middle_name, last_name),
+      therapist_speech:staff_profiles!students_therapist_speech_id_fkey(id, first_name, middle_name, last_name),
+      therapist_rehab:staff_profiles!students_therapist_rehab_id_fkey(id, first_name, middle_name, last_name)
+    `)
     .eq('id', id).single()
   if (!student) notFound()
 
@@ -287,7 +292,27 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
             </div>
             <EplrTeam externals={externalMembers || []} eplr={eplr} id={id} canManage={canManage} />
           </div>
-
+{/* Терапевти */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+              <Heart size={16} className="text-teal-500" />
+              <h2 className="font-bold text-slate-800 text-sm">Терапевти</h2>
+            </div>
+            <dl className="space-y-3">
+              {[
+                { label: 'Психолог', member: (student as any).therapist_psychologist },
+                { label: 'Логопед', member: (student as any).therapist_speech },
+                { label: 'Рехабилитатор', member: (student as any).therapist_rehab },
+              ].map(({ label, member }) => (
+                <div key={label}>
+                  <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</dt>
+                  <dd className="text-sm font-semibold text-slate-700 mt-0.5">
+                    {member ? getFullName(member) : <span className="text-slate-400 font-normal">не е зачислен</span>}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
           {/* Родители/Настойници */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
