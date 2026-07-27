@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Settings, Calendar, Bell, School, Users, Star, BookOpen, Coffee, CalendarPlus, LayoutGrid, HeartPulse } from 'lucide-react'
+import { Settings, Calendar, Bell, School, Users, Star, BookOpen, Coffee, CalendarPlus, LayoutGrid, HeartPulse, GraduationCap } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 export default async function AdminPage() {
@@ -147,7 +147,15 @@ export default async function AdminPage() {
           <p className="text-xs text-slate-500">Настройка на дела за кореспонденция и заповеди</p>
         </a>
       </div>
-
+<a href="/admin/subjects" className="card hover:shadow-md transition-shadow cursor-pointer">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-9 h-9 rounded-lg bg-cyan-50 flex items-center justify-center flex-shrink-0">
+              <GraduationCap size={18} className="text-cyan-600" />
+            </div>
+            <h2 className="font-medium text-slate-700 text-sm">Предмети</h2>
+          </div>
+          <p className="text-xs text-slate-500">Предмети и кои позволяват вземане от терапевт</p>
+        </a>
       {/* Учебни години + Срокове */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         <div className="card">
