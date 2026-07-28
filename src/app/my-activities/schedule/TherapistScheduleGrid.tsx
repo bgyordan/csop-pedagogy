@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Save, Loader2, AlertTriangle, Check, Lock, Info } from 'lucide-react'
+import { Save, Loader2, AlertTriangle, Check, Lock, Info, Download } from 'lucide-react'
 import { saveTherapistSchedule } from './actions'
+import { generateTherapistSchedule } from '@/lib/docx-generator'
 
 interface Student {
   id: string
@@ -14,6 +15,8 @@ interface Student {
 interface Props {
   academicYearId: string
   term: number
+  specialistName?: string
+  roleLabel?: string
   students: Student[]
   // За всяко дете: неговата решетка "ден-час" → {name, allowsPullout} | null (няма разписание)
   studentSchedule: Record<string, Record<string, { name: string; allowsPullout: boolean }> | null>
@@ -36,7 +39,7 @@ const PERIOD_TIMES: Record<number, string> = {
 }
 
 export function TherapistScheduleGrid({
-  academicYearId, term, students, studentSchedule, takenByOthers, existingSlots,
+  academicYearId, term, specialistName = '', roleLabel = '', students, studentSchedule, takenByOthers, existingSlots,
 }: Props) {
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
@@ -82,6 +85,17 @@ export function TherapistScheduleGrid({
   }
 
   const filledCount = Object.keys(grid).length
+
+  async function handleDownload() {
+    const slotData: Record<string, { student: string; className: string }> = {}
+    Object.entries(grid).forEach(([key, studentId]) => {
+      const st = students.find(s => s.id === studentId)
+      if (st) slotData[key] = { student: st.name, className: st.className }
+    })
+    const subtitle = `${term === 1 ? 'I' : 'II'} срок`
+    const maxPeriod = showAfternoon ? 8 : 6
+    await generateTherapistSchedule(specialistName, roleLabel, subtitle, slotData, maxPeriod)
+  }
 
   async function handleSave() {
     setSaving(true); setMsg(null)
@@ -203,8 +217,13 @@ export function TherapistScheduleGrid({
           {showAfternoon ? 'Скрий следобедните (7–8)' : 'Покажи следобедни часове (7–8)'}
         </button>
 
+        <button onClick={handleDownload} disabled={filledCount === 0}
+          className="ml-auto flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+          <Download size={13} /> Изтегли Word
+        </button>
+
         <button onClick={handleSave} disabled={saving || students.length === 0}
-          className="ml-auto flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold disabled:opacity-60"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold disabled:opacity-60"
           style={{ backgroundColor: '#0f2240' }}>
           {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
           {saving ? 'Запазване...' : 'Запази графика'}
