@@ -32,19 +32,22 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
 
   const [{ data: enrollments }, { data: assignments }, { data: myProfile }, { data: allStaff }] = await Promise.all([
     supabase.from('student_enrollments').select('*, student:students(*)').eq('class_id', id).eq('academic_year_id', currentYear?.id),
-    supabase.from('class_teacher_assignments').select('id, staff_id, staff:staff_profiles(id, first_name, middle_name, last_name)').eq('class_id', id).eq('academic_year_id', currentYear?.id),
+    supabase.from('class_teacher_assignments').select('id, staff_id, staff:staff_profiles(id, first_name, middle_name, last_name, is_active)').eq('class_id', id).eq('academic_year_id', currentYear?.id),
     supabase.from('staff_profiles').select('role').eq('user_id', user.id).single(),
     supabase.from('staff_profiles').select('id, first_name, middle_name, last_name').eq('is_active', true).order('first_name'),
   ])
 
-  const students = enrollments?.map(e => e.student).filter(Boolean) || []
+  // Само активни ученици (втора защита освен изтриването на записа при архивиране)
+  const students = enrollments?.map(e => e.student).filter((s: any) => s && s.status === 'active') || []
   const canManageTeachers = ['admin', 'zdud'].includes(myProfile?.role || '')
-
-  const teacherList = (assignments || []).map((a: any) => ({
-    assignmentId: a.id,
-    id: a.staff?.id || a.staff_id,
-    name: a.staff ? getFullName(a.staff) : '—',
-  }))
+  // Само активни класни — пенсионирани/неактивни не се показват
+  const teacherList = (assignments || [])
+    .filter((a: any) => a.staff && a.staff.is_active !== false)
+    .map((a: any) => ({
+      assignmentId: a.id,
+      id: a.staff?.id || a.staff_id,
+      name: a.staff ? getFullName(a.staff) : '—',
+    }))
   const teachers = teacherList.map(t => t.name)
 
   const staffOptions = (allStaff || []).map((s: any) => ({ id: s.id, name: getFullName(s) }))
