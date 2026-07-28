@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Calendar, Bell, CalendarClock, ChevronRight } from 'lucide-react'
+import { Calendar, Bell, CalendarClock, ChevronRight, HeartPulse } from 'lucide-react'
 import { getFullName, formatDate, getDaysUntil } from '@/lib/utils'
 import { DocumentType } from '@/types'
 import SpecialistTabs from './SpecialistTabs'
@@ -117,18 +117,31 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
 
   return (
     <div className="animate-in fade-in duration-300">
-      {/* Връзка към графика */}
-      <Link href="/my-activities/schedule"
-        className="flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl border border-teal-200 bg-teal-50/50 hover:bg-teal-50 transition-colors group mb-6">
-        <div className="flex items-center gap-2.5">
-          <CalendarClock size={18} className="text-teal-600" />
-          <div>
-            <div className="text-sm font-semibold text-slate-800">Моят седмичен график</div>
-            <div className="text-xs text-slate-500">Създай и изтегли график на терапиите</div>
+      {/* Две карти: списък за терапия + график */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+        <Link href="/my-activities"
+          className="flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl border border-teal-200 bg-teal-50/50 hover:bg-teal-50 transition-colors group">
+          <div className="flex items-center gap-2.5">
+            <HeartPulse size={18} className="text-teal-600" />
+            <div>
+              <div className="text-sm font-semibold text-slate-800">Списък за терапия</div>
+              <div className="text-xs text-slate-500">Зачисли и управлявай децата</div>
+            </div>
           </div>
-        </div>
-        <ChevronRight size={16} className="text-teal-400 group-hover:text-teal-600" />
-      </Link>
+          <ChevronRight size={16} className="text-teal-400 group-hover:text-teal-600" />
+        </Link>
+        <Link href="/my-activities/schedule"
+          className="flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl border border-teal-200 bg-teal-50/50 hover:bg-teal-50 transition-colors group">
+          <div className="flex items-center gap-2.5">
+            <CalendarClock size={18} className="text-teal-600" />
+            <div>
+              <div className="text-sm font-semibold text-slate-800">Седмичен график</div>
+              <div className="text-xs text-slate-500">Създай и изтегли график</div>
+            </div>
+          </div>
+          <ChevronRight size={16} className="text-teal-400 group-hover:text-teal-600" />
+        </Link>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Табовете (основната част) */}
