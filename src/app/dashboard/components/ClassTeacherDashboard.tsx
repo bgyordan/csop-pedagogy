@@ -1,33 +1,24 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Users, FileText, Calendar, Check, Sparkles, Bell, ArrowRight, AlertCircle } from 'lucide-react'
-import { getFullName, getMonthName, formatDate, getDaysUntil } from '@/lib/utils'
-import { DocumentType, DOCUMENT_TYPE_LABELS, DocumentStatus } from '@/types'
-
-const ALL_DOC_TYPES: DocumentType[] = [
-  'protocol_1', 'protocol_2', 'protocol_3',
-  'iup', 'iu_program', 'support_plan', 'parent_program'
-]
-
-const DOC_SHORT: Record<DocumentType, string> = {
-  protocol_1: 'П1', protocol_2: 'П2', protocol_3: 'П3',
-  iup: 'ИУП', iu_program: 'ИУПр', support_plan: 'ПДП', parent_program: 'ПР',
-}
+import { Users, Calendar, Bell, CalendarClock, ChevronRight, ClipboardList } from 'lucide-react'
+import { getFullName, getMonthName, formatDate } from '@/lib/utils'
+import ClassTeacherTabs from './ClassTeacherTabs'
 
 export default async function ClassTeacherDashboard({ profile, currentYearId }: any) {
   const supabase = await createClient()
-
   const now = new Date()
+  const month = now.getMonth() + 1  // 1-12
+  const isSummer = month === 7 || month === 8
+
+  // Отчетен месец за ИУП (предходния, освен януари)
   const reportMonth = now.getMonth() === 0 ? 12 : now.getMonth()
   const reportYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear()
-  const deadlinePassed = now.getDate() > 8
 
   const { data: assignments } = await supabase
     .from('class_teacher_assignments')
     .select('class:classes(*)')
     .eq('staff_id', profile.id)
     .eq('academic_year_id', currentYearId)
-
   const myClasses = assignments?.map((a: any) => a.class).filter(Boolean) || []
 
   if (myClasses.length === 0) {
@@ -39,133 +30,163 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
       </div>
     )
   }
-
   const classIds = myClasses.map((c: any) => c.id)
 
   const [{ data: allEnrollments }, { data: iupSubmissions }, { data: announcements }, { data: deadlines }] = await Promise.all([
-    supabase.from('student_enrollments').select('*, student:students(*), class_id').in('class_id', classIds).eq('academic_year_id', currentYearId),
+    supabase.from('student_enrollments')
+      .select(`student_id, class_id,
+        student:students(id, first_name, middle_name, last_name, status,
+          therapist_psychologist_id, therapist_speech_id, therapist_rehab_id,
+          psy:staff_profiles!students_therapist_psychologist_id_fkey(first_name, last_name),
+          spe:staff_profiles!students_therapist_speech_id_fkey(first_name, last_name),
+          reh:staff_profiles!students_therapist_rehab_id_fkey(first_name, last_name))`)
+      .in('class_id', classIds).eq('academic_year_id', currentYearId),
     supabase.from('monthly_absences').select('class_id').in('class_id', classIds).eq('month', reportMonth).eq('year', reportYear),
     supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
     supabase.from('calendar_deadlines').select('*').eq('academic_year_id', currentYearId).gte('deadline_date', now.toISOString().split('T')[0]).order('deadline_date').limit(5),
   ])
 
-  const submittedIds = new Set(iupSubmissions?.map(s => s.class_id) || [])
-  const allStudents = allEnrollments?.map(e => e.student as any).filter(Boolean) || []
+  // Само активни ученици
+  const activeEnrollments = (allEnrollments || []).filter((e: any) => e.student?.status === 'active')
+  const submittedIds = new Set(iupSubmissions?.map((s: any) => s.class_id) || [])
 
-  const { data: documents } = allStudents.length > 0
-    ? await supabase.from('documents').select('*').eq('academic_year_id', currentYearId).in('student_id', allStudents.map(s => s.id))
+  // ЕПЛР екипите на моите деца
+  const studentIds = activeEnrollments.map((e: any) => e.student_id)
+  const { data: eplrTeams } = studentIds.length > 0
+    ? await supabase.from('eplr_teams')
+        .select(`student_id,
+          psychologist:staff_profiles!eplr_teams_psychologist_id_fkey(id, first_name, last_name),
+          speech_therapist:staff_profiles!eplr_teams_speech_therapist_id_fkey(id, first_name, last_name),
+          rehabilitator:staff_profiles!eplr_teams_rehabilitator_id_fkey(id, first_name, last_name)`)
+        .in('student_id', studentIds).eq('academic_year_id', currentYearId)
     : { data: [] }
+  const eplrByStudent: Record<string, any> = {}
+  ;(eplrTeams || []).forEach((e: any) => { eplrByStudent[e.student_id] = e })
 
-  const docMap = new Map(documents?.map(d => [`${d.student_id}_${d.doc_type}`, d]) || [])
+  // Данни за таб "Моята паралелка" — деца + техните реални терапевти
+  const paralelkaRows = activeEnrollments.map((e: any) => {
+    const s = e.student
+    const therapists: string[] = []
+    if (s.psy) therapists.push(`психолог ${s.psy.first_name} ${s.psy.last_name}`)
+    if (s.spe) therapists.push(`логопед ${s.spe.first_name} ${s.spe.last_name}`)
+    if (s.reh) therapists.push(`рехаб. ${s.reh.first_name} ${s.reh.last_name}`)
+    return {
+      id: s.id,
+      name: getFullName(s),
+      className: myClasses.find((c: any) => c.id === e.class_id)?.name || '',
+      therapists,
+    }
+  }).sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
 
-  const getModernBadge = (status: DocumentStatus) => {
-    if (status === 'completed') return <span className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-50 border border-emerald-100/50 shadow-sm text-emerald-500"><Check size={14} strokeWidth={2.5} /></span>
-    if (status === 'in_progress') return <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-50 border border-amber-100/50 text-amber-500"><span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span></span>
-    return <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-50 border border-slate-100/50"><span className="w-1 h-1 rounded-full bg-slate-300"></span></span>
-  }
+  // Данни за таб "ЕПЛР" — за всяко дете екипът, реалните удебелени
+  const eplrRows = activeEnrollments.map((e: any) => {
+    const s = e.student
+    const team = eplrByStudent[e.student_id]
+    const members: { role: string; name: string; isReal: boolean }[] = []
+    if (team?.psychologist) {
+      members.push({
+        role: 'психолог', name: `${team.psychologist.first_name} ${team.psychologist.last_name}`,
+        isReal: s.therapist_psychologist_id === team.psychologist.id,
+      })
+    }
+    if (team?.speech_therapist) {
+      members.push({
+        role: 'логопед', name: `${team.speech_therapist.first_name} ${team.speech_therapist.last_name}`,
+        isReal: s.therapist_speech_id === team.speech_therapist.id,
+      })
+    }
+    if (team?.rehabilitator) {
+      members.push({
+        role: 'рехаб.', name: `${team.rehabilitator.first_name} ${team.rehabilitator.last_name}`,
+        isReal: s.therapist_rehab_id === team.rehabilitator.id,
+      })
+    }
+    return {
+      id: s.id,
+      name: getFullName(s),
+      className: myClasses.find((c: any) => c.id === e.class_id)?.name || '',
+      members,
+    }
+  }).sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
 
   return (
     <div className="animate-in fade-in duration-500">
-      {/* СТАТИСТИКА */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-          <div className="flex items-center gap-3 mb-3 text-blue-600">
-            <Users size={18} />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Ученици</span>
+      {/* Карти горе: разписание + ИУП */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+        <Link href={`/classes/${myClasses[0].id}/schedule`}
+          className="flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl border border-teal-200 bg-teal-50/50 hover:bg-teal-50 transition-colors group">
+          <div className="flex items-center gap-2.5">
+            <CalendarClock size={18} className="text-teal-600" />
+            <div>
+              <div className="text-sm font-semibold text-slate-800">Седмично разписание</div>
+              <div className="text-xs text-slate-500">На паралелката</div>
+            </div>
           </div>
-          <div className="text-3xl font-bold text-slate-800">{allStudents.length}</div>
-        </div>
-        <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-          <div className="flex items-center gap-3 mb-3 text-amber-600">
-            <Calendar size={18} />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">ИУП — {getMonthName(reportMonth)}</span>
+          <ChevronRight size={16} className="text-teal-400 group-hover:text-teal-600" />
+        </Link>
+
+        <Link href="/absences"
+          className={`flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl border transition-colors group ${
+            isSummer ? 'border-slate-200 bg-slate-50/50 hover:bg-slate-50' : 'border-amber-200 bg-amber-50/40 hover:bg-amber-50'
+          }`}>
+          <div className="flex items-center gap-2.5">
+            <ClipboardList size={18} className={isSummer ? 'text-slate-400' : 'text-amber-600'} />
+            <div>
+              <div className="text-sm font-semibold text-slate-800">Реализация на ИУП</div>
+              <div className="text-xs text-slate-500">
+                {isSummer ? 'Лятна ваканция' : (
+                  <>
+                    {getMonthName(reportMonth)} · {myClasses.map((c: any) => submittedIds.has(c.id) ? '✓' : '—').join(' ')}
+                  </>
+                )}
+              </div>
+            </div>
           </div>
-          <div className="space-y-1">
-            {myClasses.map((cls: any) => {
-              const submitted = submittedIds.has(cls.id)
-              return (
-                <div key={cls.id} className="flex items-center justify-between text-xs font-medium text-slate-600">
-                  <span>{cls.name}</span>
-                  <span className={submitted ? 'text-emerald-600' : 'text-rose-500'}>{submitted ? '✓' : '—'}</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-          <div className="flex items-center gap-3 mb-3 text-emerald-600">
-            <FileText size={18} />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Документи</span>
-          </div>
-          <div className="text-3xl font-bold text-slate-800">
-            {documents?.filter(d => d.status === 'completed').length || 0}
-            <span className="text-lg font-normal text-slate-400 ml-1">/ {allStudents.length * ALL_DOC_TYPES.length}</span>
-          </div>
-        </div>
+          <ChevronRight size={16} className="text-slate-400 group-hover:text-slate-600" />
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          {myClasses.map((cls: any) => {
-            const classStudents = allEnrollments?.filter(e => e.class_id === cls.id).map(e => e.student as any).filter(Boolean) || []
-            return (
-              <div key={cls.id} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
-                  <h2 className="font-semibold text-slate-800">Паралелка {cls.name}</h2>
-                  <div className="flex items-center gap-3">
-                    <Link href={`/classes/${cls.id}/schedule`} className="text-xs font-bold text-teal-600 hover:underline">РАЗПИСАНИЕ →</Link>
-                    <Link href={`/classes/${cls.id}`} className="text-xs font-bold text-blue-600 hover:underline">ПРЕГЛЕД →</Link>
-                  </div>
-                </div>
-                <div className="divide-y divide-slate-50">
-                  {classStudents.map(s => {
-                    const completed = ALL_DOC_TYPES.filter(dt => docMap.get(`${s.id}_${dt}`)?.status === 'completed').length
-                    const pct = Math.round((completed / ALL_DOC_TYPES.length) * 100)
-                    return (
-                      <div key={s.id} className="p-4 hover:bg-slate-50/50 transition-colors">
-                        <div className="flex justify-between mb-3">
-                          <Link href={`/students/${s.id}`} className="text-sm font-medium text-slate-800 hover:text-blue-600">{getFullName(s)}</Link>
-                          <span className="text-[10px] font-bold text-slate-400">{pct}% Готовност</span>
-                        </div>
-                        <div className="flex gap-2">
-                          {ALL_DOC_TYPES.map(dt => (
-                            <Link key={dt} href={`/documents/${s.id}/${dt}`} className="hover:scale-110 transition-transform">
-                              {getModernBadge(docMap.get(`${s.id}_${dt}`)?.status || 'empty')}
-                            </Link>
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
+        <div className="lg:col-span-2">
+          <ClassTeacherTabs paralelkaRows={paralelkaRows} eplrRows={eplrRows} className={myClasses[0].name} classId={myClasses[0].id} />
         </div>
 
         <div className="space-y-6">
-          {/* Срокове */}
-          <div className="bg-white rounded-2xl border border-slate-200/70 p-6 shadow-sm">
-            <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Предстоящи срокове</h2>
-            <div className="space-y-4">
-              {deadlines?.map(d => (
-                <div key={d.id} className="flex justify-between items-center">
-                  <div className="text-sm font-medium text-slate-700">{d.title}</div>
-                  <span className="text-[10px] font-bold bg-slate-100 px-2 py-1 rounded">{formatDate(d.deadline_date)}</span>
-                </div>
-              ))}
+          <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100/80">
+              <Calendar size={18} className="text-slate-400" />
+              <h2 className="font-semibold text-slate-800 text-sm">Предстоящи срокове</h2>
             </div>
-          </div>
-          {/* Съобщения */}
-          <div className="bg-white rounded-2xl border border-slate-200/70 p-6 shadow-sm">
-            <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Съобщения</h2>
-            {announcements?.map(a => (
-              <div key={a.id} className="mb-4">
-                <div className="text-sm font-semibold text-slate-800">{a.title}</div>
-                <p className="text-xs text-slate-500 mt-1">{a.body}</p>
+            {!deadlines?.length ? (
+              <p className="text-sm text-slate-400">Няма предстоящи срокове</p>
+            ) : (
+              <div className="space-y-3">
+                {deadlines.map((d: any) => (
+                  <div key={d.id} className="flex justify-between items-center gap-2">
+                    <div className="text-sm font-medium text-slate-700 truncate">{d.title}</div>
+                    <span className="text-[10px] font-bold bg-slate-100 px-2 py-1 rounded flex-shrink-0">{formatDate(d.deadline_date)}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
+
+          {announcements && announcements.length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100/80">
+                <Bell size={18} className="text-indigo-400" />
+                <h2 className="font-semibold text-slate-800 text-sm">Съобщения</h2>
+              </div>
+              <div className="space-y-4">
+                {announcements.map((a: any) => (
+                  <div key={a.id} className="relative pl-3 before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:bg-indigo-300 before:rounded-full">
+                    <div className="text-sm font-semibold text-slate-700">{a.title}</div>
+                    <p className="text-xs text-slate-500 mt-1 line-clamp-3">{a.body}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
