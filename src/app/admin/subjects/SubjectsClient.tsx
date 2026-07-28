@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
-import { Plus, Trash2, BookOpen, HeartPulse, Loader2, Check } from 'lucide-react'
+import { Plus, Trash2, BookOpen, HeartPulse, Loader2, Check, Pencil, X } from 'lucide-react'
 
 interface Subject {
   id: string
@@ -20,6 +20,30 @@ export function SubjectsClient({ subjects: initial }: { subjects: Subject[] }) {
   const [newPullout, setNewPullout] = useState(false)
   const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+
+  function startEdit(s: Subject) {
+    setEditId(s.id)
+    setEditName(s.name)
+  }
+
+  async function saveRename(s: Subject) {
+    const name = editName.trim()
+    if (!name) { toast('Името не може да е празно', 'error'); return }
+    if (name === s.name) { setEditId(null); return }
+    setBusy(s.id)
+    const { error } = await supabase.from('subjects').update({ name }).eq('id', s.id)
+    setBusy(null)
+    if (error) {
+      toast(error.message.includes('duplicate') ? 'Вече съществува такъв предмет' : 'Грешка', 'error')
+      return
+    }
+    setSubjects(prev => prev.map(x => x.id === s.id ? { ...x, name } : x)
+      .sort((a, b) => (b.allows_pullout ? 1 : 0) - (a.allows_pullout ? 1 : 0) || a.name.localeCompare(b.name, 'bg')))
+    setEditId(null)
+    toast('Преименувано')
+  }
 
   async function togglePullout(s: Subject) {
     setBusy(s.id)
@@ -101,7 +125,9 @@ export function SubjectsClient({ subjects: initial }: { subjects: Subject[] }) {
         </div>
         <div className="divide-y divide-slate-50">
           {therapy.map(s => (
-            <Row key={s.id} s={s} busy={busy} onToggle={togglePullout} onDelete={deleteSubject} />
+            <Row key={s.id} s={s} busy={busy} onToggle={togglePullout} onDelete={deleteSubject}
+              editId={editId} editName={editName} setEditName={setEditName}
+              onStartEdit={startEdit} onSaveRename={saveRename} onCancelEdit={() => setEditId(null)} />
           ))}
           {therapy.length === 0 && <p className="text-sm text-slate-400 px-5 py-4">Няма</p>}
         </div>
@@ -116,7 +142,9 @@ export function SubjectsClient({ subjects: initial }: { subjects: Subject[] }) {
         </div>
         <div className="divide-y divide-slate-50">
           {regular.map(s => (
-            <Row key={s.id} s={s} busy={busy} onToggle={togglePullout} onDelete={deleteSubject} />
+            <Row key={s.id} s={s} busy={busy} onToggle={togglePullout} onDelete={deleteSubject}
+              editId={editId} editName={editName} setEditName={setEditName}
+              onStartEdit={startEdit} onSaveRename={saveRename} onCancelEdit={() => setEditId(null)} />
           ))}
           {regular.length === 0 && <p className="text-sm text-slate-400 px-5 py-4">Няма</p>}
         </div>
@@ -125,14 +153,43 @@ export function SubjectsClient({ subjects: initial }: { subjects: Subject[] }) {
   )
 }
 
-function Row({ s, busy, onToggle, onDelete }: {
+function Row({ s, busy, onToggle, onDelete, editId, editName, setEditName, onStartEdit, onSaveRename, onCancelEdit }: {
   s: Subject, busy: string | null,
-  onToggle: (s: Subject) => void, onDelete: (s: Subject) => void
+  onToggle: (s: Subject) => void, onDelete: (s: Subject) => void,
+  editId: string | null, editName: string, setEditName: (v: string) => void,
+  onStartEdit: (s: Subject) => void, onSaveRename: (s: Subject) => void, onCancelEdit: () => void
 }) {
+  const isEditing = editId === s.id
   return (
     <div className="flex items-center justify-between gap-2 px-5 py-2.5 hover:bg-slate-50/50 transition-colors">
-      <span className="text-sm text-slate-700">{s.name}</span>
+      {isEditing ? (
+        <input
+          autoFocus
+          value={editName}
+          onChange={e => setEditName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') onSaveRename(s); if (e.key === 'Escape') onCancelEdit() }}
+          className="flex-1 text-sm px-2 py-1 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300"
+        />
+      ) : (
+        <span className="text-sm text-slate-700">{s.name}</span>
+      )}
       <div className="flex items-center gap-3 flex-shrink-0">
+        {isEditing ? (
+          <>
+            <button onClick={() => onSaveRename(s)} disabled={busy === s.id}
+              className="text-emerald-500 hover:text-emerald-600" title="Запази">
+              {busy === s.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={15} />}
+            </button>
+            <button onClick={onCancelEdit} className="text-slate-300 hover:text-slate-500" title="Откажи">
+              <X size={14} />
+            </button>
+          </>
+        ) : (
+          <button onClick={() => onStartEdit(s)}
+            className="text-slate-300 hover:text-slate-600 transition-colors" title="Преименувай">
+            <Pencil size={13} />
+          </button>
+        )}
         <button
           onClick={() => onToggle(s)}
           disabled={busy === s.id}
