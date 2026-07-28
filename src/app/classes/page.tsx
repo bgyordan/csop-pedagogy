@@ -34,10 +34,13 @@ export default async function ClassesPage({
   const { data: classes } = await supabase
     .from('classes').select('*').eq('academic_year_id', currentYear?.id).order('name')
 
-  const { data: enrollments } = await supabase
+  const { data: allEnrollmentsRaw } = await supabase
     .from('student_enrollments')
     .select('class_id, student_id, student:students(id, first_name, middle_name, last_name, external_class, status, sending_school_other, sending_school:sending_schools(name, city))')
     .eq('academic_year_id', currentYear?.id)
+
+  // Само активни ученици — архивираните не се броят и не се показват
+  const enrollments = (allEnrollmentsRaw || []).filter((e: any) => e.student?.status === 'active')
 
   const { data: documents } = await supabase
     .from('documents').select('student_id, doc_type, status')
@@ -45,7 +48,7 @@ export default async function ClassesPage({
 
   const { data: assignments } = await supabase
     .from('class_teacher_assignments')
-    .select('class_id, staff:staff_profiles(first_name, last_name)')
+    .select('class_id, staff:staff_profiles(first_name, last_name, is_active)')
     .eq('academic_year_id', currentYear?.id)
 
   const docMap = new Map<string, string>()
@@ -63,7 +66,8 @@ export default async function ClassesPage({
   const teachersByClass = new Map<string, string[]>()
   assignments?.forEach((a: any) => {
     if (!teachersByClass.has(a.class_id)) teachersByClass.set(a.class_id, [])
-    if (a.staff) teachersByClass.get(a.class_id)!.push(getFullName(a.staff))
+    // Само активни служители — пенсионирани/неактивни не се показват
+    if (a.staff && a.staff.is_active !== false) teachersByClass.get(a.class_id)!.push(getFullName(a.staff))
   })
 
   function getDocStats(classId: string, dt: DocumentType) {
