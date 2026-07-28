@@ -27,6 +27,7 @@ export default function ArchiveStudentPage() {
     if (!reason.trim()) { toast('Въведи причина за напускане', 'error'); return }
     setSaving(true)
 
+  setSaving(true)
     const { error } = await supabase
       .from('students')
       .update({
@@ -35,10 +36,20 @@ export default function ArchiveStudentPage() {
         archived_at: new Date().toISOString(),
       })
       .eq('id', id)
-
     if (error) { toast('Грешка при архивиране', 'error'); setSaving(false); return }
 
-    toast('Ученикът е архивиран. Данните са запазени.')
+    // Махаме записването за текущата година — ученикът изчезва от оперативните списъци
+    const { data: currentYear } = await supabase
+      .from('academic_years').select('id').eq('is_current', true).single()
+    if (currentYear) {
+      await supabase
+        .from('student_enrollments')
+        .delete()
+        .eq('student_id', id)
+        .eq('academic_year_id', currentYear.id)
+    }
+
+    toast('Ученикът е архивиран.')
     router.push('/students')
   }
 
