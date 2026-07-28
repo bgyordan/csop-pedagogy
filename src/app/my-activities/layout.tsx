@@ -20,8 +20,8 @@ export default async function MyActivitiesLayout({ children }: { children: React
         userRole={profile.role as UserRole}
         userName={getFullName(profile)}
         userEmail={profile.email}
-        isCoordinator={profile.is_coordinator || false}
-        userPosition={profile.position || ''}
+        isCoordinator={profile.is_coordinator === true}
+        userPosition={profile.position || ""}
       />
       <main className="flex-1 overflow-auto bg-slate-50">
         {children}

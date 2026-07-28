@@ -23,6 +23,8 @@ export default async function StudentsLayout({ children }: { children: React.Rea
         userRole={profile.role as UserRole}
         userName={getFullName(profile)}
         userEmail={profile.email}
+        isCoordinator={profile.is_coordinator === true}
+        userPosition={profile.position || ""}
       />
       <main className="flex-1 overflow-auto bg-slate-50">
         {children}
