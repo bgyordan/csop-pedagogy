@@ -14,7 +14,7 @@ export default async function AdminPage() {
     .eq('user_id', user.id)
     .single()
 
-  if (!['admin', 'zdud'].includes(profile?.role || '')) redirect('/dashboard')
+  if (!['admin', 'zdud'].includes(profile.role) && !profile.is_coordinator) redirect('/dashboard')
 
   const { data: years } = await supabase
     .from('academic_years')
