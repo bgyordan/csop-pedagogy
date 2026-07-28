@@ -3,7 +3,7 @@
 import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Search, Plus, X, Loader2, Lock, HeartPulse, ChevronRight, ArrowUpDown } from 'lucide-react'
+import { Search, Plus, X, Loader2, Lock, HeartPulse, ChevronRight, ArrowUpDown, CalendarClock } from 'lucide-react'
 import { assignToMe, removeFromMe } from './actions'
 
 interface Row {
@@ -65,6 +65,18 @@ export default function MyActivitiesClient({ rows, roleLabel }: { rows: Row[]; r
 
   return (
     <div className="space-y-5">
+      <Link href="/my-activities/schedule"
+        className="flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl border border-teal-200 bg-teal-50/50 hover:bg-teal-50 transition-colors group">
+        <div className="flex items-center gap-2.5">
+          <CalendarClock size={18} className="text-teal-600" />
+          <div>
+            <div className="text-sm font-semibold text-slate-800">Моят седмичен график</div>
+            <div className="text-xs text-slate-500">Разпредели децата си по дни и часове</div>
+          </div>
+        </div>
+        <ChevronRight size={16} className="text-teal-400 group-hover:text-teal-600" />
+      </Link>
+
       {msg && (
         <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
           {msg}
