@@ -10,7 +10,7 @@ export default async function AdminPage() {
 
   const { data: profile } = await supabase
     .from('staff_profiles')
-    .select('role')
+    .select('role, is_coordinator')
     .eq('user_id', user.id)
     .single()
 
