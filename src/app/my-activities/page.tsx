@@ -80,7 +80,7 @@ export default async function MyActivitiesPage() {
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Моите дейности</h1>
+        <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Списък за терапия</h1>
         <p className="text-slate-500 text-sm mt-1">
           {ROLE_LABELS[profile.role as keyof typeof ROLE_LABELS]} · {currentYear?.name}
         </p>
