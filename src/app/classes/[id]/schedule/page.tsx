@@ -74,6 +74,7 @@ export default async function ClassSchedulePage({
         term={term}
         subjects={subjects || []}
         existingSlots={existingSlots}
+        className={cls.name}
       />
     </div>
   )
