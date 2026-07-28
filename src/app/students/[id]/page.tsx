@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Check, Heart } from 'lucide-react'
+import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Check, Heart, CalendarClock } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
 import { DOCUMENT_TYPE_LABELS, DocumentType, STATUS_LABELS, DocumentStatus } from '@/types'
 import { AttachmentsSection } from './AttachmentsSection'
@@ -257,20 +257,33 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
 
-        {canManage && student.status === 'active' && (
+       {(canManage || (canEditDossier && educationForm === 'ifo')) && student.status === 'active' && (
           <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-slate-100">
-            <Link href={`/students/${id}/edit`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-100 transition-colors">
-              <Pencil size={13} /> Редактирай
-            </Link>
-            <Link href={`/students/${id}/eplr`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-100 transition-colors">
-              <UserCog size={13} /> ЕПЛР екип
-            </Link>
-            <Link href={`/students/${id}/transfer`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-100 transition-colors">
-              <ArrowRightLeft size={13} /> Прехвърли
-            </Link>
-            <Link href={`/students/${id}/archive`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-rose-700 bg-rose-50/50 border border-rose-100 px-3 py-2 rounded-xl hover:bg-rose-100/70 transition-colors">
-              <Archive size={13} /> Архивирай
-            </Link>
+            {canManage && (
+              <Link href={`/students/${id}/edit`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-100 transition-colors">
+                <Pencil size={13} /> Редактирай
+              </Link>
+            )}
+            {canManage && (
+              <Link href={`/students/${id}/eplr`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-100 transition-colors">
+                <UserCog size={13} /> ЕПЛР екип
+              </Link>
+            )}
+            {educationForm === 'ifo' && (
+              <Link href={`/students/${id}/schedule`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-teal-700 bg-teal-50 border border-teal-200 px-3 py-2 rounded-xl hover:bg-teal-100 transition-colors">
+                <CalendarClock size={13} /> Седмично разписание
+              </Link>
+            )}
+            {canManage && (
+              <Link href={`/students/${id}/transfer`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-100 transition-colors">
+                <ArrowRightLeft size={13} /> Прехвърли
+              </Link>
+            )}
+            {canManage && (
+              <Link href={`/students/${id}/archive`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-rose-700 bg-rose-50/50 border border-rose-100 px-3 py-2 rounded-xl hover:bg-rose-100/70 transition-colors">
+                <Archive size={13} /> Архивирай
+              </Link>
+            )}
           </div>
         )}
       </div>
