@@ -46,3 +46,24 @@ export async function saveTherapistSchedule(
   revalidatePath('/my-activities/schedule')
   return { success: true }
 }
+
+export async function copyTherapistFromTerm1(academicYearId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+
+  const { data: profile } = await supabase
+    .from('staff_profiles').select('id').eq('user_id', user.id).single()
+  if (!profile) return { error: 'Няма профил' }
+
+  const { data: term1 } = await supabase
+    .from('therapist_schedules').select('id')
+    .eq('staff_id', profile.id).eq('academic_year_id', academicYearId).eq('term', 1)
+    .maybeSingle()
+  if (!term1) return { error: 'Няма график за I срок' }
+
+  const { data: slots } = await supabase
+    .from('therapist_slots').select('day, period, student_id').eq('schedule_id', term1.id)
+  if (!slots || slots.length === 0) return { error: 'I срок е празен' }
+  return { slots }
+}
