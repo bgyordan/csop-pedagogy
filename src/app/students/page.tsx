@@ -84,7 +84,9 @@ export default async function StudentsPage({
     )
   }
 
-  let filtered = (enrollments || []).filter(e => {
+let filtered = (enrollments || []).filter(e => {
+    // Само активни ученици — архивираните не се показват
+    if (e.student?.status !== 'active') return false
     if (search && !getFullName(e.student).toLowerCase().includes(search.toLowerCase())) return false
     if (oresStudentIds && !oresStudentIds.has(e.student?.id)) return false
     if (params.incomplete === '1') {
