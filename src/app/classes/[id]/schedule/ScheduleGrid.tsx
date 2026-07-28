@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Save, Plus, Loader2, Copy, X, Check } from 'lucide-react'
+import { Save, Plus, Loader2, Copy, X, Check, Download } from 'lucide-react'
 import { saveSchedule, addSubject, copyFromTerm1 } from './actions'
+import { generateClassSchedule } from '@/lib/docx-generator'
 
 interface Subject { id: string; name: string; allows_pullout: boolean }
 interface SlotData { day: number; period: number; subject_id: string | null }
@@ -14,6 +15,7 @@ interface Props {
   term: number
   subjects: Subject[]
   existingSlots: SlotData[]
+  className?: string
 }
 
 const DAYS = [
@@ -29,7 +31,7 @@ const PERIOD_TIMES: Record<number, string> = {
   4: '11:05–11:40', 5: '11:50–12:25', 6: '12:35–13:05', 7: '13:15–13:50',
 }
 
-export function ScheduleGrid({ classId, academicYearId, term, subjects: initialSubjects, existingSlots }: Props) {
+export function ScheduleGrid({ classId, academicYearId, term, subjects: initialSubjects, existingSlots, className = '' }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [subjects, setSubjects] = useState(initialSubjects)
@@ -63,6 +65,19 @@ export function ScheduleGrid({ classId, academicYearId, term, subjects: initialS
   }
 
   const filledCount = Object.keys(grid).length
+
+  async function handleDownload() {
+    // Превеждаме id-тата на предмети към имена
+    const slotNames: Record<string, string> = {}
+    Object.entries(grid).forEach(([key, subjectId]) => {
+      const subj = subjects.find(s => s.id === subjectId)
+      if (subj) slotNames[key] = subj.name
+    })
+    const title = className ? `Паралелка ${className}` : 'Паралелка'
+    const subtitle = `${term === 1 ? 'I' : 'II'} срок`
+    const maxPeriod = show7 ? 7 : 6
+    await generateClassSchedule(title, subtitle, '', slotNames, maxPeriod)
+  }
 
   async function handleSave() {
     setSaving(true); setMsg(null)
@@ -203,8 +218,13 @@ export function ScheduleGrid({ classId, academicYearId, term, subjects: initialS
           <Plus size={13} /> Нов предмет
         </button>
 
+        <button onClick={handleDownload}
+          className="ml-auto flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">
+          <Download size={13} /> Изтегли Word
+        </button>
+
         <button onClick={handleSave} disabled={saving}
-          className="ml-auto flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold disabled:opacity-60"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold disabled:opacity-60"
           style={{ backgroundColor: '#0f2240' }}>
           {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
           {saving ? 'Запазване...' : 'Запази разписанието'}
