@@ -37,7 +37,7 @@ export default async function TherapistSchedulePage({
 
   // Моите зачислени деца (за моя вид терапия)
   // Зареждаме и трите полета, филтрираме изрично според ролята
-  const { data: allActive } = await supabase
+  const { data: allActive, error: allActiveError } = await supabase
     .from('students')
     .select('id, first_name, middle_name, last_name, external_class, education_form, therapist_psychologist_id, therapist_speech_id, therapist_rehab_id')
     .eq('status', 'active')
@@ -162,7 +162,7 @@ export default async function TherapistSchedulePage({
     form: classByStudent[s.id]?.form || 'daily',
   }))
 
-  const debugInfo = `DEBUG: profile.id=${profile.id} | field=${field} | allActive=${(allActive||[]).length} | myStudents=${myStudents.length} | year=${currentYear?.id}`
+  const debugInfo = `DEBUG: profile.id=${profile.id} | field=${field} | allActive=${(allActive||[]).length} | myStudents=${myStudents.length} | year=${currentYear?.id} | ERROR=${allActiveError ? JSON.stringify(allActiveError) : 'няма'}`
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
