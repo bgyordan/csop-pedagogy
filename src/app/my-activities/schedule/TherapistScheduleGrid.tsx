@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { Save, Loader2, AlertTriangle, Check, Lock, Info, Download } from 'lucide-react'
-import { saveTherapistSchedule } from './actions'
+import { useState, useTransition } from 'react'
+import { Save, Loader2, AlertTriangle, Check, Lock, Info, Download, Copy } from 'lucide-react'
+import { saveTherapistSchedule, copyTherapistFromTerm1 } from './actions'
 import { generateTherapistSchedule } from '@/lib/docx-generator'
 
 interface Student {
@@ -34,9 +34,10 @@ const DAYS = [
 ]
 
 const PERIOD_TIMES: Record<number, string> = {
-  1: '8:30–9:05', 2: '9:15–9:50', 3: '10:20–10:55', 4: '11:05–11:40',
+  1: '8:30–9:05', 2: '9:15–9:50', 0: '9:50–10:20', 3: '10:20–10:55', 4: '11:05–11:40',
   5: '11:50–12:25', 6: '12:35–13:05', 7: '13:15–13:50', 8: '13:50–14:00',
 }
+const PERIOD_LABEL: Record<number, string> = { 0: 'ГМ' }
 
 export function TherapistScheduleGrid({
   academicYearId, term, specialistName = '', roleLabel = '', students, studentSchedule, takenByOthers, existingSlots,
@@ -46,7 +47,8 @@ export function TherapistScheduleGrid({
 
   const has78 = existingSlots.some(s => s.period >= 7)
   const [showAfternoon, setShowAfternoon] = useState(has78)
-  const periods = showAfternoon ? [1, 2, 3, 4, 5, 6, 7, 8] : [1, 2, 3, 4, 5, 6]
+  const [pending, startTransition] = useTransition()
+  const periods = showAfternoon ? [1, 2, 0, 3, 4, 5, 6, 7, 8] : [1, 2, 0, 3, 4, 5, 6]
 
   const [grid, setGrid] = useState<Record<string, string>>(() => {
     const g: Record<string, string> = {}
@@ -85,6 +87,20 @@ export function TherapistScheduleGrid({
   }
 
   const filledCount = Object.keys(grid).length
+
+  function handleCopyTerm1() {
+    startTransition(async () => {
+      const res = await copyTherapistFromTerm1(academicYearId)
+      if (res.error) { setMsg({ type: 'err', text: res.error }); return }
+      if (res.slots) {
+        const g: Record<string, string> = {}
+        res.slots.forEach((s: any) => { if (s.student_id) g[`${s.day}-${s.period}`] = s.student_id })
+        setGrid(g)
+        if (res.slots.some((s: any) => s.period >= 7)) setShowAfternoon(true)
+        setMsg({ type: 'ok', text: 'Копирано от I срок. Не забравяй да запазиш.' })
+      }
+    })
+  }
 
   async function handleDownload() {
     const slotData: Record<string, { student: string; className: string }> = {}
@@ -131,6 +147,14 @@ export function TherapistScheduleGrid({
           <a href="?term=2" className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 2 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
             style={term === 2 ? { backgroundColor: '#0f2240' } : {}}>II срок</a>
         </div>
+        {term === 2 && (
+          <button onClick={handleCopyTerm1} disabled={pending}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">
+            {pending ? <Loader2 size={13} className="animate-spin" /> : <Copy size={13} />}
+            Копирай от I срок
+          </button>
+        )}
+
         <span className="ml-auto text-xs text-slate-500">
           Заети часове: <span className="font-semibold text-slate-700">{filledCount}</span>
         </span>
@@ -169,7 +193,7 @@ export function TherapistScheduleGrid({
             {periods.map(period => (
               <tr key={period} className="border-b border-slate-100 last:border-0">
                 <td className="px-3 py-1.5 align-top">
-                  <div className="font-bold text-slate-700 text-sm">{period}.</div>
+                  <div className="font-bold text-slate-700 text-sm">{PERIOD_LABEL[period] || `${period}.`}</div>
                   <div className="text-[10px] text-slate-400">{PERIOD_TIMES[period]}</div>
                 </td>
                 {DAYS.map(d => {
