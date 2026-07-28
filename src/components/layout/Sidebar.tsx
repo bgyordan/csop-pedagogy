@@ -37,7 +37,7 @@ const navItems: NavItem[] = [
   { href: '/documents', label: 'Документи', icon: <FileText size={16} /> },
   { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={16} />, roles: ['admin', 'director', 'zdud', 'class_teacher'] },
   { href: '/committees', label: 'Комисии', icon: <Building2 size={16} /> },
-  { href: '/my-activities', label: 'Моите дейности', icon: <HeartPulse size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
+  { href: '/my-activities', label: 'Списък за терапия', icon: <HeartPulse size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
   { href: '/staff', label: 'Служители', icon: <UserCircle size={16} />, roles: ['admin', 'director', 'zdud'] },
   { href: '/reports', label: 'Писма и справки', icon: <BarChart3 size={16} />, roles: ['admin', 'director', 'zdud'], coordinatorOnly: true },
   {
