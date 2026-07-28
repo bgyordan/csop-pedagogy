@@ -157,7 +157,7 @@ export default async function TherapistSchedulePage({
 
   const students = (myStudents || []).map(s => ({
     id: s.id,
-    name: [s.first_name, s.middle_name, s.last_name].filter(Boolean).join(' '),
+    name: [s.first_name, s.middle_name ? s.middle_name.charAt(0) + '.' : '', s.last_name].filter(Boolean).join(' '),
     className: classByStudent[s.id]?.className || '',
     form: classByStudent[s.id]?.form || 'daily',
   }))
@@ -178,6 +178,8 @@ export default async function TherapistSchedulePage({
       <TherapistScheduleGrid
         academicYearId={currentYear?.id || ''}
         term={term}
+        specialistName={`${profile.first_name} ${profile.last_name}`}
+        roleLabel={ROLE_LABELS[profile.role as keyof typeof ROLE_LABELS] || ''}
         students={students}
         studentSchedule={studentSchedule}
         takenByOthers={takenByOthers}
