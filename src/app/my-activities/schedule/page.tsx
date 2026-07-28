@@ -36,12 +36,14 @@ export default async function TherapistSchedulePage({
     .from('academic_years').select('id, name').eq('is_current', true).single()
 
   // Моите зачислени деца (за моя вид терапия)
-  const { data: myStudents } = await supabase
+  // Зареждаме и трите полета, филтрираме изрично според ролята
+  const { data: allActive } = await supabase
     .from('students')
-    .select('id, first_name, middle_name, last_name, external_class, education_form')
+    .select('id, first_name, middle_name, last_name, external_class, education_form, therapist_psychologist_id, therapist_speech_id, therapist_rehab_id')
     .eq('status', 'active')
-    .eq(field, profile.id)
     .order('first_name')
+
+  const myStudents = (allActive || []).filter((s: any) => s[field] === profile.id)
 
   const studentIds = (myStudents || []).map(s => s.id)
 
