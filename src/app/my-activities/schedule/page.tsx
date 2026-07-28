@@ -162,8 +162,11 @@ export default async function TherapistSchedulePage({
     form: classByStudent[s.id]?.form || 'daily',
   }))
 
+  const debugInfo = `DEBUG: profile.id=${profile.id} | field=${field} | allActive=${(allActive||[]).length} | myStudents=${myStudents.length} | year=${currentYear?.id}`
+
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
+      <div className="mb-4 p-2 bg-yellow-100 text-[10px] font-mono break-all">{debugInfo}</div>
       <Link href="/my-activities" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6">
         <ArrowLeft size={15} /> Назад към моите дейности
       </Link>
