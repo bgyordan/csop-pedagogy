@@ -32,7 +32,7 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
             tab === 'therapy' ? 'bg-white shadow-sm text-teal-700 border border-teal-100' : 'text-slate-500 hover:text-slate-700'
           }`}>
           <HeartPulse size={15} />
-          Мои деца за терапия
+          Деца за терапия
           <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${tab === 'therapy' ? 'bg-teal-100 text-teal-700' : 'bg-slate-200 text-slate-500'}`}>
             {therapyRows.length}
           </span>
@@ -42,7 +42,7 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
             tab === 'eplr' ? 'bg-white shadow-sm text-blue-700 border border-blue-100' : 'text-slate-500 hover:text-slate-700'
           }`}>
           <Users size={15} />
-          В моя ЕПЛР
+          ЕПЛР състав
           <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${tab === 'eplr' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-500'}`}>
             {eplrRows.length}
           </span>
@@ -81,7 +81,7 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
         </div>
       )}
 
-      {/* ТАБ 2: В моя ЕПЛР */}
+      {/* ТАБ 2: ЕПЛР състав */}
       {tab === 'eplr' && (
         <div className="divide-y divide-slate-50">
           {eplrRows.length === 0 ? (
