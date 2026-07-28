@@ -1523,3 +1523,265 @@ export async function generateSchoolLetter(
   const safeName = `${schoolName} ${schoolCity}`.replace(/["„"\/\\:*?<>|]/g, '').replace(/\s+/g, '_')
   saveAs(blob, `Писмо_${safeName}_${yearName}.docx`)
 }
+// ═══════════════════════════════════════════════════════════════════════════
+// СЕДМИЧНИ РАЗПИСАНИЯ — за добавяне в src/lib/docx-generator.ts
+// Форматът следва модела ПСР (вертикално, всеки ден блок)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Стандартни часови зони на паралелката (ГМ се вмъква между 2 и 3)
+const SCHEDULE_PERIODS = [
+  { period: 1, time: '8:30 – 9:05' },
+  { period: 2, time: '9:15 – 9:50' },
+  { period: 0, time: '9:50 – 10:20', gm: true },   // Голямо междучасие
+  { period: 3, time: '10:20 – 10:55' },
+  { period: 4, time: '11:05 – 11:40' },
+  { period: 5, time: '11:50 – 12:25' },
+  { period: 6, time: '12:35 – 13:05' },
+  { period: 7, time: '13:15 – 13:50' },
+]
+
+const WEEKDAYS = [
+  { n: 1, full: 'ПОНЕДЕЛНИК' },
+  { n: 2, full: 'ВТОРНИК' },
+  { n: 3, full: 'СРЯДА' },
+  { n: 4, full: 'ЧЕТВЪРТЪК' },
+  { n: 5, full: 'ПЕТЪК' },
+]
+
+// ── РАЗПИСАНИЕ НА ПАРАЛЕЛКА / ИФО УЧЕНИК ────────────────────────────────────
+export async function generateClassSchedule(
+  title: string,          // "Паралелка 05" или името на ИФО ученик
+  subtitle: string,       // "II срок · 2026-2027"
+  yearName: string,
+  // slots: { "ден-час": "име на предмет" }
+  slots: Record<string, string>,
+  maxPeriod: number,      // до кой час се показва (6 или 7)
+) {
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const CELLS = { top: B, bottom: B, left: B, right: B }
+  const NONE = {
+    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  }
+
+  const periods = SCHEDULE_PERIODS.filter(p => p.gm || p.period <= maxPeriod)
+  const children: any[] = []
+
+  // Хедър с лого
+  children.push(
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [new TableRow({ children: [
+        new TableCell({
+          width: { size: 20, type: WidthType.PERCENTAGE }, borders: NONE,
+          margins: { top: 0, bottom: 0, left: 0, right: 80 },
+          children: [new Paragraph({ alignment: AlignmentType.LEFT, children: [
+            new ImageRun({ data: Buffer.from(CSOP_LOGO_B64, 'base64'), transformation: { width: 60, height: 60 }, type: 'jpg' }),
+          ]})],
+        }),
+        new TableCell({
+          width: { size: 80, type: WidthType.PERCENTAGE }, borders: NONE,
+          verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
+          children: [
+            new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
+            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456', size: 17, italics: true, color: '555555' })] }),
+          ],
+        }),
+      ]})],
+    }),
+    new Paragraph({ spacing: { before: 80, after: 80 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
+    new Paragraph({ text: '' }),
+    // Утвърдил
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 20 }, children: [new TextRun({ text: 'Утвърдил: ........................', size: 20 })] }),
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 280 }, children: [new TextRun({ text: 'Директор ЦСОП-Варна', size: 20 })] }),
+    // Заглавие
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 40 }, children: [new TextRun({ text: 'СЕДМИЧНО РАЗПИСАНИЕ', bold: true, size: 28 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 20 }, children: [new TextRun({ text: title, bold: true, size: 24 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 240 }, children: [new TextRun({ text: subtitle, size: 20, italics: true, color: '555555' })] }),
+  )
+
+  // За всеки ден — блок с часовете му
+  WEEKDAYS.forEach(day => {
+    const rows: TableRow[] = []
+
+    // Заглавен ред на деня
+    rows.push(new TableRow({
+      cantSplit: true,
+      children: [new TableCell({
+        columnSpan: 3, borders: CELLS,
+        shading: { type: ShadingType.CLEAR, fill: '0f2240' },
+        margins: { top: 60, bottom: 60, left: 100, right: 100 },
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: day.full, bold: true, size: 20, color: 'FFFFFF' })] })],
+      })],
+    }))
+
+    // Хедър колони
+    rows.push(new TableRow({
+      cantSplit: true,
+      children: [
+        { t: '№', w: 10 },
+        { t: 'Час', w: 25 },
+        { t: 'Предмет / Образователно направление / Терапия', w: 65 },
+      ].map(c => new TableCell({
+        width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
+        shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
+        margins: { top: 40, bottom: 40, left: 80, right: 80 },
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 17 })] })],
+      })),
+    }))
+
+    // Редове за часовете
+    periods.forEach(p => {
+      const subject = p.gm ? '' : (slots[`${day.n}-${p.period}`] || '')
+      const isGm = p.gm
+      rows.push(new TableRow({
+        cantSplit: true,
+        children: [
+          new TableCell({
+            borders: CELLS, margins: { top: 40, bottom: 40, left: 60, right: 60 },
+            ...(isGm ? { shading: { type: ShadingType.CLEAR, fill: 'EEEEEE' } } : {}),
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: isGm ? 'ГМ' : String(p.period), bold: isGm, size: 17, color: isGm ? '888888' : '000000' })] })],
+          }),
+          new TableCell({
+            borders: CELLS, margins: { top: 40, bottom: 40, left: 60, right: 60 },
+            ...(isGm ? { shading: { type: ShadingType.CLEAR, fill: 'EEEEEE' } } : {}),
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: p.time, size: 17, color: isGm ? '888888' : '000000' })] })],
+          }),
+          new TableCell({
+            borders: CELLS, margins: { top: 40, bottom: 40, left: 80, right: 80 },
+            ...(isGm ? { shading: { type: ShadingType.CLEAR, fill: 'EEEEEE' } } : {}),
+            children: [new Paragraph({ children: [new TextRun({ text: isGm ? 'Голямо междучасие' : subject, size: 17, italics: isGm, color: isGm ? '888888' : '000000' })] })],
+          }),
+        ],
+      }))
+    })
+
+    children.push(
+      new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }),
+      new Paragraph({ text: '', spacing: { after: 160 } }),
+    )
+  })
+
+  const doc = new Document({ sections: [{ properties: {}, children }] })
+  const blob = await Packer.toBlob(doc)
+  const safe = title.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_')
+  saveAs(blob, `разписание_${safe}.docx`)
+}
+
+// ── СЕДМИЧЕН ГРАФИК НА ТЕРАПЕВТ ─────────────────────────────────────────────
+export async function generateTherapistSchedule(
+  specialistName: string,
+  role: string,           // "психолог" / "логопед" / "рехабилитатор"
+  subtitle: string,       // "II срок · 2026-2027"
+  // slots: { "ден-час": { student, className } }
+  slots: Record<string, { student: string; className: string }>,
+  maxPeriod: number,      // до 6, 7 или 8
+) {
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const CELLS = { top: B, bottom: B, left: B, right: B }
+  const NONE = {
+    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  }
+
+  // Терапевтът може и 8-ми час; ГМ не му трябва в графика
+  const THER_PERIODS = [
+    { period: 1, time: '8:30 – 9:05' },
+    { period: 2, time: '9:15 – 9:50' },
+    { period: 3, time: '10:20 – 10:55' },
+    { period: 4, time: '11:05 – 11:40' },
+    { period: 5, time: '11:50 – 12:25' },
+    { period: 6, time: '12:35 – 13:05' },
+    { period: 7, time: '13:15 – 13:50' },
+    { period: 8, time: '13:50 – 14:00' },
+  ].filter(p => p.period <= maxPeriod)
+
+  const children: any[] = []
+
+  children.push(
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [new TableRow({ children: [
+        new TableCell({
+          width: { size: 20, type: WidthType.PERCENTAGE }, borders: NONE,
+          margins: { top: 0, bottom: 0, left: 0, right: 80 },
+          children: [new Paragraph({ alignment: AlignmentType.LEFT, children: [
+            new ImageRun({ data: Buffer.from(CSOP_LOGO_B64, 'base64'), transformation: { width: 60, height: 60 }, type: 'jpg' }),
+          ]})],
+        }),
+        new TableCell({
+          width: { size: 80, type: WidthType.PERCENTAGE }, borders: NONE,
+          verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
+          children: [
+            new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
+            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456', size: 17, italics: true, color: '555555' })] }),
+          ],
+        }),
+      ]})],
+    }),
+    new Paragraph({ spacing: { before: 80, after: 80 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
+    new Paragraph({ text: '' }),
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 20 }, children: [new TextRun({ text: 'Утвърдил: ........................', size: 20 })] }),
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 280 }, children: [new TextRun({ text: 'Директор ЦСОП-Варна', size: 20 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 40 }, children: [new TextRun({ text: 'СЕДМИЧЕН ГРАФИК', bold: true, size: 28 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 20 }, children: [
+      new TextRun({ text: specialistName, bold: true, size: 24 }),
+      new TextRun({ text: ` — ${role}`, size: 20, color: '555555' }),
+    ]}),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 240 }, children: [new TextRun({ text: subtitle, size: 20, italics: true, color: '555555' })] }),
+  )
+
+  WEEKDAYS.forEach(day => {
+    const rows: TableRow[] = []
+    rows.push(new TableRow({
+      cantSplit: true,
+      children: [new TableCell({
+        columnSpan: 3, borders: CELLS,
+        shading: { type: ShadingType.CLEAR, fill: '0f2240' },
+        margins: { top: 60, bottom: 60, left: 100, right: 100 },
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: day.full, bold: true, size: 20, color: 'FFFFFF' })] })],
+      })],
+    }))
+    rows.push(new TableRow({
+      cantSplit: true,
+      children: [
+        { t: '№', w: 10 },
+        { t: 'Час', w: 25 },
+        { t: 'Ученик', w: 65 },
+      ].map(c => new TableCell({
+        width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
+        shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
+        margins: { top: 40, bottom: 40, left: 80, right: 80 },
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 17 })] })],
+      })),
+    }))
+    THER_PERIODS.forEach(p => {
+      const cell = slots[`${day.n}-${p.period}`]
+      const label = cell ? (cell.className ? `${cell.student} (${cell.className})` : cell.student) : ''
+      rows.push(new TableRow({
+        cantSplit: true,
+        children: [
+          new TableCell({ borders: CELLS, margins: { top: 40, bottom: 40, left: 60, right: 60 },
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(p.period), size: 17 })] })] }),
+          new TableCell({ borders: CELLS, margins: { top: 40, bottom: 40, left: 60, right: 60 },
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: p.time, size: 17 })] })] }),
+          new TableCell({ borders: CELLS, margins: { top: 40, bottom: 40, left: 80, right: 80 },
+            children: [new Paragraph({ children: [new TextRun({ text: label, size: 17 })] })] }),
+        ],
+      }))
+    })
+    children.push(
+      new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }),
+      new Paragraph({ text: '', spacing: { after: 160 } }),
+    )
+  })
+
+  const doc = new Document({ sections: [{ properties: {}, children }] })
+  const blob = await Packer.toBlob(doc)
+  const safe = specialistName.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_')
+  saveAs(blob, `график_${safe}.docx`)
+}
