@@ -89,13 +89,14 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
     router.push('/auth/login')
   }
 
-  const isSecretary = userRole === 'secretary'
-
+  cconst isSecretary = userRole === 'secretary'
+  // Координаторът има правата на ЗДУД навсякъде в менюто
+  const effectiveRoles: UserRole[] = isCoordinator ? [userRole, 'zdud' as UserRole] : [userRole]
   function canSee(item: NavItem): boolean {
     if (isSecretary) return item.section === 'delo'
     if (item.coordinatorOnly && isCoordinator) return true
     if (!item.roles) return true
-    return item.roles.includes(userRole)
+    return item.roles.some(r => effectiveRoles.includes(r))
   }
 
   const visibleItems = navItems
