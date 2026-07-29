@@ -4,32 +4,28 @@ import ReportsClient from './ReportsClient'
 import { DOCUMENT_TYPE_LABELS, DocumentType } from '@/types'
 import { getFullName } from '@/lib/utils'
 import { BackButton } from '@/components/ui/BackButton'
-
 const DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
   'iup', 'iu_program', 'support_plan', 'parent_program'
 ]
-
+function initials(firstName?: string, lastName?: string): string {
+  return `${(firstName || '').charAt(0)}${(lastName || '').charAt(0)}`.toUpperCase()
+}
 const ROLE_LABELS_BG: Record<string, string> = {
   psychologist: 'Психолог',
   speech_therapist: 'Логопед',
   rehabilitator: 'Рехабилитатор',
 }
-
 export default async function ReportsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
-
   const { data: profile } = await supabase
     .from('staff_profiles').select('role, is_coordinator').eq('user_id', user.id).single()
-
   const canAccess = ['admin', 'zdud', 'director'].includes(profile?.role || '') || profile?.is_coordinator === true
   if (!canAccess) redirect('/dashboard')
-
   const { data: currentYear } = await supabase
     .from('academic_years').select('*').eq('is_current', true).single()
-
   const [
     { data: enrollments },
     { data: eplrTeams },
@@ -51,7 +47,6 @@ export default async function ReportsPage() {
     supabase.from('class_teacher_assignments').select('class_id, staff:staff_profiles(id,first_name,last_name)').eq('academic_year_id', currentYear?.id),
     supabase.from('calendar_deadlines').select('*').eq('academic_year_id', currentYear?.id).order('deadline_date'),
   ])
-
   const eplrMap = new Map((eplrTeams || []).map((t: any) => [t.student_id, t]))
   const docMap = new Map<string, Map<string, string>>()
   documents?.forEach(d => {
@@ -62,18 +57,15 @@ export default async function ReportsPage() {
   classTeachers?.forEach((ct: any) => {
     if (ct.staff) classTeacherMap.set(ct.class_id, ct.staff)
   })
-
   // Графици за екипни срещи
   const { data: schedules } = await supabase
     .from('eplr_schedules')
     .select('id, name')
     .eq('academic_year_id', currentYear?.id)
     .order('created_at', { ascending: false })
-
   const { data: allSlots } = await supabase
     .from('eplr_schedule_slots')
     .select('schedule_id, student_id, meeting_date, meeting_time')
-
   const slotsBySchedule: Record<string, Record<string, { date: string; time: string }>> = {}
   ;(allSlots || []).forEach((s: any) => {
     if (!slotsBySchedule[s.schedule_id]) slotsBySchedule[s.schedule_id] = {}
@@ -82,13 +74,46 @@ export default async function ReportsPage() {
       time: s.meeting_time ? String(s.meeting_time).substring(0, 5) : '',
     }
   })
+  // ── ТЕРАПЕВТИЧНА НАТОВАРЕНОСТ ──
+  // Реалните терапевти на всяко дете (за workload по терапии)
+  const specialistIds = (specialists || []).map((s: any) => s.id)
+  // Броене на сесии от терапевтичните графици (текущ срок = 1)
+  const { data: therSchedules } = await supabase
+    .from('therapist_schedules')
+    .select('id, staff_id')
+    .eq('academic_year_id', currentYear?.id)
+    .eq('term', 1)
+  const schedByStaff: Record<string, string> = {}  // schedule_id -> staff_id
+  ;(therSchedules || []).forEach((s: any) => { schedByStaff[s.id] = s.staff_id })
+  const therScheduleIds = (therSchedules || []).map((s: any) => s.id)
+  const { data: therSlots } = therScheduleIds.length > 0
+    ? await supabase.from('therapist_slots')
+        .select('schedule_id, student_id')
+        .in('schedule_id', therScheduleIds)
+    : { data: [] }
+  // За всяко дете: staff_id -> брой сесии; и staff_id -> брой деца (за workload)
+  const sessionsByStudentStaff: Record<string, Record<string, number>> = {}
+  const studentsByStaff: Record<string, Set<string>> = {}
+  ;(therSlots || []).forEach((slot: any) => {
+    if (!slot.student_id) return
+    const staffId = schedByStaff[slot.schedule_id]
+    if (!staffId) return
+    if (!sessionsByStudentStaff[slot.student_id]) sessionsByStudentStaff[slot.student_id] = {}
+    sessionsByStudentStaff[slot.student_id][staffId] = (sessionsByStudentStaff[slot.student_id][staffId] || 0) + 1
+    if (!studentsByStaff[staffId]) studentsByStaff[staffId] = new Set()
+    studentsByStaff[staffId].add(slot.student_id)
+  })
+  // Инфо за специалистите (роля + инициали)
+  const staffInfo: Record<string, { role: string; ini: string; name: string }> = {}
+  ;(specialists || []).forEach((s: any) => {
+    staffInfo[s.id] = { role: s.role, ini: initials(s.first_name, s.last_name), name: getFullName(s) }
+  })
 
   const statusLabel = (status: string | undefined) => {
     if (status === 'completed') return 'Завършен'
     if (status === 'in_progress') return 'В процес'
     return 'Непопълнен'
   }
-
   const allRows = (enrollments || []).map((e: any) => {
     const student = e.student as any
     const cls = e.class as any
@@ -125,38 +150,65 @@ export default async function ReportsPage() {
       missingRehabilitator: !eplr?.rehabilitator_id,
     }
   })
-
+  // Натовареност по РЕАЛНИ ТЕРАПИИ (от графика): колко деца води + общо сесии седмично
   const workloadRows = (specialists || []).map((s: any) => {
-    const fieldMap: Record<string, string> = {
-      psychologist: 'psychologist_id',
-      speech_therapist: 'speech_therapist_id',
-      rehabilitator: 'rehabilitator_id',
-    }
-    const field = fieldMap[s.role]
-    const myStudents = (eplrTeams || []).filter((t: any) => t[field] === s.id)
-    const myStudentIds = myStudents.map((t: any) => t.student_id)
-    const myDocs = (documents || []).filter((d: any) => myStudentIds.includes(d.student_id))
+    const myStudentSet = studentsByStaff[s.id] || new Set()
+    // Общо сесии седмично = сбор от слотовете на този специалист
+    let totalSessions = 0
+    Object.values(sessionsByStudentStaff).forEach(byStaff => {
+      totalSessions += (byStaff[s.id] || 0)
+    })
     return {
       id: s.id,
       name: getFullName(s),
       role: ROLE_LABELS_BG[s.role] || s.role,
-      studentCount: myStudents.length,
-      completedDocs: myDocs.filter((d: any) => d.status === 'completed').length,
-      totalDocs: myStudentIds.length * DOC_TYPES.length,
+      studentCount: myStudentSet.size,
+      totalSessions,
     }
   })
+  // ── Данни за справка "терапевтична натовареност" (по паралелки) ──
+  const intensityRows = (enrollments || [])
+    .filter((e: any) => e.student?.status === 'active')
+    .map((e: any) => {
+      const student = e.student as any
+      const cls = e.class as any
+      const sessions = sessionsByStudentStaff[student.id] || {}
+      // Разпределяме по роля П/Л/Р, като струпваме "ИН×брой"
+      const cellFor = (role: string) => {
+        const parts: string[] = []
+        Object.entries(sessions).forEach(([staffId, count]) => {
+          const info = staffInfo[staffId]
+          if (info && info.role === role) parts.push(`${info.ini}×${count}`)
+        })
+        return parts.join(', ')
+      }
+      return {
+        studentId: student.id,
+        name: getFullName(student),
+        className: cls?.name || '—',
+        externalClass: student.external_class || '',
+        sendingSchoolName: student.sending_school ? `${student.sending_school.name} — ${student.sending_school.city}` : '—',
+        intensity: student.intensity || '',
+        psy: cellFor('psychologist'),
+        log: cellFor('speech_therapist'),
+        reh: cellFor('rehabilitator'),
+      }
+    })
+    .sort((a: any, b: any) => {
+      const c = a.className.localeCompare(b.className, 'bg', { numeric: true })
+      if (c !== 0) return c
+      return a.name.localeCompare(b.name, 'bg')
+    })
 
   const now = new Date()
   const soonDate = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
   const delayedRows: any[] = []
-
   deadlines?.forEach((deadline: any) => {
     const deadlineDate = new Date(deadline.deadline_date)
     if (deadlineDate > soonDate) return
     const daysOverdue = Math.floor((now.getTime() - deadlineDate.getTime()) / (1000 * 60 * 60 * 24))
     const docType = deadline.doc_type as DocumentType | undefined
     if (!docType) return
-
     allRows.forEach(row => {
       const statusMap: Record<string, string> = {
         protocol_1: row.p1, protocol_2: row.p2, protocol_3: row.p3,
@@ -164,12 +216,10 @@ export default async function ReportsPage() {
       }
       const status = statusMap[docType]
       if (status === 'Завършен') return
-
       let specialist = row.classTeacher
       if (docType === 'support_plan') {
         specialist = row.psychologist !== '—' ? row.psychologist : row.speechTherapist
       }
-
       delayedRows.push({
         docType: DOCUMENT_TYPE_LABELS[docType],
         studentName: row.name,
@@ -182,7 +232,6 @@ export default async function ReportsPage() {
       })
     })
   })
-
   return (
     <div className="p-4 md:p-8">
       <BackButton />
@@ -195,6 +244,7 @@ export default async function ReportsPage() {
         slotsBySchedule={slotsBySchedule}
         allRows={allRows}
         workloadRows={workloadRows}
+        intensityRows={intensityRows}
         delayedRows={delayedRows}
         schools={schools || []}
         specialists={(specialists || []).map((s: any) => ({
