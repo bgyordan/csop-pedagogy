@@ -1591,15 +1591,14 @@ export async function generateClassSchedule(
         }),
       ]})],
     }),
-    new Paragraph({ spacing: { before: 80, after: 80 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
-    new Paragraph({ text: '' }),
-    // Утвърдил
-    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 20 }, children: [new TextRun({ text: 'Утвърдил: ........................', size: 20 })] }),
-    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 280 }, children: [new TextRun({ text: 'Директор ЦСОП-Варна', size: 20 })] }),
-    // Заглавие
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 40 }, children: [new TextRun({ text: 'СЕДМИЧНО РАЗПИСАНИЕ', bold: true, size: 28 })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 20 }, children: [new TextRun({ text: title, bold: true, size: 24 })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 240 }, children: [new TextRun({ text: subtitle, size: 20, italics: true, color: '555555' })] }),
+    new Paragraph({ spacing: { before: 40, after: 40 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
+    // Утвърдил + заглавие компактно
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 0 }, children: [new TextRun({ text: 'Утвърдил: ........................  Директор ЦСОП-Варна', size: 18 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120, after: 20 }, children: [new TextRun({ text: 'СЕДМИЧНО РАЗПИСАНИЕ', bold: true, size: 26 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 160 }, children: [
+      new TextRun({ text: title, bold: true, size: 22 }),
+      new TextRun({ text: `   ·   ${subtitle}`, size: 18, italics: true, color: '555555' }),
+    ] }),
   )
 
   // За всеки ден — блок с часовете му
@@ -1632,8 +1631,13 @@ export async function generateClassSchedule(
       })),
     }))
 
-    // Редове за часовете
-    periods.forEach(p => {
+    // Само часовете с предмет (празните се пропускат)
+    const dayPeriods = periods.filter(p => p.gm || (slots[`${day.n}-${p.period}`] || '').trim())
+    // Ако денят е напълно празен — пропускаме го
+    const hasAny = dayPeriods.some(p => !p.gm && (slots[`${day.n}-${p.period}`] || '').trim())
+    if (!hasAny) return
+
+    dayPeriods.forEach(p => {
       const subject = p.gm ? '' : (slots[`${day.n}-${p.period}`] || '')
       const isGm = p.gm
       rows.push(new TableRow({
@@ -1660,11 +1664,11 @@ export async function generateClassSchedule(
 
     children.push(
       new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }),
-      new Paragraph({ text: '', spacing: { after: 160 } }),
+      new Paragraph({ text: '', spacing: { after: 80 } }),
     )
   })
 
-  const doc = new Document({ sections: [{ properties: {}, children }] })
+  const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
   const blob = await Packer.toBlob(doc)
   const safe = title.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_')
   saveAs(blob, `разписание_${safe}.docx`)
@@ -1723,26 +1727,27 @@ export async function generateTherapistSchedule(
         }),
       ]})],
     }),
-    new Paragraph({ spacing: { before: 80, after: 80 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
-    new Paragraph({ text: '' }),
-    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 20 }, children: [new TextRun({ text: 'Утвърдил: ........................', size: 20 })] }),
-    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 280 }, children: [new TextRun({ text: 'Директор ЦСОП-Варна', size: 20 })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 40 }, children: [new TextRun({ text: 'СЕДМИЧЕН ГРАФИК', bold: true, size: 28 })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 20 }, children: [
-      new TextRun({ text: specialistName, bold: true, size: 24 }),
-      new TextRun({ text: ` — ${role}`, size: 20, color: '555555' }),
+    new Paragraph({ spacing: { before: 40, after: 40 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 0 }, children: [new TextRun({ text: 'Утвърдил: ........................  Директор ЦСОП-Варна', size: 18 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120, after: 20 }, children: [new TextRun({ text: 'СЕДМИЧЕН ГРАФИК', bold: true, size: 26 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 160 }, children: [
+      new TextRun({ text: specialistName, bold: true, size: 22 }),
+      new TextRun({ text: ` — ${role}   ·   ${subtitle}`, size: 18, italics: true, color: '555555' }),
     ]}),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 240 }, children: [new TextRun({ text: subtitle, size: 20, italics: true, color: '555555' })] }),
   )
 
   WEEKDAYS.forEach(day => {
+    // Само часовете, в които има дете (празните се пропускат)
+    const filled = THER_PERIODS.filter(p => slots[`${day.n}-${p.period}`])
+    if (filled.length === 0) return  // празен ден — пропускаме
+
     const rows: TableRow[] = []
     rows.push(new TableRow({
       cantSplit: true,
       children: [new TableCell({
         columnSpan: 3, borders: CELLS,
         shading: { type: ShadingType.CLEAR, fill: '0f2240' },
-        margins: { top: 60, bottom: 60, left: 100, right: 100 },
+        margins: { top: 50, bottom: 50, left: 100, right: 100 },
         children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: day.full, bold: true, size: 20, color: 'FFFFFF' })] })],
       })],
     }))
@@ -1755,32 +1760,32 @@ export async function generateTherapistSchedule(
       ].map(c => new TableCell({
         width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
         shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
-        margins: { top: 40, bottom: 40, left: 80, right: 80 },
+        margins: { top: 30, bottom: 30, left: 80, right: 80 },
         children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 17 })] })],
       })),
     }))
-    THER_PERIODS.forEach(p => {
+    filled.forEach(p => {
       const cell = slots[`${day.n}-${p.period}`]
       const label = cell ? (cell.className ? `${cell.student} (${cell.className})` : cell.student) : ''
       rows.push(new TableRow({
         cantSplit: true,
         children: [
-          new TableCell({ borders: CELLS, margins: { top: 40, bottom: 40, left: 60, right: 60 },
+          new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 60, right: 60 },
             children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(p.period), size: 17 })] })] }),
-          new TableCell({ borders: CELLS, margins: { top: 40, bottom: 40, left: 60, right: 60 },
+          new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 60, right: 60 },
             children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: p.time, size: 17 })] })] }),
-          new TableCell({ borders: CELLS, margins: { top: 40, bottom: 40, left: 80, right: 80 },
+          new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 80, right: 80 },
             children: [new Paragraph({ children: [new TextRun({ text: label, size: 17 })] })] }),
         ],
       }))
     })
     children.push(
       new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }),
-      new Paragraph({ text: '', spacing: { after: 160 } }),
+      new Paragraph({ text: '', spacing: { after: 80 } }),
     )
   })
 
-  const doc = new Document({ sections: [{ properties: {}, children }] })
+  const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
   const blob = await Packer.toBlob(doc)
   const safe = specialistName.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_')
   saveAs(blob, `график_${safe}.docx`)
