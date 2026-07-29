@@ -1,17 +1,14 @@
 'use client'
-
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { GraduationCap, Home, Wifi, Plus, X, Loader2, Check, Calendar } from 'lucide-react'
-
 interface OresRecord {
   id: string
   from_date: string
   to_date: string | null
   reason: string | null
 }
-
 interface Props {
   studentId: string
   enrollmentId: string | null
@@ -20,15 +17,14 @@ interface Props {
   coudGroupName?: string | null
   coudTeacher?: string | null
   oresRecords: OresRecord[]
+  intensity?: string | null
   canManage: boolean
 }
-
 export default function StudentStatusSection({
-  studentId, enrollmentId, educationForm: initialForm, coudGroupName, coudTeacher, oresRecords: initialOres, canManage
+  studentId, enrollmentId, educationForm: initialForm, coudGroupName, coudTeacher, oresRecords: initialOres, intensity: initialIntensity, canManage
 }: Props) {
   const supabase = createClient()
   const router = useRouter()
-
   const [form, setForm] = useState(initialForm || 'daily')
   const [ores, setOres] = useState<OresRecord[]>(initialOres || [])
   const [saving, setSaving] = useState(false)
@@ -36,10 +32,20 @@ export default function StudentStatusSection({
   const [oresFrom, setOresFrom] = useState(new Date().toISOString().split('T')[0])
   const [oresTo, setOresTo] = useState('')
   const [oresReason, setOresReason] = useState('')
-
+  const INTENSITY_PRESETS = ['8', '6', '4']
+  const [intensity, setIntensity] = useState(initialIntensity || '')
+  const [customIntensity, setCustomIntensity] = useState(
+    !!(initialIntensity && !['8', '6', '4'].includes(initialIntensity))
+  )
+  async function updateIntensity(val: string) {
+    setIntensity(val)
+    setSaving(true)
+    await supabase.from('students').update({ intensity: val || null }).eq('id', studentId)
+    setSaving(false)
+    router.refresh()
+  }
   const today = new Date().toISOString().split('T')[0]
   const activeOres = ores.find(o => o.from_date <= today && (!o.to_date || o.to_date >= today))
-
   async function updateForm(newForm: string) {
     if (!enrollmentId) return
     setForm(newForm)
@@ -48,7 +54,6 @@ export default function StudentStatusSection({
     setSaving(false)
     router.refresh()
   }
-
   async function addOres() {
     if (!oresFrom) return
     setSaving(true)
@@ -68,20 +73,52 @@ export default function StudentStatusSection({
     setSaving(false)
     router.refresh()
   }
-
   async function deleteOres(oresId: string) {
     if (!confirm('Изтриване на записа за ОРЕС?')) return
     await supabase.from('student_ores').delete().eq('id', oresId)
     setOres(prev => prev.filter(o => o.id !== oresId))
     router.refresh()
   }
-
   function fmtDate(d: string) {
     return new Date(d).toLocaleDateString('bg-BG')
   }
-
   return (
     <div className="space-y-4">
+      {/* Интензитет (часове седмично по РЦПППО) */}
+      <div>
+        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Интензитет (часове/седмица)</div>
+        {canManage ? (
+          <div className="space-y-1.5">
+            <div className="flex gap-1.5 flex-wrap">
+              {INTENSITY_PRESETS.map(p => (
+                <button key={p} type="button" onClick={() => { setCustomIntensity(false); updateIntensity(p) }} disabled={saving}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                    !customIntensity && intensity === p ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  }`}>
+                  {p} часа
+                </button>
+              ))}
+              <button type="button" onClick={() => setCustomIntensity(true)} disabled={saving}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                  customIntensity ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                }`}>
+                Друго
+              </button>
+            </div>
+            {customIntensity && (
+              <input type="text" value={intensity} onChange={e => setIntensity(e.target.value)}
+                onBlur={e => updateIntensity(e.target.value)}
+                placeholder="напр. 10 часа"
+                className="input w-full text-xs" />
+            )}
+          </div>
+        ) : (
+          <div className="text-sm font-medium text-slate-700">
+            {intensity ? `${intensity}${/^\d+$/.test(intensity) ? ' часа' : ''}` : <span className="text-slate-400 font-normal">не е зададен</span>}
+          </div>
+        )}
+      </div>
+
       {/* Форма на обучение */}
       <div>
         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Форма на обучение</div>
@@ -106,7 +143,6 @@ export default function StudentStatusSection({
           </div>
         )}
       </div>
-
       {/* ЦОУД */}
       <div>
         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">ЦОУД (занималня)</div>
@@ -120,7 +156,6 @@ export default function StudentStatusSection({
         )}
         <p className="text-[10px] text-slate-300 mt-1">Групите се управляват в Администрация → ЦОУД групи</p>
       </div>
-
       {/* ОРЕС */}
       <div>
         <div className="flex items-center justify-between mb-2">
@@ -131,7 +166,6 @@ export default function StudentStatusSection({
             </span>
           )}
         </div>
-
         {ores.length > 0 ? (
           <div className="space-y-1.5">
             {ores.map(o => {
@@ -160,7 +194,6 @@ export default function StudentStatusSection({
         ) : (
           !showOresForm && <div className="text-sm text-slate-400">Няма периоди в ОРЕС</div>
         )}
-
         {canManage && showOresForm && (
           <div className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
             <div className="flex gap-2">
@@ -189,7 +222,6 @@ export default function StudentStatusSection({
             </div>
           </div>
         )}
-
         {canManage && !showOresForm && (
           <button type="button" onClick={() => setShowOresForm(true)}
             className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 transition-colors mt-2">
