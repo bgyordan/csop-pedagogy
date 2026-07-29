@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Check, Heart, CalendarClock } from 'lucide-react'
+import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Check, Heart, CalendarClock, ClipboardList, Sparkles } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
 import { DOCUMENT_TYPE_LABELS, DocumentType, STATUS_LABELS, DocumentStatus } from '@/types'
 import { AttachmentsSection } from './AttachmentsSection'
@@ -144,6 +144,11 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                   <Wifi size={11} /> ОРЕС
                 </span>
               )}
+              {(student as any).is_new && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">
+                  <Sparkles size={11} /> НОВ УЧЕНИК
+                </span>
+              )}
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
               <div>
@@ -190,6 +195,9 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                 <CalendarClock size={13} /> Седмично разписание
               </Link>
             )}
+            <Link href={`/students/${id}/survey`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-violet-700 bg-violet-50 border border-violet-200 px-3 py-2 rounded-xl hover:bg-violet-100 transition-colors">
+              <ClipboardList size={13} /> Анкета
+            </Link>
             {canManage && (
               <Link href={`/students/${id}/transfer`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-100 transition-colors">
                 <ArrowRightLeft size={13} /> Прехвърли
