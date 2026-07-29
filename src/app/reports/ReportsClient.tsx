@@ -14,12 +14,13 @@ import {
 } from '@/lib/excel-generator'
 import Link from 'next/link'
 
-type ReportTab = 'school' | 'specialist' | 'workload' | 'noteam' | 'annual' | 'delayed'
+type ReportTab = 'school' | 'specialist' | 'workload' | 'intensity' | 'noteam' | 'annual' | 'delayed'
 
 const TAB_TITLES: Record<ReportTab, string> = {
   school: 'Справка по изпращащо училище',
   specialist: 'Справка по специалист',
   workload: 'Натовареност на специалистите',
+  intensity: 'Терапевтична натовареност по деца',
   noteam: 'Деца без ЕПЛР екип',
   annual: 'Обобщена годишна справка',
   delayed: 'Мониторинг на забавени документи',
@@ -30,13 +31,14 @@ interface Props {
   slotsBySchedule?: Record<string, Record<string, { date: string; time: string }>>
   allRows: any[]
   workloadRows: any[]
+  intensityRows: any[]
   delayedRows: any[]
   schools: { id: string; name: string; city: string }[]
   specialists: { id: string; name: string; role: string }[]
   yearName: string
 }
 
-export default function ReportsClient({ schedules = [], slotsBySchedule = {}, allRows, workloadRows, delayedRows, schools, specialists, yearName }: Props) {
+export default function ReportsClient({ schedules = [], slotsBySchedule = {}, allRows, workloadRows, intensityRows = [], delayedRows, schools, specialists, yearName }: Props) {
   // Първият таб по подразбиране вече е "По училище"
   const [activeTab, setActiveTab] = useState<ReportTab>('school')
   const [expandedSchool, setExpandedSchool] = useState<string | null>(null)
@@ -105,7 +107,8 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
   const tabs = [
     { id: 'school' as ReportTab, label: 'По училище', icon: <School size={15} />, color: 'text-blue-500' },
     { id: 'specialist' as ReportTab, label: 'По специалист', icon: <Users size={15} />, color: 'text-purple-500' },
-    { id: 'workload' as ReportTab, label: 'Натовареност', icon: <BarChart3 size={15} />, color: 'text-emerald-500' },
+   { id: 'workload' as ReportTab, label: 'Натовареност', icon: <BarChart3 size={15} />, color: 'text-emerald-500' },
+    { id: 'intensity' as ReportTab, label: 'Терапии по деца', icon: <BarChart3 size={15} />, color: 'text-teal-500' },
     { id: 'noteam' as ReportTab, label: 'Без екип', icon: <FileX size={15} />, color: 'text-orange-500' },
     { id: 'annual' as ReportTab, label: 'Годишна', icon: <FileText size={15} />, color: 'text-slate-500' },
     { id: 'delayed' as ReportTab, label: 'Забавени документи', icon: <AlertTriangle size={15} />, color: 'text-red-500' },
