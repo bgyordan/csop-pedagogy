@@ -273,7 +273,8 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
             coudEnrolled={coudEnrolled}
             coudGroupName={coudGroupName}
             coudTeacher={coudTeacher}
-            oresRecords={oresRecords || []}
+           oresRecords={oresRecords || []}
+            intensity={(student as any).intensity}
             canManage={canManage}
           />
         </div>
