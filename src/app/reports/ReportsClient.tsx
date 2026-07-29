@@ -464,7 +464,82 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
           </div>
         </div>
       )}
+{/* ── ТЕРАПЕВТИЧНА НАТОВАРЕНОСТ ПО ДЕЦА ── */}
+      {activeTab === 'intensity' && (
+        <div className="animate-in fade-in duration-200">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-800">Терапевтична натовареност по деца</h2>
+              <p className="text-sm text-slate-500 mt-0.5 print:hidden">Колко пъти седмично всеки специалист взима детето · инициали × брой сесии</p>
+            </div>
+            <div className="flex items-center gap-1.5 print:hidden">
+              <button onClick={handlePrint}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium hover:bg-slate-50 shadow-sm bg-white text-slate-700">
+                <Printer size={13} className="text-slate-600" />
+                PDF / Печат
+              </button>
+            </div>
+          </div>
 
+          <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50/50 border-b border-slate-100">
+                  <tr>
+                    <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Име</th>
+                    <th className="text-left px-3 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Училище</th>
+                    <th className="text-left px-3 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Клас</th>
+                    <th className="text-center px-3 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Интензитет</th>
+                    <th className="text-left px-3 py-3 text-[11px] font-bold text-blue-500 uppercase tracking-widest">П</th>
+                    <th className="text-left px-3 py-3 text-[11px] font-bold text-purple-500 uppercase tracking-widest">Л</th>
+                    <th className="text-left px-3 py-3 text-[11px] font-bold text-teal-500 uppercase tracking-widest">Р</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    let lastClass = ''
+                    const out: any[] = []
+                    intensityRows.forEach((row: any) => {
+                      if (row.className !== lastClass) {
+                        lastClass = row.className
+                        out.push(
+                          <tr key={`grp-${row.className}`} className="bg-slate-100/60">
+                            <td colSpan={7} className="px-4 py-1.5 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                              Паралелка {row.className}
+                            </td>
+                          </tr>
+                        )
+                      }
+                      out.push(
+                        <tr key={row.studentId} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors">
+                          <td className="px-4 py-2 font-medium text-slate-800 whitespace-nowrap">{row.name}</td>
+                          <td className="px-3 py-2 text-slate-500 text-xs">{row.sendingSchoolName}</td>
+                          <td className="px-3 py-2 text-slate-500 text-xs">{row.externalClass || '—'}</td>
+                          <td className="px-3 py-2 text-center">
+                            {row.intensity ? (
+                              <span className="inline-flex items-center font-bold px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-700">
+                                {row.intensity}{/^\d+$/.test(row.intensity) ? ' ч.' : ''}
+                              </span>
+                            ) : <span className="text-slate-300">—</span>}
+                          </td>
+                          <td className="px-3 py-2 text-xs font-semibold text-slate-700">{row.psy || '—'}</td>
+                          <td className="px-3 py-2 text-xs font-semibold text-slate-700">{row.log || '—'}</td>
+                          <td className="px-3 py-2 text-xs font-semibold text-slate-700">{row.reh || '—'}</td>
+                        </tr>
+                      )
+                    })
+                    return out
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-slate-400 mt-3 print:hidden">
+            Пример: „ТИ×2" означава специалист с инициали ТИ взима детето 2 пъти седмично (по седмичен график).
+          </p>
+        </div>
+      )}
       {/* ── БЕЗ ЕКИП ── */}
       {activeTab === 'noteam' && (
         <div className="animate-in fade-in duration-200">
