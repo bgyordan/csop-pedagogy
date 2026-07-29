@@ -218,7 +218,10 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
             <Users size={16} className="text-blue-500" />
             <h2 className="font-bold text-slate-800 text-sm">ЕПЛР екип</h2>
           </div>
-          <EplrTeam externals={externalMembers || []} eplr={eplr} id={id} canManage={canManage} />
+          <EplrTeam externals={externalMembers || []} eplr={eplr} id={id} canManage={canManage}
+            realPsy={(student as any).therapist_psychologist_id}
+            realSpe={(student as any).therapist_speech_id}
+            realReh={(student as any).therapist_rehab_id} />
         </div>
 
         <div className={cardCls}>
@@ -333,7 +336,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   )
 }
 
-function EplrTeam({ eplr, id, canManage, externals = [] }: { eplr: any, id: string, canManage: boolean, externals?: any[] }) {
+function EplrTeam({ eplr, id, canManage, externals = [], realPsy, realSpe, realReh }: { eplr: any, id: string, canManage: boolean, externals?: any[], realPsy?: string, realSpe?: string, realReh?: string }) {
   if (!eplr) return (
     <div>
       <p className="text-sm text-slate-400 mb-3">Няма назначен екип</p>
@@ -345,15 +348,20 @@ function EplrTeam({ eplr, id, canManage, externals = [] }: { eplr: any, id: stri
   return (
     <dl className="space-y-2.5">
       {[
-        { label: 'Психолог', member: eplr.psychologist },
-        { label: 'Логопед', member: eplr.speech_therapist },
-        { label: 'Рехабилитатор', member: eplr.rehabilitator },
-        { label: 'Класен р-л', member: eplr.class_teacher },
-      ].map(({ label, member }) => (
+        { label: 'Психолог', member: eplr.psychologist, isReal: eplr.psychologist && realPsy === eplr.psychologist.id },
+        { label: 'Логопед', member: eplr.speech_therapist, isReal: eplr.speech_therapist && realSpe === eplr.speech_therapist.id },
+        { label: 'Рехабилитатор', member: eplr.rehabilitator, isReal: eplr.rehabilitator && realReh === eplr.rehabilitator.id },
+        { label: 'Класен р-л', member: eplr.class_teacher, isReal: false },
+      ].map(({ label, member, isReal }) => (
         <div key={label}>
           <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</dt>
-          <dd className="text-sm font-semibold text-slate-700 mt-0.5">
-            {member ? getFullName(member as any) : <span className="text-slate-400 font-normal">—</span>}
+          <dd className={`text-sm mt-0.5 ${member ? (isReal ? 'font-bold text-slate-800' : 'font-normal text-slate-600') : ''}`}>
+            {member ? (
+              <span className="inline-flex items-center gap-1.5">
+                {getFullName(member as any)}
+                {isReal && <span className="text-[9px] font-bold text-teal-600 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded-full uppercase tracking-wide">реален</span>}
+              </span>
+            ) : <span className="text-slate-400 font-normal">—</span>}
           </dd>
         </div>
       ))}
