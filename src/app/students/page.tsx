@@ -215,10 +215,10 @@ export default async function StudentsPage({
                 <th className="px-6 py-3"></th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100">
               {allRows.map((r, i) => (
                 <tr key={r.key} className={`group transition-colors hover:bg-blue-50/40 ${i % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
-                  <td className="px-6 py-2.5 font-semibold text-slate-800">
+                  <td className="px-6 py-1.5 font-semibold text-slate-800">
                     <span className="inline-flex items-center gap-2">
                       {getFullName(r.student)}
                       {r.student?.is_new && (
@@ -228,7 +228,7 @@ export default async function StudentsPage({
                       )}
                     </span>
                   </td>
-                  <td className="px-6 py-2.5">
+                  <td className="px-6 py-1.5">
                     {r.className ? (
                       <span className="text-slate-600">{r.className}</span>
                     ) : (
@@ -237,8 +237,8 @@ export default async function StudentsPage({
                       </span>
                     )}
                   </td>
-                  <td className="px-6 py-2.5 text-slate-500">{r.student?.birth_date ? formatDate(r.student.birth_date) : '—'}</td>
-                  <td className="px-6 py-2.5 text-right">
+                  <td className="px-6 py-1.5 text-slate-500">{r.student?.birth_date ? formatDate(r.student.birth_date) : '—'}</td>
+                  <td className="px-6 py-1.5 text-right">
                     <Link href={`/students/${r.student?.id}`} className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-bold text-[11px] uppercase tracking-widest">
                       Преглед <ChevronRight size={14} />
                     </Link>
