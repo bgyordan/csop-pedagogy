@@ -1664,7 +1664,6 @@ export async function generateClassSchedule(
 
     children.push(
       new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }),
-      new Paragraph({ text: '', spacing: { after: 80 } }),
     )
   })
 
@@ -1696,13 +1695,14 @@ export async function generateTherapistSchedule(
   const THER_PERIODS = [
     { period: 1, time: '8:30 – 9:05' },
     { period: 2, time: '9:15 – 9:50' },
+    { period: 0, time: '9:50 – 10:20' },   // ГМ
     { period: 3, time: '10:20 – 10:55' },
     { period: 4, time: '11:05 – 11:40' },
     { period: 5, time: '11:50 – 12:25' },
     { period: 6, time: '12:35 – 13:05' },
     { period: 7, time: '13:15 – 13:50' },
     { period: 8, time: '13:50 – 14:00' },
-  ].filter(p => p.period <= maxPeriod)
+  ].filter(p => p.period === 0 || p.period <= maxPeriod)
 
   const children: any[] = []
 
@@ -1771,7 +1771,7 @@ export async function generateTherapistSchedule(
         cantSplit: true,
         children: [
           new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 60, right: 60 },
-            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(p.period), size: 17 })] })] }),
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: p.period === 0 ? 'ГМ' : String(p.period), size: 17 })] })] }),
           new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 60, right: 60 },
             children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: p.time, size: 17 })] })] }),
           new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 80, right: 80 },
@@ -1781,7 +1781,6 @@ export async function generateTherapistSchedule(
     })
     children.push(
       new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }),
-      new Paragraph({ text: '', spacing: { after: 80 } }),
     )
   })
 
