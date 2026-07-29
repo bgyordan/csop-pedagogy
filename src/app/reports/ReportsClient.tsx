@@ -442,16 +442,12 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
                 <tr>
                   <th className="text-left px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Специалист</th>
                   <th className="text-left px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Роля</th>
-                  <th className="text-center px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Ученици</th>
-                  <th className="text-center px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Документи</th>
-                  <th className="px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest print:hidden w-1/4">Прогрес</th>
-                  <th className="px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden print:table-cell">%</th>
+                  <th className="text-center px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Деца (терапия)</th>
+                  <th className="text-center px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Сесии / седмица</th>
                 </tr>
               </thead>
               <tbody>
-                {workloadRows.map((row) => {
-                  const pct = row.totalDocs > 0 ? Math.round(row.completedDocs / row.totalDocs * 100) : 0
-                  return (
+               {workloadRows.map((row) => (
                     <tr key={row.id} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors">
                       <td className="px-5 py-4 font-medium text-slate-800">{row.name}</td>
                       <td className="px-5 py-4 text-slate-500 text-xs">{row.role}</td>
@@ -460,19 +456,9 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
                           {row.studentCount}
                         </span>
                       </td>
-                      <td className="px-5 py-4 text-center text-slate-500 font-medium">{row.completedDocs} / {row.totalDocs}</td>
-                      <td className="px-5 py-4 print:hidden">
-                        <div className="flex items-center gap-3">
-                          <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                            <div className={`h-full ${pct >= 80 ? 'bg-emerald-500' : pct >= 40 ? 'bg-amber-400' : 'bg-red-400'}`} style={{ width: `${pct}%` }} />
-                          </div>
-                          <span className="text-xs font-semibold text-slate-500 w-9 text-right">{pct}%</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-xs font-medium text-slate-600 hidden print:table-cell">{pct}%</td>
+                      <td className="px-5 py-4 text-center text-slate-600 font-semibold">{row.totalSessions}</td>
                     </tr>
-                  )
-                })}
+                ))}
               </tbody>
             </table>
           </div>
