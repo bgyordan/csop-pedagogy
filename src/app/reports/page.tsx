@@ -22,7 +22,9 @@ export default async function ReportsPage() {
   if (!user) redirect('/auth/login')
   const { data: profile } = await supabase
     .from('staff_profiles').select('role, is_coordinator').eq('user_id', user.id).single()
-  const canAccess = ['admin', 'zdud', 'director'].includes(profile?.role || '') || profile?.is_coordinator === true
+  const isSpecialist = ['psychologist', 'speech_therapist', 'rehabilitator'].includes(profile?.role || '')
+  const isManager = ['admin', 'zdud', 'director'].includes(profile?.role || '') || profile?.is_coordinator === true
+  const canAccess = isManager || isSpecialist
   if (!canAccess) redirect('/dashboard')
   const { data: currentYear } = await supabase
     .from('academic_years').select('*').eq('is_current', true).single()
@@ -253,6 +255,7 @@ export default async function ReportsPage() {
           role: ROLE_LABELS_BG[s.role] || s.role,
         }))}
         yearName={currentYear?.name || ''}
+        limitedView={isSpecialist && !isManager}
       />
     </div>
   )
