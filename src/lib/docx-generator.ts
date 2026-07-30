@@ -1893,7 +1893,7 @@ export async function generateSurveyDocument(studentName: string, data: Record<s
   try {
     children.push(new Paragraph({
       alignment: AlignmentType.CENTER,
-      children: [new ImageRun({ data: Uint8Array.from(atob(CSOP_LOGO_B64), c => c.charCodeAt(0)), transformation: { width: 55, height: 55 } })],
+    children: [new ImageRun({ data: Buffer.from(CSOP_LOGO_B64, 'base64'), transformation: { width: 55, height: 55 }, type: 'jpg' })],
     }))
   } catch {}
   children.push(
