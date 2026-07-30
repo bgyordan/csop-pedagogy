@@ -36,11 +36,12 @@ interface Props {
   schools: { id: string; name: string; city: string }[]
   specialists: { id: string; name: string; role: string }[]
   yearName: string
+  limitedView?: boolean
 }
 
-export default function ReportsClient({ schedules = [], slotsBySchedule = {}, allRows, workloadRows, intensityRows = [], delayedRows, schools, specialists, yearName }: Props) {
+export default function ReportsClient({ schedules = [], slotsBySchedule = {}, allRows, workloadRows, intensityRows = [], delayedRows, schools, specialists, yearName, limitedView = false }: Props) {
   // Първият таб по подразбиране вече е "По училище"
-  const [activeTab, setActiveTab] = useState<ReportTab>('school')
+  const [activeTab, setActiveTab] = useState<ReportTab>(limitedView ? 'intensity' : 'school')
   const [expandedSchool, setExpandedSchool] = useState<string | null>(null)
   const [selectedSpecialist, setSelectedSpecialist] = useState('')
   const [generatingAll, setGeneratingAll] = useState(false)
@@ -201,7 +202,7 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
 
       {/* Меню с табове */}
       <div className="inline-flex p-1 bg-slate-100/80 backdrop-blur-sm rounded-xl mb-6 print:hidden overflow-x-auto max-w-full border border-slate-200/50 shadow-inner">
-        {tabs.map(tab => (
+        {(limitedView ? tabs.filter(t => t.id === 'intensity') : tabs).map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
               activeTab === tab.id
