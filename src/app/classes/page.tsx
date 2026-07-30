@@ -31,8 +31,26 @@ export default async function ClassesPage({
   const { data: currentYear } = await supabase
     .from('academic_years').select('*').eq('is_current', true).single()
 
-  const { data: classes } = await supabase
+  // Профил — за да ограничим класния само до неговите паралелки
+  const { data: myProfile } = await supabase
+    .from('staff_profiles').select('id, role, is_coordinator').eq('user_id', user.id).single()
+  const isManager = ['admin', 'zdud', 'director'].includes(myProfile?.role || '') || myProfile?.is_coordinator === true
+
+  // Кои паралелки да се показват: мениджърите — всички; останалите — само тези, на които са класни
+  let myClassIds: string[] | null = null
+  if (!isManager && myProfile?.id) {
+    const { data: myCta } = await supabase
+      .from('class_teacher_assignments').select('class_id')
+      .eq('staff_id', myProfile.id).eq('academic_year_id', currentYear?.id)
+    myClassIds = (myCta || []).map(a => a.class_id)
+  }
+
+  let classesQuery = supabase
     .from('classes').select('*').eq('academic_year_id', currentYear?.id).order('name')
+  if (myClassIds !== null) {
+    classesQuery = classesQuery.in('id', myClassIds.length > 0 ? myClassIds : ['no-results'])
+  }
+  const { data: classes } = await classesQuery
 
   const { data: allEnrollmentsRaw } = await supabase
     .from('student_enrollments')
