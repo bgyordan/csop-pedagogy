@@ -70,7 +70,11 @@ export default async function StudentsPage({
   type Row = { key: string; student: any; className: string | null; unassigned: boolean }
   let unassignedRows: Row[] = []
   if (canSeeUnassigned) {
-    const enrolledIds = new Set((enrollments || []).map(e => e.student_id))
+    // ВСИЧКИ записани за годината (без филтъра по паралелка) — иначе филтърът лъже кой е "неразпределен"
+    const { data: allEnrolledForYear } = await supabase
+      .from('student_enrollments').select('student_id')
+      .eq('academic_year_id', currentYear?.id)
+    const enrolledIds = new Set((allEnrolledForYear || []).map(e => e.student_id))
     const { data: allActive } = await supabase
       .from('students').select('*').eq('status', 'active')
     unassignedRows = (allActive || [])
@@ -99,8 +103,10 @@ export default async function StudentsPage({
       unassigned: false,
     }))
 
-  // Обединяваме
-  let allRows: Row[] = [...enrolledRows, ...unassignedRows]
+  // Обединяваме. Ако е избрана конкретна паралелка от падащото меню — неразпределените нямат паралелка, скриваме ги.
+  let allRows: Row[] = params.class
+    ? [...enrolledRows]
+    : [...enrolledRows, ...unassignedRows]
 
   // Филтри
   allRows = allRows.filter(r => {
