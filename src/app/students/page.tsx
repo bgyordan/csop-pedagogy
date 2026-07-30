@@ -185,6 +185,19 @@ export default async function StudentsPage({
         )}
       </div>
 
+      {/* Индикатор за избрана паралелка */}
+      {params.class && (
+        <div className="mb-4 flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5">
+          <div className="flex items-center gap-2 text-sm text-slate-700">
+            <span className="font-medium">Паралелка {allRows[0]?.className || ''}</span>
+            <span className="text-slate-400">· {allRows.length} ученика</span>
+          </div>
+          <Link href="/students" className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 transition-colors">
+            <X size={13} /> Изчисти
+          </Link>
+        </div>
+      )}
+
       {/* Активен специален филтър */}
       {activeFilter && (
         <div className="mb-4 flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5">
