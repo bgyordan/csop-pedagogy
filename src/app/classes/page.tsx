@@ -155,11 +155,13 @@ export default async function ClassesPage({
         </Link>
       </div>
 
-      <Link href={tab === 'coud' ? '/admin/coud' : '/admin/years'}
-        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 shadow-sm transition-all">
-        <Settings2 size={13} className="text-slate-400" />
-        {tab === 'coud' ? 'Редакция на ЦОУД групите' : 'Редакция на паралелките'}
-      </Link>
+     {isManager && (
+        <Link href={tab === 'coud' ? '/admin/coud' : '/admin/years'}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 shadow-sm transition-all">
+          <Settings2 size={13} className="text-slate-400" />
+          {tab === 'coud' ? 'Редакция на ЦОУД групите' : 'Редакция на паралелките'}
+        </Link>
+      )}
       </div>
 
       {tab === 'coud' ? (
