@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Save, Loader2, Check, ChevronDown, FileText } from 'lucide-react'
+import { ArrowLeft, Save, Loader2, Check, ChevronDown, FileText, Download } from 'lucide-react'
+import { generateSurveyDocument } from '@/lib/docx-generator'
 import { SURVEY_SECTIONS } from './survey-schema'
 
 interface Props {
@@ -74,6 +75,10 @@ export default function SurveyForm({ studentId, studentName, initialData, canEdi
     setTimeout(() => setSaved(false), 3000)
   }
 
+  async function downloadWord() {
+    await generateSurveyDocument(studentName, data)
+  }
+
   // Колко полета са попълнени в секция (за индикатор)
   function filledCount(sectionKey: string): number {
     const sec = data[sectionKey] || {}
@@ -94,6 +99,10 @@ export default function SurveyForm({ studentId, studentName, initialData, canEdi
         <div className="flex items-center gap-2">
           <button onClick={expandAll} className="text-xs text-slate-500 hover:text-slate-800 px-2 py-1">Разгъни</button>
           <button onClick={collapseAll} className="text-xs text-slate-500 hover:text-slate-800 px-2 py-1">Свий</button>
+          <button onClick={downloadWord}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+            <Download size={14} /> Word
+          </button>
         </div>
       </div>
 
