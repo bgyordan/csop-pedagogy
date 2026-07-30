@@ -40,6 +40,7 @@ const navItems: NavItem[] = [
   { href: '/my-activities', label: 'Списък за терапия', icon: <HeartPulse size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
   { href: '/staff', label: 'Служители', icon: <UserCircle size={16} />, roles: ['admin', 'director', 'zdud'] },
   { href: '/reports', label: 'Писма и справки', icon: <BarChart3 size={16} />, roles: ['admin', 'director', 'zdud'], coordinatorOnly: true },
+  { href: '/reports', label: 'Натовареност', icon: <BarChart3 size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
   {
     href: '#coordinating',
     label: 'Координиращ екип',
