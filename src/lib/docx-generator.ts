@@ -1598,6 +1598,7 @@ export async function generateClassSchedule(
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 160 }, children: [
       new TextRun({ text: title, bold: true, size: 22 }),
       new TextRun({ text: `   ·   ${subtitle}`, size: 18, italics: true, color: '555555' }),
+      ...(yearName ? [new TextRun({ text: `   ·   уч. ${yearName} г.`, size: 18, italics: true, color: '555555' })] : []),
     ] }),
   )
 
