@@ -14,8 +14,10 @@ interface Props {
   academicYearId: string
   term: number
   subjects: Subject[]
-  existingSlots: SlotData[]
+ existingSlots: SlotData[]
   className?: string
+  classTeacherName?: string
+  yearName?: string
 }
 
 const DAYS = [
@@ -31,7 +33,7 @@ const PERIOD_TIMES: Record<number, string> = {
   4: '11:05–11:40', 5: '11:50–12:25', 6: '12:35–13:05', 7: '13:15–13:50',
 }
 
-export function ScheduleGrid({ classId, academicYearId, term, subjects: initialSubjects, existingSlots, className = '' }: Props) {
+export function ScheduleGrid({ classId, academicYearId, term, subjects: initialSubjects, existingSlots, className = '', classTeacherName = '', yearName = '' }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [subjects, setSubjects] = useState(initialSubjects)
@@ -74,9 +76,11 @@ export function ScheduleGrid({ classId, academicYearId, term, subjects: initialS
       if (subj) slotNames[key] = subj.name
     })
     const title = className ? `Паралелка ${className}` : 'Паралелка'
-    const subtitle = `${term === 1 ? 'I' : 'II'} срок`
+    const subtitle = classTeacherName
+      ? `Класен ръководител: ${classTeacherName} · ${term === 1 ? 'I' : 'II'} срок`
+      : `${term === 1 ? 'I' : 'II'} срок`
     const maxPeriod = show7 ? 7 : 6
-    await generateClassSchedule(title, subtitle, '', slotNames, maxPeriod)
+    await generateClassSchedule(title, subtitle, yearName, slotNames, maxPeriod)
   }
 
   async function handleSave() {
