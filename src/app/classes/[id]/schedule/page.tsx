@@ -54,7 +54,19 @@ export default async function ClassSchedulePage({
       .from('schedule_slots').select('day, period, subject_id').eq('schedule_id', schedule.id)
     existingSlots = data || []
   }
+// Класен ръководител на паралелката
+  const { data: cta } = await supabase
+    .from('class_teacher_assignments')
+    .select('staff:staff_profiles(first_name, middle_name, last_name)')
+    .eq('class_id', classId).eq('academic_year_id', cls.academic_year_id)
+    .limit(1).maybeSingle()
+  const teacher = (cta?.staff as any)
+  const classTeacherName = teacher ? [teacher.first_name, teacher.last_name].filter(Boolean).join(' ') : ''
 
+  // Учебна година (име)
+  const { data: yearRow } = await supabase
+    .from('academic_years').select('name').eq('id', cls.academic_year_id).maybeSingle()
+  const yearName = yearRow?.name || ''
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
       <Link href="/classes" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6">
@@ -75,6 +87,8 @@ export default async function ClassSchedulePage({
         subjects={subjects || []}
         existingSlots={existingSlots}
         className={cls.name}
+        classTeacherName={classTeacherName}
+        yearName={yearName}
       />
     </div>
   )
