@@ -1789,3 +1789,179 @@ export async function generateTherapistSchedule(
   const safe = specialistName.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_')
   saveAs(blob, `график_${safe}.docx`)
 }
+// ═══════════════════════════════════════════════════════════
+// АНКЕТА "Карта за оценка на индивидуалните потребности на детето"
+// ═══════════════════════════════════════════════════════════
+
+interface SurveySectionDef {
+  key: string
+  title: string
+  fields: { key: string; label: string }[]
+  hasNotes?: boolean
+  ageColumn?: boolean
+}
+
+const SURVEY_DOC_SECTIONS: SurveySectionDef[] = [
+  { key: 'child_data', title: 'Данни за детето', fields: [
+    { key: 'full_name', label: 'Трите имена' }, { key: 'nickname', label: 'Обръщение към детето' },
+    { key: 'age', label: 'Възраст' }, { key: 'group', label: 'Група' },
+    { key: 'parent_name', label: 'Име на родителя' }, { key: 'phone', label: 'Телефон' },
+    { key: 'email', label: 'E-mail' }, { key: 'doctor', label: 'Личен лекар' },
+  ]},
+  { key: 'professional_help', title: 'Професионална помощ в грижите за детето', fields: [
+    { key: 'past', label: 'В минали периоди' }, { key: 'present', label: 'В момента' },
+    { key: 'education_so_far', label: 'Обучавано ли е детето до момента' },
+  ]},
+  { key: 'actual_condition', title: 'I.1. Актуално състояние', hasNotes: true, fields: [
+    { key: 'disability_type', label: 'Вид увреждане (по медицински документи)' },
+    { key: 'onset', label: 'Поява на нарушението / календарна възраст' },
+    { key: 'change', label: 'Промяна (влошаване/подобрение)' },
+    { key: 'other_conditions', label: 'Други заболявания / алергии' },
+    { key: 'diet', label: 'Специален режим на хранене' },
+    { key: 'medications', label: 'Лекарства' },
+    { key: 'motor_disorders', label: 'Двигателни нарушения' },
+    { key: 'vision', label: 'Зрение, очила' },
+    { key: 'hearing', label: 'Слух' },
+    { key: 'sensitivity', label: 'Чувствителност (шум, светлина, температура, миризми)' },
+  ]},
+  { key: 'early_development', title: 'I.2. Ранно психо-моторно развитие', hasNotes: true, ageColumn: true, fields: [
+    { key: 'pregnancy', label: 'Бременност на майката' }, { key: 'birth', label: 'Раждане' },
+    { key: 'sit_crawl', label: 'Седи, пълзи' }, { key: 'walk', label: 'Ходи' },
+    { key: 'breastfeeding', label: 'Кърмене' }, { key: 'toilet', label: 'Контрол на тазово-резервоарни функции' },
+    { key: 'cooing', label: 'Гукане' }, { key: 'babble', label: 'Лепет' },
+    { key: 'first_words', label: 'Първи думи' }, { key: 'sentences', label: 'Изречения' },
+  ]},
+  { key: 'play_behavior', title: 'I.3. Игра и поведение', hasNotes: true, fields: [
+    { key: 'typical_home', label: 'Типично поведение вкъщи' },
+    { key: 'family_activities', label: 'Семейни дейности' },
+    { key: 'favorite', label: 'Любими играчки/занимания' },
+    { key: 'disliked', label: 'Нехаресвани играчки/дейности' },
+    { key: 'exploration', label: 'Как изследва предметите' },
+    { key: 'oddities', label: 'Странности в поведението' },
+    { key: 'activity_level', label: 'Активност/хиперактивност/внимание' },
+    { key: 'rituals', label: 'Стереотипно поведение, ритуали' },
+    { key: 'screen_time', label: 'Екранно време' },
+    { key: 'play_skills', label: 'Игрови умения' },
+  ]},
+  { key: 'interaction', title: 'I.4. Интеракция', fields: [
+    { key: 'siblings', label: 'С братя/сестри' },
+    { key: 'peers', label: 'С връстници' },
+    { key: 'adults', label: 'С възрастни' },
+  ]},
+  { key: 'emotions', title: 'I.5. Емоции и регулация', hasNotes: true, fields: [
+    { key: 'mood_changes', label: 'Смяна на настроението' },
+    { key: 'crises', label: 'Кризи и провокатори' },
+    { key: 'calming', label: 'Какво го успокоява' },
+    { key: 'self_calm', label: 'Успокоява ли се сам (2–5 мин)' },
+    { key: 'aggression', label: 'Агресивно/автоагресивно поведение' },
+    { key: 'transitions', label: 'Преход между дейности' },
+    { key: 'motivation', label: 'Поощрение/мотивация' },
+  ]},
+  { key: 'communication', title: 'I.6. Комуникация', fields: [
+    { key: 'eye_contact', label: 'Очен контакт, внимание, реакция на име, жестове' },
+    { key: 'ways', label: 'Как общува' },
+    { key: 'aac', label: 'Алтернативна комуникация' },
+    { key: 'bilingual', label: 'Билингвизъм' },
+  ]},
+  { key: 'autonomy', title: 'I.7. Автономност', fields: [
+    { key: 'self_care', label: 'Самообслужване' },
+    { key: 'independence', label: 'Ниво на независимост' },
+    { key: 'positioning', label: 'Позициониране (хранене, учене, игра, сън)' },
+  ]},
+  { key: 'family', title: 'I.8. Семейни отношения', hasNotes: true, fields: [
+    { key: 'family_type', label: 'Вид семейство' },
+    { key: 'children_count', label: 'Брой деца в семейството' },
+    { key: 'contact_frequency', label: 'Честота на контактите' },
+    { key: 'contact_quality', label: 'Качество на контактите' },
+    { key: 'housing', label: 'Жилищни условия' },
+    { key: 'employment', label: 'Трудова заетост' },
+    { key: 'basic_care', label: 'Основни грижа и закрила' },
+    { key: 'emotional_bond', label: 'Емоционална връзка' },
+    { key: 'parenting_style', label: 'Родителски стил' },
+    { key: 'family_burden', label: 'Фамилна обремененост' },
+  ]},
+  { key: 'parent_view', title: 'Родителят', fields: [
+    { key: 'coping', label: 'Справяне и затруднения на родителя' },
+    { key: 'expectations', label: 'Очаквания относно престоя в ЦСОП-Варна' },
+  ]},
+]
+
+export async function generateSurveyDocument(studentName: string, data: Record<string, any>) {
+  const children: any[] = []
+
+  // Хедър
+  try {
+    children.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [new ImageRun({ data: Uint8Array.from(atob(CSOP_LOGO_B64), c => c.charCodeAt(0)), transformation: { width: 55, height: 55 } })],
+    }))
+  } catch {}
+  children.push(
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 20 }, children: [new TextRun({ text: 'ЦСОП - Варна', bold: true, size: 22 })] }),
+    new Paragraph({ spacing: { before: 40, after: 80 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 20 }, children: [new TextRun({ text: 'КАРТА ЗА ОЦЕНКА НА ИНДИВИДУАЛНИТЕ ПОТРЕБНОСТИ НА ДЕТЕТО', bold: true, size: 24 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: studentName, size: 22, italics: true, color: '555555' })] }),
+  )
+
+  const CELL_BORDER = { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' }
+  const CELLS = { top: CELL_BORDER, bottom: CELL_BORDER, left: CELL_BORDER, right: CELL_BORDER }
+
+  SURVEY_DOC_SECTIONS.forEach(section => {
+    const sec = data[section.key] || {}
+
+    // Заглавие на секцията
+    children.push(new Paragraph({
+      spacing: { before: 200, after: 80 },
+      children: [new TextRun({ text: section.title, bold: true, size: 20, color: '0f2240' })],
+    }))
+
+    // Таблица въпрос → отговор (+ възраст, ако има)
+    const rows: any[] = []
+    section.fields.forEach(f => {
+      const val = sec[f.key] || ''
+      const cells = [
+        new TableCell({
+          width: { size: section.ageColumn ? 45 : 50, type: WidthType.PERCENTAGE }, borders: CELLS,
+          shading: { type: ShadingType.CLEAR, fill: 'F7F9FC' },
+          margins: { top: 40, bottom: 40, left: 100, right: 100 },
+          children: [new Paragraph({ children: [new TextRun({ text: f.label, size: 18 })] })],
+        }),
+      ]
+      if (section.ageColumn) {
+        cells.push(new TableCell({
+          width: { size: 15, type: WidthType.PERCENTAGE }, borders: CELLS,
+          margins: { top: 40, bottom: 40, left: 100, right: 100 },
+          children: [new Paragraph({ children: [new TextRun({ text: sec[`${f.key}__age`] || '', size: 18 })] })],
+        }))
+      }
+      cells.push(new TableCell({
+        width: { size: section.ageColumn ? 40 : 50, type: WidthType.PERCENTAGE }, borders: CELLS,
+        margins: { top: 40, bottom: 40, left: 100, right: 100 },
+        children: [new Paragraph({ children: [new TextRun({ text: String(val), size: 18 })] })],
+      }))
+      rows.push(new TableRow({ children: cells }))
+    })
+
+    children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }))
+
+    // Бележки
+    if (section.hasNotes && (sec.__notes || '').trim()) {
+      children.push(new Paragraph({
+        spacing: { before: 80, after: 40 },
+        children: [
+          new TextRun({ text: 'Бележки: ', bold: true, size: 18 }),
+          new TextRun({ text: String(sec.__notes), size: 18 }),
+        ],
+      }))
+    }
+  })
+
+  children.push(
+    new Paragraph({ spacing: { before: 300 }, children: [new TextRun({ text: 'Дата: ..............................', size: 18 })] }),
+  )
+
+  const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
+  const blob = await Packer.toBlob(doc)
+  const safe = studentName.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_')
+  saveAs(blob, `анкета_${safe}.docx`)
+}
