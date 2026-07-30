@@ -5,41 +5,35 @@ import { BackButton } from '@/components/ui/BackButton'
 import { DocumentType, DOCUMENT_TYPE_LABELS } from '@/types'
 import { getFullName } from '@/lib/utils'
 import ClassTeachersSection from './ClassTeachersSection'
-
+import AddStudentsSection from './AddStudentsSection'
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
   'iup', 'iu_program', 'support_plan', 'parent_program'
 ]
-
 const DOC_SHORT: Record<DocumentType, string> = {
   protocol_1: 'П1', protocol_2: 'П2', protocol_3: 'П3',
   iup: 'ИУП', iu_program: 'ИУПр', support_plan: 'ПДП', parent_program: 'ПР',
 }
-
 export default async function ClassDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
-
   const { data: currentYear } = await supabase
     .from('academic_years').select('*').eq('is_current', true).single()
-
   const { data: cls } = await supabase
     .from('classes').select('*').eq('id', id).single()
-
   if (!cls) notFound()
-
   const [{ data: enrollments }, { data: assignments }, { data: myProfile }, { data: allStaff }] = await Promise.all([
     supabase.from('student_enrollments').select('*, student:students(*)').eq('class_id', id).eq('academic_year_id', currentYear?.id),
     supabase.from('class_teacher_assignments').select('id, staff_id, staff:staff_profiles(id, first_name, middle_name, last_name, is_active)').eq('class_id', id).eq('academic_year_id', currentYear?.id),
-    supabase.from('staff_profiles').select('role').eq('user_id', user.id).single(),
+    supabase.from('staff_profiles').select('role, is_coordinator').eq('user_id', user.id).single(),
     supabase.from('staff_profiles').select('id, first_name, middle_name, last_name').eq('is_active', true).order('first_name'),
   ])
-
   // Само активни ученици (втора защита освен изтриването на записа при архивиране)
   const students = enrollments?.map(e => e.student).filter((s: any) => s && s.status === 'active') || []
   const canManageTeachers = ['admin', 'zdud'].includes(myProfile?.role || '')
+  const canManageStudents = ['admin', 'zdud'].includes(myProfile?.role || '') || myProfile?.is_coordinator === true
   // Само активни класни — пенсионирани/неактивни не се показват
   const teacherList = (assignments || [])
     .filter((a: any) => a.staff && a.staff.is_active !== false)
@@ -49,16 +43,27 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
       name: a.staff ? getFullName(a.staff) : '—',
     }))
   const teachers = teacherList.map(t => t.name)
-
   const staffOptions = (allStaff || []).map((s: any) => ({ id: s.id, name: getFullName(s) }))
+
+  // Неразпределени ученици (активни без записване за годината) — за бутона "Добави ученик"
+  let unassignedList: { id: string; name: string; isNew: boolean }[] = []
+  if (canManageStudents) {
+    const { data: allEnrolled } = await supabase
+      .from('student_enrollments').select('student_id').eq('academic_year_id', currentYear?.id)
+    const enrolledIds = new Set((allEnrolled || []).map(e => e.student_id))
+    const { data: allActive } = await supabase
+      .from('students').select('id, first_name, middle_name, last_name, is_new').eq('status', 'active')
+    unassignedList = (allActive || [])
+      .filter((s: any) => !enrolledIds.has(s.id))
+      .map((s: any) => ({ id: s.id, name: getFullName(s), isNew: !!s.is_new }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'bg'))
+  }
 
   const { data: documents } = students.length > 0
     ? await supabase.from('documents').select('*').eq('academic_year_id', currentYear?.id).in('student_id', students.map((s: any) => s.id))
     : { data: [] }
-
   const docMap = new Map<string, string>()
   documents?.forEach(d => docMap.set(`${d.student_id}_${d.doc_type}`, d.status))
-
   return (
     <div className="p-4 md:p-8">
       <BackButton />
@@ -71,13 +76,20 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
           )}
         </div>
       </div>
-
       <ClassTeachersSection
         classId={id}
         academicYearId={currentYear?.id || ''}
         teachers={teacherList}
         options={staffOptions}
         canManage={canManageTeachers}
+      />
+
+      <AddStudentsSection
+        classId={id}
+        className={cls.name}
+        academicYearId={currentYear?.id || ''}
+        unassigned={unassignedList}
+        canManage={canManageStudents}
       />
 
       {/* ДЕСКТОП: таблица */}
@@ -127,7 +139,6 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
         </div>
         {!students.length && <div className="text-center py-12 text-slate-400 text-sm">Няма ученици</div>}
       </div>
-
       {/* МОБИЛЕН: карти */}
       <div className="md:hidden space-y-2">
         {!students.length && <div className="text-center py-12 text-slate-400 text-sm">Няма ученици</div>}
@@ -138,7 +149,6 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
           const inProgressCount = ALL_DOC_TYPES.filter(dt =>
             docMap.get(`${student.id}_${dt}`) === 'in_progress'
           ).length
-
           return (
             <div key={student.id} className="bg-white rounded-xl border border-slate-200 p-3">
               <div className="flex items-center justify-between mb-2">
