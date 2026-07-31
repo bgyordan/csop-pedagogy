@@ -227,7 +227,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       )}
 
       {/* ЧЕТИРИ РАВНИ КАРТИ */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-5 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
         <div className={cardCls}>
           <div className={cardHead}>
             <Users size={16} className="text-blue-500" />
@@ -287,19 +287,38 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {/* ДОКУМЕНТИ ЕПЛР — качване на готови файлове (Teams → тук) */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm mb-5">
-        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
-          <FileText size={16} className="text-emerald-500" />
-          <h2 className="font-bold text-slate-800 text-sm">Документи ЕПЛР — {currentYear?.name}</h2>
+      {/* ДВЕТЕ КАЧВАНИЯ — една до друга */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5 items-start">
+        {/* Документи ЕПЛР — качване на готови файлове (Teams → тук) */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+            <FileText size={16} className="text-emerald-500" />
+            <h2 className="font-bold text-slate-800 text-sm">Документи ЕПЛР — {currentYear?.name}</h2>
+          </div>
+          <EplrDocumentsSection
+            studentId={student.id}
+            academicYearId={currentYear?.id || ''}
+            documents={eplrDocs || []}
+            canManage={canManage}
+            staffId={profile?.id || ''}
+          />
         </div>
-        <EplrDocumentsSection
-          studentId={student.id}
-          academicYearId={currentYear?.id || ''}
-          documents={eplrDocs || []}
-          canManage={canManage}
-          staffId={profile?.id || ''}
-        />
+        {/* Досие — външни документи */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+            <Paperclip size={16} className="text-amber-500" />
+            <h2 className="font-bold text-slate-800 text-sm">Досие — външни документи</h2>
+          </div>
+          <AttachmentsSection
+            studentId={id}
+            attachments={attachments || []}
+            canManage={canEditDossier}
+            staffId={profile?.id || ''}
+            typeLabels={ATTACHMENT_TYPE_LABELS}
+            currentYearName={currentYearName}
+            yearOptions={yearOptions}
+          />
+        </div>
       </div>
 
       {/* СТАРАТА ЕПЛР карта за попълване — скрита, кодът остава за бъдеще
