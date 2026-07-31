@@ -83,9 +83,9 @@ export default function StudentStatusSection({
     return new Date(d).toLocaleDateString('bg-BG')
   }
   return (
-    <div className="space-y-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
       {/* Интензитет (часове седмично по РЦПППО) */}
-      <div>
+      <div className="rounded-xl border border-slate-100 bg-slate-50/40 p-3">
         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Интензитет (часове/седмица)</div>
         {canManage ? (
           <div className="space-y-1.5">
@@ -118,9 +118,8 @@ export default function StudentStatusSection({
           </div>
         )}
       </div>
-
       {/* Форма на обучение */}
-      <div>
+      <div className="rounded-xl border border-slate-100 bg-slate-50/40 p-3">
         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Форма на обучение</div>
         {canManage ? (
           <div className="flex gap-1.5">
@@ -144,7 +143,7 @@ export default function StudentStatusSection({
         )}
       </div>
       {/* ЦОУД */}
-      <div>
+      <div className="rounded-xl border border-slate-100 bg-slate-50/40 p-3">
         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">ЦОУД (занималня)</div>
         {coudGroupName ? (
           <div>
@@ -154,10 +153,10 @@ export default function StudentStatusSection({
         ) : (
           <div className="text-sm text-slate-400">Не е записан</div>
         )}
-        <p className="text-[10px] text-slate-300 mt-1">Групите се управляват в Администрация → ЦОУД групи</p>
+        <p className="text-[10px] text-slate-300 mt-1">Управляват се в Администрация → ЦОУД групи</p>
       </div>
       {/* ОРЕС */}
-      <div>
+      <div className="rounded-xl border border-slate-100 bg-slate-50/40 p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ОРЕС</div>
           {activeOres && (
@@ -172,7 +171,7 @@ export default function StudentStatusSection({
               const isActive = o.from_date <= today && (!o.to_date || o.to_date >= today)
               return (
                 <div key={o.id} className={`group flex items-start justify-between p-2 rounded-lg border text-xs ${
-                  isActive ? 'bg-amber-50/50 border-amber-200' : 'bg-slate-50 border-slate-200'
+                  isActive ? 'bg-amber-50/50 border-amber-200' : 'bg-white border-slate-200'
                 }`}>
                   <div>
                     <div className="flex items-center gap-1 text-slate-700 font-medium">
@@ -192,10 +191,10 @@ export default function StudentStatusSection({
             })}
           </div>
         ) : (
-          !showOresForm && <div className="text-sm text-slate-400">Няма периоди в ОРЕС</div>
+          !showOresForm && <div className="text-sm text-slate-400">Няма периоди</div>
         )}
         {canManage && showOresForm && (
-          <div className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+          <div className="mt-2 p-3 bg-white border border-slate-200 rounded-xl space-y-2">
             <div className="flex gap-2">
               <div className="flex-1">
                 <label className="block text-[9px] font-medium text-slate-400 uppercase mb-1">От дата</label>
