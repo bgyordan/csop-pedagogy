@@ -62,7 +62,40 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
     : { data: [] }
   const eplrByStudent: Record<string, any> = {}
   ;(eplrTeams || []).forEach((e: any) => { eplrByStudent[e.student_id] = e })
+// ── Терапии на моите деца (от терапевтичните графици, текущ срок = 1) ──
+  const { data: therSlots } = studentIds.length > 0
+    ? await supabase.from('therapist_slots')
+        .select(`day, period, student_id,
+          schedule:therapist_schedules!inner(term, academic_year_id,
+            staff:staff_profiles(first_name, last_name, role))`)
+        .in('student_id', studentIds)
+        .eq('schedule.term', 1)
+        .eq('schedule.academic_year_id', currentYearId)
+    : { data: [] }
 
+  const ROLE_BG: Record<string, string> = {
+    psychologist: 'Психолог', speech_therapist: 'Логопед', rehabilitator: 'Рехабилитатор',
+  }
+  const PERIOD_TIME: Record<number, string> = {
+    1: '8:30', 2: '9:15', 3: '10:20', 4: '11:05', 5: '11:50', 6: '12:35', 7: '13:15',
+  }
+  const studentNameById: Record<string, string> = {}
+  activeEnrollments.forEach((e: any) => { studentNameById[e.student_id] = getFullName(e.student) })
+
+  const therapyRows = (therSlots || []).map((slot: any) => {
+    const st = slot.schedule?.staff
+    return {
+      studentId: slot.student_id,
+      studentName: studentNameById[slot.student_id] || '',
+      day: slot.day,
+      period: slot.period,
+      time: PERIOD_TIME[slot.period] || '',
+      specialist: st ? `${st.first_name} ${st.last_name}` : '',
+      role: ROLE_BG[st?.role] || '',
+    }
+  }).sort((a: any, b: any) =>
+    a.day - b.day || a.period - b.period || a.studentName.localeCompare(b.studentName, 'bg')
+  )
   // Данни за таб "Моята паралелка" — деца + техните реални терапевти
   const paralelkaRows = activeEnrollments.map((e: any) => {
     const s = e.student
@@ -148,7 +181,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <ClassTeacherTabs paralelkaRows={paralelkaRows} eplrRows={eplrRows} className={myClasses[0].name} classId={myClasses[0].id} />
+         <ClassTeacherTabs paralelkaRows={paralelkaRows} eplrRows={eplrRows} therapyRows={therapyRows} className={myClasses[0].name} classId={myClasses[0].id} />
         </div>
 
         <div className="space-y-6">
