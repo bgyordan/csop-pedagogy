@@ -137,8 +137,44 @@ export default function ClassTeacherTabs({
                     <div className="text-[11px] text-slate-300 mt-0.5 italic">още няма назначен екип</div>
                   )}
                 </div>
-              ))}
+        ))}
             </>
+          )}
+        </div>
+      )}
+      {/* ТАБ 3: Терапии — кога децата имат терапия */}
+      {tab === 'therapy' && (
+        <div>
+          {therapyRows.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 text-sm">
+              Още няма насрочени терапии.<br />
+              <span className="text-xs text-slate-300">Появяват се, щом специалистите направят графиците си.</span>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-50">
+              {[1, 2, 3, 4, 5].map(day => {
+                const items = therapyByDay[day] || []
+                if (items.length === 0) return null
+                return (
+                  <div key={day} className="px-5 py-3">
+                    <div className="text-[11px] font-bold text-violet-600 uppercase tracking-wider mb-2">{DAY_NAMES[day]}</div>
+                    <div className="space-y-1.5">
+                      {items.map((r, i) => (
+                        <div key={i} className="flex items-center gap-3 text-sm">
+                          <span className="text-xs font-mono font-semibold text-slate-400 w-12 flex-shrink-0">{r.time}</span>
+                          <Link href={`/students/${r.studentId}`} className="font-medium text-slate-800 hover:text-violet-700 hover:underline min-w-0 truncate">
+                            {r.studentName}
+                          </Link>
+                          <span className="text-[11px] text-slate-400 flex-shrink-0">
+                            {r.role}{r.specialist ? ` · ${r.specialist}` : ''}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           )}
         </div>
       )}
