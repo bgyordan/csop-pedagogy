@@ -338,51 +338,25 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       </div>
       */}
 
-      {/* ИСТОРИЯ */}
+   {/* ИСТОРИЯ — компактна, най-долу */}
       {allEnrollments && allEnrollments.length > 1 && (
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm mb-5">
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
-            <History size={16} className="text-indigo-500" />
-            <h2 className="font-bold text-slate-800 text-sm">История на обучението</h2>
-          </div>
-          <div className="space-y-2">
+        <div className="bg-white rounded-2xl border border-slate-200/80 px-5 py-3 shadow-sm">
+          <div className="flex items-center gap-2 flex-wrap">
+            <History size={14} className="text-indigo-400 flex-shrink-0" />
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">История:</span>
             {allEnrollments.map(e => {
               const yr = e.academic_year as any
               const cls = e.class as any
               const isCurrent = yr?.id === currentYear?.id
               return (
-                <div key={e.id} className={`flex items-center justify-between p-3 rounded-xl ${isCurrent ? 'bg-blue-50/50 border border-blue-100' : 'bg-slate-50/50 border border-slate-100'}`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isCurrent ? 'bg-blue-500 shadow shadow-blue-500/50' : 'bg-slate-300'}`} />
-                    <span className="text-sm font-semibold text-slate-700">{yr?.name || '—'}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-medium text-slate-500">Паралелка {cls?.name || '—'}</span>
-                    {isCurrent && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 uppercase tracking-wider">Текуща</span>}
-                  </div>
-                </div>
+                <span key={e.id} className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-lg ${isCurrent ? 'bg-blue-50 text-blue-700 font-semibold' : 'bg-slate-50 text-slate-500'}`}>
+                  {yr?.name || '—'} · {cls?.name || '—'}
+                </span>
               )
             })}
           </div>
         </div>
       )}
-
-      {/* ДОСИЕ — външни документи */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
-        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
-          <Paperclip size={16} className="text-amber-500" />
-          <h2 className="font-bold text-slate-800 text-sm">Досие — външни документи</h2>
-        </div>
-        <AttachmentsSection
-          studentId={id}
-          attachments={attachments || []}
-          canManage={canEditDossier}
-          staffId={profile?.id || ''}
-          typeLabels={ATTACHMENT_TYPE_LABELS}
-          currentYearName={currentYearName}
-          yearOptions={yearOptions}
-        />
-      </div>
     </div>
   )
 }
