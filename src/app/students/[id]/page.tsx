@@ -10,6 +10,7 @@ import GuardiansSection from './GuardiansSection'
 import StudentStatusSection from './StudentStatusSection'
 import { GraduationCap, Home, Wifi } from 'lucide-react'
 import { EplrDocumentsSection } from './EplrDocumentsSection'
+import MarkProcessedButton from './MarkProcessedButton'
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
   'iup', 'iu_program', 'support_plan', 'parent_program'
@@ -50,9 +51,10 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
     `)
     .eq('id', id).single()
   if (!student) notFound()
-  const { data: profile } = await supabase
-    .from('staff_profiles').select('id, role').eq('user_id', user.id).single()
+ const { data: profile } = await supabase
+    .from('staff_profiles').select('id, role, is_coordinator').eq('user_id', user.id).single()
   const canManage = ['admin', 'zdud'].includes(profile?.role || '')
+  const isCoordinator = profile?.is_coordinator === true
   const { data: currentYear } = await supabase
     .from('academic_years').select('*').eq('is_current', true).single()
   const { data: enrollment } = await supabase
