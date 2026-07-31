@@ -1,9 +1,7 @@
 'use client'
-
 import { useState } from 'react'
 import Link from 'next/link'
 import { HeartPulse, Users, ChevronRight, GraduationCap } from 'lucide-react'
-
 interface TherapyRow {
   id: string
   name: string
@@ -19,10 +17,8 @@ interface EplrRow {
   docsTotal: number
   isReal: boolean
 }
-
 export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows: TherapyRow[]; eplrRows: EplrRow[] }) {
   const [tab, setTab] = useState<'therapy' | 'eplr'>('therapy')
-
   return (
     <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
       {/* Табове */}
@@ -48,7 +44,6 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
           </span>
         </button>
       </div>
-
       {/* ТАБ 1: За терапия */}
       {tab === 'therapy' && (
         <div className="divide-y divide-slate-50">
@@ -72,7 +67,7 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
                 </div>
                 {r.className && (
                   <span className="text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full flex-shrink-0">
-                    {r.className}
+                    Паралелка {r.className}
                   </span>
                 )}
               </div>
@@ -80,7 +75,6 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
           )}
         </div>
       )}
-
       {/* ТАБ 2: ЕПЛР състав */}
       {tab === 'eplr' && (
         <div className="divide-y divide-slate-50">
@@ -88,9 +82,6 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
             <div className="p-8 text-center text-slate-400 text-sm">Няма деца в моя ЕПЛР състав.</div>
           ) : (
             <>
-              <div className="px-5 py-2 bg-slate-50/50 text-[11px] text-slate-400">
-                <strong className="text-slate-600">Удебелените</strong> са деца, с които реално работите. Останалите са формален състав.
-              </div>
               {eplrRows.map(r => (
                 <div key={r.id} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-slate-50/50 transition-colors">
                   <div className="min-w-0">
@@ -102,17 +93,11 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
                       <div className="text-[11px] text-slate-400 mt-0.5">класен: {r.classTeacher}</div>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                      r.docsCompleted === r.docsTotal ? 'bg-emerald-50 text-emerald-600' :
-                      r.docsCompleted > 0 ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-400'
-                    }`}>
-                      {r.docsCompleted}/{r.docsTotal} док.
+                  {r.className && (
+                    <span className="text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full flex-shrink-0">
+                      Паралелка {r.className}
                     </span>
-                    {r.className && (
-                      <span className="text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{r.className}</span>
-                    )}
-                  </div>
+                  )}
                 </div>
               ))}
             </>
