@@ -287,11 +287,26 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {/* ДОКУМЕНТИ ЕПЛР — стегнато, цяла ширина */}
+      {/* ДОКУМЕНТИ ЕПЛР — качване на готови файлове (Teams → тук) */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm mb-5">
         <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
           <FileText size={16} className="text-emerald-500" />
           <h2 className="font-bold text-slate-800 text-sm">Документи ЕПЛР — {currentYear?.name}</h2>
+        </div>
+        <EplrDocumentsSection
+          studentId={student.id}
+          academicYearId={currentYear?.id || ''}
+          documents={eplrDocs || []}
+          canManage={canManage}
+          staffId={profile?.id || ''}
+        />
+      </div>
+
+      {/* СТАРАТА ЕПЛР карта за попълване — скрита, кодът остава за бъдеще
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm mb-5">
+        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+          <FileText size={16} className="text-emerald-500" />
+          <h2 className="font-bold text-slate-800 text-sm">Документи ЕПЛР (попълване) — {currentYear?.name}</h2>
         </div>
         <DocumentsList
           docMap={docMap}
@@ -302,6 +317,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           className={className}
         />
       </div>
+      */}
 
       {/* ИСТОРИЯ */}
       {allEnrollments && allEnrollments.length > 1 && (
