@@ -96,6 +96,8 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       .eq('staff_id', profile.id).eq('academic_year_id', currentYear?.id)
     canEditDossier = (myClasses || []).some(c => c.class_id === enrollment.class_id)
   }
+  // Кой може да маха маркера "нов": админ, ЗДУД, координатор, класен (на своята паралелка)
+  const canMarkProcessed = canManage || isCoordinator || canEditDossier
   const educationForm = (enrollment as any)?.education_form || 'daily'
   const { data: coudEnroll } = await supabase
     .from('coud_enrollments')
@@ -151,6 +153,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                   <Sparkles size={11} /> НОВ УЧЕНИК
                 </span>
               )}
+              
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
               <div>
@@ -179,7 +182,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
         </div>
-        {(canManage || (canEditDossier && educationForm === 'ifo')) && student.status === 'active' && (
+        {(canManage || canEditDossier || isCoordinator) && student.status === 'active' && (
           <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-slate-100">
             {canManage && (
               <Link href={`/students/${id}/edit`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-100 transition-colors">
@@ -200,6 +203,9 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
               <Link href={`/students/${id}/survey`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-violet-700 bg-violet-50 border border-violet-200 px-3 py-2 rounded-xl hover:bg-violet-100 transition-colors">
                 <ClipboardList size={13} /> Анкета
               </Link>
+            )}
+            {(student as any).is_new && canMarkProcessed && (
+              <MarkProcessedButton studentId={id} />
             )}
             {canManage && (
               <Link href={`/students/${id}/transfer`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-100 transition-colors">
