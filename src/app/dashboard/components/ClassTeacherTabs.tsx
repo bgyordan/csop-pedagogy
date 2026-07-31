@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Users, HeartPulse, ChevronRight } from 'lucide-react'
+import { Users, HeartPulse, ChevronRight, CalendarClock } from 'lucide-react'
 
 interface ParalelkaRow {
   id: string
@@ -66,6 +66,18 @@ export default function ClassTeacherTabs({
           }`}>
           <HeartPulse size={15} />
           ЕПЛР екипи
+        </button>
+        <button onClick={() => setTab('therapy')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+            tab === 'therapy' ? 'bg-white shadow-sm text-violet-700 border border-violet-100' : 'text-slate-500 hover:text-slate-700'
+          }`}>
+          <CalendarClock size={15} />
+          Терапии
+          {therapyRows.length > 0 && (
+            <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${tab === 'therapy' ? 'bg-violet-100 text-violet-700' : 'bg-slate-200 text-slate-500'}`}>
+              {therapyRows.length}
+            </span>
+          )}
         </button>
 
         <Link href={`/classes/${classId}`}
