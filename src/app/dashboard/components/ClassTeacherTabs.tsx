@@ -80,11 +80,7 @@ export default function ClassTeacherTabs({
           )}
         </button>
 
-        <Link href={`/classes/${classId}`}
-          className="ml-auto flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline px-3">
-          Преглед на паралелката <ChevronRight size={13} />
-        </Link>
-      </div>
+       
 
       {/* ТАБ 1: Моята паралелка — деца с техните терапевти */}
       {tab === 'paralelka' && (
