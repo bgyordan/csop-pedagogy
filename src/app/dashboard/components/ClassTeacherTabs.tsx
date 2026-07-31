@@ -1,9 +1,6 @@
-'use client'
-
 import { useState } from 'react'
 import Link from 'next/link'
 import { Users, HeartPulse, ChevronRight, CalendarClock } from 'lucide-react'
-
 interface ParalelkaRow {
   id: string
   name: string
@@ -30,7 +27,6 @@ interface TherapyRow {
   specialist: string
   role: string
 }
-
 export default function ClassTeacherTabs({
   paralelkaRows, eplrRows, therapyRows = [], className, classId,
 }: {
@@ -45,7 +41,6 @@ export default function ClassTeacherTabs({
   const therapyByDay = therapyRows.reduce((acc: Record<number, TherapyRow[]>, r) => {
     (acc[r.day] = acc[r.day] || []).push(r); return acc
   }, {})
-
   return (
     <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
       {/* Табове */}
@@ -79,9 +74,7 @@ export default function ClassTeacherTabs({
             </span>
           )}
         </button>
-
-       
-
+      </div>
       {/* ТАБ 1: Моята паралелка — деца с техните терапевти */}
       {tab === 'paralelka' && (
         <div className="divide-y divide-slate-50">
@@ -105,7 +98,6 @@ export default function ClassTeacherTabs({
           )}
         </div>
       )}
-
       {/* ТАБ 2: ЕПЛР екипи — реалните удебелени */}
       {tab === 'eplr' && (
         <div className="divide-y divide-slate-50">
@@ -113,9 +105,6 @@ export default function ClassTeacherTabs({
             <div className="p-8 text-center text-slate-400 text-sm">Няма ЕПЛР екипи.</div>
           ) : (
             <>
-              <div className="px-5 py-2 bg-slate-50/50 text-[11px] text-slate-400">
-                <strong className="text-slate-600">Удебелените</strong> реално работят с детето. Останалите са формален състав.
-              </div>
               {eplrRows.map(r => (
                 <div key={r.id} className="px-5 py-3 hover:bg-slate-50/50 transition-colors">
                   <Link href={`/students/${r.id}`} className="text-sm font-semibold text-slate-800 hover:text-teal-700 hover:underline">
@@ -133,7 +122,7 @@ export default function ClassTeacherTabs({
                     <div className="text-[11px] text-slate-300 mt-0.5 italic">още няма назначен екип</div>
                   )}
                 </div>
-        ))}
+              ))}
             </>
           )}
         </div>
