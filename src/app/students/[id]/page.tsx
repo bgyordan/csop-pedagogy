@@ -227,7 +227,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       )}
 
       {/* ЧЕТИРИ РАВНИ КАРТИ */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-5 items-start">
         <div className={cardCls}>
           <div className={cardHead}>
             <Users size={16} className="text-blue-500" />
