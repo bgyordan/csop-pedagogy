@@ -9,6 +9,7 @@ import DocumentsList from './DocumentsList'
 import GuardiansSection from './GuardiansSection'
 import StudentStatusSection from './StudentStatusSection'
 import { GraduationCap, Home, Wifi } from 'lucide-react'
+import { EplrDocumentsSection } from './EplrDocumentsSection'
 
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
@@ -63,6 +64,12 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   const { data: externalMembers } = await supabase
     .from('eplr_external_members').select('id, full_name')
     .eq('student_id', id).eq('academic_year_id', currentYear?.id).order('created_at')
+  const { data: eplrDocs } = await supabase
+    .from('eplr_attachments')
+    .select('*')
+    .eq('student_id', id)
+    .eq('academic_year_id', currentYear?.id)
+    .order('created_at', { ascending: false })
   const { data: eplr } = await supabase
     .from('eplr_teams').select(`*,
       psychologist:staff_profiles!eplr_teams_psychologist_id_fkey(*),
