@@ -21,16 +21,30 @@ interface EplrRow {
   className: string
   members: EplrMember[]
 }
+interface TherapyRow {
+  studentId: string
+  studentName: string
+  day: number
+  period: number
+  time: string
+  specialist: string
+  role: string
+}
 
 export default function ClassTeacherTabs({
-  paralelkaRows, eplrRows, className, classId,
+  paralelkaRows, eplrRows, therapyRows = [], className, classId,
 }: {
   paralelkaRows: ParalelkaRow[]
   eplrRows: EplrRow[]
+  therapyRows?: TherapyRow[]
   className: string
   classId: string
 }) {
-  const [tab, setTab] = useState<'paralelka' | 'eplr'>('paralelka')
+  const [tab, setTab] = useState<'paralelka' | 'eplr' | 'therapy'>('paralelka')
+  const DAY_NAMES: Record<number, string> = { 1: 'Понеделник', 2: 'Вторник', 3: 'Сряда', 4: 'Четвъртък', 5: 'Петък' }
+  const therapyByDay = therapyRows.reduce((acc: Record<number, TherapyRow[]>, r) => {
+    (acc[r.day] = acc[r.day] || []).push(r); return acc
+  }, {})
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
