@@ -343,81 +343,92 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
         </div>
       </div>
 
-      {/* ── Резултати по групи ── */}
+      {/* ── Резултати по групи — широки редове, сортирани по заглавие, зебра ── */}
       {TEMPLATE_CATEGORIES.map(cat => {
-        const items = filtered.filter(t => t.category === cat.key)
+        const items = filtered
+          .filter(t => t.category === cat.key)
+          .sort((a, b) => a.title.localeCompare(b.title, 'bg', { numeric: true }))
         if (items.length === 0) return null
         return (
           <div key={cat.key}>
-            <div className="flex items-center gap-2 mb-2.5">
+            <div className="flex items-center gap-2 mb-2">
               <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">{cat.label}</h2>
               <span className="text-[11px] text-slate-300">{items.length}</span>
               <div className="flex-1 h-px bg-slate-100" />
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
-              {items.map(t => {
+            <div className="flex flex-col gap-2">
+              {items.map((t) => {
                 const rb = roleBadge(t)
                 const isEditing = editId === t.id
+                if (isEditing) {
+                  return (
+                    <div key={t.id} className="rounded-xl border border-blue-200 bg-blue-50/30 p-4 space-y-2.5">
+                      <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)}
+                        className="input w-full text-sm" placeholder="Заглавие" />
+                      <select value={editCategory} onChange={e => setEditCategory(e.target.value)} className="input w-full text-sm">
+                        {TEMPLATE_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                      </select>
+                      <input type="text" value={editDescription} onChange={e => setEditDescription(e.target.value)}
+                        className="input w-full text-sm" placeholder="Пояснение (незадължително)" />
+                      {checkboxRow(editForClass, setEditForClass, editForSpec, setEditForSpec, editIsPg, setEditIsPg)}
+                      <div className="flex items-center gap-2 justify-end pt-1">
+                        <button onClick={() => setEditId(null)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-600">Отказ</button>
+                        <button onClick={saveEdit} disabled={savingEdit}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-60"
+                          style={{ backgroundColor: '#0f2240' }}>
+                          {savingEdit ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Запази
+                        </button>
+                      </div>
+                    </div>
+                  )
+                }
                 return (
-                  <div key={t.id} className="rounded-xl border border-slate-200/80 bg-white transition-all hover:border-slate-300 hover:shadow-sm">
-                    {isEditing ? (
-                      <div className="p-4 space-y-2.5">
-                        <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)}
-                          className="input w-full text-sm" placeholder="Заглавие" />
-                        <select value={editCategory} onChange={e => setEditCategory(e.target.value)} className="input w-full text-sm">
-                          {TEMPLATE_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-                        </select>
-                        <input type="text" value={editDescription} onChange={e => setEditDescription(e.target.value)}
-                          className="input w-full text-sm" placeholder="Пояснение (незадължително)" />
-                        {checkboxRow(editForClass, setEditForClass, editForSpec, setEditForSpec, editIsPg, setEditIsPg)}
-                        <div className="flex items-center gap-2 justify-end pt-1">
-                          <button onClick={() => setEditId(null)}
-                            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-600">Отказ</button>
-                          <button onClick={saveEdit} disabled={savingEdit}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-60"
-                            style={{ backgroundColor: '#0f2240' }}>
-                            {savingEdit ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Запази
-                          </button>
-                        </div>
+                  <div key={t.id}
+                    className="group flex items-center gap-4 px-4 py-3 rounded-xl border border-transparent bg-slate-50/60 transition-all duration-300 hover:bg-white hover:border-blue-200/70 hover:shadow-[0_4px_16px_rgba(15,34,64,0.06)] hover:translate-x-1">
+                    {/* Иконка в кутийка */}
+                    <div className="w-10 h-10 rounded-lg bg-white border border-slate-100 shadow-sm flex items-center justify-center flex-shrink-0 text-slate-400 group-hover:text-blue-600 transition-colors">
+                      <FileText size={18} />
+                    </div>
+                    {/* Съдържание — таг отгоре, заглавие отдолу */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600">{cat.label}</span>
+                        {rb && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${rb.cls}`}>{rb.label}</span>}
+                        {t.is_pg && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border bg-violet-50 text-violet-600 border-violet-200">ПГ</span>}
                       </div>
-                    ) : (
-                      <div className="flex items-center justify-between gap-2 p-3.5 group">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center flex-shrink-0">
-                            <FileText size={17} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-sm font-semibold text-slate-800 truncate flex items-center gap-1.5">
-                              {t.title}
-                              {rb && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${rb.cls}`}>{rb.label}</span>}
-                              {t.is_pg && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border bg-violet-50 text-violet-600 border-violet-200">ПГ</span>}
-                            </div>
-                            <div className="text-[11px] text-slate-400 truncate mt-0.5">
-                              {t.description || t.file_name}
-                              {t.file_size && <span className="ml-1">· {formatSize(t.file_size)}</span>}
-                            </div>
-                          </div>
+                      <div className="text-[15px] font-bold text-slate-800 truncate leading-snug mt-0.5">{t.title}</div>
+                      {(t.description || t.file_size) && (
+                        <div className="text-[11px] text-slate-400 truncate">
+                          {t.description && <span>{t.description}</span>}
+                          {t.file_size && <span className={t.description ? 'ml-1' : ''}>· {formatSize(t.file_size)}</span>}
                         </div>
-                        <div className="flex items-center gap-0.5 flex-shrink-0">
-                          <button onClick={() => handleDownload(t)} disabled={downloading === t.id}
-                            className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Изтегли">
-                            {downloading === t.id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+                      )}
+                    </div>
+                    {/* Действия */}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button onClick={() => handleDownload(t)} disabled={downloading === t.id}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
+                        style={{ borderColor: 'rgba(15,34,64,0.25)', color: '#0f2240' }}
+                        onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.backgroundColor = '#0f2240'; el.style.color = '#fff' }}
+                        onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.backgroundColor = 'transparent'; el.style.color = '#0f2240' }}
+                        title="Изтегли">
+                        {downloading === t.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                        <span className="hidden sm:inline">Изтегли</span>
+                      </button>
+                      {canManage && (
+                        <>
+                          <button onClick={() => startEdit(t)}
+                            className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors opacity-0 group-hover:opacity-100" title="Редактирай">
+                            <Pencil size={15} />
                           </button>
-                          {canManage && (
-                            <>
-                              <button onClick={() => startEdit(t)}
-                                className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors opacity-0 group-hover:opacity-100" title="Редактирай">
-                                <Pencil size={15} />
-                              </button>
-                              <button onClick={() => handleDelete(t)}
-                                className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100" title="Изтрий">
-                                <Trash2 size={15} />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    )}
+                          <button onClick={() => handleDelete(t)}
+                            className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100" title="Изтрий">
+                            <Trash2 size={15} />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 )
               })}
