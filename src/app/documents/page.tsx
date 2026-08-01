@@ -35,7 +35,7 @@ export default async function DocumentsPage({ searchParams }: PageProps) {
   const { data: profileData } = await supabase
     .from('staff_profiles')
     .select('id, role')
-    .eq('user_id', user.id)
+    .eq('user_id', user!.id)
     .maybeSingle()
 
   const role = profileData?.role || ''
