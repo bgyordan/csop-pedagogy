@@ -1,26 +1,22 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Users, Calendar, Bell, CalendarClock, ChevronRight, ClipboardList } from 'lucide-react'
+import { Users, Calendar, Bell, CalendarClock, ChevronRight, ClipboardList, ShieldAlert, ShieldX } from 'lucide-react'
 import { getFullName, getMonthName, formatDate } from '@/lib/utils'
 import ClassTeacherTabs from './ClassTeacherTabs'
-
 export default async function ClassTeacherDashboard({ profile, currentYearId }: any) {
   const supabase = await createClient()
   const now = new Date()
   const month = now.getMonth() + 1  // 1-12
   const isSummer = month === 7 || month === 8
-
   // Отчетен месец за ИУП (предходния, освен януари)
   const reportMonth = now.getMonth() === 0 ? 12 : now.getMonth()
   const reportYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear()
-
   const { data: assignments } = await supabase
     .from('class_teacher_assignments')
     .select('class:classes(*)')
     .eq('staff_id', profile.id)
     .eq('academic_year_id', currentYearId)
   const myClasses = assignments?.map((a: any) => a.class).filter(Boolean) || []
-
   if (myClasses.length === 0) {
     return (
       <div className="text-center py-20 bg-white rounded-2xl border border-slate-200 shadow-sm">
@@ -31,7 +27,6 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
     )
   }
   const classIds = myClasses.map((c: any) => c.id)
-
   const [{ data: allEnrollments }, { data: iupSubmissions }, { data: announcements }, { data: deadlines }] = await Promise.all([
     supabase.from('student_enrollments')
       .select(`student_id, class_id,
@@ -45,11 +40,9 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
     supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
     supabase.from('calendar_deadlines').select('*').eq('academic_year_id', currentYearId).gte('deadline_date', now.toISOString().split('T')[0]).order('deadline_date').limit(5),
   ])
-
   // Само активни ученици
   const activeEnrollments = (allEnrollments || []).filter((e: any) => e.student?.status === 'active')
   const submittedIds = new Set(iupSubmissions?.map((s: any) => s.class_id) || [])
-
   // ЕПЛР екипите на моите деца
   const studentIds = activeEnrollments.map((e: any) => e.student_id)
   const { data: eplrTeams } = studentIds.length > 0
@@ -62,7 +55,29 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
     : { data: [] }
   const eplrByStudent: Record<string, any> = {}
   ;(eplrTeams || []).forEach((e: any) => { eplrByStudent[e.student_id] = e })
-// ── Терапии на моите деца (от терапевтичните графици, текущ срок = 1) ──
+
+  // ── Изтичащи / изтекли документи на моите деца (от досието — външни документи) ──
+  const nameById: Record<string, string> = {}
+  activeEnrollments.forEach((e: any) => { nameById[e.student_id] = getFullName(e.student) })
+  const baseYear = new Date().getFullYear()
+  const { data: myAttachments } = studentIds.length > 0
+    ? await supabase.from('student_attachments')
+        .select('student_id, valid_until_year')
+        .in('student_id', studentIds)
+    : { data: [] }
+  const expiredSet = new Set<string>()
+  const expiringSet = new Set<string>()
+  ;(myAttachments || []).forEach((a: any) => {
+    if (!a.valid_until_year) return
+    const y = parseInt(a.valid_until_year.split('/')[0])
+    if (y < baseYear) expiredSet.add(a.student_id)
+    else if (y === baseYear) expiringSet.add(a.student_id)
+  })
+  const expiredNames = [...expiredSet].map(id => nameById[id]).filter(Boolean).sort((a, b) => a.localeCompare(b, 'bg'))
+  const expiringNames = [...expiringSet].map(id => nameById[id]).filter(Boolean).sort((a, b) => a.localeCompare(b, 'bg'))
+  const hasDocAlerts = expiredNames.length > 0 || expiringNames.length > 0
+
+  // ── Терапии на моите деца (от терапевтичните графици, текущ срок = 1) ──
   const { data: therSlots } = studentIds.length > 0
     ? await supabase.from('therapist_slots')
         .select(`day, period, student_id,
@@ -72,7 +87,6 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
         .eq('schedule.term', 1)
         .eq('schedule.academic_year_id', currentYearId)
     : { data: [] }
-
   const ROLE_BG: Record<string, string> = {
     psychologist: 'Психолог', speech_therapist: 'Логопед', rehabilitator: 'Рехабилитатор',
   }
@@ -81,7 +95,6 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
   }
   const studentNameById: Record<string, string> = {}
   activeEnrollments.forEach((e: any) => { studentNameById[e.student_id] = getFullName(e.student) })
-
   const therapyRows = (therSlots || []).map((slot: any) => {
     const st = slot.schedule?.staff
     return {
@@ -110,7 +123,6 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
       therapists,
     }
   }).sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
-
   // Данни за таб "ЕПЛР" — за всяко дете екипът, реалните удебелени
   const eplrRows = activeEnrollments.map((e: any) => {
     const s = e.student
@@ -141,9 +153,31 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
       members,
     }
   }).sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
-
   return (
     <div className="animate-in fade-in duration-500">
+      {/* Предупреждение за изтичащи/изтекли документи на моите деца */}
+      {hasDocAlerts && (
+        <div className="mb-6 space-y-2">
+          {expiredNames.length > 0 && (
+            <div className="flex items-start gap-3 px-4 py-3 rounded-2xl border border-red-200 bg-red-50/50">
+              <ShieldX size={18} className="text-red-500 flex-shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-slate-800">Изтекли документи в досието</div>
+                <div className="text-xs text-slate-500 mt-0.5">{expiredNames.join(' · ')}</div>
+              </div>
+            </div>
+          )}
+          {expiringNames.length > 0 && (
+            <div className="flex items-start gap-3 px-4 py-3 rounded-2xl border border-amber-200 bg-amber-50/50">
+              <ShieldAlert size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-slate-800">Изтичащи документи тази година</div>
+                <div className="text-xs text-slate-500 mt-0.5">{expiringNames.join(' · ')}</div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       {/* Карти горе: разписание + ИУП */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
         <Link href={`/classes/${myClasses[0].id}/schedule`}
@@ -157,7 +191,6 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
           </div>
           <ChevronRight size={16} className="text-teal-400 group-hover:text-teal-600" />
         </Link>
-
         <Link href="/absences"
           className={`flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl border transition-colors group ${
             isSummer ? 'border-slate-200 bg-slate-50/50 hover:bg-slate-50' : 'border-amber-200 bg-amber-50/40 hover:bg-amber-50'
@@ -178,12 +211,10 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
           <ChevronRight size={16} className="text-slate-400 group-hover:text-slate-600" />
         </Link>
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
          <ClassTeacherTabs paralelkaRows={paralelkaRows} eplrRows={eplrRows} therapyRows={therapyRows} className={myClasses[0].name} classId={myClasses[0].id} />
         </div>
-
         <div className="space-y-6">
           <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100/80">
@@ -203,7 +234,6 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
               </div>
             )}
           </div>
-
           {announcements && announcements.length > 0 && (
             <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100/80">
