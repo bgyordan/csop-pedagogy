@@ -4,13 +4,10 @@ import { Calendar, Bell, CalendarClock, ChevronRight, HeartPulse } from 'lucide-
 import { getFullName, formatDate, getDaysUntil } from '@/lib/utils'
 import { DocumentType } from '@/types'
 import SpecialistTabs from './SpecialistTabs'
-
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
   'iup', 'iu_program', 'support_plan', 'parent_program'
 ]
-
-// Роля → поле на ученика (реална терапия) и поле в ЕПЛР (формален състав)
 const ROLE_STUDENT_FIELD: Record<string, string> = {
   psychologist: 'therapist_psychologist_id',
   speech_therapist: 'therapist_speech_id',
@@ -21,27 +18,23 @@ const ROLE_EPLR_FIELD: Record<string, string> = {
   speech_therapist: 'speech_therapist_id',
   rehabilitator: 'rehabilitator_id',
 }
-
 export default async function SpecialistDashboard({ profile, currentYearId }: any) {
   const supabase = await createClient()
   const studentField = ROLE_STUDENT_FIELD[profile.role]
   const eplrField = ROLE_EPLR_FIELD[profile.role]
-
-  // ── ТАБ 1: реалните ми терапевтични деца (от students.therapist_*_id) ──
+  // ── ТАБ 1: реалните ми терапевтични деца ──
   const { data: allActive } = await supabase
     .from('students')
-    .select(`id, first_name, middle_name, last_name,
+    .select(`id, first_name, middle_name, last_name, intensity, external_class,
       therapist_psychologist_id, therapist_speech_id, therapist_rehab_id,
+      sending_school:sending_schools(name),
       psy:staff_profiles!students_therapist_psychologist_id_fkey(first_name, last_name),
       spe:staff_profiles!students_therapist_speech_id_fkey(first_name, last_name),
       reh:staff_profiles!students_therapist_rehab_id_fkey(first_name, last_name)`)
     .eq('status', 'active')
-
   const myTherapyStudents = studentField
     ? (allActive || []).filter((s: any) => s[studentField] === profile.id)
     : []
-
-  // Записванията (за паралелка) на всички активни
   const activeIds = (allActive || []).map((s: any) => s.id)
   const { data: enrollments } = activeIds.length > 0
     ? await supabase.from('student_enrollments')
@@ -51,17 +44,15 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
     : { data: [] }
   const classByStudent: Record<string, string> = {}
   ;(enrollments || []).forEach((e: any) => { classByStudent[e.student_id] = e.class?.name || '' })
-
-  // ── ТАБ 2: моят ЕПЛР състав (от eplr_teams) ──
+  // ── ТАБ 2: моят ЕПЛР състав ──
   const { data: eplrTeams } = eplrField
     ? await supabase.from('eplr_teams')
-        .select(`student_id, student:students(id, first_name, middle_name, last_name, ${studentField}),
+        .select(`student_id,
+          student:students(id, first_name, middle_name, last_name, therapist_psychologist_id, therapist_speech_id, therapist_rehab_id),
           class_teacher:staff_profiles!eplr_teams_class_teacher_id_fkey(first_name, last_name)`)
         .eq(eplrField, profile.id)
         .eq('academic_year_id', currentYearId)
     : { data: [] }
-
-  // Документен статус за ЕПЛР децата
   const eplrStudentIds = (eplrTeams || []).map((e: any) => e.student_id)
   const { data: documents } = eplrStudentIds.length > 0
     ? await supabase.from('documents').select('student_id, doc_type, status')
@@ -71,10 +62,8 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
   ;(documents || []).forEach((d: any) => {
     if (d.status === 'completed') docCount[d.student_id] = (docCount[d.student_id] || 0) + 1
   })
-
   // Строим данните за табовете
   const therapyRows = myTherapyStudents.map((s: any) => {
-    // Другите терапевти на детето (без мен)
     const others: string[] = []
     if (profile.role !== 'psychologist' && s.psy) others.push(`психолог ${s.psy.first_name} ${s.psy.last_name}`)
     if (profile.role !== 'speech_therapist' && s.spe) others.push(`логопед ${s.spe.first_name} ${s.spe.last_name}`)
@@ -83,14 +72,15 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
       id: s.id,
       name: getFullName(s),
       className: classByStudent[s.id] || '',
+      intensity: s.intensity || '',
+      sendingSchool: (s.sending_school as any)?.name || '',
       others,
     }
-  })
-
+  }).sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
+  const studentField2 = studentField
   const eplrRows = (eplrTeams || []).map((e: any) => {
     const st = e.student as any
-    // Реален ли е (съвпада ли ЕПЛР с реалната терапия)
-    const isReal = st && studentField && st[studentField] === profile.id
+    const isReal = st && studentField2 && st[studentField2] === profile.id
     return {
       id: e.student_id,
       name: st ? getFullName(st) : '—',
@@ -101,12 +91,9 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
       isReal,
     }
   }).sort((a: any, b: any) => {
-    // Реалните (удебелени) първо
     if (a.isReal !== b.isReal) return a.isReal ? -1 : 1
     return a.name.localeCompare(b.name, 'bg')
   })
-
-  // Странична колона
   const [{ data: announcements }, { data: deadlines }] = await Promise.all([
     supabase.from('announcements').select('*').eq('is_active', true)
       .order('created_at', { ascending: false }).limit(3),
@@ -114,10 +101,8 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
       .gte('deadline_date', new Date().toISOString().split('T')[0])
       .order('deadline_date').limit(5),
   ])
-
   return (
     <div className="animate-in fade-in duration-300">
-      {/* Две карти: списък за терапия + график */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
         <Link href="/my-activities"
           className="flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl border border-teal-200 bg-teal-50/50 hover:bg-teal-50 transition-colors group">
@@ -142,14 +127,10 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
           <ChevronRight size={16} className="text-teal-400 group-hover:text-teal-600" />
         </Link>
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Табовете (основната част) */}
         <div className="lg:col-span-2">
           <SpecialistTabs therapyRows={therapyRows} eplrRows={eplrRows} />
         </div>
-
-        {/* Странична колона */}
         <div className="space-y-6">
           {deadlines && deadlines.length > 0 && (
             <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
