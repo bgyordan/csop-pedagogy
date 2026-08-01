@@ -357,8 +357,8 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
                       if (row.className !== lastClass) {
                         lastClass = row.className
                         out.push(
-                          <tr key={`grp-${row.className}`} className="bg-slate-100/60">
-                            <td colSpan={7} className="px-4 py-1.5 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                         <tr key={`grp-${row.className}`}>
+                            <td colSpan={7} className="px-4 py-2 text-[11px] font-bold text-white uppercase tracking-wider" style={{ backgroundColor: '#0f2240' }}>
                               Паралелка {row.className}
                             </td>
                           </tr>
