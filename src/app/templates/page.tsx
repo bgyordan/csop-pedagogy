@@ -21,15 +21,22 @@ export default async function TemplatesPage() {
     .order('created_at', { ascending: false })
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto animate-in fade-in duration-500">
       <BackButton />
-      <div className="mb-6">
-        <div className="flex items-center gap-2">
-          <FolderOpen size={22} className="text-blue-500" />
-          <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Образци на документи</h1>
+
+      {/* Заглавна част */}
+      <header className="flex items-center gap-4 mt-2 mb-7 pb-5 border-b border-slate-100">
+        <div className="flex items-center justify-center shrink-0 w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 shadow-sm text-blue-600">
+          <FolderOpen size={22} strokeWidth={2} />
         </div>
-        <p className="text-slate-500 text-sm mt-1">Изтеглете готов образец, попълнете го и го качете в досието на детето</p>
-      </div>
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Образци на документи</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Изтеглете готов образец, попълнете го в Word и го качете в досието на детето.
+          </p>
+        </div>
+      </header>
+
       <TemplatesClient
         templates={templates || []}
         canManage={canManage}
