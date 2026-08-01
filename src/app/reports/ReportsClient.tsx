@@ -97,7 +97,6 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
     { id: 'workload' as ReportTab, label: 'Натовареност', icon: <BarChart3 size={15} />, color: 'text-emerald-500' },
     { id: 'intensity' as ReportTab, label: 'Терапии по деца', icon: <BarChart3 size={15} />, color: 'text-teal-500' },
   ]
-
   // Филтри за таб "Разпределение"
   const uniqueClasses = Array.from(new Set(allRows.map((r: any) => r.className).filter((c: string) => c && c !== '—'))).sort((a: any, b: any) => String(a).localeCompare(String(b), 'bg', { numeric: true }))
   const distRows = allRows.filter((r: any) => {
@@ -193,8 +192,7 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
               <Sparkles size={13} /> Само нови
             </button>
             <span className="text-xs text-slate-400 ml-auto">{distRows.length} ученика</span>
-            <div className="print:hidden">
-            </div>
+            <DistributionPdfButton rows={distRows} yearName={yearName} />
           </div>
           {/* Таблица */}
           <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
@@ -240,7 +238,6 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
           </div>
         </div>
       )}
-
       {/* ── ТАБ: ПО УЧИЛИЩЕ / ПИСМА ── */}
       {activeTab === 'school' && (
         <div className="animate-in fade-in duration-200 space-y-4">
@@ -261,8 +258,6 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
                 График екипни срещи
                 <ArrowRight size={13} className="text-slate-400" />
               </Link>
-              <DistributionPdfButton rows={distRows} yearName={yearName} />
-              <RuoLetterButton yearName={yearName} classes={ruoData} />
             </div>
           </div>
           {/* Графици на екипните срещи */}
@@ -452,8 +447,8 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
                       if (row.className !== lastClass) {
                         lastClass = row.className
                         out.push(
-                          <tr key={`grp-${row.className}`} className="bg-slate-100/60">
-                            <td colSpan={7} className="px-4 py-1.5 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                          <tr key={`grp-${row.className}`}>
+                            <td colSpan={7} className="px-4 py-2 text-[11px] font-bold text-white uppercase tracking-wider" style={{ backgroundColor: '#0f2240' }}>
                               Паралелка {row.className}
                             </td>
                           </tr>
