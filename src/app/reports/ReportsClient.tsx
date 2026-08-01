@@ -193,6 +193,7 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
             </button>
             <span className="text-xs text-slate-400 ml-auto">{distRows.length} ученика</span>
             <DistributionPdfButton rows={distRows} yearName={yearName} />
+            <RuoLetterButton yearName={yearName} classes={ruoData} label="Официален списък паралелки" />
           </div>
           {/* Таблица */}
           <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
