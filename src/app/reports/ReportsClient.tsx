@@ -294,23 +294,23 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
             <table className="w-full text-sm">
               <thead className="bg-slate-50/50 border-b border-slate-100">
                 <tr>
-                  <th className="text-left px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Специалист</th>
-                  <th className="text-left px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Роля</th>
-                  <th className="text-center px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Деца (терапия)</th>
-                  <th className="text-center px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Сесии / седмица</th>
+                  <th className="text-left px-5 py-2.5 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Специалист</th>
+                  <th className="text-left px-5 py-2.5 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Роля</th>
+                  <th className="text-center px-5 py-2.5 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Деца (терапия)</th>
+                  <th className="text-center px-5 py-2.5 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Сесии / седмица</th>
                 </tr>
               </thead>
               <tbody>
                {workloadRows.map((row) => (
                     <tr key={row.id} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors">
-                      <td className="px-5 py-4 font-medium text-slate-800">{row.name}</td>
-                      <td className="px-5 py-4 text-slate-500 text-xs">{row.role}</td>
-                      <td className="px-5 py-4 text-center">
+                      <td className="px-5 py-2.5 font-medium text-slate-800">{row.name}</td>
+                      <td className="px-5 py-2.5 text-slate-500 text-xs">{row.role}</td>
+                      <td className="px-5 py-2.5 text-center">
                         <span className={`inline-flex items-center justify-center min-w-[24px] px-2 py-1 text-xs font-bold rounded-md ${row.studentCount === 0 ? 'bg-slate-50 text-slate-400' : row.studentCount <= 20 ? 'bg-emerald-50 text-emerald-700' : row.studentCount <= 30 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'}`}>
                           {row.studentCount}
                         </span>
                       </td>
-                      <td className="px-5 py-4 text-center text-slate-600 font-semibold">{row.totalSessions}</td>
+                      <td className="px-5 py-2.5 text-center text-slate-600 font-semibold">{row.totalSessions}</td>
                     </tr>
                 ))}
               </tbody>
