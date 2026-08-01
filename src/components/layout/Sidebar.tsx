@@ -1,5 +1,3 @@
-'use client'
-
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
@@ -13,13 +11,11 @@ import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
 import { cn } from '@/lib/utils'
 import { AutoLogout } from '@/components/AutoLogout'
-
 const SIDEBAR_BG = '#f0f7ff'
 const SIDEBAR_HOVER = 'rgba(15,34,64,0.04)'
 const TEXT_PRIMARY = '#0f2240'
 const TEXT_SECONDARY = '#1e4070'
 const TEXT_MUTED = '#4a7fa8'
-
 interface NavItem {
   href: string
   label: string
@@ -29,7 +25,6 @@ interface NavItem {
   section?: string
   children?: NavItem[]
 }
-
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Начало', icon: <LayoutDashboard size={16} /> },
   { href: '/students', label: 'Ученици', icon: <Users size={16} /> },
@@ -59,7 +54,6 @@ const navItems: NavItem[] = [
   { href: '/contracts', label: 'Договори', icon: <FileSignature size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/procurements', label: 'Обществени поръчки', icon: <Package size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
 ]
-
 interface SidebarProps {
   userRole: UserRole
   userName: string
@@ -67,15 +61,12 @@ interface SidebarProps {
   isCoordinator?: boolean
   userPosition?: string
 }
-
 export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, userPosition = '' }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
   const [mobileOpen, setMobileOpen] = useState(false)
-
   useEffect(() => { setMobileOpen(false) }, [pathname])
-
   useEffect(() => {
     if (mobileOpen) {
       document.body.style.overflow = 'hidden'
@@ -84,14 +75,11 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
     }
     return () => { document.body.style.overflow = '' }
   }, [mobileOpen])
-
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/auth/login')
   }
-
   const isSecretary = userRole === 'secretary'
-  // Координаторът има правата на ЗДУД навсякъде в менюто
   const effectiveRoles: UserRole[] = isCoordinator ? [userRole, 'zdud' as UserRole] : [userRole]
   function canSee(item: NavItem): boolean {
     if (isSecretary) return item.section === 'delo'
@@ -99,31 +87,33 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
     if (!item.roles) return true
     return item.roles.some(r => effectiveRoles.includes(r))
   }
-
   const visibleItems = navItems
     .map(item => item.children
       ? { ...item, children: item.children.filter(canSee) }
       : item)
     .filter(item => item.children ? item.children.length > 0 : canSee(item))
-
   function NavGroup({ item }: { item: NavItem }) {
     const kids = item.children || []
     const hasActiveChild = kids.some(k => pathname === k.href || pathname.startsWith(k.href + '/'))
-
+    const [open, setOpen] = useState(hasActiveChild)
     return (
       <div>
-        <div
-          className="w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-full"
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          className="w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-full transition-colors"
           style={{
             color: hasActiveChild ? TEXT_PRIMARY : TEXT_SECONDARY,
             fontWeight: hasActiveChild ? 600 : 500,
           }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
         >
           {item.icon}
           <span className="flex-1 text-left">{item.label}</span>
-        </div>
-
-        <div>
+          <ChevronDown size={14} style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', opacity: 0.45 }} />
+        </button>
+        {open && (
           <div className="pl-4 pt-0.5 space-y-0.5">
             {kids.map(kid => {
               const active = pathname === kid.href || pathname.startsWith(kid.href + '/')
@@ -158,14 +148,12 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
               )
             })}
           </div>
-        </div>
+        )}
       </div>
     )
   }
-
   const mainItems = visibleItems.filter(item => !item.section)
   const deloItems = visibleItems.filter(item => item.section === 'delo')
-
   function NavLink({ item }: { item: NavItem }) {
     const active = pathname === item.href || pathname.startsWith(item.href + '/')
     return (
@@ -198,7 +186,6 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
       </Link>
     )
   }
-
   const sidebarContent = (
     <aside className="w-56 h-full flex flex-col" style={{ backgroundColor: SIDEBAR_BG }}>
       <AutoLogout />
@@ -213,7 +200,6 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
           </div>
         </div>
       </div>
-
       <nav className="flex-1 py-4 px-2 overflow-y-auto">
         <div className="space-y-0.5">
           {mainItems.map(item =>
@@ -222,7 +208,6 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
               : <NavLink key={item.href} item={item} />
           )}
         </div>
-
         {deloItems.length > 0 && (
           <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(15,34,64,0.08)' }}>
             <div className="px-3 mb-2">
@@ -236,7 +221,6 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
           </div>
         )}
       </nav>
-
       <div className="p-4" style={{ borderTop: '1px solid rgba(15,34,64,0.12)' }}>
         <Link href="/profile" onClick={() => setMobileOpen(false)}
           className="flex items-center gap-2.5 mb-3 rounded-xl p-1.5 -m-1.5 transition-colors hover:bg-[rgba(15,34,64,0.04)]">
@@ -273,13 +257,11 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
       </div>
     </aside>
   )
-
   return (
     <>
       <div className="hidden md:flex w-56 h-screen sticky top-0 overflow-y-auto flex-shrink-0">
         {sidebarContent}
       </div>
-
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 h-14"
            style={{ backgroundColor: SIDEBAR_BG, borderBottom: '1px solid rgba(15,34,64,0.12)' }}>
         <div className="flex items-center gap-3">
@@ -297,18 +279,15 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
           {mobileOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
-
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setMobileOpen(false)} />
       )}
-
       <div className={cn(
         'md:hidden fixed top-14 left-0 bottom-0 z-40 w-56 transition-transform duration-300',
         mobileOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
         {sidebarContent}
       </div>
-
       <div className="md:hidden h-14 flex-shrink-0" />
     </>
   )
