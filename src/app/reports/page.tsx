@@ -138,6 +138,8 @@ export default async function ReportsPage() {
       rehabilitatorId: eplr?.rehabilitator_id || null,
       rehabilitator: eplr?.rehabilitator ? getFullName(eplr.rehabilitator) : '—',
       classTeacher: classTeacher ? getFullName(classTeacher) : '—',
+      educationForm: e.education_form || 'daily',
+      isNew: student?.is_new === true,
       p1: statusLabel(docs.get('protocol_1')),
       p2: statusLabel(docs.get('protocol_2')),
       p3: statusLabel(docs.get('protocol_3')),
