@@ -1,25 +1,22 @@
 'use client'
-
 import { useState } from 'react'
 import { FileText, Loader2, X, AlertTriangle } from 'lucide-react'
 import { generateRuoClassesLetter } from '@/lib/docx-generator'
-
 interface Props {
   yearName: string
   classes: {
     className: string
     students: { name: string; school: string; externalClass: string }[]
   }[]
+  label?: string
 }
-
-export default function RuoLetterButton({ yearName, classes }: Props) {
+export default function RuoLetterButton({ yearName, classes, label = 'Писмо до РУО (паралелки)' }: Props) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [addressee, setAddressee] = useState('ДО Г-ЖА РАДЕВА')
   const [position, setPosition] = useState('НАЧАЛНИК НА')
   const [institution, setInstitution] = useState('РУО ВАРНА')
   const [director, setDirector] = useState('Светлана Иванова')
-
   async function generate() {
     const withStudents = classes.filter(c => c.students.length > 0)
     if (withStudents.length === 0) { alert('Няма ученици за включване'); return }
@@ -34,10 +31,7 @@ export default function RuoLetterButton({ yearName, classes }: Props) {
     }
     setBusy(false)
   }
-
   const total = classes.reduce((s, c) => s + c.students.length, 0)
-
-  // Проверка за непълни данни
   const missing = classes.flatMap(c =>
     c.students
       .filter(s => !s.school?.trim() || !s.externalClass?.trim())
@@ -48,27 +42,24 @@ export default function RuoLetterButton({ yearName, classes }: Props) {
           .filter(Boolean).join(' и '),
       }))
   )
-
   return (
     <>
       <button onClick={() => setOpen(true)}
         className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition-all">
-        <FileText size={13} className="text-slate-400" /> Писмо до РУО (паралелки)
+        <FileText size={13} className="text-slate-400" /> {label}
       </button>
-
       {open && (
         <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setOpen(false)}>
           <div className="bg-white rounded-3xl border border-slate-200/80 max-w-md w-full shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
               <div>
-                <h3 className="font-medium text-slate-800 text-sm">Писмо до РУО</h3>
+                <h3 className="font-medium text-slate-800 text-sm">{label}</h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">
                   {classes.filter(c => c.students.length > 0).length} паралелки · {total} ученика
                 </p>
               </div>
               <button onClick={() => setOpen(false)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400"><X size={18} /></button>
             </div>
-
             <div className="p-6 space-y-3">
               {missing.length > 0 && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
@@ -89,7 +80,6 @@ export default function RuoLetterButton({ yearName, classes }: Props) {
                   </p>
                 </div>
               )}
-
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">До кого</label>
                 <input value={addressee} onChange={e => setAddressee(e.target.value)} className="input w-full text-sm" />
@@ -108,7 +98,6 @@ export default function RuoLetterButton({ yearName, classes }: Props) {
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Директор</label>
                 <input value={director} onChange={e => setDirector(e.target.value)} className="input w-full text-sm" />
               </div>
-
               <button onClick={generate} disabled={busy}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold disabled:opacity-60 transition-opacity hover:opacity-90"
                 style={{ backgroundColor: '#0f2240' }}>
