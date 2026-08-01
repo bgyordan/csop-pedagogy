@@ -1,7 +1,7 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Upload, Download, Trash2, FileText, Loader2, FolderOpen, Plus, X, Search, GraduationCap, Heart, Baby, Pencil, Check } from 'lucide-react'
+import { Upload, Download, Trash2, FileText, Loader2, FolderOpen, Plus, X, Search, GraduationCap, Heart, Baby, Pencil, Check, UploadCloud } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 
 interface Template {
@@ -32,17 +32,17 @@ export const TEMPLATE_CATEGORIES: { key: string; label: string }[] = [
   { key: 'other', label: 'Други' },
 ]
 
-// Готов набор познати документи (подсказки за заглавието)
-const TITLE_SUGGESTIONS = [
-  'Доклад-оценка',
-  'Протокол №1',
-  'Протокол №2',
-  'Протокол №3',
-  'Карта функционална оценка',
-  'План за допълнителна подкрепа',
-  'ИУП (клас)',
-  'ИУ Програма (училище)',
-  'Характеристика',
+// Познати документи → подсказки за заглавието + предложена група
+const TITLE_SUGGESTIONS: { title: string; category: string }[] = [
+  { title: 'Доклад-оценка', category: 'assessments' },
+  { title: 'Протокол №1', category: 'protocols' },
+  { title: 'Протокол №2', category: 'protocols' },
+  { title: 'Протокол №3', category: 'protocols' },
+  { title: 'Карта функционална оценка', category: 'assessments' },
+  { title: 'План за допълнителна подкрепа', category: 'plans' },
+  { title: 'ИУП (клас)', category: 'plans' },
+  { title: 'ИУ Програма (училище)', category: 'plans' },
+  { title: 'Характеристика', category: 'characteristics' },
 ]
 
 function formatSize(bytes: number | null) {
@@ -52,6 +52,8 @@ function formatSize(bytes: number | null) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
+const ACCEPTED = ['pdf', 'doc', 'docx', 'dot', 'dotx', 'xls', 'xlsx']
+
 export default function TemplatesClient({ templates: initial, canManage, staffId }: Props) {
   const supabase = createClient()
   const { toast } = useToast()
@@ -59,15 +61,18 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
   const [showUpload, setShowUpload] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [downloading, setDownloading] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Форма за качване
-  const [titleChoice, setTitleChoice] = useState('')     // избор от падащото
-  const [customTitle, setCustomTitle] = useState('')      // при "Друго"
+  const [title, setTitle] = useState('')
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const [category, setCategory] = useState('protocols')
   const [description, setDescription] = useState('')
   const [forClassTeacher, setForClassTeacher] = useState(false)
   const [forSpecialist, setForSpecialist] = useState(false)
   const [isPg, setIsPg] = useState(false)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [dragOver, setDragOver] = useState(false)
 
   // Редакция
   const [editId, setEditId] = useState<string | null>(null)
@@ -85,36 +90,49 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
   const [filterRole, setFilterRole] = useState('')
   const [filterPg, setFilterPg] = useState(false)
 
-  const effectiveTitle = titleChoice === '__custom__' ? customTitle.trim() : titleChoice
+  // Подсказки за заглавието (combobox)
+  const titleMatches = useMemo(() => {
+    const q = title.trim().toLowerCase()
+    if (!q) return TITLE_SUGGESTIONS
+    return TITLE_SUGGESTIONS.filter(s => s.title.toLowerCase().includes(q))
+  }, [title])
 
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (!effectiveTitle) { toast('Изберете или въведете заглавие', 'error'); e.target.value = ''; return }
+  function pickSuggestion(s: { title: string; category: string }) {
+    setTitle(s.title)
+    setCategory(s.category)   // предлага групата, но може да се смени
+    setShowSuggestions(false)
+  }
+
+  function resetForm() {
+    setTitle(''); setDescription(''); setPendingFile(null)
+    setForClassTeacher(false); setForSpecialist(false); setIsPg(false)
+    setCategory('protocols'); setShowUpload(false)
+  }
+
+  function validateAndSetFile(file: File) {
     const ext = file.name.split('.').pop()?.toLowerCase()
-    if (!['pdf', 'doc', 'docx', 'dot', 'dotx', 'xls', 'xlsx'].includes(ext || '')) {
-      toast('Позволени: Word, Excel, PDF', 'error'); e.target.value = ''; return
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast('Файлът е прекалено голям (макс. 10MB)', 'error'); e.target.value = ''; return
-    }
+    if (!ACCEPTED.includes(ext || '')) { toast('Позволени: Word, Excel, PDF', 'error'); return }
+    if (file.size > 10 * 1024 * 1024) { toast('Файлът е прекалено голям (макс. 10MB)', 'error'); return }
+    setPendingFile(file)
+  }
+
+  async function doUpload() {
+    if (!title.trim()) { toast('Въведете заглавие', 'error'); return }
+    if (!pendingFile) { toast('Изберете файл', 'error'); return }
     setUploading(true)
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_')
+    const safeName = pendingFile.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_')
     const filePath = `${category}/${Date.now()}_${safeName}`
-    const { error: upErr } = await supabase.storage.from('templates').upload(filePath, file)
+    const { error: upErr } = await supabase.storage.from('templates').upload(filePath, pendingFile)
     if (upErr) { toast('Грешка при качване', 'error'); setUploading(false); return }
     const { data: newT, error: dbErr } = await supabase.from('document_templates').insert({
-      title: effectiveTitle, category, file_name: file.name, file_path: filePath,
-      file_size: file.size, description: description.trim() || null, uploaded_by: staffId,
+      title: title.trim(), category, file_name: pendingFile.name, file_path: filePath,
+      file_size: pendingFile.size, description: description.trim() || null, uploaded_by: staffId,
       for_class_teacher: forClassTeacher, for_specialist: forSpecialist, is_pg: isPg,
     }).select().single()
     if (dbErr) { toast('Грешка при запис', 'error'); setUploading(false); return }
     toast('Образецът е качен')
     setTemplates(prev => [newT, ...prev])
-    setTitleChoice(''); setCustomTitle(''); setDescription('')
-    setForClassTeacher(false); setForSpecialist(false); setIsPg(false)
-    setShowUpload(false); setUploading(false)
-    e.target.value = ''
+    resetForm(); setUploading(false)
   }
 
   async function handleDownload(t: Template) {
@@ -134,13 +152,9 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
   }
 
   function startEdit(t: Template) {
-    setEditId(t.id)
-    setEditTitle(t.title)
-    setEditCategory(t.category)
-    setEditDescription(t.description || '')
-    setEditForClass(t.for_class_teacher)
-    setEditForSpec(t.for_specialist)
-    setEditIsPg(t.is_pg)
+    setEditId(t.id); setEditTitle(t.title); setEditCategory(t.category)
+    setEditDescription(t.description || ''); setEditForClass(t.for_class_teacher)
+    setEditForSpec(t.for_specialist); setEditIsPg(t.is_pg)
   }
 
   async function saveEdit() {
@@ -178,137 +192,176 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
   }
 
   const checkboxRow = (
-    fc: boolean, sfc: (v: boolean) => void,
-    fs: boolean, sfs: (v: boolean) => void,
+    fc: boolean, sfc: (v: boolean) => void, fs: boolean, sfs: (v: boolean) => void,
     pg: boolean, spg: (v: boolean) => void,
   ) => (
     <div className="flex flex-wrap gap-2">
-      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 cursor-pointer hover:bg-slate-50">
+      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors">
         <input type="checkbox" checked={fc} onChange={e => sfc(e.target.checked)} className="accent-[#0f2240]" />
         <GraduationCap size={13} /> За класен
       </label>
-      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 cursor-pointer hover:bg-slate-50">
+      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors">
         <input type="checkbox" checked={fs} onChange={e => sfs(e.target.checked)} className="accent-[#0f2240]" />
         <Heart size={13} /> За терапевт
       </label>
-      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 cursor-pointer hover:bg-slate-50">
+      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors">
         <input type="checkbox" checked={pg} onChange={e => spg(e.target.checked)} className="accent-[#0f2240]" />
         <Baby size={13} /> За ПГ
       </label>
     </div>
   )
 
+  const hasActiveFilter = filterCat || filterRole || filterPg || search.trim()
+
   return (
-    <div className="space-y-5">
-      {/* Качване */}
-      {canManage && (
-        <div>
-          {!showUpload ? (
-            <button onClick={() => setShowUpload(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: '#0f2240' }}>
-              <Plus size={16} /> Качи образец
-            </button>
-          ) : (
-            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-800">Нов образец</h3>
-                <button onClick={() => setShowUpload(false)} className="text-slate-400 hover:text-slate-600"><X size={16} /></button>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">Заглавие</label>
-                  <select value={titleChoice} onChange={e => setTitleChoice(e.target.value)} className="input w-full text-sm">
-                    <option value="">— Изберете документ —</option>
-                    {TITLE_SUGGESTIONS.map(t => <option key={t} value={t}>{t}</option>)}
-                    <option value="__custom__">Друго (въведи ръчно)…</option>
-                  </select>
-                  {titleChoice === '__custom__' && (
-                    <input type="text" value={customTitle} onChange={e => setCustomTitle(e.target.value)}
-                      placeholder="Въведи заглавие" className="input w-full text-sm mt-2" />
-                  )}
+    <div className="space-y-6">
+      {/* ── Качване (само за управляващи) ── */}
+      {canManage && !showUpload && (
+        <button onClick={() => setShowUpload(true)}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+          style={{ backgroundColor: '#0f2240' }}>
+          <Plus size={16} /> Качи образец
+        </button>
+      )}
+
+      {canManage && showUpload && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-800">Нов образец</h3>
+            <button onClick={resetForm} className="text-slate-400 hover:text-slate-600 transition-colors"><X size={18} /></button>
+          </div>
+
+          {/* Drop zone / избор на файл */}
+          <div
+            onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) validateAndSetFile(f) }}
+            onClick={() => fileInputRef.current?.click()}
+            className={`flex flex-col items-center justify-center gap-2 py-8 px-4 rounded-xl border-2 border-dashed cursor-pointer transition-all ${
+              dragOver ? 'border-blue-400 bg-blue-50/50' : pendingFile ? 'border-emerald-300 bg-emerald-50/40' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+            }`}>
+            {pendingFile ? (
+              <>
+                <div className="flex items-center gap-2 text-emerald-600">
+                  <FileText size={20} />
+                  <span className="text-sm font-semibold text-slate-800">{pendingFile.name}</span>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">Група</label>
-                  <select value={category} onChange={e => setCategory(e.target.value)} className="input w-full text-sm">
-                    {TEMPLATE_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-                  </select>
+                <span className="text-xs text-slate-400">{formatSize(pendingFile.size)} · клик за смяна</span>
+              </>
+            ) : (
+              <>
+                <UploadCloud size={28} className={dragOver ? 'text-blue-500' : 'text-slate-300'} />
+                <span className="text-sm font-medium text-slate-600">Пуснете файл тук или кликнете</span>
+                <span className="text-xs text-slate-400">Word, Excel или PDF · до 10MB</span>
+              </>
+            )}
+            <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.dot,.dotx,.xls,.xlsx" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) validateAndSetFile(f); e.target.value = '' }} />
+          </div>
+
+          {/* Заглавие — combobox с подсказки */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="relative">
+              <label className="block text-[11px] font-semibold text-slate-500 mb-1">Заглавие</label>
+              <input type="text" value={title}
+                onChange={e => { setTitle(e.target.value); setShowSuggestions(true) }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                placeholder="Започнете да пишете…" className="input w-full text-sm" />
+              {showSuggestions && titleMatches.length > 0 && (
+                <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-52 overflow-auto">
+                  {titleMatches.map(s => (
+                    <button key={s.title} type="button" onMouseDown={() => pickSuggestion(s)}
+                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-blue-50/60 transition-colors">
+                      {s.title}
+                    </button>
+                  ))}
                 </div>
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-500 mb-1">Пояснение (незадължително)</label>
-                <input type="text" value={description} onChange={e => setDescription(e.target.value)}
-                  placeholder="кратко описание" className="input w-full text-sm" />
-              </div>
-              {checkboxRow(forClassTeacher, setForClassTeacher, forSpecialist, setForSpecialist, isPg, setIsPg)}
-              <p className="text-[10px] text-slate-400">Без отметка „за роля" — образецът е за всички. „За ПГ" — вариант за подготвителна група.</p>
-              <label className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white cursor-pointer transition-colors ${uploading ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'}`}
-                style={{ backgroundColor: '#0f2240' }}>
-                {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
-                {uploading ? 'Качване...' : 'Избери файл и качи'}
-                <input type="file" accept=".pdf,.doc,.docx,.dot,.dotx,.xls,.xlsx" className="hidden" onChange={handleUpload} disabled={uploading} />
-              </label>
-              <p className="text-[11px] text-slate-400">Word, Excel или PDF, макс. 10MB</p>
+              )}
             </div>
-          )}
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-500 mb-1">Група</label>
+              <select value={category} onChange={e => setCategory(e.target.value)} className="input w-full text-sm">
+                {TEMPLATE_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Пояснение (незадължително)</label>
+            <input type="text" value={description} onChange={e => setDescription(e.target.value)}
+              placeholder="кратко описание" className="input w-full text-sm" />
+          </div>
+
+          {checkboxRow(forClassTeacher, setForClassTeacher, forSpecialist, setForSpecialist, isPg, setIsPg)}
+          <p className="text-[10px] text-slate-400">Без отметка „за роля" образецът е за всички. „За ПГ" — вариант за подготвителна група.</p>
+
+          <div className="flex items-center gap-2 justify-end pt-1">
+            <button onClick={resetForm} className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors">Отказ</button>
+            <button onClick={doUpload} disabled={uploading || !title.trim() || !pendingFile}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50 transition-opacity"
+              style={{ backgroundColor: '#0f2240' }}>
+              {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+              {uploading ? 'Качване…' : 'Качи'}
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Търсене + филтри */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-3 shadow-sm space-y-3">
-        <div className="relative">
+      {/* ── Търсене + филтри (по-дискретни) ── */}
+      <div className="space-y-3">
+        <div className="relative max-w-md">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Търси образец по заглавие..."
-            className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+            placeholder="Търсене по заглавие…"
+            className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-all" />
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button onClick={() => setFilterCat('')}
-            className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${filterCat === '' ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
-            Всички групи
+            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filterCat === '' ? 'bg-[#0f2240] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+            Всички
           </button>
           {TEMPLATE_CATEGORIES.map(c => (
             <button key={c.key} onClick={() => setFilterCat(filterCat === c.key ? '' : c.key)}
-              className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${filterCat === c.key ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filterCat === c.key ? 'bg-[#0f2240] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
               {c.label}
             </button>
           ))}
-        </div>
-        <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
+          <span className="w-px h-4 bg-slate-200 mx-1" />
           <button onClick={() => setFilterRole(filterRole === 'class' ? '' : 'class')}
-            className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${filterRole === 'class' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
-            <GraduationCap size={12} /> За класен
+            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors ${filterRole === 'class' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+            <GraduationCap size={12} /> Класен
           </button>
           <button onClick={() => setFilterRole(filterRole === 'specialist' ? '' : 'specialist')}
-            className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${filterRole === 'specialist' ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
-            <Heart size={12} /> За терапевт
+            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors ${filterRole === 'specialist' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+            <Heart size={12} /> Терапевт
           </button>
           <button onClick={() => setFilterPg(!filterPg)}
-            className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${filterPg ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
-            <Baby size={12} /> Само ПГ
+            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors ${filterPg ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+            <Baby size={12} /> ПГ
           </button>
         </div>
       </div>
 
-      {/* Резултати по групи */}
+      {/* ── Резултати по групи ── */}
       {TEMPLATE_CATEGORIES.map(cat => {
         const items = filtered.filter(t => t.category === cat.key)
         if (items.length === 0) return null
         return (
           <div key={cat.key}>
-            <div className="flex items-center gap-2 mb-2">
-              <FolderOpen size={15} className="text-slate-400" />
-              <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">{cat.label}</h2>
-              <span className="text-[11px] text-slate-400">({items.length})</span>
+            <div className="flex items-center gap-2 mb-2.5">
+              <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">{cat.label}</h2>
+              <span className="text-[11px] text-slate-300">{items.length}</span>
+              <div className="flex-1 h-px bg-slate-100" />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
               {items.map(t => {
                 const rb = roleBadge(t)
                 const isEditing = editId === t.id
                 return (
-                  <div key={t.id} className="rounded-xl border border-slate-200 bg-white">
+                  <div key={t.id} className="rounded-xl border border-slate-200/80 bg-white transition-all hover:border-slate-300 hover:shadow-sm">
                     {isEditing ? (
-                      <div className="p-3 space-y-2">
+                      <div className="p-4 space-y-2.5">
                         <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)}
                           className="input w-full text-sm" placeholder="Заглавие" />
                         <select value={editCategory} onChange={e => setEditCategory(e.target.value)} className="input w-full text-sm">
@@ -328,22 +381,24 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between gap-2 p-3 hover:bg-slate-50 transition-colors">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <FileText size={18} className="text-blue-500 flex-shrink-0" />
+                      <div className="flex items-center justify-between gap-2 p-3.5 group">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center flex-shrink-0">
+                            <FileText size={17} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
+                          </div>
                           <div className="min-w-0">
                             <div className="text-sm font-semibold text-slate-800 truncate flex items-center gap-1.5">
                               {t.title}
                               {rb && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${rb.cls}`}>{rb.label}</span>}
                               {t.is_pg && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border bg-violet-50 text-violet-600 border-violet-200">ПГ</span>}
                             </div>
-                            <div className="text-[11px] text-slate-400 truncate">
+                            <div className="text-[11px] text-slate-400 truncate mt-0.5">
                               {t.description || t.file_name}
                               {t.file_size && <span className="ml-1">· {formatSize(t.file_size)}</span>}
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
+                        <div className="flex items-center gap-0.5 flex-shrink-0">
                           <button onClick={() => handleDownload(t)} disabled={downloading === t.id}
                             className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Изтегли">
                             {downloading === t.id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
@@ -351,11 +406,11 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
                           {canManage && (
                             <>
                               <button onClick={() => startEdit(t)}
-                                className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title="Редактирай">
+                                className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors opacity-0 group-hover:opacity-100" title="Редактирай">
                                 <Pencil size={15} />
                               </button>
                               <button onClick={() => handleDelete(t)}
-                                className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Изтрий">
+                                className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100" title="Изтрий">
                                 <Trash2 size={15} />
                               </button>
                             </>
@@ -371,13 +426,24 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
         )
       })}
 
+      {/* ── Празно състояние ── */}
       {filtered.length === 0 && (
-        <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
-          <FolderOpen size={40} className="mx-auto mb-3 text-slate-300" />
-          <p className="text-sm text-slate-500">
-            {templates.length === 0 ? 'Още няма качени образци' : 'Няма образци по този филтър'}
-          </p>
-          {canManage && templates.length === 0 && <p className="text-xs text-slate-400 mt-1">Качете първия образец с бутона горе</p>}
+        <div className="text-center py-16 px-4 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+          <FolderOpen size={36} className="mx-auto mb-3 text-slate-300" />
+          {templates.length === 0 ? (
+            <>
+              <p className="text-sm font-medium text-slate-600">Още няма образци</p>
+              {canManage && <p className="text-xs text-slate-400 mt-1">Качете първия с бутона „Качи образец"</p>}
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-medium text-slate-600">Няма образци по този филтър</p>
+              {hasActiveFilter && (
+                <button onClick={() => { setSearch(''); setFilterCat(''); setFilterRole(''); setFilterPg(false) }}
+                  className="text-xs text-blue-600 hover:underline mt-1">Изчистете филтрите</button>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>
