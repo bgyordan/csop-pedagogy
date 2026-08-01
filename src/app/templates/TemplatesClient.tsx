@@ -385,36 +385,21 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
                 }
                 return (
                   <div key={t.id}
-                    className="group flex items-center gap-4 px-4 py-3 rounded-xl border border-transparent bg-slate-50/60 transition-all duration-300 hover:bg-white hover:border-blue-200/70 hover:shadow-[0_4px_16px_rgba(15,34,64,0.06)] hover:translate-x-1">
-                    {/* Иконка в кутийка */}
-                    <div className="w-10 h-10 rounded-lg bg-white border border-slate-100 shadow-sm flex items-center justify-center flex-shrink-0 text-slate-400 group-hover:text-blue-600 transition-colors">
-                      <FileText size={18} />
-                    </div>
-                    {/* Съдържание — таг отгоре, заглавие отдолу */}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600">{cat.label}</span>
-                        {rb && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${rb.cls}`}>{rb.label}</span>}
-                        {t.is_pg && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border bg-violet-50 text-violet-600 border-violet-200">ПГ</span>}
-                      </div>
-                      <div className="text-[15px] font-bold text-slate-800 truncate leading-snug mt-0.5">{t.title}</div>
-                      {(t.description || t.file_size) && (
-                        <div className="text-[11px] text-slate-400 truncate">
-                          {t.description && <span>{t.description}</span>}
-                          {t.file_size && <span className={t.description ? 'ml-1' : ''}>· {formatSize(t.file_size)}</span>}
-                        </div>
-                      )}
-                    </div>
+                    className="group flex items-center gap-3 px-4 py-2.5 rounded-xl border border-transparent bg-slate-50/60 transition-all duration-300 hover:bg-white hover:border-blue-200/70 hover:shadow-[0_2px_12px_rgba(15,34,64,0.05)] hover:translate-x-1">
+                    {/* Иконка */}
+                    <FileText size={17} className="text-slate-400 group-hover:text-blue-600 transition-colors flex-shrink-0" />
+                    {/* Заглавие (клик = сваляне) + пояснение inline */}
+                    <button onClick={() => handleDownload(t)} className="min-w-0 flex-1 text-left">
+                      <span className="text-sm font-medium text-slate-800 group-hover:text-blue-700 transition-colors">{t.title}</span>
+                      {rb && <span className={`ml-2 text-[9px] font-bold px-1.5 py-0.5 rounded-full border align-middle ${rb.cls}`}>{rb.label}</span>}
+                      {t.is_pg && <span className="ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full border bg-violet-50 text-violet-600 border-violet-200 align-middle">ПГ</span>}
+                      {t.description && <span className="text-[11px] text-slate-400 ml-2">— {t.description}</span>}
+                    </button>
                     {/* Действия */}
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-0.5 flex-shrink-0">
                       <button onClick={() => handleDownload(t)} disabled={downloading === t.id}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
-                        style={{ borderColor: 'rgba(15,34,64,0.25)', color: '#0f2240' }}
-                        onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.backgroundColor = '#0f2240'; el.style.color = '#fff' }}
-                        onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.backgroundColor = 'transparent'; el.style.color = '#0f2240' }}
-                        title="Изтегли">
-                        {downloading === t.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                        <span className="hidden sm:inline">Изтегли</span>
+                        className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Изтегли">
+                        {downloading === t.id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
                       </button>
                       {canManage && (
                         <>
