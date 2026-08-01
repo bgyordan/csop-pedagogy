@@ -261,8 +261,8 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
-                            {rows.map((row) => (
-                              <tr key={row.studentId} className="hover:bg-blue-50/20 transition-colors">
+                            {rows.map((row, idx) => (
+                              <tr key={row.studentId} className={`hover:bg-blue-50/40 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}`}>
                                 <td className="px-4 py-2 font-bold text-slate-800 whitespace-nowrap">{row.name}</td>
                                 <td className="px-3 py-2 text-slate-600">{row.className}</td>
                                 <td className="px-3 py-2 text-slate-500 font-semibold">{row.externalClass || '—'}</td>
@@ -301,7 +301,7 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
                 </tr>
               </thead>
               <tbody>
-              {workloadRows.map((row, idx) => (
+               {workloadRows.map((row, idx) => (
                     <tr key={row.id} className={`border-b border-slate-50 hover:bg-blue-50/40 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}`}>
                       <td className="px-5 py-2.5 font-medium text-slate-800">{row.name}</td>
                       <td className="px-5 py-2.5 text-slate-500 text-xs">{row.role}</td>
@@ -351,6 +351,7 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
                 <tbody>
                   {(() => {
                     let lastClass = ''
+                    let rowIdx = 0
                     const out: any[] = []
                     intensityRows.forEach((row: any) => {
                       if (row.className !== lastClass) {
@@ -363,8 +364,10 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
                           </tr>
                         )
                       }
+                      const zebra = rowIdx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
+                      rowIdx++
                       out.push(
-                        <tr key={row.studentId} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors">
+                        <tr key={row.studentId} className={`border-b border-slate-50 hover:bg-blue-50/40 transition-colors ${zebra}`}>
                           <td className="px-4 py-2 font-medium text-slate-800 whitespace-nowrap">{row.name}</td>
                           <td className="px-3 py-2 text-slate-500 text-xs">{row.sendingSchoolName}</td>
                           <td className="px-3 py-2 text-slate-500 text-xs">{row.externalClass || '—'}</td>
