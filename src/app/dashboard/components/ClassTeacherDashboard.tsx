@@ -6,9 +6,8 @@ import ClassTeacherTabs from './ClassTeacherTabs'
 export default async function ClassTeacherDashboard({ profile, currentYearId }: any) {
   const supabase = await createClient()
   const now = new Date()
-  const month = now.getMonth() + 1  // 1-12
+  const month = now.getMonth() + 1
   const isSummer = month === 7 || month === 8
-  // Отчетен месец за ИУП (предходния, освен януари)
   const reportMonth = now.getMonth() === 0 ? 12 : now.getMonth()
   const reportYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear()
   const { data: assignments } = await supabase
@@ -29,9 +28,10 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
   const classIds = myClasses.map((c: any) => c.id)
   const [{ data: allEnrollments }, { data: iupSubmissions }, { data: announcements }, { data: deadlines }] = await Promise.all([
     supabase.from('student_enrollments')
-      .select(`student_id, class_id,
-        student:students(id, first_name, middle_name, last_name, status,
+      .select(`student_id, class_id, education_form,
+        student:students(id, first_name, middle_name, last_name, status, external_class,
           therapist_psychologist_id, therapist_speech_id, therapist_rehab_id,
+          sending_school:sending_schools(name),
           psy:staff_profiles!students_therapist_psychologist_id_fkey(first_name, last_name),
           spe:staff_profiles!students_therapist_speech_id_fkey(first_name, last_name),
           reh:staff_profiles!students_therapist_rehab_id_fkey(first_name, last_name))`)
@@ -40,11 +40,32 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
     supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
     supabase.from('calendar_deadlines').select('*').eq('academic_year_id', currentYearId).gte('deadline_date', now.toISOString().split('T')[0]).order('deadline_date').limit(5),
   ])
-  // Само активни ученици
   const activeEnrollments = (allEnrollments || []).filter((e: any) => e.student?.status === 'active')
   const submittedIds = new Set(iupSubmissions?.map((s: any) => s.class_id) || [])
-  // ЕПЛР екипите на моите деца
   const studentIds = activeEnrollments.map((e: any) => e.student_id)
+
+  // Родители (по едно име на дете) + ЦОУД записвания
+  const [{ data: guardians }, { data: coudEnrolls }] = await Promise.all([
+    studentIds.length > 0
+      ? supabase.from('student_guardians').select('student_id, full_name, relation').in('student_id', studentIds)
+      : Promise.resolve({ data: [] as any[] }),
+    studentIds.length > 0
+      ? supabase.from('coud_enrollments')
+          .select('student_id, coud_group:coud_groups(name)')
+          .in('student_id', studentIds).eq('academic_year_id', currentYearId)
+      : Promise.resolve({ data: [] as any[] }),
+  ])
+  const guardianByStudent: Record<string, string> = {}
+  ;(guardians || []).forEach((g: any) => {
+    if (!guardianByStudent[g.student_id]) guardianByStudent[g.student_id] = g.full_name
+  })
+  const coudByStudent: Record<string, string> = {}
+  ;(coudEnrolls || []).forEach((c: any) => {
+    const nm = (c.coud_group as any)?.name
+    if (nm) coudByStudent[c.student_id] = nm
+  })
+
+  // ЕПЛР екипите на моите деца
   const { data: eplrTeams } = studentIds.length > 0
     ? await supabase.from('eplr_teams')
         .select(`student_id,
@@ -56,7 +77,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
   const eplrByStudent: Record<string, any> = {}
   ;(eplrTeams || []).forEach((e: any) => { eplrByStudent[e.student_id] = e })
 
-  // ── Изтичащи / изтекли документи на моите деца (от досието — външни документи) ──
+  // ── Изтичащи / изтекли документи на моите деца ──
   const nameById: Record<string, string> = {}
   activeEnrollments.forEach((e: any) => { nameById[e.student_id] = getFullName(e.student) })
   const baseYear = new Date().getFullYear()
@@ -77,7 +98,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
   const expiringNames = [...expiringSet].map(id => nameById[id]).filter(Boolean).sort((a, b) => a.localeCompare(b, 'bg'))
   const hasDocAlerts = expiredNames.length > 0 || expiringNames.length > 0
 
-  // ── Терапии на моите деца (от терапевтичните графици, текущ срок = 1) ──
+  // ── Терапии на моите деца ──
   const { data: therSlots } = studentIds.length > 0
     ? await supabase.from('therapist_slots')
         .select(`day, period, student_id,
@@ -109,21 +130,22 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
   }).sort((a: any, b: any) =>
     a.day - b.day || a.period - b.period || a.studentName.localeCompare(b.studentName, 'bg')
   )
-  // Данни за таб "Моята паралелка" — деца + техните реални терапевти
+
+  // Данни за таб "Моята паралелка" — форма · ЦОУД · родител · училище
   const paralelkaRows = activeEnrollments.map((e: any) => {
     const s = e.student
-    const therapists: string[] = []
-    if (s.psy) therapists.push(`психолог ${s.psy.first_name} ${s.psy.last_name}`)
-    if (s.spe) therapists.push(`логопед ${s.spe.first_name} ${s.spe.last_name}`)
-    if (s.reh) therapists.push(`рехаб. ${s.reh.first_name} ${s.reh.last_name}`)
     return {
       id: s.id,
       name: getFullName(s),
       className: myClasses.find((c: any) => c.id === e.class_id)?.name || '',
-      therapists,
+      educationForm: e.education_form || 'daily',
+      coud: coudByStudent[e.student_id] || '',
+      guardian: guardianByStudent[e.student_id] || '',
+      sendingSchool: (s.sending_school as any)?.name || '',
     }
   }).sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
-  // Данни за таб "ЕПЛР" — за всяко дете екипът, реалните удебелени
+
+  // Данни за таб "ЕПЛР"
   const eplrRows = activeEnrollments.map((e: any) => {
     const s = e.student
     const team = eplrByStudent[e.student_id]
@@ -155,7 +177,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
   }).sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
   return (
     <div className="animate-in fade-in duration-500">
-      {/* Предупреждение за изтичащи/изтекли документи на моите деца */}
+      {/* Предупреждение за изтичащи/изтекли документи */}
       {hasDocAlerts && (
         <div className="mb-6 space-y-2">
           {expiredNames.length > 0 && (
