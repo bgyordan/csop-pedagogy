@@ -1,12 +1,15 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { Users, HeartPulse, ChevronRight, CalendarClock } from 'lucide-react'
+import { Users, HeartPulse, ChevronRight, CalendarClock, Home, GraduationCap } from 'lucide-react'
 interface ParalelkaRow {
   id: string
   name: string
   className: string
-  therapists: string[]
+  educationForm: string
+  coud: string
+  guardian: string
+  sendingSchool: string
 }
 interface EplrMember {
   role: string
@@ -76,22 +79,29 @@ export default function ClassTeacherTabs({
           )}
         </button>
       </div>
-      {/* ТАБ 1: Моята паралелка — деца с техните терапевти */}
+      {/* ТАБ 1: Моята паралелка — форма · ЦОУД · родител · училище */}
       {tab === 'paralelka' && (
         <div className="divide-y divide-slate-50">
           {paralelkaRows.length === 0 ? (
             <div className="p-8 text-center text-slate-400 text-sm">Няма ученици в паралелката.</div>
           ) : (
-            paralelkaRows.map(r => (
-              <div key={r.id} className="flex items-start justify-between gap-3 px-5 py-3 hover:bg-slate-50/50 transition-colors">
-                <div className="min-w-0">
-                  <Link href={`/students/${r.id}`} className="text-sm font-semibold text-slate-800 hover:text-blue-700 hover:underline">
-                    {r.name}
-                  </Link>
-                  {r.therapists.length > 0 ? (
-                    <div className="text-[11px] text-slate-400 mt-0.5">{r.therapists.join(' · ')}</div>
-                  ) : (
-                    <div className="text-[11px] text-slate-300 mt-0.5 italic">още няма зачислени терапевти</div>
+            paralelkaRows.map((r, idx) => (
+              <div key={r.id} className={`px-5 py-3 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'} hover:bg-blue-50/40`}>
+                <Link href={`/students/${r.id}`} className="text-sm font-semibold text-slate-800 hover:text-blue-700 hover:underline">
+                  {r.name}
+                </Link>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                  <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                    {r.educationForm === 'ifo' ? <><Home size={11} className="text-slate-400" /> ИФО</> : <><GraduationCap size={11} className="text-slate-400" /> Дневна</>}
+                  </span>
+                  {r.coud && (
+                    <span className="text-[11px] text-slate-500">· ЦОУД: {r.coud}</span>
+                  )}
+                  {r.sendingSchool && (
+                    <span className="text-[11px] text-slate-500">· {r.sendingSchool}</span>
+                  )}
+                  {r.guardian && (
+                    <span className="text-[11px] text-slate-400">· род. {r.guardian}</span>
                   )}
                 </div>
               </div>
@@ -99,15 +109,15 @@ export default function ClassTeacherTabs({
           )}
         </div>
       )}
-      {/* ТАБ 2: ЕПЛР екипи — реалните удебелени */}
+      {/* ТАБ 2: ЕПЛР екипи */}
       {tab === 'eplr' && (
         <div className="divide-y divide-slate-50">
           {eplrRows.length === 0 ? (
             <div className="p-8 text-center text-slate-400 text-sm">Няма ЕПЛР екипи.</div>
           ) : (
             <>
-              {eplrRows.map(r => (
-                <div key={r.id} className="px-5 py-3 hover:bg-slate-50/50 transition-colors">
+              {eplrRows.map((r, idx) => (
+                <div key={r.id} className={`px-5 py-3 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'} hover:bg-blue-50/40`}>
                   <Link href={`/students/${r.id}`} className="text-sm font-semibold text-slate-800 hover:text-teal-700 hover:underline">
                     {r.name}
                   </Link>
@@ -128,7 +138,7 @@ export default function ClassTeacherTabs({
           )}
         </div>
       )}
-      {/* ТАБ 3: Терапии — кога децата имат терапия */}
+      {/* ТАБ 3: Терапии */}
       {tab === 'therapy' && (
         <div>
           {therapyRows.length === 0 ? (
