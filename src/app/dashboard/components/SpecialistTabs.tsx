@@ -1,11 +1,13 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { HeartPulse, Users, ChevronRight, GraduationCap } from 'lucide-react'
+import { HeartPulse, Users } from 'lucide-react'
 interface TherapyRow {
   id: string
   name: string
   className: string
+  intensity: string
+  sendingSchool: string
   others: string[]
 }
 interface EplrRow {
@@ -44,7 +46,7 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
           </span>
         </button>
       </div>
-      {/* ТАБ 1: За терапия */}
+      {/* ТАБ 1: За терапия — интензитет · паралелка · училище */}
       {tab === 'therapy' && (
         <div className="divide-y divide-slate-50">
           {therapyRows.length === 0 ? (
@@ -53,51 +55,45 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
               <Link href="/my-activities" className="text-teal-600 hover:underline text-xs">Добави от „Моите дейности" →</Link>
             </div>
           ) : (
-            therapyRows.map(r => (
-              <div key={r.id} className="flex items-start justify-between gap-3 px-5 py-3 hover:bg-slate-50/50 transition-colors">
-                <div className="min-w-0">
+            therapyRows.map((r, idx) => (
+              <div key={r.id} className={`px-5 py-3 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'} hover:bg-blue-50/40`}>
+                <div className="flex items-center justify-between gap-3">
                   <Link href={`/students/${r.id}`} className="text-sm font-semibold text-slate-800 hover:text-teal-700 hover:underline">
                     {r.name}
                   </Link>
-                  {r.others.length > 0 && (
-                    <div className="text-[11px] text-slate-400 mt-0.5">
-                      също: {r.others.join(' · ')}
-                    </div>
+                  {r.intensity && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 flex-shrink-0">
+                      {r.intensity}{/^\d+$/.test(r.intensity) ? ' ч.' : ''}
+                    </span>
                   )}
                 </div>
-                {r.className && (
-                  <span className="text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full flex-shrink-0">
-                    Паралелка {r.className}
-                  </span>
-                )}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
+                  {r.className && <span className="text-[11px] text-slate-500">Паралелка {r.className}</span>}
+                  {r.sendingSchool && <span className="text-[11px] text-slate-400">· {r.sendingSchool}</span>}
+                  {r.others.length > 0 && <span className="text-[11px] text-slate-400">· също: {r.others.join(' · ')}</span>}
+                </div>
               </div>
             ))
           )}
         </div>
       )}
-      {/* ТАБ 2: ЕПЛР състав */}
+      {/* ТАБ 2: ЕПЛР състав — паралелка · класен */}
       {tab === 'eplr' && (
         <div className="divide-y divide-slate-50">
           {eplrRows.length === 0 ? (
             <div className="p-8 text-center text-slate-400 text-sm">Няма деца в моя ЕПЛР състав.</div>
           ) : (
             <>
-              {eplrRows.map(r => (
-                <div key={r.id} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-slate-50/50 transition-colors">
-                  <div className="min-w-0">
-                    <Link href={`/students/${r.id}`}
-                      className={`text-sm hover:underline ${r.isReal ? 'font-bold text-slate-800' : 'font-normal text-slate-600'}`}>
-                      {r.name}
-                    </Link>
-                    {r.classTeacher && (
-                      <div className="text-[11px] text-slate-400 mt-0.5">класен: {r.classTeacher}</div>
-                    )}
+              {eplrRows.map((r, idx) => (
+                <div key={r.id} className={`px-5 py-3 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'} hover:bg-blue-50/40`}>
+                  <Link href={`/students/${r.id}`}
+                    className={`text-sm hover:underline ${r.isReal ? 'font-bold text-slate-800' : 'font-normal text-slate-600'}`}>
+                    {r.name}
+                  </Link>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
+                    {r.className && <span className="text-[11px] text-slate-500">Паралелка {r.className}</span>}
+                    {r.classTeacher && <span className="text-[11px] text-slate-400">· класен: {r.classTeacher}</span>}
                   </div>
-                  {r.className && (
-                    <span className="text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full flex-shrink-0">
-                      Паралелка {r.className}
-                    </span>
-                  )}
                 </div>
               ))}
             </>
