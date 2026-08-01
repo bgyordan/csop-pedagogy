@@ -1,4 +1,3 @@
-'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
@@ -23,6 +22,7 @@ interface NavItem {
   icon: React.ReactNode
   roles?: UserRole[]
   coordinatorOnly?: boolean
+  hideFromCoordinator?: boolean
   section?: string
   children?: NavItem[]
 }
@@ -31,6 +31,7 @@ const navItems: NavItem[] = [
   { href: '/students', label: 'Ученици', icon: <Users size={16} /> },
   { href: '/classes', label: 'Паралелки', icon: <BookOpen size={16} />, roles: ['admin', 'director', 'zdud'] },
  { href: '/templates', label: 'Образци на документи', icon: <FileText size={16} /> },
+  { href: '/spravki', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['class_teacher', 'educator', 'psychologist', 'speech_therapist', 'rehabilitator'], hideFromCoordinator: true },
   { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={16} />, roles: ['admin', 'director', 'zdud', 'class_teacher'] },
   { href: '/committees', label: 'Комисии', icon: <Building2 size={16} /> },
   { href: '/my-activities', label: 'Списък за терапия', icon: <HeartPulse size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
@@ -84,6 +85,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   const effectiveRoles: UserRole[] = isCoordinator ? [userRole, 'zdud' as UserRole] : [userRole]
   function canSee(item: NavItem): boolean {
     if (isSecretary) return item.section === 'delo'
+    if (item.hideFromCoordinator && isCoordinator) return false
     if (item.coordinatorOnly && isCoordinator) return true
     if (!item.roles) return true
     return item.roles.some(r => effectiveRoles.includes(r))
