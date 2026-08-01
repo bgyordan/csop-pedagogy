@@ -20,6 +20,10 @@ interface PageProps {
 }
 
 export default async function DocumentsPage({ searchParams }: PageProps) {
+  // Старият документен матрикс (П1-ПР) е изведен от употреба — пренасочваме към образците.
+  // Кодът остава за бъдещи генератори на документи.
+  redirect('/templates')
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
