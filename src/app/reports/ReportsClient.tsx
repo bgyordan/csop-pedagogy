@@ -261,6 +261,7 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
                 График екипни срещи
                 <ArrowRight size={13} className="text-slate-400" />
               </Link>
+              <DistributionPdfButton rows={distRows} yearName={yearName} />
               <RuoLetterButton yearName={yearName} classes={ruoData} />
             </div>
           </div>
