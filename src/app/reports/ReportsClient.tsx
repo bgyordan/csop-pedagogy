@@ -40,7 +40,6 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
   const [scheduleId, setScheduleId] = useState(schedules[0]?.id || '')
   const [generatingSchedules, setGeneratingSchedules] = useState(false)
   const activeSlots = slotsBySchedule[scheduleId] || {}
-  // Данни за писмото до РУО — групирани по паралелка
   const ruoData = (() => {
     const byClass: Record<string, { className: string; students: any[] }> = {}
     allRows.forEach((r: any) => {
@@ -97,7 +96,6 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
     { id: 'workload' as ReportTab, label: 'Натовареност', icon: <BarChart3 size={15} />, color: 'text-emerald-500' },
     { id: 'intensity' as ReportTab, label: 'Терапии по деца', icon: <BarChart3 size={15} />, color: 'text-teal-500' },
   ]
-  // Филтри за таб "Разпределение"
   const uniqueClasses = Array.from(new Set(allRows.map((r: any) => r.className).filter((c: string) => c && c !== '—'))).sort((a: any, b: any) => String(a).localeCompare(String(b), 'bg', { numeric: true }))
   const distRows = allRows.filter((r: any) => {
     if (distClass && r.className !== distClass) return false
@@ -195,14 +193,15 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
             <DistributionPdfButton rows={distRows} yearName={yearName} />
             <RuoLetterButton yearName={yearName} classes={ruoData} label="Официален списък паралелки" />
           </div>
-          {/* Таблица */}
+          {/* Таблица — нежни линийки + колона Класен + зебра */}
           <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50/50 border-b border-slate-100">
-                  <tr>
+              <table className="w-full text-sm border-collapse">
+                <thead className="bg-slate-50/70 border-b border-slate-200">
+                  <tr className="[&>th]:border-r [&>th]:border-slate-100 [&>th:last-child]:border-r-0">
                     <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Име</th>
                     <th className="text-left px-3 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Пар.</th>
+                    <th className="text-left px-3 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Класен</th>
                     <th className="text-left px-3 py-3 text-[11px] font-bold text-blue-500 uppercase tracking-widest">Психолог</th>
                     <th className="text-left px-3 py-3 text-[11px] font-bold text-purple-500 uppercase tracking-widest">Логопед</th>
                     <th className="text-left px-3 py-3 text-[11px] font-bold text-teal-500 uppercase tracking-widest">Рехаб.</th>
@@ -212,9 +211,12 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
                 </thead>
                 <tbody>
                   {distRows.length === 0 ? (
-                    <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400 text-sm">Няма ученици по този филтър</td></tr>
-                  ) : distRows.map((row: any, idx: number) => (
-                    <tr key={row.studentId} className={`border-b border-slate-50 hover:bg-blue-50/40 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}`}>
+                    <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400 text-sm">Няма ученици по този филтър</td></tr>
+                  ) : distRows.map((row: any, idx: number) => {
+                    const nextRow = distRows[idx + 1]
+                    const classChanges = !nextRow || nextRow.className !== row.className
+                    return (
+                    <tr key={row.studentId} className={`hover:bg-blue-50/40 transition-colors [&>td]:border-r [&>td]:border-slate-100 [&>td:last-child]:border-r-0 ${classChanges ? 'border-b-[3px] border-double border-slate-400' : 'border-b border-slate-100'} ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
                       <td className="px-4 py-2.5 font-medium text-slate-800 whitespace-nowrap">
                         <span className="inline-flex items-center gap-1.5">
                           {row.name}
@@ -222,6 +224,7 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
                         </span>
                       </td>
                       <td className="px-3 py-2.5 text-slate-600">{row.className}</td>
+                      <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{row.classTeacher || '—'}</td>
                       <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{row.psychologist}</td>
                       <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{row.speechTherapist}</td>
                       <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{row.rehabilitator}</td>
@@ -232,7 +235,8 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
                         </span>
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -242,7 +246,6 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
       {/* ── ТАБ: ПО УЧИЛИЩЕ / ПИСМА ── */}
       {activeTab === 'school' && (
         <div className="animate-in fade-in duration-200 space-y-4">
-          {/* Оперативен хедър с бързи бутони */}
           <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm print:hidden">
             <div>
               <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Кампания Изходящи документи</h2>
@@ -261,7 +264,6 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
               </Link>
             </div>
           </div>
-          {/* Графици на екипните срещи */}
           {schedules.length > 0 && (
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm print:hidden">
               <div className="flex items-center gap-2 flex-1">
@@ -276,7 +278,6 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
               <span className="text-[11px] text-slate-400">Изберете график, за да се появи бутонът „Писмо график" на всяко училище</span>
             </div>
           )}
-          {/* Компактна 3-колона мрежа от училища */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {schoolsWithStudents.map(school => {
               const stats = getSchoolStats(school.id)
@@ -288,7 +289,6 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
                   className={`bg-white rounded-xl border transition-all duration-200 overflow-hidden shadow-sm flex flex-col ${
                     isExpanded ? 'border-blue-500 ring-4 ring-blue-500/5 md:col-span-2 lg:col-span-3' : 'border-slate-200/70 hover:border-slate-300 hover:shadow-md'
                   }`}>
-                  {/* Заглавна част на сбитата карта */}
                   <div
                     className="p-3.5 flex items-center justify-between cursor-pointer select-none gap-3"
                     onClick={() => setExpandedSchool(isExpanded ? null : school.id)}>
@@ -317,10 +317,8 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
                       </button>
                     </div>
                   </div>
-                  {/* Сбита таблица (Показва се само при разгъване) */}
                   {isExpanded && (
                     <div className="border-t border-slate-100 bg-slate-50/20">
-                      {/* Индивидуални бутони под картата */}
                       <div className="px-4 py-2 border-b border-slate-100 flex flex-wrap items-center justify-end gap-2 bg-slate-50/60 print:hidden">
                         <div className="flex items-center gap-1.5">
                           <button onClick={() => generateSchoolLetter(school.name, school.city, rows, yearName)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0f2240] text-white text-xs font-bold hover:bg-[#19325c]">
@@ -337,7 +335,6 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
                           )}
                         </div>
                       </div>
-                      {/* Тясна таблица с деца */}
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs bg-white">
                           <thead className="bg-slate-50/70 border-b border-slate-200/60">
