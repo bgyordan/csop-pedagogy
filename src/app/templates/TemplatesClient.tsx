@@ -131,12 +131,11 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
     return templates.filter(t => {
       if (search.trim() && !t.title.toLowerCase().includes(search.toLowerCase()) &&
           !(t.description || '').toLowerCase().includes(search.toLowerCase())) return false
-      if (filterPg && !t.is_pg) return false
       return true
     })
-  }, [templates, search, filterPg])
+  }, [templates, search])
   const adminItems = filtered.filter(t => t.is_administrative).sort((a, b) => a.title.localeCompare(b.title, 'bg', { numeric: true }))
-  const activityItems = filtered.filter(t => !t.is_administrative).sort((a, b) => a.title.localeCompare(b.title, 'bg', { numeric: true }))
+  const activityItems = filtered.filter(t => !t.is_administrative).filter(t => filterPg ? t.is_pg : !t.is_pg).sort((a, b) => a.title.localeCompare(b.title, 'bg', { numeric: true }))
   const checkboxRow = (
     admin: boolean, sadmin: (v: boolean) => void,
     pg: boolean, spg: (v: boolean) => void,
@@ -283,7 +282,7 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
           </div>
         </div>
       )}
-      {/* ── Търсене + ПГ филтър ── */}
+      {/* ── Търсене ── */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 max-w-md">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -291,10 +290,6 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
             placeholder="Търсене по заглавие…"
             className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-all" />
         </div>
-        <button onClick={() => setFilterPg(!filterPg)}
-          className={`inline-flex items-center gap-1 px-3 py-2 rounded-full text-xs font-medium transition-colors ${filterPg ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-          <Baby size={13} /> ПГ
-        </button>
       </div>
       {/* ── Административни (горе) ── */}
       {adminItems.length > 0 && (
@@ -311,16 +306,22 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
         </div>
       )}
       {/* ── За дейността (долу) ── */}
-      {activityItems.length > 0 && (
+      {(activityItems.length > 0 || filterPg) && (
         <div>
           <div className="flex items-center gap-2 mb-2">
             <ClipboardList size={18} style={{ color: '#0f2240' }} />
             <h2 className="text-base font-extrabold uppercase tracking-wider" style={{ color: '#0f2240' }}>Документи за дейността</h2>
             <span className="text-[11px] font-semibold text-slate-400">{activityItems.length}</span>
             <div className="flex-1 h-px bg-slate-100" />
+            <button onClick={() => setFilterPg(!filterPg)}
+              className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors flex-shrink-0 ${filterPg ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+              <Baby size={12} /> ПГ
+            </button>
           </div>
           <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm">
-            {activityItems.map((t, idx) => <DocRow key={t.id} t={t} idx={idx} />)}
+            {activityItems.length > 0
+              ? activityItems.map((t, idx) => <DocRow key={t.id} t={t} idx={idx} />)
+              : <p className="text-sm text-slate-400 text-center py-6">Няма ПГ варианти</p>}
           </div>
         </div>
       )}
