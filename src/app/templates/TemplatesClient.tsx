@@ -300,8 +300,8 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
       {adminItems.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <Briefcase size={16} className="text-slate-500" />
-            <h2 className="text-sm font-bold text-slate-700">Административни документи</h2>
+            <Briefcase size={18} style={{ color: '#0f2240' }} />
+            <h2 className="text-base font-extrabold uppercase tracking-wider" style={{ color: '#0f2240' }}>Административни документи</h2>
             <span className="text-[11px] font-semibold text-slate-400">{adminItems.length}</span>
             <div className="flex-1 h-px bg-slate-100" />
           </div>
@@ -314,8 +314,8 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
       {activityItems.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <ClipboardList size={16} className="text-blue-600" />
-            <h2 className="text-sm font-bold text-slate-700">Документи за дейността</h2>
+            <ClipboardList size={18} style={{ color: '#0f2240' }} />
+            <h2 className="text-base font-extrabold uppercase tracking-wider" style={{ color: '#0f2240' }}>Документи за дейността</h2>
             <span className="text-[11px] font-semibold text-slate-400">{activityItems.length}</span>
             <div className="flex-1 h-px bg-slate-100" />
           </div>
