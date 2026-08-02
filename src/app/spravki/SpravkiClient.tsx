@@ -1,7 +1,6 @@
 'use client'
 import { useState } from 'react'
 import { Users, Sparkles } from 'lucide-react'
-import RuoLetterButton from '../reports/RuoLetterButton'
 import DistributionPdfButton from '../reports/DistributionPdfButton'
 interface Props {
   allRows: any[]
@@ -13,22 +12,6 @@ export default function SpravkiClient({ allRows, specialists, yearName }: Props)
   const [distSpecialist, setDistSpecialist] = useState('')
   const [distNewOnly, setDistNewOnly] = useState(false)
   const [distSearch, setDistSearch] = useState('')
-  // Данни за официалния списък (Word) — групирани по паралелка
-  const ruoData = (() => {
-    const byClass: Record<string, { className: string; students: any[] }> = {}
-    allRows.forEach((r: any) => {
-      const key = r.className || '—'
-      if (!byClass[key]) byClass[key] = { className: key, students: [] }
-      byClass[key].students.push({
-        name: r.name,
-        school: r.sendingSchoolName || '',
-        externalClass: r.externalClass || '',
-      })
-    })
-    return Object.values(byClass)
-      .sort((a, b) => a.className.localeCompare(b.className, 'bg', { numeric: true }))
-      .map(c => ({ ...c, students: c.students.sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg')) }))
-  })()
   const uniqueClasses = Array.from(new Set(allRows.map((r: any) => r.className).filter((c: string) => c && c !== '—')))
     .sort((a: any, b: any) => String(a).localeCompare(String(b), 'bg', { numeric: true }))
   const distRows = allRows.filter((r: any) => {
@@ -67,7 +50,6 @@ export default function SpravkiClient({ allRows, specialists, yearName }: Props)
         </button>
         <span className="text-xs text-slate-400 ml-auto">{distRows.length} ученика</span>
         <DistributionPdfButton rows={distRows} yearName={yearName} />
-        <RuoLetterButton yearName={yearName} classes={ruoData} label="Официален списък паралелки" />
       </div>
       {/* Таблица — нежни линийки + бледа зебра */}
       <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
