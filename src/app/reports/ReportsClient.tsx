@@ -4,6 +4,7 @@ import { FileSpreadsheet, AlertTriangle, Users, School, BarChart3, FileX, FileTe
 import { generateSchoolLetter, generateSchoolScheduleLetter } from '@/lib/docx-generator'
 import RuoLetterButton from './RuoLetterButton'
 import DistributionPdfButton from './DistributionPdfButton'
+import { generateIntensityPDF } from '@/lib/pdf-generator'
 import {
   generateSchoolReportExcel,
   generateSpecialistReportExcel,
@@ -126,6 +127,12 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
     setGeneratingAll(false)
   }
   function handlePrint() { window.print() }
+  const [genIntensity, setGenIntensity] = useState(false)
+  async function downloadIntensityPdf() {
+    setGenIntensity(true)
+    try { await generateIntensityPDF(intensityRows, yearName) } catch (e: any) { alert('Грешка: ' + e.message) }
+    setGenIntensity(false)
+  }
   function ExportButtons({ onExcel }: { onExcel?: () => void }) {
     return (
       <div className="flex items-center gap-1.5 print:hidden">
@@ -415,10 +422,11 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
               <p className="text-sm text-slate-500 mt-0.5 print:hidden">Колко пъти седмично всеки специалист взима детето · инициали × брой сесии</p>
             </div>
             <div className="flex items-center gap-1.5 print:hidden">
-              <button onClick={handlePrint}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium hover:bg-slate-50 shadow-sm bg-white text-slate-700">
-                <Printer size={13} className="text-slate-600" />
-                PDF / Печат
+              <button onClick={downloadIntensityPdf} disabled={genIntensity}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm disabled:opacity-60 transition-opacity hover:opacity-90"
+                style={{ backgroundColor: '#0f2240' }}>
+                <FileText size={13} />
+                {genIntensity ? 'Генериране…' : 'PDF (бланка)'}
               </button>
             </div>
           </div>
