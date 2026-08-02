@@ -70,9 +70,12 @@ export default function SpravkiClient({ allRows, specialists, yearName }: Props)
             <tbody>
               {distRows.length === 0 ? (
                 <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400 text-sm">Няма ученици по този филтър</td></tr>
-              ) : distRows.map((row: any, idx: number) => (
+              ) : distRows.map((row: any, idx: number) => {
+                const nextRow = distRows[idx + 1]
+                const classChanges = !nextRow || nextRow.className !== row.className
+                return (
                 <tr key={row.studentId}
-                  className={`border-b border-slate-100 hover:bg-blue-50/40 transition-colors [&>td]:border-r [&>td]:border-slate-100 [&>td:last-child]:border-r-0 ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
+                  className={`hover:bg-blue-50/40 transition-colors [&>td]:border-r [&>td]:border-slate-100 [&>td:last-child]:border-r-0 ${classChanges ? 'border-b-[3px] border-double border-slate-400' : 'border-b border-slate-100'} ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
                   <td className="px-4 py-2.5 font-medium text-slate-800 whitespace-nowrap">
                     <span className="inline-flex items-center gap-1.5">
                       {row.name}
@@ -91,7 +94,8 @@ export default function SpravkiClient({ allRows, specialists, yearName }: Props)
                     </span>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>
