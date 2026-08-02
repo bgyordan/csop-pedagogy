@@ -267,7 +267,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
             studentId={student.id}
             academicYearId={currentYear?.id || ''}
             documents={eplrDocs || []}
-            canManage={canManage}
+            canManage={canManage || canEditDossier}
             staffId={profile?.id || ''}
           />
         </div>
