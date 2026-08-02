@@ -161,3 +161,102 @@ export async function generateDistributionPDF(rows: DistRow[], yearName: string)
 
   doc.save(`Разпределение_${yearName.replace('/', '-')}.pdf`)
 }
+
+
+interface IntensityRow {
+  name: string
+  sendingSchoolName: string
+  externalClass: string
+  className: string
+  intensity: string
+  psy: string
+  log: string
+  reh: string
+}
+
+export async function generateIntensityPDF(rows: IntensityRow[], yearName: string) {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const hasFont = await loadCyrillicFont(doc)
+  const FONT = hasFont ? 'Roboto' : 'helvetica'
+  const logo = await loadLogo()
+  const pageW = doc.internal.pageSize.getWidth()
+  const pageH = doc.internal.pageSize.getHeight()
+  const today = new Date().toLocaleDateString('bg-BG', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
+  // ── Бланка: лого вляво + центриран текст ──
+  if (logo) {
+    try { doc.addImage(logo, 'JPEG', 14, 8, 16, 16) } catch {}
+  }
+  doc.setFont(FONT, 'bold')
+  doc.setFontSize(11)
+  doc.setTextColor(...NAVY)
+  doc.text('Център за специална образователна подкрепа – гр. Варна', pageW / 2, 13, { align: 'center' })
+  doc.setFont(FONT, 'normal')
+  doc.setFontSize(8)
+  doc.setTextColor(...SLATE)
+  doc.text('бул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 0888 490 771', pageW / 2, 18, { align: 'center' })
+
+  doc.setDrawColor(...NAVY)
+  doc.setLineWidth(0.4)
+  doc.line(14, 26, pageW - 14, 26)
+
+  // Заглавие
+  doc.setFont(FONT, 'bold')
+  doc.setFontSize(12)
+  doc.setTextColor(...NAVY)
+  doc.text('Терапевтична натовареност по деца', pageW / 2, 34, { align: 'center' })
+  doc.setFont(FONT, 'normal')
+  doc.setFontSize(8.5)
+  doc.setTextColor(...SLATE)
+  doc.text(`Учебна ${yearName} г. · инициали × брой сесии седмично`, pageW / 2, 39, { align: 'center' })
+
+  // ── Таблица с групиране по паралелки ──
+  const body: any[] = []
+  let lastClass = ''
+  rows.forEach((r) => {
+    if (r.className !== lastClass) {
+      lastClass = r.className
+      body.push([{ content: `Паралелка ${r.className}`, colSpan: 7, styles: { fillColor: NAVY, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left', fontSize: 8 } }])
+    }
+    body.push([
+      r.name,
+      r.sendingSchoolName,
+      r.externalClass || '—',
+      r.intensity ? (/^\d+$/.test(r.intensity) ? r.intensity + ' ч.' : r.intensity) : '—',
+      r.psy || '—',
+      r.log || '—',
+      r.reh || '—',
+    ])
+  })
+
+  autoTable(doc, {
+    head: [['Име', 'Изпращащо училище', 'Клас', 'Интензитет', 'П', 'Л', 'Р']],
+    body,
+    startY: 44,
+    margin: { left: 14, right: 14 },
+    styles: { font: FONT, fontSize: 7.5, cellPadding: 1.8, textColor: [30, 41, 59], lineColor: [203, 213, 225], lineWidth: 0.1 },
+    headStyles: { font: FONT, fontStyle: 'bold', fillColor: [241, 245, 249], textColor: NAVY, fontSize: 7.5, cellPadding: 2, lineColor: [203, 213, 225], lineWidth: 0.1 },
+    columnStyles: {
+      0: { cellWidth: 42, fontStyle: 'bold' },
+      1: { cellWidth: 'auto' },
+      2: { cellWidth: 16, halign: 'center' },
+      3: { cellWidth: 20, halign: 'center' },
+      4: { cellWidth: 18, halign: 'center' },
+      5: { cellWidth: 18, halign: 'center' },
+      6: { cellWidth: 18, halign: 'center' },
+    },
+    didDrawPage: (data) => {
+      const pageCount = doc.getNumberOfPages()
+      doc.setFont(FONT, 'normal')
+      doc.setFontSize(7.5)
+      doc.setTextColor(...SLATE)
+      doc.text(`Генерирано на ${today}`, 14, pageH - 8)
+      doc.text(`Страница ${data.pageNumber} от ${pageCount}`, pageW - 14, pageH - 8, { align: 'right' })
+      doc.setDrawColor(226, 232, 240)
+      doc.setLineWidth(0.2)
+      doc.line(14, pageH - 12, pageW - 14, pageH - 12)
+    },
+  })
+
+  doc.save(`Терапии_по_деца_${yearName.replace('/', '-')}.pdf`)
+}
