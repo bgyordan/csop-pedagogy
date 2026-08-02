@@ -3,19 +3,16 @@ import { useState } from 'react'
 import { Users, Sparkles } from 'lucide-react'
 import RuoLetterButton from '../reports/RuoLetterButton'
 import DistributionPdfButton from '../reports/DistributionPdfButton'
-
 interface Props {
   allRows: any[]
   specialists: { id: string; name: string; role: string }[]
   yearName: string
 }
-
 export default function SpravkiClient({ allRows, specialists, yearName }: Props) {
   const [distClass, setDistClass] = useState('')
   const [distSpecialist, setDistSpecialist] = useState('')
   const [distNewOnly, setDistNewOnly] = useState(false)
   const [distSearch, setDistSearch] = useState('')
-
   // Данни за официалния списък (Word) — групирани по паралелка
   const ruoData = (() => {
     const byClass: Record<string, { className: string; students: any[] }> = {}
@@ -32,10 +29,8 @@ export default function SpravkiClient({ allRows, specialists, yearName }: Props)
       .sort((a, b) => a.className.localeCompare(b.className, 'bg', { numeric: true }))
       .map(c => ({ ...c, students: c.students.sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg')) }))
   })()
-
   const uniqueClasses = Array.from(new Set(allRows.map((r: any) => r.className).filter((c: string) => c && c !== '—')))
     .sort((a: any, b: any) => String(a).localeCompare(String(b), 'bg', { numeric: true }))
-
   const distRows = allRows.filter((r: any) => {
     if (distClass && r.className !== distClass) return false
     if (distSpecialist && r.psychologistId !== distSpecialist && r.speechTherapistId !== distSpecialist && r.rehabilitatorId !== distSpecialist) return false
@@ -46,7 +41,6 @@ export default function SpravkiClient({ allRows, specialists, yearName }: Props)
     }
     return true
   }).sort((a: any, b: any) => String(a.className).localeCompare(String(b.className), 'bg', { numeric: true }) || a.name.localeCompare(b.name, 'bg'))
-
   return (
     <div className="max-w-[1400px] mx-auto space-y-4">
       {/* Филтри + действия */}
@@ -75,15 +69,15 @@ export default function SpravkiClient({ allRows, specialists, yearName }: Props)
         <DistributionPdfButton rows={distRows} yearName={yearName} />
         <RuoLetterButton yearName={yearName} classes={ruoData} label="Официален списък паралелки" />
       </div>
-
-      {/* Таблица */}
+      {/* Таблица — нежни линийки + бледа зебра */}
       <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50/50 border-b border-slate-100">
-              <tr>
+          <table className="w-full text-sm border-collapse">
+            <thead className="bg-slate-50/70 border-b border-slate-200">
+              <tr className="[&>th]:border-r [&>th]:border-slate-100 [&>th:last-child]:border-r-0">
                 <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Име</th>
                 <th className="text-left px-3 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Пар.</th>
+                <th className="text-left px-3 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Класен</th>
                 <th className="text-left px-3 py-3 text-[11px] font-bold text-blue-500 uppercase tracking-widest">Психолог</th>
                 <th className="text-left px-3 py-3 text-[11px] font-bold text-purple-500 uppercase tracking-widest">Логопед</th>
                 <th className="text-left px-3 py-3 text-[11px] font-bold text-teal-500 uppercase tracking-widest">Рехаб.</th>
@@ -93,9 +87,10 @@ export default function SpravkiClient({ allRows, specialists, yearName }: Props)
             </thead>
             <tbody>
               {distRows.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400 text-sm">Няма ученици по този филтър</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400 text-sm">Няма ученици по този филтър</td></tr>
               ) : distRows.map((row: any, idx: number) => (
-                <tr key={row.studentId} className={`border-b border-slate-50 hover:bg-blue-50/40 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}`}>
+                <tr key={row.studentId}
+                  className={`border-b border-slate-100 hover:bg-blue-50/40 transition-colors [&>td]:border-r [&>td]:border-slate-100 [&>td:last-child]:border-r-0 ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
                   <td className="px-4 py-2.5 font-medium text-slate-800 whitespace-nowrap">
                     <span className="inline-flex items-center gap-1.5">
                       {row.name}
@@ -103,6 +98,7 @@ export default function SpravkiClient({ allRows, specialists, yearName }: Props)
                     </span>
                   </td>
                   <td className="px-3 py-2.5 text-slate-600">{row.className}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{row.classTeacher || '—'}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{row.psychologist}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{row.speechTherapist}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-600 whitespace-nowrap">{row.rehabilitator}</td>
