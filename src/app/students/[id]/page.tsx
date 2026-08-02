@@ -370,8 +370,7 @@ function EplrTeam({ eplr, id, canManage, externals = [], realPsy, realSpe, realR
             {member ? (
               <span className="inline-flex items-center gap-1.5">
                 {getFullName(member as any)}
-                {isReal && <span className="text-[9px] font-bold text-teal-600 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded-full uppercase tracking-wide">реален</span>}
-              </span>
+               </span>
             ) : <span className="text-slate-400 font-normal">—</span>}
           </dd>
         </div>
