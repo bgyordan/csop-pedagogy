@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3,
-  Inbox, ClipboardList, FileSignature, Package, Star, CalendarClock, ChevronDown, HeartPulse
+  Inbox, ClipboardList, FileSignature, Package, Star, CalendarClock, ChevronDown, HeartPulse, Settings
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
@@ -227,7 +227,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
       </nav>
       <div className="p-4" style={{ borderTop: '1px solid rgba(15,34,64,0.12)' }}>
         <Link href="/profile" onClick={() => setMobileOpen(false)}
-          className="flex items-center gap-2.5 mb-3 rounded-xl p-1.5 -m-1.5 transition-colors hover:bg-[rgba(15,34,64,0.04)]">
+          className="flex items-center gap-2.5 mb-1.5 rounded-xl p-1.5 -m-1.5 transition-colors hover:bg-[rgba(15,34,64,0.04)]">
           <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold"
             style={{ backgroundColor: 'rgba(15,34,64,0.12)', color: TEXT_PRIMARY }}>
             {userName.charAt(0)}
@@ -239,6 +239,15 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
               {isCoordinator && <span className="ml-1" style={{ color: '#2563a8' }}>· Координатор</span>}
             </div>
           </div>
+        </Link>
+        <Link href="/profile" onClick={() => setMobileOpen(false)}
+          className="flex items-center gap-2 px-3 py-1.5 mb-1 rounded-full transition-all text-[11px]"
+          style={{ color: TEXT_MUTED }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER; (e.currentTarget as HTMLElement).style.color = TEXT_SECONDARY }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; (e.currentTarget as HTMLElement).style.color = TEXT_MUTED }}
+        >
+          <Settings size={13} />
+          Профил и парола
         </Link>
         <button
           onClick={handleLogout}
