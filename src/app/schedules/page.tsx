@@ -218,7 +218,7 @@ export default async function SchedulesPage({
               {therapists.map((t, i) => (
                 <tr key={t.id} className={`hover:bg-blue-50/40 transition-colors ${i % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}`}>
                   <td className="px-4 py-2.5 font-semibold text-slate-800">{t.name}</td>
-                  <td className="px-4 py-2.5 text-slate-500">{ROLE_LABELS[t.role] || t.role}</td>
+                  <td className="px-4 py-2.5 text-slate-500">{ROLE_LABELS[t.role as keyof typeof ROLE_LABELS] || t.role}</td>
                   <td className="px-4 py-2.5 text-center text-slate-500">{t.kids}</td>
                   <td className="px-4 py-2.5 text-center">
                     {t.hours > 0
