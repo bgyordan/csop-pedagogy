@@ -21,7 +21,6 @@ const DAYS = [
   { n: 4, label: 'Четвъртък', short: 'Чт' },
   { n: 5, label: 'Петък', short: 'Пт' },
 ]
-// Готови следобедни ИФО слотове (по реалните времена от практиката)
 const IFO_PERIOD_TIMES: Record<number, string> = {
   1: '12:00–12:35',
   2: '12:30–13:05',
@@ -62,29 +61,57 @@ export function MyIfoClient({ academicYearId, term, ifoStudents, subjects: initi
   const [newPullout, setNewPullout] = useState(false)
 
   const currentSlots = slotsByStudent[selectedStudent] || []
+  const studentNameById = useMemo(() => {
+    const m: Record<string, string> = {}
+    ifoStudents.forEach(s => { m[s.id] = s.name })
+    return m
+  }, [ifoStudents])
 
-  const takenForDay = useMemo(() => {
+  // Заети слотове от ТЕКУЩОТО дете (ден-период)
+  const takenBySelf = useMemo(() => {
     const set = new Set<string>()
     currentSlots.forEach(s => set.add(`${s.day}-${s.period}`))
     return set
   }, [currentSlots])
 
-  const freePeriods = useMemo(
-    () => ALL_PERIODS.filter(p => !takenForDay.has(`${addDay}-${p}`)),
-    [takenForDay, addDay]
-  )
+  // Заети слотове от ДРУГИ деца на същия учител (ден-период → име на другото дете)
+  const takenByOther = useMemo(() => {
+    const m: Record<string, string> = {}
+    Object.entries(slotsByStudent).forEach(([sid, slots]) => {
+      if (sid === selectedStudent) return
+      slots.forEach(s => { m[`${s.day}-${s.period}`] = studentNameById[sid] || 'друго дете' })
+    })
+    return m
+  }, [slotsByStudent, selectedStudent, studentNameById])
 
   const selectedStudentObj = ifoStudents.find(s => s.id === selectedStudent)
 
+  // Списък със състоянието на всеки период за избрания ден
+  const periodStates = useMemo(() => {
+    return ALL_PERIODS.map(p => {
+      const key = `${addDay}-${p}`
+      if (takenBySelf.has(key)) return { period: p, state: 'self' as const, who: '' }
+      if (takenByOther[key]) return { period: p, state: 'other' as const, who: takenByOther[key] }
+      return { period: p, state: 'free' as const, who: '' }
+    })
+  }, [addDay, takenBySelf, takenByOther])
+
+  // Ако избраният период вече не е свободен (смяна на ден), избираме първия свободен
+  const firstFree = periodStates.find(ps => ps.state === 'free')?.period
+  const currentPeriodState = periodStates.find(ps => ps.period === addPeriod)
+  const effectivePeriod = currentPeriodState?.state === 'free' ? addPeriod : (firstFree ?? addPeriod)
+
   function addSlot() {
     if (!addSubjectId) { setMsg({ type: 'err', text: 'Изберете предмет' }); return }
-    if (takenForDay.has(`${addDay}-${addPeriod}`)) { setMsg({ type: 'err', text: 'Този слот вече е зает' }); return }
+    const key = `${addDay}-${effectivePeriod}`
+    if (takenBySelf.has(key)) { setMsg({ type: 'err', text: 'Този слот вече е зает за детето' }); return }
+    if (takenByOther[key]) { setMsg({ type: 'err', text: `В този час вече сте заети с ${takenByOther[key]}` }); return }
     setSlotsByStudent(prev => ({
       ...prev,
-      [selectedStudent]: [...(prev[selectedStudent] || []), { day: addDay, period: addPeriod, subjectId: addSubjectId }],
+      [selectedStudent]: [...(prev[selectedStudent] || []), { day: addDay, period: effectivePeriod, subjectId: addSubjectId }],
     }))
     setMsg(null)
-    const nextFree = ALL_PERIODS.find(p => p !== addPeriod && !takenForDay.has(`${addDay}-${p}`))
+    const nextFree = periodStates.find(ps => ps.period !== effectivePeriod && ps.state === 'free')?.period
     if (nextFree) setAddPeriod(nextFree)
   }
 
@@ -209,10 +236,14 @@ export function MyIfoClient({ academicYearId, term, ifoStudents, subjects: initi
           </div>
           <div>
             <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Час (слот)</label>
-            <select value={addPeriod} onChange={e => setAddPeriod(Number(e.target.value))}
+            <select value={effectivePeriod} onChange={e => setAddPeriod(Number(e.target.value))}
               className="w-full text-sm py-2 px-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300">
-              {freePeriods.length === 0 && <option value="">няма свободни</option>}
-              {freePeriods.map(p => <option key={p} value={p}>{IFO_PERIOD_TIMES[p]}</option>)}
+              {periodStates.map(ps => (
+                <option key={ps.period} value={ps.period} disabled={ps.state !== 'free'}>
+                  {IFO_PERIOD_TIMES[ps.period]}
+                  {ps.state === 'self' ? '  — вече зает (това дете)' : ps.state === 'other' ? `  — зает с ${ps.who}` : ''}
+                </option>
+              ))}
             </select>
           </div>
           <div>
@@ -224,7 +255,7 @@ export function MyIfoClient({ academicYearId, term, ifoStudents, subjects: initi
             </select>
           </div>
           <div className="flex items-end">
-            <button onClick={addSlot} disabled={freePeriods.length === 0 || !addSubjectId}
+            <button onClick={addSlot} disabled={!firstFree || !addSubjectId}
               className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-white text-sm font-semibold disabled:opacity-50"
               style={{ backgroundColor: '#0f2240' }}>
               <Plus size={15} /> Добави
@@ -250,6 +281,40 @@ export function MyIfoClient({ academicYearId, term, ifoStudents, subjects: initi
           </div>
         )}
       </div>
+
+      {/* Заетост за избрания ден (всички деца на този учител) */}
+      {(() => {
+        const dayBusy = ALL_PERIODS
+          .map(p => {
+            const key = `${addDay}-${p}`
+            if (takenBySelf.has(key)) {
+              const slot = currentSlots.find(s => s.day === addDay && s.period === p)
+              return { period: p, who: selectedStudentObj?.name || 'това дете', subj: slot ? subjName(slot.subjectId) : '', self: true }
+            }
+            if (takenByOther[key]) return { period: p, who: takenByOther[key], subj: '', self: false }
+            return null
+          })
+          .filter(Boolean) as { period: number; who: string; subj: string; self: boolean }[]
+        if (dayBusy.length === 0) return null
+        return (
+          <div className="bg-slate-50/70 border border-slate-200 rounded-xl px-4 py-3">
+            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+              Заетост в {DAYS.find(d => d.n === addDay)?.label.toLowerCase()}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {dayBusy.map(b => (
+                <span key={b.period}
+                  className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border ${
+                    b.self ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-500'}`}>
+                  <span className="font-mono">{IFO_PERIOD_TIMES[b.period]}</span>
+                  <span className="font-medium">{b.who}</span>
+                  {b.subj && <span className="text-slate-400">· {b.subj}</span>}
+                </span>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Списък с часовете на детето, по дни */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
