@@ -1,6 +1,5 @@
 'use client'
 import { GraduationCap, Calendar } from 'lucide-react'
-
 interface ViewSlot {
   day: number
   period: number
@@ -9,10 +8,10 @@ interface ViewSlot {
   teacherName: string
 }
 interface Props {
+  fromSchedules?: boolean
   term: number
   slots: ViewSlot[]
 }
-
 const DAYS = [
   { n: 1, label: 'Понеделник' },
   { n: 2, label: 'Вторник' },
@@ -24,23 +23,22 @@ const IFO_PERIOD_TIMES: Record<number, string> = {
   1: '12:00–12:35', 2: '12:30–13:05', 3: '13:10–13:45', 4: '13:20–13:55',
   5: '13:40–14:15', 6: '13:50–14:25', 7: '14:30–15:05', 8: '15:10–15:45',
 }
-
-export function IfoScheduleView({ term, slots }: Props) {
+export function IfoScheduleView({ term, slots, fromSchedules }: Props) {
+  const fromQ = fromSchedules ? '&from=schedules' : ''
   return (
     <div className="space-y-4">
       {/* Срок */}
       <div className="flex items-center gap-3">
         <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl">
-          <a href={`?term=1`} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 1 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+          <a href={`?term=1${fromQ}`} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 1 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
             style={term === 1 ? { backgroundColor: '#0f2240' } : {}}>I срок</a>
-          <a href={`?term=2`} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 2 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+          <a href={`?term=2${fromQ}`} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 2 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
             style={term === 2 ? { backgroundColor: '#0f2240' } : {}}>II срок</a>
         </div>
         <span className="text-xs text-slate-500">
           Часове: <span className="font-semibold text-slate-700">{slots.length}</span>
         </span>
       </div>
-
       {slots.length === 0 ? (
         <div className="text-center py-16 px-4 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
           <Calendar size={36} className="mx-auto mb-3 text-slate-300" />
