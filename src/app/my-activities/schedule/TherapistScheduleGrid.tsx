@@ -189,7 +189,7 @@ export function TherapistScheduleGrid({
                         <option value="">—</option>
                         {students.map(s => (
                           <option key={s.id} value={s.id}>
-                            {s.name}{s.className ? ` (${s.className})` : ''}
+                            {s.name}{s.form === 'ifo' ? ' (ИФО)' : s.className ? ` (${s.className})` : ''}
                           </option>
                         ))}
                       </select>
