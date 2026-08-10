@@ -145,7 +145,7 @@ export default async function TherapistSchedulePage({
         if (!ifoRange) return
         Object.entries(THERAPIST_PERIOD_RANGE).forEach(([per, range]) => {
           if (overlaps(ifoRange, range)) {
-            grid[`${h.day}-${per}`] = { name: h.name, allowsPullout: h.allowsPullout }
+            grid[`${h.day}-${per}`] = { name: h.name, allowsPullout: false }
           }
         })
       })
