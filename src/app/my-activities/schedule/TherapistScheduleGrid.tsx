@@ -37,6 +37,7 @@ const PERIOD_LABEL: Record<number, string> = { 0: 'ГМ' }
 export function TherapistScheduleGrid({
   academicYearId, term, specialistName = '', roleLabel = '', students, studentSchedule, takenByOthers, existingSlots, targetStaffId,
 }: Props) {
+  const staffQ = targetStaffId ? `&staff=${targetStaffId}` : ''
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const has78 = existingSlots.some(s => s.period >= 7)
@@ -124,9 +125,9 @@ export function TherapistScheduleGrid({
       {/* Срок + тотал */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl">
-          <a href="?term=1" className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 1 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+         <a href={`?term=1${staffQ}`} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 1 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
             style={term === 1 ? { backgroundColor: '#0f2240' } : {}}>I срок</a>
-          <a href="?term=2" className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 2 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+          <a href={`?term=2${staffQ}`} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 2 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
             style={term === 2 ? { backgroundColor: '#0f2240' } : {}}>II срок</a>
         </div>
         {term === 2 && (
