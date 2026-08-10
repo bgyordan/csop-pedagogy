@@ -9,7 +9,6 @@ interface ViewSlot {
   teacherName: string
 }
 interface Props {
-  fromSchedules?: boolean
   term: number
   slots: ViewSlot[]
 }
@@ -26,16 +25,15 @@ const IFO_PERIOD_TIMES: Record<number, string> = {
   5: '13:40–14:15', 6: '13:50–14:25', 7: '14:30–15:05', 8: '15:10–15:45',
 }
 
-export function IfoScheduleView({ term, slots, fromSchedules }: Props) {
-  const fromQ = fromSchedules ? '&from=schedules' : ''
+export function IfoScheduleView({ term, slots }: Props) {
   return (
     <div className="space-y-4">
       {/* Срок */}
       <div className="flex items-center gap-3">
         <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl">
-          href={?term=1${fromQ}} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 1 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+          <a href={`?term=1`} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 1 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
             style={term === 1 ? { backgroundColor: '#0f2240' } : {}}>I срок</a>
-         href={?term=2${fromQ}} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 2 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+          <a href={`?term=2`} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 2 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
             style={term === 2 ? { backgroundColor: '#0f2240' } : {}}>II срок</a>
         </div>
         <span className="text-xs text-slate-500">
