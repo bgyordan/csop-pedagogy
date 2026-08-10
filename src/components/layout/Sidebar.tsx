@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3,
-  Inbox, ClipboardList, FileSignature, Package, Star, CalendarClock, ChevronDown, HeartPulse, Settings, GraduationCap
+  Inbox, ClipboardList, FileSignature, Package, Star, CalendarClock, ChevronDown, HeartPulse, Settings, GraduationCap, CalendarDays
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
@@ -36,6 +36,7 @@ const navItems: NavItem[] = [
   { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={16} />, roles: ['admin', 'director', 'zdud', 'class_teacher'] },
   { href: '/my-ifo', label: 'Индивидуални часове (ИФО)', icon: <GraduationCap size={16} />, roles: ['class_teacher', 'educator'] },
   //{ href: '/committees', label: 'Комисии', icon: <Building2 size={16} /> },
+  { href: '/my-schedule', label: 'Моето разписание', icon: <CalendarDays size={16} />, roles: ['class_teacher', 'educator'] },
   { href: '/my-activities', label: 'Списък за терапия', icon: <HeartPulse size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
   { href: '/staff', label: 'Служители', icon: <UserCircle size={16} />, roles: ['admin', 'director', 'zdud'] },
   { href: '/reports', label: 'Писма и справки', icon: <BarChart3 size={16} />, roles: ['admin', 'director', 'zdud'], coordinatorOnly: true },
