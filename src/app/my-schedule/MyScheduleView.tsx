@@ -15,6 +15,7 @@ interface Props {
   classSlots: Slot[]
   ifoSlots: Slot[]
   hasClasses: boolean
+  staffId?: string
 }
 
 const DAYS = [
@@ -42,7 +43,8 @@ function startMinutes(source: 'class' | 'ifo', period: number): number {
   return h * 60 + m
 }
 
-export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses }: Props) {
+export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId }: Props) {
+  const staffQ = staffId ? `&staff=${staffId}` : ''
   const all = [...classSlots, ...ifoSlots]
 
   const totalClass = classSlots.length
@@ -53,9 +55,9 @@ export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses }: Props
       {/* Срок + легенда */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl">
-          <a href={`?term=1`} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 1 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+          <a href={`?term=1${staffQ}`} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 1 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
             style={term === 1 ? { backgroundColor: '#0f2240' } : {}}>I срок</a>
-          <a href={`?term=2`} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 2 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+          <a href={`?term=2${staffQ}`} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 2 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
             style={term === 2 ? { backgroundColor: '#0f2240' } : {}}>II срок</a>
         </div>
         <div className="flex items-center gap-4 text-xs text-slate-500">
