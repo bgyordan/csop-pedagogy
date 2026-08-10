@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { CalendarClock, BookOpen, GraduationCap, HeartPulse, Home, ArrowRight, Check } from 'lucide-react'
 import { getFullName } from '@/lib/utils'
-import { ROLE_LABELS } from '@/types'
 export const dynamic = 'force-dynamic'
 
 const TABS = [
@@ -87,37 +86,32 @@ export default async function SchedulesPage({
     }).sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
   }
 
-  // ── Терапевти ──
-  let therapists: any[] = []
-  if (tab === 'therapists') {
-    const { data: staff } = await supabase
-      .from('staff_profiles').select('id, first_name, last_name, role, is_active')
-      .in('role', ['psychologist', 'speech_therapist', 'rehabilitator'])
-      .order('first_name')
-    const activeStaff = (staff || []).filter((s: any) => s.is_active !== false)
-    // брой зачислени деца по терапевт (за всяка роля своето поле)
-    const { data: allStud } = await supabase
-      .from('students').select('therapist_psychologist_id, therapist_speech_id, therapist_rehab_id, status')
-      .eq('status', 'active')
-    const roleField: Record<string, string> = { psychologist: 'therapist_psychologist_id', speech_therapist: 'therapist_speech_id', rehabilitator: 'therapist_rehab_id' }
-    // брой зададени слотове (I срок) по терапевт
-    const { data: scheds } = await supabase
-      .from('therapist_schedules').select('id, staff_id, term').eq('academic_year_id', currentYear?.id).eq('term', 1)
-    const schedByStaff: Record<string, string> = {}
-    ;(scheds || []).forEach((s: any) => { schedByStaff[s.staff_id] = s.id })
-    const schedIds = (scheds || []).map((s: any) => s.id)
-    const { data: slotCounts } = schedIds.length > 0
-      ? await supabase.from('therapist_slots').select('schedule_id').in('schedule_id', schedIds)
-      : { data: [] }
-    const countBySched: Record<string, number> = {}
-    ;(slotCounts || []).forEach((s: any) => { countBySched[s.schedule_id] = (countBySched[s.schedule_id] || 0) + 1 })
-    therapists = activeStaff.map((t: any) => {
-      const field = roleField[t.role]
-      const kids = (allStud || []).filter((s: any) => s[field] === t.id).length
-      const schedId = schedByStaff[t.id]
-      const hours = schedId ? (countBySched[schedId] || 0) : 0
-      return { id: t.id, name: getFullName(t), role: t.role, kids, hours }
-    }).sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
+  // ── Класни/учители ──
+  let teachers: any[] = []
+  if (tab === 'teachers') {
+    // класни (class_teacher_assignments) + учители водещи ИФО (teacher_ifo_slots)
+    const { data: cta } = await supabase
+      .from('class_teacher_assignments')
+      .select('staff_id, class:classes(name), staff:staff_profiles(id, first_name, last_name, is_active)')
+      .eq('academic_year_id', currentYear?.id)
+    const { data: ifoT } = await supabase
+      .from('teacher_ifo_slots')
+      .select('teacher_id, term, teacher:staff_profiles(id, first_name, last_name, is_active)')
+      .eq('academic_year_id', currentYear?.id)
+    const map: Record<string, { id: string; name: string; classes: Set<string>; ifo1: number }> = {}
+    ;(cta || []).forEach((a: any) => {
+      if (!a.staff || a.staff.is_active === false) return
+      if (!map[a.staff_id]) map[a.staff_id] = { id: a.staff_id, name: getFullName(a.staff), classes: new Set(), ifo1: 0 }
+      if (a.class?.name) map[a.staff_id].classes.add(a.class.name)
+    })
+    ;(ifoT || []).forEach((s: any) => {
+      if (!s.teacher || s.teacher.is_active === false) return
+      if (!map[s.teacher_id]) map[s.teacher_id] = { id: s.teacher_id, name: getFullName(s.teacher), classes: new Set(), ifo1: 0 }
+      if (s.term === 1) map[s.teacher_id].ifo1++
+    })
+    teachers = Object.values(map).map(t => ({
+      id: t.id, name: t.name, classes: [...t.classes], ifoHours: t.ifo1,
+    })).sort((a, b) => a.name.localeCompare(b.name, 'bg'))
   }
 
   return (
@@ -205,39 +199,8 @@ export default async function SchedulesPage({
         </div>
       )}
 
-      {/* ── Терапевти ── */}
-      {tab === 'therapists' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-left [&>th]:px-4 [&>th]:py-2.5 [&>th]:font-semibold [&>th]:text-slate-500 [&>th]:text-xs [&>th]:uppercase [&>th]:tracking-wider">
-                <th>Специалист</th><th>Роля</th><th className="text-center">Деца</th><th className="text-center">Часове</th><th className="text-right">График</th>
-              </tr>
-            </thead>
-            <tbody className="[&>tr]:border-b [&>tr]:border-slate-100 [&>tr:last-child]:border-0 [&>tr>td]:border-r [&>tr>td]:border-slate-100 [&>tr>td:last-child]:border-0">
-              {therapists.map((t, i) => (
-                <tr key={t.id} className={`hover:bg-blue-50/40 transition-colors ${i % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}`}>
-                  <td className="px-4 py-2.5 font-semibold text-slate-800">{t.name}</td>
-                  <td className="px-4 py-2.5 text-slate-500">{ROLE_LABELS[t.role as keyof typeof ROLE_LABELS] || t.role}</td>
-                  <td className="px-4 py-2.5 text-center text-slate-500">{t.kids}</td>
-                  <td className="px-4 py-2.5 text-center">
-                    {t.hours > 0
-                      ? <span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-semibold"><Check size={13} /> {t.hours}</span>
-                      : <span className="text-slate-300 text-xs">празно</span>}
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
-                    <Link href={`/my-activities/schedule?staff=${t.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">Отвори <ArrowRight size={13} /></Link>
-                  </td>
-                </tr>
-              ))}
-              {therapists.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Няма терапевти</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* ── Класни/учители (скоро) ── */}
-      {tab === 'teachers' && (
+      {/* ── Останалите (скоро) ── */}
+      {(tab === 'teachers' || tab === 'therapists') && (
         <div className="text-center py-16 px-4 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
           <CalendarClock size={32} className="mx-auto mb-3 text-slate-300" />
           <p className="text-sm font-medium text-slate-500">Този раздел предстои</p>
