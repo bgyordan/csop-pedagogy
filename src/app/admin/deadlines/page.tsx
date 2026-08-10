@@ -1,19 +1,18 @@
 'use client'
-
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Pencil } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { Confirm } from '@/components/ui/Confirm'
 import { formatDate, getDaysUntil } from '@/lib/utils'
 import { DocumentType, DOCUMENT_TYPE_LABELS } from '@/types'
-
 export default function DeadlinesPage() {
   const supabase = createClient()
   const { toast } = useToast()
   const [deadlines, setDeadlines] = useState<any[]>([])
   const [open, setOpen] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [currentYearId, setCurrentYearId] = useState<string>('')
@@ -23,9 +22,7 @@ export default function DeadlinesPage() {
     doc_type: '' as DocumentType | '',
     color: 'yellow' as 'red' | 'yellow' | 'green',
   })
-
   useEffect(() => { load() }, [])
-
   async function load() {
     const { data: year } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
     setCurrentYearId(year?.id || '')
@@ -36,30 +33,52 @@ export default function DeadlinesPage() {
       .order('deadline_date')
     setDeadlines(data || [])
   }
-
+  function openNew() {
+    setEditId(null)
+    setForm({ title: '', deadline_date: '', doc_type: '', color: 'yellow' })
+    setOpen(true)
+  }
+  function openEdit(d: any) {
+    setEditId(d.id)
+    setForm({
+      title: d.title || '',
+      deadline_date: d.deadline_date || '',
+      doc_type: (d.doc_type || '') as DocumentType | '',
+      color: (d.color || 'yellow') as 'red' | 'yellow' | 'green',
+    })
+    setOpen(true)
+  }
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     if (!form.title || !form.deadline_date) { toast('Попълни задължителните полета', 'error'); return }
     setSaving(true)
-
-    const { data: profile } = await supabase.from('staff_profiles').select('id').eq('user_id', (await supabase.auth.getUser()).data.user?.id!).single()
-
-    await supabase.from('calendar_deadlines').insert({
-      title: form.title,
-      deadline_date: form.deadline_date,
-      doc_type: form.doc_type || null,
-      color: form.color,
-      academic_year_id: currentYearId,
-      created_by: profile?.id,
-    })
-
-    toast('Срокът е добавен')
+    if (editId) {
+      // Редакция на съществуващ
+      await supabase.from('calendar_deadlines').update({
+        title: form.title,
+        deadline_date: form.deadline_date,
+        doc_type: form.doc_type || null,
+        color: form.color,
+      }).eq('id', editId)
+      toast('Срокът е обновен')
+    } else {
+      const { data: profile } = await supabase.from('staff_profiles').select('id').eq('user_id', (await supabase.auth.getUser()).data.user?.id!).single()
+      await supabase.from('calendar_deadlines').insert({
+        title: form.title,
+        deadline_date: form.deadline_date,
+        doc_type: form.doc_type || null,
+        color: form.color,
+        academic_year_id: currentYearId,
+        created_by: profile?.id,
+      })
+      toast('Срокът е добавен')
+    }
     setOpen(false)
     setSaving(false)
+    setEditId(null)
     setForm({ title: '', deadline_date: '', doc_type: '', color: 'yellow' })
     load()
   }
-
   async function handleDelete() {
     if (!deleteId) return
     await supabase.from('calendar_deadlines').delete().eq('id', deleteId)
@@ -67,17 +86,15 @@ export default function DeadlinesPage() {
     setDeleteId(null)
     load()
   }
-
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-slate-800">Срокове в календара</h1>
-        <button onClick={() => setOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#0f2240' }}>
+        <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#0f2240' }}>
           <Plus size={16} />
           Нов срок
         </button>
       </div>
-
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
         <table className="w-full text-sm">
           <thead>
@@ -86,7 +103,7 @@ export default function DeadlinesPage() {
               <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Документ</th>
               <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Дата</th>
               <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Оставащо</th>
-              <th className="px-5 py-3"></th>
+              <th className="px-5 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wide">Действия</th>
             </tr>
           </thead>
           <tbody>
@@ -109,9 +126,14 @@ export default function DeadlinesPage() {
                     </span>
                   </td>
                   <td className="px-5 py-3.5">
-                    <button onClick={() => setDeleteId(d.id)} className="text-slate-300 hover:text-red-500">
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => openEdit(d)} className="p-1.5 rounded-lg text-slate-300 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Редактирай">
+                        <Pencil size={14} />
+                      </button>
+                      <button onClick={() => setDeleteId(d.id)} className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors" title="Изтрий">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )
@@ -120,8 +142,7 @@ export default function DeadlinesPage() {
         </table>
         {!deadlines.length && <p className="text-sm text-slate-400 py-10 text-center">Няма добавени срокове</p>}
       </div>
-
-      <Modal open={open} onClose={() => setOpen(false)} title="Нов срок">
+      <Modal open={open} onClose={() => setOpen(false)} title={editId ? 'Редакция на срок' : 'Нов срок'}>
         <form onSubmit={handleSave} className="space-y-4">
           <div>
             <label className="label">Наименование <span className="text-red-500">*</span></label>
@@ -163,13 +184,12 @@ export default function DeadlinesPage() {
           </div>
           <div className="flex gap-3 pt-1">
             <button type="submit" disabled={saving} className="btn-primary" style={{ backgroundColor: '#0f2240' }}>
-              {saving ? 'Запазване...' : 'Добави'}
+              {saving ? 'Запазване...' : editId ? 'Запази промените' : 'Добави'}
             </button>
             <button type="button" onClick={() => setOpen(false)} className="btn-secondary">Отказ</button>
           </div>
         </form>
       </Modal>
-
       <Confirm
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
