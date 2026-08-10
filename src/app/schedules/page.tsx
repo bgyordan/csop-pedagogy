@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { CalendarClock, BookOpen, GraduationCap, HeartPulse, Home, ArrowRight, Check } from 'lucide-react'
 import { getFullName } from '@/lib/utils'
+import { ROLE_LABELS } from '@/types'
 export const dynamic = 'force-dynamic'
 
 const TABS = [
@@ -52,44 +53,9 @@ export default async function SchedulesPage({
     }))
   }
 
-  // ── Ученици ИФО ──
-  let ifoStudents: any[] = []
-  if (tab === 'ifo') {
-    const { data: ifoEnr } = await supabase
-      .from('student_enrollments')
-      .select('student_id, class:classes(name), student:students(id, first_name, middle_name, last_name, status)')
-      .eq('academic_year_id', currentYear?.id).eq('education_form', 'ifo')
-    const activeIfo = (ifoEnr || []).filter((e: any) => e.student?.status === 'active')
-    const ids = activeIfo.map((e: any) => e.student_id)
-    // Часовете + учителите на всяко ИФО дете (I срок за брой; учители — уникални)
-    const { data: slots } = ids.length > 0
-      ? await supabase.from('teacher_ifo_slots')
-          .select('student_id, term, teacher:staff_profiles(first_name, last_name)')
-          .in('student_id', ids).eq('academic_year_id', currentYear?.id)
-      : { data: [] }
-    const bySt: Record<string, { count1: number; count2: number; teachers: Set<string> }> = {}
-    ;(slots || []).forEach((s: any) => {
-      if (!bySt[s.student_id]) bySt[s.student_id] = { count1: 0, count2: 0, teachers: new Set() }
-      if (s.term === 1) bySt[s.student_id].count1++
-      else bySt[s.student_id].count2++
-      if (s.teacher) bySt[s.student_id].teachers.add(`${s.teacher.first_name} ${s.teacher.last_name}`)
-    })
-    ifoStudents = activeIfo.map((e: any) => {
-      const info = bySt[e.student_id] || { count1: 0, count2: 0, teachers: new Set() }
-      return {
-        id: e.student_id,
-        name: getFullName(e.student),
-        className: e.class?.name || '',
-        count1: info.count1,
-        teachers: [...info.teachers],
-      }
-    }).sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
-  }
-
   // ── Класни/учители ──
   let teachers: any[] = []
   if (tab === 'teachers') {
-    // класни (class_teacher_assignments) + учители водещи ИФО (teacher_ifo_slots)
     const { data: cta } = await supabase
       .from('class_teacher_assignments')
       .select('staff_id, class:classes(name), staff:staff_profiles(id, first_name, last_name, is_active)')
@@ -112,6 +78,61 @@ export default async function SchedulesPage({
     teachers = Object.values(map).map(t => ({
       id: t.id, name: t.name, classes: [...t.classes], ifoHours: t.ifo1,
     })).sort((a, b) => a.name.localeCompare(b.name, 'bg'))
+  }
+
+  // ── Терапевти ──
+  let therapists: any[] = []
+  if (tab === 'therapists') {
+    const { data: staff } = await supabase
+      .from('staff_profiles').select('id, first_name, last_name, role, is_active')
+      .in('role', ['psychologist', 'speech_therapist', 'rehabilitator']).order('first_name')
+    const activeStaff = (staff || []).filter((s: any) => s.is_active !== false)
+    const { data: allStud } = await supabase
+      .from('students').select('therapist_psychologist_id, therapist_speech_id, therapist_rehab_id, status').eq('status', 'active')
+    const roleField: Record<string, string> = { psychologist: 'therapist_psychologist_id', speech_therapist: 'therapist_speech_id', rehabilitator: 'therapist_rehab_id' }
+    const { data: scheds } = await supabase
+      .from('therapist_schedules').select('id, staff_id, term').eq('academic_year_id', currentYear?.id).eq('term', 1)
+    const schedByStaff: Record<string, string> = {}
+    ;(scheds || []).forEach((s: any) => { schedByStaff[s.staff_id] = s.id })
+    const schedIds = (scheds || []).map((s: any) => s.id)
+    const { data: slotCounts } = schedIds.length > 0
+      ? await supabase.from('therapist_slots').select('schedule_id').in('schedule_id', schedIds)
+      : { data: [] }
+    const countBySched: Record<string, number> = {}
+    ;(slotCounts || []).forEach((s: any) => { countBySched[s.schedule_id] = (countBySched[s.schedule_id] || 0) + 1 })
+    therapists = activeStaff.map((t: any) => {
+      const field = roleField[t.role]
+      const kids = (allStud || []).filter((s: any) => s[field] === t.id).length
+      const schedId = schedByStaff[t.id]
+      const hours = schedId ? (countBySched[schedId] || 0) : 0
+      return { id: t.id, name: getFullName(t), role: t.role, kids, hours }
+    }).sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
+  }
+
+  // ── Ученици ИФО ──
+  let ifoStudents: any[] = []
+  if (tab === 'ifo') {
+    const { data: ifoEnr } = await supabase
+      .from('student_enrollments')
+      .select('student_id, class:classes(name), student:students(id, first_name, middle_name, last_name, status)')
+      .eq('academic_year_id', currentYear?.id).eq('education_form', 'ifo')
+    const activeIfo = (ifoEnr || []).filter((e: any) => e.student?.status === 'active')
+    const ids = activeIfo.map((e: any) => e.student_id)
+    const { data: slots } = ids.length > 0
+      ? await supabase.from('teacher_ifo_slots')
+          .select('student_id, term, teacher:staff_profiles(first_name, last_name)')
+          .in('student_id', ids).eq('academic_year_id', currentYear?.id)
+      : { data: [] }
+    const bySt: Record<string, { count1: number; teachers: Set<string> }> = {}
+    ;(slots || []).forEach((s: any) => {
+      if (!bySt[s.student_id]) bySt[s.student_id] = { count1: 0, teachers: new Set() }
+      if (s.term === 1) bySt[s.student_id].count1++
+      if (s.teacher) bySt[s.student_id].teachers.add(`${s.teacher.first_name} ${s.teacher.last_name}`)
+    })
+    ifoStudents = activeIfo.map((e: any) => {
+      const info = bySt[e.student_id] || { count1: 0, teachers: new Set() }
+      return { id: e.student_id, name: getFullName(e.student), className: e.class?.name || '', count1: info.count1, teachers: [...info.teachers] }
+    }).sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
   }
 
   return (
@@ -168,6 +189,67 @@ export default async function SchedulesPage({
         </div>
       )}
 
+      {/* ── Класни/учители ── */}
+      {tab === 'teachers' && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-left [&>th]:px-4 [&>th]:py-2.5 [&>th]:font-semibold [&>th]:text-slate-500 [&>th]:text-xs [&>th]:uppercase [&>th]:tracking-wider">
+                <th>Учител</th><th>Паралелка(и)</th><th className="text-center">ИФО часове</th><th className="text-right">Разписание</th>
+              </tr>
+            </thead>
+            <tbody className="[&>tr]:border-b [&>tr]:border-slate-100 [&>tr:last-child]:border-0 [&>tr>td]:border-r [&>tr>td]:border-slate-100 [&>tr>td:last-child]:border-0">
+              {teachers.map((t, i) => (
+                <tr key={t.id} className={`hover:bg-blue-50/40 transition-colors ${i % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}`}>
+                  <td className="px-4 py-2.5 font-semibold text-slate-800">{t.name}</td>
+                  <td className="px-4 py-2.5 text-slate-600">{t.classes.length > 0 ? t.classes.join(', ') : <span className="text-slate-300">без клас</span>}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    {t.ifoHours > 0
+                      ? <span className="inline-flex items-center gap-1 text-teal-600 text-xs font-semibold"><GraduationCap size={13} /> {t.ifoHours}</span>
+                      : <span className="text-slate-300 text-xs">—</span>}
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    <Link href={`/my-schedule?staff=${t.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">Отвори <ArrowRight size={13} /></Link>
+                  </td>
+                </tr>
+              ))}
+              {teachers.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Няма учители с разписание</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ── Терапевти ── */}
+      {tab === 'therapists' && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-left [&>th]:px-4 [&>th]:py-2.5 [&>th]:font-semibold [&>th]:text-slate-500 [&>th]:text-xs [&>th]:uppercase [&>th]:tracking-wider">
+                <th>Специалист</th><th>Роля</th><th className="text-center">Деца</th><th className="text-center">Часове</th><th className="text-right">График</th>
+              </tr>
+            </thead>
+            <tbody className="[&>tr]:border-b [&>tr]:border-slate-100 [&>tr:last-child]:border-0 [&>tr>td]:border-r [&>tr>td]:border-slate-100 [&>tr>td:last-child]:border-0">
+              {therapists.map((t, i) => (
+                <tr key={t.id} className={`hover:bg-blue-50/40 transition-colors ${i % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}`}>
+                  <td className="px-4 py-2.5 font-semibold text-slate-800">{t.name}</td>
+                  <td className="px-4 py-2.5 text-slate-500">{ROLE_LABELS[t.role as keyof typeof ROLE_LABELS] || t.role}</td>
+                  <td className="px-4 py-2.5 text-center text-slate-500">{t.kids}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    {t.hours > 0
+                      ? <span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-semibold"><Check size={13} /> {t.hours}</span>
+                      : <span className="text-slate-300 text-xs">празно</span>}
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    <Link href={`/my-activities/schedule?staff=${t.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">Отвори <ArrowRight size={13} /></Link>
+                  </td>
+                </tr>
+              ))}
+              {therapists.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Няма терапевти</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* ── Ученици ИФО ── */}
       {tab === 'ifo' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -196,14 +278,6 @@ export default async function SchedulesPage({
               {ifoStudents.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Няма ученици на ИФО</td></tr>}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {/* ── Останалите (скоро) ── */}
-      {(tab === 'teachers' || tab === 'therapists') && (
-        <div className="text-center py-16 px-4 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-          <CalendarClock size={32} className="mx-auto mb-3 text-slate-300" />
-          <p className="text-sm font-medium text-slate-500">Този раздел предстои</p>
         </div>
       )}
     </div>
