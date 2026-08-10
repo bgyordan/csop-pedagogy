@@ -1,6 +1,6 @@
 'use client'
 import { useState, useMemo, useTransition } from 'react'
-import { Save, Plus, Loader2, Copy, X, Check, Trash2, GraduationCap } from 'lucide-react'
+import { Save, Plus, Loader2, Copy, Check, Trash2, GraduationCap } from 'lucide-react'
 import { saveTeacherIfoSlots, copyTeacherIfoFromTerm1, addSubject } from './actions'
 
 interface Subject { id: string; name: string; allows_pullout: boolean }
@@ -34,7 +34,6 @@ const IFO_PERIOD_TIMES: Record<number, string> = {
 }
 const ALL_PERIODS = [1, 2, 3, 4, 5, 6, 7, 8]
 
-// Локален ключ за клетка от решетката
 type GridSlot = { day: number; period: number; subjectId: string }
 
 export function MyIfoClient({ academicYearId, term, ifoStudents, subjects: initialSubjects, existingSlots }: Props) {
@@ -43,11 +42,8 @@ export function MyIfoClient({ academicYearId, term, ifoStudents, subjects: initi
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
-  // Кое дете е избрано в момента (за да редактираме неговите часове)
   const [selectedStudent, setSelectedStudent] = useState<string>(ifoStudents[0]?.id || '')
 
-  // Всички слотове (на всички деца на този учител), държани локално
-  // ключ: studentId → списък GridSlot
   const [slotsByStudent, setSlotsByStudent] = useState<Record<string, GridSlot[]>>(() => {
     const m: Record<string, GridSlot[]> = {}
     existingSlots.forEach(s => {
@@ -57,30 +53,28 @@ export function MyIfoClient({ academicYearId, term, ifoStudents, subjects: initi
     return m
   })
 
-  // Добавяне на нов час (форма)
   const [addDay, setAddDay] = useState<number>(1)
   const [addPeriod, setAddPeriod] = useState<number>(1)
   const [addSubjectId, setAddSubjectId] = useState<string>('')
 
-  // Нов предмет
   const [showAddSubj, setShowAddSubj] = useState(false)
   const [newName, setNewName] = useState('')
   const [newPullout, setNewPullout] = useState(false)
 
   const currentSlots = slotsByStudent[selectedStudent] || []
 
-  // Заетите (ден+период) за текущото дете — за да ги скрием от избора
   const takenForDay = useMemo(() => {
     const set = new Set<string>()
     currentSlots.forEach(s => set.add(`${s.day}-${s.period}`))
     return set
   }, [currentSlots])
 
-  // Свободните периоди за избрания ден
   const freePeriods = useMemo(
     () => ALL_PERIODS.filter(p => !takenForDay.has(`${addDay}-${p}`)),
     [takenForDay, addDay]
   )
+
+  const selectedStudentObj = ifoStudents.find(s => s.id === selectedStudent)
 
   function addSlot() {
     if (!addSubjectId) { setMsg({ type: 'err', text: 'Изберете предмет' }); return }
@@ -90,7 +84,6 @@ export function MyIfoClient({ academicYearId, term, ifoStudents, subjects: initi
       [selectedStudent]: [...(prev[selectedStudent] || []), { day: addDay, period: addPeriod, subjectId: addSubjectId }],
     }))
     setMsg(null)
-    // Подготвяме следващия свободен период за същия ден
     const nextFree = ALL_PERIODS.find(p => p !== addPeriod && !takenForDay.has(`${addDay}-${p}`))
     if (nextFree) setAddPeriod(nextFree)
   }
@@ -168,27 +161,29 @@ export function MyIfoClient({ academicYearId, term, ifoStudents, subjects: initi
         )}
       </div>
 
-      {/* Избор на ИФО дете */}
+      {/* Избор на ИФО дете — падащо меню */}
       <div>
         <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Изберете дете (ИФО)</label>
-        <div className="flex flex-wrap gap-2">
-          {ifoStudents.map(st => {
-            const count = (slotsByStudent[st.id] || []).length
-            const active = st.id === selectedStudent
-            return (
-              <button key={st.id} onClick={() => setSelectedStudent(st.id)}
-                className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-sm transition-all ${
-                  active ? 'text-white border-transparent shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                }`}
-                style={active ? { backgroundColor: '#0f2240' } : {}}>
-                <span className="font-medium">{st.name}</span>
-                {st.className && <span className={`text-[11px] ${active ? 'text-blue-200' : 'text-slate-400'}`}>{st.className}</span>}
-                {count > 0 && (
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${active ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-700'}`}>{count}</span>
-                )}
-              </button>
-            )
-          })}
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-md">
+            <GraduationCap size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <select value={selectedStudent} onChange={e => setSelectedStudent(e.target.value)}
+              className="w-full text-sm font-medium py-2.5 pl-9 pr-4 rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 appearance-none cursor-pointer">
+              {ifoStudents.map(st => {
+                const count = (slotsByStudent[st.id] || []).length
+                return (
+                  <option key={st.id} value={st.id}>
+                    {st.name}{st.className ? ` · ${st.className}` : ''}{count > 0 ? `  (${count} ч.)` : ''}
+                  </option>
+                )
+              })}
+            </select>
+          </div>
+          {currentSlots.length > 0 && (
+            <span className="text-xs text-slate-500 whitespace-nowrap">
+              {currentSlots.length} {currentSlots.length === 1 ? 'час' : 'часа'} зададени
+            </span>
+          )}
         </div>
       </div>
 
@@ -201,7 +196,9 @@ export function MyIfoClient({ academicYearId, term, ifoStudents, subjects: initi
 
       {/* Добавяне на час */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
-        <h3 className="text-sm font-bold text-slate-800">Добави индивидуален час</h3>
+        <h3 className="text-sm font-bold text-slate-800">
+          Добави индивидуален час{selectedStudentObj ? ` · ${selectedStudentObj.name}` : ''}
+        </h3>
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
           <div>
             <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Ден</label>
