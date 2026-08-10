@@ -271,7 +271,7 @@ export default async function SchedulesPage({
                       : <span className="text-slate-300 text-xs">празно</span>}
                   </td>
                   <td className="px-4 py-2.5 text-right">
-                    <Link href={`/students/${s.id}/schedule`} className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">Отвори <ArrowRight size={13} /></Link>
+                    <Link href={`/students/${s.id}/schedule?from=schedules`} className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">Отвори <ArrowRight size={13} /></Link>
                   </td>
                 </tr>
               ))}
