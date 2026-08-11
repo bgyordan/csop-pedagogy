@@ -1,12 +1,10 @@
 'use client'
-
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Trash2, Loader2, Users } from 'lucide-react'
+import { Plus, Trash2, Loader2, Users, Pencil } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate } from '@/lib/utils'
-
 export default function AcademicYearsPage() {
   const supabase = createClient()
   const { toast } = useToast()
@@ -19,32 +17,24 @@ export default function AcademicYearsPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [form, setForm] = useState({ name: '', start_date: '', end_date: '' })
   const [className, setClassName] = useState('')
-
   const currentYear = years.find(y => y.is_current)
-
   useEffect(() => { load() }, [])
-
   async function load() {
     const { data: y } = await supabase.from('academic_years').select('*').order('start_date', { ascending: false })
     setYears(y || [])
-
     const { data: cls } = await supabase
       .from('classes').select('*, academic_year:academic_years(name, is_current)').order('name')
     setClasses(cls || [])
-
-    // Брой ученици и класни по паралелка
     const [{ data: enr }, { data: cta }] = await Promise.all([
       supabase.from('student_enrollments').select('class_id'),
       supabase.from('class_teacher_assignments').select('class_id'),
     ])
-
     const map: Record<string, { students: number; teachers: number }> = {}
     ;(cls || []).forEach((c: any) => { map[c.id] = { students: 0, teachers: 0 } })
     ;(enr || []).forEach((e: any) => { if (map[e.class_id]) map[e.class_id].students++ })
     ;(cta || []).forEach((t: any) => { if (map[t.class_id]) map[t.class_id].teachers++ })
     setCounts(map)
   }
-
   async function handleSaveYear(e: React.FormEvent) {
     e.preventDefault()
     if (!form.name || !form.start_date || !form.end_date) { toast('Попълни всички полета', 'error'); return }
@@ -56,14 +46,12 @@ export default function AcademicYearsPage() {
     setForm({ name: '', start_date: '', end_date: '' })
     load()
   }
-
   async function setCurrentYear(id: string) {
     await supabase.from('academic_years').update({ is_current: false }).neq('id', id)
     await supabase.from('academic_years').update({ is_current: true }).eq('id', id)
     toast('Текущата учебна година е сменена')
     load()
   }
-
   async function handleAddClass(e: React.FormEvent) {
     e.preventDefault()
     if (!className.trim()) { toast('Въведи име на паралелката', 'error'); return }
@@ -80,10 +68,17 @@ export default function AcademicYearsPage() {
     setClassName('')
     load()
   }
-
+  async function handleRenameClass(cls: any) {
+    const newName = prompt('Ново име на паралелката:', cls.name)
+    if (newName === null) return
+    if (!newName.trim() || newName.trim() === cls.name) return
+    const { error } = await supabase.from('classes').update({ name: newName.trim() }).eq('id', cls.id)
+    if (error) { toast('Грешка при преименуване (може би вече съществува)', 'error'); return }
+    toast('Паралелката е преименувана')
+    load()
+  }
   async function handleDeleteClass(cls: any) {
     const c = counts[cls.id] || { students: 0, teachers: 0 }
-
     if (c.students > 0) {
       toast(`Не може: в паралелката има ${c.students} записани ученика`, 'error')
       return
@@ -93,20 +88,16 @@ export default function AcademicYearsPage() {
       return
     }
     if (!confirm(`Изтриване на паралелка „${cls.name}"?`)) return
-
     setDeleting(cls.id)
     const { error } = await supabase.from('classes').delete().eq('id', cls.id)
     setDeleting(null)
-
     if (error) { toast(`Грешка: ${error.message}`, 'error'); return }
     toast('Паралелката е изтрита')
     load()
   }
-
   return (
     <div className="p-8 max-w-3xl">
       <h1 className="text-2xl font-semibold text-slate-800 mb-6">Учебни години и паралелки</h1>
-
       {/* Учебни години */}
       <div className="card mb-6">
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
@@ -132,7 +123,6 @@ export default function AcademicYearsPage() {
           ))}
         </div>
       </div>
-
       {/* Паралелки */}
       <div className="card">
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
@@ -146,44 +136,47 @@ export default function AcademicYearsPage() {
             <Plus size={13} /> Добави паралелка
           </button>
         </div>
-
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
           {classes.map(c => {
             const cnt = counts[c.id] || { students: 0, teachers: 0 }
             const canDelete = cnt.students === 0 && cnt.teachers === 0
             const isCurrent = (c.academic_year as any)?.is_current
-
             return (
               <div key={c.id}
-                className={`relative p-3 rounded-lg text-center group ${isCurrent ? 'bg-slate-50' : 'bg-slate-50/50 opacity-60'}`}>
-                <div className="font-medium text-slate-800">{c.name}</div>
+                className={`relative p-3 pt-2 rounded-lg text-center ${isCurrent ? 'bg-slate-50' : 'bg-slate-50/50 opacity-60'}`}>
+                <div className="absolute top-1.5 right-1.5 flex gap-0.5">
+                  <button
+                    onClick={() => handleRenameClass(c)}
+                    title="Преименувай паралелката"
+                    className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                    <Pencil size={13} />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteClass(c)}
+                    disabled={deleting === c.id}
+                    title={canDelete ? 'Изтрий паралелката' : 'Паралелката не е празна'}
+                    className={`p-1 rounded transition-colors ${
+                      canDelete
+                        ? 'text-slate-400 hover:text-red-500 hover:bg-red-50'
+                        : 'text-slate-200 cursor-not-allowed'
+                    }`}>
+                    {deleting === c.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                  </button>
+                </div>
+                <div className="font-medium text-slate-800 mt-3">{c.name}</div>
                 <div className="text-xs text-slate-400 mt-0.5">{(c.academic_year as any)?.name}</div>
                 <div className="flex items-center justify-center gap-1 mt-1 text-[10px] text-slate-400">
                   <Users size={9} />
                   {cnt.students}
                 </div>
-
-                <button
-                  onClick={() => handleDeleteClass(c)}
-                  disabled={deleting === c.id}
-                  title={canDelete ? 'Изтрий паралелката' : 'Паралелката не е празна'}
-                  className={`absolute top-1.5 right-1.5 p-1 rounded transition-opacity ${
-                    canDelete
-                      ? 'text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100'
-                      : 'text-slate-200 cursor-not-allowed opacity-0 group-hover:opacity-100'
-                  }`}>
-                  {deleting === c.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                </button>
               </div>
             )
           })}
         </div>
-
         {classes.length === 0 && (
           <p className="text-sm text-slate-400 text-center py-8">Няма създадени паралелки</p>
         )}
       </div>
-
       {/* Нова учебна година */}
       <Modal open={open} onClose={() => setOpen(false)} title="Нова учебна година" size="sm">
         <form onSubmit={handleSaveYear} className="space-y-3">
@@ -205,7 +198,6 @@ export default function AcademicYearsPage() {
           </div>
         </form>
       </Modal>
-
       {/* Нова паралелка */}
       <Modal open={classOpen} onClose={() => setClassOpen(false)} title="Нова паралелка" size="sm">
         <form onSubmit={handleAddClass} className="space-y-3">
