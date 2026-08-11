@@ -100,6 +100,20 @@ export function TherapistScheduleGrid({
     await generateTherapistSchedule(specialistName, roleLabel, subtitle, slotData, maxPeriod)
   }
   async function handleSave() {
+    // Проверка: няма ли дете, взето от друг терапевт в същия слот
+    const conflicts: string[] = []
+    Object.entries(grid).forEach(([key, studentId]) => {
+      const [day, period] = key.split('-')
+      const other = takenByOthers[`${studentId}-${day}-${period}`]
+      if (other) {
+        const st = students.find(s => s.id === studentId)
+        conflicts.push(`${st?.name || 'Дете'} — вече при ${other}`)
+      }
+    })
+    if (conflicts.length > 0) {
+      setMsg({ type: 'err', text: `Не може да се запази — тези деца са при друг специалист по същото време: ${conflicts.join('; ')}. Премахни ги първо.` })
+      return
+    }
     setSaving(true); setMsg(null)
     const slots = Object.entries(grid).map(([key, studentId]) => {
       const [day, period] = key.split('-').map(Number)
