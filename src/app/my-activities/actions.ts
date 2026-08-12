@@ -37,9 +37,19 @@ export async function assignToMe(studentId: string) {
   }
 
   const { error } = await supabase
-    .from('students').update({ [field]: profile.id }).eq('id', studentId)
+    .from('students').update({ [field]: null }).eq('id', studentId)
   if (error) return { error: error.message }
-
+  // Чистене на слотовете на това дете от графика на терапевта
+  const { data: mySchedules } = await supabase
+    .from('therapist_schedules').select('id').eq('staff_id', profile.id)
+  const scheduleIds = (mySchedules || []).map((s: any) => s.id)
+  if (scheduleIds.length > 0) {
+    await supabase
+      .from('therapist_slots')
+      .delete()
+      .eq('student_id', studentId)
+      .in('schedule_id', scheduleIds)
+  }
   revalidatePath('/my-activities')
   return { success: true }
 }
