@@ -32,7 +32,7 @@ export default async function DashboardPage() {
   const isAdmin = ['admin', 'director', 'zdud'].includes(profile.role)
   const isSpecialist = ['psychologist', 'speech_therapist', 'rehabilitator'].includes(profile.role)
   const isSecretary = profile.role === 'secretary'
-  const roleLabel = ROLE_LABELS[profile.role] || profile.role
+  const roleLabel = profile.position || ROLE_LABELS[profile.role] || profile.role
   const isCoordinator = profile.is_coordinator
 
   return (
