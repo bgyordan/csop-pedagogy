@@ -1,15 +1,14 @@
 'use client'
-
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { BackButton } from '@/components/ui/BackButton'
 import { useToast } from '@/components/ui/Toast'
 import { Plus, Pencil, X, Check, School, MapPin, User, Phone, Mail, AlertCircle, Users, ChevronDown, ChevronUp, UserPlus, Loader2, ArrowUpDown } from 'lucide-react'
-
 interface SchoolRow {
   id: string
   name: string
   city: string
+  type: string | null
   is_active: boolean
   director_name: string | null
   address: string | null
@@ -17,12 +16,11 @@ interface SchoolRow {
   phone: string | null
   email: string | null
 }
-
+const SCHOOL_TYPES = ['ДГ', 'НУ', 'ОУ', 'ОбУ', 'СУ', 'ПГ', 'ПрофГ', 'Друго']
 const emptyForm = {
-  name: '', city: 'Варна', director_name: '', address: '',
+  name: '', city: 'Варна', type: '', director_name: '', address: '',
   deputy_director: '', phone: '', email: '',
 }
-
 export default function SchoolsAdminPage() {
   const supabase = createClient()
   const { toast } = useToast()
@@ -34,21 +32,17 @@ export default function SchoolsAdminPage() {
   const [sortBy, setSortBy] = useState<'name' | 'city' | 'students'>('name')
   const [search, setSearch] = useState('')
   const [cityFilter, setCityFilter] = useState('')
-
+  const [typeFilter, setTypeFilter] = useState('')
   const [adding, setAdding] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
-
-  // Ученици по училища
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [studentsBySchool, setStudentsBySchool] = useState<Record<string, any[]>>({})
   const [orphans, setOrphans] = useState<any[]>([])
   const [linking, setLinking] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
-
   useEffect(() => { loadSchools() }, [showInactive])
-
   async function loadSchools() {
     setLoading(true)
     let query = supabase.from('sending_schools').select('*').order('city').order('name')
@@ -58,14 +52,12 @@ export default function SchoolsAdminPage() {
     await loadStudents()
     setLoading(false)
   }
-
   async function loadStudents() {
     const { data } = await supabase
       .from('students')
       .select('id, first_name, middle_name, last_name, external_class, sending_school_id')
       .eq('status', 'active')
       .order('first_name')
-
     const map: Record<string, any[]> = {}
     const noSchool: any[] = []
     ;(data || []).forEach((s: any) => {
@@ -79,7 +71,6 @@ export default function SchoolsAdminPage() {
     setStudentsBySchool(map)
     setOrphans(noSchool)
   }
-
   async function linkStudent(studentId: string, schoolId: string) {
     setLinking(studentId)
     const { error } = await supabase
@@ -92,7 +83,6 @@ export default function SchoolsAdminPage() {
     setPickerOpen(false)
     loadStudents()
   }
-
   async function unlinkStudent(studentId: string) {
     if (!confirm('Премахване на връзката с това училище?')) return
     setLinking(studentId)
@@ -105,55 +95,47 @@ export default function SchoolsAdminPage() {
     toast('Връзката е премахната')
     loadStudents()
   }
-
   function fullName(s: any) {
     return [s.first_name, s.middle_name, s.last_name].filter(Boolean).join(' ')
   }
-
   function startAdd() {
     setForm(emptyForm)
     setEditId(null)
     setAdding(true)
   }
-
   function startEdit(s: SchoolRow) {
     setForm({
-      name: s.name || '', city: s.city || '',
+      name: s.name || '', city: s.city || '', type: s.type || '',
       director_name: s.director_name || '', address: s.address || '',
       deputy_director: s.deputy_director || '', phone: s.phone || '', email: s.email || '',
     })
     setAdding(false)
     setEditId(s.id)
   }
-
   async function handleSave() {
     if (!form.name.trim()) { toast('Въведи име на училището', 'error'); return }
     setSaving(true)
-
     const payload = {
       name: form.name.trim(),
       city: form.city.trim() || 'Варна',
+      type: (form.type.trim() && form.type.trim() !== 'other:') ? form.type.trim() : null,
       director_name: form.director_name.trim() || null,
       address: form.address.trim() || null,
       deputy_director: form.deputy_director.trim() || null,
       phone: form.phone.trim() || null,
       email: form.email.trim() || null,
     }
-
     const { error } = editId
       ? await supabase.from('sending_schools').update(payload).eq('id', editId)
       : await supabase.from('sending_schools').insert(payload)
-
     setSaving(false)
     if (error) { toast(`Грешка: ${error.message}`, 'error'); return }
-
     toast(editId ? 'Запазено' : 'Училището е добавено')
     setEditId(null)
     setAdding(false)
     setForm(emptyForm)
     loadSchools()
   }
-
   async function toggleActive(school: SchoolRow) {
     const { error } = await supabase.from('sending_schools')
       .update({ is_active: !school.is_active }).eq('id', school.id)
@@ -161,16 +143,15 @@ export default function SchoolsAdminPage() {
     toast(school.is_active ? 'Училището е скрито' : 'Училището е активирано')
     loadSchools()
   }
-
   function isIncomplete(s: SchoolRow) {
     return !s.director_name?.trim() || !s.address?.trim()
   }
-
   const visible = schools
     .filter(s => {
       if (onlyIncomplete && !isIncomplete(s)) return false
       if (onlyEmpty && (studentsBySchool[s.id] || []).length > 0) return false
       if (cityFilter && s.city !== cityFilter) return false
+      if (typeFilter && s.type !== typeFilter) return false
       if (search.trim()) {
         const q = search.toLowerCase()
         const hay = `${s.name} ${s.city} ${s.director_name || ''} ${s.address || ''}`.toLowerCase()
@@ -191,14 +172,13 @@ export default function SchoolsAdminPage() {
       }
       return a.name.localeCompare(b.name, 'bg')
     })
-
   const emptyCount = schools.filter(s => (studentsBySchool[s.id] || []).length === 0).length
-
   const cities = [...new Set(schools.map(s => s.city).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, 'bg'))
+  const schoolTypes = [...new Set(schools.map(s => s.type).filter(Boolean))]
+    .sort((a, b) => (a || '').localeCompare(b || '', 'bg'))
   const activeCount = schools.filter(s => s.is_active).length
   const incompleteCount = schools.filter(isIncomplete).length
-
   const FormFields = (
     <div className="space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -213,14 +193,37 @@ export default function SchoolsAdminPage() {
             value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
         </div>
       </div>
-
+      <div>
+        <label className="label">Вид <span className="text-slate-300 font-normal">(за филтриране)</span></label>
+        <div className="flex flex-wrap gap-1.5">
+          {SCHOOL_TYPES.map(t => {
+            const isOther = t === 'Друго'
+            const knownTypes = ['ДГ', 'НУ', 'ОУ', 'ОбУ', 'СУ', 'ПГ', 'ПрофГ']
+            const active = isOther
+              ? (form.type !== '' && !knownTypes.includes(form.type))
+              : form.type === t
+            return (
+              <button key={t} type="button"
+                onClick={() => setForm(f => ({ ...f, type: isOther ? (knownTypes.includes(f.type) || f.type === '' ? 'other:' : f.type) : (f.type === t ? '' : t) }))}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                  active ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                }`}>
+                {t}
+              </button>
+            )
+          })}
+        </div>
+        {form.type !== '' && !['ДГ', 'НУ', 'ОУ', 'ОбУ', 'СУ', 'ПГ', 'ПрофГ', ].includes(form.type) && (
+          <input className="input mt-2" placeholder="Въведи вид ръчно (напр. Гимназия)" autoFocus
+            value={form.type === 'other:' ? '' : form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} />
+        )}
+      </div>
       <div>
         <label className="label">Адрес</label>
         <input className="input" placeholder='ул. „Роза" № 23'
           value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
         <p className="text-[11px] text-slate-400 mt-1">Без града — той се добавя автоматично при писмата</p>
       </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="label">Директор</label>
@@ -233,7 +236,6 @@ export default function SchoolsAdminPage() {
             value={form.deputy_director} onChange={e => setForm(f => ({ ...f, deputy_director: e.target.value }))} />
         </div>
       </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="label">Телефон</label>
@@ -246,7 +248,6 @@ export default function SchoolsAdminPage() {
             value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
         </div>
       </div>
-
       <div className="flex gap-2 pt-1">
         <button onClick={handleSave} disabled={saving}
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60"
@@ -261,7 +262,6 @@ export default function SchoolsAdminPage() {
       </div>
     </div>
   )
-
   return (
     <div className="p-4 md:p-8 max-w-3xl">
       <BackButton />
@@ -286,14 +286,12 @@ export default function SchoolsAdminPage() {
           <span className="sm:hidden">Ново</span>
         </button>
       </div>
-
       {adding && (
         <div className="card mb-4 border-2 border-blue-100">
           <h2 className="font-medium text-slate-700 text-sm mb-3">Ново училище</h2>
           {FormFields}
         </div>
       )}
-
       {/* Търсене и подредба */}
       <div className="flex flex-col sm:flex-row gap-2 mb-3">
         <input
@@ -309,7 +307,13 @@ export default function SchoolsAdminPage() {
           <option value="">Всички градове</option>
           {cities.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-
+        <select
+          value={typeFilter}
+          onChange={e => setTypeFilter(e.target.value)}
+          className="input text-sm py-2 sm:w-32">
+          <option value="">Всички видове</option>
+          {schoolTypes.map(t => <option key={t} value={t as string}>{t}</option>)}
+        </select>
         <div className="flex items-center gap-1.5">
           <ArrowUpDown size={13} className="text-slate-400 flex-shrink-0" />
           <select
@@ -322,7 +326,6 @@ export default function SchoolsAdminPage() {
           </select>
         </div>
       </div>
-
       {/* Филтри */}
       <div className="flex flex-wrap items-center gap-4 mb-4">
         <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
@@ -345,7 +348,6 @@ export default function SchoolsAdminPage() {
           </label>
         )}
       </div>
-
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
         {loading ? (
           <div className="text-center py-12 text-slate-400 text-sm">Зареждане...</div>
@@ -371,19 +373,20 @@ export default function SchoolsAdminPage() {
                   <div className="flex items-start justify-between gap-3 px-4 py-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
+                        {school.type && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 flex-shrink-0">{school.type}</span>
+                        )}
                         <span className="text-sm font-medium text-slate-800">{school.name}</span>
                         {isIncomplete(school) && (
                           <AlertCircle size={12} className="text-amber-500 flex-shrink-0"
                             aria-label="Непълни данни" />
                         )}
                       </div>
-
                       <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
                         <MapPin size={10} />
                         {school.city}
                         {school.address && <span> · {school.address}</span>}
                       </div>
-
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[11px] text-slate-500">
                         {school.director_name ? (
                           <span className="flex items-center gap-1">
@@ -408,7 +411,6 @@ export default function SchoolsAdminPage() {
                         )}
                       </div>
                     </div>
-
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <button
                         onClick={() => setExpandedId(expandedId === school.id ? null : school.id)}
@@ -434,7 +436,6 @@ export default function SchoolsAdminPage() {
                     </div>
                   </div>
                 )}
-
                 {expandedId === school.id && editId !== school.id && (
                   <div className="px-4 pb-4 bg-slate-50/40 border-t border-slate-100">
                     <div className="flex items-center justify-between pt-3 pb-2">
@@ -450,7 +451,6 @@ export default function SchoolsAdminPage() {
                         </button>
                       )}
                     </div>
-
                     {(studentsBySchool[school.id] || []).length === 0 ? (
                       <p className="text-xs text-slate-400 py-2">Няма записани ученици от това училище</p>
                     ) : (
@@ -472,7 +472,6 @@ export default function SchoolsAdminPage() {
                         ))}
                       </div>
                     )}
-
                     {pickerOpen && (
                       <div className="mt-3 p-3 rounded-xl bg-white border border-slate-200">
                         <div className="flex items-center justify-between mb-2">
