@@ -60,6 +60,7 @@ const navItems: NavItem[] = [
   { href: '/contracts', label: 'Договори', icon: <FileSignature size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/procurements', label: 'Обществени поръчки', icon: <Package size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/admin/schools', label: 'Училища', icon: <School size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'settings' },
+  { href: '/students', label: 'Ученици', icon: <Users size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/templates', label: 'Образци на документи', icon: <FileText size={16} />, roles: ['secretary'], section: 'settings' },
 ]
 interface SidebarProps {
