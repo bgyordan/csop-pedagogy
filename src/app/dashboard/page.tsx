@@ -43,7 +43,7 @@ export default async function DashboardPage() {
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">
-              Добре дошли в Обединената система на ЦСОП гр. Варна!
+              Добре дошли в Информационната система на ЦСОП-Варна!
             </h1>
             <p className="text-sm text-sky-100/80 mt-1.5">
               Влязохте като <strong>{profile.first_name} {profile.last_name}</strong>{' '}
