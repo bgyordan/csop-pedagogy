@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3,
-  Inbox, ClipboardList, FileSignature, Package, Star, CalendarClock, ChevronDown, HeartPulse, Settings, GraduationCap, CalendarDays
+  Inbox, ClipboardList, FileSignature, Package, Star, CalendarClock, ChevronDown, HeartPulse, Settings, GraduationCap, CalendarDays, School
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
@@ -59,6 +59,7 @@ const navItems: NavItem[] = [
   { href: '/orders', label: 'Заповеди', icon: <ClipboardList size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/contracts', label: 'Договори', icon: <FileSignature size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/procurements', label: 'Обществени поръчки', icon: <Package size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
+  { href: '/admin/schools', label: 'Училища', icon: <School size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'settings' },
 ]
 interface SidebarProps {
   userRole: UserRole
@@ -88,7 +89,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   const isSecretary = userRole === 'secretary'
   const effectiveRoles: UserRole[] = isCoordinator ? [userRole, 'zdud' as UserRole] : [userRole]
   function canSee(item: NavItem): boolean {
-    if (isSecretary) return item.section === 'delo'
+    if (isSecretary) return item.section === 'delo' || item.section === 'settings'
     if (item.hideFromCoordinator && isCoordinator) return false
     if (item.coordinatorOnly && isCoordinator) return true
     if (!item.roles) return true
@@ -161,6 +162,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   }
   const mainItems = visibleItems.filter(item => !item.section)
   const deloItems = visibleItems.filter(item => item.section === 'delo')
+  const settingsItems = visibleItems.filter(item => item.section === 'settings')
   function NavLink({ item }: { item: NavItem }) {
     const active = pathname === item.href || pathname.startsWith(item.href + '/')
     return (
@@ -224,6 +226,18 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
             </div>
             <div className="space-y-0.5">
               {deloItems.map(item => <NavLink key={item.href} item={item} />)}
+            </div>
+          </div>
+        )}
+        {settingsItems.length > 0 && (
+          <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(15,34,64,0.08)' }}>
+            <div className="px-3 mb-2">
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_MUTED }}>
+                Настройки
+              </span>
+            </div>
+            <div className="space-y-0.5">
+              {settingsItems.map(item => <NavLink key={item.href} item={item} />)}
             </div>
           </div>
         )}
