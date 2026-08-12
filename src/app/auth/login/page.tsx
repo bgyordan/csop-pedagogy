@@ -31,12 +31,10 @@ function LoginForm() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4"
-               style={{ backgroundColor: '#0f2240' }}>
-            <span className="text-white text-2xl font-bold">Ц</span>
-          </div>
+        <img src="/csop-varna-logo.jpg" alt="ЦСОП Варна"
+               className="inline-block w-16 h-16 rounded-2xl mb-4 object-cover" />
           <h1 className="text-2xl font-semibold text-slate-800">ЦСОП Варна</h1>
-          <p className="text-slate-500 text-sm mt-1">Педагогическа система</p>
+          <p className="text-slate-500 text-sm mt-1">Информационна система</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
