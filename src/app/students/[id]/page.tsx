@@ -89,7 +89,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
     .from('student_ores').select('*').eq('student_id', id).order('from_date', { ascending: false })
   const today = new Date().toISOString().split('T')[0]
   const activeOres = (oresRecords || []).find(o => o.from_date <= today && (!o.to_date || o.to_date >= today))
-  let canEditDossier = canManage
+  let canEditDossier = canManage || profile?.role === 'secretary'
   if (!canManage && profile?.role === 'class_teacher' && enrollment?.class_id) {
     const { data: myClasses } = await supabase
       .from('class_teacher_assignments').select('class_id')
