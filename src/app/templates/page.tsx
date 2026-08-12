@@ -13,7 +13,7 @@ export default async function TemplatesPage() {
 
   const { data: profile } = await supabase
     .from('staff_profiles').select('id, role, is_coordinator').eq('user_id', user.id).single()
-  const canManage = ['admin', 'zdud'].includes(profile?.role || '') || profile?.is_coordinator === true
+  const canManage = ['admin', 'zdud','secretary'].includes(profile?.role || '') || profile?.is_coordinator === true
 
   const { data: templates } = await supabase
     .from('document_templates')
