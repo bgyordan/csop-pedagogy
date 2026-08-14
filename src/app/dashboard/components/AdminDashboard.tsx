@@ -2,26 +2,22 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Users, BookOpen, Calendar, Bell, ArrowRight, GraduationCap, Home, Wifi, Coffee, ShieldX, ShieldAlert, ClipboardList, Clock, AlertTriangle, UserSearch } from 'lucide-react'
 import { formatDate, getDaysUntil, getMonthName } from '@/lib/utils'
-
+import StaffScheduleSearch from './StaffScheduleSearch'
 export default async function AdminDashboard({ profile, currentYearId }: any) {
   const supabase = await createClient()
-
   const now = new Date()
   const currentDay = now.getDate()
   const currentMonth = now.getMonth() + 1
   const currentYearNum = now.getFullYear()
   const todayStr = now.toISOString().split('T')[0]
-
   // ИУП период — само през учебните месеци (не юли/август)
   const isSummer = currentMonth === 7 || currentMonth === 8
   const isActivePeriod = !isSummer && (currentDay >= 28 || currentDay <= 8)
   const reportMonth = currentDay >= 28 ? currentMonth : (currentMonth === 1 ? 12 : currentMonth - 1)
   const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1
-
   const { data: currentYear } = await supabase
     .from('academic_years').select('name').eq('id', currentYearId).single()
   const currentYearName = currentYear?.name || ''
-
   const [
     { count: totalStudents },
     { count: totalClasses },
@@ -45,11 +41,9 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
       .eq('academic_year_id', currentYearId),
     supabase.from('coud_enrollments').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
   ])
-
   const dailyCount = formStats?.filter(e => (e.education_form || 'daily') === 'daily').length || 0
   const ifoCount = formStats?.filter(e => e.education_form === 'ifo').length || 0
   const oresCount = (oresActive || []).filter(o => !o.to_date || o.to_date >= todayStr).length
-
   // Документи — изтекли / изтичащи
   const baseYear = currentYearName ? parseInt(currentYearName.split('/')[0]) : currentYearNum
   const expiredStudents = new Set<string>()
@@ -62,17 +56,14 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
   })
   const expiredCount = expiredStudents.size
   const expiringCount = expiringStudents.size
-
   // Ученици с непълни данни (за писмото до РУО и справките)
   const incompleteStudents = (dataCheck || [])
     .map((e: any) => e.student)
     .filter((s: any) => s && s.status === 'active')
     .filter((s: any) => !s.external_class?.trim() || (!s.sending_school_id && !s.sending_school_other?.trim()))
   const incompleteCount = incompleteStudents.length
-
   // Събиране на всички аларми
   const alerts: { type: 'error' | 'warning' | 'info'; icon: any; text: string; href: string; badge?: string }[] = []
-
   if (expiredCount > 0) {
     alerts.push({ type: 'error', icon: <ShieldX size={16} />, text: `Изтекли документи`, href: '/students/documents', badge: `${expiredCount} ${expiredCount === 1 ? 'ученик' : 'ученика'}` })
   }
@@ -97,9 +88,12 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
       alerts.push({ type: days <= 3 ? 'error' : 'info', icon: <Calendar size={16} />, text: d.title, href: '/admin', badge: days === 0 ? 'Днес' : `${days} дни` })
     }
   })
-
   return (
     <div className="animate-in fade-in duration-500">
+      {/* ── БЪРЗО РАЗПИСАНИЕ ── */}
+      <div className="mb-6">
+        <StaffScheduleSearch />
+      </div>
       {/* ── КЛЮЧОВИ ЧИСЛА ── */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
         <Link href="/students" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all group col-span-2 md:col-span-1">
@@ -109,7 +103,6 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
           </div>
           <div className="text-2xl font-bold text-slate-800">{totalStudents || 0}</div>
         </Link>
-
         <Link href="/classes" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all col-span-2 md:col-span-1">
           <div className="flex items-center gap-2 mb-2">
             <BookOpen size={15} className="text-purple-500" />
@@ -117,7 +110,6 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
           </div>
           <div className="text-2xl font-bold text-slate-800">{totalClasses || 0}</div>
         </Link>
-
         <Link href="/students?form=daily" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
           <div className="flex items-center gap-2 mb-2">
             <GraduationCap size={15} className="text-slate-400" />
@@ -125,7 +117,6 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
           </div>
           <div className="text-2xl font-bold text-slate-800">{dailyCount}</div>
         </Link>
-
         <Link href="/students?form=ifo" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
           <div className="flex items-center gap-2 mb-2">
             <Home size={15} className="text-slate-400" />
@@ -133,7 +124,6 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
           </div>
           <div className="text-2xl font-bold text-slate-800">{ifoCount}</div>
         </Link>
-
         <Link href="/admin/coud" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
           <div className="flex items-center gap-2 mb-2">
             <Coffee size={15} className="text-slate-400" />
@@ -141,7 +131,6 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
           </div>
           <div className="text-2xl font-bold text-slate-800">{coudCount || 0}</div>
         </Link>
-
         <Link href="/students?ores=1" className={`bg-white p-4 rounded-2xl border shadow-sm hover:border-slate-300 transition-all ${oresCount > 0 ? 'border-amber-200' : 'border-slate-200/70'}`}>
           <div className="flex items-center gap-2 mb-2">
             <Wifi size={15} className={oresCount > 0 ? 'text-amber-500' : 'text-slate-400'} />
@@ -150,7 +139,6 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
           <div className={`text-2xl font-bold ${oresCount > 0 ? 'text-amber-600' : 'text-slate-800'}`}>{oresCount}</div>
         </Link>
       </div>
-
       {/* ── АЛАРМИ / ИЗИСКВА ВНИМАНИЕ ── */}
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm mb-6 overflow-hidden">
         <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-100 bg-slate-50/50">
@@ -160,7 +148,6 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
             <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{alerts.length}</span>
           )}
         </div>
-
         {alerts.length === 0 ? (
           <div className="px-5 py-8 text-center">
             <div className="inline-flex items-center gap-2 text-sm text-slate-400">
@@ -196,7 +183,6 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
           </div>
         )}
       </div>
-
       {/* ── СРОКОВЕ & СЪОБЩЕНИЯ ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl border border-slate-200/70 p-6 shadow-sm">
@@ -229,7 +215,6 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
             </div>
           )}
         </div>
-
         <div className="bg-white rounded-2xl border border-slate-200/70 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
             <div className="flex items-center gap-2">
