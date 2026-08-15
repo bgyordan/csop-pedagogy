@@ -34,7 +34,7 @@ export default async function AbsencesPage() {
   const isAdmin = ['admin', 'zdud', 'director'].includes(profile?.role || '')
 
   // Лятна ваканция — показваме съобщение на всички
-  if (isSummer) {
+  if (isSummer && !isAdmin) {
     return (
       <div className="p-4 md:p-8">
         <h1 className="text-xl md:text-2xl font-semibold text-slate-800 mb-2">Реализация на ИУП</h1>
