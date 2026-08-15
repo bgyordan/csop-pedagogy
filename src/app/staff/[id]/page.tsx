@@ -1,37 +1,33 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Users, BookOpen, ChevronRight, Mail } from 'lucide-react'
+import { ArrowLeft, Users, BookOpen, ChevronRight, Mail, CalendarClock } from 'lucide-react'
 import { ROLE_LABELS } from '@/types'
 import { getFullName } from '@/lib/utils'
 import StaffClassesSection from './StaffClassesSection'
-
 export const dynamic = 'force-dynamic'
 const CAN_BE_CLASS_TEACHER = ['class_teacher', 'psychologist', 'speech_therapist', 'rehabilitator', 'educator']
+const THERAPIST_ROLES = ['psychologist', 'speech_therapist', 'rehabilitator']
+const NO_SCHEDULE_ROLES = ['secretary', 'admin', 'director']
 export default async function StaffDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
-
   const { data: profile } = await supabase
     .from('staff_profiles').select('role').eq('user_id', user.id).single()
   if (!['admin', 'zdud', 'director'].includes(profile?.role || '')) redirect('/dashboard')
-
   const { data: staff } = await supabase
     .from('staff_profiles').select('*').eq('id', id).single()
   if (!staff) notFound()
-
   const { data: currentYear } = await supabase
     .from('academic_years').select('*').eq('is_current', true).single()
-
   // Ученици по ЕПЛР роля
   const roleField: Record<string, string> = {
     psychologist: 'psychologist_id',
     speech_therapist: 'speech_therapist_id',
     rehabilitator: 'rehabilitator_id',
   }
-
   let eplrStudents: any[] = []
   const field = roleField[staff.role]
   if (field) {
@@ -44,48 +40,39 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
       .map((t: any) => t.student)
       .filter((s: any) => s && s.status === 'active')
   }
-
   // Паралелки като класен ръководител
   const { data: myClasses } = await supabase
     .from('class_teacher_assignments')
     .select('id, class:classes(id, name)')
     .eq('staff_id', id)
     .eq('academic_year_id', currentYear?.id)
-
   // Всички паралелки за избор (без тези които вече имат класен)
   const { data: allClasses } = await supabase
     .from('classes').select('id, name')
     .eq('academic_year_id', currentYear?.id)
     .order('name')
-
   const { data: takenAssignments } = await supabase
     .from('class_teacher_assignments')
     .select('class_id, staff_id, staff:staff_profiles(first_name, middle_name, last_name)')
     .eq('academic_year_id', currentYear?.id)
-
   // Всички паралелки; заетите носят името на текущия класен
   const takenMap: Record<string, string> = {}
   ;(takenAssignments || []).forEach((a: any) => {
     if (a.staff_id === id) return
     takenMap[a.class_id] = a.staff ? getFullName(a.staff) : 'зает'
   })
-
   const classOptions = (allClasses || []).map((c: any) => ({
     id: c.id,
     name: c.name,
     takenBy: takenMap[c.id] || null,
   }))
-
   const assignedClasses = (myClasses || []).map((c: any) => ({
     assignmentId: c.id,
     classId: c.class?.id,
     name: c.class?.name || '—',
   })).filter((c: any) => c.classId)
-
   const canManageAssignments = ['admin', 'zdud'].includes(profile?.role || '')
-
   const classIds = (myClasses || []).map((c: any) => c.class?.id).filter(Boolean)
-
   let classStudents: any[] = []
   if (classIds.length > 0) {
     const { data } = await supabase
@@ -95,14 +82,12 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
       .eq('academic_year_id', currentYear?.id)
     classStudents = (data || []).filter((e: any) => e.student?.status === 'active')
   }
-
   // ЦОУД групи като възпитател
   const { data: coudGroups } = await supabase
     .from('coud_groups')
     .select('id, name')
     .eq('teacher_id', id)
     .eq('academic_year_id', currentYear?.id)
-
   let coudStudents: any[] = []
   if ((coudGroups || []).length > 0) {
     const { data } = await supabase
@@ -112,35 +97,45 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
       .eq('academic_year_id', currentYear?.id)
     coudStudents = (data || []).filter((e: any) => e.student?.status === 'active')
   }
-
   const sortByName = (a: any, b: any) => getFullName(a).localeCompare(getFullName(b), 'bg')
-
+  // Разписание — линк според ролята (без администрация/деловодство)
+  const hasSchedule = !NO_SCHEDULE_ROLES.includes(staff.role)
+  const scheduleHref = THERAPIST_ROLES.includes(staff.role)
+    ? `/my-activities/schedule?staff=${id}`
+    : `/my-schedule?staff=${id}`
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto">
       <Link href="/staff" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6 transition-colors">
         <ArrowLeft size={15} /> Назад към служителите
       </Link>
-
       {/* Хедър */}
       <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-6 shadow-sm">
-        <div className="flex items-start gap-4">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-xl font-bold flex-shrink-0"
-            style={{ backgroundColor: '#0f2240' }}>
-            {staff.first_name?.charAt(0)}{staff.last_name?.charAt(0)}
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-800">{getFullName(staff)}</h1>
-            <div className="flex flex-wrap items-center gap-3 mt-1.5 text-sm text-slate-500">
-              <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-                {ROLE_LABELS[staff.role as keyof typeof ROLE_LABELS] || staff.role}
-              </span>
-              {staff.position && <span className="text-xs">{staff.position}</span>}
-              <span className="flex items-center gap-1 text-xs"><Mail size={12} />{staff.email}</span>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-xl font-bold flex-shrink-0"
+              style={{ backgroundColor: '#0f2240' }}>
+              {staff.first_name?.charAt(0)}{staff.last_name?.charAt(0)}
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-slate-800">{getFullName(staff)}</h1>
+              <div className="flex flex-wrap items-center gap-3 mt-1.5 text-sm text-slate-500">
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
+                  {ROLE_LABELS[staff.role as keyof typeof ROLE_LABELS] || staff.role}
+                </span>
+                {staff.position && <span className="text-xs">{staff.position}</span>}
+                <span className="flex items-center gap-1 text-xs"><Mail size={12} />{staff.email}</span>
+              </div>
             </div>
           </div>
+          {hasSchedule && (
+            <Link href={scheduleHref}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-white flex-shrink-0 transition-opacity hover:opacity-90"
+              style={{ backgroundColor: '#0f2240' }}>
+              <CalendarClock size={14} /> Разписание
+            </Link>
+          )}
         </div>
       </div>
-
       {(CAN_BE_CLASS_TEACHER.includes(staff.role) || assignedClasses.length > 0) && (
         <StaffClassesSection
           staffId={id}
@@ -150,7 +145,6 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
           canManage={canManageAssignments}
         />
       )}
-
       {/* Паралелки като класен */}
       {classStudents.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm mb-5">
@@ -173,7 +167,6 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
           </div>
         </div>
       )}
-
       {/* ЕПЛР ученици */}
       {eplrStudents.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm mb-5">
@@ -195,7 +188,6 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
           </div>
         </div>
       )}
-
       {/* ЦОУД групи */}
       {coudStudents.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm mb-5">
@@ -217,7 +209,6 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
           </div>
         </div>
       )}
-
       {classStudents.length === 0 && eplrStudents.length === 0 && coudStudents.length === 0 && (
         <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
           <p className="text-slate-400 text-sm">Няма назначени ученици за {currentYear?.name}</p>
