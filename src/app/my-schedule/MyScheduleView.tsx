@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
-import { BookOpen, GraduationCap, CalendarDays, Clock } from 'lucide-react'
+import { BookOpen, GraduationCap, CalendarDays, Clock, FileText, Loader2 } from 'lucide-react'
+import { generateStaffSchedule } from '@/lib/docx-generator'
 interface Slot {
   source: 'class' | 'ifo'
   day: number
@@ -15,6 +16,8 @@ interface Props {
   ifoSlots: Slot[]
   hasClasses: boolean
   staffId?: string
+  staffName?: string
+  yearName?: string
 }
 const DAYS = [
   { n: 1, label: 'Понеделник', short: 'Пон' },
@@ -37,9 +40,10 @@ function startMinutes(source: 'class' | 'ifo', period: number): number {
   const [h, m] = t.split('–')[0].split(':').map(Number)
   return h * 60 + m
 }
-export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId }: Props) {
+export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId, staffName, yearName }: Props) {
   const staffQ = staffId ? `&staff=${staffId}` : ''
   const [activeDay, setActiveDay] = useState<number | 'all'>('all')
+  const [generating, setGenerating] = useState(false)
   const all = [...classSlots, ...ifoSlots]
   const totalClass = classSlots.length
   const totalIfo = ifoSlots.length
@@ -47,6 +51,16 @@ export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId
     return all
       .filter(s => s.day === day)
       .sort((a, b) => startMinutes(a.source, a.period) - startMinutes(b.source, b.period))
+  }
+  async function handleWord() {
+    if (all.length === 0) return
+    setGenerating(true)
+    try {
+      const subtitle = `${term === 1 ? 'I' : 'II'} срок · ${yearName || ''}`
+      await generateStaffSchedule(staffName || 'Служител', subtitle, classSlots, ifoSlots)
+    } finally {
+      setGenerating(false)
+    }
   }
   function SlotCard({ s }: { s: Slot }) {
     const time = s.source === 'class' ? CLASS_TIMES[s.period] : IFO_TIMES[s.period]
@@ -76,7 +90,7 @@ export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId
   }
   return (
     <div className="space-y-4">
-      {/* Срок + легенда */}
+      {/* Срок + легенда + Word */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl">
           <a href={`?term=1${staffQ}`} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 1 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
@@ -84,15 +98,25 @@ export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId
           <a href={`?term=2${staffQ}`} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 2 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
             style={term === 2 ? { backgroundColor: '#0f2240' } : {}}>II срок</a>
         </div>
-        <div className="flex items-center gap-4 text-xs text-slate-500">
-          {hasClasses && (
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4 text-xs text-slate-500">
+            {hasClasses && (
+              <span className="inline-flex items-center gap-1.5">
+                <BookOpen size={13} className="text-slate-500" /> Паралелка: <span className="font-semibold text-slate-700">{totalClass}</span>
+              </span>
+            )}
             <span className="inline-flex items-center gap-1.5">
-              <BookOpen size={13} className="text-slate-500" /> Паралелка: <span className="font-semibold text-slate-700">{totalClass}</span>
+              <GraduationCap size={13} className="text-teal-600" /> ИФО: <span className="font-semibold text-slate-700">{totalIfo}</span>
             </span>
+          </div>
+          {all.length > 0 && (
+            <button type="button" onClick={handleWord} disabled={generating}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-60 transition-opacity hover:opacity-90"
+              style={{ backgroundColor: '#0f2240' }}>
+              {generating ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />}
+              Word
+            </button>
           )}
-          <span className="inline-flex items-center gap-1.5">
-            <GraduationCap size={13} className="text-teal-600" /> ИФО: <span className="font-semibold text-slate-700">{totalIfo}</span>
-          </span>
         </div>
       </div>
       {all.length === 0 ? (
