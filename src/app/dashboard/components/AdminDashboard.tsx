@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Users, BookOpen, Calendar, Bell, ArrowRight, GraduationCap, Home, Wifi, Coffee, ShieldX, ShieldAlert, ClipboardList, Clock, AlertTriangle, UserSearch } from 'lucide-react'
 import { formatDate, getDaysUntil, getMonthName } from '@/lib/utils'
-import StaffScheduleSearch from './StaffScheduleSearch'
 export default async function AdminDashboard({ profile, currentYearId }: any) {
   const supabase = await createClient()
   const now = new Date()
@@ -90,10 +89,6 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
   })
   return (
     <div className="animate-in fade-in duration-500">
-      {/* ── БЪРЗО РАЗПИСАНИЕ ── */}
-      <div className="mb-6">
-        <StaffScheduleSearch />
-      </div>
       {/* ── КЛЮЧОВИ ЧИСЛА ── */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
         <Link href="/students" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all group col-span-2 md:col-span-1">
