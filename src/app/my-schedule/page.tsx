@@ -95,7 +95,7 @@ export default async function MySchedulePage({
           <p className="text-slate-500 text-sm mt-0.5">{target.first_name} {target.last_name} · {currentYear?.name}</p>
         </div>
       </div>
-      <MyScheduleView term={term} classSlots={classSlots} ifoSlots={ifoView} hasClasses={hasClasses} staffId={viewingOther ? target.id : undefined} />
+      <MyScheduleView term={term} classSlots={classSlots} ifoSlots={ifoView} hasClasses={hasClasses} staffId={viewingOther ? target.id : undefined} staffName={`${target.first_name} ${target.last_name}`} yearName={currentYear?.name} />
     </div>
   )
 }
