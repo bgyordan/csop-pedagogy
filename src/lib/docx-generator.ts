@@ -1966,3 +1966,125 @@ export async function generateSurveyDocument(studentName: string, data: Record<s
   const safe = studentName.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_')
   saveAs(blob, `анкета_${safe}.docx`)
 }
+// ── СЕДМИЧНО РАЗПИСАНИЕ НА СЛУЖИТЕЛ (класен: паралелка + ИФО) ──────────────
+interface StaffScheduleSlot {
+  source: 'class' | 'ifo'
+  day: number
+  period: number
+  subjectName: string
+  allowsPullout: boolean
+  label: string
+}
+export async function generateStaffSchedule(
+  staffName: string,
+  subtitle: string,        // "II срок · 2026/2027"
+  classSlots: StaffScheduleSlot[],
+  ifoSlots: StaffScheduleSlot[],
+) {
+  const CLASS_TIMES: Record<number, string> = {
+    1: '8:30 – 9:05', 2: '9:15 – 9:50', 3: '10:20 – 10:55',
+    4: '11:05 – 11:40', 5: '11:50 – 12:25', 6: '12:35 – 13:05', 7: '13:15 – 13:50',
+  }
+  const IFO_TIMES: Record<number, string> = {
+    1: '12:00 – 12:35', 2: '12:30 – 13:05', 3: '13:10 – 13:45', 4: '13:20 – 13:55',
+    5: '13:40 – 14:15', 6: '13:50 – 14:25', 7: '14:30 – 15:05', 8: '15:10 – 15:45',
+  }
+  function startMin(source: 'class' | 'ifo', period: number): number {
+    const t = source === 'class' ? CLASS_TIMES[period] : IFO_TIMES[period]
+    if (!t) return 9999
+    const [h, m] = t.split('–')[0].trim().split(':').map(Number)
+    return h * 60 + m
+  }
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const CELLS = { top: B, bottom: B, left: B, right: B }
+  const NONE = {
+    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  }
+  const all = [...classSlots, ...ifoSlots]
+  const children: any[] = []
+  children.push(
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [new TableRow({ children: [
+        new TableCell({
+          width: { size: 20, type: WidthType.PERCENTAGE }, borders: NONE,
+          margins: { top: 0, bottom: 0, left: 0, right: 80 },
+          children: [new Paragraph({ alignment: AlignmentType.LEFT, children: [
+            new ImageRun({ data: Buffer.from(CSOP_LOGO_B64, 'base64'), transformation: { width: 60, height: 60 }, type: 'jpg' }),
+          ]})],
+        }),
+        new TableCell({
+          width: { size: 80, type: WidthType.PERCENTAGE }, borders: NONE,
+          verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
+          children: [
+            new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
+            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456', size: 17, italics: true, color: '555555' })] }),
+          ],
+        }),
+      ]})],
+    }),
+    new Paragraph({ spacing: { before: 40, after: 40 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 0 }, children: [new TextRun({ text: 'Утвърдил: ........................  Директор ЦСОП-Варна', size: 18 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120, after: 20 }, children: [new TextRun({ text: 'СЕДМИЧНО РАЗПИСАНИЕ', bold: true, size: 26 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 160 }, children: [
+      new TextRun({ text: staffName, bold: true, size: 22 }),
+      new TextRun({ text: `   ·   ${subtitle}`, size: 18, italics: true, color: '555555' }),
+    ]}),
+  )
+  WEEKDAYS.forEach(day => {
+    const filled = all
+      .filter(s => s.day === day.n)
+      .sort((a, b) => startMin(a.source, a.period) - startMin(b.source, b.period))
+    if (filled.length === 0) return
+    const rows: TableRow[] = []
+    rows.push(new TableRow({
+      cantSplit: true,
+      children: [new TableCell({
+        columnSpan: 4, borders: CELLS,
+        shading: { type: ShadingType.CLEAR, fill: '0f2240' },
+        margins: { top: 50, bottom: 50, left: 100, right: 100 },
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: day.full, bold: true, size: 20, color: 'FFFFFF' })] })],
+      })],
+    }))
+    rows.push(new TableRow({
+      cantSplit: true,
+      children: [
+        { t: '№', w: 8 },
+        { t: 'Час', w: 22 },
+        { t: 'Предмет / дейност', w: 45 },
+        { t: 'Източник', w: 25 },
+      ].map(c => new TableCell({
+        width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
+        shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
+        margins: { top: 30, bottom: 30, left: 80, right: 80 },
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 17 })] })],
+      })),
+    }))
+    filled.forEach(s => {
+      const time = s.source === 'class' ? CLASS_TIMES[s.period] : IFO_TIMES[s.period]
+      const src = s.source === 'class' ? `Паралелка ${s.label}` : `ИФО · ${s.label}`
+      rows.push(new TableRow({
+        cantSplit: true,
+        children: [
+          new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 60, right: 60 },
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(s.period), size: 17 })] })] }),
+          new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 60, right: 60 },
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: time || '', size: 17 })] })] }),
+          new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 80, right: 80 },
+            children: [new Paragraph({ children: [new TextRun({ text: s.subjectName, size: 17 })] })] }),
+          new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 80, right: 80 },
+            children: [new Paragraph({ children: [new TextRun({ text: src, size: 16, color: s.source === 'ifo' ? '0F6E56' : '555555' })] })] }),
+        ],
+      }))
+    })
+    children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }))
+    children.push(new Paragraph({ spacing: { after: 120 }, children: [] }))
+  })
+  const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
+  const blob = await Packer.toBlob(doc)
+  const safe = staffName.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_')
+  saveAs(blob, `разписание_${safe}.docx`)
+}
