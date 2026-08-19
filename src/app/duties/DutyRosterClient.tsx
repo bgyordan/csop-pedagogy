@@ -2,6 +2,7 @@
 import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { CalendarDays, Plus, X, Check, Search, Users, UserCheck, UserX, Loader2, FileText } from 'lucide-react'
+import { generateDutyRoster } from '@/lib/docx-generator'
 
 interface Week {
   index: number
@@ -28,15 +29,17 @@ interface Props {
   weeks: Week[]
   canManage: boolean
   academicYearId: string
+  yearName?: string
 }
 
-export default function DutyRosterClient({ staff, duties: initialDuties, weeks, canManage, academicYearId }: Props) {
+export default function DutyRosterClient({ staff, duties: initialDuties, weeks, canManage, academicYearId, yearName }: Props) {
   const supabase = createClient()
   const [duties, setDuties] = useState<Duty[]>(initialDuties)
   const [view, setView] = useState<'staff' | 'week'>('staff')
   const [search, setSearch] = useState('')
   const [pickerStaff, setPickerStaff] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [generating, setGenerating] = useState(false)
   const [flash, setFlash] = useState('')
 
   const staffById = useMemo(() => {
@@ -149,6 +152,20 @@ export default function DutyRosterClient({ staff, duties: initialDuties, weeks, 
     setTimeout(() => setFlash(''), 2000)
   }
 
+  async function handleWord() {
+    setGenerating(true)
+    try {
+      const rows = assignedStaff.map(s => ({
+        name: s.name,
+        roleLabel: s.className ? `Класен на ${s.className}` : s.roleLabel,
+        weeks: (dutiesByStaff[s.id] || []).map(d => weekLabelByStart(d.start_date)),
+      }))
+      await generateDutyRoster(`${yearName || ''} учебна година`, rows)
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   const filteredAssigned = assignedStaff.filter(s => !search || s.name.toLowerCase().includes(search.toLowerCase()))
   const filteredUnassigned = unassignedStaff.filter(s => !search || s.name.toLowerCase().includes(search.toLowerCase()))
 
@@ -189,6 +206,14 @@ export default function DutyRosterClient({ staff, duties: initialDuties, weeks, 
               По седмица
             </button>
           </div>
+          {assignedStaff.length > 0 && (
+            <button onClick={handleWord} disabled={generating}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-60 transition-opacity hover:opacity-90"
+              style={{ backgroundColor: '#0f2240' }}>
+              {generating ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />}
+              Word
+            </button>
+          )}
         </div>
       </div>
 
