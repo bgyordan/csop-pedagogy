@@ -79,6 +79,49 @@ export default function DutyRosterClient({ staff, duties: initialDuties, weeks, 
     return weeks.filter(w => !taken.has(w.start))
   }
 
+  const MONTHS = ['Януари','Февруари','Март','Април','Май','Юни','Юли','Август','Септември','Октомври','Ноември','Декември']
+  function groupByMonth(list: Week[]): { month: string; weeks: Week[] }[] {
+    const groups: Record<string, Week[]> = {}
+    const order: string[] = []
+    list.forEach(w => {
+      const d = new Date(w.start)
+      const key = `${d.getFullYear()}-${d.getMonth()}`
+      if (!groups[key]) { groups[key] = []; order.push(key) }
+      groups[key].push(w)
+    })
+    return order.map(key => {
+      const [, m] = key.split('-')
+      return { month: MONTHS[parseInt(m)], weeks: groups[key] }
+    })
+  }
+
+  function WeekPicker({ staffId }: { staffId: string }) {
+    const grouped = groupByMonth(staffFreeWeeks(staffId))
+    return (
+      <div className="mt-2 p-3 rounded-xl bg-slate-50 border border-slate-200">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Избери седмица</span>
+          <button onClick={() => setPickerStaff(null)} className="text-slate-400 hover:text-slate-700"><X size={13} /></button>
+        </div>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 max-h-72 overflow-y-auto">
+          {grouped.map(g => (
+            <div key={g.month}>
+              <div className="text-[10px] font-bold text-[#0f2240] uppercase tracking-wider mb-1.5 sticky top-0 bg-slate-50 py-0.5">{g.month}</div>
+              <div className="space-y-1">
+                {g.weeks.map(w => (
+                  <button key={w.index} onClick={() => addDuty(staffId, w)} disabled={busy}
+                    className="w-full px-2 py-1 rounded-lg text-[11px] bg-white border border-slate-200 hover:bg-[#0f2240] hover:text-white transition-colors text-left">
+                    {w.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   async function addDuty(staffId: string, week: Week) {
     setBusy(true)
     const { data, error } = await supabase.from('duty_slots').insert({
@@ -201,22 +244,7 @@ export default function DutyRosterClient({ staff, duties: initialDuties, weeks, 
                       ))}
                     </div>
                     {/* Пикер за седмица */}
-                    {pickerStaff === s.id && canManage && (
-                      <div className="mt-2 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Избери седмица</span>
-                          <button onClick={() => setPickerStaff(null)} className="text-slate-400 hover:text-slate-700"><X size={13} /></button>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-52 overflow-y-auto">
-                          {staffFreeWeeks(s.id).map(w => (
-                            <button key={w.index} onClick={() => { addDuty(s.id, w); }} disabled={busy}
-                              className="px-2 py-1.5 rounded-lg text-[11px] bg-white border border-slate-200 hover:bg-[#0f2240] hover:text-white transition-colors text-left">
-                              {w.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    {pickerStaff === s.id && canManage && <WeekPicker staffId={s.id} />}
                   </div>
                 ))}
               </div>
@@ -248,22 +276,7 @@ export default function DutyRosterClient({ staff, duties: initialDuties, weeks, 
                           <Plus size={12} /> Дай седмица
                         </button>
                       </div>
-                      {pickerStaff === s.id && (
-                        <div className="mt-2 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Избери седмица</span>
-                            <button onClick={() => setPickerStaff(null)} className="text-slate-400 hover:text-slate-700"><X size={13} /></button>
-                          </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-52 overflow-y-auto">
-                            {staffFreeWeeks(s.id).map(w => (
-                              <button key={w.index} onClick={() => { addDuty(s.id, w); }} disabled={busy}
-                                className="px-2 py-1.5 rounded-lg text-[11px] bg-white border border-slate-200 hover:bg-[#0f2240] hover:text-white transition-colors text-left">
-                                {w.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      {pickerStaff === s.id && <WeekPicker staffId={s.id} />}
                     </div>
                   ))}
                 </div>
