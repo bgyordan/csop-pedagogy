@@ -104,6 +104,7 @@ export default async function DutyPage() {
         weeks={weeks}
         canManage={canManage}
         academicYearId={currentYear?.id || ''}
+        yearName={currentYear?.name}
       />
     </div>
   )
