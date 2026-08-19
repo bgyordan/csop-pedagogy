@@ -103,14 +103,14 @@ export default function DutyRosterClient({ staff, duties: initialDuties, weeks, 
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Избери седмица</span>
           <button onClick={() => setPickerStaff(null)} className="text-slate-400 hover:text-slate-700"><X size={13} /></button>
         </div>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3 max-h-72 overflow-y-auto">
+        <div className="space-y-1.5 max-h-72 overflow-y-auto">
           {grouped.map(g => (
-            <div key={g.month}>
-              <div className="text-[10px] font-bold text-[#0f2240] uppercase tracking-wider mb-1.5 sticky top-0 bg-slate-50 py-0.5">{g.month}</div>
-              <div className="space-y-1">
+            <div key={g.month} className="flex items-start gap-2">
+              <span className="text-[10px] font-bold text-[#0f2240] uppercase tracking-wide w-16 flex-shrink-0 pt-1.5">{g.month}</span>
+              <div className="flex flex-wrap gap-1 flex-1">
                 {g.weeks.map(w => (
                   <button key={w.index} onClick={() => addDuty(staffId, w)} disabled={busy}
-                    className="w-full px-2 py-1 rounded-lg text-[11px] bg-white border border-slate-200 hover:bg-[#0f2240] hover:text-white transition-colors text-left">
+                    className="px-2 py-1 rounded-lg text-[11px] bg-white border border-slate-200 hover:bg-[#0f2240] hover:text-white transition-colors">
                     {w.label}
                   </button>
                 ))}
