@@ -2088,3 +2088,93 @@ export async function generateStaffSchedule(
   const safe = staffName.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_')
   saveAs(blob, `разписание_${safe}.docx`)
 }
+// ── ДНЕВНИК НА ДЕЖУРСТВАТА (за подпис) ──────────────────────────────────────
+interface DutyRow {
+  name: string
+  roleLabel: string     // "Класен на 01" / "Психолог" / "Учител"
+  weeks: string[]       // ["15.09 – 18.09.2026", ...]
+}
+export async function generateDutyRoster(
+  subtitle: string,     // "2026/2027 учебна година"
+  rows: DutyRow[],
+) {
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const CELLS = { top: B, bottom: B, left: B, right: B }
+  const NONE = {
+    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  }
+  const children: any[] = []
+  // Хедър с лого
+  children.push(
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [new TableRow({ children: [
+        new TableCell({
+          width: { size: 20, type: WidthType.PERCENTAGE }, borders: NONE,
+          margins: { top: 0, bottom: 0, left: 0, right: 80 },
+          children: [new Paragraph({ alignment: AlignmentType.LEFT, children: [
+            new ImageRun({ data: Buffer.from(CSOP_LOGO_B64, 'base64'), transformation: { width: 60, height: 60 }, type: 'jpg' }),
+          ]})],
+        }),
+        new TableCell({
+          width: { size: 80, type: WidthType.PERCENTAGE }, borders: NONE,
+          verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
+          children: [
+            new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
+            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456', size: 17, italics: true, color: '555555' })] }),
+          ],
+        }),
+      ]})],
+    }),
+    new Paragraph({ spacing: { before: 40, after: 40 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 0 }, children: [new TextRun({ text: 'Утвърдил: ........................  Директор ЦСОП-Варна', size: 18 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120, after: 20 }, children: [new TextRun({ text: 'ДНЕВНИК НА ДЕЖУРСТВАТА', bold: true, size: 26 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: subtitle, size: 18, italics: true, color: '555555' })] }),
+  )
+  // Таблица
+  const tableRows: TableRow[] = []
+  // Заглавен ред
+  tableRows.push(new TableRow({
+    cantSplit: true, tableHeader: true,
+    children: [
+      { t: '№', w: 6 },
+      { t: 'Име', w: 26 },
+      { t: 'Длъжност / Група', w: 22 },
+      { t: 'Седмици на дежурство', w: 30 },
+      { t: 'Подпис', w: 16 },
+    ].map(c => new TableCell({
+      width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
+      shading: { type: ShadingType.CLEAR, fill: '0f2240' },
+      margins: { top: 50, bottom: 50, left: 80, right: 80 },
+      children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 18, color: 'FFFFFF' })] })],
+    })),
+  }))
+  // Редове със зебра
+  rows.forEach((r, i) => {
+    const zebra = i % 2 === 1 ? 'F5F7FA' : 'FFFFFF'
+    tableRows.push(new TableRow({
+      cantSplit: true,
+      children: [
+        new TableCell({ borders: CELLS, shading: { type: ShadingType.CLEAR, fill: zebra }, margins: { top: 40, bottom: 40, left: 60, right: 60 },
+          children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(i + 1), size: 17 })] })] }),
+        new TableCell({ borders: CELLS, shading: { type: ShadingType.CLEAR, fill: zebra }, margins: { top: 40, bottom: 40, left: 80, right: 80 },
+          children: [new Paragraph({ children: [new TextRun({ text: r.name, size: 17, bold: true })] })] }),
+        new TableCell({ borders: CELLS, shading: { type: ShadingType.CLEAR, fill: zebra }, margins: { top: 40, bottom: 40, left: 80, right: 80 },
+          children: [new Paragraph({ children: [new TextRun({ text: r.roleLabel, size: 16, color: '555555' })] })] }),
+        new TableCell({ borders: CELLS, shading: { type: ShadingType.CLEAR, fill: zebra }, margins: { top: 40, bottom: 40, left: 80, right: 80 },
+          children: r.weeks.length
+            ? r.weeks.map(w => new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: '• ' + w, size: 16 })] }))
+            : [new Paragraph({ children: [new TextRun({ text: '—', size: 16, color: '999999' })] })] }),
+        new TableCell({ borders: CELLS, shading: { type: ShadingType.CLEAR, fill: zebra }, margins: { top: 40, bottom: 40, left: 80, right: 80 },
+          children: [new Paragraph({ children: [new TextRun({ text: '', size: 17 })] })] }),
+      ],
+    }))
+  })
+  children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: tableRows }))
+  const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 800, right: 800 } } }, children }] })
+  const blob = await Packer.toBlob(doc)
+  saveAs(blob, `дежурства_${subtitle.replace(/[^0-9]/g, '_')}.docx`)
+}
