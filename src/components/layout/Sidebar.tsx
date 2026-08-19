@@ -40,6 +40,7 @@ const navItems: NavItem[] = [
   { href: '/schedules', label: 'Разписания', icon: <CalendarClock size={16} />, roles: ['admin', 'zdud', 'director'] },
   { href: '/my-activities', label: 'Списък за терапия', icon: <HeartPulse size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
   { href: '/staff', label: 'Служители', icon: <UserCircle size={16} />, roles: ['admin', 'director', 'zdud'] },
+  { href: '/duties', label: 'Дежурства', icon: <CalendarDays size={16} />, roles: ['admin', 'director', 'zdud'] },
   { href: '/reports', label: 'Писма и справки', icon: <BarChart3 size={16} />, roles: ['admin', 'director', 'zdud'], coordinatorOnly: true },
   { href: '/reports', label: 'Натовареност', icon: <BarChart3 size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
   {
@@ -62,6 +63,7 @@ const navItems: NavItem[] = [
   { href: '/admin/schools', label: 'Училища', icon: <School size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'settings' },
   { href: '/students', label: 'Ученици', icon: <Users size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/templates', label: 'Образци на документи', icon: <FileText size={16} />, roles: ['secretary'], section: 'settings' },
+  { href: '/duties', label: 'Дежурства', icon: <CalendarDays size={16} />, roles: ['secretary'], section: 'settings' },
 ]
 interface SidebarProps {
   userRole: UserRole
