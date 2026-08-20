@@ -31,8 +31,8 @@ export default async function SecretaryDashboard({ profile }: any) {
     supabase.from('contracts').select('number, date, subject, counterparty').order('created_at', { ascending: false }).limit(1),
     supabase.from('contracts').select('*', { count: 'exact', head: true }),
     supabase.from('contracts').select('number, subject, counterparty, end_date').gte('end_date', today).lte('end_date', in30days).order('end_date'),
-    supabase.from('correspondence').select('subject, student_id, date').eq('nomenclature_item', 'УВД-09').order('created_at', { ascending: false }),
-    supabase.from('correspondence').select('subject, student_id, date').eq('nomenclature_item', 'УВД-12').order('created_at', { ascending: false }),
+    supabase.from('correspondence').select('subject, student_id, date').eq('nomenclature_item', 'УВД-09').gte('date', `${currentYear}-01-01`).order('created_at', { ascending: false }),
+    supabase.from('correspondence').select('subject, student_id, date').eq('nomenclature_item', 'УВД-12').gte('date', `${currentYear}-01-01`).order('created_at', { ascending: false }),
   ])
 
   return (
