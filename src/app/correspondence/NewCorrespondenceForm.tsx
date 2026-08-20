@@ -1,10 +1,8 @@
 'use client'
-
 import React, { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { X, Upload, FileText, Loader2, User, GraduationCap, ChevronDown, ArrowDownLeft, ArrowUpRight, Zap } from 'lucide-react'
-
 // Бързи сценарии
 const QUICK_SCENARIOS: Record<string, {
   label: string
@@ -12,21 +10,19 @@ const QUICK_SCENARIOS: Record<string, {
   index: string
   template: string
   directions: ('incoming' | 'outgoing')[]
+  dossierDocType?: string
 }> = {
   vacation: { label: 'Отпуск', icon: 'staff', index: 'ЛС-02', template: 'Заявление за отпуск', directions: ['incoming'] },
-  enrollment: { label: 'Прием на ученик', icon: 'student', index: 'УВД-09', template: 'Заявление за прием на {name}', directions: ['incoming'] },
-  coud: { label: 'ЦОУД', icon: 'student', index: 'УВД-12', template: 'Молба за ЦОУД на {name}', directions: ['incoming'] },
+  enrollment: { label: 'Прием на ученик', icon: 'student', index: 'УВД-09', template: 'Заявление за прием на {name}', directions: ['incoming'], dossierDocType: 'enrollment_application' },
+  coud: { label: 'ЦОУД', icon: 'student', index: 'УВД-12', template: 'Молба за ЦОУД на {name}', directions: ['incoming'], dossierDocType: 'coud_application' },
 }
-
 const EXTERNAL_SUGGESTIONS = [
   'МОН — Министерство на образованието и науката',
   'РУО — Варна', 'Община Варна', 'РЦПППО — Варна',
   'Агенция за социално подпомагане', 'РЗОК — Варна',
   'НОИ — Варна', 'Дирекция "Социално подпомагане"',
 ]
-
 type Direction = 'incoming' | 'outgoing'
-
 interface NomenclatureItem {
   id: string
   section_code: string
@@ -36,7 +32,6 @@ interface NomenclatureItem {
   quick_incoming?: boolean
   quick_outgoing?: boolean
 }
-
 interface Props {
   totalCount: number
   currentUserId: string
@@ -47,14 +42,12 @@ interface Props {
   onClose: () => void
   onSaved: () => void
 }
-
 export default function NewCorrespondenceForm({
   totalCount, currentUserId, students, staff, nomenclature, direction, onClose, onSaved
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const descRef = useRef<HTMLTextAreaElement>(null)
-
   const [saving, setSaving] = useState(false)
   const [saveAction, setSaveAction] = useState<'save_close' | 'save_new'>('save_close')
   const [scenario, setScenario] = useState<string | null>(null)
@@ -70,24 +63,20 @@ export default function NewCorrespondenceForm({
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [nomSearch, setNomSearch] = useState('')
   const [showAllNom, setShowAllNom] = useState(false)
-
+  const [addToDossier, setAddToDossier] = useState(true)
   const currentYear = new Date().getFullYear()
   const activeScenario = scenario ? QUICK_SCENARIOS[scenario] : null
   const selectedNomItem = nomenclature.find(n => n.item_code === folderIndex)
-
   const nextNum = String(totalCount + 1).padStart(3, '0')
   const nextNumPreview = `${nextNum}/${docDate.split('-').reverse().join('.')}г.`
-
   const dirLabel = direction === 'incoming' ? 'Входящ' : 'Изходящ'
   const dirIcon = direction === 'incoming' ? <ArrowDownLeft size={13} /> : <ArrowUpRight size={13} />
-
   useEffect(() => {
     if (descRef.current) {
       descRef.current.style.height = 'auto'
       descRef.current.style.height = descRef.current.scrollHeight + 'px'
     }
   }, [description])
-
   const filteredNom = nomenclature.filter(n =>
     !nomSearch || n.item_code.toLowerCase().includes(nomSearch.toLowerCase()) || n.name.toLowerCase().includes(nomSearch.toLowerCase())
   )
@@ -96,16 +85,13 @@ export default function NewCorrespondenceForm({
     acc[item.section_code].push(item)
     return acc
   }, {} as Record<string, NomenclatureItem[]>)
-
   // Бързи индекси от настройките
   const quickCodes = nomenclature
     .filter(n => direction === 'incoming' ? n.quick_incoming : n.quick_outgoing)
     .map(n => n.item_code)
-
   // Сценарии валидни за тази посока
   const availableScenarios = Object.entries(QUICK_SCENARIOS)
     .filter(([_, s]) => s.directions.includes(direction))
-
   function selectScenario(key: string) {
     if (scenario === key) {
       // Изключване
@@ -129,7 +115,6 @@ export default function NewCorrespondenceForm({
     setStaffId('')
     setGuardians([])
   }
-
   function handleStaffSelect(id: string) {
     setStaffId(id)
     const s = staff.find(x => x.id === id)
@@ -138,7 +123,6 @@ export default function NewCorrespondenceForm({
       setFromWhom(`${s.first_name} ${s.last_name}`)
     }
   }
-
   async function handleStudentSelect(id: string) {
     setStudentId(id)
     setFromWhom('')
@@ -155,21 +139,17 @@ export default function NewCorrespondenceForm({
       setFromWhom(data[0].full_name)
     }
   }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!subject) { alert('Моля попълнете темата.'); return }
     setSaving(true)
-
     const { count } = await supabase.from('correspondence')
       .select('id', { count: 'exact', head: true })
       .eq('direction', direction)
       .gte('date', `${currentYear}-01-01`)
       .lte('date', `${currentYear}-12-31`)
-
     const num = String((count || 0) + 1).padStart(3, '0')
     const docNumber = `${num}/${docDate.split('-').reverse().join('.')}г.`
-
     let fileUrl = '', fileName = ''
     if (uploadedFile) {
       const ext = uploadedFile.name.split('.').pop()
@@ -177,7 +157,6 @@ export default function NewCorrespondenceForm({
       const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, uploadedFile, { upsert: true })
       if (!uploadError) { fileUrl = filePath; fileName = uploadedFile.name }
     }
-
     const { error } = await supabase.from('correspondence').insert({
       number: docNumber,
       date: docDate,
@@ -194,8 +173,29 @@ export default function NewCorrespondenceForm({
       created_by: currentUserId,
       status: 'active',
     })
-
     if (error) { alert(`Грешка: ${error.message}`); setSaving(false); return }
+
+    // Прикачване към досието на ученика (заявление за прием / ЦОУД)
+    if (uploadedFile && studentId && activeScenario?.icon === 'student' && activeScenario.dossierDocType && addToDossier) {
+      try {
+        const ext = uploadedFile.name.split('.').pop()
+        const dossierPath = `${studentId}/${Date.now()}_delo.${ext}`
+        const { error: dossierUploadErr } = await supabase.storage
+          .from('student-dossiers').upload(dossierPath, uploadedFile)
+        if (!dossierUploadErr) {
+          await supabase.from('student_attachments').insert({
+            student_id: studentId,
+            file_name: uploadedFile.name,
+            file_path: dossierPath,
+            file_size: uploadedFile.size,
+            doc_type: activeScenario.dossierDocType,
+            uploaded_by: currentUserId,
+            valid_until_year: null,
+          })
+        }
+      } catch (_) { /* прикачването към досието не бива да блокира деловодството */ }
+    }
+
     setSaving(false)
     router.refresh()
     if (saveAction === 'save_new') {
@@ -205,15 +205,14 @@ export default function NewCorrespondenceForm({
       setStudentId(''); setStaffId(''); setUploadedFile(null)
       setGuardians([])
       setNomSearch(''); setShowAllNom(false)
+      setAddToDossier(true)
     } else {
       onSaved()
     }
   }
-
   return (
     <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
       <div className="bg-white rounded-3xl border border-slate-200/80 max-w-xl w-full shadow-2xl flex flex-col" style={{ height: '85vh' }}>
-
         {/* Хедър */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
           <div>
@@ -229,10 +228,8 @@ export default function NewCorrespondenceForm({
             <X size={18} />
           </button>
         </div>
-
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-
             {/* Бързо регистриране */}
             {availableScenarios.length > 0 && (
               <div>
@@ -254,13 +251,11 @@ export default function NewCorrespondenceForm({
                 </div>
               </div>
             )}
-
             {/* Дата */}
             <div>
               <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">Дата *</label>
               <input type="date" value={docDate} onChange={e => setDocDate(e.target.value)} required className="input w-44 text-xs" />
             </div>
-
             {/* Сценарий: служител */}
             {activeScenario?.icon === 'staff' && (
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
@@ -276,7 +271,6 @@ export default function NewCorrespondenceForm({
                 {subject && <div className="text-xs text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2">{subject}</div>}
               </div>
             )}
-
             {/* Сценарий: ученик */}
             {activeScenario?.icon === 'student' && (
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
@@ -316,9 +310,16 @@ export default function NewCorrespondenceForm({
                   </>
                 )}
                 {subject && <div className="text-xs text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2">{subject}</div>}
+                {/* Прикачи към досие */}
+                {uploadedFile && (
+                  <label className="flex items-center gap-2 pt-1 cursor-pointer select-none">
+                    <input type="checkbox" checked={addToDossier} onChange={e => setAddToDossier(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-300 accent-[#0f2240]" />
+                    <span className="text-[11px] text-slate-600">Прикачи файла и към <strong>досието</strong> на ученика</span>
+                  </label>
+                )}
               </div>
             )}
-
             {/* Стандартни полета */}
             {!activeScenario && (
               <div className="space-y-3">
@@ -339,23 +340,19 @@ export default function NewCorrespondenceForm({
                   required placeholder="Тема / Относно *" className="input w-full" />
               </div>
             )}
-
             {activeScenario && !subject && (
               <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
                 required placeholder="Тема / Относно *" className="input w-full" />
             )}
-
             {/* Бележки */}
             <textarea ref={descRef} rows={1} value={description} onChange={e => setDescription(e.target.value)}
               placeholder="Допълнителна информация..."
               className="input w-full resize-none overflow-hidden" />
-
             {/* Архивен индекс — в дъното */}
             <div className="pt-2 border-t border-slate-100">
               <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">
                 Архивен индекс {activeScenario && <span className="text-slate-300 normal-case">(зададен автоматично)</span>}
               </label>
-
               {activeScenario ? (
                 selectedNomItem && (
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs w-fit">
@@ -384,7 +381,6 @@ export default function NewCorrespondenceForm({
                       Всички...
                     </button>
                   </div>
-
                   {showAllNom && (
                     <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2 mb-2">
                       <input autoFocus placeholder="Търси по код или наименование..."
@@ -409,7 +405,6 @@ export default function NewCorrespondenceForm({
                       </div>
                     </div>
                   )}
-
                   {selectedNomItem && !activeScenario && (
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs w-fit">
                       <span className="font-medium text-[#0f2240]">{folderIndex}</span>
@@ -419,7 +414,6 @@ export default function NewCorrespondenceForm({
                 </>
               )}
             </div>
-
             {/* Файл */}
             {uploadedFile ? (
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
@@ -440,7 +434,6 @@ export default function NewCorrespondenceForm({
               </label>
             )}
           </div>
-
           {/* Бутони */}
           <div className="flex gap-2 justify-end px-5 py-4 border-t border-slate-100 flex-shrink-0 bg-white rounded-b-3xl">
             <button type="button" onClick={onClose}
