@@ -17,7 +17,7 @@ const ALL_DOC_TYPES: DocumentType[] = [
 ]
 const ATTACHMENT_TYPE_LABELS: Record<string, string> = {
   enrollment_application: 'Заявление за прием',
-  coud_application: 'Молба за ЦОУД',
+  coud_application: 'Заявление за ЦОУД',
   referral_order: 'Заповед за насочване',
   eplr_order: 'Заповед ЕПЛР (от училището)',
   rcpppo_assessment: 'Оценка от РЦПППО',
