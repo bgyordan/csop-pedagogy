@@ -16,6 +16,8 @@ const ALL_DOC_TYPES: DocumentType[] = [
   'iup', 'iu_program', 'support_plan', 'parent_program'
 ]
 const ATTACHMENT_TYPE_LABELS: Record<string, string> = {
+  enrollment_application: 'Заявление за прием',
+  coud_application: 'Молба за ЦОУД',
   referral_order: 'Заповед за насочване',
   eplr_order: 'Заповед ЕПЛР (от училището)',
   rcpppo_assessment: 'Оценка от РЦПППО',
