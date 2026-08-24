@@ -6,6 +6,8 @@ import { getFullName } from '@/lib/utils'
 import DocumentsMatrixClient from './DocumentsMatrixClient'
 
 const ATTACHMENT_TYPES = [
+  { key: 'enrollment_application', label: 'Заявление за прием' },
+  { key: 'coud_application', label: 'Заявление за ЦОУД' },
   { key: 'referral_order', label: 'Заповед за насочване' },
   { key: 'eplr_order', label: 'Заповед ЕПЛР' },
   { key: 'rcpppo_assessment', label: 'Оценка от РЦПППО' },
