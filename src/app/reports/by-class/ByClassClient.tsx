@@ -10,13 +10,13 @@ interface Row {
   classGroup: string
   school: string
   schoolCity: string
+  csopClass: string
 }
 const CLASS_ORDER = ['ПГ', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
 function classLabel(c: string) {
   return c === 'ПГ' ? 'ПГ' : `${c}. клас`
 }
 export default function ByClassClient({ rows }: { rows: Row[] }) {
-  // Класовете, които реално съществуват в данните, в правилен ред
   const available = CLASS_ORDER.filter(c => rows.some(r => r.classGroup === c))
   const [selected, setSelected] = useState<Set<string>>(new Set(available))
 
@@ -38,8 +38,8 @@ export default function ByClassClient({ rows }: { rows: Row[] }) {
         students: rows
           .filter(r => r.classGroup === c)
           .sort((a, b) => {
-            const s = a.school.localeCompare(b.school, 'bg')
-            if (s !== 0) return s
+            const cc = a.csopClass.localeCompare(b.csopClass, 'bg')
+            if (cc !== 0) return cc
             return a.lastName.localeCompare(b.lastName, 'bg')
           }),
       }))
@@ -57,12 +57,13 @@ export default function ByClassClient({ rows }: { rows: Row[] }) {
           'Име': s.firstName,
           'Фамилия': s.lastName,
           'Клас (изпращащо)': s.rawClass,
+          'Паралелка ЦСОП': s.csopClass,
           'Изпращащо училище': s.school + (s.schoolCity ? ` — ${s.schoolCity}` : ''),
         })
       })
     })
     const ws = XLSX.utils.json_to_sheet(data)
-    ws['!cols'] = [{ wch: 10 }, { wch: 4 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 32 }]
+    ws['!cols'] = [{ wch: 10 }, { wch: 4 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 32 }]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'По клас')
     XLSX.writeFile(wb, 'Ученици_по_клас.xlsx')
@@ -124,13 +125,27 @@ export default function ByClassClient({ rows }: { rows: Row[] }) {
                 <span className="text-xs font-medium text-slate-400">{g.students.length} ученика</span>
               </div>
               <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 text-[10px] text-slate-400 uppercase">
+                    <th className="px-4 py-1.5 text-left w-8">#</th>
+                    <th className="px-3 py-1.5 text-left">Ученик</th>
+                    <th className="px-3 py-1.5 text-left w-24">Изпращащо</th>
+                    <th className="px-3 py-1.5 text-left w-24">Паралелка ЦСОП</th>
+                    <th className="px-3 py-1.5 text-left">Училище</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {g.students.map((s, idx) => (
                     <tr key={s.id} className={`border-b border-slate-50 last:border-0 ${idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}`}>
-                      <td className="px-4 py-2 text-slate-300 w-8">{idx + 1}</td>
+                      <td className="px-4 py-2 text-slate-300">{idx + 1}</td>
                       <td className="px-3 py-2 font-medium text-slate-800">{s.firstName} {s.lastName}</td>
-                      <td className="px-3 py-2 text-slate-400 w-20">{s.rawClass}</td>
-                      <td className="px-3 py-2 text-slate-600 max-w-[220px] truncate">
+                      <td className="px-3 py-2 text-slate-400">{s.rawClass}</td>
+                      <td className="px-3 py-2">
+                        {s.csopClass !== '—'
+                          ? <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 font-mono font-semibold text-slate-700">{s.csopClass}</span>
+                          : <span className="text-slate-300">—</span>}
+                      </td>
+                      <td className="px-3 py-2 text-slate-600 max-w-[200px] truncate">
                         {s.school}{s.schoolCity ? <span className="text-slate-400"> · {s.schoolCity}</span> : ''}
                       </td>
                     </tr>
