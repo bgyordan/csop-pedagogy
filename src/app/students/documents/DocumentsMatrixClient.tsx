@@ -104,7 +104,7 @@ export default function DocumentsMatrixClient({ classes: initialClasses, docType
           <span className="flex items-center gap-1.5 text-slate-600"><ShieldCheck size={14} className="text-emerald-600" /> Валиден</span>
           <span className="flex items-center gap-1.5 text-slate-600"><ShieldAlert size={14} className="text-amber-600" /> Изтича</span>
           <span className="flex items-center gap-1.5 text-slate-600"><ShieldX size={14} className="text-red-600" /> Изтекъл</span>
-          <span className="flex items-center gap-1.5 text-slate-600"><Plus size={14} className="text-slate-300" /> Липсва</span>
+                    <span className="flex items-center gap-1.5 text-slate-600"><Plus size={14} className="text-slate-500" /> Липсва</span>
         </div>
         <div className="flex items-center gap-3 text-xs">
           {expiredCount > 0 && <span className="font-medium text-red-600">{expiredCount} изтекли</span>}
