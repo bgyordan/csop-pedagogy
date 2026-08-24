@@ -230,7 +230,7 @@ function CellModal({ cell, yearOptions, currentYearName, staffId, onClose, onUpd
       file_size: file.size,
       doc_type: cell.docType.key,
       uploaded_by: staffId,
-      valid_until_year: validUntil || null,
+      valid_until_year: validUntil || (['enrollment_application', 'coud_application'].includes(cell.docType.key) ? currentYearName : null),
     }).select().single()
 
     if (error) { alert('Грешка при запис'); setUploading(false); return }
