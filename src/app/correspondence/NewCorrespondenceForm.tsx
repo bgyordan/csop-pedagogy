@@ -3,6 +3,24 @@ import React, { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { X, Upload, FileText, Loader2, User, GraduationCap, ChevronDown, ArrowDownLeft, ArrowUpRight, Zap } from 'lucide-react'
+// Деловодна година: 15.09 – 14.09 следващата
+function deloYearBounds(ref: Date): { start: string; end: string } {
+  const y = ref.getFullYear()
+  const m = ref.getMonth() + 1
+  const d = ref.getDate()
+  const afterStart = m > 9 || (m === 9 && d >= 15)
+  const startYear = afterStart ? y : y - 1
+  const iso = (yy: number, mm: number, dd: number) =>
+    `${yy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`
+  return { start: iso(startYear, 9, 15), end: iso(startYear + 1, 9, 14) }
+}
+async function nextSeqCorr(supabase: any, direction: string, start: string, end: string): Promise<number> {
+  const { data } = await supabase.from('correspondence')
+    .select('seq').eq('direction', direction).gte('date', start).lte('date', end)
+    .order('seq', { ascending: false, nullsFirst: false }).limit(1)
+  const maxSeq = data && data[0] && typeof data[0].seq === 'number' ? data[0].seq : 0
+  return maxSeq + 1
+}
 // Бързи сценарии
 const QUICK_SCENARIOS: Record<string, {
   label: string
@@ -67,7 +85,12 @@ export default function NewCorrespondenceForm({
   const currentYear = new Date().getFullYear()
   const activeScenario = scenario ? QUICK_SCENARIOS[scenario] : null
   const selectedNomItem = nomenclature.find(n => n.item_code === folderIndex)
-  const nextNum = String(totalCount + 1).padStart(3, '0')
+  const [nextNumVal, setNextNumVal] = useState<number | null>(null)
+  useEffect(() => {
+    const { start, end } = deloYearBounds(new Date(docDate))
+    nextSeqCorr(supabase, direction, start, end).then(setNextNumVal)
+  }, [docDate, direction])
+  const nextNum = nextNumVal !== null ? String(nextNumVal).padStart(3, '0') : '???'
   const nextNumPreview = `${nextNum}/${docDate.split('-').reverse().join('.')}г.`
   const dirLabel = direction === 'incoming' ? 'Входящ' : 'Изходящ'
   const dirIcon = direction === 'incoming' ? <ArrowDownLeft size={13} /> : <ArrowUpRight size={13} />
@@ -143,12 +166,9 @@ export default function NewCorrespondenceForm({
     e.preventDefault()
     if (!subject) { alert('Моля попълнете темата.'); return }
     setSaving(true)
-    const { count } = await supabase.from('correspondence')
-      .select('id', { count: 'exact', head: true })
-      .eq('direction', direction)
-      .gte('date', `${currentYear}-01-01`)
-      .lte('date', `${currentYear}-12-31`)
-    const num = String((count || 0) + 1).padStart(3, '0')
+    const { start: dStart, end: dEnd } = deloYearBounds(new Date(docDate))
+    const seq = await nextSeqCorr(supabase, direction, dStart, dEnd)
+    const num = String(seq).padStart(3, '0')
     const docNumber = `${num}/${docDate.split('-').reverse().join('.')}г.`
     let fileUrl = '', fileName = ''
     if (uploadedFile) {
@@ -172,6 +192,7 @@ export default function NewCorrespondenceForm({
       staff_id: staffId || null,
       created_by: currentUserId,
       status: 'active',
+      seq,
     })
     if (error) { alert(`Грешка: ${error.message}`); setSaving(false); return }
 
