@@ -17,6 +17,7 @@ export default function EditStudentPage() {
     first_name: '', middle_name: '', last_name: '', birth_date: '',
     sending_school_id: '' as string | null,
     external_class: '',
+    is_traveling: false,
   })
 
   const [schools, setSchools] = useState<{ id: string; name: string; city: string }[]>([])
@@ -39,6 +40,7 @@ export default function EditStudentPage() {
             birth_date: data.birth_date,
             sending_school_id: data.sending_school_id || null,
             external_class: data.external_class || '',
+            is_traveling: data.is_traveling || false,
           })
         }
       })
@@ -95,6 +97,7 @@ export default function EditStudentPage() {
       birth_date: form.birth_date,
       sending_school_id: form.sending_school_id || null,
       external_class: form.external_class || null,
+      is_traveling: form.is_traveling,
     }).eq('id', id)
     if (error) { toast('Грешка при запис', 'error'); setSaving(false); return }
     toast('Данните са обновени')
@@ -180,6 +183,17 @@ export default function EditStudentPage() {
             onChange={e => setForm(p => ({ ...p, external_class: e.target.value }))}
           />
           <p className="text-xs text-slate-400 mt-1">Класът по който се обучава в изпращащото училище</p>
+        </div>
+
+        {/* Пътуващ ученик */}
+        <div>
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input type="checkbox" checked={form.is_traveling}
+              onChange={e => setForm(p => ({ ...p, is_traveling: e.target.checked }))}
+              className="w-4 h-4 rounded border-slate-300 accent-[#0f2240]" />
+            <span className="text-sm font-medium text-slate-700">Пътуващ ученик</span>
+          </label>
+          <p className="text-xs text-slate-400 mt-1">Отбележи, ако детето пътува до училище от друго населено място</p>
         </div>
 
         <div className="flex gap-3 pt-2">
