@@ -31,8 +31,8 @@ export default async function SecretaryDashboard({ profile }: any) {
     supabase.from('contracts').select('number, date, subject, counterparty').order('created_at', { ascending: false }).limit(1),
     supabase.from('contracts').select('*', { count: 'exact', head: true }),
     supabase.from('contracts').select('number, subject, counterparty, end_date').gte('end_date', today).lte('end_date', in30days).order('end_date'),
-    supabase.from('correspondence').select('subject, student_id, date').eq('nomenclature_item', 'УВД-09').gte('date', `${currentYear}-01-01`).order('created_at', { ascending: false }),
-    supabase.from('correspondence').select('subject, student_id, date').eq('nomenclature_item', 'УВД-12').gte('date', `${currentYear}-01-01`).order('created_at', { ascending: false }),
+       supabase.from('student_attachments').select('student_id').eq('doc_type', 'enrollment_application'),
+    supabase.from('student_attachments').select('student_id').eq('doc_type', 'coud_application'),
   ])
 
   return (
@@ -147,11 +147,11 @@ export default async function SecretaryDashboard({ profile }: any) {
             <div className="grid grid-cols-2 gap-4 divide-x divide-slate-100">
               <div className="pr-4">
                 <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">За записване</div>
-                <div className="text-3xl font-medium text-slate-800 tracking-tight">{enrollments?.length || 0}</div>
+                <div className="text-3xl font-medium text-slate-800 tracking-tight">{new Set((enrollments || []).map((e: any) => e.student_id)).size}</div>
               </div>
               <div className="pl-4">
                 <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">За ЦОУД</div>
-                <div className="text-3xl font-medium text-slate-800 tracking-tight">{couds?.length || 0}</div>
+                <div className="text-3xl font-medium text-slate-800 tracking-tight">{new Set((couds || []).map((c: any) => c.student_id)).size}</div>
               </div>
             </div>
           </div>
