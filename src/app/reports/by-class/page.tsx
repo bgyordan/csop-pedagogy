@@ -39,7 +39,7 @@ export default async function ByClassReportPage() {
     classGroup: normalizeClass(s.external_class),
     school: s.sending_school?.name || '—',
     schoolCity: s.sending_school?.city || '',
-  })).filter((r: any) => r.classGroup !== null)
+  })).filter((r: any) => r.classGroup !== null) as { id: string; firstName: string; lastName: string; rawClass: string; classGroup: string; school: string; schoolCity: string }[]
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
