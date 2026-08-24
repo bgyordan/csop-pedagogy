@@ -22,6 +22,8 @@ export default async function TravelingReportPage() {
     .eq('status', 'active')
     .eq('is_traveling', true)
 
+  const ids = (students || []).map((s: any) => s.id)
+
   // Паралелка ЦСОП
   const { data: enrollments } = await supabase
     .from('student_enrollments')
@@ -32,6 +34,22 @@ export default async function TravelingReportPage() {
     if (e.class?.name) csopClassByStudent[e.student_id] = e.class.name
   })
 
+  // Родители + телефони
+  let guardianByStudent: Record<string, { name: string; phone: string }> = {}
+  if (ids.length > 0) {
+    const { data: guardians } = await supabase
+      .from('student_guardians')
+      .select('student_id, full_name, phone, relation')
+      .in('student_id', ids)
+      .order('relation')
+    ;(guardians || []).forEach((g: any) => {
+      // първият родител (по relation) за всяко дете
+      if (!guardianByStudent[g.student_id]) {
+        guardianByStudent[g.student_id] = { name: g.full_name || '', phone: g.phone || '' }
+      }
+    })
+  }
+
   const rows = (students || []).map((s: any) => ({
     id: s.id,
     firstName: s.first_name || '',
@@ -40,6 +58,8 @@ export default async function TravelingReportPage() {
     school: s.sending_school?.name || '—',
     schoolCity: s.sending_school?.city || '',
     csopClass: csopClassByStudent[s.id] || '—',
+    parent: guardianByStudent[s.id]?.name || '',
+    phone: guardianByStudent[s.id]?.phone || '',
   })).sort((a: any, b: any) => {
     const c = a.csopClass.localeCompare(b.csopClass, 'bg')
     if (c !== 0) return c
