@@ -57,7 +57,7 @@ const STATUS_CFG = {
   expiring: { icon: <ShieldAlert size={16} />, cls: 'text-amber-600 hover:bg-amber-50', title: 'Изтича тази година' },
   expired: { icon: <ShieldX size={16} />, cls: 'text-red-600 hover:bg-red-50', title: 'Изтекъл' },
   permanent: { icon: <ShieldCheck size={16} />, cls: 'text-slate-400 hover:bg-slate-50', title: 'Безсрочен' },
-  missing: { icon: <Plus size={14} />, cls: 'text-slate-200 hover:text-slate-400 hover:bg-slate-50', title: 'Липсва — добави' },
+    missing: { icon: <Plus size={14} />, cls: 'text-slate-500 hover:text-[#0f2240] hover:bg-slate-100', title: 'Липсва — добави' },
 }
 
 export default function DocumentsMatrixClient({ classes: initialClasses, docTypes, currentYearName, yearOptions, canManage, staffId }: Props) {
