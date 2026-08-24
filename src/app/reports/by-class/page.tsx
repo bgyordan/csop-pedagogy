@@ -17,6 +17,17 @@ function normalizeClass(raw: string | null): string | null {
   return String(n)
 }
 
+interface ReportRow {
+  id: string
+  firstName: string
+  lastName: string
+  rawClass: string
+  classGroup: string
+  school: string
+  schoolCity: string
+  csopClass: string
+}
+
 export default async function ByClassReportPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -26,20 +37,34 @@ export default async function ByClassReportPage() {
   const canAccess = ['admin', 'zdud', 'director', 'secretary'].includes(profile?.role || '')
   if (!canAccess) redirect('/dashboard')
 
+  const { data: currentYear } = await supabase
+    .from('academic_years').select('id').eq('is_current', true).single()
+
   const { data: students } = await supabase
     .from('students')
     .select('id, first_name, last_name, external_class, sending_school:sending_schools(name, city)')
     .eq('status', 'active')
 
-  const rows = (students || []).map((s: any) => ({
+  // Текуща паралелка в ЦСОП за всеки ученик
+  const { data: enrollments } = await supabase
+    .from('student_enrollments')
+    .select('student_id, class:classes(name)')
+    .eq('academic_year_id', currentYear?.id)
+  const csopClassByStudent: Record<string, string> = {}
+  ;(enrollments || []).forEach((e: any) => {
+    if (e.class?.name) csopClassByStudent[e.student_id] = e.class.name
+  })
+
+  const rows: ReportRow[] = (students || []).map((s: any) => ({
     id: s.id,
     firstName: s.first_name || '',
     lastName: s.last_name || '',
     rawClass: s.external_class || '',
-    classGroup: normalizeClass(s.external_class),
+    classGroup: normalizeClass(s.external_class) || '',
     school: s.sending_school?.name || '—',
     schoolCity: s.sending_school?.city || '',
-  })).filter((r: any) => r.classGroup !== null) as { id: string; firstName: string; lastName: string; rawClass: string; classGroup: string; school: string; schoolCity: string }[]
+    csopClass: csopClassByStudent[s.id] || '—',
+  })).filter((r: ReportRow) => r.classGroup !== '')
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
