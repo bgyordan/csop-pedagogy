@@ -12,28 +12,17 @@ export default async function EnrollmentsReportPage() {
   const canAccess = ['admin', 'zdud', 'director', 'secretary'].includes(profile?.role || '')
   if (!canAccess) redirect('/dashboard')
 
-  const now = new Date()
-  const currentYear = now.getFullYear()
+  const { data: currentYear } = await supabase
+    .from('academic_years').select('id').eq('is_current', true).single()
 
-  // Заявленията четем директно от деловодството (correspondence)
-  const [{ data: enrollDocs }, { data: coudDocs }] = await Promise.all([
-    supabase.from('correspondence')
-      .select('student_id, from_whom, date, subject')
-      .eq('nomenclature_item', 'УВД-09')
-      .gte('date', `${currentYear}-01-01`)
-      .order('date', { ascending: false }),
-    supabase.from('correspondence')
-      .select('student_id, from_whom, date, subject')
-      .eq('nomenclature_item', 'УВД-12')
-      .gte('date', `${currentYear}-01-01`)
-      .order('date', { ascending: false }),
-  ])
+  // Заявленията четем от досието (student_attachments)
+  const { data: attachments } = await supabase
+    .from('student_attachments')
+    .select('student_id, doc_type, created_at')
+    .in('doc_type', ['enrollment_application', 'coud_application'])
 
-  // Всички засегнати ученици
-  const studentIds = [...new Set([
-    ...(enrollDocs || []).map(d => d.student_id).filter(Boolean),
-    ...(coudDocs || []).map(d => d.student_id).filter(Boolean),
-  ])]
+  // Уникални ученици със заявления
+  const studentIds = [...new Set((attachments || []).map((a: any) => a.student_id).filter(Boolean))]
 
   let studentsById: Record<string, any> = {}
   if (studentIds.length > 0) {
@@ -44,7 +33,16 @@ export default async function EnrollmentsReportPage() {
     ;(students || []).forEach((s: any) => { studentsById[s.id] = s })
   }
 
-  // Карти по ученик — обединяваме прием + ЦОУД
+  // Паралелка ЦСОП
+  const { data: enrollments } = await supabase
+    .from('student_enrollments')
+    .select('student_id, class:classes(name)')
+    .eq('academic_year_id', currentYear?.id)
+  const csopClassByStudent: Record<string, string> = {}
+  ;(enrollments || []).forEach((e: any) => {
+    if (e.class?.name) csopClassByStudent[e.student_id] = e.class.name
+  })
+
   type Row = {
     studentId: string
     firstName: string
@@ -52,10 +50,9 @@ export default async function EnrollmentsReportPage() {
     externalClass: string
     school: string
     schoolCity: string
-    enrollFrom: string | null
-    enrollDate: string | null
-    coudFrom: string | null
-    coudDate: string | null
+    csopClass: string
+    hasEnroll: boolean
+    hasCoud: boolean
   }
   const rowMap = new Map<string, Row>()
   function ensureRow(sid: string): Row {
@@ -68,21 +65,18 @@ export default async function EnrollmentsReportPage() {
         externalClass: st?.external_class || '—',
         school: st?.sending_school?.name || '—',
         schoolCity: st?.sending_school?.city || '',
-        enrollFrom: null, enrollDate: null,
-        coudFrom: null, coudDate: null,
+        csopClass: csopClassByStudent[sid] || '—',
+        hasEnroll: false,
+        hasCoud: false,
       })
     }
     return rowMap.get(sid)!
   }
-  ;(enrollDocs || []).forEach((d: any) => {
-    if (!d.student_id) return
-    const r = ensureRow(d.student_id)
-    if (!r.enrollDate) { r.enrollDate = d.date; r.enrollFrom = d.from_whom || null }
-  })
-  ;(coudDocs || []).forEach((d: any) => {
-    if (!d.student_id) return
-    const r = ensureRow(d.student_id)
-    if (!r.coudDate) { r.coudDate = d.date; r.coudFrom = d.from_whom || null }
+  ;(attachments || []).forEach((a: any) => {
+    if (!a.student_id) return
+    const r = ensureRow(a.student_id)
+    if (a.doc_type === 'enrollment_application') r.hasEnroll = true
+    if (a.doc_type === 'coud_application') r.hasCoud = true
   })
 
   const rows = Array.from(rowMap.values()).sort((a, b) => {
@@ -94,15 +88,13 @@ export default async function EnrollmentsReportPage() {
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
       <BackButton />
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-800">Заявления за прием и ЦОУД — {currentYear}</h1>
-          <p className="text-slate-500 text-sm mt-0.5">
-            {rows.length} ученика · {rows.filter(r => r.enrollDate).length} за прием · {rows.filter(r => r.coudDate).length} за ЦОУД
-          </p>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-xl font-semibold text-slate-800">Заявления за прием и ЦОУД</h1>
+        <p className="text-slate-500 text-sm mt-0.5">
+          {rows.length} ученика · {rows.filter(r => r.hasEnroll).length} с прием · {rows.filter(r => r.hasCoud).length} с ЦОУД
+        </p>
       </div>
-      <EnrollmentsClient rows={rows} yearLabel={String(currentYear)} />
+      <EnrollmentsClient rows={rows} />
     </div>
   )
 }
