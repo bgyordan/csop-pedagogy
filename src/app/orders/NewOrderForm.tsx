@@ -31,6 +31,27 @@ const QUICK_SCENARIOS: Record<string, {
   },
 }
 
+// Деловодна година: 15.09 – 14.09 следващата. Връща [начало, край] като ISO дати.
+function deloYearBounds(ref: Date): { start: string; end: string } {
+  const y = ref.getFullYear()
+  const m = ref.getMonth() + 1
+  const d = ref.getDate()
+  const afterStart = m > 9 || (m === 9 && d >= 15)
+  const startYear = afterStart ? y : y - 1
+  const iso = (yy: number, mm: number, dd: number) =>
+    `${yy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`
+  return { start: iso(startYear, 9, 15), end: iso(startYear + 1, 9, 14) }
+}
+
+// Най-голям seq за периода + 1
+async function nextSeq(supabase: any, start: string, end: string): Promise<number> {
+  const { data } = await supabase.from('orders')
+    .select('seq').gte('date', start).lte('date', end)
+    .order('seq', { ascending: false, nullsFirst: false }).limit(1)
+  const maxSeq = data && data[0] && typeof data[0].seq === 'number' ? data[0].seq : 0
+  return maxSeq + 1
+}
+
 interface NomenclatureItem {
   id: string; section_code: string; item_code: string; name: string; retention_years: string
   quick_orders?: boolean
@@ -61,15 +82,15 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0])
   const [description, setDescription] = useState('')
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
-  const [nextCount, setNextCount] = useState<number | null>(null)
+  const [nextNumVal, setNextNumVal] = useState<number | null>(null)
 
-  const currentYear = new Date().getFullYear()
+  async function refreshNext(dateStr: string) {
+    const { start, end } = deloYearBounds(new Date(dateStr))
+    const n = await nextSeq(supabase, start, end)
+    setNextNumVal(n)
+  }
 
-  useEffect(() => {
-    supabase.from('orders').select('id', { count: 'exact', head: true })
-      .gte('date', `${currentYear}-01-01`).lte('date', `${currentYear}-12-31`)
-      .then(({ count }) => setNextCount(count || 0))
-  }, [])
+  useEffect(() => { refreshNext(orderDate) }, [orderDate])
 
   useEffect(() => {
     if (descRef.current) {
@@ -78,7 +99,7 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
     }
   }, [description])
 
-  const nextNum = nextCount !== null ? String(nextCount + 1).padStart(3, '0') : '???'
+  const nextNum = nextNumVal !== null ? String(nextNumVal).padStart(3, '0') : '???'
   const previewNumber = `${nextNum}/${orderDate.split('-').reverse().join('.')}г.`
 
   const filteredItems = nomenclature.filter(i =>
@@ -127,9 +148,7 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
     setOrderDate(new Date().toISOString().split('T')[0])
     setDescription('')
     setUploadedFile(null)
-    supabase.from('orders').select('id', { count: 'exact', head: true })
-      .gte('date', `${currentYear}-01-01`).lte('date', `${currentYear}-12-31`)
-      .then(({ count }) => setNextCount(count || 0))
+    refreshNext(new Date().toISOString().split('T')[0])
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -137,9 +156,9 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
     if (!title) return
     setSaving(true)
 
-    const { count } = await supabase.from('orders').select('id', { count: 'exact', head: true })
-      .gte('date', `${currentYear}-01-01`).lte('date', `${currentYear}-12-31`)
-    const num = String((count || 0) + 1).padStart(3, '0')
+    const { start, end } = deloYearBounds(new Date(orderDate))
+    const seq = await nextSeq(supabase, start, end)
+    const num = String(seq).padStart(3, '0')
     const formattedDate = orderDate.split('-').reverse().join('.')
     const docNumber = `${num}/${formattedDate}г.`
 
@@ -160,6 +179,7 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
       file_url: fileUrl || null,
       file_name: fileName || null,
       created_by: currentUserId,
+      seq,
     })
 
     if (error) { alert(`Грешка: ${error.message}`); setSaving(false); return }
