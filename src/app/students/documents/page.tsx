@@ -6,8 +6,8 @@ import { getFullName } from '@/lib/utils'
 import DocumentsMatrixClient from './DocumentsMatrixClient'
 
 const ATTACHMENT_TYPES = [
-  { key: 'enrollment_application', label: 'Заявление за прием' },
-  { key: 'coud_application', label: 'Заявление за ЦОУД' },
+  { key: 'enrollment_application', label: 'Записване' },
+  { key: 'coud_application', label: 'ЦОУД' },
   { key: 'referral_order', label: 'Заповед за насочване' },
   { key: 'eplr_order', label: 'Заповед ЕПЛР' },
   { key: 'rcpppo_assessment', label: 'Оценка от РЦПППО' },
@@ -24,7 +24,7 @@ export default async function DocumentsMatrixPage() {
     .from('staff_profiles').select('id, role').eq('user_id', user.id).single()
 
   const role = profile?.role || ''
-  const canAccess = ['admin', 'zdud', 'director'].includes(role)
+    const canAccess = ['admin', 'zdud', 'director', 'secretary'].includes(role)
   if (!canAccess) redirect('/dashboard')
 
   const { data: currentYear } = await supabase
@@ -96,7 +96,7 @@ export default async function DocumentsMatrixPage() {
   const currentYearName = currentYear?.name || ''
   const baseYear = currentYearName ? parseInt(currentYearName.split('/')[0]) : new Date().getFullYear()
   const yearOptions = Array.from({ length: 5 }, (_, i) => `${baseYear + i}/${baseYear + i + 1}`)
-  const canManage = ['admin', 'zdud', 'director'].includes(role)
+    const canManage = ['admin', 'zdud', 'director', 'secretary'].includes(role)
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8 animate-in fade-in duration-500">
