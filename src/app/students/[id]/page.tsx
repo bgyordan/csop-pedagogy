@@ -181,6 +181,16 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                   <div className="text-sm font-semibold text-slate-700 mt-0.5">{student.external_class}</div>
                 </div>
               )}
+                            {student.is_traveling && (
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Транспорт</div>
+                  <div className="text-sm font-semibold text-slate-700 mt-0.5 inline-flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-xs">
+                      Пътуващ ученик
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
