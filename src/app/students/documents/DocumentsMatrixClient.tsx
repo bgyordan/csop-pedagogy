@@ -273,13 +273,19 @@ function CellModal({ cell, yearOptions, currentYearName, staffId, onClose, onUpd
         </div>
 
         <div className="p-6 space-y-4">
-          {/* Валидност */}
+                   {/* Валидност */}
           <div>
             <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">Валиден до учебна година</label>
-            <select value={validUntil} onChange={e => setValidUntil(e.target.value)} className="input w-full text-sm">
-              <option value="">Безсрочен</option>
-              {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
+            {isYearlyDoc ? (
+              <div className="input w-full text-sm bg-slate-50 text-slate-700 font-medium flex items-center">
+                {currentYearName} <span className="ml-1.5 text-[10px] text-slate-400">(важи 1 година)</span>
+              </div>
+            ) : (
+              <select value={validUntil} onChange={e => setValidUntil(e.target.value)} className="input w-full text-sm">
+                <option value="">Безсрочен</option>
+                {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            )}
           </div>
 
           {hasDoc ? (
