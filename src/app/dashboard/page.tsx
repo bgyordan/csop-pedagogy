@@ -5,7 +5,8 @@ import SpecialistDashboard from './components/SpecialistDashboard'
 import ClassTeacherDashboard from './components/ClassTeacherDashboard'
 import SecretaryDashboard from './components/SecretaryDashboard'
 import { SessionTimerBadge } from '@/components/SessionTimerBadge'
- export const dynamic = 'force-dynamic'
+import { Megaphone } from 'lucide-react'
+export const dynamic = 'force-dynamic'
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Администратор',
