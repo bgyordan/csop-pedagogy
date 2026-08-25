@@ -25,6 +25,9 @@ interface Props {
   yearOptions: string[]
 }
 
+// Документи, които важат 1 учебна година (винаги текущата)
+const YEARLY_DOCS = ['enrollment_application', 'coud_application']
+
 function formatSize(bytes: number | null) {
   if (!bytes) return ''
   if (bytes < 1024) return `${bytes} B`
@@ -39,11 +42,12 @@ function compareYears(a: string, b: string): number {
   return yearA - yearB
 }
 
-function validityStatus(validUntil: string | null, currentYear: string): 'valid' | 'expiring' | 'expired' | 'none' {
+function validityStatus(validUntil: string | null, currentYear: string, docType: string): 'valid' | 'expiring' | 'expired' | 'none' {
   if (!validUntil) return 'none'
   const cmp = compareYears(validUntil, currentYear)
   if (cmp < 0) return 'expired'
-  if (cmp === 0) return 'expiring'
+  // за годишните документи текущата година е нормална, не "изтича"
+  if (cmp === 0) return YEARLY_DOCS.includes(docType) ? 'valid' : 'expiring'
   return 'valid'
 }
 
@@ -55,6 +59,8 @@ export function AttachmentsSection({ studentId, attachments: initial, canManage,
   const [docType, setDocType] = useState('referral_order')
   const [validUntil, setValidUntil] = useState('')
   const [downloading, setDownloading] = useState<string | null>(null)
+
+  const isYearlyDoc = YEARLY_DOCS.includes(docType)
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -72,7 +78,6 @@ export function AttachmentsSection({ studentId, attachments: initial, canManage,
     }
 
     setUploading(true)
-    // Изчистваме името за storage пътя (интервали и специални символи чупят качването)
     const safeName = file.name
       .replace(/[^a-zA-Z0-9._-]/g, '_')
       .replace(/_+/g, '_')
@@ -88,6 +93,9 @@ export function AttachmentsSection({ studentId, attachments: initial, canManage,
       return
     }
 
+    // за годишните документи валидността е винаги текущата година
+    const validValue = isYearlyDoc ? currentYearName : (validUntil || null)
+
     const { data: newAttachment, error: dbError } = await supabase
       .from('student_attachments')
       .insert({
@@ -97,7 +105,7 @@ export function AttachmentsSection({ studentId, attachments: initial, canManage,
         file_size: file.size,
         doc_type: docType,
         uploaded_by: staffId,
-        valid_until_year: validUntil || null,
+        valid_until_year: validValue,
       })
       .select()
       .single()
@@ -167,17 +175,23 @@ export function AttachmentsSection({ studentId, attachments: initial, canManage,
                 <option key={key} value={key}>{label}</option>
               ))}
             </select>
-            <select
-              value={validUntil}
-              onChange={e => setValidUntil(e.target.value)}
-              className="input sm:w-48 text-sm"
-              title="Валиден до учебна година"
-            >
-              <option value="">Безсрочен</option>
-              {yearOptions.map(y => (
-                <option key={y} value={y}>Валиден до {y}</option>
-              ))}
-            </select>
+            {isYearlyDoc ? (
+              <div className="input sm:w-48 text-sm bg-white text-slate-600 flex items-center" title="Важи за текущата учебна година">
+                {currentYearName} <span className="ml-1 text-[10px] text-slate-400">(1 година)</span>
+              </div>
+            ) : (
+              <select
+                value={validUntil}
+                onChange={e => setValidUntil(e.target.value)}
+                className="input sm:w-48 text-sm"
+                title="Валиден до учебна година"
+              >
+                <option value="">Безсрочен</option>
+                {yearOptions.map(y => (
+                  <option key={y} value={y}>Валиден до {y}</option>
+                ))}
+              </select>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <label className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white cursor-pointer transition-colors ${uploading ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'}`}
@@ -202,8 +216,9 @@ export function AttachmentsSection({ studentId, attachments: initial, canManage,
       ) : (
         <div className="space-y-2">
           {attachments.map(att => {
-            const status = validityStatus(att.valid_until_year, currentYearName)
+            const status = validityStatus(att.valid_until_year, currentYearName, att.doc_type)
             const cfg = statusConfig[status]
+            const attYearly = YEARLY_DOCS.includes(att.doc_type)
             return (
               <div key={att.id}
                 className="flex items-center justify-between p-3 rounded-lg border border-slate-100 hover:bg-slate-50 transition-colors gap-2">
@@ -226,7 +241,7 @@ export function AttachmentsSection({ studentId, attachments: initial, canManage,
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
-                  {canManage && (
+                  {canManage && !attYearly && (
                     <select
                       value={att.valid_until_year || ''}
                       onChange={e => updateValidity(att.id, e.target.value)}
