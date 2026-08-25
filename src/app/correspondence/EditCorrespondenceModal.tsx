@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { X, Loader2, Save, Upload, FileText, Paperclip } from 'lucide-react'
@@ -19,6 +19,8 @@ const INTERNAL_PERSONS = [
   'Радка Георгиева — Счетоводство',
 ]
 
+interface NomItem { item_code: string; name: string; section_code: string }
+
 interface Props {
   item: any
   onClose: () => void
@@ -34,9 +36,20 @@ export default function EditCorrespondenceModal({ item, onClose }: Props) {
   const [toWhom, setToWhom] = useState(item.to_whom || '')
   const [subject, setSubject] = useState(item.subject || '')
   const [description, setDescription] = useState(item.description || '')
+  const [nomenclatureItem, setNomenclatureItem] = useState(item.nomenclature_item || '')
   const [newFile, setNewFile] = useState<File | null>(null)
 
+  const [nomenclature, setNomenclature] = useState<NomItem[]>([])
+
   const dir = item.direction
+
+  useEffect(() => {
+    supabase.from('nomenclature_items')
+      .select('item_code, name, section_code')
+      .eq('for_correspondence', true)
+      .order('item_code')
+      .then(({ data }) => setNomenclature(data || []))
+  }, [])
 
   async function handleSave() {
     if (!subject) return
@@ -59,6 +72,7 @@ export default function EditCorrespondenceModal({ item, onClose }: Props) {
       to_whom: toWhom || null,
       subject,
       description: description || null,
+      nomenclature_item: nomenclatureItem || null,
       file_url: fileUrl || null,
       file_name: fileName || null,
     }).eq('id', item.id)
@@ -68,6 +82,13 @@ export default function EditCorrespondenceModal({ item, onClose }: Props) {
     onClose()
     router.refresh()
   }
+
+  // Групиране по секция за падащото меню
+  const bySection = nomenclature.reduce((acc, n) => {
+    if (!acc[n.section_code]) acc[n.section_code] = []
+    acc[n.section_code].push(n)
+    return acc
+  }, {} as Record<string, NomItem[]>)
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
@@ -120,6 +141,21 @@ export default function EditCorrespondenceModal({ item, onClose }: Props) {
             <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Тема / Относно *</label>
             <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
               required placeholder="Относно..." className="input w-full" />
+          </div>
+
+          {/* Архивен индекс */}
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Архивен индекс</label>
+            <select value={nomenclatureItem} onChange={e => setNomenclatureItem(e.target.value)} className="input w-full text-sm">
+              <option value="">— Без индекс —</option>
+              {Object.entries(bySection).map(([section, items]) => (
+                <optgroup key={section} label={section}>
+                  {items.map(n => (
+                    <option key={n.item_code} value={n.item_code}>{n.item_code} — {n.name}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
           </div>
 
           <div>
