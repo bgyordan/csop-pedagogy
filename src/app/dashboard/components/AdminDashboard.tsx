@@ -28,7 +28,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
     { data: dataCheck },
     { count: coudCount },
   ] = await Promise.all([
-    supabase.from('student_enrollments').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
+    supabase.from('student_enrollments').select('student:students!inner(status)', { count: 'exact', head: true }).eq('academic_year_id', currentYearId).eq('student.status', 'active'),
     supabase.from('classes').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
     supabase.from('calendar_deadlines').select('*').eq('academic_year_id', currentYearId).gte('deadline_date', todayStr).order('deadline_date').limit(5),
     supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
