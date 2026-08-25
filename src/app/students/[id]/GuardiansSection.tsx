@@ -92,7 +92,7 @@ export default function GuardiansSection({ studentId, guardians: initial, canMan
     router.refresh()
   }
 
-  const FormRow = () => (
+  const formRow = (
     <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
       <select value={formRelation} onChange={e => setFormRelation(e.target.value)}
         className="input w-full text-xs">
@@ -126,7 +126,7 @@ export default function GuardiansSection({ studentId, guardians: initial, canMan
       {guardians.map(g => (
         <div key={g.id}>
           {editId === g.id ? (
-            <FormRow />
+            formRow
           ) : (
             <div className="group flex items-start justify-between">
               <div>
@@ -153,7 +153,7 @@ export default function GuardiansSection({ studentId, guardians: initial, canMan
         </div>
       ))}
 
-      {showAdd && <FormRow />}
+      {showAdd && formRow}
 
       {canManage && !showAdd && editId === null && (
         <button type="button" onClick={startAdd}
