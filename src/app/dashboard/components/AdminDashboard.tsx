@@ -34,7 +34,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
     supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
     supabase.from('student_enrollments').select('education_form').eq('academic_year_id', currentYearId),
     supabase.from('student_ores').select('student_id, from_date, to_date').lte('from_date', todayStr),
-    supabase.from('student_attachments').select('student_id, valid_until_year'),
+    supabase.from('student_attachments').select('student_id, valid_until_year, doc_type'),
     supabase.from('student_enrollments')
       .select('student:students(id, status, external_class, sending_school_id, sending_school_other)')
       .eq('academic_year_id', currentYearId),
@@ -49,6 +49,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
   const expiringStudents = new Set<string>()
   ;(attachments || []).forEach(a => {
     if (!a.valid_until_year) return
+    if (['enrollment_application', 'coud_application'].includes(a.doc_type)) return
     const y = parseInt(a.valid_until_year.split('/')[0])
     if (y < baseYear) expiredStudents.add(a.student_id)
     else if (y === baseYear) expiringStudents.add(a.student_id)
