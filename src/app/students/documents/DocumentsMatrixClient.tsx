@@ -203,7 +203,8 @@ function CellModal({ cell, yearOptions, currentYearName, staffId, onClose, onUpd
 }) {
   const supabase = createClient()
   const [uploading, setUploading] = useState(false)
-  const [validUntil, setValidUntil] = useState(cell.doc?.valid_until_year || '')
+   const isYearlyDoc = ['enrollment_application', 'coud_application'].includes(cell.docType.key)
+  const [validUntil, setValidUntil] = useState(cell.doc?.valid_until_year || (isYearlyDoc ? currentYearName : ''))
   const [saving, setSaving] = useState(false)
 
   const hasDoc = !!cell.doc?.id
