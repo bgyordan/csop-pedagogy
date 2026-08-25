@@ -149,7 +149,7 @@ export default async function StudentsPage({
           <h1 className="text-2xl font-bold text-slate-800">Ученици</h1>
           <p className="text-slate-500 text-sm mt-1">{allRows.length} ученици · {currentYear?.name}</p>
         </div>
-        <        <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
           {['admin', 'zdud', 'director', 'secretary'].includes(role) && (
             <Link href="/students/archived" className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 text-sm font-semibold hover:bg-slate-50 transition-all">
               <Archive size={17} /> Архивирани
