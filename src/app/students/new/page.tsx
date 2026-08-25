@@ -18,6 +18,7 @@ export default function NewStudentPage() {
     last_name: '',
     birth_date: '',
     class_id: '',
+    external_class: '',
     sending_school_id: '' as string | null,
   })
   const [classes, setClasses] = useState<{ id: string; name: string }[]>([])
@@ -94,6 +95,7 @@ export default function NewStudentPage() {
         middle_name: form.middle_name || null,
         last_name: form.last_name,
         birth_date: form.birth_date,
+        external_class: form.external_class || null,
         sending_school_id: form.sending_school_id || null,
         status: 'active',
       })
@@ -198,8 +200,17 @@ export default function NewStudentPage() {
           </div>
         </div>
 
+        {/* Клас в изпращащото училище */}
         <div>
-          <label className="label">Паралелка</label>
+          <label className="label">Клас в изпращащото училище</label>
+          <input className="input" value={form.external_class}
+            onChange={e => setForm(p => ({ ...p, external_class: e.target.value }))}
+            placeholder="напр. 2 а, 5 б, ПГ..." />
+          <p className="text-xs text-slate-400 mt-1">Класът по който се обучава в изпращащото училище</p>
+        </div>
+
+        <div>
+          <label className="label">Паралелка (в ЦСОП)</label>
           <select className="input" value={form.class_id}
             onChange={e => setForm(p => ({ ...p, class_id: e.target.value }))}>
             <option value="">— Избери паралелка —</option>
