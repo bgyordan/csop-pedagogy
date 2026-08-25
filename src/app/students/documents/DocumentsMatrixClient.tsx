@@ -42,13 +42,14 @@ function compareYears(a: string, b: string): number {
   return parseInt(a.split('/')[0]) - parseInt(b.split('/')[0])
 }
 
-function statusOf(doc: DocInfo | undefined, currentYear: string): 'valid' | 'expiring' | 'expired' | 'missing' | 'permanent' {
+function statusOf(doc: DocInfo | undefined, currentYear: string, docTypeKey?: string): 'valid' | 'expiring' | 'expired' | 'missing' | 'permanent' {
   if (!doc) return 'missing'
   const val = doc.valid_until_year
   if (!val) return 'permanent'
+  const isYearly = docTypeKey === 'enrollment_application' || docTypeKey === 'coud_application'
   const cmp = compareYears(val, currentYear)
   if (cmp < 0) return 'expired'
-  if (cmp === 0) return 'expiring'
+  if (cmp === 0) return isYearly ? 'valid' : 'expiring'
   return 'valid'
 }
 
@@ -82,7 +83,7 @@ export default function DocumentsMatrixClient({ classes: initialClasses, docType
   let expiredCount = 0, expiringCount = 0
   classes.forEach(c => c.students.forEach(s => {
     docTypes.forEach(dt => {
-      const st = statusOf(s.docs[dt.key], currentYearName)
+      const st = statusOf(s.docs[dt.key], currentYearName, dt.key)
       if (st === 'expired') expiredCount++
       if (st === 'expiring') expiringCount++
     })
@@ -150,7 +151,7 @@ export default function DocumentsMatrixClient({ classes: initialClasses, docType
                         </td>
                         {docTypes.map(dt => {
                           const doc = student.docs[dt.key]
-                          const st = statusOf(doc, currentYearName)
+                          const st = statusOf(doc, currentYearName, dt.key)
                           const cfg = STATUS_CFG[st]
                           return (
                             <td key={dt.key} className="px-2 py-2 text-center">
