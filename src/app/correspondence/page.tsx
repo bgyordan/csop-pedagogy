@@ -20,7 +20,7 @@ export default async function CorrespondencePage({
   const canEdit = ['admin', 'zdud', 'director', 'secretary'].includes(profile?.role || '')
   const page = Math.max(1, parseInt(params.page || '1'))
   const q = params.q || ''
-  const direction = params.direction || ''
+  const direction = params.direction || 'incoming'
   const from = (page - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
   let query = supabase
