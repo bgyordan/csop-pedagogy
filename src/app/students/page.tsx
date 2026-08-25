@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Users, ChevronRight, GraduationCap, Home, Coffee, Wifi, X, LayoutGrid, Sparkles, HelpCircle } from 'lucide-react'
+import { Plus, Users, ChevronRight, GraduationCap, Home, Coffee, Wifi, X, LayoutGrid, Sparkles, HelpCircle, Archive } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
 import { StudentsFilter } from './StudentsFilter'
 
@@ -149,7 +149,12 @@ export default async function StudentsPage({
           <h1 className="text-2xl font-bold text-slate-800">Ученици</h1>
           <p className="text-slate-500 text-sm mt-1">{allRows.length} ученици · {currentYear?.name}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <        <div className="flex items-center gap-2">
+          {['admin', 'zdud', 'director', 'secretary'].includes(role) && (
+            <Link href="/students/archived" className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 text-sm font-semibold hover:bg-slate-50 transition-all">
+              <Archive size={17} /> Архивирани
+            </Link>
+          )}
           {['admin', 'zdud', 'director'].includes(role) && (
             <Link href="/students/documents" className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all">
               <LayoutGrid size={17} /> Досиета
