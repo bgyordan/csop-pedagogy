@@ -83,13 +83,14 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
   const baseYear = new Date().getFullYear()
   const { data: myAttachments } = studentIds.length > 0
     ? await supabase.from('student_attachments')
-        .select('student_id, valid_until_year')
+        .select('student_id, valid_until_year, doc_type')
         .in('student_id', studentIds)
     : { data: [] }
   const expiredSet = new Set<string>()
   const expiringSet = new Set<string>()
   ;(myAttachments || []).forEach((a: any) => {
-    if (!a.valid_until_year) return
+     if (!a.valid_until_year) return
+    if (['enrollment_application', 'coud_application'].includes(a.doc_type)) return
     const y = parseInt(a.valid_until_year.split('/')[0])
     if (y < baseYear) expiredSet.add(a.student_id)
     else if (y === baseYear) expiringSet.add(a.student_id)
