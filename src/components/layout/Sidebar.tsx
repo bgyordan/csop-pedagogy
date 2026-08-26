@@ -77,7 +77,9 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
-  const [mobileOpen, setMobileOpen] = useState(false)
+   const [mobileOpen, setMobileOpen] = useState(false)
+   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [deloOpen, setDeloOpen] = useState(false)
   useEffect(() => { setMobileOpen(false) }, [pathname])
   useEffect(() => {
     if (mobileOpen) {
@@ -223,31 +225,52 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
               : <NavLink key={item.href} item={item} />
           )}
         </div>
-        {deloItems.length > 0 && (
+                {deloItems.length > 0 && (
           <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(15,34,64,0.08)' }}>
-            <div className="px-3 mb-2">
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_MUTED }}>
-                Деловодство
-              </span>
-            </div>
-            <div className="space-y-0.5">
-              {deloItems.map(item => <NavLink key={item.href} item={item} />)}
-            </div>
+            {isSecretary ? (
+              <div className="px-3 mb-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_MUTED }}>
+                  Деловодство
+                </span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setDeloOpen(o => !o)}
+                className="w-full flex items-center gap-1.5 px-3 mb-2"
+              >
+                <span className="text-[10px] font-bold uppercase tracking-widest flex-1 text-left" style={{ color: TEXT_MUTED }}>
+                  Деловодство
+                </span>
+                <ChevronDown size={13} style={{ color: TEXT_MUTED, transform: deloOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', opacity: 0.6 }} />
+              </button>
+            )}
+            {(isSecretary || deloOpen) && (
+              <div className="space-y-0.5">
+                {deloItems.map(item => <NavLink key={item.href} item={item} />)}
+              </div>
+            )}
           </div>
         )}
-        {settingsItems.length > 0 && (
+                {settingsItems.length > 0 && (
           <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(15,34,64,0.08)' }}>
-            <div className="px-3 mb-2">
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_MUTED }}>
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(o => !o)}
+              className="w-full flex items-center gap-1.5 px-3 mb-2 group"
+            >
+              <span className="text-[10px] font-bold uppercase tracking-widest flex-1 text-left" style={{ color: TEXT_MUTED }}>
                 Настройки
               </span>
-            </div>
-            <div className="space-y-0.5">
-              {settingsItems.map(item => <NavLink key={item.href} item={item} />)}
-            </div>
+              <ChevronDown size={13} style={{ color: TEXT_MUTED, transform: settingsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', opacity: 0.6 }} />
+            </button>
+            {settingsOpen && (
+              <div className="space-y-0.5">
+                {settingsItems.map(item => <NavLink key={item.href} item={item} />)}
+              </div>
+            )}
           </div>
         )}
-      </nav>
       <div className="p-4" style={{ borderTop: '1px solid rgba(15,34,64,0.12)' }}>
         <Link href="/profile" onClick={() => setMobileOpen(false)}
           className="flex items-center gap-2.5 mb-1.5 rounded-xl p-1.5 -m-1.5 transition-colors hover:bg-[rgba(15,34,64,0.04)]">
