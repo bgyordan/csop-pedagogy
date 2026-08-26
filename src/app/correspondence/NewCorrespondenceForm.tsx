@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { X, Upload, FileText, Loader2, User, GraduationCap, ChevronDown, ArrowDownLeft, ArrowUpRight, Zap } from 'lucide-react'
+import { X, Upload, FileText, Loader2, User, GraduationCap, ChevronDown, ArrowDownLeft, ArrowUpRight, Zap, ClipboardList } from 'lucide-react'
 // Деловодна година: 15.09 – 14.09 следващата
 function deloYearBounds(ref: Date): { start: string; end: string } {
   const y = ref.getFullYear()
@@ -17,6 +17,14 @@ function deloYearBounds(ref: Date): { start: string; end: string } {
 async function nextSeqCorr(supabase: any, direction: string, start: string, end: string): Promise<number> {
   const { data } = await supabase.from('correspondence')
     .select('seq').eq('direction', direction).gte('date', start).lte('date', end)
+    .order('seq', { ascending: false, nullsFirst: false }).limit(1)
+  const maxSeq = data && data[0] && typeof data[0].seq === 'number' ? data[0].seq : 0
+  return maxSeq + 1
+}
+// Пореден номер за заповеди (РД) за деловодната година
+async function nextSeqOrders(supabase: any, start: string, end: string): Promise<number> {
+  const { data } = await supabase.from('orders')
+    .select('seq').gte('date', start).lte('date', end)
     .order('seq', { ascending: false, nullsFirst: false }).limit(1)
   const maxSeq = data && data[0] && typeof data[0].seq === 'number' ? data[0].seq : 0
   return maxSeq + 1
@@ -82,6 +90,7 @@ export default function NewCorrespondenceForm({
   const [nomSearch, setNomSearch] = useState('')
   const [showAllNom, setShowAllNom] = useState(false)
   const [addToDossier, setAddToDossier] = useState(true)
+  const [createOrder, setCreateOrder] = useState(true)
   const currentYear = new Date().getFullYear()
   const activeScenario = scenario ? QUICK_SCENARIOS[scenario] : null
   const selectedNomItem = nomenclature.find(n => n.item_code === folderIndex)
@@ -137,6 +146,7 @@ export default function NewCorrespondenceForm({
     setStudentId('')
     setStaffId('')
     setGuardians([])
+    setCreateOrder(true)
   }
   function handleStaffSelect(id: string) {
     setStaffId(id)
@@ -196,6 +206,27 @@ export default function NewCorrespondenceForm({
     })
     if (error) { alert(`Грешка: ${error.message}`); setSaving(false); return }
 
+    // Автоматична заповед за отпуск (сценарий vacation, отметка включена)
+    if (scenario === 'vacation' && createOrder) {
+      try {
+        const oSeq = await nextSeqOrders(supabase, dStart, dEnd)
+        const oNum = String(oSeq).padStart(3, '0')
+        const orderNumber = `${oNum}/${docDate.split('-').reverse().join('.')}г.`
+        await supabase.from('orders').insert({
+          number: orderNumber,
+          date: docDate,
+          title: `Заповед за отпуск на ${fromWhom || ''}`.trim(),
+          nomenclature_item: 'РД-10',
+          description: `Издадена въз основа на Вх. ${docNumber}`,
+          file_url: fileUrl || null,
+          file_name: fileName || null,
+          staff_id: staffId || null,
+          created_by: currentUserId,
+          seq: oSeq,
+        })
+      } catch (_) { /* заповедта не бива да блокира деловодството */ }
+    }
+
     // Прикачване към досието на ученика (заявление за прием / ЦОУД)
     if (uploadedFile && studentId && activeScenario?.icon === 'student' && activeScenario.dossierDocType && addToDossier) {
       try {
@@ -227,6 +258,7 @@ export default function NewCorrespondenceForm({
       setGuardians([])
       setNomSearch(''); setShowAllNom(false)
       setAddToDossier(true)
+      setCreateOrder(true)
     } else {
       onSaved()
     }
@@ -290,6 +322,16 @@ export default function NewCorrespondenceForm({
                   ))}
                 </select>
                 {subject && <div className="text-xs text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2">{subject}</div>}
+                {/* Автоматична заповед за отпуск */}
+                {scenario === 'vacation' && (
+                  <label className="flex items-start gap-2 pt-1 cursor-pointer select-none">
+                    <input type="checkbox" checked={createOrder} onChange={e => setCreateOrder(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-300 accent-[#0f2240] mt-0.5" />
+                    <span className="text-[11px] text-slate-600 leading-snug">
+                      Създай и <strong>заповед за отпуск</strong> (РД-10) с общия файл
+                    </span>
+                  </label>
+                )}
               </div>
             )}
             {/* Сценарий: ученик */}
