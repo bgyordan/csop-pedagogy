@@ -56,7 +56,7 @@ export function AttachmentsSection({ studentId, attachments: initial, canManage,
   const { toast } = useToast()
   const [attachments, setAttachments] = useState<Attachment[]>(initial)
   const [uploading, setUploading] = useState(false)
-  const [docType, setDocType] = useState('referral_order')
+    const [docType, setDocType] = useState('enrollment_application')
   const [validUntil, setValidUntil] = useState('')
   const [downloading, setDownloading] = useState<string | null>(null)
 
