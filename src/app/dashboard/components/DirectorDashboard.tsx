@@ -47,19 +47,7 @@ export default async function DirectorDashboard({ profile, currentYearId }: any)
 
   return (
     <div className="space-y-6">
-      {/* Приветствие */}
-      <div className="rounded-3xl p-6 text-white relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0f2240, #1e4070)' }}>
-        <div className="relative z-10">
-          <div className="text-sm text-sky-100/70 mb-1">Учебна година {currentYearName}</div>
-          <h2 className="text-2xl font-bold">Добре дошли, {profile.first_name}</h2>
-          <p className="text-sky-100/80 text-sm mt-1">Обзор на дейността на ЦСОП Варна</p>
-        </div>
-        <div className="absolute right-0 top-0 bottom-0 opacity-10 flex items-center pr-8 pointer-events-none">
-          <GraduationCap className="h-40 w-40 rotate-12" />
-        </div>
-      </div>
-
-      {/* Ключови числа */}
+       {/* Ключови числа */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {stats.map(s => (
           <Link key={s.label} href={s.href}
