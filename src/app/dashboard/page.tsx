@@ -4,6 +4,7 @@ import AdminDashboard from './components/AdminDashboard'
 import SpecialistDashboard from './components/SpecialistDashboard'
 import ClassTeacherDashboard from './components/ClassTeacherDashboard'
 import SecretaryDashboard from './components/SecretaryDashboard'
+import DirectorDashboard from './components/DirectorDashboard'
 import { SessionTimerBadge } from '@/components/SessionTimerBadge'
 import { Megaphone } from 'lucide-react'
 export const dynamic = 'force-dynamic'
@@ -30,7 +31,8 @@ export default async function DashboardPage() {
   ])
   if (!profile || !currentYear) redirect('/auth/login')
 
-  const isAdmin = ['admin', 'director', 'zdud'].includes(profile.role)
+  const isAdmin = ['admin', 'zdud'].includes(profile.role)
+  const isDirector = profile.role === 'director'
   const isSpecialist = ['psychologist', 'speech_therapist', 'rehabilitator'].includes(profile.role)
   const isSecretary = profile.role === 'secretary'
   const roleLabel = profile.position || ROLE_LABELS[profile.role] || profile.role
@@ -74,6 +76,7 @@ export default async function DashboardPage() {
       {/* Dashboard по роля */}
       <div className="transition-all duration-500">
         {isAdmin && <AdminDashboard profile={profile} currentYearId={currentYear.id} />}
+        {isDirector && <DirectorDashboard profile={profile} currentYearId={currentYear.id} />}
         {isSpecialist && <SpecialistDashboard profile={profile} currentYearId={currentYear.id} />}
         {profile.role === 'class_teacher' && <ClassTeacherDashboard profile={profile} currentYearId={currentYear.id} />}
         {isSecretary && <SecretaryDashboard profile={profile} />}
