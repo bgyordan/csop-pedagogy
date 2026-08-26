@@ -108,10 +108,20 @@ export default function NewStudentPage() {
       return
     }
 
-    if (form.class_id && year) {
+    // Определяме паралелката: избраната, или служебната по подразбиране
+    let targetClassId = form.class_id
+    if (!targetClassId && year) {
+      const { data: sluzhebna } = await supabase
+        .from('classes').select('id')
+        .eq('academic_year_id', year.id)
+        .ilike('name', 'служебна')
+        .limit(1).single()
+      if (sluzhebna) targetClassId = sluzhebna.id
+    }
+    if (targetClassId && year) {
       await supabase.from('student_enrollments').insert({
         student_id: student.id,
-        class_id: form.class_id,
+        class_id: targetClassId,
         academic_year_id: year.id,
       })
     }
@@ -213,7 +223,7 @@ export default function NewStudentPage() {
           <label className="label">Паралелка (в ЦСОП)</label>
           <select className="input" value={form.class_id}
             onChange={e => setForm(p => ({ ...p, class_id: e.target.value }))}>
-            <option value="">— Избери паралелка —</option>
+            <option value="">— Служебна (по подразбиране) —</option>
             {classes.map(c => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
