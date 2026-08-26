@@ -25,7 +25,7 @@ const QUICK_SCENARIOS: Record<string, {
 }> = {
   vacation: {
     label: 'Отпуск',
-    index: 'РД-08',
+    index: 'РД-10',
     titleTemplate: 'Заповед за отпуск на {name}',
     needsStaff: true,
   },
