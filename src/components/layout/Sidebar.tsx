@@ -268,9 +268,10 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
               <div className="space-y-0.5">
                 {settingsItems.map(item => <NavLink key={item.href} item={item} />)}
               </div>
-            )}
+                       )}
           </div>
         )}
+      </nav>
       <div className="p-4" style={{ borderTop: '1px solid rgba(15,34,64,0.12)' }}>
         <Link href="/profile" onClick={() => setMobileOpen(false)}
           className="flex items-center gap-2.5 mb-1.5 rounded-xl p-1.5 -m-1.5 transition-colors hover:bg-[rgba(15,34,64,0.04)]">
