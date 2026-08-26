@@ -93,7 +93,8 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   }
   const isSecretary = userRole === 'secretary'
   const effectiveRoles: UserRole[] = isCoordinator ? [userRole, 'zdud' as UserRole] : [userRole]
-  function canSee(item: NavItem): boolean {
+    function canSee(item: NavItem): boolean {
+    if (item.href === '/dashboard') return true
     if (isSecretary) return item.section === 'delo' || item.section === 'settings'
     if (item.hideFromCoordinator && isCoordinator) return false
     if (item.coordinatorOnly && isCoordinator) return true
