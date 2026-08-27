@@ -128,7 +128,7 @@ export default function DashboardCalendar({ currentYearId, canEdit, staffId }: {
       </div>
 
       {/* Дни от седмицата */}
-      <div className="grid grid-cols-7 border-b border-slate-100">
+           <div className="grid grid-cols-1 md:grid-cols-[minmax(0,260px)_1fr]">
         {WEEKDAYS.map(w => (
           <div key={w} className="text-center py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wide">{w}</div>
         ))}
