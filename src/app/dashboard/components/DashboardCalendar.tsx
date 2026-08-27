@@ -137,7 +137,7 @@ export default function DashboardCalendar({ currentYearId, canEdit, staffId }: {
       {/* Мрежа */}
       <div className="grid grid-cols-7">
         {cells.map((day, i) => {
-          if (day === null) return <div key={i} className="min-h-[64px] border-b border-r border-slate-50 bg-slate-50/30" />
+          if (day === null) return <div key={i} className="min-h-[44px] border-b border-r border-slate-50 bg-slate-50/30" />
           const dateStr = ymd(new Date(viewYear, viewMonth, day))
           const isToday = dateStr === todayStr
           const dayEvents = eventsByDay[day] || []
@@ -145,7 +145,7 @@ export default function DashboardCalendar({ currentYearId, canEdit, staffId }: {
           return (
             <button key={i}
               onClick={() => setSelectedDate(isSelected ? null : dateStr)}
-              className={`min-h-[64px] border-b border-r border-slate-50 p-1 text-left align-top transition-colors hover:bg-blue-50/40 ${isSelected ? 'bg-blue-50/60' : ''}`}>
+              className={`min-h-[44px] border-b border-r border-slate-50 p-1 text-left align-top transition-colors hover:bg-blue-50/40 ${isSelected ? 'bg-blue-50/60' : ''}`}>
               <div className={`text-[11px] font-semibold w-5 h-5 flex items-center justify-center rounded-full ${isToday ? 'bg-[#0f2240] text-white' : 'text-slate-600'}`}>
                 {day}
               </div>
