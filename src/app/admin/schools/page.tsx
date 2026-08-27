@@ -15,11 +15,12 @@ interface SchoolRow {
   deputy_director: string | null
   phone: string | null
   email: string | null
+  neispuo_code: string | null
 }
 const SCHOOL_TYPES = ['ДГ', 'НУ', 'ОУ', 'ОбУ', 'СУ', 'ПГ', 'ПрофГ', 'Друго']
 const emptyForm = {
   name: '', city: 'Варна', type: '', director_name: '', address: '',
-  deputy_director: '', phone: '', email: '',
+  deputy_director: '', phone: '', email: '', neispuo_code: '',
 }
 export default function SchoolsAdminPage() {
   const supabase = createClient()
@@ -107,7 +108,8 @@ export default function SchoolsAdminPage() {
     setForm({
       name: s.name || '', city: s.city || '', type: s.type || '',
       director_name: s.director_name || '', address: s.address || '',
-      deputy_director: s.deputy_director || '', phone: s.phone || '', email: s.email || '',
+           deputy_director: s.deputy_director || '', phone: s.phone || '', email: s.email || '',
+      neispuo_code: s.neispuo_code || '',
     })
     setAdding(false)
     setEditId(s.id)
@@ -122,8 +124,9 @@ export default function SchoolsAdminPage() {
       director_name: form.director_name.trim() || null,
       address: form.address.trim() || null,
       deputy_director: form.deputy_director.trim() || null,
-      phone: form.phone.trim() || null,
+            phone: form.phone.trim() || null,
       email: form.email.trim() || null,
+      neispuo_code: form.neispuo_code.trim() || null,
     }
     const { error } = editId
       ? await supabase.from('sending_schools').update(payload).eq('id', editId)
@@ -242,10 +245,17 @@ export default function SchoolsAdminPage() {
           <input className="input" placeholder="052/000-000"
             value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
         </div>
-        <div>
+                <div>
           <label className="label">Имейл</label>
           <input className="input" placeholder="info-000000@edu.mon.bg"
             value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="label">Код по НЕИСПУО</label>
+          <input className="input" placeholder="400000"
+            value={form.neispuo_code} onChange={e => setForm(f => ({ ...f, neispuo_code: e.target.value }))} />
         </div>
       </div>
       <div className="flex gap-2 pt-1">
@@ -382,10 +392,11 @@ export default function SchoolsAdminPage() {
                             aria-label="Непълни данни" />
                         )}
                       </div>
-                      <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+                                            <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
                         <MapPin size={10} />
                         {school.city}
                         {school.address && <span> · {school.address}</span>}
+                        {school.neispuo_code && <span className="font-mono text-slate-400"> · код {school.neispuo_code}</span>}
                       </div>
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[11px] text-slate-500">
                         {school.director_name ? (
