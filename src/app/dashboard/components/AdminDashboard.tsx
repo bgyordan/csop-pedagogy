@@ -32,7 +32,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
     supabase.from('classes').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
     supabase.from('calendar_deadlines').select('*').eq('academic_year_id', currentYearId).gte('deadline_date', todayStr).order('deadline_date').limit(5),
     supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
-    supabase.from('student_enrollments').select('education_form').eq('academic_year_id', currentYearId),
+    supabase.from('student_enrollments').select('education_form, student:students!inner(status)').eq('academic_year_id', currentYearId).eq('student.status', 'active'),
     supabase.from('student_ores').select('student_id, from_date, to_date').lte('from_date', todayStr),
     supabase.from('student_attachments').select('student_id, valid_until_year, doc_type'),
     supabase.from('student_enrollments')
