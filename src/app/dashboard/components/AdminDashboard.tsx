@@ -238,7 +238,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
         </div>
       </div>
       {/* ── КАЛЕНДАР ── */}
-            <div className="mt-6 max-w-2xl">
+            <div className="mt-6 max-w-md">
         <DashboardCalendar currentYearId={currentYearId} canEdit={true} staffId={profile.id} />
       </div>
     </div>
