@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Users, BookOpen, Calendar, Bell, ArrowRight, GraduationCap, Home, Wifi, Coffee, ShieldX, ShieldAlert, ClipboardList, Clock, AlertTriangle, UserSearch } from 'lucide-react'
 import { formatDate, getDaysUntil, getMonthName } from '@/lib/utils'
-import DashboardCalendar from './DashboardCalendar'
 export default async function AdminDashboard({ profile, currentYearId }: any) {
   const supabase = await createClient()
   const now = new Date()
@@ -238,9 +237,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
         </div>
       </div>
       {/* ── КАЛЕНДАР ── */}
-            <div className="mt-6 max-w-md">
-        <DashboardCalendar currentYearId={currentYearId} canEdit={true} staffId={profile.id} />
-      </div>
+            
     </div>
   )
 }
