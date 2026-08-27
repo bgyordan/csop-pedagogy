@@ -182,9 +182,14 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
       {/* ── СРОКОВЕ & СЪОБЩЕНИЯ ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl border border-slate-200/70 p-6 shadow-sm">
-          <div className="flex items-center gap-2 mb-6 pb-4 border-b border-slate-100">
-            <Calendar size={18} className="text-slate-400" />
-            <h2 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Предстоящи срокове</h2>
+                    <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <Calendar size={18} className="text-slate-400" />
+              <h2 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Предстоящи срокове</h2>
+            </div>
+            <Link href="/admin/deadlines" className="text-[10px] font-bold text-blue-600 uppercase tracking-wider hover:text-blue-800 flex items-center gap-1">
+              Управление <ArrowRight size={12} />
+            </Link>
           </div>
           {!deadlines?.length ? (
             <p className="text-sm text-slate-400">Няма предстоящи срокове</p>
