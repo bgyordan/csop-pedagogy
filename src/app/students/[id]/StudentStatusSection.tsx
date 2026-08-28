@@ -3,6 +3,16 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { GraduationCap, Home, Wifi, Plus, X, Loader2, Check, Calendar } from 'lucide-react'
+function coudEligible(ext?: string | null): boolean {
+  if (!ext) return true
+  const t = ext.trim().toUpperCase()
+  if (t.startsWith('ПГ')) return true
+  const R: Record<string, number> = { I:1,II:2,III:3,IV:4,V:5,VI:6,VII:7,VIII:8,IX:9,X:10,XI:11,XII:12,XIII:13 }
+  if (R[t] !== undefined) return R[t] <= 7
+  const m = t.match(/^(\d+)/)
+  if (m) return parseInt(m[1]) <= 7
+  return true
+}
 interface OresRecord {
   id: string
   from_date: string
@@ -14,14 +24,15 @@ interface Props {
   enrollmentId: string | null
   educationForm: string
   coudEnrolled: boolean
-  coudGroupName?: string | null
+    coudGroupName?: string | null
   coudTeacher?: string | null
+  externalClass?: string | null
   oresRecords: OresRecord[]
   intensity?: string | null
   canManage: boolean
 }
 export default function StudentStatusSection({
-  studentId, enrollmentId, educationForm: initialForm, coudGroupName, coudTeacher, oresRecords: initialOres, intensity: initialIntensity, canManage
+  studentId, enrollmentId, educationForm: initialForm, coudGroupName, coudTeacher, externalClass, oresRecords: initialOres, intensity: initialIntensity, canManage
 }: Props) {
   const supabase = createClient()
   const router = useRouter()
@@ -150,8 +161,10 @@ export default function StudentStatusSection({
             <div className="text-sm font-medium text-slate-700">{coudGroupName}</div>
             {coudTeacher && <div className="text-xs text-slate-500 mt-0.5">Възпитател: {coudTeacher}</div>}
           </div>
-        ) : (
+                ) : coudEligible(externalClass) ? (
           <div className="text-sm text-slate-400">Не е записан</div>
+        ) : (
+          <div className="text-sm text-slate-400">Не се полага (VIII клас и нагоре)</div>
         )}
         <p className="text-[10px] text-slate-300 mt-1">Управляват се в Администрация → ЦОУД групи</p>
       </div>
