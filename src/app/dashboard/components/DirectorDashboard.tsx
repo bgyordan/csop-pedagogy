@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Users, BookOpen, UserCircle, Star, BarChart3, CalendarDays, Inbox, ClipboardList, ArrowRight, GraduationCap, Calendar, AlertTriangle } from 'lucide-react'
 import { formatDate, getDaysUntil } from '@/lib/utils'
+import SharedFiles from './SharedFiles'
 
 export default async function DirectorDashboard({ profile, currentYearId }: any) {
   const supabase = await createClient()
@@ -110,6 +111,7 @@ export default async function DirectorDashboard({ profile, currentYearId }: any)
           ))}
         </div>
       </div>
+      <SharedFiles />
     </div>
   )
 }
