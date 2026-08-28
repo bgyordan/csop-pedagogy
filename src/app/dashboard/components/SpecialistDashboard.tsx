@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Calendar, Bell, CalendarClock, ChevronRight, HeartPulse } from 'lucide-react'
 import { getFullName, formatDate, getDaysUntil } from '@/lib/utils'
 import { DocumentType } from '@/types'
+import SharedFiles from './SharedFiles'
 import SpecialistTabs from './SpecialistTabs'
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
@@ -176,6 +177,7 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
               </div>
             </div>
           )}
+          <SharedFiles />
         </div>
       </div>
     </div>
