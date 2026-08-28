@@ -235,7 +235,7 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
       <div className="flex flex-col md:flex-row gap-5">
         {/* Лява колона: категории */}
         <div className="md:w-52 shrink-0 space-y-1">
-          {sideItem('all', 'Всички', filtered.length + (activeCategory !== 'all' || pgOnly || search ? 0 : 0) || (macro === 'admin' ? macroCount.admin : macroCount.activity))}
+          {sideItem('all', 'Всички', macro === 'admin' ? macroCount.admin : macroCount.activity)}
           {CATEGORIES.map(c => sideItem(c, c, countByCat.get(c) || 0))}
           <div className="h-px bg-slate-200 my-2" />
           <button onClick={() => setPgOnly(v => !v)}
