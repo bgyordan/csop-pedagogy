@@ -29,6 +29,7 @@ interface NavItem {
 }
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Начало', icon: <LayoutDashboard size={16} /> },
+    { href: '/my-files', label: 'Мои файлове', icon: <FolderOpen size={16} /> },
   { href: '/students', label: 'Ученици', icon: <Users size={16} /> },
   { href: '/classes', label: 'Паралелки', icon: <BookOpen size={16} />, roles: ['admin', 'director', 'zdud'] },
  { href: '/templates', label: 'Образци на документи', icon: <FileText size={16} /> },
