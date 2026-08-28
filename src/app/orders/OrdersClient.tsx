@@ -173,3 +173,30 @@ export default function OrdersClient({
           </span>
           <div className="flex gap-1.5">
             <button disabled={page <= 1} onClick={() => handlePageChange(page-1)}
+              className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition-colors">
+              <ChevronLeft size={14} />
+            </button>
+            <button disabled={page >= totalPages} onClick={() => handlePageChange(page+1)}
+              className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition-colors">
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {viewItem && <ViewOrderModal item={viewItem} onClose={() => setViewItem(null)} />}
+      {editItem && <EditOrderModal item={editItem} nomenclature={nomenclature} onClose={() => setEditItem(null)} />}
+
+      {showForm && (
+        <NewOrderForm
+          currentUserId={currentUserId}
+          students={students}
+          staff={staff}
+          nomenclature={nomenclature}
+          onClose={() => setShowForm(false)}
+          onSaved={() => { setShowForm(false); router.refresh() }}
+        />
+      )}
+    </div>
+  )
+}
