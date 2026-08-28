@@ -3,14 +3,15 @@ import { useState, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   Upload, Download, Trash2, FileText, Loader2, FolderOpen, Plus, X, Search,
-  Baby, Pencil, Check, UploadCloud, Briefcase, ClipboardList, FileCheck, FileSpreadsheet,
-  LayoutGrid, LayoutList, Layers
+  Baby, Pencil, Check, UploadCloud, FileCheck, FileSpreadsheet,
+  LayoutGrid, LayoutList, Layers, Tag
 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 
 interface Template {
   id: string
   title: string
+  category: string
   file_name: string
   file_path: string
   file_size: number | null
@@ -24,6 +25,10 @@ interface Props {
   canManage: boolean
   staffId: string
 }
+// Предложени категории (може да се въведе и нова)
+const CATEGORY_SUGGESTIONS = [
+  'За дейността', 'Административни', 'Декларации', 'Протоколи', 'Заявления', 'Заповеди',
+]
 const TITLE_SUGGESTIONS: string[] = [
   'Доклад-оценка', 'Протокол №1', 'Протокол №2', 'Протокол №3',
   'Карта функционална оценка', 'План за допълнителна подкрепа',
@@ -59,7 +64,8 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
   const { toast } = useToast()
   const [templates, setTemplates] = useState<Template[]>(initial)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
-  const [activeCategory, setActiveCategory] = useState<'all' | 'admin' | 'activity' | 'pg'>('all')
+  const [activeCategory, setActiveCategory] = useState<string>('all')
+  const [pgOnly, setPgOnly] = useState(false)
   const [extFilter, setExtFilter] = useState<'all' | 'word' | 'excel' | 'pdf'>('all')
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<'title' | 'date'>('title')
@@ -71,18 +77,18 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
 
   const [title, setTitle] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [category, setCategory] = useState('За дейността')
   const [description, setDescription] = useState('')
   const [isPg, setIsPg] = useState(false)
-  const [isAdministrative, setIsAdministrative] = useState(false)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [uploading, setUploading] = useState(false)
 
   const [editId, setEditId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
+  const [editCategory, setEditCategory] = useState('')
   const [editDescription, setEditDescription] = useState('')
   const [editIsPg, setEditIsPg] = useState(false)
-  const [editIsAdmin, setEditIsAdmin] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
 
   const titleMatches = useMemo(() => {
@@ -91,12 +97,24 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
     return TITLE_SUGGESTIONS.filter(s => s.toLowerCase().includes(q))
   }, [title])
 
-  const stats = useMemo(() => ({
-    total: templates.length,
-    admin: templates.filter(t => t.is_administrative).length,
-    activity: templates.filter(t => !t.is_administrative).length,
-    pg: templates.filter(t => t.is_pg).length,
-  }), [templates])
+  // всички налични категории (от данните + предложените), с брой
+  const categoriesWithCount = useMemo(() => {
+    const counts = new Map<string, number>()
+    templates.forEach(t => {
+      const c = (t.category || 'Без категория').trim()
+      counts.set(c, (counts.get(c) || 0) + 1)
+    })
+    return Array.from(counts.entries()).sort((a, b) => a[0].localeCompare(b[0], 'bg'))
+  }, [templates])
+
+  // категории за падащото при качване = предложени + вече използвани
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>(CATEGORY_SUGGESTIONS)
+    templates.forEach(t => { if (t.category?.trim()) set.add(t.category.trim()) })
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'bg'))
+  }, [templates])
+
+  const pgCount = useMemo(() => templates.filter(t => t.is_pg).length, [templates])
 
   const filtered = useMemo(() => {
     return templates.filter(t => {
@@ -104,9 +122,8 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
         const q = search.toLowerCase()
         if (!t.title.toLowerCase().includes(q) && !(t.description || '').toLowerCase().includes(q) && !t.file_name.toLowerCase().includes(q)) return false
       }
-      if (activeCategory === 'admin' && !t.is_administrative) return false
-      if (activeCategory === 'activity' && t.is_administrative) return false
-      if (activeCategory === 'pg' && !t.is_pg) return false
+      if (activeCategory !== 'all' && (t.category || 'Без категория').trim() !== activeCategory) return false
+      if (pgOnly && !t.is_pg) return false
       if (extFilter !== 'all') {
         const ext = getExt(t.file_name)
         if (extFilter === 'word' && !['doc', 'docx', 'dot', 'dotx'].includes(ext)) return false
@@ -119,11 +136,11 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
         ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         : a.title.localeCompare(b.title, 'bg', { numeric: true })
     )
-  }, [templates, search, activeCategory, extFilter, sortBy])
+  }, [templates, search, activeCategory, pgOnly, extFilter, sortBy])
 
   function resetForm() {
     setTitle(''); setDescription(''); setPendingFile(null)
-    setIsPg(false); setIsAdministrative(false); setShowUpload(false)
+    setIsPg(false); setCategory('За дейността'); setShowUpload(false)
   }
   function validateAndSetFile(file: File) {
     const ext = getExt(file.name)
@@ -137,17 +154,20 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
   }
   async function doUpload() {
     if (!title.trim()) { toast('Въведете заглавие', 'error'); return }
+    if (!category.trim()) { toast('Изберете категория', 'error'); return }
     if (!pendingFile) { toast('Изберете файл', 'error'); return }
     setUploading(true)
     const safeName = pendingFile.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_')
-    const filePath = `${isAdministrative ? 'admin' : 'activity'}/${Date.now()}_${safeName}`
+    const folder = category.trim().replace(/[^a-zA-Z0-9]/g, '_') || 'obshti'
+    const filePath = `${folder}/${Date.now()}_${safeName}`
     const { error: upErr } = await supabase.storage.from('templates').upload(filePath, pendingFile)
     if (upErr) { toast('Грешка при качване', 'error'); setUploading(false); return }
+    const isAdmin = category.trim() === 'Административни'
     const { data: newT, error: dbErr } = await supabase.from('document_templates').insert({
-      title: title.trim(), category: isAdministrative ? 'administrative' : 'other',
+      title: title.trim(), category: category.trim(),
       file_name: pendingFile.name, file_path: filePath,
       file_size: pendingFile.size, description: description.trim() || null, uploaded_by: staffId,
-      is_pg: isPg, is_administrative: isAdministrative,
+      is_pg: isPg, is_administrative: isAdmin,
     }).select().single()
     if (dbErr || !newT) { toast('Грешка при запис', 'error'); setUploading(false); return }
     toast('Образецът е качен')
@@ -176,51 +196,43 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
   }
   function startEdit(t: Template, e?: React.MouseEvent) {
     e?.stopPropagation()
-    setEditId(t.id); setEditTitle(t.title)
-    setEditDescription(t.description || ''); setEditIsPg(t.is_pg); setEditIsAdmin(t.is_administrative)
+    setEditId(t.id); setEditTitle(t.title); setEditCategory(t.category || '')
+    setEditDescription(t.description || ''); setEditIsPg(t.is_pg)
   }
   async function saveEdit() {
     if (!editId || !editTitle.trim()) { toast('Заглавието е задължително', 'error'); return }
+    if (!editCategory.trim()) { toast('Категорията е задължителна', 'error'); return }
     setSavingEdit(true)
+    const isAdmin = editCategory.trim() === 'Административни'
     const { error } = await supabase.from('document_templates').update({
       title: editTitle.trim(), description: editDescription.trim() || null,
-      is_pg: editIsPg, is_administrative: editIsAdmin,
-      category: editIsAdmin ? 'administrative' : 'other',
+      category: editCategory.trim(), is_pg: editIsPg, is_administrative: isAdmin,
     }).eq('id', editId)
     if (error) { toast('Грешка при запис', 'error'); setSavingEdit(false); return }
     toast('Образецът е обновен')
     setTemplates(prev => prev.map(t => t.id === editId ? {
       ...t, title: editTitle.trim(), description: editDescription.trim() || null,
-      is_pg: editIsPg, is_administrative: editIsAdmin,
+      category: editCategory.trim(), is_pg: editIsPg, is_administrative: isAdmin,
     } : t))
     setEditId(null); setSavingEdit(false)
   }
 
-  const categoryPills = [
-    { id: 'all' as const, label: 'Всички', icon: FolderOpen, count: stats.total, active: 'bg-slate-900 text-white' },
-    { id: 'admin' as const, label: 'Административни', icon: Briefcase, count: stats.admin, active: 'bg-[#0f2240] text-white' },
-    { id: 'activity' as const, label: 'За дейността', icon: ClipboardList, count: stats.activity, active: 'bg-emerald-600 text-white' },
-    { id: 'pg' as const, label: 'Подготвителна (ПГ)', icon: Baby, count: stats.pg, active: 'bg-violet-600 text-white' },
-  ]
-
   return (
     <div className="space-y-4 max-w-6xl mx-auto">
       {/* Статистики */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        {[
-          { label: 'Общо', value: stats.total, icon: Layers, color: 'text-slate-600 bg-slate-100' },
-          { label: 'Административни', value: stats.admin, icon: Briefcase, color: 'text-blue-600 bg-blue-50' },
-          { label: 'За дейността', value: stats.activity, icon: ClipboardList, color: 'text-emerald-600 bg-emerald-50' },
-          { label: 'Подготвителна', value: stats.pg, icon: Baby, color: 'text-violet-600 bg-violet-50' },
-        ].map(s => (
-          <div key={s.label} className="bg-white rounded-xl border border-slate-200/80 p-3 flex items-center gap-2.5 shadow-sm">
-            <div className={`p-2 rounded-lg ${s.color}`}><s.icon size={16} /></div>
-            <div>
-              <div className="text-[11px] text-slate-400 font-medium">{s.label}</div>
-              <div className="text-lg font-black text-slate-800">{s.value}</div>
-            </div>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+        <div className="bg-white rounded-xl border border-slate-200/80 p-3 flex items-center gap-2.5 shadow-sm">
+          <div className="p-2 rounded-lg text-slate-600 bg-slate-100"><Layers size={16} /></div>
+          <div><div className="text-[11px] text-slate-400 font-medium">Общо</div><div className="text-lg font-black text-slate-800">{templates.length}</div></div>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200/80 p-3 flex items-center gap-2.5 shadow-sm">
+          <div className="p-2 rounded-lg text-indigo-600 bg-indigo-50"><Tag size={16} /></div>
+          <div><div className="text-[11px] text-slate-400 font-medium">Категории</div><div className="text-lg font-black text-slate-800">{categoriesWithCount.length}</div></div>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200/80 p-3 flex items-center gap-2.5 shadow-sm">
+          <div className="p-2 rounded-lg text-violet-600 bg-violet-50"><Baby size={16} /></div>
+          <div><div className="text-[11px] text-slate-400 font-medium">Подготвителна</div><div className="text-lg font-black text-slate-800">{pgCount}</div></div>
+        </div>
       </div>
 
       {/* Лента: търсене + формат + сортиране + изглед + качване */}
@@ -233,7 +245,6 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
           {search && <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><X size={14} /></button>}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Формат */}
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
             {([['all', 'Всички', ''], ['word', 'Word', 'bg-blue-600'], ['excel', 'Excel', 'bg-emerald-600'], ['pdf', 'PDF', 'bg-rose-600']] as const).map(([id, label, activeBg]) => (
               <button key={id} onClick={() => setExtFilter(id)}
@@ -242,13 +253,15 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
               </button>
             ))}
           </div>
-          {/* Сортиране */}
+          <button onClick={() => setPgOnly(v => !v)}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${pgOnly ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+            <Baby size={13} /> ПГ
+          </button>
           <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}
             className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer">
             <option value="title">Азбучен ред</option>
             <option value="date">Последно качен</option>
           </select>
-          {/* Изглед */}
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
             <button onClick={() => setViewMode('list')} title="Списък"
               className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}><LayoutList size={16} /></button>
@@ -263,13 +276,18 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
         </div>
       </div>
 
-      {/* Категорийни пилюли */}
+      {/* Категорийни пилюли (динамични) */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        {categoryPills.map(p => (
-          <button key={p.id} onClick={() => setActiveCategory(p.id)}
+        <button onClick={() => setActiveCategory('all')}
+          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+            activeCategory === 'all' ? 'bg-slate-900 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200/80'}`}>
+          <FolderOpen size={14} /> Всички ({templates.length})
+        </button>
+        {categoriesWithCount.map(([cat, count]) => (
+          <button key={cat} onClick={() => setActiveCategory(cat)}
             className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-              activeCategory === p.id ? `${p.active} shadow-md` : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200/80'}`}>
-            <p.icon size={14} /> {p.label} ({p.count})
+              activeCategory === cat ? 'bg-[#0f2240] text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200/80'}`}>
+            <Tag size={13} /> {cat} ({count})
           </button>
         ))}
       </div>
@@ -324,29 +342,30 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
               )}
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Пояснение (незадължително)</label>
-              <input type="text" value={description} onChange={e => setDescription(e.target.value)}
-                placeholder="напр. За годишни заседания"
+              <label className="block text-xs font-bold text-slate-700 mb-1">Категория *</label>
+              <input type="text" value={category} onChange={e => setCategory(e.target.value)}
+                list="category-list" placeholder="напр. Декларации"
                 className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-300 focus:outline-none" />
+              <datalist id="category-list">
+                {categoryOptions.map(c => <option key={c} value={c} />)}
+              </datalist>
             </div>
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Вид на документа</label>
-            <div className="flex flex-wrap gap-2.5">
-              <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${isAdministrative ? 'bg-[#0f2240] text-white border-[#0f2240] shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>
-                <input type="checkbox" checked={isAdministrative} onChange={e => setIsAdministrative(e.target.checked)} className="sr-only" />
-                <Briefcase size={14} /> Административен
-              </label>
-              <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${isPg ? 'bg-violet-600 text-white border-violet-600 shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>
-                <input type="checkbox" checked={isPg} onChange={e => setIsPg(e.target.checked)} className="sr-only" />
-                <Baby size={14} /> За ПГ (Подготвителна група)
-              </label>
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1">Без „Административен" образецът отива при документите за дейността.</p>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Пояснение (незадължително)</label>
+            <input type="text" value={description} onChange={e => setDescription(e.target.value)}
+              placeholder="напр. За годишни заседания"
+              className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-300 focus:outline-none" />
+          </div>
+          <div>
+            <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${isPg ? 'bg-violet-600 text-white border-violet-600 shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>
+              <input type="checkbox" checked={isPg} onChange={e => setIsPg(e.target.checked)} className="sr-only" />
+              <Baby size={14} /> За ПГ (Подготвителна група)
+            </label>
           </div>
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
             <button onClick={resetForm} className="px-4 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 transition-colors">Отказ</button>
-            <button onClick={doUpload} disabled={uploading || !title.trim() || !pendingFile}
+            <button onClick={doUpload} disabled={uploading || !title.trim() || !category.trim() || !pendingFile}
               className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold text-white shadow-sm disabled:opacity-50 transition-all hover:opacity-90"
               style={{ backgroundColor: '#0f2240' }}>
               {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
@@ -368,13 +387,12 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
           ) : (
             <>
               <p className="text-base font-bold text-slate-800">Няма образци по това търсене</p>
-              <button onClick={() => { setSearch(''); setActiveCategory('all'); setExtFilter('all') }}
+              <button onClick={() => { setSearch(''); setActiveCategory('all'); setExtFilter('all'); setPgOnly(false) }}
                 className="mt-3 px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">Изчисти филтрите</button>
             </>
           )}
         </div>
       ) : viewMode === 'grid' ? (
-        /* КАРТИ */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map(t => {
             const style = getFileStyle(t.file_name)
@@ -384,7 +402,7 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-extrabold border ${style.badge}`}>{style.icon}{style.label}</span>
-                    {t.is_administrative && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">АДМ</span>}
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">{t.category}</span>
                     {t.is_pg && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-lg bg-violet-100 text-violet-700 border border-violet-200">ПГ</span>}
                   </div>
                   <div>
@@ -412,7 +430,6 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
           })}
         </div>
       ) : (
-        /* СПИСЪК */
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden divide-y divide-slate-100">
           {filtered.map((t, idx) => {
             const style = getFileStyle(t.file_name)
@@ -425,7 +442,7 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
                     <div className="flex items-center gap-2 flex-wrap">
                       <h4 className="text-sm font-semibold text-slate-800 group-hover:text-blue-700 transition-colors truncate">{t.title}</h4>
                       <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${style.badge}`}>{style.label}</span>
-                      {t.is_administrative && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">АДМ</span>}
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">{t.category}</span>
                       {t.is_pg && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700">ПГ</span>}
                       {t.description && <span className="text-[11px] text-slate-400 truncate">· {t.description}</span>}
                       {t.file_size && <span className="text-[11px] text-slate-300 flex-shrink-0">· {formatSize(t.file_size)}</span>}
@@ -471,7 +488,7 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200/60">
                 <div><span className="text-slate-400">Файл:</span><div className="font-bold text-slate-800 truncate">{previewT.file_name}</div></div>
                 <div><span className="text-slate-400">Размер:</span><div className="font-bold text-slate-800">{formatSize(previewT.file_size)}</div></div>
-                <div><span className="text-slate-400">Категория:</span><div className="font-bold text-slate-800">{previewT.is_administrative ? 'Административен' : 'За дейността'}</div></div>
+                <div><span className="text-slate-400">Категория:</span><div className="font-bold text-slate-800">{previewT.category}</div></div>
                 <div><span className="text-slate-400">ПГ:</span><div className="font-bold text-slate-800">{previewT.is_pg ? 'Да' : 'Не'}</div></div>
               </div>
             </div>
@@ -504,15 +521,20 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
               </div>
               <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Категория</label>
+                <input type="text" value={editCategory} onChange={e => setEditCategory(e.target.value)}
+                  list="category-list-edit"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                <datalist id="category-list-edit">
+                  {categoryOptions.map(c => <option key={c} value={c} />)}
+                </datalist>
+              </div>
+              <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Описание</label>
                 <input type="text" value={editDescription} onChange={e => setEditDescription(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
               </div>
               <div className="flex flex-wrap gap-2 pt-1">
-                <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold cursor-pointer ${editIsAdmin ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-slate-50 text-slate-700 border-slate-200'}`}>
-                  <input type="checkbox" checked={editIsAdmin} onChange={e => setEditIsAdmin(e.target.checked)} className="sr-only" />
-                  <Briefcase size={13} /> Административен
-                </label>
                 <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold cursor-pointer ${editIsPg ? 'bg-violet-600 text-white border-violet-600' : 'bg-slate-50 text-slate-700 border-slate-200'}`}>
                   <input type="checkbox" checked={editIsPg} onChange={e => setEditIsPg(e.target.checked)} className="sr-only" />
                   <Baby size={13} /> Подготвителна (ПГ)
