@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Users, Calendar, Bell, CalendarClock, ChevronRight, ClipboardList, ShieldAlert, ShieldX } from 'lucide-react'
 import { getFullName, getMonthName, formatDate } from '@/lib/utils'
+import SharedFiles from './SharedFiles'
 import ClassTeacherTabs from './ClassTeacherTabs'
 export default async function ClassTeacherDashboard({ profile, currentYearId }: any) {
   const supabase = await createClient()
@@ -273,6 +274,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
               </div>
             </div>
           )}
+          <SharedFiles />
         </div>
       </div>
     </div>
