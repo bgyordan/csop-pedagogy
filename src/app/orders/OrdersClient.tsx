@@ -23,6 +23,7 @@ interface Props {
   page: number
   pageSize: number
   searchValue: string
+  filterIndex: string
   canEdit: boolean
   currentUserId: string
   students: { id: string; first_name: string; last_name: string }[]
@@ -32,7 +33,7 @@ interface Props {
 
 export default function OrdersClient({
   orders, totalCount, page, pageSize,
-  searchValue, canEdit, currentUserId, students, staff, nomenclature
+  searchValue, filterIndex, canEdit, currentUserId, students, staff, nomenclature
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
@@ -45,19 +46,27 @@ export default function OrdersClient({
 
   const totalPages = Math.ceil(totalCount / pageSize)
 
+  function buildUrl(opts: { q?: string; idx?: string; page?: number }) {
+    const params = new URLSearchParams()
+    const q = opts.q !== undefined ? opts.q : searchValue
+    const idx = opts.idx !== undefined ? opts.idx : filterIndex
+    if (q) params.set('q', q)
+    if (idx) params.set('idx', idx)
+    params.set('page', String(opts.page || 1))
+    return `/orders?${params.toString()}`
+  }
+
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
-    const params = new URLSearchParams()
-    if (search) params.set('q', search)
-    params.set('page', '1')
-    router.push(`/orders?${params.toString()}`)
+    router.push(buildUrl({ q: search, page: 1 }))
+  }
+
+  function handleIndexChange(idx: string) {
+    router.push(buildUrl({ idx, page: 1 }))
   }
 
   function handlePageChange(newPage: number) {
-    const params = new URLSearchParams()
-    if (searchValue) params.set('q', searchValue)
-    params.set('page', String(newPage))
-    router.push(`/orders?${params.toString()}`)
+    router.push(buildUrl({ page: newPage }))
   }
 
   return (
@@ -65,7 +74,7 @@ export default function OrdersClient({
 
       {/* Лента с контроли */}
       <div className="bg-white border border-slate-200 rounded-2xl p-2 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {canEdit && (
             <button onClick={() => setShowForm(v => !v)}
               className={`flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl border-2 transition-all whitespace-nowrap flex-shrink-0 ${
@@ -78,12 +87,21 @@ export default function OrdersClient({
             </button>
           )}
 
-          <form onSubmit={handleSearch} className="relative flex-1">
+          <form onSubmit={handleSearch} className="relative flex-1 min-w-[160px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             <input type="text" placeholder="Търсене по №, заглавие..." value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-400 w-full bg-white" />
           </form>
+
+          <select value={filterIndex} onChange={e => handleIndexChange(e.target.value)}
+            className="text-xs border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-slate-400 max-w-[200px] flex-shrink-0"
+            style={{ color: filterIndex ? '#0f2240' : '#94a3b8' }}>
+            <option value="">Всички индекси</option>
+            {nomenclature.map(n => (
+              <option key={n.id} value={n.item_code}>{n.item_code} — {n.name}</option>
+            ))}
+          </select>
 
           <span className="text-xs bg-white text-slate-600 border border-slate-200 px-3 py-2 rounded-xl whitespace-nowrap flex-shrink-0">
             {schoolYear}/{schoolYear + 1}
@@ -155,30 +173,3 @@ export default function OrdersClient({
           </span>
           <div className="flex gap-1.5">
             <button disabled={page <= 1} onClick={() => handlePageChange(page-1)}
-              className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition-colors">
-              <ChevronLeft size={14} />
-            </button>
-            <button disabled={page >= totalPages} onClick={() => handlePageChange(page+1)}
-              className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition-colors">
-              <ChevronRight size={14} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {viewItem && <ViewOrderModal item={viewItem} onClose={() => setViewItem(null)} />}
-      {editItem && <EditOrderModal item={editItem} nomenclature={nomenclature} onClose={() => setEditItem(null)} />}
-
-      {showForm && (
-        <NewOrderForm
-          currentUserId={currentUserId}
-          students={students}
-          staff={staff}
-          nomenclature={nomenclature}
-          onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); router.refresh() }}
-        />
-      )}
-    </div>
-  )
-}
