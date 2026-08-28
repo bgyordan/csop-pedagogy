@@ -52,7 +52,7 @@ function FileBadge({ fileName }: { fileName: string }) {
 export default function TemplatesClient({ templates: initial, canManage, staffId }: Props) {
   const supabase = createClient()
   const { toast } = useToast()
-  const [templates, setTemplates] = useState<Template[]>(initial)
+  const [templates, setTemplates] = useState<Template[]>(initial || [])
   const [macro, setMacro] = useState<'activity' | 'admin'>('activity') // макро горе
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [pgOnly, setPgOnly] = useState(false)
