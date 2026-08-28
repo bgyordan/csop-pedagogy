@@ -4,6 +4,16 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { X, Search, Plus, Loader2, UserMinus, Coffee } from 'lucide-react'
 
+const ROMAN_TO_NUM: Record<string, number> = { I:1,II:2,III:3,IV:4,V:5,VI:6,VII:7,VIII:8,IX:9,X:10,XI:11,XII:12,XIII:13 }
+function coudEligible(ext: string | null | undefined): boolean {
+  if (!ext) return true
+  const t = ext.trim().toUpperCase()
+  if (t.startsWith('ПГ')) return true
+  if (ROMAN_TO_NUM[t] !== undefined) return ROMAN_TO_NUM[t] <= 7
+  const m = t.match(/^(\d+)/)
+  if (m) return parseInt(m[1]) <= 7
+  return true
+}
 interface Props {
   group: { id: string; name: string }
   academicYearId: string
@@ -47,7 +57,7 @@ export default function CoudGroupModal({ group, academicYearId, onClose, onChang
     // Всички активни ученици с текущо enrollment (в паралелка)
     const { data: allEnroll } = await supabase
       .from('student_enrollments')
-      .select('student_id, student:students(id, first_name, middle_name, last_name, status)')
+           .select('student_id, student:students(id, first_name, middle_name, last_name, status, external_class)')
       .eq('academic_year_id', academicYearId)
 
     // Кои вече са в ЦОУД (в която и да е група)
@@ -62,7 +72,7 @@ export default function CoudGroupModal({ group, academicYearId, onClose, onChang
     const memberIds = new Set(mem.map(m => m.studentId))
 
     const avail = (allEnroll || [])
-      .filter((e: any) => e.student?.status === 'active' && !memberIds.has(e.student_id))
+            .filter((e: any) => e.student?.status === 'active' && !memberIds.has(e.student_id) && coudEligible(e.student?.external_class))
       .map((e: any) => ({
         id: e.student_id,
         name: `${e.student.first_name} ${e.student.middle_name || ''} ${e.student.last_name}`.replace(/\s+/g, ' ').trim(),
