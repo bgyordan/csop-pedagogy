@@ -31,10 +31,7 @@ export default async function TemplatesPage() {
         </div>
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Образци на документи</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Изтеглете готов образец, попълнете го в Word и го качете в досието на детето.
-          </p>
-        </div>
+          </div>
       </header>
 
       <TemplatesClient
