@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import SharedFiles from './SharedFiles'
 import { Users, BookOpen, Calendar, Bell, ArrowRight, GraduationCap, Home, Wifi, Coffee, ShieldX, ShieldAlert, ClipboardList, Clock, AlertTriangle, UserSearch } from 'lucide-react'
 import { formatDate, getDaysUntil, getMonthName } from '@/lib/utils'
 export default async function AdminDashboard({ profile, currentYearId }: any) {
@@ -241,8 +242,10 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
           )}
         </div>
       </div>
-      {/* ── КАЛЕНДАР ── */}
-            
+      {/* ── СПОДЕЛЕНИ ФАЙЛОВЕ ── */}
+      <div className="mt-6">
+        <SharedFiles />
+      </div>
     </div>
   )
 }
