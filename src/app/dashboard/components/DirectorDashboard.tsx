@@ -33,8 +33,7 @@ export default async function DirectorDashboard({ profile, currentYearId }: any)
     { label: 'Ученици', value: studentsCount || 0, icon: <Users size={18} />, href: '/students' },
     { label: 'Паралелки', value: classesCount || 0, icon: <BookOpen size={18} />, href: '/classes' },
     { label: 'Служители', value: staffCount || 0, icon: <UserCircle size={18} />, href: '/staff' },
-    { label: 'ЕПЛР екипи', value: eplrCount || 0, icon: <Star size={18} />, href: '/admin/eplr-assignment' },
-  ]
+      ]
 
   const cards = [
     { title: 'Справки', desc: 'Заявления, по клас, пътуващи, натовареност', icon: <BarChart3 size={20} />, href: '/reports/hub' },
