@@ -7,7 +7,7 @@ const PAGE_SIZE = 20
 export default async function OrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string }>
+  searchParams: Promise<{ q?: string; page?: string; idx?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
@@ -20,6 +20,7 @@ export default async function OrdersPage({
   const canEdit = ['admin', 'zdud', 'director', 'secretary'].includes(profile?.role || '')
   const page = Math.max(1, parseInt(params.page || '1'))
   const q = params.q || ''
+  const idx = params.idx || ''
   const from = (page - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
   let query = supabase
@@ -28,6 +29,7 @@ export default async function OrdersPage({
     .order('created_at', { ascending: false })
     .range(from, to)
   if (q) query = query.or(`number.ilike.%${q}%,title.ilike.%${q}%`)
+  if (idx) query = query.eq('nomenclature_item', idx)
   const { data: orders, count } = await query
   const [{ data: students }, { data: staff }, { data: nomenclature }] = await Promise.all([
     supabase.from('students').select('id, first_name, last_name').eq('status', 'active').order('last_name'),
@@ -48,6 +50,7 @@ export default async function OrdersPage({
         page={page}
         pageSize={PAGE_SIZE}
         searchValue={q}
+        filterIndex={idx}
         canEdit={canEdit}
         currentUserId={profile?.id || ''}
         students={students || []}
