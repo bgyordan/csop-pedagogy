@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { BarChart3, Users, GraduationCap, Bus, FileText, ArrowRight } from 'lucide-react'
+import { BarChart3, Users, GraduationCap, Bus, FileText, ArrowRight, Coffee } from 'lucide-react'
 export const dynamic = 'force-dynamic'
 
 interface ReportCard {
