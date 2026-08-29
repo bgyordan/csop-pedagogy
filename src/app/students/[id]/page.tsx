@@ -131,7 +131,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
             {getInitials(student.first_name, student.last_name)}
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">{getFullName(student)}</h1>
+            <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">{getFullName(student)}</h1>
             <div className="flex flex-wrap items-center gap-2 mt-1.5">
               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                 student.status === 'active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'
@@ -160,16 +160,16 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
               <div>
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Паралелка ЦСОП</div>
-                <div className="text-sm font-semibold text-slate-700 mt-0.5">{className || '—'}</div>
+                <div className="text-sm font-medium text-slate-700 mt-0.5">{className || '—'}</div>
               </div>
               <div>
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Дата на раждане</div>
-                <div className="text-sm font-semibold text-slate-700 mt-0.5">{student.birth_date ? formatDate(student.birth_date) : '—'}</div>
+                <div className="text-sm font-medium text-slate-700 mt-0.5">{student.birth_date ? formatDate(student.birth_date) : '—'}</div>
               </div>
               {sendingSchool && (
                 <div>
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Изпращащо училище</div>
-                  <div className="text-sm font-semibold text-slate-700 flex items-center gap-1 mt-0.5">
+                  <div className="text-sm font-medium text-slate-700 flex items-center gap-1 mt-0.5">
                     <School size={14} className="text-slate-400 flex-shrink-0" />
                     <span className="truncate">{sendingSchool.name}</span>
                   </div>
@@ -178,13 +178,13 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
               {student.external_class && (
                 <div>
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Клас в изпр. училище</div>
-                  <div className="text-sm font-semibold text-slate-700 mt-0.5">{student.external_class}</div>
+                  <div className="text-sm font-medium text-slate-700 mt-0.5">{student.external_class}</div>
                 </div>
               )}
                             {student.is_traveling && (
                 <div>
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Транспорт</div>
-                  <div className="text-sm font-semibold text-slate-700 mt-0.5 inline-flex items-center gap-1.5">
+                  <div className="text-sm font-medium text-slate-700 mt-0.5 inline-flex items-center gap-1.5">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-xs">
                       Пътуващ ученик
                     </span>
@@ -197,22 +197,22 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         {(canManage || canEditDossier || isCoordinator) && student.status === 'active' && (
           <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-slate-100">
             {canManage && (
-              <Link href={`/students/${id}/edit`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-100 transition-colors">
+              <Link href={`/students/${id}/edit`} className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-100 transition-colors">
                 <Pencil size={13} /> Редактирай
               </Link>
             )}
             {canManage && (
-              <Link href={`/students/${id}/eplr`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-100 transition-colors">
+              <Link href={`/students/${id}/eplr`} className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-100 transition-colors">
                 <UserCog size={13} /> ЕПЛР екип
               </Link>
             )}
             {educationForm === 'ifo' && (
-              <Link href={`/students/${id}/schedule`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-teal-700 bg-teal-50 border border-teal-200 px-3 py-2 rounded-xl hover:bg-teal-100 transition-colors">
+              <Link href={`/students/${id}/schedule`} className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 px-3 py-2 rounded-xl hover:bg-teal-100 transition-colors">
                 <CalendarClock size={13} /> Седмично разписание
               </Link>
             )}
             {(student as any).is_new && (
-              <Link href={`/students/${id}/survey`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-violet-700 bg-violet-50 border border-violet-200 px-3 py-2 rounded-xl hover:bg-violet-100 transition-colors">
+              <Link href={`/students/${id}/survey`} className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-700 bg-violet-50 border border-violet-200 px-3 py-2 rounded-xl hover:bg-violet-100 transition-colors">
                 <ClipboardList size={13} /> Анкета
               </Link>
             )}
@@ -220,12 +220,12 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
               <MarkProcessedButton studentId={id} />
             )}
             {canManage && (
-              <Link href={`/students/${id}/transfer`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-100 transition-colors">
+              <Link href={`/students/${id}/transfer`} className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-100 transition-colors">
                 <ArrowRightLeft size={13} /> Прехвърли
               </Link>
             )}
             {canManage && (
-              <Link href={`/students/${id}/archive`} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-rose-700 bg-rose-50/50 border border-rose-100 px-3 py-2 rounded-xl hover:bg-rose-100/70 transition-colors">
+              <Link href={`/students/${id}/archive`} className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-700 bg-rose-50/50 border border-rose-100 px-3 py-2 rounded-xl hover:bg-rose-100/70 transition-colors">
                 <Archive size={13} /> Архивирай
               </Link>
             )}
@@ -234,7 +234,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       </div>
       {student.status === 'archived' && student.archive_reason && (
         <div className="mb-5 p-4 bg-amber-50/40 border border-amber-200/60 rounded-2xl text-sm text-slate-700 shadow-sm">
-          <span className="font-bold text-amber-800">Причина за напускане:</span> {student.archive_reason}
+          <span className="font-semibold text-amber-800">Причина за напускане:</span> {student.archive_reason}
           {student.archived_at && <span className="ml-3 text-slate-400 font-medium">({formatDate(student.archived_at)})</span>}
         </div>
       )}
@@ -243,7 +243,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       <div className={`${cardCls} mb-4`}>
         <div className={cardHead}>
           <GraduationCap size={16} className="text-blue-500" />
-          <h2 className="font-bold text-slate-800 text-sm">Обучение</h2>
+          <h2 className="font-semibold text-slate-800 text-sm">Обучение</h2>
         </div>
         <StudentStatusSection
           studentId={id}
@@ -264,7 +264,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         <div className={cardCls}>
           <div className={cardHead}>
             <Users size={16} className="text-blue-500" />
-            <h2 className="font-bold text-slate-800 text-sm">ЕПЛР екип</h2>
+            <h2 className="font-semibold text-slate-800 text-sm">ЕПЛР екип</h2>
           </div>
           <EplrTeam externals={externalMembers || []} eplr={eplr} id={id} canManage={canManage}
             realPsy={(student as any).therapist_psychologist_id}
@@ -274,7 +274,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         <div className={`${cardCls} lg:col-span-2`}>
           <div className={cardHead}>
             <FileText size={16} className="text-emerald-500" />
-            <h2 className="font-bold text-slate-800 text-sm">Документи ЕПЛР — {currentYear?.name}</h2>
+            <h2 className="font-semibold text-slate-800 text-sm">Документи ЕПЛР — {currentYear?.name}</h2>
           </div>
           <EplrDocumentsSection
             studentId={student.id}
@@ -291,7 +291,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         <div className={cardCls}>
           <div className={cardHead}>
             <Heart size={16} className="text-teal-500" />
-            <h2 className="font-bold text-slate-800 text-sm">Терапевти</h2>
+            <h2 className="font-semibold text-slate-800 text-sm">Терапевти</h2>
           </div>
           <dl className="space-y-2.5">
             {[
@@ -301,7 +301,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
             ].map(({ label, member }) => (
               <div key={label}>
                 <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</dt>
-                <dd className="text-sm font-semibold text-slate-700 mt-0.5">
+                <dd className="text-sm font-medium text-slate-700 mt-0.5">
                   {member ? getFullName(member) : <span className="text-slate-400 font-normal">не е зачислен</span>}
                 </dd>
               </div>
@@ -311,7 +311,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         <div className={`${cardCls} lg:col-span-2`}>
           <div className={cardHead}>
             <Paperclip size={16} className="text-amber-500" />
-            <h2 className="font-bold text-slate-800 text-sm">Досие — външни документи</h2>
+            <h2 className="font-semibold text-slate-800 text-sm">Досие — външни документи</h2>
           </div>
           <AttachmentsSection
             studentId={id}
@@ -330,14 +330,14 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         <div className={cardCls}>
           <div className={cardHead}>
             <Heart size={16} className="text-rose-400" />
-            <h2 className="font-bold text-slate-800 text-sm">Родители / Настойници</h2>
+            <h2 className="font-semibold text-slate-800 text-sm">Родители / Настойници</h2>
           </div>
           <GuardiansSection studentId={id} guardians={guardians || []} canManage={canEditDossier} />
         </div>
         <div className={`${cardCls} lg:col-span-2`}>
           <div className={cardHead}>
             <History size={16} className="text-indigo-400" />
-            <h2 className="font-bold text-slate-800 text-sm">История на обучението</h2>
+            <h2 className="font-semibold text-slate-800 text-sm">История на обучението</h2>
           </div>
           {allEnrollments && allEnrollments.length > 1 ? (
             <div className="flex items-center gap-2 flex-wrap">
@@ -365,7 +365,7 @@ function EplrTeam({ eplr, id, canManage, externals = [], realPsy, realSpe, realR
     <div>
       <p className="text-sm text-slate-400 mb-3">Няма назначен екип</p>
       {canManage && (
-        <Link href={`/students/${id}/eplr`} className="text-xs font-bold text-blue-600 hover:underline">+ Назначи екип</Link>
+        <Link href={`/students/${id}/eplr`} className="text-xs font-semibold text-blue-600 hover:underline">+ Назначи екип</Link>
       )}
     </div>
   )
@@ -379,7 +379,7 @@ function EplrTeam({ eplr, id, canManage, externals = [], realPsy, realSpe, realR
       ].map(({ label, member, isReal }) => (
         <div key={label}>
           <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</dt>
-          <dd className={`text-sm mt-0.5 ${member ? (isReal ? 'font-bold text-slate-800' : 'font-normal text-slate-600') : ''}`}>
+          <dd className={`text-sm mt-0.5 ${member ? (isReal ? 'font-semibold text-slate-800' : 'font-normal text-slate-600') : ''}`}>
             {member ? (
               <span className="inline-flex items-center gap-1.5">
                 {getFullName(member as any)}
@@ -392,7 +392,7 @@ function EplrTeam({ eplr, id, canManage, externals = [], realPsy, realSpe, realR
         <div className="pt-2 border-t border-slate-100">
           <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">От изпращащото училище</dt>
           {externals.map((ext: any) => (
-            <dd key={ext.id} className="text-sm font-semibold text-slate-700 mt-0.5">{ext.full_name}</dd>
+            <dd key={ext.id} className="text-sm font-medium text-slate-700 mt-0.5">{ext.full_name}</dd>
           ))}
         </div>
       )}
