@@ -56,18 +56,18 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
             </div>
           ) : (
             therapyRows.map((r, idx) => (
-              <div key={r.id} className={`px-5 py-3 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'} hover:bg-blue-50/40`}>
+              <div key={r.id} className={`px-4 py-2 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'} hover:bg-blue-50/40`}>
                 <div className="flex items-center justify-between gap-3">
-                  <Link href={`/students/${r.id}`} className="text-sm font-semibold text-slate-800 hover:text-teal-700 hover:underline">
+                  <Link href={`/students/${r.id}`} className="text-sm font-medium text-slate-800 hover:text-teal-700 hover:underline">
                     {r.name}
                   </Link>
                   {r.intensity && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 flex-shrink-0">
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 flex-shrink-0">
                       {r.intensity}{/^\d+$/.test(r.intensity) ? ' ч.' : ''}
                     </span>
                   )}
                 </div>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
                   {r.className && <span className="text-[11px] text-slate-500">Паралелка {r.className}</span>}
                   {r.sendingSchool && <span className="text-[11px] text-slate-400">· {r.sendingSchool}</span>}
                   {r.others.length > 0 && <span className="text-[11px] text-slate-400">· също: {r.others.join(' · ')}</span>}
@@ -85,12 +85,12 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
           ) : (
             <>
               {eplrRows.map((r, idx) => (
-                <div key={r.id} className={`px-5 py-3 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'} hover:bg-blue-50/40`}>
+                <div key={r.id} className={`px-4 py-2 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'} hover:bg-blue-50/40`}>
                   <Link href={`/students/${r.id}`}
-                    className={`text-sm hover:underline ${r.isReal ? 'font-bold text-slate-800' : 'font-normal text-slate-600'}`}>
+                    className={`text-sm hover:underline ${r.isReal ? 'font-semibold text-slate-800' : 'font-normal text-slate-600'}`}>
                     {r.name}
                   </Link>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
                     {r.className && <span className="text-[11px] text-slate-500">Паралелка {r.className}</span>}
                     {r.classTeacher && <span className="text-[11px] text-slate-400">· класен: {r.classTeacher}</span>}
                   </div>
