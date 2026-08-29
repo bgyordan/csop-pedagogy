@@ -161,10 +161,8 @@ export default function StudentStatusSection({
             <div className="text-sm font-medium text-slate-700">{coudGroupName}</div>
             {coudTeacher && <div className="text-xs text-slate-500 mt-0.5">Възпитател: {coudTeacher}</div>}
           </div>
-                ) : coudEligible(externalClass) ? (
+                       ) : (
           <div className="text-sm text-slate-400">Не е записан</div>
-        ) : (
-          <div className="text-sm text-slate-400">Не се полага (VIII клас и нагоре)</div>
         )}
         <p className="text-[10px] text-slate-300 mt-1">Управляват се в Администрация → ЦОУД групи</p>
       </div>
