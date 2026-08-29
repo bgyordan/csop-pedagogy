@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Settings2, CalendarClock, Users, Check } from 'lucide-react'
 import { BackButton } from '@/components/ui/BackButton'
 import { getFullName } from '@/lib/utils'
+import CoudTabs from './CoudTabs'
 export default async function ClassesPage({
   searchParams,
 }: {
@@ -130,54 +131,8 @@ export default async function ClassesPage({
       )}
       </div>
       {tab === 'coud' ? (
-        /* ── ЦОУД ГРУПИ ── */
-        <div className="space-y-4">
-          {coudData.length === 0 && (
-            <div className="bg-white rounded-xl border border-slate-200 text-center py-12 text-slate-400 text-sm shadow-sm">Няма ЦОУД групи</div>
-          )}
-          {coudData.map((g, gi) => (
-            <div key={gi} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-              {/* Заглавен ред на групата */}
-              <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100 bg-slate-50/60">
-                <div>
-                  <div className="text-sm font-semibold text-slate-800">{g.name} <span className="text-slate-400 font-normal">({g.students.length})</span></div>
-                  <div className="text-xs text-slate-500 mt-0.5">Възпитател: {g.teacher}</div>
-                </div>
-              </div>
-              {g.students.length === 0 ? (
-                <div className="px-4 py-6 text-center text-slate-400 text-xs">Няма записани ученици</div>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">
-                      <th className="text-left px-4 py-2">Ученик</th>
-                      <th className="text-left px-4 py-2 w-24">Паралелка</th>
-                      <th className="text-center px-4 py-2 w-28">Заявление</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {g.students.map((s, si) => (
-                      <tr key={si} className={`border-t border-slate-50 ${si % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
-                        <td className="px-4 py-2">
-                          <div className="text-slate-800">{s.name}</div>
-                          <div className="text-[11px] text-slate-400 mt-0.5">клас {s.externalClass}</div>
-                        </td>
-                        <td className="px-4 py-2 text-slate-600">{s.className}</td>
-                        <td className="px-4 py-2 text-center">
-                          {s.hasAppl ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-medium"><Check size={14} /> Да</span>
-                          ) : (
-                            <span className="text-rose-400 text-xs">няма</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          ))}
-        </div>
+        /* ── ЦОУД ГРУПИ (табове) ── */
+        <CoudTabs groups={coudData} />
       ) : (
         <>
           {/* ДЕСКТОП: таблица — чиста (Паралелка · Класен · Уч. · Разписание) */}
