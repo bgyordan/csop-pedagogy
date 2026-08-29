@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Settings2, CalendarClock, Users } from 'lucide-react'
+import { Settings2, CalendarClock, Users, Check } from 'lucide-react'
 import { BackButton } from '@/components/ui/BackButton'
 import { getFullName } from '@/lib/utils'
 export default async function ClassesPage({
@@ -56,25 +56,42 @@ export default async function ClassesPage({
     .order('name')
   const { data: coudEnrollments } = await supabase
     .from('coud_enrollments')
-    .select('coud_group_id, student:students(id, first_name, middle_name, last_name)')
+    .select('coud_group_id, student:students(id, first_name, middle_name, last_name, external_class)')
     .eq('academic_year_id', currentYear?.id)
-  type CoudRow = { groupName: string; teacher: string; studentName: string; isFirst: boolean }
-  const coudRows: CoudRow[] = []
-  ;(coudGroups || []).forEach(g => {
+  // паралелка (в ЦСОП) по ученик
+  const classNameByStudent = new Map<string, string>()
+  ;(allEnrollmentsRaw || []).forEach((e: any) => {
+    const cls = (classes || []).find(c => c.id === e.class_id)
+    if (cls) classNameByStudent.set(e.student_id, cls.name)
+  })
+  // заявление ЦОУД по ученик
+  const coudStudentIds = (coudEnrollments || []).map((e: any) => e.student?.id).filter(Boolean)
+  const applSet = new Set<string>()
+  if (coudStudentIds.length > 0) {
+    const { data: coudAppls } = await supabase
+      .from('student_attachments')
+      .select('student_id')
+      .eq('doc_type', 'coud_application')
+      .in('student_id', coudStudentIds)
+    ;(coudAppls || []).forEach((a: any) => applSet.add(a.student_id))
+  }
+  type CoudStudent = { name: string; className: string; externalClass: string; hasAppl: boolean }
+  type CoudGroupData = { name: string; teacher: string; students: CoudStudent[] }
+  const coudData: CoudGroupData[] = (coudGroups || []).map(g => {
     const teacher = (g.teacher as any) ? `${(g.teacher as any).first_name} ${(g.teacher as any).last_name}` : '—'
-    const students = (coudEnrollments || [])
-      .filter((e: any) => e.coud_group_id === g.id)
-      .map((e: any) => getFullName(e.student))
-      .sort((a: string, b: string) => a.localeCompare(b, 'bg'))
-    if (students.length === 0) {
-      coudRows.push({ groupName: g.name, teacher, studentName: '—', isFirst: true })
-    } else {
-      students.forEach((name, i) => {
-        coudRows.push({ groupName: g.name, teacher, studentName: name, isFirst: i === 0 })
-      })
-    }
+    const students: CoudStudent[] = (coudEnrollments || [])
+      .filter((e: any) => e.coud_group_id === g.id && e.student)
+      .map((e: any) => ({
+        name: getFullName(e.student),
+        className: classNameByStudent.get(e.student.id) || '—',
+        externalClass: e.student.external_class || '—',
+        hasAppl: applSet.has(e.student.id),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'bg'))
+    return { name: g.name, teacher, students }
   })
   const coudStudentCount = (coudEnrollments || []).length
+  const coudApplCount = applSet.size
   return (
     <div className="p-4 md:p-8">
       <BackButton />
@@ -84,7 +101,7 @@ export default async function ClassesPage({
         </h1>
         <p className="text-slate-500 text-sm mt-1">
           {tab === 'coud'
-            ? `${coudGroups?.length || 0} групи · ${coudStudentCount} ученика · ${currentYear?.name}`
+            ? `${coudGroups?.length || 0} групи · ${coudStudentCount} ученика · ${coudApplCount} със заявление · ${currentYear?.name}`
             : `${classes?.length || 0} паралелки · ${currentYear?.name}`}
         </p>
       </div>
@@ -113,38 +130,53 @@ export default async function ClassesPage({
       )}
       </div>
       {tab === 'coud' ? (
-        /* ── ЦОУД ТАБЛИЦА ── */
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Група</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Възпитател</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Ученик</th>
-                </tr>
-              </thead>
-              <tbody>
-                {coudRows.map((r, idx) => (
-                  <tr key={idx}
-                    className={`border-b border-slate-100 hover:bg-blue-50/40 transition-colors ${
-                      r.isFirst && idx > 0 ? 'border-t-2 border-t-slate-200' : ''
-                    }`}>
-                    <td className="px-4 py-2 font-semibold text-slate-800 whitespace-nowrap align-top">
-                      {r.isFirst ? r.groupName : ''}
-                    </td>
-                    <td className="px-4 py-2 text-slate-600 text-xs whitespace-nowrap align-top">
-                      {r.isFirst ? r.teacher : ''}
-                    </td>
-                    <td className="px-4 py-2 text-slate-700">{r.studentName}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {coudRows.length === 0 && (
-            <div className="text-center py-12 text-slate-400 text-sm">Няма ЦОУД групи</div>
+        /* ── ЦОУД ГРУПИ ── */
+        <div className="space-y-4">
+          {coudData.length === 0 && (
+            <div className="bg-white rounded-xl border border-slate-200 text-center py-12 text-slate-400 text-sm shadow-sm">Няма ЦОУД групи</div>
           )}
+          {coudData.map((g, gi) => (
+            <div key={gi} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+              {/* Заглавен ред на групата */}
+              <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100 bg-slate-50/60">
+                <div>
+                  <div className="text-sm font-semibold text-slate-800">{g.name} <span className="text-slate-400 font-normal">({g.students.length})</span></div>
+                  <div className="text-xs text-slate-500 mt-0.5">Възпитател: {g.teacher}</div>
+                </div>
+              </div>
+              {g.students.length === 0 ? (
+                <div className="px-4 py-6 text-center text-slate-400 text-xs">Няма записани ученици</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">
+                      <th className="text-left px-4 py-2">Ученик</th>
+                      <th className="text-left px-4 py-2 w-24">Паралелка</th>
+                      <th className="text-center px-4 py-2 w-28">Заявление</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {g.students.map((s, si) => (
+                      <tr key={si} className={`border-t border-slate-50 ${si % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
+                        <td className="px-4 py-2">
+                          <div className="text-slate-800">{s.name}</div>
+                          <div className="text-[11px] text-slate-400 mt-0.5">клас {s.externalClass}</div>
+                        </td>
+                        <td className="px-4 py-2 text-slate-600">{s.className}</td>
+                        <td className="px-4 py-2 text-center">
+                          {s.hasAppl ? (
+                            <span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-medium"><Check size={14} /> Да</span>
+                          ) : (
+                            <span className="text-rose-400 text-xs">няма</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ))}
         </div>
       ) : (
         <>
