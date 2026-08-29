@@ -48,8 +48,9 @@ export default function StudentsTable({ rows }: { rows: Row[] }) {
 
   return (
     <div>
+          <div className="max-h-[calc(100vh-280px)] overflow-y-auto rounded-lg">
       {/* Заглавен ред (десктоп) */}
-      <div className="hidden md:grid grid-cols-[1fr_130px_90px_110px_90px] gap-3 px-4 py-2">
+      <div className="hidden md:grid grid-cols-[1fr_130px_90px_110px_90px] gap-3 px-4 py-2 sticky top-0 z-10 bg-slate-100">
         <button type="button" onClick={() => toggleSort('name')}
           className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-slate-400 hover:text-slate-600 transition-colors">
           Три имена <SortIcon col="name" />
@@ -111,6 +112,7 @@ export default function StudentsTable({ rows }: { rows: Row[] }) {
             </Link>
           )
         })}
+           </div>
       </div>
 
       {sorted.length === 0 && (
