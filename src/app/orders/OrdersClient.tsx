@@ -110,7 +110,7 @@ export default function OrdersClient({
       </div>
 
       {/* Заглавен ред */}
-      <div className="hidden md:grid grid-cols-[160px_90px_80px_1fr_60px] gap-3 px-4 py-2">
+      <div className="hidden md:grid grid-cols-[160px_90px_80px_1fr_60px] gap-3 px-4 py-2 sticky top-0 z-10 bg-slate-50 rounded-lg">
         {['№', 'Дата', 'Арх. индекс', 'Заглавие', 'Файл'].map(h => (
           <span key={h} className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{h}</span>
         ))}
