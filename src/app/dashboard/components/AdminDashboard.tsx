@@ -96,53 +96,53 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
         <Link href="/students" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all group col-span-2 md:col-span-1">
           <div className="flex items-center gap-2 mb-2">
             <Users size={15} className="text-blue-500" />
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ученици</div>
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Ученици</div>
           </div>
-          <div className="text-2xl font-bold text-slate-800">{totalStudents || 0}</div>
+          <div className="text-2xl font-semibold text-slate-800">{totalStudents || 0}</div>
         </Link>
         <Link href="/classes" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all col-span-2 md:col-span-1">
           <div className="flex items-center gap-2 mb-2">
             <BookOpen size={15} className="text-purple-500" />
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Паралелки</div>
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Паралелки</div>
           </div>
-          <div className="text-2xl font-bold text-slate-800">{totalClasses || 0}</div>
+          <div className="text-2xl font-semibold text-slate-800">{totalClasses || 0}</div>
         </Link>
         <Link href="/students?form=daily" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
           <div className="flex items-center gap-2 mb-2">
             <GraduationCap size={15} className="text-slate-400" />
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Дневна</div>
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Дневна</div>
           </div>
-          <div className="text-2xl font-bold text-slate-800">{dailyCount}</div>
+          <div className="text-2xl font-semibold text-slate-800">{dailyCount}</div>
         </Link>
         <Link href="/students?form=ifo" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
           <div className="flex items-center gap-2 mb-2">
             <Home size={15} className="text-slate-400" />
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">ИФО</div>
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ИФО</div>
           </div>
-          <div className="text-2xl font-bold text-slate-800">{ifoCount}</div>
+          <div className="text-2xl font-semibold text-slate-800">{ifoCount}</div>
         </Link>
         <Link href="/classes?tab=coud" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
           <div className="flex items-center gap-2 mb-2">
             <Coffee size={15} className="text-slate-400" />
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">ЦОУД</div>
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ЦОУД</div>
           </div>
-          <div className="text-2xl font-bold text-slate-800">{coudCount || 0}</div>
+          <div className="text-2xl font-semibold text-slate-800">{coudCount || 0}</div>
         </Link>
         <Link href="/students?ores=1" className={`bg-white p-4 rounded-2xl border shadow-sm hover:border-slate-300 transition-all ${oresCount > 0 ? 'border-amber-200' : 'border-slate-200/70'}`}>
           <div className="flex items-center gap-2 mb-2">
             <Wifi size={15} className={oresCount > 0 ? 'text-amber-500' : 'text-slate-400'} />
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">ОРЕС</div>
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ОРЕС</div>
           </div>
-          <div className={`text-2xl font-bold ${oresCount > 0 ? 'text-amber-600' : 'text-slate-800'}`}>{oresCount}</div>
+          <div className={`text-2xl font-semibold ${oresCount > 0 ? 'text-amber-600' : 'text-slate-800'}`}>{oresCount}</div>
         </Link>
       </div>
       {/* ── АЛАРМИ / ИЗИСКВА ВНИМАНИЕ ── */}
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm mb-6 overflow-hidden">
         <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-100 bg-slate-50/50">
           <AlertTriangle size={16} className="text-slate-500" />
-          <h2 className="font-bold text-slate-700 text-sm uppercase tracking-wider">Изисква внимание</h2>
+          <h2 className="font-semibold text-slate-700 text-sm">Изисква внимание</h2>
           {alerts.length > 0 && (
-            <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{alerts.length}</span>
+            <span className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{alerts.length}</span>
           )}
         </div>
         {alerts.length === 0 ? (
@@ -166,7 +166,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
                 </span>
                 <span className="text-sm text-slate-700 flex-1 font-medium">{a.text}</span>
                 {a.badge && (
-                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg ${
+                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg ${
                     a.type === 'error' ? 'bg-red-50 text-red-600' :
                     a.type === 'warning' ? 'bg-amber-50 text-amber-600' :
                     'bg-slate-100 text-slate-500'
@@ -186,9 +186,9 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
                     <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <Calendar size={18} className="text-slate-400" />
-              <h2 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Предстоящи срокове</h2>
+              <h2 className="font-semibold text-slate-800 text-sm">Предстоящи срокове</h2>
             </div>
-            <Link href="/admin/deadlines" className="text-[10px] font-bold text-blue-600 uppercase tracking-wider hover:text-blue-800 flex items-center gap-1">
+            <Link href="/admin/deadlines" className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
               Управление <ArrowRight size={12} />
             </Link>
           </div>
@@ -204,7 +204,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
                       <div className="text-sm font-semibold text-slate-700 truncate">{d.title}</div>
                       <div className="text-[11px] text-slate-400 font-medium mt-0.5">{formatDate(d.deadline_date)}</div>
                     </div>
-                    <span className={`text-[10px] font-bold px-3 py-1 rounded-md border ${
+                    <span className={`text-[10px] font-semibold px-3 py-1 rounded-md border ${
                       days === 0 ? 'bg-rose-50 text-rose-700 border-rose-100' :
                       days <= 7 ? 'bg-amber-50 text-amber-700 border-amber-100' :
                       'bg-emerald-50 text-emerald-700 border-emerald-100'
@@ -221,9 +221,9 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
           <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <Bell size={18} className="text-slate-400" />
-              <h2 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Съобщения</h2>
+              <h2 className="font-semibold text-slate-800 text-sm">Съобщения</h2>
             </div>
-            <Link href="/admin/announcements" className="text-[10px] font-bold text-blue-600 uppercase tracking-wider hover:text-blue-800 flex items-center gap-1">
+            <Link href="/admin/announcements" className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
               Управление <ArrowRight size={12} />
             </Link>
           </div>
