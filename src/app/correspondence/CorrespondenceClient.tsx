@@ -124,7 +124,7 @@ export default function CorrespondenceClient({
       )}
 
       {/* Заглавен ред */}
-      <div className="hidden md:grid grid-cols-[130px_80px_70px_1fr_1.5fr_1.5fr_56px] gap-3 px-4 py-2">
+           <div className="hidden md:grid grid-cols-[130px_80px_70px_1fr_1.5fr_1.5fr_56px] gap-3 px-4 py-2 sticky top-0 z-10 bg-slate-50 rounded-lg">
         {['№', 'Дата', 'Арх. индекс', activeDir === 'incoming' ? 'От кого' : 'До кого', 'Относно', 'Забележка', 'Файл'].map(h => (
           <span key={h} className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{h}</span>
         ))}
