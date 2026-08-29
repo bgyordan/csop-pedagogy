@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { BarChart3, Users, GraduationCap, Bus, FileText, ArrowRight, Coffee } from 'lucide-react'
+import { BarChart3, Users, GraduationCap, Bus, FileText, ArrowRight, Coffee, Phone } from 'lucide-react'
 export const dynamic = 'force-dynamic'
 
 interface ReportCard {
@@ -19,6 +19,7 @@ const REPORTS: ReportCard[] = [
   { href: '/reports/by-class', title: 'Ученици по клас', desc: 'Групиране по клас за планиране на паралелки', icon: <GraduationCap size={20} />, roles: ['admin', 'zdud', 'director', 'secretary'] },
   { href: '/reports/traveling', title: 'Пътуващи ученици', desc: 'Деца, които пътуват от друго населено място', icon: <Bus size={20} />, roles: ['admin', 'zdud', 'director', 'secretary'] },
   { href: '/classes?tab=coud', title: 'ЦОУД групи', desc: 'Групи, възпитатели и записани ученици', icon: <Coffee size={20} />, roles: ['admin', 'zdud', 'director', 'secretary'] },
+    { href: '/reports/guardians', title: 'Родители и контакти', desc: 'Ученик, паралелка, родител и телефон — за печат', icon: <Phone size={20} />, roles: ['admin', 'zdud', 'director', 'secretary'] },
 ]
 
 export default async function ReportsHubPage() {
