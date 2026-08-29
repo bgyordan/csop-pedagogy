@@ -1,18 +1,19 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { ChevronRight, ChevronsUpDown, ArrowUp, ArrowDown, Sparkles, Users } from 'lucide-react'
 import { getFullName } from '@/lib/utils'
+import { ChevronRight, ChevronsUpDown, ChevronUp, ChevronDown, Home, GraduationCap, Coffee, Check } from 'lucide-react'
 
+type SortKey = 'name' | 'class'
+type SortDir = 'asc' | 'desc'
 interface Row {
   key: string
   student: any
   className: string | null
   unassigned: boolean
+  educationForm?: string | null
+  coudEnrolled?: boolean
 }
-
-type SortKey = 'name' | 'class'
-type SortDir = 'asc' | 'desc'
 
 export default function StudentsTable({ rows }: { rows: Row[] }) {
   const [sortKey, setSortKey] = useState<SortKey>('name')
@@ -20,24 +21,20 @@ export default function StudentsTable({ rows }: { rows: Row[] }) {
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
-      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
     } else {
-      setSortKey(key)
-      setSortDir('asc')
+      setSortKey(key); setSortDir('asc')
     }
   }
 
+  // неразпределените винаги най-горе
   const sorted = [...rows].sort((a, b) => {
-    // Неразпределените винаги отгоре
     if (a.unassigned !== b.unassigned) return a.unassigned ? -1 : 1
     let cmp = 0
     if (sortKey === 'name') {
       cmp = getFullName(a.student).localeCompare(getFullName(b.student), 'bg')
     } else {
-      const ca = a.className || 'яяя' // без паралелка -> накрая
-      const cb = b.className || 'яяя'
-      cmp = ca.localeCompare(cb, 'bg')
-      if (cmp === 0) cmp = getFullName(a.student).localeCompare(getFullName(b.student), 'bg')
+      cmp = (a.className || '').localeCompare(b.className || '', 'bg', { numeric: true })
     }
     return sortDir === 'asc' ? cmp : -cmp
   })
@@ -45,70 +42,79 @@ export default function StudentsTable({ rows }: { rows: Row[] }) {
   function SortIcon({ col }: { col: SortKey }) {
     if (sortKey !== col) return <ChevronsUpDown size={12} className="text-slate-300" />
     return sortDir === 'asc'
-      ? <ArrowUp size={12} className="text-[#0f2240]" />
-      : <ArrowDown size={12} className="text-[#0f2240]" />
+      ? <ChevronUp size={12} className="text-slate-500" />
+      : <ChevronDown size={12} className="text-slate-500" />
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50/50 border-b border-slate-100">
-            <tr>
-              <th className="text-left px-6 py-3">
-                <button type="button" onClick={() => toggleSort('name')}
-                  className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-[#0f2240] transition-colors">
-                  Три имена <SortIcon col="name" />
-                </button>
-              </th>
-              <th className="text-left px-6 py-3">
-                <button type="button" onClick={() => toggleSort('class')}
-                  className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-[#0f2240] transition-colors">
-                  Паралелка <SortIcon col="class" />
-                </button>
-              </th>
-              <th className="text-left px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Клас</th>
-              <th className="px-6 py-3"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {sorted.map((r, i) => (
-              <tr key={r.key} className={`group transition-colors hover:bg-blue-50/40 ${i % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
-                <td className="px-6 py-1.5 font-semibold text-slate-800">
-                  <span className="inline-flex items-center gap-2">
-                    {getFullName(r.student)}
-                    {r.student?.is_new && (
-                      <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200 uppercase tracking-wide">
-                        <Sparkles size={9} /> Нов
-                      </span>
-                    )}
-                  </span>
-                </td>
-                <td className="px-6 py-1.5">
-                  {r.className ? (
-                    <span className="text-slate-600">{r.className}</span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                      без паралелка
-                    </span>
-                  )}
-                </td>
-                <td className="px-6 py-1.5 text-slate-500">{r.student?.external_class?.trim() || '—'}</td>
-                <td className="px-6 py-1.5 text-right">
-                  <Link href={`/students/${r.student?.id}`} className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-bold text-[11px] uppercase tracking-widest">
-                    Преглед <ChevronRight size={14} />
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div>
+      {/* Заглавен ред (десктоп) */}
+      <div className="hidden md:grid grid-cols-[1fr_130px_90px_110px_90px] gap-3 px-4 py-2">
+        <button type="button" onClick={() => toggleSort('name')}
+          className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-slate-400 hover:text-slate-600 transition-colors">
+          Три имена <SortIcon col="name" />
+        </button>
+        <button type="button" onClick={() => toggleSort('class')}
+          className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-slate-400 hover:text-slate-600 transition-colors">
+          Паралелка <SortIcon col="class" />
+        </button>
+        <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Клас</span>
+        <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Форма</span>
+        <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400 text-center">ЦОУД</span>
       </div>
+
+      {/* Редове като карти */}
+      <div className="space-y-2">
+        {sorted.map(r => {
+          const isIfo = r.educationForm === 'ifo'
+          return (
+            <Link key={r.key} href={`/students/${r.student.id}`}
+              className="block bg-white border border-slate-200 rounded-2xl px-4 py-2.5 cursor-pointer hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] transition-all group grid grid-cols-1 md:grid-cols-[1fr_130px_90px_110px_90px] gap-1 md:gap-3 md:items-center shadow-[0_1px_4px_rgba(15,34,64,0.06)]">
+              {/* Име */}
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-sm text-slate-800 truncate">{getFullName(r.student)}</span>
+                {r.unassigned && (
+                  <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-100">без паралелка</span>
+                )}
+                <ChevronRight size={15} className="md:hidden ml-auto text-slate-300 group-hover:text-slate-500 transition-colors" />
+              </div>
+              {/* Паралелка */}
+              <div className="text-sm text-slate-600">
+                <span className="md:hidden text-[10px] uppercase text-slate-400 mr-1">Паралелка:</span>
+                {r.className || <span className="text-slate-300">—</span>}
+              </div>
+              {/* Клас */}
+              <div className="text-sm text-slate-500">
+                <span className="md:hidden text-[10px] uppercase text-slate-400 mr-1">Клас:</span>
+                {r.student?.external_class?.trim() || '—'}
+              </div>
+              {/* Форма */}
+              <div>
+                <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full ${
+                  isIfo ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  {isIfo ? <Home size={11} /> : <GraduationCap size={11} />}
+                  {isIfo ? 'ИФО' : 'Дневна'}
+                </span>
+              </div>
+              {/* ЦОУД */}
+              <div className="md:text-center">
+                <span className="md:hidden text-[10px] uppercase text-slate-400 mr-1">ЦОУД:</span>
+                {r.coudEnrolled ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
+                    <Coffee size={11} /> Да
+                  </span>
+                ) : (
+                  <span className="text-slate-300 text-xs">—</span>
+                )}
+              </div>
+            </Link>
+          )
+        })}
+      </div>
+
       {sorted.length === 0 && (
-        <div className="text-center py-20">
-          <Users className="mx-auto mb-3 text-slate-300" size={40} />
-          <p className="text-sm text-slate-500 font-medium">Няма намерени ученици</p>
-        </div>
+        <div className="text-center py-12 text-slate-400 text-sm">Няма ученици</div>
       )}
     </div>
   )
