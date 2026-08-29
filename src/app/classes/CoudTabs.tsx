@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Check } from 'lucide-react'
 
-type CoudStudent = { name: string; className: string; externalClass: string; hasAppl: boolean }
+type CoudStudent = { name: string; className: string; externalClass: string; classTeacher: string; hasAppl: boolean }
 type CoudGroupData = { name: string; teacher: string; students: CoudStudent[] }
 
 export default function CoudTabs({ groups }: { groups: CoudGroupData[] }) {
@@ -33,34 +33,34 @@ export default function CoudTabs({ groups }: { groups: CoudGroupData[] }) {
         {g.students.length === 0 ? (
           <div className="px-4 py-8 text-center text-slate-400 text-sm">Няма записани ученици</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[10px] font-medium text-slate-400 uppercase tracking-wide border-b border-slate-100">
-                  <th className="text-left px-4 py-2">Ученик</th>
-                  <th className="text-left px-4 py-2 w-28">Паралелка</th>
-                  <th className="text-left px-4 py-2 w-24">Клас</th>
-                  <th className="text-center px-4 py-2 w-28">Заявление</th>
+          <table className="w-full text-sm table-fixed">
+            <thead>
+              <tr className="text-[10px] font-medium text-slate-400 uppercase tracking-wide border-b border-slate-100">
+                <th className="text-left px-4 py-2 w-[30%]">Ученик</th>
+                <th className="text-left px-4 py-2 w-[15%]">Паралелка</th>
+                <th className="text-left px-4 py-2 w-[12%]">Клас</th>
+                <th className="text-left px-4 py-2 w-[28%]">Класен ръководител</th>
+                <th className="text-center px-4 py-2 w-[15%]">Заявление</th>
+              </tr>
+            </thead>
+            <tbody>
+              {g.students.map((s, si) => (
+                <tr key={si} className={`border-b border-slate-50 last:border-0 ${si % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
+                  <td className="px-4 py-2 text-slate-800 truncate">{s.name}</td>
+                  <td className="px-4 py-2 text-slate-600">{s.className}</td>
+                  <td className="px-4 py-2 text-slate-600">{s.externalClass}</td>
+                  <td className="px-4 py-2 text-slate-600 truncate">{s.classTeacher}</td>
+                  <td className="px-4 py-2 text-center">
+                    {s.hasAppl ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-medium"><Check size={14} /> Да</span>
+                    ) : (
+                      <span className="text-rose-400 text-xs">няма</span>
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {g.students.map((s, si) => (
-                  <tr key={si} className={`border-b border-slate-50 last:border-0 ${si % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
-                    <td className="px-4 py-2 text-slate-800">{s.name}</td>
-                    <td className="px-4 py-2 text-slate-600">{s.className}</td>
-                    <td className="px-4 py-2 text-slate-600">{s.externalClass}</td>
-                    <td className="px-4 py-2 text-center">
-                      {s.hasAppl ? (
-                        <span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-medium"><Check size={14} /> Да</span>
-                      ) : (
-                        <span className="text-rose-400 text-xs">няма</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
