@@ -72,7 +72,7 @@ export default function CoudGroupModal({ group, academicYearId, onClose, onChang
     const memberIds = new Set(mem.map(m => m.studentId))
 
     const avail = (allEnroll || [])
-            .filter((e: any) => e.student?.status === 'active' && !memberIds.has(e.student_id) && coudEligible(e.student?.external_class))
+            .filter((e: any) => e.student?.status === 'active' && !memberIds.has(e.student_id))
       .map((e: any) => ({
         id: e.student_id,
         name: `${e.student.first_name} ${e.student.middle_name || ''} ${e.student.last_name}`.replace(/\s+/g, ' ').trim(),
