@@ -61,9 +61,10 @@ export default async function ClassesPage({
     .eq('academic_year_id', currentYear?.id)
   // паралелка (в ЦСОП) по ученик
   const classNameByStudent = new Map<string, string>()
+  const classIdByStudent = new Map<string, string>()
   ;(allEnrollmentsRaw || []).forEach((e: any) => {
     const cls = (classes || []).find(c => c.id === e.class_id)
-    if (cls) classNameByStudent.set(e.student_id, cls.name)
+    if (cls) { classNameByStudent.set(e.student_id, cls.name); classIdByStudent.set(e.student_id, cls.id) }
   })
   // заявление ЦОУД по ученик
   const coudStudentIds = (coudEnrollments || []).map((e: any) => e.student?.id).filter(Boolean)
@@ -76,7 +77,7 @@ export default async function ClassesPage({
       .in('student_id', coudStudentIds)
     ;(coudAppls || []).forEach((a: any) => applSet.add(a.student_id))
   }
-  type CoudStudent = { name: string; className: string; externalClass: string; hasAppl: boolean }
+  type CoudStudent = { name: string; className: string; externalClass: string; classTeacher: string; hasAppl: boolean }
   type CoudGroupData = { name: string; teacher: string; students: CoudStudent[] }
   const coudData: CoudGroupData[] = (coudGroups || []).map(g => {
     const teacher = (g.teacher as any) ? `${(g.teacher as any).first_name} ${(g.teacher as any).last_name}` : '—'
@@ -86,6 +87,7 @@ export default async function ClassesPage({
         name: getFullName(e.student),
         className: classNameByStudent.get(e.student.id) || '—',
         externalClass: e.student.external_class || '—',
+        classTeacher: (teachersByClass.get(classIdByStudent.get(e.student.id) || '') || []).join(', ') || '—',
         hasAppl: applSet.has(e.student.id),
       }))
       .sort((a, b) => a.name.localeCompare(b.name, 'bg'))
