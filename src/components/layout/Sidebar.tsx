@@ -304,6 +304,15 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
             </div>
           </div>
         </Link>
+                <Link href="/my-files" onClick={() => setMobileOpen(false)}
+          className="flex items-center gap-2 px-3 py-1.5 mb-1 rounded-full transition-all text-[11px]"
+          style={{ color: TEXT_MUTED }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER; (e.currentTarget as HTMLElement).style.color = TEXT_SECONDARY }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; (e.currentTarget as HTMLElement).style.color = TEXT_MUTED }}
+        >
+          <FolderOpen size={13} />
+          Мои файлове
+        </Link>
         <Link href="/profile" onClick={() => setMobileOpen(false)}
           className="flex items-center gap-2 px-3 py-1.5 mb-1 rounded-full transition-all text-[11px]"
           style={{ color: TEXT_MUTED }}
