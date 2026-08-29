@@ -68,7 +68,7 @@ export default async function StudentsPage({
 
   // ── НЕРАЗПРЕДЕЛЕНИ: активни ученици без записване за текущата година ──
   // Виждат се от админ/ЗДУД/координатор
-  type Row = { key: string; student: any; className: string | null; unassigned: boolean }
+  type Row = { key: string; student: any; className: string | null; unassigned: boolean; educationForm: string | null; coudEnrolled: boolean }
   let unassignedRows: Row[] = []
   if (canSeeUnassigned) {
     // ВСИЧКИ записани за годината (без филтъра по паралелка) — иначе филтърът лъже кой е "неразпределен"
@@ -80,7 +80,7 @@ export default async function StudentsPage({
       .from('students').select('*').eq('status', 'active')
     unassignedRows = (allActive || [])
       .filter(s => !enrolledIds.has(s.id))
-      .map(s => ({ key: `u-${s.id}`, student: s, className: null, unassigned: true }))
+            .map(s => ({ key: `u-${s.id}`, student: s, className: null, unassigned: true, educationForm: s.education_form || 'daily', coudEnrolled: s.coud_enrolled === true }))
   }
 
   // ОРЕС филтър — активни днес
@@ -97,11 +97,13 @@ export default async function StudentsPage({
   // Записаните -> редове
   let enrolledRows: Row[] = (enrollments || [])
     .filter(e => e.student?.status === 'active')
-    .map(e => ({
+        .map(e => ({
       key: e.id,
       student: e.student,
       className: (e.class as any)?.name || null,
       unassigned: false,
+      educationForm: e.education_form || 'daily',
+      coudEnrolled: e.student?.coud_enrolled === true,
     }))
 
   // Обединяваме. Ако е избрана конкретна паралелка от падащото меню — неразпределените нямат паралелка, скриваме ги.
