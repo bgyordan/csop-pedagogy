@@ -121,7 +121,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
           </div>
           <div className="text-2xl font-bold text-slate-800">{ifoCount}</div>
         </Link>
-        <Link href="/admin/coud" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
+        <Link href="/classes?tab=coud" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
           <div className="flex items-center gap-2 mb-2">
             <Coffee size={15} className="text-slate-400" />
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">ЦОУД</div>
