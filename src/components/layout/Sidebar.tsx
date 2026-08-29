@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import {
-  LayoutDashboard, Users, FileText, BookOpen,
+  LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3,
   Inbox, ClipboardList, FileSignature, Package, Star, CalendarClock, ChevronDown, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen
@@ -31,7 +31,15 @@ const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Начало', icon: <LayoutDashboard size={16} /> },
   { href: '/students', label: 'Ученици', icon: <Users size={16} /> },
   { href: '/classes', label: 'Паралелки', icon: <BookOpen size={16} />, roles: ['admin', 'director', 'zdud'] },
-  { href: '/templates', label: 'Образци на документи', icon: <FileText size={16} /> },
+   {
+    href: '#documents',
+    label: 'Документи',
+    icon: <FileText size={16} />,
+    children: [
+      { href: '/templates', label: 'Образци', icon: <FileText size={14} /> },
+      { href: '/normative-docs', label: 'Нормативна база', icon: <ScrollText size={14} /> },
+    ],
+  },
   { href: '/spravki', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'], hideFromCoordinator: true },
   { href: '/my-ifo', label: 'Индивидуални часове (ИФО)', icon: <GraduationCap size={16} />, roles: ['class_teacher', 'educator'] },
   { href: '/my-schedule', label: 'Моето разписание', icon: <CalendarDays size={16} />, roles: ['class_teacher', 'educator'] },
