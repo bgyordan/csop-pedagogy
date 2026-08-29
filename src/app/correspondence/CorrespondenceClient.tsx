@@ -123,15 +123,16 @@ export default function CorrespondenceClient({
         />
       )}
 
+          {/* Скролваема таблица: замразен заглавен ред + скролващи редове */}
+      <div className="max-h-[calc(100vh-320px)] overflow-y-auto rounded-lg">
       {/* Заглавен ред */}
-           <div className="hidden md:grid grid-cols-[130px_80px_70px_1fr_1.5fr_1.5fr_56px] gap-3 px-4 py-2">
+      <div className="hidden md:grid grid-cols-[130px_80px_70px_1fr_1.5fr_1.5fr_56px] gap-3 px-4 py-2 sticky top-0 z-10 bg-slate-100">
         {['№', 'Дата', 'Арх. индекс', activeDir === 'incoming' ? 'От кого' : 'До кого', 'Относно', 'Забележка', 'Файл'].map(h => (
           <span key={h} className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{h}</span>
         ))}
       </div>
-
       {/* Редове */}
-      <div className="space-y-2">
+      <div className="space-y-2 pt-2">
         {correspondence.length === 0 ? (
           <div className="bg-white border border-slate-200 rounded-2xl p-16 text-center text-slate-400 italic text-sm shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
             Няма намерени документи.
