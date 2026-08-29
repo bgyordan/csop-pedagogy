@@ -81,7 +81,7 @@ export default function ContractsClient({
       </div>
 
       {/* Заглавен ред */}
-      <div className="hidden md:grid grid-cols-[120px_90px_1fr_1fr_110px_60px] gap-3 px-4 py-2 sticky top-0 z-10 bg-slate-50 rounded-lg">
+            <div className="hidden md:grid grid-cols-[120px_90px_1fr_1fr_110px_60px] gap-3 px-4 py-2">
         {['№', 'Дата', 'Контрагент', 'Предмет', 'Край', 'Файл'].map(h => (
           <span key={h} className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{h}</span>
         ))}
