@@ -6,6 +6,7 @@ import { getFullName } from '@/lib/utils'
 import { Users, Coffee } from 'lucide-react'
 import ClassTeachersSection from './ClassTeachersSection'
 import AddStudentsSection from './AddStudentsSection'
+import ClassScheduleWord from './ClassScheduleWord'
 export default async function ClassDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
@@ -63,16 +64,37 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
       }
     })
   }
+  // ── Разписание на паралелката (I срок, всички учители) за Word ──
+  const scheduleTerm = 1
+  const { data: classSched } = await supabase
+    .from('class_schedules').select('id')
+    .eq('class_id', id).eq('academic_year_id', currentYear?.id).eq('term', scheduleTerm).maybeSingle()
+  const scheduleSlots: Record<string, string> = {}
+  let scheduleMaxPeriod = 6
+  if (classSched) {
+    const { data: slots } = await supabase
+      .from('schedule_slots').select('day, period, subject:subjects(name)')
+      .eq('schedule_id', classSched.id)
+    ;(slots || []).forEach((sl: any) => {
+      if (sl.subject?.name) scheduleSlots[`${sl.day}-${sl.period}`] = sl.subject.name
+      if (sl.period === 7) scheduleMaxPeriod = 7
+    })
+  }
   return (
     <div className="p-4 md:p-8">
       <BackButton />
       <div className="mb-6">
-        <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Паралелка {cls.name}</h1>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
-          <p className="text-slate-500 text-sm">{students.length} ученика · {currentYear?.name}</p>
-          {teachers.length > 0 && (
-            <p className="text-slate-500 text-sm">Класен: <strong className="text-slate-700">{teachers.join(', ')}</strong></p>
-          )}
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Паралелка {cls.name}</h1>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+              <p className="text-slate-500 text-sm">{students.length} ученика · {currentYear?.name}</p>
+              {teachers.length > 0 && (
+                <p className="text-slate-500 text-sm">Класен: <strong className="text-slate-700">{teachers.join(', ')}</strong></p>
+              )}
+            </div>
+          </div>
+          <ClassScheduleWord className={cls.name} yearName={currentYear?.name || ''} slots={scheduleSlots} maxPeriod={scheduleMaxPeriod} term={scheduleTerm} />
         </div>
       </div>
       <ClassTeachersSection
