@@ -242,6 +242,18 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
           )}
         </div>
       </div>
+            {/* ── ЗАМЕСТВАНИЯ ── */}
+      <div className="mt-6">
+        <Link href="/substitutions" className="flex items-center gap-3 bg-white rounded-2xl border border-slate-200/70 shadow-sm px-5 py-4 hover:border-slate-300 transition-all group">
+          <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-50 text-blue-500"><Clock size={17} /></span>
+          <div className="flex-1">
+            <div className="text-sm font-semibold text-slate-800">Замествания</div>
+            <div className="text-xs text-slate-500">Отсъстващи, заместници и заповеди за заместване</div>
+          </div>
+          <ArrowRight size={15} className="text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all" />
+        </Link>
+      </div>
+
       {/* ── СПОДЕЛЕНИ ФАЙЛОВЕ ── */}
       <div className="mt-6">
         <SharedFiles />
