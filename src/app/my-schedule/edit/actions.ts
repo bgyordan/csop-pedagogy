@@ -18,15 +18,18 @@ export interface MyCell {
 export async function saveMySchedule(
   academicYearId: string,
   term: number,
-  cells: MyCell[]
+  cells: MyCell[],
+  targetStaffId?: string
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли' }
   const { data: me } = await supabase
-    .from('staff_profiles').select('id').eq('user_id', user.id).single()
+    .from('staff_profiles').select('id, role').eq('user_id', user.id).single()
   if (!me) return { error: 'Няма профил' }
-  const myId = me.id
+  // Админ/ЗДУД могат да редактират от името на друг учител
+  const isManager = ['admin', 'zdud'].includes(me.role || '')
+  const myId = (targetStaffId && isManager) ? targetStaffId : me.id
 
   const classCells = cells.filter(c => c.holderType === 'class' && c.subjectId)
   const ifoCells = cells.filter(c => c.holderType === 'ifo' && c.subjectId)
