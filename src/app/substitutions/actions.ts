@@ -166,12 +166,13 @@ export async function getDeclarationData(substitutionId: string) {
         // ден без часове — пропускаме в декларацията
       } else {
         // за декларацията групираме по паралелка: един ред на паралелка/ден с брой часове
-        const byCls: Record<string, { subject: string; hours: number }> = {}
+                const byCls: Record<string, { subjects: string[]; hours: number }> = {}
         dayItems.forEach(it => {
-          if (!byCls[it.cls]) byCls[it.cls] = { subject: it.subject, hours: 0 }
+          if (!byCls[it.cls]) byCls[it.cls] = { subjects: [], hours: 0 }
+          if (it.subject && !byCls[it.cls].subjects.includes(it.subject)) byCls[it.cls].subjects.push(it.subject)
           byCls[it.cls].hours++
         })
-        Object.entries(byCls).forEach(([cls, v]) => out.push({ date: dateStr, cls, subject: v.subject, hours: v.hours }))
+        Object.entries(byCls).forEach(([cls, v]) => out.push({ date: dateStr, cls, subject: v.subjects.join('; '), hours: v.hours }))
       }
     }
     d.setDate(d.getDate() + 1)
