@@ -110,8 +110,8 @@ export default function OrdersClient({
       </div>
 
       {/* Заглавен ред */}
-      <div className="hidden md:grid grid-cols-[160px_90px_80px_1fr_60px] gap-3 px-4 py-2">
-        {['№', 'Дата', 'Арх. индекс', 'Заглавие', 'Файл'].map(h => (
+           <div className="hidden md:grid grid-cols-[150px_85px_75px_1fr_1fr_56px] gap-3 px-4 py-2">
+        {['№', 'Дата', 'Арх. индекс', 'Заглавие', 'Забележка', 'Файл'].map(h => (
           <span key={h} className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{h}</span>
         ))}
       </div>
@@ -126,7 +126,7 @@ export default function OrdersClient({
         ) : orders.map((item) => (
           <div key={item.id}
             onClick={() => setViewItem(item)}
-            className="bg-white border border-slate-200 rounded-2xl px-4 py-3 cursor-pointer hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] transition-all group grid grid-cols-[160px_90px_80px_1fr_60px] gap-3 items-center shadow-[0_1px_4px_rgba(15,34,64,0.06)]">
+            className="bg-white border border-slate-200 rounded-2xl px-4 py-3 cursor-pointer hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] transition-all group grid grid-cols-[150px_85px_75px_1fr_1fr_56px] gap-3 items-center shadow-[0_1px_4px_rgba(15,34,64,0.06)]">
 
             <span className="font-medium text-slate-800 text-xs whitespace-nowrap truncate">{item.number}</span>
 
@@ -136,7 +136,8 @@ export default function OrdersClient({
 
             <span className="text-xs text-slate-500 truncate">{item.nomenclature_item || '—'}</span>
 
-            <span className="text-xs text-slate-800 truncate">{item.title || '—'}</span>
+             <span className="text-xs text-slate-800 truncate">{item.title || '—'}</span>
+            <span className="text-xs text-slate-500 truncate" title={item.description || ''}>{item.description || '—'}</span>
 
             <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
               {item.file_url ? (
