@@ -54,8 +54,8 @@ export default async function MySchedulePage({
     ;(schedules || []).forEach((s: any) => { scheduleClassById[s.id] = s.class_id })
     if (scheduleIds.length > 0) {
       const { data: slots } = await supabase
-        .from('schedule_slots').select('schedule_id, day, period, subject:subjects(name, allows_pullout)')
-        .in('schedule_id', scheduleIds)
+                .from('schedule_slots').select('schedule_id, day, period, subject:subjects(name, allows_pullout)')
+        .in('schedule_id', scheduleIds).eq('staff_id', target.id)
       classSlots = (slots || []).map((s: any) => ({
         source: 'class' as const, day: s.day, period: s.period,
         subjectName: s.subject?.name || '', allowsPullout: s.subject?.allows_pullout || false,
