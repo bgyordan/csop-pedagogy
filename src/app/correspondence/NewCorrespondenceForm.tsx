@@ -91,6 +91,12 @@ export default function NewCorrespondenceForm({
   const [showAllNom, setShowAllNom] = useState(false)
   const [addToDossier, setAddToDossier] = useState(true)
   const [createOrder, setCreateOrder] = useState(true)
+  // Заместване (само сценарий отпуск, опционално)
+  const [substituteId, setSubstituteId] = useState('')
+  const [subSearch, setSubSearch] = useState('')
+  const [subOpen, setSubOpen] = useState(false)
+  const [subFrom, setSubFrom] = useState('')
+  const [subTo, setSubTo] = useState('')
   const currentYear = new Date().getFullYear()
   const activeScenario = scenario ? QUICK_SCENARIOS[scenario] : null
   const selectedNomItem = nomenclature.find(n => n.item_code === folderIndex)
@@ -226,6 +232,21 @@ export default function NewCorrespondenceForm({
       } catch (_) { /* заповедта не бива да блокира деловодството */ }
     }
 
+    // Заместване (сценарий vacation, ако е избран заместник) -> ред в substitutions
+    if (scenario === 'vacation' && substituteId && subFrom && subTo) {
+      try {
+        await supabase.from('substitutions').insert({
+          absent_staff_id: staffId || null,
+          substitute_staff_id: substituteId,
+          date_from: subFrom,
+          date_to: subTo,
+          reason: 'vacation',
+          leave_order_date: docDate,
+          created_by: currentUserId,
+        })
+      } catch (_) { /* заместването не бива да блокира деловодството */ }
+    }
+
     // Прикачване към досието на ученика (заявление за прием / ЦОУД)
     if (uploadedFile && studentId && activeScenario?.icon === 'student' && activeScenario.dossierDocType && addToDossier) {
       try {
@@ -330,6 +351,57 @@ export default function NewCorrespondenceForm({
                       Създай и <strong>заповед за отпуск</strong> (РД-10) с общия файл
                     </span>
                   </label>
+                )}
+                {/* Заместване (опционално) */}
+                {scenario === 'vacation' && (
+                  <div className="pt-2 mt-1 border-t border-slate-200 space-y-2">
+                    <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Заместване (по избор)</div>
+                    {/* Комбо заместник */}
+                    <div className="relative">
+                      <input type="text"
+                        value={substituteId ? (staff.find(x => x.id === substituteId) ? `${staff.find(x => x.id === substituteId)!.first_name} ${staff.find(x => x.id === substituteId)!.last_name}` : subSearch) : subSearch}
+                        onChange={e => { setSubSearch(e.target.value); setSubstituteId(''); setSubOpen(true) }}
+                        onFocus={() => setSubOpen(true)}
+                        placeholder="Заместник — търси по име…"
+                        className="input w-full text-xs" />
+                      {substituteId && (
+                        <button type="button" onClick={() => { setSubstituteId(''); setSubSearch(''); setSubFrom(''); setSubTo('') }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><X size={13} /></button>
+                      )}
+                      {subOpen && !substituteId && (
+                        <div className="absolute z-20 mt-1 w-full max-h-44 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg">
+                          {staff
+                            .filter(x => x.id !== staffId)
+                            .filter(x => `${x.first_name} ${x.last_name}`.toLowerCase().includes(subSearch.toLowerCase()))
+                            .sort((a,b) => a.first_name.localeCompare(b.first_name, 'bg'))
+                            .slice(0, 30)
+                            .map(x => (
+                              <button key={x.id} type="button"
+                                onClick={() => { setSubstituteId(x.id); setSubOpen(false); setSubSearch('') }}
+                                className="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 text-slate-700">
+                                {x.first_name} {x.last_name}
+                              </button>
+                            ))}
+                          {staff.filter(x => x.id !== staffId).filter(x => `${x.first_name} ${x.last_name}`.toLowerCase().includes(subSearch.toLowerCase())).length === 0 && (
+                            <div className="px-3 py-2 text-xs text-slate-400">Няма съвпадение</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {/* Срок — само ако има избран заместник */}
+                    {substituteId && (
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <label className="block text-[10px] text-slate-400 mb-0.5">От</label>
+                          <input type="date" value={subFrom} onChange={e => setSubFrom(e.target.value)} className="input w-full text-xs" />
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-[10px] text-slate-400 mb-0.5">До</label>
+                          <input type="date" value={subTo} onChange={e => setSubTo(e.target.value)} className="input w-full text-xs" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}
