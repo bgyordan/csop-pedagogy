@@ -218,9 +218,8 @@ export default function NewCorrespondenceForm({
           title: `Заповед за отпуск на ${fromWhom || ''}`.trim(),
           nomenclature_item: 'РД-10',
           description: `Издадена въз основа на Вх. ${docNumber}`,
-          file_url: fileUrl || null,
+                    file_url: fileUrl || null,
           file_name: fileName || null,
-          staff_id: staffId || null,
           created_by: currentUserId,
           seq: oSeq,
         })
