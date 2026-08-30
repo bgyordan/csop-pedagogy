@@ -23,7 +23,8 @@ interface NavItem {
   icon: React.ReactNode
   roles?: UserRole[]
   coordinatorOnly?: boolean
-  hideFromCoordinator?: boolean
+   hideFromCoordinator?: boolean
+  requiresClass?: boolean
   section?: string
   children?: NavItem[]
 }
@@ -43,7 +44,7 @@ const navItems: NavItem[] = [
   { href: '/spravki', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'], hideFromCoordinator: true },
     { href: '/my-schedule/edit', label: 'Въвеждане на разписание', icon: <GraduationCap size={16} />, roles: ['class_teacher', 'educator'] },
   { href: '/my-schedule', label: 'Моето разписание', icon: <CalendarDays size={16} />, roles: ['class_teacher', 'educator'] },
-  { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={16} />, roles: ['class_teacher'] },
+  { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={16} />, roles: ['class_teacher'], requiresClass: true },
   { href: '/my-activities', label: 'Списък за терапия', icon: <HeartPulse size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
   { href: '/reports', label: 'Натовареност', icon: <BarChart3 size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
   {
@@ -95,10 +96,11 @@ interface SidebarProps {
   userRole: UserRole
   userName: string
   userEmail: string
-  isCoordinator?: boolean
+    isCoordinator?: boolean
+  hasClass?: boolean
   userPosition?: string
 }
-export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, userPosition = '' }: SidebarProps) {
+export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, userPosition = '', hasClass = true }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -123,7 +125,8 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
     function canSee(item: NavItem): boolean {
     if (item.href === '/dashboard') return true
     if (isSecretary) return item.section === 'delo' || item.section === 'settings'
-    if (item.hideFromCoordinator && isCoordinator) return false
+     if (item.hideFromCoordinator && isCoordinator) return false
+    if (item.requiresClass && !hasClass) return false
     if (item.coordinatorOnly && isCoordinator) return true
     if (!item.roles) return true
     return item.roles.some(r => effectiveRoles.includes(r))
