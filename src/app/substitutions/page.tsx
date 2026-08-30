@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic'
 export interface SubRow {
   id: string
   absentName: string
+  absentStaffId: string
   substituteName: string | null
   substituteId: string | null
   dateFrom: string
@@ -25,7 +26,7 @@ export default async function SubstitutionsPage() {
 
   const { data } = await supabase
     .from('substitutions')
-    .select(`id, date_from, date_to, reason, substitute_staff_id, substitution_order_id,
+     .select(`id, date_from, date_to, reason, absent_staff_id, substitute_staff_id, substitution_order_id,
       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name),
       sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name)`)
     .order('date_from', { ascending: false })
@@ -33,6 +34,7 @@ export default async function SubstitutionsPage() {
   const rows: SubRow[] = (data || []).map((r: any) => ({
     id: r.id,
     absentName: r.absent ? `${r.absent.first_name} ${r.absent.last_name}` : '—',
+    absentStaffId: r.absent_staff_id,
     substituteName: r.sub ? `${r.sub.first_name} ${r.sub.last_name}` : null,
     substituteId: r.substitute_staff_id,
     dateFrom: r.date_from,
