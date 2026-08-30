@@ -94,3 +94,69 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
   const blob = await Packer.toBlob(doc)
   saveAs(blob, `заповед_заместване_${d.orderNumber.replace(/[^0-9]/g, '_')}.docx`)
 }
+
+// ═══ СПРАВКА-ДЕКЛАРАЦИЯ (Приложение 2, НП "Без свободен час") ═══
+export interface SubstDeclData {
+  substituteName: string       // заместник (декларатор)
+  substitutePosition: string
+  absentName: string           // отсъстващ титуляр
+  orderRef: string             // "Заповед № 045/…"
+  periodFrom: string           // ISO
+  periodTo: string             // ISO
+  yearName: string
+  // редове: { date, orderRef, cls, hours }  (тема остава празна за ръчно)
+  rows: { date: string; cls: string; hours: number }[]
+  totalHours: number
+}
+
+export async function generateSubstitutionDeclaration(d: SubstDeclData) {
+  const children: any[] = []
+  header().forEach(p => children.push(p))
+
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('СПРАВКА – ДЕКЛАРАЦИЯ', 26)], spacing: { before: 120, after: 40 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal('за възнаграждение на учител за реално взетите учебни часове', 20)], spacing: { after: 20 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal('по Националната програма „Без свободен час" за 2026 г., Модул 1', 20)], spacing: { after: 200 } }))
+
+  children.push(new Paragraph({ children: [
+    normal('Долуподписаният/ата ', 22), bold(d.substituteName, 22),
+    normal(`, на длъжност ${d.substitutePosition || 'учител'}, в Център за специална образователна подкрепа – гр. Варна,`, 22),
+  ], spacing: { after: 120 } }))
+
+  const pf = formatDate(d.periodFrom), pt = formatDate(d.periodTo)
+  children.push(new Paragraph({ children: [
+    bold('ДЕКЛАРИРАМ, ', 22),
+    normal(`че за периода от ${pf} до ${pt} действително съм провел/а следните учебни часове като заместващ/а на отсъстващия учител `, 22),
+    bold(d.absentName, 22), normal(':', 22),
+  ], spacing: { after: 120 } }))
+
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const CELLS = { top: B, bottom: B, left: B, right: B }
+  const th = (t: string) => new TableCell({ borders: CELLS, shading: { type: ShadingType.CLEAR, fill: 'EEEEEE' }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(t, 16)] })] })
+  const td = (t: string, c = false) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 16)] })] })
+  const rows: TableRow[] = [ new TableRow({ children: [
+    th('Дата'), th('Заповед №/Договор №'), th('Клас'), th('Тема от учебното/образователното съдържание'), th('Брой часове'), th('Име на отсъстващия учител'),
+  ] }) ]
+  d.rows.forEach(r => {
+    rows.push(new TableRow({ children: [
+      td(r.date, true), td(d.orderRef), td(r.cls, true), td(''), td(String(r.hours), true), td(d.absentName),
+    ] }))
+  })
+  children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [1200, 1800, 900, 3200, 900, 2000], rows }))
+  children.push(new Paragraph({ text: '', spacing: { after: 120 } }))
+
+  children.push(new Paragraph({ children: [
+    normal('Общ брой учебни часове: ', 22), bold(String(d.totalHours), 22),
+    normal('  ×  ................ лв./час  =  ........................ лв.', 22),
+  ], spacing: { after: 40 } }))
+  children.push(new Paragraph({ children: [normal('(словом: ..............................................................................)', 18)], spacing: { after: 120 } }))
+
+  children.push(new Paragraph({ children: [normal('Темите на преподаденото учебно/образователно съдържание са вписани в дневника на класа/групата.', 20)], spacing: { after: 60 } }))
+  children.push(new Paragraph({ children: [normal('Известно ми е, че при деклариране на неверни данни нося отговорност съгласно законите на Република България.', 20)], spacing: { after: 300 } }))
+
+  children.push(new Paragraph({ children: [normal('Декларатор: ...............................   (дата: ................)', 22)], spacing: { after: 200 } }))
+  children.push(new Paragraph({ children: [normal('Директор: ...............................   (подпис, печат)', 22)] }))
+
+  const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 800, right: 800 } } }, children }] })
+  const blob = await Packer.toBlob(doc)
+  saveAs(blob, `декларация_заместване_${d.substituteName.replace(/\s+/g, '_')}.docx`)
+}
