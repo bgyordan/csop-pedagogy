@@ -31,10 +31,15 @@ export default async function MyScheduleEditPage({
     .eq('staff_id', me.id).eq('academic_year_id', currentYear?.id)
   const myClassTeacherIds = (myCta || []).map((a: any) => a.class_id)
 
-  // всички активни ученици (за ИФО избор)
-  const { data: students } = await supabase
-    .from('students').select('id, first_name, middle_name, last_name').eq('status', 'active')
-  const studentOpts = (students || []).map((s: any) => ({ id: s.id, name: getFullName(s) }))
+  // само ИФО ученици (education_form='ifo' за текущата година)
+  const { data: ifoEnroll } = await supabase
+    .from('student_enrollments')
+    .select('student:students(id, first_name, middle_name, last_name, status)')
+    .eq('academic_year_id', currentYear?.id).eq('education_form', 'ifo')
+  const studentOpts = (ifoEnroll || [])
+    .map((e: any) => e.student)
+    .filter((s: any) => s && s.status === 'active')
+    .map((s: any) => ({ id: s.id, name: getFullName(s) }))
 
   // предмети
   const { data: subjects } = await supabase.from('subjects').select('id, name, allows_pullout').order('name')
