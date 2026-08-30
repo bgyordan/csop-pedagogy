@@ -75,6 +75,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [reason, setReason] = useState('sick')
+  const [bsch, setBsch] = useState(false)
   const [saving, setSaving] = useState(false)
 
   // Редакция
@@ -84,6 +85,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [eFrom, setEFrom] = useState('')
   const [eTo, setETo] = useState('')
   const [eReason, setEReason] = useState('sick')
+  const [eBsch, setEBsch] = useState(false)
   const [eSaving, setESaving] = useState(false)
 
   const filtered = useMemo(() => {
@@ -92,16 +94,15 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     return rows.filter(r => r.absentName.toLowerCase().includes(q) || (r.substituteName || '').toLowerCase().includes(q))
   }, [rows, search])
 
-    function mapRow(r: any): SubRow {
+  function mapRow(r: any): SubRow {
     return {
       id: r.id, absentName: r.absent ? `${r.absent.first_name} ${r.absent.last_name}` : '—',
-      absentStaffId: r.absent_staff_id,
       substituteName: r.sub ? `${r.sub.first_name} ${r.sub.last_name}` : null,
       substituteId: r.substitute_staff_id, dateFrom: r.date_from, dateTo: r.date_to,
-      reason: r.reason, hasOrder: !!r.substitution_order_id,
+      reason: r.reason, hasOrder: !!r.substitution_order_id, bsch: r.bsch_eligible === true,
     }
   }
-  const selectCols = `id, date_from, date_to, reason, substitute_staff_id, substitution_order_id,
+  const selectCols = `id, date_from, date_to, reason, substitute_staff_id, substitution_order_id, bsch_eligible,
     absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name),
     sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name)`
 
@@ -110,12 +111,12 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     setSaving(true)
     const { data, error } = await supabase.from('substitutions').insert({
       absent_staff_id: absentId, substitute_staff_id: subId || null,
-      date_from: from, date_to: to, reason,
+      date_from: from, date_to: to, reason, bsch_eligible: bsch,
     }).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setSaving(false); return }
     setRows(prev => [mapRow(data), ...prev])
     toast('Заместването е добавено')
-    setAbsentId(''); setSubId(''); setFrom(''); setTo(''); setReason('sick'); setShowNew(false); setSaving(false)
+    setAbsentId(''); setSubId(''); setFrom(''); setTo(''); setReason('sick'); setBsch(false); setShowNew(false); setSaving(false)
   }
 
   function startEdit(r: SubRow) {
@@ -124,7 +125,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     // намираме id на отсъстващия по име (нямаме го в SubRow) — държим absentId в отделна карта
     setEAbsent(absentIdByRow[r.id] || '')
     setESub(r.substituteId || '')
-    setEFrom(r.dateFrom); setETo(r.dateTo); setEReason(r.reason)
+    setEFrom(r.dateFrom); setETo(r.dateTo); setEReason(r.reason); setEBsch(!!(r as any).bsch)
   }
   // за редакция трябва absent_staff_id — пазим карта id->absentId от initial (page подава само име)
   // затова добавяме absentId в SubRow (виж page.tsx: absentStaffId)
@@ -139,7 +140,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     setESaving(true)
     const { data, error } = await supabase.from('substitutions').update({
       absent_staff_id: eAbsent, substitute_staff_id: eSub || null,
-      date_from: eFrom, date_to: eTo, reason: eReason,
+      date_from: eFrom, date_to: eTo, reason: eReason, bsch_eligible: eBsch,
     }).eq('id', editId).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setESaving(false); return }
     const mapped: any = mapRow(data); mapped.absentStaffId = eAbsent
@@ -205,6 +206,10 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               </select>
             </div>
           </div>
+          <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm cursor-pointer transition-all ${bsch ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+            <input type="checkbox" checked={bsch} onChange={e => setBsch(e.target.checked)} className="sr-only" />
+            По НП „Без свободен час"
+          </label>
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
             <button onClick={() => setShowNew(false)} className="px-4 py-2 rounded-xl text-sm bg-white border border-slate-200 hover:bg-slate-100 text-slate-700">Отказ</button>
             <button onClick={saveNew} disabled={saving || !absentId || !from || !to}
@@ -241,7 +246,10 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               </span>
               <span className="text-xs text-slate-500">{fmt(r.dateFrom)}</span>
               <span className="text-xs text-slate-500">{fmt(r.dateTo)}</span>
-              <span><span className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span></span>
+              <span className="flex items-center gap-1.5 flex-wrap">
+                <span className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>
+                {(r as any).bsch && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">НП</span>}
+              </span>
               <div className="flex items-center justify-end gap-1">
                 {r.substituteId && !r.hasOrder && (
                   <button className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
@@ -288,6 +296,12 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                   <option value="vacation">Отпуск</option>
                   <option value="other">Друго</option>
                 </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm cursor-pointer transition-all ${eBsch ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+                  <input type="checkbox" checked={eBsch} onChange={e => setEBsch(e.target.checked)} className="sr-only" />
+                  По НП „Без свободен час"
+                </label>
               </div>
             </div>
             <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100">
