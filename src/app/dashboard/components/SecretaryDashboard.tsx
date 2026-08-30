@@ -22,6 +22,8 @@ export default async function SecretaryDashboard({ profile }: any) {
     { data: expiringContracts },
     { data: enrollments },
     { data: couds },
+    { count: subsWaiting },
+    { count: subsTotal },
   ] = await Promise.all([
     supabase.from('correspondence').select('number, date, subject').eq('direction', 'incoming').order('created_at', { ascending: false }).limit(1),
     supabase.from('correspondence').select('*', { count: 'exact', head: true }).eq('direction', 'incoming').gte('date', `${currentYear}-01-01`),
@@ -34,13 +36,15 @@ export default async function SecretaryDashboard({ profile }: any) {
     supabase.from('contracts').select('number, subject, counterparty, end_date').gte('end_date', today).lte('end_date', in30days).order('end_date'),
        supabase.from('student_attachments').select('student_id').eq('doc_type', 'enrollment_application'),
     supabase.from('student_attachments').select('student_id').eq('doc_type', 'coud_application'),
+    supabase.from('substitutions').select('*', { count: 'exact', head: true }).is('substitute_staff_id', null),
+    supabase.from('substitutions').select('*', { count: 'exact', head: true }),
   ])
 
   return (
     <div className="animate-in fade-in duration-500 space-y-4 max-w-7xl">
 
       {/* Статистика */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Link href="/correspondence?direction=incoming"
           className="block bg-white px-5 py-4 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 hover:bg-slate-50/50 transition-colors">
           <div className="flex justify-between items-baseline mb-1">
@@ -104,13 +108,16 @@ export default async function SecretaryDashboard({ profile }: any) {
             <div className="text-[11px] text-slate-500 truncate mt-0.5">{lastContract[0].counterparty}</div>
           )}
         </Link>
-                <Link href="/substitutions"
+        <Link href="/substitutions"
           className="block bg-white px-5 py-4 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 hover:bg-slate-50/50 transition-colors">
           <div className="flex justify-between items-baseline mb-1">
             <div className="text-xs font-medium text-slate-500">Замествания</div>
-            <ArrowRight size={13} className="text-slate-300" />
+            <div className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">общо {subsTotal || 0}</div>
           </div>
-          <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-2 mt-3">Отсъстващи и заповеди за заместване</div>
+          <div className="text-3xl font-medium text-slate-800 tracking-tight my-2">{subsWaiting || 0}</div>
+          <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-2 mt-2 truncate">
+            {subsWaiting ? 'чакат заместник' : 'няма чакащи'}
+          </div>
         </Link>
       </div>
 
