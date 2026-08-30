@@ -51,13 +51,7 @@ export default async function StudentsPage({
       .eq('staff_id', profileData!.id).eq('academic_year_id', currentYear?.id)
     const myClassIds = new Set((assignments || []).map(a => a.class_id))
     // + паралелките, в които преподавам по разписание (учител без своя паралелка)
-    const { data: mySched } = await supabase
-      .from('class_schedules').select('class_id')
-      .eq('academic_year_id', currentYear?.id).not('class_id', 'is', null)
-    const schedIds = (mySched || []).map((s: any) => s.id)
-    if (schedIds.length === 0) {
-      // няма разписания още — само class_teacher_assignments
-    }
+    
     const { data: mySlots } = await supabase
       .from('schedule_slots')
       .select('schedule:class_schedules(class_id)')
