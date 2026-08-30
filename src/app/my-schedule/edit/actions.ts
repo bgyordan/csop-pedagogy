@@ -105,3 +105,22 @@ export async function checkClassCollision(
     subject: s.subject?.name || '',
   }
 }
+
+
+// Добавя нов предмет в движение (ползва се и от редактора на разписание)
+export async function addSubjectQuick(name: string, allowsPullout: boolean) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+  const { data: profile } = await supabase
+    .from('staff_profiles').select('id').eq('user_id', user.id).single()
+  const { data, error } = await supabase
+    .from('subjects')
+    .insert({ name: name.trim(), allows_pullout: allowsPullout, is_therapy: allowsPullout, created_by: profile?.id })
+    .select('id, name, allows_pullout').single()
+  if (error) {
+    if (error.message.includes('duplicate')) return { error: 'Вече съществува такъв предмет' }
+    return { error: error.message }
+  }
+  return { subject: data }
+}
