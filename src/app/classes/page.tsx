@@ -40,7 +40,7 @@ export default async function ClassesPage({
   const enrollments = (allEnrollmentsRaw || []).filter((e: any) => e.student?.status === 'active')
   const { data: assignments } = await supabase
     .from('class_teacher_assignments')
-    .select('class_id, staff:staff_profiles(first_name, last_name, is_active)')
+        .select('class_id, staff:staff_profiles(id, first_name, last_name, is_active)')
     .eq('academic_year_id', currentYear?.id)
   const countByClass = new Map<string, number>()
   enrollments?.forEach(e => countByClass.set(e.class_id, (countByClass.get(e.class_id) || 0) + 1))
