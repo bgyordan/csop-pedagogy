@@ -56,30 +56,45 @@ export default async function SchedulesPage({
   // ── Класни/учители ──
   let teachers: any[] = []
   if (tab === 'teachers') {
+    // Всички учители (класни + без паралелка), дори с празно разписание
+    const { data: allTeachers } = await supabase
+      .from('staff_profiles')
+      .select('id, first_name, last_name')
+      .in('role', ['class_teacher', 'teacher'])
+      .eq('is_active', true)
+    const map: Record<string, { id: string; name: string; classes: Set<string>; ifo1: number }> = {}
+    ;(allTeachers || []).forEach((t: any) => {
+      map[t.id] = { id: t.id, name: getFullName(t), classes: new Set(), ifo1: 0 }
+    })
+    // паралелки на които е класен
     const { data: cta } = await supabase
       .from('class_teacher_assignments')
-      .select('staff_id, class:classes(name), staff:staff_profiles(id, first_name, last_name, is_active)')
+      .select('staff_id, class:classes(name)')
       .eq('academic_year_id', currentYear?.id)
+    ;(cta || []).forEach((a: any) => {
+      if (map[a.staff_id] && a.class?.name) map[a.staff_id].classes.add(a.class.name)
+    })
+    // паралелки от разписанието (вкл. гостуващи)
+    const { data: slotStaff } = await supabase
+      .from('schedule_slots')
+      .select('staff_id, schedule:class_schedules!inner(academic_year_id, class:classes(name))')
+      .not('staff_id', 'is', null)
+    ;(slotStaff || []).forEach((sl: any) => {
+      if (sl.schedule?.academic_year_id !== currentYear?.id) return
+      if (map[sl.staff_id] && sl.schedule?.class?.name) map[sl.staff_id].classes.add(sl.schedule.class.name)
+    })
+    // ИФО часове (I срок)
     const { data: ifoT } = await supabase
       .from('teacher_ifo_slots')
-      .select('teacher_id, term, teacher:staff_profiles(id, first_name, last_name, is_active)')
+      .select('teacher_id, term')
       .eq('academic_year_id', currentYear?.id)
-    const map: Record<string, { id: string; name: string; classes: Set<string>; ifo1: number }> = {}
-    ;(cta || []).forEach((a: any) => {
-      if (!a.staff || a.staff.is_active === false) return
-      if (!map[a.staff_id]) map[a.staff_id] = { id: a.staff_id, name: getFullName(a.staff), classes: new Set(), ifo1: 0 }
-      if (a.class?.name) map[a.staff_id].classes.add(a.class.name)
-    })
     ;(ifoT || []).forEach((s: any) => {
-      if (!s.teacher || s.teacher.is_active === false) return
-      if (!map[s.teacher_id]) map[s.teacher_id] = { id: s.teacher_id, name: getFullName(s.teacher), classes: new Set(), ifo1: 0 }
-      if (s.term === 1) map[s.teacher_id].ifo1++
+      if (map[s.teacher_id] && s.term === 1) map[s.teacher_id].ifo1++
     })
     teachers = Object.values(map).map(t => ({
       id: t.id, name: t.name, classes: [...t.classes], ifoHours: t.ifo1,
     })).sort((a, b) => a.name.localeCompare(b.name, 'bg'))
   }
-
   // ── Терапевти ──
   let therapists: any[] = []
   if (tab === 'therapists') {
