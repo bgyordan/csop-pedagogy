@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Loader2, FileDown, UserX, CalendarClock } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { getDeclarationData } from './actions'
+import { getDeclarationData } from '../substitutions/actions'
 import { generateSubstitutionDeclaration, generateSubstitutionInternalDecl } from '@/lib/docx-substitution'
 import type { MySubRow } from './page'
 
