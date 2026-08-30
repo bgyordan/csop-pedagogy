@@ -27,6 +27,7 @@ export interface SubstOrderData {
   dateTo: string
   zdudName: string
   yearName: string
+  isBsch: boolean
   days: { date: string; items: { period: number; subject: string; cls: string }[] }[]
 }
 
@@ -81,9 +82,13 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
   const P = (t: string) => children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [normal(t, 22)] }))
   P('3. Реално проведените часове по заместване, които са извън личната норма за задължителна заетост на заместващия учител, да се изплатят като лекторски часове.')
   P('4. Отчитането на часовете да се извърши в края на месеца въз основа на отразените данни в електронния дневник на ЦСОП и представена „Справка-декларация за действително взети лекторски часове при целодневно заместване".')
-  P('5. Възнаграждението за един лекторски час да се изплати съгласно ВПРЗ на Центъра за съответната година.')
+  children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
+    normal('5. Източник на финансиране: ', 22),
+    bold(d.isBsch ? 'Национална програма „Без свободен час", Модул 1.' : 'бюджет на ЦСОП (собствени средства).', 22),
+  ] }))
+  P('6. Възнаграждението за един лекторски час да се изплати съгласно ВПРЗ на Центъра за съответната година.')
   children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 200 }, children: [
-    normal('6. Контрол по изпълнението на заповедта възлагам на ', 22), bold(d.zdudName || '…………………', 22),
+    normal('7. Контрол по изпълнението на заповедта възлагам на ', 22), bold(d.zdudName || '…………………', 22),
     normal(', заместник-директор.', 22),
   ] }))
   children.push(new Paragraph({ children: [normal('Настоящата заповед да се връчи на лицето и на счетоводството за изпълнение.', 22)], spacing: { after: 300 } }))
