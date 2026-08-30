@@ -15,8 +15,8 @@ const DAYS = [
 ]
 
 
-export default function MyScheduleEditor({ academicYearId, term, classes, students, subjects, initialSlots, myClassTeacherIds = [] }: {
-  academicYearId: string; term: number; classes: Cls[]; students: Stud[]; subjects: Subj[]; initialSlots: Slot[]; myClassTeacherIds?: string[]
+export default function MyScheduleEditor({ academicYearId, term, classes, students, subjects, initialSlots, myClassTeacherIds = [], targetStaffId }: {
+  academicYearId: string; term: number; classes: Cls[]; students: Stud[]; subjects: Subj[]; initialSlots: Slot[]; myClassTeacherIds?: string[]; targetStaffId?: string
 }) {
   const { toast } = useToast()
   const [subjectList, setSubjectList] = useState<Subj[]>(subjects)
@@ -102,7 +102,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
       const [day, period] = key.split('-').map(Number)
       return { day, period, holderType: v.holderType, holderId: v.holderId, subjectId: v.subjectId }
     })
-    const res: any = await saveMySchedule(academicYearId, term, cells)
+    const res: any = await saveMySchedule(academicYearId, term, cells, targetStaffId)
     if (res.error) { toast('Грешка: ' + res.error, 'error'); setSaving(false); return }
     toast('Разписанието е запазено')
     setSaving(false)
