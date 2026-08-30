@@ -25,7 +25,7 @@ export async function generateSubstitution(substitutionId: string) {
   // 1. Заместването
   const { data: sub } = await supabase
     .from('substitutions')
-    .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, reason, leave_order_number, leave_order_date,
+    .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, reason, leave_order_number, leave_order_date, bsch_eligible,
       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name),
       sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name, position)`)
     .eq('id', substitutionId).single()
@@ -106,7 +106,8 @@ export async function generateSubstitution(substitutionId: string) {
       leaveRef: sub.leave_order_number ? `Заповед за отпуск № ${sub.leave_order_number}` : (sub.reason === 'sick' ? 'Болничен лист' : 'заявление'),
       dateFrom: sub.date_from, dateTo: sub.date_to,
       zdudName: zdud ? `${zdud.first_name} ${zdud.last_name}` : '',
-      yearName: cy?.name || '',
+            yearName: cy?.name || '',
+      isBsch: sub.bsch_eligible === true,
       days,
     },
   }
