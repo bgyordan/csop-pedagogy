@@ -45,13 +45,27 @@ export default async function StudentsPage({
     .select('*, student:students(*), class:classes(*)')
     .eq('academic_year_id', currentYear?.id)
   let visibleClasses = allClasses || []
-  if (isClassTeacher) {
+   if (isClassTeacher) {
     const { data: assignments } = await supabase
       .from('class_teacher_assignments').select('class_id')
       .eq('staff_id', profileData!.id).eq('academic_year_id', currentYear?.id)
-    const myClassIds = assignments?.map(a => a.class_id) || []
-    query = query.in('class_id', myClassIds.length > 0 ? myClassIds : ['no-results'])
-    visibleClasses = allClasses?.filter(c => myClassIds.includes(c.id)) || []
+    const myClassIds = new Set((assignments || []).map(a => a.class_id))
+    // + паралелките, в които преподавам по разписание (учител без своя паралелка)
+    const { data: mySched } = await supabase
+      .from('class_schedules').select('class_id')
+      .eq('academic_year_id', currentYear?.id).not('class_id', 'is', null)
+    const schedIds = (mySched || []).map((s: any) => s.id)
+    if (schedIds.length === 0) {
+      // няма разписания още — само class_teacher_assignments
+    }
+    const { data: mySlots } = await supabase
+      .from('schedule_slots')
+      .select('schedule:class_schedules(class_id)')
+      .eq('staff_id', profileData!.id)
+    ;(mySlots || []).forEach((sl: any) => { if (sl.schedule?.class_id) myClassIds.add(sl.schedule.class_id) })
+    const allMyClassIds = Array.from(myClassIds)
+    query = query.in('class_id', allMyClassIds.length > 0 ? allMyClassIds : ['no-results'])
+    visibleClasses = allClasses?.filter(c => allMyClassIds.includes(c.id)) || []
   } else if (isSpecialist && !isCoordinator) {
     const roleField = role === 'psychologist' ? 'psychologist_id'
       : role === 'speech_therapist' ? 'speech_therapist_id' : 'rehabilitator_id'
