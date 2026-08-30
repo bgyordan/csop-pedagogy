@@ -104,6 +104,14 @@ export default async function SecretaryDashboard({ profile }: any) {
             <div className="text-[11px] text-slate-500 truncate mt-0.5">{lastContract[0].counterparty}</div>
           )}
         </Link>
+                <Link href="/substitutions"
+          className="block bg-white px-5 py-4 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 hover:bg-slate-50/50 transition-colors">
+          <div className="flex justify-between items-baseline mb-1">
+            <div className="text-xs font-medium text-slate-500">Замествания</div>
+            <ArrowRight size={13} className="text-slate-300" />
+          </div>
+          <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-2 mt-3">Отсъстващи и заповеди за заместване</div>
+        </Link>
       </div>
 
 
