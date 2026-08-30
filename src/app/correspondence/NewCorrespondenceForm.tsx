@@ -68,6 +68,52 @@ interface Props {
   onClose: () => void
   onSaved: () => void
 }
+
+// Реюзабъл комбо за избор на човек (търсене + списък)
+function PersonCombo({ people, value, onChange, placeholder, excludeId }: {
+  people: { id: string; first_name: string; last_name: string }[]
+  value: string
+  onChange: (id: string) => void
+  placeholder: string
+  excludeId?: string
+}) {
+  const [open, setOpen] = React.useState(false)
+  const [q, setQ] = React.useState('')
+  const selected = people.find(p => p.id === value)
+  const list = people
+    .filter(p => p.id !== excludeId)
+    .filter(p => `${p.first_name} ${p.last_name}`.toLowerCase().includes(q.toLowerCase()))
+    .sort((a, b) => a.first_name.localeCompare(b.first_name, 'bg'))
+    .slice(0, 40)
+  return (
+    <div className="relative">
+      <input type="text"
+        value={selected ? `${selected.first_name} ${selected.last_name}` : q}
+        onChange={e => { setQ(e.target.value); onChange(''); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder={placeholder}
+        className="input w-full" />
+      {selected && (
+        <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => { onChange(''); setQ('') }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><X size={14} /></button>
+      )}
+      {open && !selected && (
+        <div className="absolute z-30 mt-1 w-full max-h-52 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg">
+          {list.map(p => (
+            <button key={p.id} type="button" onMouseDown={e => e.preventDefault()}
+              onClick={() => { onChange(p.id); setOpen(false); setQ('') }}
+              className="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 text-slate-700">
+              {p.first_name} {p.last_name}
+            </button>
+          ))}
+          {list.length === 0 && <div className="px-3 py-2 text-xs text-slate-400">Няма съвпадение</div>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function NewCorrespondenceForm({
   totalCount, currentUserId, students, staff, nomenclature, direction, onClose, onSaved
 }: Props) {
@@ -93,8 +139,6 @@ export default function NewCorrespondenceForm({
   const [createOrder, setCreateOrder] = useState(true)
   // Заместване (само сценарий отпуск, опционално)
   const [substituteId, setSubstituteId] = useState('')
-  const [subSearch, setSubSearch] = useState('')
-  const [subOpen, setSubOpen] = useState(false)
   const [subFrom, setSubFrom] = useState('')
   const [subTo, setSubTo] = useState('')
   const currentYear = new Date().getFullYear()
@@ -201,7 +245,9 @@ export default function NewCorrespondenceForm({
       from_whom: fromWhom || null,
       to_whom: toWhom || null,
       subject,
-      description: description || null,
+      description: (scenario === 'vacation' && substituteId && subFrom && subTo)
+        ? `Заместник: ${(staff.find(x => x.id === substituteId)?.first_name || '')} ${(staff.find(x => x.id === substituteId)?.last_name || '')}, ${subFrom.split('-').reverse().join('.')}–${subTo.split('-').reverse().join('.')}${description ? ' · ' + description : ''}`.trim()
+        : (description || null),
       file_url: fileUrl || null,
       file_name: fileName || null,
       student_id: studentId || null,
@@ -335,12 +381,7 @@ export default function NewCorrespondenceForm({
                 <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1">
                   <User size={11} /> Служител *
                 </label>
-                <select value={staffId} onChange={e => handleStaffSelect(e.target.value)} required className="input w-full">
-                  <option value="">— Избери служител —</option>
-                  {staff.sort((a,b) => a.first_name.localeCompare(b.first_name, 'bg')).map(s => (
-                    <option key={s.id} value={s.id}>{s.first_name} {s.last_name}</option>
-                  ))}
-                </select>
+                <PersonCombo people={staff} value={staffId} onChange={handleStaffSelect} placeholder="Служител — търси по име…" />
                 {subject && <div className="text-xs text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2">{subject}</div>}
                 {/* Автоматична заповед за отпуск */}
                 {scenario === 'vacation' && (
@@ -357,47 +398,19 @@ export default function NewCorrespondenceForm({
                   <div className="pt-2 mt-1 border-t border-slate-200 space-y-2">
                     <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Заместване (по избор)</div>
                     {/* Комбо заместник */}
-                    <div className="relative">
-                      <input type="text"
-                        value={substituteId ? (staff.find(x => x.id === substituteId) ? `${staff.find(x => x.id === substituteId)!.first_name} ${staff.find(x => x.id === substituteId)!.last_name}` : subSearch) : subSearch}
-                        onChange={e => { setSubSearch(e.target.value); setSubstituteId(''); setSubOpen(true) }}
-                        onFocus={() => setSubOpen(true)}
-                        placeholder="Заместник — търси по име…"
-                        className="input w-full text-xs" />
-                      {substituteId && (
-                        <button type="button" onClick={() => { setSubstituteId(''); setSubSearch(''); setSubFrom(''); setSubTo('') }}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><X size={13} /></button>
-                      )}
-                      {subOpen && !substituteId && (
-                        <div className="absolute z-20 mt-1 w-full max-h-44 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg">
-                          {staff
-                            .filter(x => x.id !== staffId)
-                            .filter(x => `${x.first_name} ${x.last_name}`.toLowerCase().includes(subSearch.toLowerCase()))
-                            .sort((a,b) => a.first_name.localeCompare(b.first_name, 'bg'))
-                            .slice(0, 30)
-                            .map(x => (
-                              <button key={x.id} type="button"
-                                onClick={() => { setSubstituteId(x.id); setSubOpen(false); setSubSearch('') }}
-                                className="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 text-slate-700">
-                                {x.first_name} {x.last_name}
-                              </button>
-                            ))}
-                          {staff.filter(x => x.id !== staffId).filter(x => `${x.first_name} ${x.last_name}`.toLowerCase().includes(subSearch.toLowerCase())).length === 0 && (
-                            <div className="px-3 py-2 text-xs text-slate-400">Няма съвпадение</div>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    <PersonCombo people={staff} value={substituteId} excludeId={staffId}
+                      onChange={(id) => { setSubstituteId(id); if (!id) { setSubFrom(''); setSubTo('') } }}
+                      placeholder="Заместник — търси по име…" />
                     {/* Срок — само ако има избран заместник */}
                     {substituteId && (
                       <div className="flex items-center gap-2">
                         <div className="flex-1">
                           <label className="block text-[10px] text-slate-400 mb-0.5">От</label>
-                          <input type="date" value={subFrom} onChange={e => setSubFrom(e.target.value)} className="input w-full text-xs" />
+                          <input type="date" value={subFrom} min={new Date().toISOString().split('T')[0]} onChange={e => { setSubFrom(e.target.value); if (subTo && e.target.value > subTo) setSubTo('') }} className="input w-full text-xs" />
                         </div>
                         <div className="flex-1">
                           <label className="block text-[10px] text-slate-400 mb-0.5">До</label>
-                          <input type="date" value={subTo} onChange={e => setSubTo(e.target.value)} className="input w-full text-xs" />
+                          <input type="date" value={subTo} min={subFrom || new Date().toISOString().split('T')[0]} onChange={e => setSubTo(e.target.value)} className="input w-full text-xs" />
                         </div>
                       </div>
                     )}
@@ -411,12 +424,7 @@ export default function NewCorrespondenceForm({
                 <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1">
                   <GraduationCap size={11} /> Ученик *
                 </label>
-                <select value={studentId} onChange={e => handleStudentSelect(e.target.value)} required className="input w-full">
-                  <option value="">— Избери ученик —</option>
-                  {students.sort((a,b) => a.first_name.localeCompare(b.first_name, 'bg')).map(s => (
-                    <option key={s.id} value={s.id}>{s.first_name} {s.last_name}</option>
-                  ))}
-                </select>
+                <PersonCombo people={students} value={studentId} onChange={(id) => id ? handleStudentSelect(id) : setStudentId('')} placeholder="Ученик — търси по име…" />
                 {studentId && (
                   <>
                     <input type="text" list="guardian-list" value={fromWhom} onChange={e => setFromWhom(e.target.value)} required
