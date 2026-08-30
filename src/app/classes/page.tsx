@@ -44,10 +44,14 @@ export default async function ClassesPage({
     .eq('academic_year_id', currentYear?.id)
   const countByClass = new Map<string, number>()
   enrollments?.forEach(e => countByClass.set(e.class_id, (countByClass.get(e.class_id) || 0) + 1))
-  const teachersByClass = new Map<string, string[]>()
+    const teachersByClass = new Map<string, string[]>()
+  const teacherIdByClass = new Map<string, string>()
   assignments?.forEach((a: any) => {
     if (!teachersByClass.has(a.class_id)) teachersByClass.set(a.class_id, [])
-    if (a.staff && a.staff.is_active !== false) teachersByClass.get(a.class_id)!.push(getFullName(a.staff))
+    if (a.staff && a.staff.is_active !== false) {
+      teachersByClass.get(a.class_id)!.push(getFullName(a.staff))
+      if (!teacherIdByClass.has(a.class_id)) teacherIdByClass.set(a.class_id, a.staff.id)
+    }
   })
   // ── ЦОУД данни ──
   const { data: coudGroups } = await supabase
@@ -168,7 +172,7 @@ export default async function ClassesPage({
                           </span>
                         </td>
                         <td className="text-center px-4 py-2.5">
-                          <Link href={`/classes/${cls.id}/schedule`} className="inline-flex items-center justify-center text-teal-600 hover:text-teal-700 hover:bg-teal-50 rounded-lg p-1.5 transition-colors" title="Седмично разписание">
+                          <Link href={teacherIdByClass.get(cls.id) ? `/my-schedule/edit?staff=${teacherIdByClass.get(cls.id)}` : `/classes/${cls.id}`} className="inline-flex items-center justify-center text-teal-600 hover:text-teal-700 hover:bg-teal-50 rounded-lg p-1.5 transition-colors" title="Разписание (редакция)">
                             <CalendarClock size={16} />
                           </Link>
                         </td>
@@ -197,7 +201,7 @@ export default async function ClassesPage({
                       <span className="inline-flex items-center gap-1 text-sm font-semibold text-slate-700">
                         <Users size={14} className="text-slate-400" />{count}
                       </span>
-                      <Link href={`/classes/${cls.id}/schedule`} className="text-teal-600 hover:text-teal-700 p-1" title="Разписание">
+                      <Link href={teacherIdByClass.get(cls.id) ? `/my-schedule/edit?staff=${teacherIdByClass.get(cls.id)}` : `/classes/${cls.id}`} className="text-teal-600 hover:text-teal-700 p-1" title="Разписание">
                         <CalendarClock size={18} />
                       </Link>
                     </div>
