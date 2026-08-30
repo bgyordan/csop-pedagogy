@@ -32,7 +32,7 @@ export default async function StudentsPage({
     .from('staff_profiles').select('id, role, is_coordinator').eq('user_id', user.id).single()
   const role = profileData?.role || ''
   const isCoordinator = profileData?.is_coordinator === true
-  const isClassTeacher = role === 'class_teacher'
+  const isClassTeacher = role === 'class_teacher' || role === 'teacher'
   const isSpecialist = ['psychologist', 'speech_therapist', 'rehabilitator'].includes(role)
   const canWrite = ['admin', 'zdud'].includes(role)
   // Кой вижда неразпределените — админ, ЗДУД, координатор
