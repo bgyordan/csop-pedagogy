@@ -111,3 +111,87 @@ export async function generateSubstitution(substitutionId: string) {
     },
   }
 }
+// ── Данни за ДЕКЛАРАЦИЯ на заместника (НП Приложение 2 или вътрешна) ──
+export async function getDeclarationData(substitutionId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+  const { data: me } = await supabase.from('staff_profiles').select('id').eq('user_id', user.id).single()
+
+  const { data: sub } = await supabase
+    .from('substitutions')
+    .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, bsch_eligible, substitution_order_id,
+      absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name),
+      sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name, position)`)
+    .eq('id', substitutionId).single()
+  if (!sub) return { error: 'Не е намерено' }
+
+  const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
+
+  // заповедта за заместване (ако е издадена) — за orderRef
+  let orderRef = 'Заповед № …'
+  if (sub.substitution_order_id) {
+    const { data: o } = await supabase.from('orders').select('number').eq('id', sub.substitution_order_id).single()
+    if (o?.number) orderRef = `Заповед № ${o.number}`
+  }
+
+  // часовете на отсъстващия
+  const { data: mySched } = await supabase
+    .from('class_schedules').select('id, class:classes(name)')
+    .eq('academic_year_id', cy?.id).eq('term', 1)
+  const schedName: Record<string, string> = {}
+  ;(mySched || []).forEach((s: any) => { schedName[s.id] = s.class?.name || '' })
+  const schedIds = (mySched || []).map((s: any) => s.id)
+  const bySlot: { day: number; period: number; subject: string; cls: string }[] = []
+  if (schedIds.length > 0) {
+    const { data: slots } = await supabase
+      .from('schedule_slots').select('schedule_id, day, period, subject:subjects(name)')
+      .in('schedule_id', schedIds).eq('staff_id', sub.absent_staff_id)
+    ;(slots || []).forEach((sl: any) => bySlot.push({ day: sl.day, period: sl.period, subject: sl.subject?.name || '', cls: schedName[sl.schedule_id] || '' }))
+  }
+  const { data: ifo } = await supabase
+    .from('teacher_ifo_slots').select('day, period, subject:subjects(name), student:students(first_name, last_name)')
+    .eq('teacher_id', sub.absent_staff_id).eq('academic_year_id', cy?.id).eq('term', 1)
+  ;(ifo || []).forEach((sl: any) => bySlot.push({ day: sl.day, period: sl.period, subject: sl.subject?.name || '', cls: sl.student ? `ИФО ${sl.student.first_name} ${sl.student.last_name}` : 'ИФО' }))
+
+  // разгъваме по работни дни
+  const out: { date: string; cls: string; subject: string; hours: number }[] = []
+  const d = new Date(sub.date_from + 'T00:00'), end = new Date(sub.date_to + 'T00:00')
+  while (d <= end) {
+    const wd = d.getDay()
+    if (wd >= 1 && wd <= 5) {
+      const dayItems = bySlot.filter(s => s.day === wd)
+      const dateStr = d.toISOString().split('T')[0].split('-').reverse().join('.')
+      if (dayItems.length === 0) {
+        // ден без часове — пропускаме в декларацията
+      } else {
+        // за декларацията групираме по паралелка: един ред на паралелка/ден с брой часове
+        const byCls: Record<string, { subject: string; hours: number }> = {}
+        dayItems.forEach(it => {
+          if (!byCls[it.cls]) byCls[it.cls] = { subject: it.subject, hours: 0 }
+          byCls[it.cls].hours++
+        })
+        Object.entries(byCls).forEach(([cls, v]) => out.push({ date: dateStr, cls, subject: v.subject, hours: v.hours }))
+      }
+    }
+    d.setDate(d.getDate() + 1)
+  }
+  const totalHours = out.reduce((a, r) => a + r.hours, 0)
+
+  const MONTHS = ['януари','февруари','март','април','май','юни','юли','август','септември','октомври','ноември','декември']
+  const monthName = MONTHS[new Date(sub.date_from + 'T00:00').getMonth()]
+
+  return {
+    success: true,
+    isBsch: sub.bsch_eligible === true,
+    data: {
+      substituteName: sub.sub ? `${(sub.sub as any).first_name} ${(sub.sub as any).last_name}` : '',
+      substitutePosition: (sub.sub as any)?.position || 'учител',
+      absentName: sub.absent ? `${(sub.absent as any).first_name} ${(sub.absent as any).last_name}` : '',
+      orderRef, monthName,
+      periodFrom: sub.date_from, periodTo: sub.date_to,
+      yearName: cy?.name || '',
+      rows: out, totalHours,
+    },
+  }
+}
