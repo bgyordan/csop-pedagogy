@@ -179,7 +179,7 @@ export default async function SchedulesPage({
                   <td className="px-4 py-2.5 text-slate-600">{c.teachers.length > 0 ? c.teachers.join(', ') : <span className="text-slate-300">—</span>}</td>
                   <td className="px-4 py-2.5 text-center text-slate-500">{c.count}</td>
                   <td className="px-4 py-2.5 text-right">
-                    <Link href={`/classes/${c.id}/schedule`} className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">Отвори <ArrowRight size={13} /></Link>
+                    <Link href={`/classes/${c.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">Отвори <ArrowRight size={13} /></Link>
                   </td>
                 </tr>
               ))}
@@ -209,7 +209,7 @@ export default async function SchedulesPage({
                       : <span className="text-slate-300 text-xs">—</span>}
                   </td>
                   <td className="px-4 py-2.5 text-right">
-                    <Link href={`/my-schedule?staff=${t.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">Отвори <ArrowRight size={13} /></Link>
+                    <Link href={`/my-schedule/edit?staff=${t.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">Отвори <ArrowRight size={13} /></Link>
                   </td>
                 </tr>
               ))}
