@@ -78,7 +78,7 @@ export default async function DashboardPage() {
         {isAdmin && <AdminDashboard profile={profile} currentYearId={currentYear.id} />}
         {isDirector && <DirectorDashboard profile={profile} currentYearId={currentYear.id} />}
         {isSpecialist && <SpecialistDashboard profile={profile} currentYearId={currentYear.id} />}
-        {profile.role === 'class_teacher' && <ClassTeacherDashboard profile={profile} currentYearId={currentYear.id} />}
+        {(profile.role === 'class_teacher' || profile.role === 'teacher') && <ClassTeacherDashboard profile={profile} currentYearId={currentYear.id} />}
         {isSecretary && <SecretaryDashboard profile={profile} />}
       </div>
     </div>
