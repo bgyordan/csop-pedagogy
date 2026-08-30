@@ -3,6 +3,8 @@ import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Pencil, Trash2 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
+import { generateSubstitution } from './actions'
+import { generateSubstitutionOrder } from '@/lib/docx-substitution'
 import type { SubRow } from './page'
 
 type Staff = { id: string; first_name: string; last_name: string }
@@ -67,6 +69,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const { toast } = useToast()
   const [rows, setRows] = useState<SubRow[]>(initial)
   const [search, setSearch] = useState('')
+  const [genId, setGenId] = useState<string | null>(null)
 
   // Създаване
   const [showNew, setShowNew] = useState(false)
@@ -88,16 +91,26 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [eBsch, setEBsch] = useState(false)
   const [eSaving, setESaving] = useState(false)
 
+  async function genOrder(id: string) {
+    setGenId(id)
+    const res: any = await generateSubstitution(id)
+    if (res.error) { toast(res.error, 'error'); setGenId(null); return }
+    try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ }
+    // маркираме реда като издаден
+    setRows(prev => prev.map(r => r.id === id ? { ...r, hasOrder: true } : r))
+    toast('Заповедта е създадена и изтеглена')
+    setGenId(null)
+  }
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return rows
     return rows.filter(r => r.absentName.toLowerCase().includes(q) || (r.substituteName || '').toLowerCase().includes(q))
   }, [rows, search])
 
-    function mapRow(r: any): SubRow {
+  function mapRow(r: any): SubRow {
     return {
       id: r.id, absentName: r.absent ? `${r.absent.first_name} ${r.absent.last_name}` : '—',
-      absentStaffId: r.absent_staff_id,
       substituteName: r.sub ? `${r.sub.first_name} ${r.sub.last_name}` : null,
       substituteId: r.substitute_staff_id, dateFrom: r.date_from, dateTo: r.date_to,
       reason: r.reason, hasOrder: !!r.substitution_order_id, bsch: r.bsch_eligible === true,
@@ -253,8 +266,9 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               </span>
               <div className="flex items-center justify-end gap-1">
                 {r.substituteId && !r.hasOrder && (
-                  <button className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
-                    Заповед <ArrowRight size={12} />
+                  <button onClick={() => genOrder(r.id)} disabled={genId === r.id}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>
+                    {genId === r.id ? <Loader2 size={12} className="animate-spin" /> : <>Заповед <ArrowRight size={12} /></>}
                   </button>
                 )}
                 <button onClick={() => startEdit(r)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all" title="Редактирай"><Pencil size={14} /></button>
