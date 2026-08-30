@@ -7,6 +7,7 @@ export type UserRole =
   | 'speech_therapist'
   | 'rehabilitator'
   | 'class_teacher'
+  | 'teacher'
   | 'educator'
   | 'secretary'
 
@@ -201,6 +202,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   speech_therapist: 'Логопед',
   rehabilitator: 'Рехабилитатор',
   class_teacher: 'Класен ръководител',
+  teacher: 'Учител',
   educator: 'Възпитател',
   secretary: 'Секретар',
 }
