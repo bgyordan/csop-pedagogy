@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3,
-  Inbox, ClipboardList, FileSignature, Package, Star, CalendarClock, ChevronDown, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen
+  Inbox, ClipboardList, FileSignature, Package, Star, CalendarClock, ChevronDown, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
@@ -44,6 +44,7 @@ const navItems: NavItem[] = [
   { href: '/spravki', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'], hideFromCoordinator: true },
     { href: '/my-schedule/edit', label: 'Въвеждане на разписание', icon: <GraduationCap size={16} />, roles: ['class_teacher', 'teacher', 'educator'] },
   { href: '/my-schedule', label: 'Моето разписание', icon: <CalendarDays size={16} />, roles: ['class_teacher', 'teacher', 'educator'] },
+    { href: '/my-substitutions', label: 'Моите замествания', icon: <UserX size={16} />, roles: ['class_teacher', 'teacher', 'educator'] },
    { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={16} />, roles: ['class_teacher'] },
   { href: '/my-activities', label: 'Списък за терапия', icon: <HeartPulse size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
   { href: '/reports', label: 'Натовареност', icon: <BarChart3 size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
