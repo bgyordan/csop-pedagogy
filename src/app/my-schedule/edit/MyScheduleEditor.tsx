@@ -1,8 +1,8 @@
 'use client'
 import { useState } from 'react'
-import { Loader2, Check, Plus, X, Save, AlertTriangle } from 'lucide-react'
+import { Loader2, Check, Plus, X, Save, AlertTriangle, Copy } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { saveMySchedule, checkClassCollision, type MyCell } from './actions'
+import { saveMySchedule, checkClassCollision, addSubjectQuick, type MyCell } from './actions'
 
 type Cls = { id: string; name: string }
 type Stud = { id: string; name: string }
@@ -13,12 +13,18 @@ const DAYS = [
   { n: 1, label: 'Понеделник' }, { n: 2, label: 'Вторник' }, { n: 3, label: 'Сряда' },
   { n: 4, label: 'Четвъртък' }, { n: 5, label: 'Петък' },
 ]
-const PERIODS = [1, 2, 3, 4, 5, 6, 7]
+
 
 export default function MyScheduleEditor({ academicYearId, term, classes, students, subjects, initialSlots, myClassTeacherIds = [] }: {
   academicYearId: string; term: number; classes: Cls[]; students: Stud[]; subjects: Subj[]; initialSlots: Slot[]; myClassTeacherIds?: string[]
 }) {
   const { toast } = useToast()
+  const [subjectList, setSubjectList] = useState<Subj[]>(subjects)
+  const [show7, setShow7] = useState<boolean>(() => initialSlots.some(s => s.period === 7))
+  const PERIODS = show7 ? [1, 2, 3, 4, 5, 6, 7] : [1, 2, 3, 4, 5, 6]
+  const [showAddSubj, setShowAddSubj] = useState(false)
+  const [newSubjName, setNewSubjName] = useState('')
+  const [newSubjPullout, setNewSubjPullout] = useState(false)
   // моите паралелки: класните ми + тези от съществуващи слотове
   const [myClasses, setMyClasses] = useState<string[]>(() => {
     const fromSlots = initialSlots.filter(s => s.holderType === 'class').map(s => s.holderId)
@@ -47,7 +53,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
 
   const clsName = (id: string) => classes.find(c => c.id === id)?.name || '?'
   const studName = (id: string) => students.find(s => s.id === id)?.name || '?'
-  const subjName = (id: string) => subjects.find(s => s.id === id)?.name || ''
+  const subjName = (id: string) => subjectList.find(s => s.id === id)?.name || ''
 
   const availableClasses = classes.filter(c => !myClasses.includes(c.id))
   const availableStudents = students.filter(s => !myStudents.includes(s.id) &&
@@ -102,10 +108,28 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
     setSaving(false)
   }
 
+  async function addNewSubject() {
+    if (!newSubjName.trim()) return
+    const res: any = await addSubjectQuick(newSubjName, newSubjPullout)
+    if (res.error) { toast(res.error, 'error'); return }
+    if (res.subject) {
+      setSubjectList(prev => [...prev, res.subject].sort((a, b) => a.name.localeCompare(b.name, 'bg')))
+      setNewSubjName(''); setNewSubjPullout(false); setShowAddSubj(false)
+      toast('Предметът е добавен')
+    }
+  }
+
   const hasHolders = myClasses.length > 0 || myStudents.length > 0
 
   return (
     <div className="space-y-5">
+      {/* Срок */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl">
+          <a href="?term=1" className={`px-3 py-1.5 rounded-lg text-xs font-medium ${term === 1 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`} style={term === 1 ? { backgroundColor: '#0f2240' } : {}}>I срок</a>
+          <a href="?term=2" className={`px-3 py-1.5 rounded-lg text-xs font-medium ${term === 2 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`} style={term === 2 ? { backgroundColor: '#0f2240' } : {}}>II срок</a>
+        </div>
+      </div>
       {/* Моите паралелки / ученици */}
       <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
         <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Работя с — избери активен (в него нареждаш)</div>
@@ -219,7 +243,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
                         {editCell === key && (
                           <CellPicker
                             holders={holders}
-                            subjects={subjects}
+                            subjects={subjectList}
                             active={active}
                             current={cell}
                             onSet={(subjId, holderVal) => setSubjectForCell(d.n, period, subjId, holderVal)}
@@ -234,6 +258,32 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {hasHolders && (
+        <div className="flex flex-wrap items-center gap-2">
+          {!show7 ? (
+            <button onClick={() => setShow7(true)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50"><Plus size={13} /> Добави 7-ми час</button>
+          ) : (
+            <button onClick={() => { setShow7(false); setGrid(prev => { const n = { ...prev }; DAYS.forEach(d => delete n[`${d.n}-7`]); return n }) }} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-600"><X size={13} /> Премахни 7-ми час</button>
+          )}
+          <button onClick={() => setShowAddSubj(v => !v)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50"><Plus size={13} /> Нов предмет</button>
+        </div>
+      )}
+
+      {showAddSubj && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input value={newSubjName} onChange={e => setNewSubjName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addNewSubject()}
+              placeholder="Име на предмета (може съставно: БЕЛ/История)"
+              className="flex-1 px-4 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-300" />
+            <label className="flex items-center gap-2 text-xs text-slate-600 px-2 cursor-pointer whitespace-nowrap">
+              <input type="checkbox" checked={newSubjPullout} onChange={e => setNewSubjPullout(e.target.checked)} className="rounded" /> позволява вземане
+            </label>
+            <button onClick={addNewSubject} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-medium" style={{ backgroundColor: '#0f2240' }}><Check size={14} /> Добави</button>
+          </div>
         </div>
       )}
 
