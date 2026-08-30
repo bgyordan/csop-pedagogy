@@ -15,16 +15,26 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .eq('user_id', user.id)
     .maybeSingle()
 
-  if (!profile) redirect('/auth/login')
-
+   if (!profile) redirect('/auth/login')
+  // има ли class_teacher_assignment за текущата година (за да различим класен от учител без клас)
+  let hasClass = true
+  if (profile.role === 'class_teacher') {
+    const { data: cy } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
+    const { count } = await supabase
+      .from('class_teacher_assignments')
+      .select('*', { count: 'exact', head: true })
+      .eq('staff_id', profile.id).eq('academic_year_id', cy?.id)
+    hasClass = (count || 0) > 0
+  }
   return (
     <div className="flex min-h-screen bg-slate-50">
       <Sidebar
   userRole={profile.role as UserRole}
   userName={getFullName(profile)}
   userEmail={profile.email}
-        isCoordinator={profile.is_coordinator === true}
+            isCoordinator={profile.is_coordinator === true}
         userPosition={profile.position || ""}
+        hasClass={hasClass}
 />
       <main className="flex-1 overflow-auto">
         {children}
