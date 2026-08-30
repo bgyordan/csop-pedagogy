@@ -94,9 +94,10 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     return rows.filter(r => r.absentName.toLowerCase().includes(q) || (r.substituteName || '').toLowerCase().includes(q))
   }, [rows, search])
 
-  function mapRow(r: any): SubRow {
+    function mapRow(r: any): SubRow {
     return {
       id: r.id, absentName: r.absent ? `${r.absent.first_name} ${r.absent.last_name}` : '—',
+      absentStaffId: r.absent_staff_id,
       substituteName: r.sub ? `${r.sub.first_name} ${r.sub.last_name}` : null,
       substituteId: r.substitute_staff_id, dateFrom: r.date_from, dateTo: r.date_to,
       reason: r.reason, hasOrder: !!r.substitution_order_id, bsch: r.bsch_eligible === true,
