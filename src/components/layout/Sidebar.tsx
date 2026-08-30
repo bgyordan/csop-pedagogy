@@ -41,7 +41,7 @@ const navItems: NavItem[] = [
     ],
   },
   { href: '/spravki', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'], hideFromCoordinator: true },
-  { href: '/my-ifo', label: 'Индивидуални часове (ИФО)', icon: <GraduationCap size={16} />, roles: ['class_teacher', 'educator'] },
+    { href: '/my-schedule/edit', label: 'Въвеждане на разписание', icon: <GraduationCap size={16} />, roles: ['class_teacher', 'educator'] },
   { href: '/my-schedule', label: 'Моето разписание', icon: <CalendarDays size={16} />, roles: ['class_teacher', 'educator'] },
   { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={16} />, roles: ['class_teacher'] },
   { href: '/my-activities', label: 'Списък за терапия', icon: <HeartPulse size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
