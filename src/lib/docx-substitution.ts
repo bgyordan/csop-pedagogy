@@ -118,11 +118,11 @@ export async function generateSubstitutionDeclaration(d: SubstDeclData) {
   children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: 'Справка - декларация по Модул 1 и Модул 2', italics: true, size: 20 })] }))
   children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: 'Образец', italics: true, size: 20 })], spacing: { after: 200 } }))
 
-  // Шапка — празни полета за ръчно попълване
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal(dots(70), 22)] }))
+  // Шапка — попълнена с данните на ЦСОП, с вида на образеца
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('Център за специална образователна подкрепа', 22)] }))
   children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '( детска градина/училище/ЦСОП/ЦПЛР)', italics: true, size: 18 })], spacing: { after: 120 } }))
-  children.push(new Paragraph({ children: [normal('ПК ......, гр./с. ........................, община ...................... област .............................', 22)], spacing: { after: 40 } }))
-  children.push(new Paragraph({ children: [normal('ул. ......................, № ........, тел.: ..............., факс: .............., e-mail: ...............', 22)], spacing: { after: 240 } }))
+  children.push(new Paragraph({ children: [normal('ПК 9000, гр. Варна, община Варна, област Варна', 22)], spacing: { after: 40 } }))
+  children.push(new Paragraph({ children: [normal('ул. „Петко Стайнов" № 7, тел.: 052 619 456, e-mail: info-400052@edu.mon.bg', 22)], spacing: { after: 240 } }))
 
   // Заглавие с разредка
   children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'С П Р А В К А   –   Д Е К Л А Р А Ц И Я', bold: true, size: 26 })], spacing: { after: 40 } }))
