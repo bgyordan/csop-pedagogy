@@ -8,15 +8,24 @@ export const dynamic = 'force-dynamic'
 
 export default async function MyScheduleEditPage({
   searchParams,
-}: { searchParams: Promise<{ term?: string }> }) {
-  const { term: termParam } = await searchParams
+}: { searchParams: Promise<{ term?: string; staff?: string }> }) {
+  const { term: termParam, staff: staffParam } = await searchParams
   const term = termParam === '2' ? 2 : 1
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
   const { data: me } = await supabase
-    .from('staff_profiles').select('id, first_name, last_name').eq('user_id', user.id).single()
+    .from('staff_profiles').select('id, first_name, last_name, role').eq('user_id', user.id).single()
   if (!me) redirect('/dashboard')
+  const isManager = ['admin', 'zdud'].includes(me.role || '')
+  let target = me
+  let viewingOther = false
+  if (staffParam && staffParam !== me.id && isManager) {
+    const { data: other } = await supabase
+      .from('staff_profiles').select('id, first_name, last_name').eq('id', staffParam).single()
+    if (other) { target = other as any; viewingOther = true }
+  }
+  const targetId = target.id
 
   const { data: currentYear } = await supabase
     .from('academic_years').select('id, name').eq('is_current', true).single()
@@ -28,7 +37,7 @@ export default async function MyScheduleEditPage({
   // моите паралелки като класен (за автоматично добавяне + подразбиране)
   const { data: myCta } = await supabase
     .from('class_teacher_assignments').select('class_id')
-    .eq('staff_id', me.id).eq('academic_year_id', currentYear?.id)
+    .eq('staff_id', targetId).eq('academic_year_id', currentYear?.id)
   const myClassTeacherIds = (myCta || []).map((a: any) => a.class_id)
 
   // само ИФО ученици (education_form='ifo' за текущата година)
@@ -54,7 +63,7 @@ export default async function MyScheduleEditPage({
   if (schedIds.length > 0) {
     const { data: slots } = await supabase
       .from('schedule_slots').select('schedule_id, day, period, subject_id, staff_id')
-      .in('schedule_id', schedIds).eq('staff_id', me.id)
+      .in('schedule_id', schedIds).eq('staff_id', targetId)
     myClassSlots = (slots || []).map((s: any) => ({
       day: s.day, period: s.period, holderType: 'class', holderId: schedClassById[s.schedule_id], subjectId: s.subject_id,
     }))
@@ -63,7 +72,7 @@ export default async function MyScheduleEditPage({
   // моите ИФО слотове
   const { data: myIfo } = await supabase
     .from('teacher_ifo_slots').select('day, period, student_id, subject_id')
-    .eq('teacher_id', me.id).eq('academic_year_id', currentYear?.id).eq('term', term)
+    .eq('teacher_id', targetId).eq('academic_year_id', currentYear?.id).eq('term', term)
   const myIfoSlots = (myIfo || []).map((s: any) => ({
     day: s.day, period: s.period, holderType: 'ifo', holderId: s.student_id, subjectId: s.subject_id,
   }))
@@ -77,7 +86,7 @@ export default async function MyScheduleEditPage({
         </div>
         <div>
           <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Въвеждане на разписание</h1>
-          <p className="text-slate-500 text-sm mt-0.5">{me.first_name} {me.last_name} · {currentYear?.name}</p>
+          <p className="text-slate-500 text-sm mt-0.5">{target.first_name} {target.last_name} · {currentYear?.name}{viewingOther ? " · (от името на служителя)" : ""}</p>
         </div>
       </div>
       <MyScheduleEditor
@@ -88,6 +97,7 @@ export default async function MyScheduleEditPage({
         subjects={subjects || []}
         initialSlots={[...myClassSlots, ...myIfoSlots]}
         myClassTeacherIds={myClassTeacherIds}
+        targetStaffId={viewingOther ? targetId : undefined}
       />
     </div>
   )
