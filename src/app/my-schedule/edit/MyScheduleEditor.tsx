@@ -9,6 +9,14 @@ type Stud = { id: string; name: string }
 type Subj = { id: string; name: string; allows_pullout?: boolean }
 type Slot = { day: number; period: number; holderType: 'class' | 'ifo'; holderId: string; subjectId: string }
 
+const PERIOD_TIMES: Record<number, string> = {
+  1: '8:30–9:05', 2: '9:15–9:50', 3: '10:20–10:55', 4: '11:05–11:40',
+  5: '11:50–12:25', 6: '12:35–13:05', 7: '13:15–13:50',
+  8: '12:45–13:15', 9: '13:20–13:50', 10: '13:55–14:25', 11: '14:30–15:00', 12: '15:05–15:35',
+}
+const PERIOD_LABEL: Record<number, string> = {
+  1:'1',2:'2',3:'3',4:'4',5:'5',6:'6',7:'7',8:'ИФО 1',9:'ИФО 2',10:'ИФО 3',11:'ИФО 4',12:'ИФО 5',
+}
 const DAYS = [
   { n: 1, label: 'Понеделник' }, { n: 2, label: 'Вторник' }, { n: 3, label: 'Сряда' },
   { n: 4, label: 'Четвъртък' }, { n: 5, label: 'Петък' },
@@ -21,7 +29,10 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
   const { toast } = useToast()
   const [subjectList, setSubjectList] = useState<Subj[]>(subjects)
   const [show7, setShow7] = useState<boolean>(() => initialSlots.some(s => s.period === 7))
-  const PERIODS = show7 ? [1, 2, 3, 4, 5, 6, 7] : [1, 2, 3, 4, 5, 6]
+  const [showAfternoon, setShowAfternoon] = useState<boolean>(() => initialSlots.some(s => s.period >= 8))
+  const morning = show7 ? [1, 2, 3, 4, 5, 6, 7] : [1, 2, 3, 4, 5, 6]
+  const afternoon = [8, 9, 10, 11, 12]
+  const PERIODS = showAfternoon ? [...morning, ...afternoon] : morning
   const [showAddSubj, setShowAddSubj] = useState(false)
   const [newSubjName, setNewSubjName] = useState('')
   const [newSubjPullout, setNewSubjPullout] = useState(false)
@@ -215,8 +226,18 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
             </thead>
             <tbody>
               {PERIODS.map(period => (
+                <>
+                {period === 3 && (
+                  <tr key="gm" className="border-b border-slate-100">
+                    <td className="px-2 py-0.5 text-center"><div className="text-[9px] text-amber-500 font-medium">ГМ</div></td>
+                    <td colSpan={DAYS.length} className="px-2 py-0.5"><div className="text-[9px] text-slate-300">голямо междучасие</div></td>
+                  </tr>
+                )}
                 <tr key={period} className="border-b border-slate-100 last:border-0">
-                  <td className="px-2 py-2 text-center align-top"><div className="font-semibold text-slate-700 text-sm pt-3">{period}.</div></td>
+                  <td className="px-2 py-2 text-center align-top">
+                    <div className="font-semibold text-slate-700 text-sm pt-2">{PERIOD_LABEL[period]}{period <= 7 ? '.' : ''}</div>
+                    <div className="text-[9px] text-slate-400 leading-tight">{PERIOD_TIMES[period]}</div>
+                  </td>
                   {DAYS.map(d => {
                     const key = `${d.n}-${period}`
                     const cell = grid[key]
@@ -255,6 +276,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
                     )
                   })}
                 </tr>
+                </>
               ))}
             </tbody>
           </table>
@@ -267,6 +289,11 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
             <button onClick={() => setShow7(true)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50"><Plus size={13} /> Добави 7-ми час</button>
           ) : (
             <button onClick={() => { setShow7(false); setGrid(prev => { const n = { ...prev }; DAYS.forEach(d => delete n[`${d.n}-7`]); return n }) }} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-600"><X size={13} /> Премахни 7-ми час</button>
+          )}
+          {!showAfternoon ? (
+            <button onClick={() => setShowAfternoon(true)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50"><Plus size={13} /> Следобедни ИФО часове</button>
+          ) : (
+            <button onClick={() => { setShowAfternoon(false); setGrid(prev => { const n = { ...prev }; DAYS.forEach(d => afternoon.forEach(p => delete n[`${d.n}-${p}`])); return n }) }} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-600"><X size={13} /> Премахни следобедни</button>
           )}
           <button onClick={() => setShowAddSubj(v => !v)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50"><Plus size={13} /> Нов предмет</button>
         </div>
