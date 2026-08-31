@@ -32,6 +32,13 @@ export default async function MyLecturerPage() {
   const declarations = (decls || []).map((d: any) => ({
     id: d.id, periodFrom: d.period_from, periodTo: d.period_to, totalHours: d.total_hours, status: d.status,
   }))
+  // предложена начална дата: ден след края на последната декларация
+  let suggestFrom = ''
+  if ((decls || []).length > 0) {
+    const lastTo = (decls || []).map((d: any) => d.period_to).sort().reverse()[0]
+    const nx = new Date(lastTo + 'T00:00'); nx.setDate(nx.getDate() + 1)
+    suggestFrom = nx.toISOString().split('T')[0]
+  }
 
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto animate-in fade-in duration-500">
@@ -50,6 +57,7 @@ export default async function MyLecturerPage() {
         position={me.position || 'Учител/старши учител на ДУИ'}
         slots={mySlots}
         declarations={declarations}
+        suggestFrom={suggestFrom}
       />
     </div>
   )
