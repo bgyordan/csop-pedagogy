@@ -48,6 +48,7 @@ const navItems: NavItem[] = [
       { href: '/my-lecturer', label: 'Лекторски — над норматив', icon: <GraduationCap size={16} />, roles: ['class_teacher', 'teacher', 'educator'] },
    { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={16} />, roles: ['class_teacher'] },
   { href: '/my-activities', label: 'Списък за терапия', icon: <HeartPulse size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
+    { href: '/generator', label: 'Генератор на документи', icon: <FileText size={16} />, roles: ['class_teacher', 'teacher', 'educator', 'psychologist', 'speech_therapist', 'rehabilitator'] },
   { href: '/reports', label: 'Натовареност', icon: <BarChart3 size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
   {
     href: '#process',
