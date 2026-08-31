@@ -251,3 +251,64 @@ export async function generateSubstitutionInternalDecl(d: SubstInternalDeclData)
   const blob = await Packer.toBlob(doc)
   saveAs(blob, `декларация_вътрешна_${d.substituteName.replace(/\s+/g, '_')}.docx`)
 }
+
+// ═══ ДЕКЛАРАЦИЯ ЗА ЛЕКТОРСКИ НАД НОРМАТИВА (По Образец 3) ═══
+export interface LecturerDeclData {
+  teacherName: string
+  position: string         // "Учител/старши учител на ДУИ"
+  periodLabel: string      // "01.09 – 31.10" или месец
+  orderRef: string         // "Заповед № …"
+  rows: { date: string; group: string; subject: string; hours: number }[]
+  totalHours: number
+}
+
+export async function generateLecturerDeclaration(d: LecturerDeclData) {
+  const children: any[] = []
+  const dots = (n: number) => '.'.repeat(n)
+
+  children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: 'По Образец 3', bold: true, size: 20 })], spacing: { after: 120 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Д Е К Л А Р А Ц И Я', bold: true, size: 26 })], spacing: { after: 160 } }))
+
+  children.push(new Paragraph({ children: [normal('Долуподписаният/та ', 22), bold(d.teacherName, 22), normal(' ' + dots(20), 22)], spacing: { after: 10 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '(име, презиме, фамилия)', italics: true, size: 16 })], spacing: { after: 60 } }))
+  children.push(new Paragraph({ children: [normal(`${d.position || 'Учител/старши учител на ДУИ'}, образование ${dots(20)}`, 22)], spacing: { after: 120 } }))
+
+  children.push(new Paragraph({ children: [
+    bold('ДЕКЛАРИРАМ, че ', 22),
+    normal(`за периода ${d.periodLabel} 2026 година, съм взел/а следните часове над минималната норма задължителна преподавателска работа, съгласно ${d.orderRef}`, 22),
+  ], spacing: { after: 160 } }))
+
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
+  const CELLS = { top: B, bottom: B, left: B, right: B }
+  const th = (t: string) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(t, 18)] })] })
+  const td = (t: string, c = false) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 18)] })] })
+  const rows: TableRow[] = [ new TableRow({ children: [th('№ по ред'), th('Дата'), th('Група'), th('Предмет'), th('Брой часове')] }) ]
+  d.rows.forEach((r, i) => {
+    rows.push(new TableRow({ children: [
+      td(String(i + 1), true), td(r.date, true), td(r.group, true), td(r.subject), td(String(r.hours), true),
+    ] }))
+  })
+  children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [700, 1600, 1400, 3600, 1000], rows }))
+  children.push(new Paragraph({ text: '', spacing: { after: 60 } }))
+
+  children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [normal('Общ брой учебни часове: ', 22), bold(String(d.totalHours), 22)], spacing: { after: 160 } }))
+  children.push(new Paragraph({ children: [normal('………… часа по 6,29 евро на час - …………………… евро;', 22)] }))
+  children.push(new Paragraph({ children: [normal('………… часа по 5,16 евро на час - …………………… евро;', 22)] }))
+  children.push(new Paragraph({ children: [normal('………… часа по 4,62 евро на час - …………………… евро;', 22)], spacing: { after: 200 } }))
+
+  children.push(new Paragraph({ children: [normal('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося наказателна отговорност съгласно законите на Република България.', 20)], spacing: { after: 200 } }))
+
+  children.push(new Paragraph({ children: [normal(`Дата: ${dots(18)} 2026 г.                    `, 22), bold('ДЕКЛАРАТОР: ', 22), normal(dots(20), 22)], spacing: { after: 10 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: '/подпис/', italics: true, size: 18 })], spacing: { after: 160 } }))
+
+  children.push(new Paragraph({ children: [normal('Посочените часове са действително проведени и са вписани в дневника на класа.', 20)], spacing: { after: 80 } }))
+  children.push(new Paragraph({ children: [normal(`Дата: ${dots(18)} 2026 г.                    `, 22), bold('Проверил: ', 22), normal(dots(20), 22)], spacing: { after: 10 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '(ЗДУД)', italics: true, size: 18 })], spacing: { after: 200 } }))
+
+  children.push(new Paragraph({ children: [normal(`Сумата е проверена, начислена и изплатена по ведомост за месец ${dots(15)} 2026 г.`, 20)], spacing: { after: 80 } }))
+  children.push(new Paragraph({ children: [bold('Счетоводител: ', 22), normal(dots(20), 22)] }))
+
+  const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
+  const blob = await Packer.toBlob(doc)
+  saveAs(blob, `декларация_лекторски_${d.teacherName.replace(/\\s+/g, '_')}.docx`)
+}
