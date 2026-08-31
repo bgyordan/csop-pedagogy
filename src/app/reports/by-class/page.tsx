@@ -5,16 +5,25 @@ import ByClassClient from './ByClassClient'
 export const dynamic = 'force-dynamic'
 
 // Извлича водещия клас (число) от external_class: "2 а" -> "2", "12 . а" -> "12", "ПГ" -> "ПГ"
+const ROMAN_MAP: Record<string, number> = { I:1,II:2,III:3,IV:4,V:5,VI:6,VII:7,VIII:8,IX:9,X:10,XI:11,XII:12,XIII:13 }
 function normalizeClass(raw: string | null): string | null {
   if (!raw) return null
-  const t = raw.trim()
+  const t = raw.trim().toUpperCase()
   if (!t) return null
-  if (/пг/i.test(t)) return 'ПГ'
+  if (/ПГ/i.test(t)) return 'ПГ'
+  // римско в началото (напр. "II", "XII а")
+  const rm = t.match(/^(XIII|XII|XI|X|IX|VIII|VII|VI|V|IV|III|II|I)\b/)
+  if (rm) {
+    const n = ROMAN_MAP[rm[1]]
+    return n >= 13 ? null : String(n)
+  }
+  // арабско (стар формат, за всеки случай)
   const m = t.match(/\d+/)
-  if (!m) return null
-  const n = parseInt(m[0])
-  if (n >= 13) return null // завършили и извън диапазона — не влизат
-  return String(n)
+  if (m) {
+    const n = parseInt(m[0])
+    return n >= 13 ? null : String(n)
+  }
+  return null
 }
 
 interface ReportRow {
