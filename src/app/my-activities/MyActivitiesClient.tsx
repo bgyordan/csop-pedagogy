@@ -96,7 +96,7 @@ export default function MyActivitiesClient({ rows, roleLabel }: { rows: Row[]; r
         <div className="flex items-center gap-2.5">
           <CalendarClock size={18} className="text-teal-600" />
           <div>
-            <div className="text-sm font-semibold text-slate-800">Моят седмичен график</div>
+            <div className="text-sm font-medium text-slate-800">Моят седмичен график</div>
             <div className="text-xs text-slate-500">Разпредели децата си по дни и часове</div>
           </div>
         </div>
@@ -107,10 +107,10 @@ export default function MyActivitiesClient({ rows, roleLabel }: { rows: Row[]; r
       <div className="flex flex-wrap gap-1.5 p-1 bg-white border border-slate-200 rounded-xl w-fit shadow-sm">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               tab === t.id ? `${t.activeColor} shadow-sm` : 'text-slate-600 hover:bg-slate-50'}`}>
             {t.label}
-            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+            <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${
               tab === t.id ? 'bg-white/20' : 'bg-slate-100 text-slate-500'}`}>{t.count}</span>
           </button>
         ))}
@@ -137,7 +137,7 @@ export default function MyActivitiesClient({ rows, roleLabel }: { rows: Row[]; r
                 {tab === 'mine' ? 'Още нямаш зачислени деца' : tab === 'free' ? 'Няма неразпределени деца' : 'Няма деца при колеги'}
               </p>
               {tab === 'mine' && freeCount > 0 && (
-                <button onClick={() => setTab('free')} className="mt-2 text-xs font-bold text-teal-600 hover:underline">
+                <button onClick={() => setTab('free')} className="mt-2 text-xs font-medium text-teal-600 hover:underline">
                   Виж {freeCount} неразпределени →
                 </button>
               )}
@@ -147,18 +147,17 @@ export default function MyActivitiesClient({ rows, roleLabel }: { rows: Row[]; r
               const isBusy = busy === r.id
               const f = flash?.id === r.id ? flash : null
               return (
-                <div key={r.id} className={`flex items-center justify-between gap-3 px-4 py-2.5 transition-colors hover:bg-slate-50/60 ${idx % 2 === 1 ? 'bg-slate-50/30' : 'bg-white'}`}>
-                  {/* Ляво: аватар + име */}
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${avatarColor(r.name)}`}>
+                <div key={r.id} className={`flex items-center justify-between gap-3 px-4 py-2 transition-colors hover:bg-slate-50/60 ${idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}`}>
+                  {/* Ляво: аватар + име + нежни колони паралелка/клас */}
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 ${avatarColor(r.name)}`}>
                       {initials(r.name)}
                     </div>
-                    <Link href={`/students/${r.id}`} className="min-w-0 group">
-                      <div className={`text-sm truncate group-hover:underline ${r.mine ? 'font-semibold text-slate-800' : 'text-slate-700'}`}>
-                        {r.name}
-                      </div>
-                      {r.className && <div className="text-[11px] text-slate-400">{r.className}</div>}
+                    <Link href={`/students/${r.id}`} className="text-sm text-slate-800 truncate hover:underline min-w-0 flex-1">
+                      {r.name}
                     </Link>
+                    <span className="hidden sm:block text-xs text-slate-500 w-24 truncate shrink-0">{r.className || '—'}</span>
+                    <span className="hidden sm:block text-xs text-slate-400 w-16 truncate shrink-0">{r.externalClass || '—'}</span>
                   </div>
                   {/* Дясно: действие */}
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -171,7 +170,7 @@ export default function MyActivitiesClient({ rows, roleLabel }: { rows: Row[]; r
                     )}
                     {r.mine ? (
                       <button onClick={() => doRemove(r)} disabled={isBusy}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-100 text-teal-700 hover:bg-red-100 hover:text-red-600 transition-colors group/btn">
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-teal-100 text-teal-700 hover:bg-red-100 hover:text-red-600 transition-colors group/btn">
                         {isBusy ? <Loader2 size={12} className="animate-spin" /> : (
                           <>
                             <Check size={12} className="group-hover/btn:hidden" />
@@ -187,7 +186,7 @@ export default function MyActivitiesClient({ rows, roleLabel }: { rows: Row[]; r
                       </span>
                     ) : (
                       <button onClick={() => doAssign(r)} disabled={isBusy}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white hover:opacity-90 transition-opacity"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white hover:opacity-90 transition-opacity"
                         style={{ backgroundColor: '#0f2240' }}>
                         {isBusy ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
                         Зачисли
