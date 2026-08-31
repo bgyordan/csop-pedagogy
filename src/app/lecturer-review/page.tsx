@@ -14,7 +14,7 @@ export default async function LecturerReviewPage() {
 
   const { data } = await supabase
     .from('lecturer_declarations')
-    .select('id, period_from, period_to, total_hours, status, created_at, staff:staff_profiles(first_name, last_name)')
+    .select('id, period_from, period_to, total_hours, status, created_at, staff:staff_profiles!lecturer_declarations_staff_id_fkey(first_name, last_name)')
     .order('created_at', { ascending: false })
   const rows = (data || []).map((d: any) => ({
     id: d.id,
