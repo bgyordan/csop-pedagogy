@@ -61,6 +61,12 @@ export async function submitLecturerDeclaration(
   if (!me) return { error: 'Няма профил' }
   const { data: cy } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
 
+  // защита: няма застъпване с вече подадена декларация на същия учител
+  const { data: existing } = await supabase.from('lecturer_declarations')
+    .select('period_from, period_to').eq('staff_id', me.id)
+  const overlap = (existing || []).some((e: any) => periodFrom <= e.period_to && periodTo >= e.period_from)
+  if (overlap) return { error: 'Вече имате декларация за застъпващ се период' }
+
   const totalHours = entries.reduce((a, e) => a + e.dates.length, 0)
   const { error } = await supabase.from('lecturer_declarations').insert({
     staff_id: me.id, period_from: periodFrom, period_to: periodTo,
@@ -69,4 +75,20 @@ export async function submitLecturerDeclaration(
   if (error) return { error: error.message }
   revalidatePath('/my-lecturer')
   return { success: true, totalHours }
+}
+
+// Изтрива подадена (непроверена) декларация на текущия учител
+export async function deleteMyDeclaration(declId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+  const { data: me } = await supabase.from('staff_profiles').select('id').eq('user_id', user.id).single()
+  if (!me) return { error: 'Няма профил' }
+  // само своя и само ако е още 'submitted'
+  const { data: decl } = await supabase.from('lecturer_declarations').select('id, staff_id, status').eq('id', declId).single()
+  if (!decl || decl.staff_id !== me.id) return { error: 'Не е ваша декларация' }
+  if (decl.status !== 'submitted') return { error: 'Проверена декларация не може да се трие' }
+  await supabase.from('lecturer_declarations').delete().eq('id', declId)
+  revalidatePath('/my-lecturer')
+  return { success: true }
 }
