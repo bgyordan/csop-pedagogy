@@ -35,7 +35,7 @@ export async function unverifyDeclaration(declId: string) {
 export async function getDeclarationDetail(declId: string) {
   const supabase = await createClient()
   const { data: decl } = await supabase.from('lecturer_declarations')
-    .select('id, staff_id, entries, staff:staff_profiles(first_name, last_name)').eq('id', declId).single()
+    .select('id, staff_id, entries, staff:staff_profiles!lecturer_declarations_staff_id_fkey(first_name, last_name)').eq('id', declId).single()
   if (!decl) return { error: 'Не е намерено' }
   const entries: { slotId: string; dates: string[] }[] = (decl.entries as any) || []
   const slotIds = entries.map(e => e.slotId)
