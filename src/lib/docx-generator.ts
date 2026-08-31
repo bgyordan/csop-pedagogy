@@ -281,48 +281,141 @@ function generateIUP(student: Student, team: any, data: Record<string, string>, 
   })
 }
 
-function generateSupportPlan(student: Student, data: Record<string, string>, yearName: string): Document {
+function calcAge(birth?: string | null): string {
+  if (!birth) return ''
+  const b = new Date(birth), now = new Date()
+  let age = now.getFullYear() - b.getFullYear()
+  const m = now.getMonth() - b.getMonth()
+  if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--
+  return age > 0 ? `${age} г.` : ''
+}
+
+function generateSupportPlan(student: Student, team: any, data: Record<string, string>, yearName: string): Document {
   const studentName = getFullName(student)
+  const age = data.age || calcAge((student as any).birth_date)
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
+  const CELLS = { top: B, bottom: B, left: B, right: B }
+  const cell = (children: Paragraph[], w?: number) => new TableCell({ borders: CELLS, width: w ? { size: w, type: WidthType.DXA } : undefined, children })
+  const tcH = (t: string) => cell([new Paragraph({ children: [bold(t, 20)] })])
+  const tc = (t: string) => cell([new Paragraph({ children: [normal(t, 20)] })])
+  const dots = (n: number) => '.'.repeat(n)
+
+  // Психо-социална рехабилитация таблица (Да/Не)
+  const REHAB = [
+    'Рехабилитация на слуха и говора', 'Зрителна рехабилитация', 'Рехабилитация на комуникативните нарушения',
+    'Осигуряване на достъпна архитектурна среда',
+    'Обща и специализирана подкрепяща среда, технически средства, специално оборудване',
+    'Предоставяне на обучение по специалните предмети за учениците със сензорни увреждания',
+    'Ресурсно подпомагане',
+  ]
+  const rehabRows: TableRow[] = [
+    new TableRow({ children: [
+      cell([new Paragraph({ children: [bold('Психо - социална рехабилитация', 20)] })]),
+      cell([new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('Да / Не', 20)] })]),
+    ] }),
+    ...REHAB.map(r => new TableRow({ children: [
+      cell([new Paragraph({ children: [normal(r, 20)] })]),
+      cell([new Paragraph({ children: [normal(data[`rehab_${REHAB.indexOf(r)}`] || '', 20)] })]),
+    ] })),
+  ]
+
+  // Когнитивно развитие таблица (5 реда)
+  const COG = [
+    ['Възприятия', 'cog_perception'], ['Внимание', 'cog_attention'],
+    ['Мисловни операции, интелектуално развитие', 'cog_thinking'],
+    ['Паметови операции', 'cog_memory'], ['Езиково-говорно развитие', 'cog_language'],
+  ]
+  const cogRows: TableRow[] = COG.map(([label, key]) => new TableRow({ children: [
+    new TableCell({ borders: CELLS, width: { size: 2800, type: WidthType.DXA }, children: [new Paragraph({ spacing: { before: 120, after: 120 }, children: [bold(label, 20)] })] }),
+    new TableCell({ borders: CELLS, children: [new Paragraph({ children: [normal(data[key] || '', 20)] })] }),
+  ] }))
+
+  // Цели и задачи таблица
+  const goalsRows: TableRow[] = [
+    new TableRow({ children: [tcH('цели'), tcH('задачи'), tcH('срок за изпълнение')] }),
+  ]
+  for (let i = 1; i <= 7; i++) {
+    goalsRows.push(new TableRow({ children: [
+      cell([new Paragraph({ spacing: { before: 80, after: 80 }, children: [normal(data[`goal_${i}`] || '', 20)] })]),
+      cell([new Paragraph({ children: [normal(data[`task_${i}`] || '', 20)] })]),
+      cell([new Paragraph({ children: [normal(data[`term_${i}`] || '', 20)] })]),
+    ] }))
+  }
+
   return new Document({
     sections: [{
       properties: {},
       children: [
-        new Paragraph({ alignment: AlignmentType.RIGHT, children: [bold('УТВЪРДИЛ:')] }),
-        new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: 'ДИРЕКТОР:', italics: true, size: 22 })] }),
-        new Paragraph({ text: '' }),
-        new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('ПЛАН', 28)] }),
+        new Paragraph({ children: [bold('УТВЪРДИЛ:', 22)] }),
+        new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: 'ДИРЕКТОР:', italics: true, size: 22 })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('ПЛАН', 26)] }),
         new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('ЗА ДОПЪЛНИТЕЛНА ПОДКРЕПА ЗА ЛИЧНОСТНО РАЗВИТИЕ', 24)] }),
-        new Paragraph({ alignment: AlignmentType.CENTER, children: [normal(`за ${yearName} учебна година`)] }),
-        new Paragraph({ text: '' }),
+        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [normal(`за ${yearName} учебна година`, 22)] }),
+
         sectionTitle('I. Основна информация'),
-        line('Трите имена на ученика', studentName),
-        line('Възраст', data.age || ''),
-        line('Група/клас', data.class_name || ''),
-        line('Вид на допълнителната подкрепа', data.support_type || 'дългосрочна'),
-        line('Форма на обучение', data.study_form || 'дневна'),
+        line('Трите имена на детето/ученика', studentName),
+        line('Възраст', age),
+        line('Група/клас', data.class_name || (student as any).external_class || ''),
+        line('Вид на допълнителната подкрепа', data.support_type || ''),
+        line('Форма на обучение', data.study_form || ''),
+        line('Начин на оценяване', data.assessment_type || ''),
+        line('Разработен индивидуален учебен план и/или индивидуални учебни програми по предмети', data.iup_note || ''),
+        new Paragraph({ spacing: { before: 80, after: 80 }, children: [normal('Допълнителната подкрепа за личностно развитие се осъществява за:', 22)] }),
+        new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: rehabRows }),
         new Paragraph({ text: '' }),
+
+        new Paragraph({ spacing: { after: 60 }, children: [bold('Данни за родителите/настойниците', 22)] }),
+        new Paragraph({ children: [normal('Имена, адрес, имейл и телефон за връзка с майката:', 20)] }),
+        new Paragraph({ spacing: { after: 80 }, children: [normal(data.mother_contact || dots(100), 20)] }),
+        new Paragraph({ children: [normal('Имена, адрес, имейл и телефон за връзка с бащата:', 20)] }),
+        new Paragraph({ spacing: { after: 160 }, children: [normal(data.father_contact || dots(100), 20)] }),
+
         sectionTitle('II. Когнитивно развитие на детето/ученика:'),
-        ...textBlock(data.cognitive_development || '', 4),
+        new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: cogRows }),
         new Paragraph({ text: '' }),
+
         sectionTitle('III. Емоционално състояние и поведение:'),
         ...textBlock(data.emotional_state || '', 4),
         new Paragraph({ text: '' }),
-        sectionTitle('IV. Описание на възможностите за обучение, силните страни и потенциала:'),
+
+        sectionTitle('IV. Описание на възможностите за обучение и възпитание, силните страни и потенциала на детето/ученика за приобщаване в образователната среда:'),
         ...textBlock(data.strengths || '', 4),
         new Paragraph({ text: '' }),
-        sectionTitle('V. Цели и задачи на допълнителната подкрепа:'),
-        ...textBlock(data.goals || '', 5),
+
+        sectionTitle('V. Цели и задачи на допълнителната подкрепа за личностно развитие:'),
+        new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: goalsRows }),
         new Paragraph({ text: '' }),
-        sectionTitle('VI. Специални методи и средства:'),
-        ...textBlock(data.methods || '', 3),
+
+        sectionTitle('VI. Специални методи и средства за постигане на поставените цели и задачи:'),
+        new Paragraph({ children: [normal('• Нагледни;', 22)] }),
+        new Paragraph({ children: [normal('• Практически;', 22)] }),
+        new Paragraph({ children: [normal('• Словесни;', 22)] }),
+        new Paragraph({ children: [normal('• Терапевтични методи;', 22)] }),
+        new Paragraph({ spacing: { after: 160 }, children: [normal('• Наблюдение.', 22)] }),
+
+        sectionTitle('VII. Описание на екипната работа:'),
+        new Paragraph({ children: [normal('Логопед — индивидуална и/или групова работа / брой часове седмично /', 20)] }),
+        new Paragraph({ spacing: { after: 120 }, children: [normal(data.work_speech || dots(90), 20)] }),
+        new Paragraph({ children: [normal('Психолог — индивидуална и/или групова работа / брой часове седмично /', 20)] }),
+        new Paragraph({ spacing: { after: 120 }, children: [normal(data.work_psych || dots(90), 20)] }),
+        new Paragraph({ children: [normal('Рехабилитатор — индивидуална и/или групова работа / брой часове седмично /', 20)] }),
+        new Paragraph({ spacing: { after: 160 }, children: [normal(data.work_rehab || dots(90), 20)] }),
+
+        new Paragraph({ spacing: { after: 80 }, children: [bold('Екип за подкрепа на личностното развитие:', 22)] }),
+        dotLine(`1. ${team?.class_teacher ? getFullName(team.class_teacher) : '................................'} /председател, ръководител паралелка в ЦСОП/`),
+        dotLine(`2. ${team?.psychologist ? getFullName(team.psychologist) : '................................'} /психолог/`),
+        dotLine(`3. ${team?.speech_therapist ? getFullName(team.speech_therapist) : '................................'} /логопед/`),
+        dotLine(`4. ${team?.rehabilitator ? getFullName(team.rehabilitator) : '................................'} /рехабилитатор/`),
         new Paragraph({ text: '' }),
-        new Paragraph({ spacing: { before: 200 }, children: [bold('Учител на паралелка: '), normal('...............................')] }),
-        new Paragraph({ spacing: { before: 100 }, children: [bold('Директор на ЦСОП: '), normal('...............................')] }),
+
+        line('Име и фамилия на родителя', data.parent_name || ''),
+        new Paragraph({ spacing: { after: 60 }, children: [bold('Мнение на родителя:', 22)] }),
+        ...textBlock(data.parent_opinion || '', 3),
+        new Paragraph({ spacing: { before: 160 }, children: [bold('Подпис: '), normal('................................')] }),
       ],
     }],
   })
 }
-
 function generateParentProgram(student: Student, team: any, data: Record<string, string>, yearName: string): Document {
   const studentName = getFullName(student)
   return new Document({
@@ -1326,7 +1419,7 @@ export async function generateAndDownloadDocument(
     case 'protocol_2': doc = generateProtocol2(student, team, data, yearName); break
     case 'protocol_3': doc = generateProtocol3(student, team, data, yearName); break
     case 'iup': doc = generateIUP(student, team, data, yearName); break
-    case 'support_plan': doc = generateSupportPlan(student, data, yearName); break
+    case 'support_plan': doc = generateSupportPlan(student, team, data, yearName); break
     case 'parent_program': doc = generateParentProgram(student, team, data, yearName); break
     default: doc = generateProtocol1(student, team, data, yearName)
   }
