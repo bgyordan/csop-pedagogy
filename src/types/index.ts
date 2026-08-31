@@ -10,6 +10,7 @@ export type UserRole =
   | 'teacher'
   | 'educator'
   | 'secretary'
+  | 'support'
 
 export type DocumentType =
   | 'protocol_1'
@@ -204,7 +205,8 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   class_teacher: 'Класен ръководител',
   teacher: 'Учител',
   educator: 'Възпитател',
-  secretary: 'Секретар',
+    secretary: 'Секретар',
+  support: 'Помощен персонал',
 }
 
 export const STATUS_LABELS: Record<DocumentStatus, string> = {
