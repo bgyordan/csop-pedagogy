@@ -184,8 +184,13 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
                   </div>
                   <div>
                     <label className="block text-xs text-slate-500 mb-1">До</label>
-                    <input type="date" value={to} min={from || todayStr()} onChange={e => setTo(e.target.value)}
-                      className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400" />
+                    <div className="flex items-center gap-1.5">
+                      <input type="date" value={to} min={from || todayStr()} onChange={e => setTo(e.target.value)}
+                        className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400" />
+                      <button type="button" onClick={() => setTo('2027-05-31')} className="px-2 py-1.5 rounded-lg text-[11px] bg-slate-100 text-slate-600 hover:bg-slate-200">31.05</button>
+                      <button type="button" onClick={() => setTo('2027-06-15')} className="px-2 py-1.5 rounded-lg text-[11px] bg-slate-100 text-slate-600 hover:bg-slate-200">15.06</button>
+                      <button type="button" onClick={() => setTo('2027-06-30')} className="px-2 py-1.5 rounded-lg text-[11px] bg-slate-100 text-slate-600 hover:bg-slate-200">30.06</button>
+                    </div>
                   </div>
                   <div className="text-sm text-slate-600 ml-auto">Маркирани: <span className="font-semibold text-slate-800">{pickedCount}</span> ч./седмица</div>
                   <button onClick={save} disabled={saving || pickedCount === 0 || !from || !to}
