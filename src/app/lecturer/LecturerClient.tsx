@@ -12,6 +12,17 @@ const DAYS = [{ n: 1, l: 'Пон' }, { n: 2, l: 'Вт' }, { n: 3, l: 'Ср' }, {
 const PERIODS = [1, 2, 3, 4, 5, 6, 7]
 function fmt(d: string) { return d ? d.split('-').reverse().join('.') : '' }
 const todayStr = () => new Date().toISOString().split('T')[0]
+function weeksBetween(from: string, to: string): number {
+  if (!from || !to) return 0
+  const a = new Date(from + 'T00:00'), b = new Date(to + 'T00:00')
+  if (b < a) return 0
+  // брой понеделници (учебни седмици) в интервала
+  let count = 0
+  const d = new Date(a)
+  while (d <= b) { if (d.getDay() === 1) count++; d.setDate(d.getDate() + 1) }
+  // ако периодът започва след понеделник, добавяме първата непълна седмица
+  return count > 0 ? count : 1
+}
 
 export default function LecturerClient({ academicYearId, teachers, marked: initialMarked }: {
   academicYearId: string; teachers: Teacher[]; marked: Marked[]
@@ -88,14 +99,18 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
 
   // групиране на маркираните по учител (за списъка долу)
   const byTeacher = useMemo(() => {
-    const m: Record<string, { name: string; count: number; from: string; to: string }> = {}
+    const m: Record<string, { name: string; count: number; from: string; to: string; classes: Set<string> }> = {}
     marked.forEach(x => {
-      if (!m[x.staffId]) m[x.staffId] = { name: x.staffName, count: 0, from: x.dateFrom, to: x.dateTo }
+      if (!m[x.staffId]) m[x.staffId] = { name: x.staffName, count: 0, from: x.dateFrom, to: x.dateTo, classes: new Set() }
       m[x.staffId].count++
+      if (x.holderLabel) m[x.staffId].classes.add(x.holderLabel)
     })
-    return Object.entries(m).map(([id, v]) => ({ id, ...v }))
+    return Object.entries(m).map(([id, v]) => {
+      const weeks = weeksBetween(v.from, v.to)
+      return { id, name: v.name, count: v.count, from: v.from, to: v.to, weeks, total: v.count * weeks, classes: [...v.classes] }
+    })
   }, [marked])
-  const grandTotal = marked.length
+  const grandTotal = byTeacher.reduce((a, t) => a + t.total, 0)
 
   return (
     <div className="space-y-5">
@@ -167,16 +182,10 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
                     <input type="date" value={from} min={todayStr()} onChange={e => { setFrom(e.target.value); if (to && e.target.value > to) setTo('') }}
                       className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400" />
                   </div>
-                                   <div>
+                  <div>
                     <label className="block text-xs text-slate-500 mb-1">До</label>
-                    <div className="flex items-center gap-1.5">
-                      <input type="date" value={to} min={from || todayStr()} onChange={e => setTo(e.target.value)}
-                        className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400" />
-                      <button type="button" onClick={() => setTo('2027-06-15')}
-                        className="px-2.5 py-1.5 rounded-lg text-xs bg-slate-100 text-slate-600 hover:bg-slate-200">15.06.2027</button>
-                      <button type="button" onClick={() => setTo('2027-06-30')}
-                        className="px-2.5 py-1.5 rounded-lg text-xs bg-slate-100 text-slate-600 hover:bg-slate-200">30.06.2027</button>
-                    </div>
+                    <input type="date" value={to} min={from || todayStr()} onChange={e => setTo(e.target.value)}
+                      className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400" />
                   </div>
                   <div className="text-sm text-slate-600 ml-auto">Маркирани: <span className="font-semibold text-slate-800">{pickedCount}</span> ч./седмица</div>
                   <button onClick={save} disabled={saving || pickedCount === 0 || !from || !to}
@@ -194,7 +203,7 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/60">
           <h3 className="text-sm font-semibold text-slate-800">Определени лекторски</h3>
-          <span className="text-xs text-slate-500">Общо: <span className="font-semibold text-slate-800">{grandTotal}</span> ч./седмица</span>
+          <span className="text-xs text-slate-500">Предв. общо: <span className="font-semibold text-slate-800">{grandTotal}</span> ч.</span>
         </div>
         {byTeacher.length === 0 ? (
           <div className="px-4 py-8 text-center text-sm text-slate-400">Още няма определени лекторски.</div>
@@ -204,8 +213,8 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
               <div key={t.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 group">
                 <Users size={15} className="text-slate-400 shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm text-slate-800">{t.name}</div>
-                  <div className="text-xs text-slate-500">{t.count} ч./седмица · {fmt(t.from)} – {fmt(t.to)}</div>
+                  <div className="text-sm text-slate-800">{t.name} {t.classes.length > 0 && <span className="text-xs text-slate-400 font-normal">· {t.classes.join(', ')}</span>}</div>
+                  <div className="text-xs text-slate-500">{t.count} ч./седмица × {t.weeks} седмици ≈ <span className="font-medium text-slate-700">{t.total} ч.</span> · {fmt(t.from)} – {fmt(t.to)}</div>
                 </div>
                 <button onClick={() => selectTeacher(t.id)} className="text-xs text-[#0f2240] hover:underline shrink-0">Редакция</button>
                 <button onClick={() => removeTeacher(t.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100"><Trash2 size={14} /></button>
