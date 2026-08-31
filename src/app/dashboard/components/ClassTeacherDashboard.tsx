@@ -253,13 +253,13 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
       )}
       {/* Карти горе: разписание + ИУП */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-        <Link href={`/classes/${myClasses[0].id}`}
+        <Link href={`/classes/${myClasses[0].id}/schedule-view`}
           className="flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl border border-teal-200 bg-teal-50/50 hover:bg-teal-50 transition-colors group">
           <div className="flex items-center gap-2.5">
             <CalendarClock size={18} className="text-teal-600" />
             <div>
-              <div className="text-sm font-semibold text-slate-800">Седмично разписание</div>
-              <div className="text-xs text-slate-500">На паралелката</div>
+                           <div className="text-sm font-semibold text-slate-800">Разписание на паралелката</div>
+              <div className="text-xs text-slate-500">Справка · </div>
             </div>
           </div>
           <ChevronRight size={16} className="text-teal-400 group-hover:text-teal-600" />
