@@ -1,8 +1,8 @@
 'use client'
 import { useState } from 'react'
-import { Loader2, FileDown, Check, CalendarClock } from 'lucide-react'
+import { Loader2, FileDown, Check, CalendarClock, Trash2 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { getMyLecturerDates, submitLecturerDeclaration } from './actions'
+import { getMyLecturerDates, submitLecturerDeclaration, deleteMyDeclaration } from './actions'
 import { generateLecturerDeclaration } from '@/lib/docx-substitution'
 
 type Slot = { id: string; day: number; period: number; subject: string; holderLabel: string; dateFrom: string; dateTo: string; orderNumber: string }
@@ -16,11 +16,12 @@ const STATUS: Record<string, { l: string; c: string }> = {
   paid: { l: 'Изплатена', c: 'bg-slate-100 text-slate-500' },
 }
 
-export default function MyLecturerClient({ teacherName, position, slots, declarations }: {
-  teacherName: string; position: string; slots: Slot[]; declarations: Decl[]
+export default function MyLecturerClient({ teacherName, position, slots, declarations: initialDecls, suggestFrom = '' }: {
+  teacherName: string; position: string; slots: Slot[]; declarations: Decl[]; suggestFrom?: string
 }) {
   const { toast } = useToast()
-  const [from, setFrom] = useState('')
+  const [declarations, setDeclarations] = useState<Decl[]>(initialDecls)
+  const [from, setFrom] = useState(suggestFrom)
   const [to, setTo] = useState('')
   const [expanded, setExpanded] = useState<{ slotId: string; day: number; period: number; subject: string; holderLabel: string; dates: string[] }[] | null>(null)
   const [checked, setChecked] = useState<Record<string, Set<string>>>({}) // slotId -> Set(dates)
@@ -162,9 +163,18 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
             {declarations.map(d => {
               const st = STATUS[d.status] || STATUS.submitted
               return (
-                <div key={d.id} className="flex items-center gap-3 px-4 py-3">
+                <div key={d.id} className="flex items-center gap-3 px-4 py-3 group">
                   <div className="flex-1 text-sm text-slate-700">{fmt(d.periodFrom)} – {fmt(d.periodTo)} · <span className="font-medium">{d.totalHours} ч.</span></div>
                   <span className={`text-[11px] px-2 py-0.5 rounded-full ${st.c}`}>{st.l}</span>
+                  {d.status === 'submitted' && (
+                    <button onClick={async () => {
+                      if (!confirm('Изтрий тази декларация?')) return
+                      const r: any = await deleteMyDeclaration(d.id)
+                      if (r.error) { toast(r.error, 'error'); return }
+                      setDeclarations(prev => prev.filter(x => x.id !== d.id))
+                      toast('Изтрито')
+                    }} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100" title="Изтрий"><Trash2 size={14} /></button>
+                  )}
                 </div>
               )
             })}
