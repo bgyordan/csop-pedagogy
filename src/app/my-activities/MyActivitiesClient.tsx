@@ -178,7 +178,7 @@ export default function MyActivitiesClient({ rows, roleLabel }: { rows: Row[]; r
                             <X size={12} className="hidden group-hover/btn:block" />
                           </>
                         )}
-                        <span className="group-hover/btn:hidden">В графика</span>
+                        <span className="group-hover/btn:hidden">Добавен</span>
                         <span className="hidden group-hover/btn:inline">Премахни</span>
                       </button>
                     ) : r.takenBy ? (
