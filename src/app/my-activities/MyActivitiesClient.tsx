@@ -2,8 +2,9 @@
 import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Search, Plus, X, Loader2, Lock, HeartPulse, ChevronRight, CalendarClock, Check, Users } from 'lucide-react'
+import { Search, Plus, X, Loader2, Lock, HeartPulse, ChevronRight, CalendarClock, Check, Users, FileDown } from 'lucide-react'
 import { assignToMe, removeFromMe } from './actions'
+import { generateTherapyListPDF } from '@/lib/pdf-generator'
 interface Row {
   id: string
   name: string
@@ -32,13 +33,26 @@ function avatarColor(name: string) {
   return colors[Math.abs(hash) % colors.length]
 }
 
-export default function MyActivitiesClient({ rows, roleLabel }: { rows: Row[]; roleLabel: string }) {
+export default function MyActivitiesClient({ rows, roleLabel, yearName = '', term = 1 }: { rows: Row[]; roleLabel: string; yearName?: string; term?: number }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [busy, setBusy] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<Tab>('mine')
   const [flash, setFlash] = useState<{ id: string; type: 'added' | 'removed' | 'error'; text: string } | null>(null)
+  const [genPdf, setGenPdf] = useState(false)
+
+  async function downloadList() {
+    const mine = rows.filter(r => r.mine).sort((a, b) => a.name.localeCompare(b.name, 'bg'))
+    if (mine.length === 0) return
+    setGenPdf(true)
+    try {
+      await generateTherapyListPDF(
+        mine.map(r => ({ name: r.name, className: r.className, externalClass: r.externalClass })),
+        roleLabel, term, yearName
+      )
+    } finally { setGenPdf(false) }
+  }
 
   const mineCount = useMemo(() => rows.filter(r => r.mine).length, [rows])
   const freeCount = useMemo(() => rows.filter(r => !r.mine && !r.takenBy).length, [rows])
@@ -116,15 +130,23 @@ export default function MyActivitiesClient({ rows, roleLabel }: { rows: Row[]; r
         ))}
       </div>
 
-      {/* Търсене */}
-      <div className="relative">
-        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Търси дете по име или паралелка..."
-          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-300"
-        />
+      {/* Търсене + Генерирай списък */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Търси дете по име или паралелка..."
+            className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-300"
+          />
+        </div>
+        <button onClick={downloadList} disabled={genPdf || mineCount === 0}
+          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50 hover:opacity-90 shrink-0"
+          style={{ backgroundColor: '#0f2240' }} title="Списък на моите деца (PDF)">
+          {genPdf ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />}
+          Списък (PDF)
+        </button>
       </div>
 
       {/* Списък */}
