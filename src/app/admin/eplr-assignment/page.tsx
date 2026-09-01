@@ -34,13 +34,13 @@ export default async function EplrAssignmentPage() {
     .eq('academic_year_id', currentYear?.id)
 
   const { data: psychologists } = await supabase
-    .from('staff_profiles').select('*').eq('role', 'psychologist').eq('is_active', true).order('first_name')
+        .from('staff_profiles').select('*').or('role.eq.psychologist,therapy_role.eq.psychologist').eq('is_active', true).order('first_name')
 
   const { data: speechTherapists } = await supabase
-    .from('staff_profiles').select('*').eq('role', 'speech_therapist').eq('is_active', true).order('first_name')
+        .from('staff_profiles').select('*').or('role.eq.speech_therapist,therapy_role.eq.speech_therapist').eq('is_active', true).order('first_name')
 
   const { data: rehabilitators } = await supabase
-    .from('staff_profiles').select('*').eq('role', 'rehabilitator').eq('is_active', true).order('first_name')
+       .from('staff_profiles').select('*').or('role.eq.rehabilitator,therapy_role.eq.rehabilitator').eq('is_active', true).order('first_name')
 
   return (
     <div className="p-4 md:p-8">
