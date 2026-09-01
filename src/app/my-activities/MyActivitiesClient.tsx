@@ -33,7 +33,7 @@ function avatarColor(name: string) {
   return colors[Math.abs(hash) % colors.length]
 }
 
-export default function MyActivitiesClient({ rows, roleLabel, yearName = '', term = 1 }: { rows: Row[]; roleLabel: string; yearName?: string; term?: number }) {
+export default function MyActivitiesClient({ rows, roleLabel, yearName = '', term = 1, teacherName = '' }: { rows: Row[]; roleLabel: string; yearName?: string; term?: number; teacherName?: string }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [busy, setBusy] = useState<string | null>(null)
@@ -49,7 +49,7 @@ export default function MyActivitiesClient({ rows, roleLabel, yearName = '', ter
     try {
       await generateTherapyListPDF(
         mine.map(r => ({ name: r.name, className: r.className, externalClass: r.externalClass })),
-        roleLabel, term, yearName
+        roleLabel, term, yearName, teacherName
       )
     } finally { setGenPdf(false) }
   }
