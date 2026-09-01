@@ -303,7 +303,6 @@ export async function generateTherapyListPDF(rows: TherapyListRow[], roleLabel: 
   doc.setFont(FONT, 'normal'); doc.setFontSize(9); doc.setTextColor(...SLATE)
   doc.text(`Общо: ${rows.length} деца`, 14, endY)
   doc.text(`Изготвил: ${teacherName}`, pageW - 14, endY, { align: 'right' })
-  doc.text('Директор: ...............................', pageW - 14, endY + 8, { align: 'right' })
-
+ 
   doc.save(`Списък_терапия_${yearName.replace('/', '-')}.pdf`)
 }
