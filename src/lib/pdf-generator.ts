@@ -266,7 +266,7 @@ export interface TherapyListRow {
   className: string
   externalClass: string
 }
-export async function generateTherapyListPDF(rows: TherapyListRow[], roleLabel: string, term: number, yearName: string) {
+export async function generateTherapyListPDF(rows: TherapyListRow[], roleLabel: string, term: number, yearName: string, teacherName: string) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const hasFont = await loadCyrillicFont(doc)
   const FONT = hasFont ? 'Roboto' : 'helvetica'
@@ -281,15 +281,17 @@ export async function generateTherapyListPDF(rows: TherapyListRow[], roleLabel: 
   doc.setDrawColor(...NAVY); doc.setLineWidth(0.4); doc.line(14, 26, pageW - 14, 26)
 
   doc.setFont(FONT, 'bold'); doc.setFontSize(13); doc.setTextColor(...NAVY)
-  doc.text(`СПИСЪК на ${roleLabel}`, pageW / 2, 35, { align: 'center' })
-  doc.setFont(FONT, 'normal'); doc.setFontSize(9); doc.setTextColor(...SLATE)
-  doc.text(`за ${term === 1 ? 'I' : 'II'} срок на учебната ${yearName} година`, pageW / 2, 41, { align: 'center' })
+  doc.text('С П И С Ъ К', pageW / 2, 35, { align: 'center' })
+  doc.setFont(FONT, 'normal'); doc.setFontSize(9.5); doc.setTextColor(...SLATE)
+  const termWord = term === 1 ? 'първи' : 'втори'
+  doc.text(`на учениците, включени в графика за терапия при ${teacherName}, ${roleLabel.toLowerCase()},`, pageW / 2, 41, { align: 'center' })
+  doc.text(`за ${termWord} срок на учебната ${yearName} г.`, pageW / 2, 46, { align: 'center' })
 
   const body = rows.map((r, i) => [String(i + 1), r.name, r.className || '—', r.externalClass || '—'])
   autoTable(doc, {
     head: [['№', 'Име, презиме, фамилия', 'Паралелка', 'Клас']],
     body,
-    startY: 47,
+    startY: 52,
     styles: { font: FONT, fontSize: 9, cellPadding: 2, textColor: SLATE, lineColor: [210, 215, 222], lineWidth: 0.1 },
     headStyles: { font: FONT, fontStyle: 'bold', fillColor: NAVY, textColor: [255, 255, 255], fontSize: 9, halign: 'left' },
     columnStyles: { 0: { cellWidth: 12, halign: 'center' }, 2: { cellWidth: 28, halign: 'center' }, 3: { cellWidth: 24, halign: 'center' } },
@@ -300,7 +302,7 @@ export async function generateTherapyListPDF(rows: TherapyListRow[], roleLabel: 
   const endY = (doc as any).lastAutoTable.finalY + 14
   doc.setFont(FONT, 'normal'); doc.setFontSize(9); doc.setTextColor(...SLATE)
   doc.text(`Общо: ${rows.length} деца`, 14, endY)
-  doc.text('Изготвил: ...............................', pageW - 14, endY, { align: 'right' })
+  doc.text(`Изготвил: ${teacherName}`, pageW - 14, endY, { align: 'right' })
   doc.text('Директор: ...............................', pageW - 14, endY + 8, { align: 'right' })
 
   doc.save(`Списък_терапия_${yearName.replace('/', '-')}.pdf`)
