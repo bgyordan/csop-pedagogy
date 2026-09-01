@@ -67,7 +67,20 @@ export default async function StudentsPage({
       .from('eplr_teams').select('student_id')
       .eq(roleField, profileData!.id).eq('academic_year_id', currentYear?.id)
     const studentIds = eplrTeams?.map(t => t.student_id) || []
-    query = query.in('student_id', studentIds.length > 0 ? studentIds : ['no-results'])
+      query = query.in('student_id', studentIds.length > 0 ? studentIds : ['no-results'])
+  } else if (role === 'educator' && !isCoordinator) {
+    // Възпитател — само децата от неговите ЦОУД групи
+    const { data: myGroups } = await supabase
+      .from('coud_groups').select('id').eq('teacher_id', profileData!.id).eq('academic_year_id', currentYear?.id)
+    const groupIds = (myGroups || []).map(g => g.id)
+    let coudStudentIds: string[] = []
+    if (groupIds.length > 0) {
+      const { data: ce } = await supabase
+        .from('coud_enrollments').select('student_id')
+        .in('coud_group_id', groupIds).eq('academic_year_id', currentYear?.id)
+      coudStudentIds = (ce || []).map(c => c.student_id)
+    }
+    query = query.in('student_id', coudStudentIds.length > 0 ? coudStudentIds : ['no-results'])
   }
   if (params.class) query = query.eq('class_id', params.class)
   if (params.form) query = query.eq('education_form', params.form)
