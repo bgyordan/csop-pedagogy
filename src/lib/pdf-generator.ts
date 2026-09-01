@@ -260,3 +260,48 @@ export async function generateIntensityPDF(rows: IntensityRow[], yearName: strin
 
   doc.save(`Терапии_по_деца_${yearName.replace('/', '-')}.pdf`)
 }
+// ═══ СПИСЪК ЗА ТЕРАПИЯ (за печат, носи се на директора) ═══
+export interface TherapyListRow {
+  name: string
+  className: string
+  externalClass: string
+}
+export async function generateTherapyListPDF(rows: TherapyListRow[], roleLabel: string, term: number, yearName: string) {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const hasFont = await loadCyrillicFont(doc)
+  const FONT = hasFont ? 'Roboto' : 'helvetica'
+  const logo = await loadLogo()
+  const pageW = doc.internal.pageSize.getWidth()
+
+  if (logo) { try { doc.addImage(logo, 'JPEG', 14, 8, 16, 16) } catch {} }
+  doc.setFont(FONT, 'bold'); doc.setFontSize(11); doc.setTextColor(...NAVY)
+  doc.text('Център за специална образователна подкрепа – гр. Варна', pageW / 2, 13, { align: 'center' })
+  doc.setFont(FONT, 'normal'); doc.setFontSize(8); doc.setTextColor(...SLATE)
+  doc.text('бул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 0888 490 771', pageW / 2, 18, { align: 'center' })
+  doc.setDrawColor(...NAVY); doc.setLineWidth(0.4); doc.line(14, 26, pageW - 14, 26)
+
+  doc.setFont(FONT, 'bold'); doc.setFontSize(13); doc.setTextColor(...NAVY)
+  doc.text(`СПИСЪК на ${roleLabel}`, pageW / 2, 35, { align: 'center' })
+  doc.setFont(FONT, 'normal'); doc.setFontSize(9); doc.setTextColor(...SLATE)
+  doc.text(`за ${term === 1 ? 'I' : 'II'} срок на учебната ${yearName} година`, pageW / 2, 41, { align: 'center' })
+
+  const body = rows.map((r, i) => [String(i + 1), r.name, r.className || '—', r.externalClass || '—'])
+  autoTable(doc, {
+    head: [['№', 'Име, презиме, фамилия', 'Паралелка', 'Клас']],
+    body,
+    startY: 47,
+    styles: { font: FONT, fontSize: 9, cellPadding: 2, textColor: SLATE, lineColor: [210, 215, 222], lineWidth: 0.1 },
+    headStyles: { font: FONT, fontStyle: 'bold', fillColor: NAVY, textColor: [255, 255, 255], fontSize: 9, halign: 'left' },
+    columnStyles: { 0: { cellWidth: 12, halign: 'center' }, 2: { cellWidth: 28, halign: 'center' }, 3: { cellWidth: 24, halign: 'center' } },
+    alternateRowStyles: { fillColor: [246, 248, 250] },
+    margin: { left: 14, right: 14 },
+  })
+
+  const endY = (doc as any).lastAutoTable.finalY + 14
+  doc.setFont(FONT, 'normal'); doc.setFontSize(9); doc.setTextColor(...SLATE)
+  doc.text(`Общо: ${rows.length} деца`, 14, endY)
+  doc.text('Изготвил: ...............................', pageW - 14, endY, { align: 'right' })
+  doc.text('Директор: ...............................', pageW - 14, endY + 8, { align: 'right' })
+
+  doc.save(`Списък_терапия_${yearName.replace('/', '-')}.pdf`)
+}
