@@ -86,7 +86,7 @@ export default async function MyActivitiesPage() {
         </p>
       </div>
 
-      <MyActivitiesClient rows={rows} roleLabel={ROLE_LABELS[profile.role as keyof typeof ROLE_LABELS] || ''} />
+      <MyActivitiesClient rows={rows} roleLabel={ROLE_LABELS[profile.role as keyof typeof ROLE_LABELS] || ''} yearName={currentYear?.name || ''} term={1} />
     </div>
   )
 }
