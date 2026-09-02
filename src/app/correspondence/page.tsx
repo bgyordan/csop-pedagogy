@@ -18,6 +18,7 @@ export default async function CorrespondencePage({
   const canAccess = ['admin', 'zdud', 'director', 'secretary'].includes(profile?.role || '') || profile?.is_coordinator === true
   if (!canAccess) redirect('/dashboard')
   const canEdit = ['admin', 'zdud', 'director', 'secretary'].includes(profile?.role || '')
+  const canDelete = profile?.role === 'admin'
   const page = Math.max(1, parseInt(params.page || '1'))
   const q = params.q || ''
   const direction = params.direction || 'incoming'
@@ -52,6 +53,7 @@ export default async function CorrespondencePage({
         searchValue={q}
         directionValue={direction}
         canEdit={canEdit}
+        canDelete={canDelete}
         currentUserId={profile?.id || ''}
         students={students || []}
         staff={staff || []}
