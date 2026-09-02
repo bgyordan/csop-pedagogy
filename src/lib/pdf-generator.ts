@@ -130,7 +130,7 @@ export async function generateDistributionPDF(rows: DistRow[], yearName: string)
       lineColor: [203, 213, 225], lineWidth: 0.1,
     },
     headStyles: {
-      font: FONT, fontStyle: 'bold', fillColor: NAVY, textColor: [255, 255, 255],
+      font: FONT, fontStyle: 'bold', fillColor: [237, 242, 247], textColor: NAVY,
       fontSize: 7.5, cellPadding: 2.2, lineColor: [203, 213, 225], lineWidth: 0.1,
     },
     alternateRowStyles: { fillColor: [245, 248, 252] },
@@ -216,7 +216,7 @@ export async function generateIntensityPDF(rows: IntensityRow[], yearName: strin
   rows.forEach((r) => {
     if (r.className !== lastClass) {
       lastClass = r.className
-      body.push([{ content: `Паралелка ${r.className}`, colSpan: 7, styles: { fillColor: NAVY, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left', fontSize: 8 } }])
+      body.push([{ content: `Паралелка ${r.className}`, colSpan: 7, styles: { fillColor: [237, 242, 247], textColor: NAVY, fontStyle: 'bold', halign: 'left', fontSize: 8 } }])
     }
     body.push([
       r.name,
@@ -293,7 +293,7 @@ export async function generateTherapyListPDF(rows: TherapyListRow[], roleLabel: 
     body,
     startY: 52,
     styles: { font: FONT, fontSize: 9, cellPadding: 2, textColor: SLATE, lineColor: [210, 215, 222], lineWidth: 0.1 },
-    headStyles: { font: FONT, fontStyle: 'bold', fillColor: NAVY, textColor: [255, 255, 255], fontSize: 9, halign: 'left' },
+    headStyles: { font: FONT, fontStyle: 'bold', fillColor: [237, 242, 247], textColor: NAVY, fontSize: 9, halign: 'left' },
     columnStyles: { 0: { cellWidth: 12, halign: 'center' }, 2: { cellWidth: 28, halign: 'center' }, 3: { cellWidth: 24, halign: 'center' } },
     alternateRowStyles: { fillColor: [246, 248, 250] },
     margin: { left: 14, right: 14 },
@@ -330,7 +330,7 @@ export async function generateStudentsBySchoolPDF(groups: BySchoolGroup[], yearN
 
   const body: any[] = []
   groups.forEach(g => {
-    body.push([{ content: `${g.school}  —  ${g.externalClass} клас`, colSpan: 3, styles: { fillColor: NAVY, textColor: [255,255,255], fontStyle: 'bold', halign: 'left', fontSize: 9 } }])
+    body.push([{ content: `${g.school}  —  ${g.externalClass} клас`, colSpan: 3, styles: { fillColor: [237, 242, 247], textColor: NAVY, fontStyle: 'bold', halign: 'left', fontSize: 9 } }])
     g.students.forEach(s => body.push([s.name, s.className || '—', s.classTeacher || '—']))
   })
   autoTable(doc, {
