@@ -30,7 +30,7 @@ export default function SchoolsAdminPage() {
   const [loading, setLoading] = useState(true)
   const [showInactive, setShowInactive] = useState(false)
   const [onlyIncomplete, setOnlyIncomplete] = useState(false)
-  const [onlyEmpty, setOnlyEmpty] = useState(false)
+  const [showEmpty, setShowEmpty] = useState(false)
   const [sortBy, setSortBy] = useState<'name' | 'city' | 'students'>('name')
   const [search, setSearch] = useState('')
   const [cityFilter, setCityFilter] = useState('')
@@ -153,7 +153,7 @@ export default function SchoolsAdminPage() {
   const visible = schools
     .filter(s => {
       if (onlyIncomplete && !isIncomplete(s)) return false
-      if (onlyEmpty && (studentsBySchool[s.id] || []).length > 0) return false
+      if (!showEmpty && (studentsBySchool[s.id] || []).length === 0) return false
       if (cityFilter && s.city !== cityFilter) return false
       if (typeFilter && s.type !== typeFilter) return false
       if (search.trim()) {
@@ -315,6 +315,9 @@ export default function SchoolsAdminPage() {
         </select>
         <label className="inline-flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer px-2">
           <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} className="rounded" /> и неактивни
+        </label>
+                <label className="inline-flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer px-2">
+          <input type="checkbox" checked={showEmpty} onChange={e => setShowEmpty(e.target.checked)} className="rounded" /> и без ученици ({emptyCount})
         </label>
         {incompleteCount > 0 && (
           <label className="inline-flex items-center gap-1.5 text-xs text-amber-600 cursor-pointer px-2">
