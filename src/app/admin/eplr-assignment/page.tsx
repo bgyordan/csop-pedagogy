@@ -20,7 +20,7 @@ export default async function EplrAssignmentPage() {
   const { data: classes } = await supabase
     .from('classes').select('*').eq('academic_year_id', currentYear?.id).order('name')
 
-   c  const { data: allEnrollments } = await supabase
+   const { data: allEnrollments } = await supabase
     .from('student_enrollments')
     .select('*, student:students(*), class:classes(*)')
     .eq('academic_year_id', currentYear?.id)
