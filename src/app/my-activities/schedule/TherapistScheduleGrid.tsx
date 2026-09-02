@@ -49,12 +49,13 @@ export function TherapistScheduleGrid({
     existingSlots.forEach(s => { if (s.student_id) { const k = `${s.day}-${s.period}`; (g[k] = g[k] || []).push(s.student_id) } })
     return g
   })
-  function addToCell(day: number, period: number, studentId: string) {
+    function addToCell(day: number, period: number, studentId: string) {
     if (!studentId) return
     setGrid(prev => {
       const key = `${day}-${period}`
       const arr = prev[key] || []
       if (arr.includes(studentId)) return prev
+      if (arr.length >= 3) { setMsg({ type: 'err', text: 'Максимум 3 деца в един час.' }); return prev }
       return { ...prev, [key]: [...arr, studentId] }
     })
   }
