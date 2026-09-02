@@ -31,8 +31,9 @@ export default async function ReportsHubPage() {
   const role = profile?.role || ''
   const isCoordinator = profile?.is_coordinator === true
 
-  const visible = REPORTS.filter(r => {
-    if (!r.roles.includes(role)) return false
+    const visible = REPORTS.filter(r => {
+    const roleOk = r.roles.includes(role) || isCoordinator
+    if (!roleOk) return false
     if (r.coordinatorOnly && !isCoordinator && !['admin', 'zdud'].includes(role)) return false
     return true
   })
