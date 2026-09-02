@@ -332,8 +332,8 @@ export async function generateStudentsBySchoolPDF(groups: BySchoolGroup[], yearN
 
   const body: any[] = []
   groups.forEach(g => {
-    body.push([{ content: `${g.school}  —  ${g.externalClass} клас`, colSpan: 3, styles: { fillColor: [237, 242, 247], textColor: NAVY, fontStyle: 'bold', halign: 'left', fontSize: 9 } }])
-    g.students.forEach(s => body.push([s.name, s.className || '—', s.classTeacher || '—']))
+    body.push([{ content: `${g.school}  —  ${g.externalClass} клас`, colSpan: 3, styles: { fillColor: [237, 242, 247], textColor: NAVY, fontStyle: 'normal', halign: 'left', fontSize: 9 } }])
+    g.students.forEach(s => body.push([{ content: s.name, styles: { fontStyle: 'italic' } }, s.className || '—', s.classTeacher || '—']))
   })
   autoTable(doc, {
     head: [['Ученик', 'Паралелка', 'Класен ръководител']],
