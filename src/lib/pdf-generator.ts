@@ -65,7 +65,7 @@ interface DistRow {
 }
 
 const NAVY: [number, number, number] = [15, 34, 64]
-const SLATE: [number, number, number] = [100, 116, 139]
+const SLATE: [number, number, number] = [30, 35, 45]
 
 export async function generateDistributionPDF(rows: DistRow[], yearName: string) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
