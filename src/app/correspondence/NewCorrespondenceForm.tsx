@@ -136,7 +136,7 @@ export default function NewCorrespondenceForm({
   const [nomSearch, setNomSearch] = useState('')
   const [showAllNom, setShowAllNom] = useState(false)
   const [addToDossier, setAddToDossier] = useState(true)
-  const [createOrder, setCreateOrder] = useState(true)
+  const [createOrder, setCreateOrder] = useState(false)
   // Заместване (само сценарий отпуск, опционално)
   const [substituteId, setSubstituteId] = useState('')
   const [subFrom, setSubFrom] = useState('')
