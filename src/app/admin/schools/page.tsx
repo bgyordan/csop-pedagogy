@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { BackButton } from '@/components/ui/BackButton'
 import { useToast } from '@/components/ui/Toast'
-import SchoolFilesButton from './SchoolFilesButton'
+import SchoolFilesPanel from './SchoolFilesPanel'
 import { Plus, Pencil, X, Check, School, MapPin, User, Phone, Mail, AlertCircle, Users, ChevronDown, ChevronUp, UserPlus, Loader2, ArrowUpDown } from 'lucide-react'
 interface SchoolRow {
   id: string
@@ -274,253 +274,159 @@ export default function SchoolsAdminPage() {
     </div>
   )
   return (
-    <div className="p-4 md:p-8 max-w-3xl">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto">
       <BackButton />
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between gap-3 mb-5 mt-2 flex-wrap">
         <div>
           <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Изпращащи училища</h1>
-          <p className="text-slate-500 text-sm mt-1">
-            {visible.length === schools.length ? `${activeCount} активни` : `${visible.length} от ${activeCount}`}
-            {incompleteCount > 0 && (
-              <span className="text-amber-600"> · {incompleteCount} с непълни данни</span>
-            )}
-            {orphans.length > 0 && (
-              <span className="text-blue-600"> · {orphans.length} ученика без училище</span>
-            )}
-          </p>
+          <p className="text-slate-500 text-sm mt-0.5">{visible.length} училища · клик за детайли и файлове</p>
         </div>
         <button onClick={startAdd}
-          className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg text-sm font-medium text-white"
-          style={{ backgroundColor: '#0f2240' }}>
-          <Plus size={16} />
-          <span className="hidden sm:inline">Ново училище</span>
-          <span className="sm:hidden">Ново</span>
-        </button>
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-medium hover:opacity-90 shrink-0"
+          style={{ backgroundColor: '#0f2240' }}><Plus size={16} /> Ново училище</button>
       </div>
+
+      {/* Форма за добавяне */}
       {adding && (
-        <div className="card mb-4 border-2 border-blue-100">
-          <h2 className="font-medium text-slate-700 text-sm mb-3">Ново училище</h2>
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-slate-800">Ново училище</h3>
+            <button onClick={() => setAdding(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600"><X size={16} /></button>
+          </div>
           {FormFields}
         </div>
       )}
-      {/* Търсене и подредба */}
-      <div className="flex flex-col sm:flex-row gap-2 mb-3">
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Търси по име, град или директор..."
-          className="input flex-1 text-sm"
-        />
-        <select
-          value={cityFilter}
-          onChange={e => setCityFilter(e.target.value)}
-          className="input text-sm py-2 sm:w-44">
+
+      {/* Филтри */}
+      <div className="flex items-center gap-2 flex-wrap mb-4">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Търси училище…"
+            className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-full text-sm focus:outline-none focus:border-slate-400" />
+        </div>
+        <select value={cityFilter} onChange={e => setCityFilter(e.target.value)}
+          className="px-3 py-2 bg-white border border-slate-200 rounded-full text-sm cursor-pointer focus:outline-none">
           <option value="">Всички градове</option>
           {cities.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <select
-          value={typeFilter}
-          onChange={e => setTypeFilter(e.target.value)}
-          className="input text-sm py-2 sm:w-32">
+        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
+          className="px-3 py-2 bg-white border border-slate-200 rounded-full text-sm cursor-pointer focus:outline-none">
           <option value="">Всички видове</option>
-          {schoolTypes.map(t => <option key={t} value={t as string}>{t}</option>)}
+          {SCHOOL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
-        <div className="flex items-center gap-1.5">
-          <ArrowUpDown size={13} className="text-slate-400 flex-shrink-0" />
-          <select
-            value={sortBy}
-            onChange={e => setSortBy(e.target.value as any)}
-            className="input text-sm py-2">
-            <option value="name">По име</option>
-            <option value="city">По град</option>
-            <option value="students">По брой ученици</option>
-          </select>
-        </div>
-      </div>
-      {/* Филтри */}
-      <div className="flex flex-wrap items-center gap-4 mb-4">
-        <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-          <input type="checkbox" checked={showInactive}
-            onChange={e => setShowInactive(e.target.checked)} className="rounded" />
-          Покажи скритите
+        <label className="inline-flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer px-2">
+          <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} className="rounded" /> и неактивни
         </label>
         {incompleteCount > 0 && (
-          <label className="flex items-center gap-2 text-sm text-amber-700 cursor-pointer">
-            <input type="checkbox" checked={onlyIncomplete}
-              onChange={e => setOnlyIncomplete(e.target.checked)} className="rounded" />
-            Само с непълни данни
-          </label>
-        )}
-        {emptyCount > 0 && (
-          <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-            <input type="checkbox" checked={onlyEmpty}
-              onChange={e => setOnlyEmpty(e.target.checked)} className="rounded" />
-            Само без ученици ({emptyCount})
+          <label className="inline-flex items-center gap-1.5 text-xs text-amber-600 cursor-pointer px-2">
+            <input type="checkbox" checked={onlyIncomplete} onChange={e => setOnlyIncomplete(e.target.checked)} className="rounded" /> непълни ({incompleteCount})
           </label>
         )}
       </div>
-      <div>
-        {loading ? (
-          <div className="text-center py-12 text-slate-400 text-sm">Зареждане...</div>
-        ) : visible.length === 0 ? (
-          <div className="text-center py-12 text-slate-400">
-            <School className="mx-auto mb-2 opacity-30" size={32} />
-            <p className="text-sm">
-              {onlyEmpty ? 'Всички училища имат ученици'
-                : onlyIncomplete ? 'Всички са попълнени'
-                : 'Няма добавени училища'}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {visible.map(school => (
-              <div key={school.id} className={`bg-white rounded-2xl border border-slate-200 shadow-[0_1px_4px_rgba(15,34,64,0.06)] overflow-hidden transition-all hover:border-slate-300 hover:shadow-[0_2px_10px_rgba(15,34,64,0.08)] ${!school.is_active ? 'opacity-50' : ''}`}>
-                {editId === school.id ? (
-                  <div className="px-4 py-4 bg-slate-50/60">
-                    <h3 className="font-medium text-slate-700 text-sm mb-3">Редакция</h3>
-                    {FormFields}
-                  </div>
-                ) : (
-                  <div className="flex items-start justify-between gap-3 px-4 py-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        {school.type && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 flex-shrink-0">{school.type}</span>
-                        )}
-                                                <span className="text-sm font-medium text-slate-800">{school.name}</span>
-                        {isIncomplete(school) && (
-                          <AlertCircle size={12} className="text-amber-500 flex-shrink-0"
-                            aria-label="Непълни данни" />
-                        )}
-                        <SchoolFilesButton schoolId={school.id} schoolName={school.name} canManage={true} />
-                      </div>
-                                            <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
-                        <MapPin size={10} />
-                        {school.city}
-                        {school.address && <span> · {school.address}</span>}
-                        {school.neispuo_code && <span className="font-mono text-slate-400"> · код {school.neispuo_code}</span>}
-                      </div>
-                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[11px] text-slate-500">
-                        {school.director_name ? (
-                          <span className="flex items-center gap-1">
-                            <User size={10} className="text-slate-300" />
-                            {school.director_name}
-                          </span>
-                        ) : (
-                          <span className="text-amber-600">няма директор</span>
-                        )}
-                        {school.deputy_director && (
-                          <span className="text-slate-400">ЗДУД: {school.deputy_director}</span>
-                        )}
-                        {school.phone && (
-                          <span className="flex items-center gap-1">
-                            <Phone size={10} className="text-slate-300" />{school.phone}
-                          </span>
-                        )}
-                        {school.email && (
-                          <span className="flex items-center gap-1">
-                            <Mail size={10} className="text-slate-300" />{school.email}
-                          </span>
-                        )}
-                      </div>
+
+      {loading ? (
+        <div className="text-center py-12 text-slate-400 text-sm">Зареждане…</div>
+      ) : visible.length === 0 ? (
+        <div className="text-center py-16 text-slate-400">
+          <School className="mx-auto mb-2 opacity-30" size={32} />
+          <p className="text-sm">Няма училища по този филтър</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          {visible.map(school => {
+            const isOpen = expandedId === school.id
+            const kids = studentsBySchool[school.id] || []
+            return (
+              <div key={school.id}
+                className={`bg-white rounded-2xl border shadow-[0_1px_4px_rgba(15,34,64,0.06)] transition-all ${
+                  isOpen ? 'border-[#0f2240] sm:col-span-2 lg:col-span-3' : 'border-slate-200 hover:border-slate-300 hover:shadow-[0_2px_10px_rgba(15,34,64,0.08)]'
+                } ${!school.is_active ? 'opacity-60' : ''}`}>
+                {/* Заглавен ред (плочка) */}
+                <button onClick={() => { setExpandedId(isOpen ? null : school.id); setPickerOpen(false) }}
+                  className="w-full flex items-center gap-2 px-4 py-3 text-left">
+                  {school.type && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 shrink-0">{school.type}</span>}
+                  <span className="text-sm font-medium text-slate-800 truncate flex-1">{school.name}</span>
+                  {isIncomplete(school) && <AlertCircle size={13} className="text-amber-500 shrink-0" />}
+                  <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 shrink-0"><Users size={11} />{kids.length}</span>
+                  {isOpen ? <ChevronUp size={14} className="text-slate-400 shrink-0" /> : <ChevronDown size={14} className="text-slate-300 shrink-0" />}
+                </button>
+
+                {/* Разгънат панел */}
+                {isOpen && (
+                  editId === school.id ? (
+                    <div className="px-4 pb-4 border-t border-slate-100 pt-3 bg-slate-50/50">
+                      <h3 className="text-sm font-semibold text-slate-700 mb-3">Редакция</h3>
+                      {FormFields}
                     </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <button
-                        onClick={() => setExpandedId(expandedId === school.id ? null : school.id)}
-                        className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-slate-500 hover:bg-slate-100 transition-colors"
-                        title="Ученици от това училище">
-                        <Users size={12} />
-                        {(studentsBySchool[school.id] || []).length}
-                        {expandedId === school.id ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-                      </button>
-                      <button onClick={() => startEdit(school)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-                        title="Редактирай">
-                        <Pencil size={13} />
-                      </button>
-                      <button onClick={() => toggleActive(school)}
-                        className={`text-xs px-2 py-1 rounded-lg border transition-colors ${
-                          school.is_active
-                            ? 'border-slate-200 text-slate-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200'
-                            : 'border-green-200 text-green-600 hover:bg-green-50'
-                        }`}>
-                        {school.is_active ? 'Скрий' : 'Активирай'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {expandedId === school.id && editId !== school.id && (
-                  <div className="px-4 pb-4 bg-slate-50/40 border-t border-slate-100">
-                    <div className="flex items-center justify-between pt-3 pb-2">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                        Ученици от това училище
-                      </span>
-                      {orphans.length > 0 && (
-                        <button
-                          onClick={() => setPickerOpen(true)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
-                          style={{ backgroundColor: '#0f2240' }}>
-                          <UserPlus size={11} /> Добави ученик
-                        </button>
-                      )}
-                    </div>
-                    {(studentsBySchool[school.id] || []).length === 0 ? (
-                      <p className="text-xs text-slate-400 py-2">Няма записани ученици от това училище</p>
-                    ) : (
-                      <div className="space-y-1">
-                        {(studentsBySchool[school.id] || []).map((s: any) => (
-                          <div key={s.id} className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-white border border-slate-100">
-                            <span className="text-xs text-slate-700">{fullName(s)}</span>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <span className="text-[11px] text-slate-400">{s.external_class || '—'}</span>
-                              <button
-                                onClick={() => unlinkStudent(s.id)}
-                                disabled={linking === s.id}
-                                className="text-slate-300 hover:text-red-500 transition-colors"
-                                title="Премахни от това училище">
-                                {linking === s.id ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {pickerOpen && (
-                      <div className="mt-3 p-3 rounded-xl bg-white border border-slate-200">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                            Ученици без изпращащо училище ({orphans.length})
-                          </span>
-                          <button onClick={() => setPickerOpen(false)} className="text-slate-400 hover:text-slate-700">
-                            <X size={13} />
+                  ) : (
+                    <div className="border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-0">
+                      {/* Ляво: данни + ученици */}
+                      <div className="p-4 md:border-r border-slate-100 space-y-3">
+                        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                          <MapPin size={12} className="text-slate-300" />{school.city}{school.address && <span> · {school.address}</span>}
+                          {school.neispuo_code && <span className="font-mono"> · код {school.neispuo_code}</span>}
+                        </div>
+                        <div className="space-y-1 text-[12px] text-slate-600">
+                          {school.director_name ? <div className="flex items-center gap-1.5"><User size={11} className="text-slate-300" />Директор: {school.director_name}</div> : <div className="text-amber-600">няма директор</div>}
+                          {school.deputy_director && <div className="text-slate-400 pl-4">ЗДУД: {school.deputy_director}</div>}
+                          {school.phone && <div className="flex items-center gap-1.5"><Phone size={11} className="text-slate-300" />{school.phone}</div>}
+                          {school.email && <div className="flex items-center gap-1.5"><Mail size={11} className="text-slate-300" />{school.email}</div>}
+                        </div>
+                        <div className="flex items-center gap-2 pt-1">
+                          <button onClick={() => startEdit(school)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs text-slate-500 hover:bg-slate-100"><Pencil size={12} /> Редактирай</button>
+                          <button onClick={() => toggleActive(school)}
+                            className={`text-xs px-2.5 py-1 rounded-lg border ${school.is_active ? 'border-slate-200 text-slate-500 hover:bg-red-50 hover:text-red-600' : 'border-green-200 text-green-600 hover:bg-green-50'}`}>
+                            {school.is_active ? 'Скрий' : 'Активирай'}
                           </button>
                         </div>
-                        <div className="space-y-1 max-h-56 overflow-y-auto">
-                          {orphans.map((s: any) => (
-                            <button
-                              key={s.id}
-                              onClick={() => linkStudent(s.id, school.id)}
-                              disabled={linking === s.id}
-                              className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg hover:bg-slate-50 text-left transition-colors">
-                              <span className="text-xs text-slate-700">{fullName(s)}</span>
-                              <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                                {s.external_class || '—'}
-                                {linking === s.id
-                                  ? <Loader2 size={11} className="animate-spin" />
-                                  : <UserPlus size={11} className="text-slate-300" />}
-                              </span>
-                            </button>
-                          ))}
+                        {/* Ученици */}
+                        <div className="pt-2 border-t border-slate-100">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Ученици ({kids.length})</span>
+                            {orphans.length > 0 && <button onClick={() => setPickerOpen(!pickerOpen)} className="inline-flex items-center gap-1 text-[11px] text-[#0f2240] hover:underline"><UserPlus size={11} /> Добави</button>}
+                          </div>
+                          {kids.length === 0 ? <p className="text-[11px] text-slate-400">Няма ученици</p> : (
+                            <div className="space-y-1 max-h-48 overflow-y-auto">
+                              {kids.map((s: any) => (
+                                <div key={s.id} className="flex items-center justify-between gap-2 px-2.5 py-1 rounded-lg bg-slate-50">
+                                  <span className="text-[12px] text-slate-700 truncate">{fullName(s)}</span>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className="text-[11px] text-slate-400">{s.external_class || '—'}</span>
+                                    <button onClick={() => unlinkStudent(s.id)} disabled={linking === s.id} className="text-slate-300 hover:text-red-500">{linking === s.id ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}</button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {pickerOpen && orphans.length > 0 && (
+                            <div className="mt-2 p-2 rounded-xl bg-white border border-slate-200">
+                              <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Без училище ({orphans.length})</div>
+                              <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                                {orphans.map((s: any) => (
+                                  <button key={s.id} onClick={() => linkStudent(s.id, school.id)} disabled={linking === s.id}
+                                    className="w-full flex items-center justify-between gap-2 px-2.5 py-1 rounded-lg hover:bg-slate-50 text-left">
+                                    <span className="text-[12px] text-slate-700 truncate">{fullName(s)}</span>
+                                    <span className="text-[11px] text-slate-400 flex items-center gap-1 shrink-0">{s.external_class || '—'}{linking === s.id ? <Loader2 size={10} className="animate-spin" /> : <UserPlus size={10} className="text-slate-300" />}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    )}
-                  </div>
+
+                      {/* Дясно: файлове */}
+                      <div className="p-4 bg-slate-50/40">
+                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Файлове (УУП и др.)</div>
+                        <SchoolFilesPanel schoolId={school.id} />
+                      </div>
+                    </div>
+                  )
                 )}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
