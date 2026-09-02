@@ -4,7 +4,7 @@ import { useState } from 'react'
 import NewOrderForm from './NewOrderForm'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, ChevronLeft, ChevronRight, ClipboardList, Paperclip, Pencil } from 'lucide-react'
+import { Plus, Search, ChevronLeft, ChevronRight, ClipboardList, Paperclip, Pencil, Trash2 } from 'lucide-react'
 import ViewOrderModal from './ViewOrderModal'
 import EditOrderModal from './EditOrderModal'
 
@@ -24,7 +24,8 @@ interface Props {
   pageSize: number
   searchValue: string
   filterIndex: string
-  canEdit: boolean
+   canEdit: boolean
+  canDelete: boolean
   currentUserId: string
   students: { id: string; first_name: string; last_name: string }[]
   staff: { id: string; first_name: string; last_name: string }[]
@@ -33,10 +34,17 @@ interface Props {
 
 export default function OrdersClient({
   orders, totalCount, page, pageSize,
-  searchValue, filterIndex, canEdit, currentUserId, students, staff, nomenclature
+  searchValue, filterIndex, canEdit, canDelete, currentUserId, students, staff, nomenclature
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
+    async function handleDelete(id: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!confirm('Изтрий тази заповед? Действието е необратимо.')) return
+    const { error } = await supabase.from('orders').delete().eq('id', id)
+    if (error) { alert('Грешка при изтриване'); return }
+    router.refresh()
+  }
   const schoolYear = getSchoolYear()
 
   const [search, setSearch] = useState(searchValue)
@@ -154,11 +162,18 @@ export default function OrdersClient({
               ) : (
                 <span className="text-slate-200 text-[10px]">—</span>
               )}
-              {canEdit && (
+                            {canEdit && (
                 <button type="button" onClick={() => setEditItem(item)}
                   className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition-colors opacity-0 group-hover:opacity-100"
                   title="Редакция">
                   <Pencil size={13} />
+                </button>
+              )}
+              {canDelete && (
+                <button type="button" onClick={(e) => handleDelete(item.id, e)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors opacity-0 group-hover:opacity-100"
+                  title="Изтрий">
+                  <Trash2 size={13} />
                 </button>
               )}
             </div>
