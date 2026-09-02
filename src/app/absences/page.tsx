@@ -23,7 +23,7 @@ export default async function AbsencesPage() {
   const currentYearNum = now.getFullYear()
 
   // През юли и август няма реализация на ИУП (ваканция)
-  const isSummer = currentMonth === 7 || currentMonth === 8
+  const isSummer = currentMonth >= 7 && currentMonth <= 10
 
   const isActivePeriod = !isSummer && (currentDay >= 28 || currentDay <= 8)
   const reportMonth = currentDay >= 28 ? currentMonth : (currentMonth === 1 ? 12 : currentMonth - 1)
