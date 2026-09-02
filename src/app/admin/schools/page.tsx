@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { BackButton } from '@/components/ui/BackButton'
 import { useToast } from '@/components/ui/Toast'
 import SchoolFilesPanel from './SchoolFilesPanel'
-import { Plus, Pencil, X, Check, School, MapPin, User, Phone, Mail, AlertCircle, Users, ChevronDown, ChevronUp, UserPlus, Loader2, ArrowUpDown } from 'lucide-react'
+import { Plus, Pencil, X, Check, School, MapPin, User, Phone, Mail, AlertCircle, Users, ChevronDown, ChevronUp, UserPlus, Loader2, ArrowUpDown, Paperclip } from 'lucide-react'
 interface SchoolRow {
   id: string
   name: string
@@ -74,6 +74,12 @@ export default function SchoolsAdminPage() {
     })
     setStudentsBySchool(map)
     setOrphans(noSchool)
+  }
+  async function loadFilesCount() {
+    const { data } = await supabase.from('school_files').select('school_id')
+    const m: Record<string, number> = {}
+    ;(data || []).forEach((f: any) => { m[f.school_id] = (m[f.school_id] || 0) + 1 })
+    setFilesCount(m)
   }
   async function linkStudent(studentId: string, schoolId: string) {
     setLinking(studentId)
@@ -351,6 +357,9 @@ export default function SchoolsAdminPage() {
                   {school.type && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 shrink-0">{school.type}</span>}
                   <span className="text-sm font-medium text-slate-800 truncate flex-1">{school.name}</span>
                   {isIncomplete(school) && <AlertCircle size={13} className="text-amber-500 shrink-0" />}
+                  {(filesCount[school.id] || 0) > 0 && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded-full shrink-0" title="Качени файлове"><Paperclip size={10} />{filesCount[school.id]}</span>
+                  )}
                   <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 shrink-0"><Users size={11} />{kids.length}</span>
                   {isOpen ? <ChevronUp size={14} className="text-slate-400 shrink-0" /> : <ChevronDown size={14} className="text-slate-300 shrink-0" />}
                 </button>
