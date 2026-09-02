@@ -338,7 +338,7 @@ export async function generateStudentsBySchoolPDF(groups: BySchoolGroup[], yearN
     body,
     startY: 47,
     styles: { font: FONT, fontSize: 9, cellPadding: 1.8, textColor: SLATE, lineColor: [210,215,222], lineWidth: 0.1 },
-    headStyles: { font: FONT, fontStyle: 'bold', fillColor: [90,110,140], textColor: [255,255,255], fontSize: 9, halign: 'left' },
+    headStyles: { font: FONT, fontStyle: 'bold', fillColor: [237, 242, 247], textColor: NAVY, fontSize: 9, halign: 'left' },
     columnStyles: { 1: { cellWidth: 30, halign: 'center' }, 2: { cellWidth: 55 } },
     margin: { left: 14, right: 14 },
   })
