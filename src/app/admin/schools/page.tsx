@@ -359,7 +359,7 @@ export default function SchoolsAdminPage() {
           </label>
         )}
       </div>
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+      <div>
         {loading ? (
           <div className="text-center py-12 text-slate-400 text-sm">Зареждане...</div>
         ) : visible.length === 0 ? (
@@ -372,9 +372,9 @@ export default function SchoolsAdminPage() {
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="space-y-2.5">
             {visible.map(school => (
-              <div key={school.id} className={!school.is_active ? 'opacity-50' : ''}>
+              <div key={school.id} className={`bg-white rounded-2xl border border-slate-200 shadow-[0_1px_4px_rgba(15,34,64,0.06)] overflow-hidden transition-all hover:border-slate-300 hover:shadow-[0_2px_10px_rgba(15,34,64,0.08)] ${!school.is_active ? 'opacity-50' : ''}`}>
                 {editId === school.id ? (
                   <div className="px-4 py-4 bg-slate-50/60">
                     <h3 className="font-medium text-slate-700 text-sm mb-3">Редакция</h3>
