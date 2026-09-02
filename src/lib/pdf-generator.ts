@@ -306,3 +306,41 @@ export async function generateTherapyListPDF(rows: TherapyListRow[], roleLabel: 
  
   doc.save(`Списък_терапия_${yearName.replace('/', '-')}.pdf`)
 }
+// ═══ УЧЕНИЦИ ПО УЧИЛИЩА (справка PDF) ═══
+export interface BySchoolStudent { name: string; className: string; classTeacher: string }
+export interface BySchoolGroup { school: string; externalClass: string; students: BySchoolStudent[] }
+export async function generateStudentsBySchoolPDF(groups: BySchoolGroup[], yearName: string) {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const hasFont = await loadCyrillicFont(doc)
+  const FONT = hasFont ? 'Roboto' : 'helvetica'
+  const logo = await loadLogo()
+  const pageW = doc.internal.pageSize.getWidth()
+
+  if (logo) { try { doc.addImage(logo, 'JPEG', 14, 8, 16, 16) } catch {} }
+  doc.setFont(FONT, 'bold'); doc.setFontSize(11); doc.setTextColor(...NAVY)
+  doc.text('Център за специална образователна подкрепа – гр. Варна', pageW / 2, 13, { align: 'center' })
+  doc.setFont(FONT, 'normal'); doc.setFontSize(8); doc.setTextColor(...SLATE)
+  doc.text('бул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 0888 490 771', pageW / 2, 18, { align: 'center' })
+  doc.setDrawColor(...NAVY); doc.setLineWidth(0.4); doc.line(14, 26, pageW - 14, 26)
+
+  doc.setFont(FONT, 'bold'); doc.setFontSize(13); doc.setTextColor(...NAVY)
+  doc.text('Ученици по изпращащи училища', pageW / 2, 35, { align: 'center' })
+  doc.setFont(FONT, 'normal'); doc.setFontSize(9); doc.setTextColor(...SLATE)
+  doc.text(`Учебна ${yearName} г.`, pageW / 2, 41, { align: 'center' })
+
+  const body: any[] = []
+  groups.forEach(g => {
+    body.push([{ content: `${g.school}  —  ${g.externalClass} клас`, colSpan: 3, styles: { fillColor: NAVY, textColor: [255,255,255], fontStyle: 'bold', halign: 'left', fontSize: 9 } }])
+    g.students.forEach(s => body.push([s.name, s.className || '—', s.classTeacher || '—']))
+  })
+  autoTable(doc, {
+    head: [['Ученик', 'Паралелка', 'Класен ръководител']],
+    body,
+    startY: 47,
+    styles: { font: FONT, fontSize: 9, cellPadding: 1.8, textColor: SLATE, lineColor: [210,215,222], lineWidth: 0.1 },
+    headStyles: { font: FONT, fontStyle: 'bold', fillColor: [90,110,140], textColor: [255,255,255], fontSize: 9, halign: 'left' },
+    columnStyles: { 1: { cellWidth: 30, halign: 'center' }, 2: { cellWidth: 55 } },
+    margin: { left: 14, right: 14 },
+  })
+  doc.save(`Ученици_по_училища_${yearName.replace('/', '-')}.pdf`)
+}
