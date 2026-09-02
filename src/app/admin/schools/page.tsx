@@ -387,11 +387,12 @@ export default function SchoolsAdminPage() {
                         {school.type && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 flex-shrink-0">{school.type}</span>
                         )}
-                        <span className="text-sm font-medium text-slate-800">{school.name}</span>
+                                                <span className="text-sm font-medium text-slate-800">{school.name}</span>
                         {isIncomplete(school) && (
                           <AlertCircle size={12} className="text-amber-500 flex-shrink-0"
                             aria-label="Непълни данни" />
                         )}
+                        <SchoolFilesButton schoolId={school.id} schoolName={school.name} canManage={true} />
                       </div>
                                             <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
                         <MapPin size={10} />
