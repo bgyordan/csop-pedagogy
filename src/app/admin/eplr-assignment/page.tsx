@@ -20,10 +20,11 @@ export default async function EplrAssignmentPage() {
   const { data: classes } = await supabase
     .from('classes').select('*').eq('academic_year_id', currentYear?.id).order('name')
 
-  const { data: enrollments } = await supabase
+   c  const { data: allEnrollments } = await supabase
     .from('student_enrollments')
     .select('*, student:students(*), class:classes(*)')
     .eq('academic_year_id', currentYear?.id)
+  const enrollments = (allEnrollments || []).filter((e: any) => e.student?.status === 'active')
 
   const { data: eplrTeams } = await supabase
     .from('eplr_teams').select('*').eq('academic_year_id', currentYear?.id)
