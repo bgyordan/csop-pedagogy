@@ -133,7 +133,7 @@ export async function generateDistributionPDF(rows: DistRow[], yearName: string)
       font: FONT, fontStyle: 'bold', fillColor: [237, 242, 247], textColor: NAVY,
       fontSize: 7.5, cellPadding: 2.2, lineColor: [203, 213, 225], lineWidth: 0.1,
     },
-    alternateRowStyles: { fillColor: [245, 248, 252] },
+    alternateRowStyles: { fillColor: [252, 252, 253] },
     columnStyles: {
       0: { cellWidth: 9, halign: 'center', textColor: SLATE },
       1: { cellWidth: 42, fontStyle: 'bold' },
@@ -295,7 +295,7 @@ export async function generateTherapyListPDF(rows: TherapyListRow[], roleLabel: 
     styles: { font: FONT, fontSize: 9, cellPadding: 2, textColor: SLATE, lineColor: [210, 215, 222], lineWidth: 0.1 },
     headStyles: { font: FONT, fontStyle: 'bold', fillColor: [237, 242, 247], textColor: NAVY, fontSize: 9, halign: 'left' },
     columnStyles: { 0: { cellWidth: 12, halign: 'center' }, 2: { cellWidth: 28, halign: 'center' }, 3: { cellWidth: 24, halign: 'center' } },
-    alternateRowStyles: { fillColor: [246, 248, 250] },
+    alternateRowStyles: { fillColor: [252, 252, 253] },
     margin: { left: 14, right: 14 },
   })
 
