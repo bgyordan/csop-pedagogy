@@ -1,5 +1,5 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { X, useState, useTransition } from 'react'
 import { Save, Loader2, AlertTriangle, Check, Lock, Info, Download, Copy } from 'lucide-react'
 import { saveTherapistSchedule, copyTherapistFromTerm1 } from './actions'
 import { generateTherapistSchedule } from '@/lib/docx-generator'
@@ -44,16 +44,34 @@ export function TherapistScheduleGrid({
   const [showAfternoon, setShowAfternoon] = useState(has78)
   const [pending, startTransition] = useTransition()
   const periods = showAfternoon ? [1, 2, 0, 3, 4, 5, 6, 7, 8] : [1, 2, 0, 3, 4, 5, 6]
-  const [grid, setGrid] = useState<Record<string, string>>(() => {
-    const g: Record<string, string> = {}
-    existingSlots.forEach(s => { if (s.student_id) g[`${s.day}-${s.period}`] = s.student_id })
+  const [grid, setGrid] = useState<Record<string, string[]>>(() => {
+    const g: Record<string, string[]> = {}
+    existingSlots.forEach(s => { if (s.student_id) { const k = `${s.day}-${s.period}`; (g[k] = g[k] || []).push(s.student_id) } })
     return g
   })
-  function setCell(day: number, period: number, studentId: string) {
+  function addToCell(day: number, period: number, studentId: string) {
+    if (!studentId) return
+    setGrid(prev => {
+      const key = `${day}-${period}`
+      const arr = prev[key] || []
+      if (arr.includes(studentId)) return prev
+      return { ...prev, [key]: [...arr, studentId] }
+    })
+  }
+  function removeFromCell(day: number, period: number, studentId: string) {
+    setGrid(prev => {
+      const key = `${day}-${period}`
+      const arr = (prev[key] || []).filter(id => id !== studentId)
+      const next = { ...prev }
+      if (arr.length > 0) next[key] = arr; else delete next[key]
+      return next
+    })
+  }
+  function _oldSetCell(day: number, period: number, studentId: string) {
     setGrid(prev => {
       const next = { ...prev }
-      if (studentId) next[`${day}-${period}`] = studentId
-      else delete next[`${day}-${period}`]
+      // deprecated
+      return next
       return next
     })
   }
@@ -75,14 +93,14 @@ export function TherapistScheduleGrid({
     if (cell.allowsPullout) return { level: 'ok', text: cell.name }
     return { level: 'warn', text: `Учебен час: ${cell.name}` }
   }
-  const filledCount = Object.keys(grid).length
+  const filledCount = Object.values(grid).reduce((a, arr) => a + arr.length, 0)
   function handleCopyTerm1() {
     startTransition(async () => {
       const res = await copyTherapistFromTerm1(academicYearId, targetStaffId)
       if (res.error) { setMsg({ type: 'err', text: res.error }); return }
       if (res.slots) {
-        const g: Record<string, string> = {}
-        res.slots.forEach((s: any) => { if (s.student_id) g[`${s.day}-${s.period}`] = s.student_id })
+        const g: Record<string, string[]> = {}
+        res.slots.forEach((s: any) => { if (s.student_id) { const k = `${s.day}-${s.period}`; (g[k] = g[k] || []).push(s.student_id) } })
         setGrid(g)
         if (res.slots.some((s: any) => s.period >= 7)) setShowAfternoon(true)
         setMsg({ type: 'ok', text: 'Копирано от I срок. Не забравяй да запазиш.' })
@@ -91,9 +109,9 @@ export function TherapistScheduleGrid({
   }
   async function handleDownload() {
     const slotData: Record<string, { student: string; className: string }> = {}
-    Object.entries(grid).forEach(([key, studentId]) => {
-      const st = students.find(s => s.id === studentId)
-      if (st) slotData[key] = { student: st.name, className: st.className }
+    Object.entries(grid).forEach(([key, arr]) => {
+      const names = arr.map(id => students.find(s => s.id === id)?.name).filter(Boolean).join(', ')
+      if (names) slotData[key] = { student: names, className: '' }
     })
     const subtitle = `${term === 1 ? 'I' : 'II'} срок`
     const maxPeriod = showAfternoon ? 8 : 6
@@ -102,22 +120,25 @@ export function TherapistScheduleGrid({
   async function handleSave() {
     // Проверка: няма ли дете, взето от друг терапевт в същия слот
     const conflicts: string[] = []
-    Object.entries(grid).forEach(([key, studentId]) => {
+    Object.entries(grid).forEach(([key, arr]) => {
       const [day, period] = key.split('-')
-      const other = takenByOthers[`${studentId}-${day}-${period}`]
-      if (other) {
-        const st = students.find(s => s.id === studentId)
-        conflicts.push(`${st?.name || 'Дете'} — вече при ${other}`)
-      }
+      arr.forEach(studentId => {
+        const other = takenByOthers[`${studentId}-${day}-${period}`]
+        if (other) {
+          const st = students.find(s => s.id === studentId)
+          conflicts.push(`${st?.name || 'Дете'} — вече при ${other}`)
+        }
+      })
     })
     if (conflicts.length > 0) {
       setMsg({ type: 'err', text: `Не може да се запази — тези деца са при друг специалист по същото време: ${conflicts.join('; ')}. Премахни ги първо.` })
       return
     }
     setSaving(true); setMsg(null)
-    const slots = Object.entries(grid).map(([key, studentId]) => {
+    const slots: { day: number; period: number; studentId: string }[] = []
+    Object.entries(grid).forEach(([key, arr]) => {
       const [day, period] = key.split('-').map(Number)
-      return { day, period, studentId }
+      arr.forEach(studentId => slots.push({ day, period, studentId }))
     })
     const res = await saveTherapistSchedule(academicYearId, term, slots, targetStaffId)
     setSaving(false)
@@ -190,34 +211,34 @@ export function TherapistScheduleGrid({
                   <div className="text-[10px] text-slate-400">{PERIOD_TIMES[period]}</div>
                 </td>
                 {DAYS.map(d => {
-                  const val = grid[`${d.n}-${period}`] || ''
-                  const evalResult = val ? evaluate(val, d.n, period) : null
+                  const arr = grid[`${d.n}-${period}`] || []
+                  const avail = students.filter(s => !arr.includes(s.id))
                   return (
-                    <td key={d.n} className="px-1.5 py-1.5 align-top">
-                      <select
-                        value={val}
-                        onChange={e => setCell(d.n, period, e.target.value)}
-                        className={`w-full text-xs py-1.5 px-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-slate-300 ${
-                          evalResult ? cellBg[evalResult.level] : 'border-slate-200 text-slate-700'
-                        }`}>
-                        <option value="">—</option>
-                        {students.map(s => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}{s.form === 'ifo' ? ' (ИФО)' : s.className ? ` (${s.className})` : ''}
-                          </option>
-                        ))}
-                      </select>
-                      {evalResult && (
-                        <div className={`mt-1 text-[9px] leading-tight flex items-center gap-0.5 ${
-                          evalResult.level === 'ok' ? 'text-emerald-600'
-                            : evalResult.level === 'warn' ? 'text-amber-600' : 'text-red-600'
-                        }`}>
-                          {evalResult.level === 'ok' ? <Check size={9} />
-                            : evalResult.level === 'err' ? <Lock size={9} />
-                            : <AlertTriangle size={9} />}
-                          {evalResult.text}
-                        </div>
-                      )}
+                    <td key={d.n} className="px-1.5 py-1.5 align-top min-w-[140px]">
+                      <div className="space-y-1">
+                        {arr.map(sid => {
+                          const st = students.find(x => x.id === sid)
+                          const ev = evaluate(sid, d.n, period)
+                          return (
+                            <div key={sid}
+                              className={`flex items-center gap-1 text-[11px] py-1 px-1.5 rounded-lg border ${ev ? cellBg[ev.level] : 'border-slate-200'}`}
+                              title={ev?.text || ''}>
+                              {ev && (ev.level === 'ok' ? <Check size={9} className="text-emerald-600 shrink-0" /> : ev.level === 'err' ? <Lock size={9} className="text-red-600 shrink-0" /> : <AlertTriangle size={9} className="text-amber-600 shrink-0" />)}
+                              <span className="truncate flex-1">{st?.name || '—'}{st?.form === 'ifo' ? ' (ИФО)' : st?.className ? ` (${st.className})` : ''}</span>
+                              <button type="button" onClick={() => removeFromCell(d.n, period, sid)} className="text-slate-400 hover:text-rose-600 shrink-0"><X size={11} /></button>
+                            </div>
+                          )
+                        })}
+                        {avail.length > 0 && (
+                          <select value="" onChange={e => { addToCell(d.n, period, e.target.value); e.target.value = '' }}
+                            className="w-full text-[11px] py-1 px-1.5 rounded-lg border border-dashed border-slate-200 text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-300">
+                            <option value="">+ дете</option>
+                            {avail.map(s => (
+                              <option key={s.id} value={s.id}>{s.name}{s.form === 'ifo' ? ' (ИФО)' : s.className ? ` (${s.className})` : ''}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
                     </td>
                   )
                 })}
