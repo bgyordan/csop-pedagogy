@@ -272,38 +272,39 @@ export async function generateTherapyListPDF(rows: TherapyListRow[], roleLabel: 
   const FONT = hasFont ? 'Roboto' : 'helvetica'
   const logo = await loadLogo()
   const pageW = doc.internal.pageSize.getWidth()
-
-  if (logo) { try { doc.addImage(logo, 'JPEG', 14, 8, 16, 16) } catch {} }
+  // Утвърдил (горе вдясно, за подпис на директора)
+  doc.setFont(FONT, 'bold'); doc.setFontSize(9); doc.setTextColor(...NAVY)
+  doc.text('УТВЪРДИЛ:', pageW - 14, 14, { align: 'right' })
+  doc.setFont(FONT, 'normal'); doc.setFontSize(9); doc.setTextColor(...SLATE)
+  doc.text('Директор: ..............................', pageW - 14, 19, { align: 'right' })
+  // Шапка (сместена надолу, за да не се реже при печат)
+  if (logo) { try { doc.addImage(logo, 'JPEG', 14, 26, 16, 16) } catch {} }
   doc.setFont(FONT, 'bold'); doc.setFontSize(11); doc.setTextColor(...NAVY)
-  doc.text('Център за специална образователна подкрепа – гр. Варна', pageW / 2, 13, { align: 'center' })
+  doc.text('Център за специална образователна подкрепа – гр. Варна', pageW / 2, 31, { align: 'center' })
   doc.setFont(FONT, 'normal'); doc.setFontSize(8); doc.setTextColor(...SLATE)
-  doc.text('бул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 0888 490 771', pageW / 2, 18, { align: 'center' })
-  doc.setDrawColor(...NAVY); doc.setLineWidth(0.4); doc.line(14, 26, pageW - 14, 26)
-
+  doc.text('бул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 0888 490 771', pageW / 2, 36, { align: 'center' })
+  doc.setDrawColor(...NAVY); doc.setLineWidth(0.4); doc.line(14, 44, pageW - 14, 44)
   doc.setFont(FONT, 'bold'); doc.setFontSize(13); doc.setTextColor(...NAVY)
-  doc.text('С П И С Ъ К', pageW / 2, 35, { align: 'center' })
+  doc.text('С П И С Ъ К', pageW / 2, 53, { align: 'center' })
   doc.setFont(FONT, 'normal'); doc.setFontSize(9.5); doc.setTextColor(...SLATE)
   const termWord = term === 1 ? 'първи' : 'втори'
-  doc.text(`на учениците, включени в графика за терапия при ${teacherName}, ${roleLabel.toLowerCase()},`, pageW / 2, 41, { align: 'center' })
-  doc.text(`за ${termWord} срок на учебната ${yearName} г.`, pageW / 2, 46, { align: 'center' })
-
+  doc.text(`на учениците, включени в графика за терапия на ${teacherName} - ${roleLabel.toLowerCase()},`, pageW / 2, 59, { align: 'center' })
+  doc.text(`считано от ......................... за ${termWord} срок на учебната ${yearName} г.`, pageW / 2, 64, { align: 'center' })
   const body = rows.map((r, i) => [String(i + 1), r.name, r.className || '—', r.externalClass || '—'])
   autoTable(doc, {
     head: [['№', 'Име, презиме, фамилия', 'Паралелка', 'Клас']],
     body,
-    startY: 52,
+    startY: 70,
     styles: { font: FONT, fontSize: 9, cellPadding: 2, textColor: SLATE, lineColor: [210, 215, 222], lineWidth: 0.1 },
     headStyles: { font: FONT, fontStyle: 'bold', fillColor: [237, 242, 247], textColor: NAVY, fontSize: 9, halign: 'left' },
     columnStyles: { 0: { cellWidth: 12, halign: 'center' }, 2: { cellWidth: 28, halign: 'center' }, 3: { cellWidth: 24, halign: 'center' } },
     alternateRowStyles: { fillColor: [252, 252, 253] },
     margin: { left: 14, right: 14 },
   })
-
   const endY = (doc as any).lastAutoTable.finalY + 14
   doc.setFont(FONT, 'normal'); doc.setFontSize(9); doc.setTextColor(...SLATE)
   doc.text(`Общо: ${rows.length} деца`, 14, endY)
   doc.text(`Изготвил: ${teacherName}`, pageW - 14, endY, { align: 'right' })
- 
   doc.save(`Списък_терапия_${yearName.replace('/', '-')}.pdf`)
 }
 // ═══ УЧЕНИЦИ ПО УЧИЛИЩА (справка PDF) ═══
