@@ -41,6 +41,7 @@ export default function SchoolsAdminPage() {
   const [saving, setSaving] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [studentsBySchool, setStudentsBySchool] = useState<Record<string, any[]>>({})
+  const [filesCount, setFilesCount] = useState<Record<string, number>>({})
   const [orphans, setOrphans] = useState<any[]>([])
   const [linking, setLinking] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -50,8 +51,9 @@ export default function SchoolsAdminPage() {
     let query = supabase.from('sending_schools').select('*').order('city').order('name')
     if (!showInactive) query = query.eq('is_active', true)
     const { data } = await query
-    setSchools(data || [])
+       setSchools(data || [])
     await loadStudents()
+    await loadFilesCount()
     setLoading(false)
   }
   async function loadStudents() {
