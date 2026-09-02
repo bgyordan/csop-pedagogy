@@ -20,6 +20,7 @@ interface Props {
   searchValue: string
   directionValue: string
   canEdit: boolean
+  canDelete: boolean
   currentUserId: string
   students: { id: string; first_name: string; last_name: string }[]
   staff: { id: string; first_name: string; last_name: string }[]
@@ -28,10 +29,17 @@ interface Props {
 
 export default function CorrespondenceClient({
   correspondence, totalCount, page, pageSize,
-  searchValue, directionValue, canEdit, currentUserId, students, staff, nomenclature
+  searchValue, directionValue, canEdit, canDelete, currentUserId, students, staff, nomenclature
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
+  async function handleDelete(id: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!confirm('Изтрий този запис? Действието е необратимо.')) return
+    const { error } = await supabase.from('correspondence').delete().eq('id', id)
+    if (error) { alert('Грешка при изтриване'); return }
+    router.refresh()
+  }
 
   const [search, setSearch] = useState(searchValue || '')
   const [showForm, setShowForm] = useState(false)
@@ -176,6 +184,13 @@ export default function CorrespondenceClient({
                     className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition-colors opacity-0 group-hover:opacity-100"
                     title="Редакция">
                     ✏️
+                  </button>
+                )}
+                {canDelete && (
+                  <button type="button" onClick={(e) => handleDelete(item.id, e)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors opacity-0 group-hover:opacity-100"
+                    title="Изтрий">
+                    🗑️
                   </button>
                 )}
               </div>
