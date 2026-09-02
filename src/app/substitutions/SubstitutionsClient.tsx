@@ -68,7 +68,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const supabase = createClient()
   const { toast } = useToast()
   const [rows, setRows] = useState<SubRow[]>(initial)
-  const [search, setSearch] = useState('')
+    const [search, setSearch] = useState('')
+  const [npOnly, setNpOnly] = useState(false)
   const [genId, setGenId] = useState<string | null>(null)
 
   // Създаване
@@ -102,11 +103,14 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     setGenId(null)
   }
 
-  const filtered = useMemo(() => {
+   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter(r => r.absentName.toLowerCase().includes(q) || (r.substituteName || '').toLowerCase().includes(q))
-  }, [rows, search])
+    return rows.filter(r => {
+      if (npOnly && !r.bsch) return false
+      if (q && !(r.absentName.toLowerCase().includes(q) || (r.substituteName || '').toLowerCase().includes(q))) return false
+      return true
+    })
+  }, [rows, search, npOnly])
 
     function mapRow(r: any): SubRow {
     return {
