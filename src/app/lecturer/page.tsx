@@ -28,7 +28,7 @@ export default async function LecturerPage() {
   const { data: existing } = await supabase
     .from('lecturer_slots')
     .select(`id, staff_id, day, period, holder_label, date_from, date_to, order_number,
-      subject:subjects(name), staff:staff_profiles(first_name, last_name)`)
+      subject:subjects(name), staff:staff_profiles!lecturer_slots_staff_id_fkey(first_name, last_name)`)
     .eq('academic_year_id', currentYear?.id)
     .order('created_at', { ascending: false })
   const marked = (existing || []).map((r: any) => ({
