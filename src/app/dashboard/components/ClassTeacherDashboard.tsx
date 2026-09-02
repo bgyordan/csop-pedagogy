@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import SchoolFilesCard from './SchoolFilesCard'
 import { Users, Calendar, Bell, CalendarClock, ChevronRight, ClipboardList, ShieldAlert, ShieldX } from 'lucide-react'
 import { getFullName, getMonthName, formatDate } from '@/lib/utils'
 import SharedFiles from './SharedFiles'
@@ -71,7 +72,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
             </div>
           )}
         </div>
-        <SharedFiles />
+    <SharedFiles />
       </div>
     )
   }
@@ -323,6 +324,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
               </div>
             </div>
           )}
+          <SchoolFilesCard profileId={profile.id} currentYearId={currentYearId} />
           <SharedFiles />
         </div>
       </div>
