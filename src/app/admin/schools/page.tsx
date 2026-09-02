@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { BackButton } from '@/components/ui/BackButton'
 import { useToast } from '@/components/ui/Toast'
+import SchoolFilesButton from './SchoolFilesButton'
 import { Plus, Pencil, X, Check, School, MapPin, User, Phone, Mail, AlertCircle, Users, ChevronDown, ChevronUp, UserPlus, Loader2, ArrowUpDown } from 'lucide-react'
 interface SchoolRow {
   id: string
