@@ -20,7 +20,7 @@ export default function SchoolFilesCardClient({ groups }: { groups: Group[] }) {
         <School size={18} className="text-blue-500" />
         <h2 className="font-semibold text-slate-800 text-sm">Училищни учебни планове</h2>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3">
         {groups.map((g, i) => (
           <div key={i} className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 transition-all hover:border-slate-300 hover:shadow-[0_2px_8px_rgba(15,34,64,0.08)] hover:-translate-y-0.5">
             <div className="text-xs font-medium text-slate-700 mb-2 truncate">{g.name}</div>
