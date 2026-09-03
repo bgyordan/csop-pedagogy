@@ -39,7 +39,7 @@ const navItems: NavItem[] = [
     children: [
       { href: '/templates', label: 'Образци', icon: <FileText size={14} /> },
       { href: '/normative-docs', label: 'Нормативна база', icon: <ScrollText size={14} /> },
-            { href: '/council', label: 'Материали за съгласуване', icon: <ClipboardCheck size={14} /> },
+            { href: '/council', label: 'За съгласуване', icon: <ClipboardCheck size={14} /> },
     ],
   },
   { href: '/spravki', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'], hideFromCoordinator: true },
