@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { FileCheck, Upload, Download, Trash2, Loader2, AlertTriangle, ShieldCheck, ShieldX, Plus, X } from 'lucide-react'
+import { FileCheck, Upload, Download, Trash2, Loader2, FileText, ShieldCheck, AlertTriangle, ShieldX } from 'lucide-react'
 
 // Временни типове — етикетите се сменят лесно после
 const DECL_TYPES: { code: string; label: string }[] = [
@@ -13,29 +13,26 @@ const DECL_TYPES: { code: string; label: string }[] = [
   { code: 'decl_6', label: 'Декларация 6' },
   { code: 'decl_7', label: 'Декларация 7' },
 ]
-const MONTHS = ['—', 'януари', 'февруари', 'март', 'април', 'май', 'юни', 'юли', 'август', 'септември', 'октомври', 'ноември', 'декември']
+const MONTHS = ['', 'януари', 'февруари', 'март', 'април', 'май', 'юни', 'юли', 'август', 'септември', 'октомври', 'ноември', 'декември']
 
 interface Decl { id: string; decl_type: string; name: string; path: string; size: number | null; valid_month: number | null; valid_year: number | null }
-
 function labelFor(code: string) { return DECL_TYPES.find(t => t.code === code)?.label || code }
 function fmtSize(b: number | null) { if (!b) return ''; if (b < 1024) return `${b} B`; if (b < 1048576) return `${Math.round(b/1024)} KB`; return `${(b/1048576).toFixed(1)} MB` }
-
-// Статус по валидност (месец+година): изтекла / изтича (месец преди) / валидна
-function validityStatus(m: number | null, y: number | null): { level: 'ok' | 'warn' | 'err' | 'none'; text: string } {
-  if (!m || !y) return { level: 'none', text: 'без срок' }
+function validity(m: number | null, y: number | null): { level: 'ok' | 'warn' | 'err' | 'none'; label: string; upto: string } {
+  if (!m || !y) return { level: 'none', label: '', upto: 'безсрочен' }
   const now = new Date()
-  const end = new Date(y, m, 0) // последен ден на месеца
-  const monthBefore = new Date(y, m - 1, 1); monthBefore.setMonth(monthBefore.getMonth() - 1)
-  if (now > end) return { level: 'err', text: `изтекла (${MONTHS[m]} ${y})` }
-  if (now >= monthBefore) return { level: 'warn', text: `изтича ${MONTHS[m]} ${y}` }
-  return { level: 'ok', text: `валидна до ${MONTHS[m]} ${y}` }
+  const end = new Date(y, m, 0)
+  const before = new Date(y, m - 1, 1); before.setMonth(before.getMonth() - 1)
+  const upto = `${MONTHS[m]} ${y}`
+  if (now > end) return { level: 'err', label: 'Изтекъл', upto: `валиден до ${upto}` }
+  if (now >= before) return { level: 'warn', label: 'Изтича', upto: `валиден до ${upto}` }
+  return { level: 'ok', label: 'Валиден', upto: `валиден до ${upto}` }
 }
 
 export default function StudentDeclarations({ studentId, canManage }: { studentId: string; canManage: boolean }) {
   const supabase = createClient()
   const [items, setItems] = useState<Decl[]>([])
   const [loading, setLoading] = useState(true)
-  const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState(false)
   const [type, setType] = useState('decl_1')
   const [vMonth, setVMonth] = useState('')
@@ -63,7 +60,7 @@ export default function StudentDeclarations({ studentId, canManage }: { studentI
       student_id: studentId, decl_type: type, name: file.name, path, size: file.size, mime_type: file.type,
       valid_month: vMonth ? parseInt(vMonth) : null, valid_year: vYear ? parseInt(vYear) : null, uploaded_by: prof?.id,
     })
-    setAdding(false); setVMonth(''); setVYear(''); setType('decl_1')
+    setVMonth(''); setVYear(''); setType('decl_1')
     await load(); setBusy(false)
   }
   async function download(d: Decl) {
@@ -80,79 +77,76 @@ export default function StudentDeclarations({ studentId, canManage }: { studentI
   }
 
   const nowY = new Date().getFullYear()
-  const years = [nowY, nowY + 1, nowY + 2]
+  const years = [nowY, nowY + 1, nowY + 2, nowY + 3]
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/60">
-        <div className="flex items-center gap-2">
-          <FileCheck size={17} className="text-blue-500" />
-          <h3 className="text-sm font-semibold text-slate-800">Декларации</h3>
-        </div>
-        {canManage && (
-          <button onClick={() => setAdding(v => !v)} className="inline-flex items-center gap-1 text-xs font-medium text-[#0f2240] hover:underline">
-            {adding ? <><X size={13} /> Затвори</> : <><Plus size={13} /> Добави</>}
-          </button>
-        )}
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <FileCheck size={18} className="text-blue-500" />
+        <h3 className="text-base font-semibold text-slate-800">Декларации</h3>
       </div>
 
-      {adding && (
-        <div className="px-4 py-3 border-b border-slate-100 bg-blue-50/30 space-y-2.5">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <div>
-              <label className="block text-[11px] text-slate-500 mb-1">Тип</label>
-              <select value={type} onChange={e => setType(e.target.value)} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none">
-                {DECL_TYPES.map(t => <option key={t.code} value={t.code}>{t.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-[11px] text-slate-500 mb-1">Валидна до — месец</label>
-              <select value={vMonth} onChange={e => setVMonth(e.target.value)} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none">
+      {/* Форма за качване (като „Досие — външни документи") */}
+      {canManage && (
+        <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-3 mb-4">
+          <div className="flex flex-col sm:flex-row gap-2 mb-2">
+            <select value={type} onChange={e => setType(e.target.value)}
+              className="flex-1 px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 cursor-pointer">
+              {DECL_TYPES.map(t => <option key={t.code} value={t.code}>{t.label}</option>)}
+            </select>
+            <div className="flex gap-2 sm:w-64">
+              <select value={vMonth} onChange={e => setVMonth(e.target.value)}
+                className="flex-1 px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 cursor-pointer">
                 <option value="">без срок</option>
                 {MONTHS.slice(1).map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
               </select>
-            </div>
-            <div>
-              <label className="block text-[11px] text-slate-500 mb-1">Година</label>
-              <select value={vYear} onChange={e => setVYear(e.target.value)} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none" disabled={!vMonth}>
-                <option value="">—</option>
+              <select value={vYear} onChange={e => setVYear(e.target.value)} disabled={!vMonth}
+                className="w-24 px-2 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 cursor-pointer disabled:opacity-50">
+                <option value="">год.</option>
                 {years.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
           </div>
-          <div onClick={() => fileRef.current?.click()}
-            className="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-slate-300 cursor-pointer hover:border-blue-400 hover:bg-white text-sm text-slate-500">
-            {busy ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
-            {busy ? 'Качване…' : 'Избери файл'}
+          <div className="flex items-center gap-3">
+            <button onClick={() => fileRef.current?.click()} disabled={busy}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-medium hover:opacity-90 disabled:opacity-60" style={{ backgroundColor: '#0f2240' }}>
+              {busy ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />} Прикачи файл
+            </button>
+            <span className="text-xs text-slate-400">PDF или Word, макс. 10MB</span>
             <input ref={fileRef} type="file" className="hidden" onChange={e => { if (e.target.files?.[0]) upload(e.target.files[0]); e.target.value = '' }} />
           </div>
         </div>
       )}
 
+      {/* Списък */}
       {loading ? (
         <div className="py-6 text-center"><Loader2 size={16} className="animate-spin inline text-slate-400" /></div>
       ) : items.length === 0 ? (
         <div className="py-8 text-center text-sm text-slate-400">Няма качени декларации.</div>
       ) : (
-        <div className="divide-y divide-slate-50">
+        <div className="space-y-2">
           {items.map(d => {
-            const st = validityStatus(d.valid_month, d.valid_year)
-            const badge = st.level === 'err' ? 'bg-rose-50 text-rose-600 border-rose-100'
-              : st.level === 'warn' ? 'bg-amber-50 text-amber-600 border-amber-100'
-              : st.level === 'ok' ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-              : 'bg-slate-100 text-slate-400 border-slate-200'
+            const v = validity(d.valid_month, d.valid_year)
+            const badge = v.level === 'err' ? 'bg-rose-50 text-rose-600 border-rose-100'
+              : v.level === 'warn' ? 'bg-amber-50 text-amber-600 border-amber-100'
+              : v.level === 'ok' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : ''
             return (
-              <div key={d.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 group">
-                {st.level === 'err' ? <ShieldX size={16} className="text-rose-500 shrink-0" />
-                  : st.level === 'warn' ? <AlertTriangle size={16} className="text-amber-500 shrink-0" />
-                  : <ShieldCheck size={16} className="text-emerald-500 shrink-0" />}
+              <div key={d.id} className="flex items-center gap-3 px-3.5 py-3 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-colors group">
+                <FileText size={18} className="text-slate-400 shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm text-slate-800">{labelFor(d.decl_type)}</div>
-                  <button onClick={() => download(d)} className="text-[11px] text-slate-400 hover:text-[#0f2240] hover:underline truncate max-w-full text-left">{d.name}</button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium text-slate-800">{labelFor(d.decl_type)}</span>
+                    {v.label && (
+                      <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border ${badge}`}>
+                        {v.level === 'err' ? <ShieldX size={11} /> : v.level === 'warn' ? <AlertTriangle size={11} /> : <ShieldCheck size={11} />}
+                        {v.label}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-400 truncate mt-0.5">{d.name} · {fmtSize(d.size)} · {v.upto}</div>
                 </div>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full border shrink-0 ${badge}`}>{st.text}</span>
-                <button onClick={() => download(d)} className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] shrink-0" title="Изтегли"><Download size={14} /></button>
-                {canManage && <button onClick={() => del(d)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 opacity-0 group-hover:opacity-100 shrink-0" title="Изтрий"><Trash2 size={13} /></button>}
+                <button onClick={() => download(d)} className="p-2 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 shrink-0" title="Изтегли"><Download size={16} /></button>
+                {canManage && <button onClick={() => del(d)} className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 shrink-0" title="Изтрий"><Trash2 size={15} /></button>}
               </div>
             )
           })}
