@@ -53,11 +53,11 @@ const navItems: NavItem[] = [
   {
     href: '#process',
     label: 'Учебен процес',
-    icon: <CalendarClock size={16} />,
+    icon: < size={16} />,
     roles: ['admin', 'zdud', 'director'],
     children: [
       { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={14} />, roles: ['admin', 'director', 'zdud'] },
-      { href: '/schedules', label: 'Разписания', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'] },
+      { href: '/schedules', label: 'Разписания', icon: < size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/duties', label: 'Дежурства', icon: <CalendarDays size={14} />, roles: ['admin', 'director', 'zdud'] },
     ],
   },
@@ -84,6 +84,7 @@ const navItems: NavItem[] = [
       { href: '/admin/coordinating-team', label: 'Заседания и документи', icon: <ClipboardList size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
       { href: '/admin/eplr-assignment', label: 'Разпределение ЕПЛР', icon: <GitBranch size={14} />, roles: ['admin', 'zdud'], coordinatorOnly: true },
       { href: '/reports/hub', label: 'Справки и писма', icon: <BarChart3 size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
+     { href: '/admin/eplr-schedule', label: 'График ЕПЛР', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
     ],
   },
   { href: '/correspondence', label: 'Регистър', icon: <Inbox size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
