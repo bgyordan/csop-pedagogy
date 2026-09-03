@@ -162,12 +162,14 @@ export default function CouncilClient({ groups: initial, canManage }: { groups: 
               <div className="px-4 pb-4 border-t border-slate-100 pt-3 space-y-2">
                 {g.files.length === 0 ? (
                   <p className="text-sm text-slate-400 py-2">Няма качени файлове.</p>
-                ) : g.files.map(f => (
-                  <div key={f.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-slate-300 group">
-                    <FileText size={18} className="text-slate-400 shrink-0" />
+                ) : g.files.map((f, fi) => (
+                  <div key={f.id}
+                    onClick={() => editFile !== f.id && download(f)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-200 group transition-all ${editFile === f.id ? 'bg-white' : 'cursor-pointer hover:border-blue-300 hover:shadow-[0_2px_10px_rgba(15,34,64,0.10)] hover:-translate-y-0.5'} ${fi % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
+                    <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-blue-50 text-blue-500 shrink-0"><FileText size={16} /></span>
                     <div className="min-w-0 flex-1">
                       {editFile === f.id ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                           <input value={editDesc} onChange={e => setEditDesc(e.target.value)} autoFocus
                             className="flex-1 px-2 py-1 border border-slate-200 rounded-lg text-sm focus:outline-none" />
                           <button onClick={() => saveDesc(g.id, f.id)} className="text-emerald-600 hover:text-emerald-700"><Check size={15} /></button>
@@ -175,16 +177,18 @@ export default function CouncilClient({ groups: initial, canManage }: { groups: 
                         </div>
                       ) : (
                         <>
-                          <div className="text-sm text-slate-800 truncate">{f.description || f.name}</div>
+                          <div className="text-sm text-slate-800 truncate group-hover:text-[#0f2240]">{f.description || f.name}</div>
                           <div className="text-[11px] text-slate-400 truncate">{f.name} · {fmtSize(f.size)}</div>
                         </>
                       )}
                     </div>
-                    {editFile !== f.id && canManage && (
-                      <button onClick={() => { setEditFile(f.id); setEditDesc(f.description || '') }} className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] opacity-0 group-hover:opacity-100 shrink-0" title="Редактирай описанието"><Pencil size={13} /></button>
-                    )}
-                    <button onClick={() => download(f)} className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 shrink-0" title="Изтегли"><Download size={15} /></button>
-                    {canManage && <button onClick={() => delFile(g.id, f)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 opacity-0 group-hover:opacity-100 shrink-0" title="Изтрий"><Trash2 size={14} /></button>}
+                    <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
+                      {editFile !== f.id && canManage && (
+                        <button onClick={() => { setEditFile(f.id); setEditDesc(f.description || '') }} className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] opacity-0 group-hover:opacity-100" title="Редактирай описанието"><Pencil size={13} /></button>
+                      )}
+                      <button onClick={() => download(f)} className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100" title="Изтегли"><Download size={15} /></button>
+                      {canManage && <button onClick={() => delFile(g.id, f)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 opacity-0 group-hover:opacity-100" title="Изтрий"><Trash2 size={14} /></button>}
+                    </div>
                   </div>
                 ))}
 
