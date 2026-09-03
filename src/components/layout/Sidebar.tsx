@@ -53,7 +53,7 @@ const navItems: NavItem[] = [
   {
     href: '#process',
     label: 'Учебен процес',
-    icon: < size={16} />,
+        icon: <Calendar size={16} />,
     roles: ['admin', 'zdud', 'director'],
     children: [
       { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={14} />, roles: ['admin', 'director', 'zdud'] },
