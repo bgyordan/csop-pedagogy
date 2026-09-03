@@ -9,7 +9,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
   const supabase = await createClient()
   const now = new Date()
   const month = now.getMonth() + 1
-  const isSummer = month === 7 || month === 8
+  const isSummer = month >= 7 && month <= 10
   const reportMonth = now.getMonth() === 0 ? 12 : now.getMonth()
   const reportYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear()
   const { data: assignments } = await supabase
