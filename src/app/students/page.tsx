@@ -5,6 +5,7 @@ import { Plus, Users, GraduationCap, Home, Coffee, Wifi, X, LayoutGrid, Sparkles
 import { getFullName } from '@/lib/utils'
 import { StudentsFilter } from './StudentsFilter'
 import StudentsTable from './StudentsTable'
+import StudentDeclarations from './StudentDeclarations'
 
 const FILTER_LABELS: Record<string, string> = {
   'incomplete': 'Непълни данни',
