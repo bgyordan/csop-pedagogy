@@ -334,7 +334,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
             <h2 className="font-semibold text-slate-800 text-sm">Родители / Настойници</h2>
           </div>
           <GuardiansSection studentId={id} guardians={guardians || []} canManage={canEditDossier} />
-                    <StudentDeclarations studentId={id} canManage={canEditDossier} />
+        </div>
         </div>
         <div className={`${cardCls} lg:col-span-2`}>
           <div className={cardHead}>
@@ -358,6 +358,9 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
             <p className="text-sm text-slate-400">Само текущата година</p>
           )}
         </div>
+      </div>
+          <div className="mt-4">
+        <StudentDeclarations studentId={id} canManage={canEditDossier} />
       </div>
     </div>
   )
