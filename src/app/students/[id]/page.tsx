@@ -11,6 +11,7 @@ import StudentStatusSection from './StudentStatusSection'
 import { GraduationCap, Home, Wifi } from 'lucide-react'
 import { EplrDocumentsSection } from './EplrDocumentsSection'
 import MarkProcessedButton from './MarkProcessedButton'
+import StudentDeclarations from './StudentDeclarations'
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
   'iup', 'iu_program', 'support_plan', 'parent_program'
@@ -333,6 +334,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
             <h2 className="font-semibold text-slate-800 text-sm">Родители / Настойници</h2>
           </div>
           <GuardiansSection studentId={id} guardians={guardians || []} canManage={canEditDossier} />
+                    <StudentDeclarations studentId={id} canManage={canEditDossier} />
         </div>
         <div className={`${cardCls} lg:col-span-2`}>
           <div className={cardHead}>
