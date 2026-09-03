@@ -11,7 +11,7 @@ export default async function CoudPage() {
   if (!user) redirect('/auth/login')
 
   const { data: profile } = await supabase
-    .from('staff_profiles').select('role, id').eq('user_id', user.id).single()
+    .from('staff_profiles').select('role, id, is_coordinator').eq('user_id', user.id).single()
 
   const canManage = ['admin', 'zdud'].includes(profile?.role || '')
   if (!canManage) redirect('/dashboard')
