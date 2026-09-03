@@ -57,7 +57,7 @@ const navItems: NavItem[] = [
     roles: ['admin', 'zdud', 'director'],
     children: [
       { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={14} />, roles: ['admin', 'director', 'zdud'] },
-      { href: '/schedules', label: 'Разписания', icon: < size={14} />, roles: ['admin', 'zdud', 'director'] },
+      { href: '/schedules', label: 'Разписания', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/duties', label: 'Дежурства', icon: <CalendarDays size={14} />, roles: ['admin', 'director', 'zdud'] },
     ],
   },
