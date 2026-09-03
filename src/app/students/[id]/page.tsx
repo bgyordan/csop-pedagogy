@@ -334,8 +334,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
             <h2 className="font-semibold text-slate-800 text-sm">Родители / Настойници</h2>
           </div>
           <GuardiansSection studentId={id} guardians={guardians || []} canManage={canEditDossier} />
-        </div>
-        </div>
+          </div>
         <div className={`${cardCls} lg:col-span-2`}>
           <div className={cardHead}>
             <History size={16} className="text-indigo-400" />
