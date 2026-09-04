@@ -25,10 +25,10 @@ export default async function SurveysPage() {
   const ids = (newStudents || []).map((s: any) => s.id)
 
   // кои имат попълнена анкета
-  let surveyed = new Set<string>()
+  const statusBy: Record<string, string> = {}
   if (ids.length > 0) {
-    const { data: surveys } = await supabase.from('student_surveys').select('student_id').in('student_id', ids)
-    surveyed = new Set((surveys || []).map((s: any) => s.student_id))
+    const { data: surveys } = await supabase.from('student_surveys').select('student_id, status').in('student_id', ids)
+    ;(surveys || []).forEach((s: any) => { statusBy[s.student_id] = s.status || 'in_progress' })
   }
 
   // паралелка на всеки
@@ -40,7 +40,7 @@ export default async function SurveysPage() {
   }
 
   const rows = (newStudents || []).map((s: any) => ({
-    id: s.id, name: getFullName(s), className: clsBy[s.id] || '', hasSurvey: surveyed.has(s.id),
+    id: s.id, name: getFullName(s), className: clsBy[s.id] || '', status: statusBy[s.id] || 'empty',
   })).sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
 
   return (
@@ -66,15 +66,15 @@ export default async function SurveysPage() {
           {rows.map((r: any) => (
             <Link key={r.id} href={`/students/${r.id}/survey`}
               className="flex items-center gap-3 bg-white border border-slate-200 rounded-2xl px-4 py-3 hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] transition-all group shadow-[0_1px_4px_rgba(15,34,64,0.06)]">
-              <span className={`inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0 ${r.hasSurvey ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-                {r.hasSurvey ? <Check size={17} /> : <Circle size={16} />}
+              <span className={`inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0 ${r.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : r.status === 'in_progress' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
+                {r.status === 'completed' ? <Check size={17} /> : <Circle size={16} />}
               </span>
               <div className="min-w-0 flex-1">
                 <div className="text-sm text-slate-800">{r.name}</div>
                 <div className="text-xs text-slate-400">{r.className ? `Паралелка ${r.className}` : 'без паралелка'}</div>
               </div>
-              <span className={`text-[11px] px-2 py-0.5 rounded-full shrink-0 ${r.hasSurvey ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-                {r.hasSurvey ? 'попълнена' : 'празна'}
+              <span className={`text-[11px] px-2 py-0.5 rounded-full shrink-0 ${r.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : r.status === 'in_progress' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
+                {r.status === 'completed' ? 'завършена' : r.status === 'in_progress' ? 'в процес' : 'празна'}
               </span>
               <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-500 shrink-0" />
             </Link>
