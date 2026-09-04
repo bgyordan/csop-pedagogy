@@ -310,8 +310,8 @@ function generateSupportPlan(student: Student, team: any, data: Record<string, s
     'Ресурсно подпомагане',
   ]
   const rehabRows: TableRow[] = [
-    new TableRow({ children: [
-      cell([new Paragraph({ children: [bold('Вид дейност', 20)] })]),
+        new TableRow({ children: [
+      cell([new Paragraph({ children: [normal('', 20)] })]),
       cell([new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('Да / Не', 20)] })]),
     ] }),
     ...REHAB.map((r, idx) => new TableRow({ children: [
@@ -361,7 +361,7 @@ function generateSupportPlan(student: Student, team: any, data: Record<string, s
         line('Форма на обучение', data.study_form || ''),
         line('Начин на оценяване', data.assessment_type || ''),
         line('Разработен индивидуален учебен план и/или индивидуални учебни програми по предмети', data.iup_note || ''),
-        new Paragraph({ spacing: { before: 80, after: 80 }, children: [normal('Допълнителната подкрепа за личностно развитие се осъществява за:', 22)] }),
+        new Paragraph({ spacing: { before: 80, after: 200 }, children: [normal('Допълнителната подкрепа за личностно развитие се осъществява за:', 22)] }),
         new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: rehabRows }),
         new Paragraph({ text: '' }),
 
