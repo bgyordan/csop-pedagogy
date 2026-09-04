@@ -134,7 +134,11 @@ export default function GuardiansSection({ studentId, guardians: initial, canMan
                   {RELATION_LABELS[g.relation] || g.relation}
                 </div>
                 <div className="text-sm font-medium text-slate-700 mt-0.5">{g.full_name}</div>
-                {g.phone && <div className="text-xs text-slate-500 mt-0.5">{g.phone}</div>}
+                 {g.phone && (
+                  <div className="inline-flex items-center gap-1.5 text-xs text-slate-600 mt-1 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-100">
+                    <Phone size={11} className="text-slate-400" /> {g.phone}
+                  </div>
+                )}
               </div>
               {canManage && (
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
