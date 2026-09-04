@@ -60,7 +60,7 @@ const DOCUMENT_SECTIONS: Record<string, Section[]> = {
       { key: 'assessment_type', label: 'Начин на оценяване (покрива/частично покрива ДОС, качествено/количествено)', type: 'textarea' },
       { key: 'iup_note', label: 'Разработен ИУП и/или индивидуални учебни програми по предмети', type: 'textarea' },
     ] },
-    { fields: [
+    { title: 'Психо-социална рехабилитация (Да / Не)', fields: [
       { key: 'rehab_0', label: 'Психо-социална рехабилитация', type: 'yesno' },
       { key: 'rehab_1', label: 'Рехабилитация на слуха и говора', type: 'yesno' },
       { key: 'rehab_2', label: 'Зрителна рехабилитация', type: 'yesno' },
@@ -222,9 +222,11 @@ export default function DocumentEditorPage({ params }: Props) {
                       <option value="">—</option><option value="Да">Да</option><option value="Не">Не</option>
                     </select>
                   ) : field.type === 'auto' ? (
-                    <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-400 flex items-center gap-2">
-                      <span className="text-slate-500">{autoValues[field.key] || '—'}</span>
-                      <span className="text-[10px] text-slate-400 ml-auto">попълва се автоматично</span>
+                    <div className="relative">
+                      <input type="text" value={formData[field.key] || ''} onChange={e => setF(field.key, e.target.value)}
+                        placeholder={autoValues[field.key] || ''}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white" />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none">авто</span>
                     </div>
                   ) : (
                     <input type="text" value={formData[field.key] || ''} onChange={e => setF(field.key, e.target.value)}
