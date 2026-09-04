@@ -196,7 +196,7 @@ export default function NewCorrespondenceForm({
     setStudentId('')
     setStaffId('')
     setGuardians([])
-    setCreateOrder(true)
+    setCreateOrder(false)
   }
   function handleStaffSelect(id: string) {
     setStaffId(id)
@@ -324,7 +324,7 @@ export default function NewCorrespondenceForm({
       setGuardians([])
       setNomSearch(''); setShowAllNom(false)
       setAddToDossier(true)
-      setCreateOrder(true)
+      setCreateOrder(false)
     } else {
       onSaved()
     }
