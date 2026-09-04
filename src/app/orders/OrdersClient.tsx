@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import NewOrderForm from './NewOrderForm'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -68,6 +68,12 @@ export default function OrdersClient({
     e.preventDefault()
     router.push(buildUrl({ q: search, page: 1 }))
   }
+  const firstSearch = useRef(true)
+  useEffect(() => {
+    if (firstSearch.current) { firstSearch.current = false; return }
+    const t = setTimeout(() => { router.push(buildUrl({ q: search, page: 1 })) }, 300)
+    return () => clearTimeout(t)
+  }, [search])
 
   function handleIndexChange(idx: string) {
     router.push(buildUrl({ idx, page: 1 }))
@@ -95,12 +101,12 @@ export default function OrdersClient({
             </button>
           )}
 
-          <form onSubmit={handleSearch} className="relative flex-1 min-w-[160px]">
+          <div className="relative flex-1 min-w-[160px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             <input type="text" placeholder="Търсене по №, заглавие..." value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-400 w-full bg-white" />
-          </form>
+          </div>
 
           <select value={filterIndex} onChange={e => handleIndexChange(e.target.value)}
             className="text-xs border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-slate-400 max-w-[200px] flex-shrink-0"
