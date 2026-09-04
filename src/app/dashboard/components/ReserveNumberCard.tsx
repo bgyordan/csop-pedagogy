@@ -13,8 +13,8 @@ function deloYearBounds(ref: Date): { start: string; end: string } {
 
 type Kind = 'incoming' | 'outgoing' | 'order'
 const KINDS: { id: Kind; label: string; icon: any }[] = [
-  { id: 'incoming', label: 'Входящ', icon: ArrowDownLeft },
-  { id: 'outgoing', label: 'Изходящ', icon: ArrowUpRight },
+  { id: 'incoming', label: 'Вх.', icon: ArrowDownLeft },
+  { id: 'outgoing', label: 'Изх.', icon: ArrowUpRight },
   { id: 'order', label: 'Заповед', icon: ClipboardList },
 ]
 
