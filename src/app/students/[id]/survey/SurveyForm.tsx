@@ -13,14 +13,16 @@ interface Props {
   studentName: string
   initialData: Record<string, any>
   canEdit: boolean
+  initialStatus?: string
 }
 
-export default function SurveyForm({ studentId, studentName, initialData, canEdit }: Props) {
+export default function SurveyForm({ studentId, studentName, initialData, canEdit, initialStatus = 'empty' }: Props) {
   const supabase = createClient()
   const router = useRouter()
   const [data, setData] = useState<Record<string, any>>(initialData || {})
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [status, setStatus] = useState(initialStatus)
   const [openSections, setOpenSections] = useState<Set<string>>(new Set([SURVEY_SECTIONS[0].key]))
 
   function setField(sectionKey: string, fieldKey: string, value: string) {
@@ -55,7 +57,7 @@ export default function SurveyForm({ studentId, studentName, initialData, canEdi
   function expandAll() { setOpenSections(new Set(SURVEY_SECTIONS.map(s => s.key))) }
   function collapseAll() { setOpenSections(new Set()) }
 
-  async function save() {
+  async function save(markCompleted = false) {
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
     let filledBy: string | null = null
@@ -63,12 +65,16 @@ export default function SurveyForm({ studentId, studentName, initialData, canEdi
       const { data: prof } = await supabase.from('staff_profiles').select('id').eq('user_id', user.id).single()
       filledBy = prof?.id || null
     }
+    const hasData = Object.values(data).some((sec: any) => sec && Object.values(sec).some((v: any) => String(v).trim()))
+    const newStatus = markCompleted ? 'completed' : (hasData ? 'in_progress' : 'empty')
     await supabase.from('student_surveys').upsert({
       student_id: studentId,
       data,
+      status: newStatus,
       filled_by: filledBy,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'student_id' })
+    setStatus(newStatus)
     setSaving(false)
     setSaved(true)
     router.refresh()
@@ -93,7 +99,12 @@ export default function SurveyForm({ studentId, studentName, initialData, canEdi
 
       <div className="flex items-start justify-between gap-4 mb-5">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-slate-800">Карта за оценка на потребностите</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl md:text-2xl font-bold text-slate-800">Карта за оценка на потребностите</h1>
+            <span className={`text-[11px] px-2 py-0.5 rounded-full ${status === 'completed' ? 'bg-emerald-50 text-emerald-600' : status === 'in_progress' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
+              {status === 'completed' ? 'Завършена' : status === 'in_progress' ? 'В процес' : 'Празна'}
+            </span>
+          </div>
           <p className="text-slate-500 text-sm mt-1">{studentName}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -183,8 +194,14 @@ export default function SurveyForm({ studentId, studentName, initialData, canEdi
 
       {/* Запис — лепкав долу */}
       {canEdit && (
-        <div className="sticky bottom-4 mt-6 flex justify-end">
-          <button onClick={save} disabled={saving}
+        <div className="sticky bottom-4 mt-6 flex justify-end gap-2">
+          {status !== 'completed' && (
+            <button onClick={() => save(true)} disabled={saving}
+              className="flex items-center gap-2 px-5 py-3 rounded-2xl text-white font-semibold shadow-lg transition-all disabled:opacity-60 bg-emerald-600 hover:bg-emerald-700">
+              <Check size={17} /> Маркирай завършена
+            </button>
+          )}
+          <button onClick={() => save(false)} disabled={saving}
             className="flex items-center gap-2 px-6 py-3 rounded-2xl text-white font-semibold shadow-lg transition-all disabled:opacity-60"
             style={{ backgroundColor: saved ? '#059669' : '#0f2240' }}>
             {saving ? <Loader2 size={17} className="animate-spin" /> : saved ? <Check size={17} /> : <Save size={17} />}
