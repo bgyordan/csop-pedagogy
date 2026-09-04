@@ -124,7 +124,7 @@ export default async function SecretaryDashboard({ profile }: any) {
 
 
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
 
         {/* Изтичащи договори */}
         {expiringContracts && expiringContracts.length > 0 && (
@@ -173,9 +173,7 @@ export default async function SecretaryDashboard({ profile }: any) {
             </div>
           </div>
         </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ReserveNumberCard profileId={profile.id} />
-      </div>
       </div>
       <SharedFiles />
     </div>
