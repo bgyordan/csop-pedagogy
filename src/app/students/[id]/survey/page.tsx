@@ -38,7 +38,7 @@ export default async function SurveyPage({ params }: { params: Promise<{ id: str
     .from('student_guardians').select('*').eq('student_id', id).order('relation')
 
   const { data: survey } = await supabase
-    .from('student_surveys').select('data').eq('student_id', id).maybeSingle()
+    .from('student_surveys').select('data, status').eq('student_id', id).maybeSingle()
 
   // Автопопълване на "Данни за детето" от досието (само ако анкетата още е празна за тях)
   const g = (guardians || [])[0] as any
