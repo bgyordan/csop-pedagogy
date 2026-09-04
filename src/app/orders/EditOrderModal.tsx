@@ -57,13 +57,14 @@ export default function EditOrderModal({ item, nomenclature = [], onClose }: Pro
       if (!uploadError) { fileUrl = filePath; fileName = newFile.name }
     }
 
-    const { error } = await supabase.from('orders').update({
+        const { error } = await supabase.from('orders').update({
       date,
       title,
       description: description || null,
       nomenclature_item: nomenclatureItem || null,
       file_url: fileUrl || null,
       file_name: fileName || null,
+      is_reserved: false,
     }).eq('id', item.id)
 
     if (error) { alert(`Грешка: ${error.message}`); setSaving(false); return }
