@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { Plus, Pencil, Trash2, X, Save, Loader2 } from 'lucide-react'
+import { Plus, Pencil, Phone, Trash2, X, Save, Loader2 } from 'lucide-react'
 
 const RELATION_OPTIONS = ['майка', 'баща', 'настойник', 'баба', 'дядо', 'приемен родител', 'друг']
 
