@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { X, Loader2, Save } from 'lucide-react'
+import { X, Loader2, Save, Upload, FileText, Paperclip } from 'lucide-react'
 
 const CONTRACT_TYPES = [
   { value: 'delivery', label: 'Доставка' },
@@ -46,12 +46,22 @@ export default function EditContractModal({ item, onClose }: Props) {
   const [durationMonths, setDurationMonths] = useState('')
   const [internalOwner, setInternalOwner] = useState(item.internal_owner || '')
   const [description, setDescription] = useState(item.description || '')
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
 
   const endDate = durationMonths ? calcEndDate(startDate, durationMonths) : item.end_date
 
   async function handleSave() {
     if (!counterparty || !subject) return
     setSaving(true)
+
+    let fileUrl = item.file_url || null
+    let fileName = item.file_name || null
+    if (uploadedFile) {
+      const ext = uploadedFile.name.split('.').pop()
+      const filePath = `contracts/${item.id}-${Date.now()}.${ext}`
+      const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, uploadedFile, { upsert: true })
+      if (!uploadError) { fileUrl = filePath; fileName = uploadedFile.name }
+    }
 
     const { error } = await supabase
       .from('contracts')
@@ -64,6 +74,8 @@ export default function EditContractModal({ item, onClose }: Props) {
         end_date: endDate || null,
         internal_owner: internalOwner || null,
         description: description || null,
+        file_url: fileUrl,
+        file_name: fileName,
       })
       .eq('id', item.id)
 
@@ -139,6 +151,30 @@ export default function EditContractModal({ item, onClose }: Props) {
             <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Бележки</label>
             <textarea rows={2} value={description} onChange={e => setDescription(e.target.value)}
               placeholder="Допълнителна информация..." className="input w-full resize-none" />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Сканиран договор</label>
+            {uploadedFile ? (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50">
+                <FileText size={16} className="text-blue-500 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium text-slate-800 truncate">{uploadedFile.name}</div>
+                  <div className="text-[10px] text-slate-400">{(uploadedFile.size / 1024).toFixed(0)} KB</div>
+                </div>
+                <button type="button" onClick={() => setUploadedFile(null)} className="text-slate-400 hover:text-rose-600"><X size={14} /></button>
+              </div>
+            ) : (
+              <label className="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-slate-300 cursor-pointer hover:border-blue-400 hover:bg-slate-50 text-slate-500">
+                <Upload size={15} /><span className="text-xs font-semibold">Прикачи файл (PDF/Word)</span>
+                <input type="file" className="hidden" onChange={e => { if (e.target.files?.[0]) setUploadedFile(e.target.files[0]) }} />
+              </label>
+            )}
+            {!uploadedFile && item.file_name && (
+              <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-500">
+                <Paperclip size={11} /> Текущ файл: {item.file_name}
+              </div>
+            )}
           </div>
         </div>
 
