@@ -60,7 +60,7 @@ const DOCUMENT_SECTIONS: Record<string, Section[]> = {
       { key: 'assessment_type', label: 'Начин на оценяване (покрива/частично покрива ДОС, качествено/количествено)', type: 'textarea' },
       { key: 'iup_note', label: 'Разработен ИУП и/или индивидуални учебни програми по предмети', type: 'textarea' },
     ] },
-    { title: 'Психо-социална рехабилитация (Да / Не)', fields: [
+    { fields: [
       { key: 'rehab_0', label: 'Психо-социална рехабилитация', type: 'yesno' },
       { key: 'rehab_1', label: 'Рехабилитация на слуха и говора', type: 'yesno' },
       { key: 'rehab_2', label: 'Зрителна рехабилитация', type: 'yesno' },
