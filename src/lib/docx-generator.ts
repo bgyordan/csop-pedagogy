@@ -301,7 +301,8 @@ function generateSupportPlan(student: Student, team: any, data: Record<string, s
   const dots = (n: number) => '.'.repeat(n)
 
   // Психо-социална рехабилитация таблица (Да/Не)
-  const REHAB = [
+    const REHAB = [
+    'Психо - социална рехабилитация',
     'Рехабилитация на слуха и говора', 'Зрителна рехабилитация', 'Рехабилитация на комуникативните нарушения',
     'Осигуряване на достъпна архитектурна среда',
     'Обща и специализирана подкрепяща среда, технически средства, специално оборудване',
@@ -310,12 +311,12 @@ function generateSupportPlan(student: Student, team: any, data: Record<string, s
   ]
   const rehabRows: TableRow[] = [
     new TableRow({ children: [
-      cell([new Paragraph({ children: [bold('Психо - социална рехабилитация', 20)] })]),
+      cell([new Paragraph({ children: [bold('Вид дейност', 20)] })]),
       cell([new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('Да / Не', 20)] })]),
     ] }),
-    ...REHAB.map(r => new TableRow({ children: [
+    ...REHAB.map((r, idx) => new TableRow({ children: [
       cell([new Paragraph({ children: [normal(r, 20)] })]),
-      cell([new Paragraph({ children: [normal(data[`rehab_${REHAB.indexOf(r)}`] || '', 20)] })]),
+      cell([new Paragraph({ alignment: AlignmentType.CENTER, children: [normal(data[`rehab_${idx}`] || '', 20)] })]),
     ] })),
   ]
 
