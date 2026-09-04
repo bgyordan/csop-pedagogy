@@ -8,7 +8,7 @@ import { DOCUMENT_TYPE_LABELS, DocumentType, DocumentStatus } from '@/types'
 import { generateAndDownloadDocument } from '@/lib/docx-generator'
 import { getFullName } from '@/lib/utils'
 
-type Field = { key: string; label: string; type: 'text' | 'textarea' | 'date' | 'yesno' }
+type Field = { key: string; label: string; type: 'text' | 'textarea' | 'date' | 'yesno' | 'auto' }
 type Section = { title?: string; fields: Field[] }
 
 // Полетата по документ, групирани по секции (заглавие + полета)
@@ -54,20 +54,21 @@ const DOCUMENT_SECTIONS: Record<string, Section[]> = {
   ] }],
   support_plan: [
     { title: 'I. Основна информация', fields: [
-      { key: 'age', label: 'Възраст (ако е празно, се смята автоматично)', type: 'text' },
+      { key: 'age', label: 'Възраст', type: 'auto' },
       { key: 'support_type', label: 'Вид на допълнителната подкрепа', type: 'text' },
-      { key: 'study_form', label: 'Форма на обучение', type: 'text' },
+      { key: 'study_form', label: 'Форма на обучение', type: 'auto' },
       { key: 'assessment_type', label: 'Начин на оценяване (покрива/частично покрива ДОС, качествено/количествено)', type: 'textarea' },
       { key: 'iup_note', label: 'Разработен ИУП и/или индивидуални учебни програми по предмети', type: 'textarea' },
     ] },
     { title: 'Психо-социална рехабилитация (Да / Не)', fields: [
-      { key: 'rehab_0', label: 'Рехабилитация на слуха и говора', type: 'yesno' },
-      { key: 'rehab_1', label: 'Зрителна рехабилитация', type: 'yesno' },
-      { key: 'rehab_2', label: 'Рехабилитация на комуникативните нарушения', type: 'yesno' },
-      { key: 'rehab_3', label: 'Осигуряване на достъпна архитектурна среда', type: 'yesno' },
-      { key: 'rehab_4', label: 'Обща и специализирана подкрепяща среда, технически средства, оборудване', type: 'yesno' },
-      { key: 'rehab_5', label: 'Обучение по специалните предмети за ученици със сензорни увреждания', type: 'yesno' },
-      { key: 'rehab_6', label: 'Ресурсно подпомагане', type: 'yesno' },
+      { key: 'rehab_0', label: 'Психо-социална рехабилитация', type: 'yesno' },
+      { key: 'rehab_1', label: 'Рехабилитация на слуха и говора', type: 'yesno' },
+      { key: 'rehab_2', label: 'Зрителна рехабилитация', type: 'yesno' },
+      { key: 'rehab_3', label: 'Рехабилитация на комуникативните нарушения', type: 'yesno' },
+      { key: 'rehab_4', label: 'Осигуряване на достъпна архитектурна среда', type: 'yesno' },
+      { key: 'rehab_5', label: 'Обща и специализирана подкрепяща среда, технически средства, оборудване', type: 'yesno' },
+      { key: 'rehab_6', label: 'Обучение по специалните предмети за ученици със сензорни увреждания', type: 'yesno' },
+      { key: 'rehab_7', label: 'Ресурсно подпомагане', type: 'yesno' },
     ] },
     { title: 'Данни за родителите/настойниците', fields: [
       { key: 'mother_contact', label: 'Майка — имена, адрес, имейл, телефон', type: 'textarea' },
@@ -116,6 +117,7 @@ export default function DocumentEditorPage({ params }: Props) {
   const [team, setTeam] = useState<any>(null)
   const [yearName, setYearName] = useState('')
   const [className, setClassName] = useState('')
+  const [autoValues, setAutoValues] = useState<Record<string, string>>({})
   const router = useRouter()
   const supabase = createClient()
 
@@ -130,9 +132,16 @@ export default function DocumentEditorPage({ params }: Props) {
     const { data: s } = await supabase.from('students').select('*').eq('id', studentId).single()
     setStudent(s)
     const { data: enrollment } = await supabase
-      .from('student_enrollments').select('class:classes(name)')
+      .from('student_enrollments').select('class:classes(name), education_form')
       .eq('student_id', studentId).eq('academic_year_id', year?.id).single()
     setClassName((enrollment?.class as any)?.name || '')
+    // авто-стойности
+    const av: Record<string, string> = {}
+    const bd = (s as any)?.birth_date
+    if (bd) { const b = new Date(bd), n = new Date(); let a = n.getFullYear() - b.getFullYear(); const m = n.getMonth() - b.getMonth(); if (m < 0 || (m === 0 && n.getDate() < b.getDate())) a--; if (a > 0) av.age = `${a} г.` }
+    const ef = (enrollment as any)?.education_form
+    av.study_form = ef === 'ifo' ? 'Индивидуална форма (ИФО)' : 'Дневна'
+    setAutoValues(av)
     const { data: t } = await supabase.from('eplr_teams').select(`
       *,
       psychologist:staff_profiles!eplr_teams_psychologist_id_fkey(*),
@@ -159,7 +168,7 @@ export default function DocumentEditorPage({ params }: Props) {
     const saveStatus = newStatus || (Object.values(formData).some(v => v) ? 'in_progress' : 'empty')
     await supabase.from('documents').upsert({
       student_id: studentId, academic_year_id: year?.id, doc_type: docType,
-      data: { ...formData, class_name: className }, status: saveStatus, updated_by: profile?.id,
+      data: { ...formData, class_name: className, age: formData.age || autoValues.age || '', study_form: formData.study_form || autoValues.study_form || '' }, status: saveStatus, updated_by: profile?.id,
     }, { onConflict: 'student_id,academic_year_id,doc_type' })
     setStatus(saveStatus)
     setSaving(false)
@@ -170,7 +179,7 @@ export default function DocumentEditorPage({ params }: Props) {
     if (!student || !resolvedParams) return
     await generateAndDownloadDocument(
       resolvedParams.docType as DocumentType, student, team || {},
-      { ...formData, class_name: className }, yearName
+      { ...formData, class_name: className, age: formData.age || autoValues.age || '', study_form: formData.study_form || autoValues.study_form || '' }, yearName
     )
   }
 
@@ -212,6 +221,11 @@ export default function DocumentEditorPage({ params }: Props) {
                       className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 cursor-pointer w-28">
                       <option value="">—</option><option value="Да">Да</option><option value="Не">Не</option>
                     </select>
+                  ) : field.type === 'auto' ? (
+                    <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-400 flex items-center gap-2">
+                      <span className="text-slate-500">{autoValues[field.key] || '—'}</span>
+                      <span className="text-[10px] text-slate-400 ml-auto">попълва се автоматично</span>
+                    </div>
                   ) : (
                     <input type="text" value={formData[field.key] || ''} onChange={e => setF(field.key, e.target.value)}
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
