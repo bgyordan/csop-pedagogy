@@ -67,12 +67,10 @@ export default function EditContractModal({ item, onClose }: Props) {
       .from('contracts')
       .update({
         date,
-        contract_type: contractType,
         counterparty,
         subject,
         start_date: startDate || null,
         end_date: endDate || null,
-        internal_owner: internalOwner || null,
         description: description || null,
         file_url: fileUrl,
         file_name: fileName,
