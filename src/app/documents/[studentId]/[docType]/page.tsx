@@ -100,7 +100,7 @@ const DOCUMENT_SECTIONS: Record<string, Section[]> = {
       { key: 'work_rehab', label: 'Рехабилитатор — дейности', type: 'textarea' },
     ] },
     { title: 'Родител', fields: [
-      { key: 'parent_name', label: 'Име и фамилия на родителя', type: 'text' },
+      { key: 'parent_name', label: 'Име и фамилия на родителя', type: 'auto' },
       { key: 'parent_opinion', label: 'Мнение на родителя', type: 'textarea' },
     ] },
   ],
@@ -141,6 +141,9 @@ export default function DocumentEditorPage({ params }: Props) {
     if (bd) { const b = new Date(bd), n = new Date(); let a = n.getFullYear() - b.getFullYear(); const m = n.getMonth() - b.getMonth(); if (m < 0 || (m === 0 && n.getDate() < b.getDate())) a--; if (a > 0) av.age = `${a} г.` }
     const ef = (enrollment as any)?.education_form
     av.study_form = ef === 'ifo' ? 'Индивидуална форма (ИФО)' : 'Дневна'
+    // родител (първият от student_guardians)
+    const { data: g } = await supabase.from('student_guardians').select('full_name').eq('student_id', studentId).limit(1).maybeSingle()
+    if (g?.full_name) av.parent_name = g.full_name
     setAutoValues(av)
     const { data: t } = await supabase.from('eplr_teams').select(`
       *,
@@ -168,7 +171,7 @@ export default function DocumentEditorPage({ params }: Props) {
     const saveStatus = newStatus || (Object.values(formData).some(v => v) ? 'in_progress' : 'empty')
     await supabase.from('documents').upsert({
       student_id: studentId, academic_year_id: year?.id, doc_type: docType,
-      data: { ...formData, class_name: className, age: formData.age || autoValues.age || '', study_form: formData.study_form || autoValues.study_form || '' }, status: saveStatus, updated_by: profile?.id,
+      data: { ...formData, class_name: className, age: formData.age || autoValues.age || '', study_form: formData.study_form || autoValues.study_form || '', parent_name: formData.parent_name || autoValues.parent_name || '' }, status: saveStatus, updated_by: profile?.id,
     }, { onConflict: 'student_id,academic_year_id,doc_type' })
     setStatus(saveStatus)
     setSaving(false)
@@ -179,7 +182,7 @@ export default function DocumentEditorPage({ params }: Props) {
     if (!student || !resolvedParams) return
     await generateAndDownloadDocument(
       resolvedParams.docType as DocumentType, student, team || {},
-      { ...formData, class_name: className, age: formData.age || autoValues.age || '', study_form: formData.study_form || autoValues.study_form || '' }, yearName
+      { ...formData, class_name: className, age: formData.age || autoValues.age || '', study_form: formData.study_form || autoValues.study_form || '', parent_name: formData.parent_name || autoValues.parent_name || '' }, yearName
     )
   }
 
