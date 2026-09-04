@@ -66,7 +66,7 @@ export default function EditCorrespondenceModal({ item, onClose }: Props) {
       if (!uploadError) { fileUrl = filePath; fileName = newFile.name }
     }
 
-    const { error } = await supabase.from('correspondence').update({
+        const { error } = await supabase.from('correspondence').update({
       date,
       from_whom: fromWhom || null,
       to_whom: toWhom || null,
@@ -75,6 +75,7 @@ export default function EditCorrespondenceModal({ item, onClose }: Props) {
       nomenclature_item: nomenclatureItem || null,
       file_url: fileUrl || null,
       file_name: fileName || null,
+      is_reserved: false,
     }).eq('id', item.id)
 
     if (error) { alert(`Грешка: ${error.message}`); setSaving(false); return }
