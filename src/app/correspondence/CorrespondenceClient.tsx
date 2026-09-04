@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, Search, ChevronLeft, ChevronRight, Paperclip, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
@@ -49,14 +49,18 @@ export default function CorrespondenceClient({
   const totalPages = Math.ceil(totalCount / pageSize)
   const activeDir = directionValue || 'incoming'
 
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault()
-    const params = new URLSearchParams()
-    if (search) params.set('q', search)
-    params.set('direction', activeDir)
-    params.set('page', '1')
-    router.push(`/correspondence?${params.toString()}`)
-  }
+  const firstSearch = useRef(true)
+  useEffect(() => {
+    if (firstSearch.current) { firstSearch.current = false; return }
+    const t = setTimeout(() => {
+      const params = new URLSearchParams()
+      if (search.trim()) params.set('q', search.trim())
+      params.set('direction', activeDir)
+      params.set('page', '1')
+      router.push(`/correspondence?${params.toString()}`)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [search])
 
   function handleTabChange(d: string) {
     const params = new URLSearchParams()
@@ -107,12 +111,12 @@ export default function CorrespondenceClient({
             </button>
           )}
 
-          <form onSubmit={handleSearch} className="relative flex-1">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             <input type="text" placeholder="Търсене..." value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-400 w-full bg-white" />
-          </form>
+          </div>
 
           <span className="text-xs text-slate-400 px-3 py-2 whitespace-nowrap">{totalCount} записа</span>
         </div>
