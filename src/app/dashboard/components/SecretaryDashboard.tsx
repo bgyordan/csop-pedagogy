@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { ArrowRight, AlertTriangle, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 import SharedFiles from './SharedFiles'
+import ReserveNumberCard from './ReserveNumberCard'
 
 export default async function SecretaryDashboard({ profile }: any) {
   const supabase = await createClient()
@@ -172,7 +173,9 @@ export default async function SecretaryDashboard({ profile }: any) {
             </div>
           </div>
         </div>
-
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ReserveNumberCard profileId={profile.id} />
+      </div>
       </div>
       <SharedFiles />
     </div>
