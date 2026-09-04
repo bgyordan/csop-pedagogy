@@ -49,6 +49,7 @@ const navItems: NavItem[] = [
       { href: '/my-lecturer', label: 'Лекторски — над норматив', icon: <GraduationCap size={16} />, roles: ['class_teacher', 'teacher', 'educator'] },
    { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={16} />, roles: ['class_teacher'] },
   { href: '/my-activities', label: 'Списък за терапия', icon: <HeartPulse size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
+    { href: '/surveys', label: 'Анкети на новите деца', icon: <ClipboardList size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
     { href: '/generator', label: 'Генератор на документи', icon: <FileText size={16} />, roles: ['class_teacher', 'teacher', 'educator', 'psychologist', 'speech_therapist', 'rehabilitator'] },
   { href: '/reports', label: 'Натовареност', icon: <BarChart3 size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
   {
@@ -86,6 +87,7 @@ const navItems: NavItem[] = [
       { href: '/admin/coordinating-team', label: 'Заседания и документи', icon: <ClipboardList size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
       { href: '/admin/eplr-assignment', label: 'Разпределение ЕПЛР', icon: <GitBranch size={14} />, roles: ['admin', 'zdud'], coordinatorOnly: true },
       { href: '/reports/hub', label: 'Справки и писма', icon: <BarChart3 size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
+            { href: '/surveys', label: 'Анкети на новите деца', icon: <ClipboardList size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
      { href: '/admin/eplr-schedule', label: 'График ЕПЛР', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
     ],
   },
