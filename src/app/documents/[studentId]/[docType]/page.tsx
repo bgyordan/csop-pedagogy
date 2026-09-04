@@ -60,7 +60,7 @@ const DOCUMENT_SECTIONS: Record<string, Section[]> = {
       { key: 'assessment_type', label: 'Начин на оценяване (покрива/частично покрива ДОС, качествено/количествено)', type: 'textarea' },
       { key: 'iup_note', label: 'Разработен ИУП и/или индивидуални учебни програми по предмети', type: 'textarea' },
     ] },
-    { title: 'Психо-социална рехабилитация (Да / Не)', fields: [
+    { fields: [
       { key: 'rehab_0', label: 'Психо-социална рехабилитация', type: 'yesno' },
       { key: 'rehab_1', label: 'Рехабилитация на слуха и говора', type: 'yesno' },
       { key: 'rehab_2', label: 'Зрителна рехабилитация', type: 'yesno' },
@@ -145,6 +145,14 @@ export default function DocumentEditorPage({ params }: Props) {
     const { data: g } = await supabase.from('student_guardians').select('full_name').eq('student_id', studentId).limit(1).maybeSingle()
     if (g?.full_name) av.parent_name = g.full_name
     setAutoValues(av)
+    // ако полетата са празни, зареждаме авто-стойността като редактируем текст
+    setFormData(prev => {
+      const next = { ...prev }
+      for (const k of ['age', 'study_form', 'parent_name']) {
+        if (!next[k] && av[k]) next[k] = av[k]
+      }
+      return next
+    })
     const { data: t } = await supabase.from('eplr_teams').select(`
       *,
       psychologist:staff_profiles!eplr_teams_psychologist_id_fkey(*),
