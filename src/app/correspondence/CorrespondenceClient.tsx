@@ -155,9 +155,9 @@ export default function CorrespondenceClient({
           return (
             <div key={item.id}
               onClick={() => setViewItem(item)}
-              className="bg-white border border-slate-200 rounded-2xl px-3 py-1.5 cursor-pointer hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] transition-all group grid grid-cols-[130px_80px_70px_1fr_1.5fr_1.5fr_56px] gap-3 items-center shadow-[0_1px_4px_rgba(15,34,64,0.06)]">
+              className={`border rounded-2xl px-3 py-1.5 cursor-pointer hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] transition-all group grid grid-cols-[130px_80px_70px_1fr_1.5fr_1.5fr_56px] gap-3 items-center shadow-[0_1px_4px_rgba(15,34,64,0.06)] ${item.is_reserved ? 'bg-amber-50 border-amber-200 hover:border-amber-300' : 'bg-white border-slate-200 hover:border-slate-400'}`}>
 
-              <span className="font-medium text-slate-800 text-xs whitespace-nowrap truncate">{item.number}</span>
+              <span className="font-medium text-slate-800 text-xs whitespace-nowrap truncate flex items-center gap-1">{item.number}{item.is_reserved && <span className="text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 shrink-0">резерв.</span>}</span>
 
               <span className="text-xs text-slate-800 whitespace-nowrap">
                 {item.date ? new Date(item.date).toLocaleDateString('bg-BG') : '—'}
