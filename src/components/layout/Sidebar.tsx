@@ -114,7 +114,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   const supabase = createClient()
    const [mobileOpen, setMobileOpen] = useState(false)
    const [settingsOpen, setSettingsOpen] = useState(false)
-  const [deloOpen, setDeloOpen] = useState(false)
+  const [deloOpen, setDeloOpen] = useState(true)
   useEffect(() => { setMobileOpen(false) }, [pathname])
   useEffect(() => {
     if (mobileOpen) {
