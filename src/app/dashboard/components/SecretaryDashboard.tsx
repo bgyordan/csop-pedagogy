@@ -124,11 +124,11 @@ export default async function SecretaryDashboard({ profile }: any) {
 
 
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
         {/* Изтичащи договори */}
         {expiringContracts && expiringContracts.length > 0 && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-full">
             <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100 bg-slate-50/50 rounded-t-xl">
               <AlertTriangle size={14} className="text-slate-500" />
               <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Изтичащи договори (30 дни)</span>
@@ -153,7 +153,7 @@ export default async function SecretaryDashboard({ profile }: any) {
         )}
 
         {/* Заявления */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-full">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50 rounded-t-xl">
             <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Заявления за прием ({currentYear})</span>
             <Link href="/reports/enrollments" className="text-[10px] font-medium text-slate-400 flex items-center gap-1 hover:text-slate-700 transition-colors">
@@ -173,7 +173,7 @@ export default async function SecretaryDashboard({ profile }: any) {
             </div>
           </div>
         </div>
-        <ReserveNumberCard profileId={profile.id} />
+        <div className="h-full"><ReserveNumberCard profileId={profile.id} /></div>
       </div>
       <SharedFiles />
     </div>
