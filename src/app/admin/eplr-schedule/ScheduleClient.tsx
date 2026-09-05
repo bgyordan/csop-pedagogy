@@ -392,7 +392,7 @@ export default function ScheduleClient({
             <div className="space-y-2">
               {classData.map(cls => {
                 const isOpen = expanded[cls.id]
-                const clsSlots = cls.students.map(s => slots[s.id]).filter(s => s?.date && s?.time)
+                const clsSlots = cls.students.map(s => slots[s.id]).filter(s => s?.date)
                 const clsConflicts = cls.students.filter(s => conflicts[s.id]).length
                 const done = clsSlots.length
 
