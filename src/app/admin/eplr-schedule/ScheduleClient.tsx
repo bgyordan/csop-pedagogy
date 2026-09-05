@@ -397,7 +397,7 @@ export default function ScheduleClient({
                 const done = clsSlots.length
 
                 return (
-                  <div key={cls.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                  <div key={cls.id} className={`border rounded-2xl overflow-hidden shadow-sm ${done > 0 && done === cls.students.length ? 'bg-emerald-50/40 border-emerald-200' : done > 0 ? 'bg-emerald-50/20 border-emerald-100' : 'bg-white border-slate-200'}`}>
                     <button onClick={() => setExpanded(p => ({ ...p, [cls.id]: !p[cls.id] }))}
                       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
                       {isOpen ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
@@ -411,8 +411,12 @@ export default function ScheduleClient({
                         done === cls.students.length && done > 0 ? 'text-emerald-600' : 'text-slate-400'
                       }`}>
                         {done === cls.students.length && done > 0 && <Check size={12} className="inline mr-0.5" />}
-                        {done}/{cls.students.length}
+                                                {done}/{cls.students.length}
                       </span>
+                      {done > 0 && (() => {
+                        const dates = Array.from(new Set(clsSlots.map(s => s!.date))).sort()
+                        return <span className="text-[11px] text-emerald-600 font-medium ml-1 hidden sm:inline">· {dates.map(d => d.split('-').reverse().slice(0,2).join('.')).join(', ')}</span>
+                      })()}
                     </button>
 
                     {isOpen && (
