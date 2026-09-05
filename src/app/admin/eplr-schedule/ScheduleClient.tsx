@@ -310,41 +310,8 @@ export default function ScheduleClient({
           ) : (
             <span className="text-sm text-slate-400 flex-1">Няма създаден график</span>
           )}
-
-          {canEdit && !showNew && (
-            <div className="flex gap-2">
-              <button onClick={() => setShowNew(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white text-xs font-semibold hover:opacity-90"
-                style={{ backgroundColor: '#0f2240' }}>
-                <Plus size={14} /> Нов график
-              </button>
-              {activeId && (
-                <button onClick={deleteSchedule} title="Изтрий графика"
-                  className="p-2 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50">
-                  <Trash2 size={15} />
-                </button>
-              )}
-            </div>
-          )}
         </div>
-
-        {showNew && (
-          <div className="flex flex-col sm:flex-row gap-2 mt-3 pt-3 border-t border-slate-100">
-            <input autoFocus value={newName} onChange={e => setNewName(e.target.value)}
-              placeholder='Име (напр. "1-ви срок 2025/2026")' className="input flex-1 text-sm" />
-            <div className="flex gap-2">
-              <button onClick={() => { setShowNew(false); setNewName('') }}
-                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-medium">Отказ</button>
-              <button onClick={createSchedule} disabled={creating || !newName.trim()}
-                className="px-4 py-2 text-white rounded-xl text-xs font-medium flex items-center gap-1.5 disabled:opacity-60"
-                style={{ backgroundColor: '#0f2240' }}>
-                {creating && <Loader2 size={12} className="animate-spin" />} Създай
-              </button>
-            </div>
-          </div>
-        )}
       </div>
-
       {!activeId ? (
         <div className="bg-white border border-slate-200 rounded-2xl p-16 text-center shadow-sm">
           <CalendarPlus size={28} className="mx-auto mb-2 text-slate-300" />
