@@ -1,7 +1,7 @@
 'use client'
 import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Pencil, Trash2 } from 'lucide-react'
+import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Pencil, Trash2, ChevronDown } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { generateSubstitution } from './actions'
 import { generateSubstitutionOrder } from '@/lib/docx-substitution'
@@ -92,9 +92,9 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [eBsch, setEBsch] = useState(false)
   const [eSaving, setESaving] = useState(false)
 
-  async function genOrder(id: string) {
+    async function genOrder(id: string, overNorm: boolean = true) {
     setGenId(id)
-    const res: any = await generateSubstitution(id)
+    const res: any = await generateSubstitution(id, overNorm)
     if (res.error) { toast(res.error, 'error'); setGenId(null); return }
     try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ }
     // маркираме реда като издаден
@@ -276,11 +276,21 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                 {(r as any).bsch && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">НП</span>}
               </span>
               <div className="flex items-center justify-end gap-1">
-                {r.substituteId && !r.hasOrder && (
-                  <button onClick={() => genOrder(r.id)} disabled={genId === r.id}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>
-                    {genId === r.id ? <Loader2 size={12} className="animate-spin" /> : <>Заповед <ArrowRight size={12} /></>}
-                  </button>
+                                {r.substituteId && !r.hasOrder && (
+                  <div className="relative group/order">
+                    <button disabled={genId === r.id}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>
+                      {genId === r.id ? <Loader2 size={12} className="animate-spin" /> : <>Заповед <ChevronDown size={12} /></>}
+                    </button>
+                    <div className="absolute right-0 top-full mt-1 z-20 hidden group-hover/order:block bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden w-52">
+                      <button onClick={() => genOrder(r.id, true)} className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
+                        Над норма (лекторски)
+                      </button>
+                      <button onClick={() => genOrder(r.id, false)} className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 border-t border-slate-100">
+                        В норма (доп. възнаграждение)
+                      </button>
+                    </div>
+                  </div>
                 )}
                 <button onClick={() => startEdit(r)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all" title="Редактирай"><Pencil size={14} /></button>
               </div>
