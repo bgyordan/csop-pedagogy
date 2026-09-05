@@ -156,7 +156,7 @@ export default function ScheduleClient({
   // ── КОНФЛИКТИ ──
   const conflicts = useMemo(() => {
     const result: Record<string, string[]> = {}
-    const filled = Object.values(slots).filter(s => s.date && s.time)
+    const filled = Object.values(slots).filter(s => s.date)
 
     for (let i = 0; i < filled.length; i++) {
       for (let j = i + 1; j < filled.length; j++) {
