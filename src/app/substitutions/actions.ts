@@ -16,7 +16,7 @@ function workdays(from: string, to: string): { iso: string; dow: number }[] {
 
 // Генерира заповед за заместване: вади часовете на отсъстващия, създава РД-08 в orders,
 // връща данните за Word генератора.
-export async function generateSubstitution(substitutionId: string) {
+export async function generateSubstitution(substitutionId: string, overNorm: boolean = true) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли' }
@@ -26,7 +26,7 @@ export async function generateSubstitution(substitutionId: string) {
   const { data: sub } = await supabase
     .from('substitutions')
     .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, reason, leave_order_number, leave_order_date, bsch_eligible,
-      absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name),
+       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, position),
       sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name, position)`)
     .eq('id', substitutionId).single()
   if (!sub) return { error: 'Заместването не е намерено' }
@@ -101,8 +101,12 @@ export async function generateSubstitution(substitutionId: string) {
     data: {
       orderNumber, orderDate,
       absentName, substituteName: subName,
-      substitutePosition: (sub.sub as any)?.position || 'учител',
+            substitutePosition: (sub.sub as any)?.position || 'учител',
+      absentPosition: (sub.absent as any)?.position || 'учител',
       className: bySlot.length ? Array.from(new Set(bySlot.map(s => s.cls).filter(Boolean))).join(', ') : '—',
+      holderType: bySlot.some(s => (s.cls || '').startsWith('ИФО')) && !bySlot.some(s => !(s.cls || '').startsWith('ИФО')) ? 'ifo' : 'class',
+      reason: sub.reason || 'vacation',
+      overNorm,
       leaveRef: sub.leave_order_number ? `Заповед за отпуск № ${sub.leave_order_number}` : (sub.reason === 'sick' ? 'Болничен лист' : 'заявление'),
       dateFrom: sub.date_from, dateTo: sub.date_to,
       zdudName: zdud ? `${zdud.first_name} ${zdud.last_name}` : '',
