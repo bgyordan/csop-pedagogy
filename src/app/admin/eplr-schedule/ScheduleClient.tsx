@@ -156,7 +156,7 @@ export default function ScheduleClient({
   // ── КОНФЛИКТИ ──
   const conflicts = useMemo(() => {
     const result: Record<string, string[]> = {}
-    const filled = Object.values(slots).filter(s => s.date)
+    const filled = Object.values(slots).filter(s => s.date && s.time)
 
     for (let i = 0; i < filled.length; i++) {
       for (let j = i + 1; j < filled.length; j++) {
@@ -392,7 +392,7 @@ export default function ScheduleClient({
             <div className="space-y-2">
               {classData.map(cls => {
                 const isOpen = expanded[cls.id]
-                const clsSlots = cls.students.map(s => slots[s.id]).filter(s => s?.date)
+                const clsSlots = cls.students.map(s => slots[s.id]).filter(s => s?.date && s?.time)
                 const clsConflicts = cls.students.filter(s => conflicts[s.id]).length
                 const done = clsSlots.length
 
