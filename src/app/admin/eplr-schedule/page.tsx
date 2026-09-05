@@ -19,12 +19,19 @@ export default async function EplrSchedulePage() {
   const { data: currentYear } = await supabase
     .from('academic_years').select('*').eq('is_current', true).single()
 
-  // Графици за годината
-  const { data: schedules } = await supabase
-    .from('eplr_schedules')
-    .select('*')
-    .eq('academic_year_id', currentYear?.id)
-    .order('created_at', { ascending: false })
+  // Гарантираме точно ДВА фиксирани срока за годината (Първи/Втори) — без ръчно създаване
+  const TERMS = ['Първи срок', 'Втори срок']
+  const { data: existingSch } = await supabase
+    .from('eplr_schedules').select('*').eq('academic_year_id', currentYear?.id)
+  const haveNames = new Set((existingSch || []).map((s: any) => s.name))
+  const missing = TERMS.filter(t => !haveNames.has(t))
+  if (missing.length > 0 && currentYear?.id) {
+    await supabase.from('eplr_schedules').insert(missing.map(name => ({ name, academic_year_id: currentYear.id })))
+  }
+  // четем само двата фиксирани, подредени Първи, после Втори
+  const { data: allSch } = await supabase
+    .from('eplr_schedules').select('*').eq('academic_year_id', currentYear?.id).in('name', TERMS)
+  const schedules = TERMS.map(t => (allSch || []).find((s: any) => s.name === t)).filter(Boolean)
 
   // Паралелки
   const { data: classes } = await supabase
