@@ -71,6 +71,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     const [search, setSearch] = useState('')
   const [npOnly, setNpOnly] = useState(false)
   const [genId, setGenId] = useState<string | null>(null)
+  const [overNormMap, setOverNormMap] = useState<Record<string, boolean>>({})
 
   // Създаване
   const [showNew, setShowNew] = useState(false)
@@ -92,8 +93,9 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [eBsch, setEBsch] = useState(false)
   const [eSaving, setESaving] = useState(false)
 
-    async function genOrder(id: string, overNorm: boolean = true) {
+    async function genOrder(id: string) {
     setGenId(id)
+    const overNorm = overNormMap[id] !== false
     const res: any = await generateSubstitution(id, overNorm)
     if (res.error) { toast(res.error, 'error'); setGenId(null); return }
     try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ }
@@ -277,19 +279,17 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               </span>
               <div className="flex items-center justify-end gap-1">
                                 {r.substituteId && !r.hasOrder && (
-                  <div className="relative group/order">
-                    <button disabled={genId === r.id}
+                  <div className="flex items-center gap-2">
+                    <label className="inline-flex items-center gap-1 text-[11px] text-slate-500 cursor-pointer whitespace-nowrap" title="Отметнато = лекторски (над норма); без отметка = в норма, без заплащане">
+                      <input type="checkbox" checked={overNormMap[r.id] !== false}
+                        onChange={e => setOverNormMap(p => ({ ...p, [r.id]: e.target.checked }))}
+                        className="rounded" />
+                      над норма
+                    </label>
+                    <button onClick={() => genOrder(r.id)} disabled={genId === r.id}
                       className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>
-                      {genId === r.id ? <Loader2 size={12} className="animate-spin" /> : <>Заповед <ChevronDown size={12} /></>}
+                      {genId === r.id ? <Loader2 size={12} className="animate-spin" /> : <>Заповед <ArrowRight size={12} /></>}
                     </button>
-                    <div className="absolute right-0 top-full mt-1 z-20 hidden group-hover/order:block bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden w-52">
-                      <button onClick={() => genOrder(r.id, true)} className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
-                        Над норма (лекторски)
-                      </button>
-                      <button onClick={() => genOrder(r.id, false)} className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 border-t border-slate-100">
-                        В норма (доп. възнаграждение)
-                      </button>
-                    </div>
                   </div>
                 )}
                 <button onClick={() => startEdit(r)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all" title="Редактирай"><Pencil size={14} /></button>
