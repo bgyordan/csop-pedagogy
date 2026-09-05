@@ -265,7 +265,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
           const st = statusOf(r)
           return (
             <div key={r.id}
-              className={`bg-white border border-slate-200 rounded-2xl px-4 py-3 grid grid-cols-1 md:grid-cols-[40px_1fr_1fr_90px_90px_150px_120px] gap-2 md:gap-3 md:items-center transition-all group hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] shadow-[0_1px_4px_rgba(15,34,64,0.06)] ${idx % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
+              className={`bg-white border border-slate-200 rounded-2xl px-4 py-3 grid grid-cols-1 md:grid-cols-[40px_1fr_1fr_90px_90px_140px_130px] gap-2 md:gap-3 md:items-center transition-all group hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] shadow-[0_1px_4px_rgba(15,34,64,0.06)] ${idx % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
               <span className="text-xs text-slate-400">{idx + 1}</span>
               <span className="text-sm text-slate-800">{r.absentName}</span>
               <span className="text-sm text-slate-600">
@@ -277,22 +277,22 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                 <span className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>
                 {(r as any).bsch && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">НП</span>}
               </span>
-              <div className="flex items-center justify-end gap-1">
-                                {r.substituteId && !r.hasOrder && (
-                  <div className="flex items-center gap-2">
-                    <label className="inline-flex items-center gap-1 text-[11px] text-slate-500 cursor-pointer whitespace-nowrap" title="Отметнато = лекторски (над норма); без отметка = в норма, без заплащане">
-                      <input type="checkbox" checked={overNormMap[r.id] !== false}
-                        onChange={e => setOverNormMap(p => ({ ...p, [r.id]: e.target.checked }))}
-                        className="rounded" />
-                      над норма
-                    </label>
+              <div className="flex items-center justify-end gap-2">
+                {r.substituteId && !r.hasOrder && (
+                  <div className="flex flex-col items-end gap-1">
                     <button onClick={() => genOrder(r.id)} disabled={genId === r.id}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 disabled:opacity-50 w-full justify-center" style={{ backgroundColor: '#0f2240' }}>
                       {genId === r.id ? <Loader2 size={12} className="animate-spin" /> : <>Заповед <ArrowRight size={12} /></>}
                     </button>
+                    <label className="inline-flex items-center gap-1 text-[10px] text-slate-500 cursor-pointer whitespace-nowrap" title="Отметнато = лекторски (над норма); без отметка = в норма, без заплащане">
+                      <input type="checkbox" checked={overNormMap[r.id] !== false}
+                        onChange={e => setOverNormMap(p => ({ ...p, [r.id]: e.target.checked }))}
+                        className="rounded scale-90" />
+                      над норма (лекторски)
+                    </label>
                   </div>
                 )}
-                <button onClick={() => startEdit(r)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all" title="Редактирай"><Pencil size={14} /></button>
+                <button onClick={() => startEdit(r)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all shrink-0" title="Редактирай"><Pencil size={14} /></button>
               </div>
             </div>
           )
