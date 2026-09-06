@@ -90,6 +90,16 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   // 6. Връзваме заповедта към заместването
   await supabase.from('substitutions').update({ substitution_order_id: order.id }).eq('id', substitutionId)
 
+    // Няколко заместника (ако има разпределение)
+  const { data: assigns } = await supabase
+    .from('substitution_assignments')
+    .select('date_from, date_to, over_norm, sub:staff_profiles!substitution_assignments_substitute_staff_id_fkey(first_name, last_name, position)')
+    .eq('substitution_id', substitutionId).order('date_from')
+  const substitutes = (assigns || []).map((a: any) => ({
+    name: a.sub ? `${a.sub.first_name} ${a.sub.last_name}` : '',
+    position: a.sub?.position || 'учител',
+    from: a.date_from, to: a.date_to, overNorm: a.over_norm !== false,
+  }))
   // ЗДУД за контрол
   const { data: zdud } = await supabase.from('staff_profiles').select('first_name, last_name').eq('role', 'zdud').eq('is_active', true).limit(1).maybeSingle()
 
@@ -113,6 +123,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
             yearName: cy?.name || '',
       isBsch: sub.bsch_eligible === true,
       days,
+      substitutes,
     },
   }
 }
