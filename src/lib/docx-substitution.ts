@@ -193,7 +193,7 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
 
   let n = 3
   if (d.overNorm) {
-    P('3. Проведените часове по заместването да се изплатят на заместващия педагогически специалист. като лекторски часове.')
+    P('3. Проведените часове по заместването да се изплатят на заместващия педагогически специалист като лекторски часове.')
     children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
       normal('4. Източник на финансиране: ', 22),
       bold(d.isBsch ? 'Национална програма „Без свободен час", Модул 1.' : 'бюджет на ЦСОП (собствени средства).', 22),
@@ -223,11 +223,11 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
 
   children.push(new Paragraph({ children: [bold('Запознати:', 22)], spacing: { after: 80 } }))
   if (multi) {
-    d.substitutes!.forEach((sb, i) => children.push(new Paragraph({ spacing: { after: 60 }, children: [normal(`${i + 1}. ${sb.name} – заместник     ..............................`, 22)] })))
+    d.substitutes!.forEach((sb, i) => children.push(new Paragraph({ spacing: { after: 60 }, children: [normal(`${i + 1}. ${sb.name} – заместващ     ..............................`, 22)] })))
     const k = d.substitutes!.length + 1
     children.push(new Paragraph({ children: [normal(`${k}. ${d.zdudName || '…………………'} – заместник-директор     ..............................`, 22)] }))
   } else {
-    children.push(new Paragraph({ spacing: { after: 60 }, children: [normal(`1. ${d.substituteName} – заместник     ..............................`, 22)] }))
+    children.push(new Paragraph({ spacing: { after: 60 }, children: [normal(`1. ${d.substituteName} – заместващ     ..............................`, 22)] }))
     children.push(new Paragraph({ children: [normal(`2. ${d.zdudName || '…………………'} – заместник-директор     ..............................`, 22)] }))
   }
 
