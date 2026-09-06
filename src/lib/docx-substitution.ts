@@ -10,10 +10,16 @@ function bold(text: string, size = 22): TextRun { return new TextRun({ text, bol
 function normal(text: string, size = 22): TextRun { return new TextRun({ text, size }) }
 function header(): Paragraph[] {
   return [
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 40 }, children: [new ImageRun({ data: Uint8Array.from(atob(CSOP_LOGO_B64), c => c.charCodeAt(0)), transformation: { width: 55, height: 55 }, type: 'jpg' })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Център за специална образователна подкрепа - гр. Варна', bold: true, size: 24 })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'ул. „Петко Стайнов" №7, гр. Варна', size: 18, italics: true })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'e-mail: info-400052@edu.mon.bg · тел. 052 619 456 · GSM 0888 490 771', size: 18, italics: true })] }),
+    new Paragraph({
+      children: [
+        new TextRun({
+          children: [new ImageRun({ data: Uint8Array.from(atob(CSOP_LOGO_B64), c => c.charCodeAt(0)), transformation: { width: 50, height: 50 }, type: 'jpg' })],
+        }),
+        new TextRun({ text: '   Център за специална образователна подкрепа - гр. Варна', bold: true, size: 24 }),
+      ],
+    }),
+    new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg', size: 18, italics: true })] }),
+    new Paragraph({ children: [new TextRun({ text: 'тел. 052 619 456, 0878 521 823', size: 18, italics: true })] }),
     new Paragraph({ text: '' }),
   ]
 }
