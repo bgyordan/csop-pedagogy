@@ -137,9 +137,13 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       date_from: from, date_to: to, reason, bsch_eligible: bsch,
     }).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setSaving(false); return }
+    if (multiOpen) {
+      await saveAssignments(data.id, assigns.filter(a => a.substitute_staff_id && a.date_from && a.date_to))
+    }
     setRows(prev => [mapRow(data), ...prev])
     toast('Заместването е добавено')
     setAbsentId(''); setSubId(''); setFrom(''); setTo(''); setReason('sick'); setBsch(false); setShowNew(false); setSaving(false)
+    setMultiOpen(false); setAssigns([])
   }
 
   async function loadAssigns(id: string) {
@@ -203,7 +207,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
           само НП
         </button>
         {!showNew && (
-          <button onClick={() => setShowNew(true)}
+          <button onClick={() => { setShowNew(true); setMultiOpen(false); setAssigns([]) }}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-white text-sm font-medium hover:opacity-90 shrink-0"
             style={{ backgroundColor: '#0f2240' }}><Plus size={16} /> Ново заместване</button>
         )}
@@ -246,6 +250,35 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
             <input type="checkbox" checked={bsch} onChange={e => setBsch(e.target.checked)} className="sr-only" />
             По НП „Без свободен час"
           </label>
+
+          <div className="border-t border-slate-100 pt-3">
+            <label className="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+              <input type="checkbox" checked={multiOpen} onChange={e => { setMultiOpen(e.target.checked); if (e.target.checked && assigns.length === 0) setAssigns([{ substitute_staff_id: subId || '', date_from: from, date_to: to, over_norm: true }]) }} className="rounded" />
+              Няколко заместника (различни периоди)
+            </label>
+            {multiOpen && (
+              <div className="mt-2 space-y-2">
+                {assigns.map((a, i) => (
+                  <div key={i} className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center bg-slate-50/70 border border-slate-200 rounded-xl p-2">
+                    <div className="flex-1 min-w-0">
+                      <PersonCombo people={staff} value={a.substitute_staff_id} onChange={v => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, substitute_staff_id: v } : x))} placeholder="Заместник…" excludeId={absentId} />
+                    </div>
+                    <input type="date" value={a.date_from} onChange={e => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, date_from: e.target.value } : x))} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
+                    <input type="date" value={a.date_to} onChange={e => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, date_to: e.target.value } : x))} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
+                    <button type="button" onClick={() => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, over_norm: !x.over_norm } : x))}
+                      className={`px-2 py-1.5 rounded-lg text-[10px] font-medium whitespace-nowrap ${a.over_norm ? 'bg-[#0f2240] text-white' : 'bg-slate-200 text-slate-600'}`}>
+                      {a.over_norm ? 'Лекторски' : 'В норма'}
+                    </button>
+                    <button type="button" onClick={() => setAssigns(prev => prev.filter((_, j) => j !== i))} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 shrink-0"><X size={14} /></button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => setAssigns(prev => [...prev, { substitute_staff_id: '', date_from: '', date_to: '', over_norm: true }])}
+                  className="text-xs font-medium text-[#0f2240] hover:underline">+ Добави заместник</button>
+                <p className="text-[11px] text-slate-400">Общ период: {from ? from.split('-').reverse().join('.') : '…'} – {to ? to.split('-').reverse().join('.') : '…'}. Разпределете заместниците по подпериоди.</p>
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
             <button onClick={() => setShowNew(false)} className="px-4 py-2 rounded-xl text-sm bg-white border border-slate-200 hover:bg-slate-100 text-slate-700">Отказ</button>
             <button onClick={saveNew} disabled={saving || !absentId || !from || !to}
