@@ -58,7 +58,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   })
 
   // 3. Разгъваме по работни дни в периода
-  const wds = workdays(sub.date_from, sub.date_to)
+  const wds = await workdays(supabase, sub.date_from, sub.date_to)
   const days = wds.map(wd => ({
     date: wd.iso.split('-').reverse().join('.'),
     items: bySlot.filter(s => s.day === wd.dow).map(s => ({ period: s.period, subject: s.subject, cls: s.cls })),
