@@ -54,37 +54,71 @@ export interface SubstOrderData {
 
 // Матрица на седмичното разписание: дни (Пн-Пт) колони, часове редове.
 // Преизползваем блок — при няколко заместника се вика за всеки.
-function scheduleMatrix(days: { date: string; items: { period: number; subject: string; cls: string }[] }[]): any {
-  const DOW = ['Понеделник', 'Вторник', 'Сряда', 'Четвъртък', 'Петък']
-  // събираме предметите по (ден-от-седмицата, час); ден-от-седмицата = index 0..4 според датата
-  const grid: Record<number, Record<number, string>> = {}
-  let maxPeriod = 6
-  days.forEach(d => {
-    // датата е "дд.мм.гггг" → правим Date да вземем деня от седмицата
-    const [dd, mm, yy] = d.date.split('.').map(Number)
-    const dow = new Date(yy, mm - 1, dd).getDay() // 1..5
-    if (dow < 1 || dow > 5) return
-    const col = dow - 1
-    d.items.forEach(it => {
-      if (!grid[it.period]) grid[it.period] = {}
-      grid[it.period][col] = it.subject || '—'
-      if (it.period > maxPeriod) maxPeriod = it.period
-    })
-  })
+// Таблица с часовете. Кратко (≤4 работни дни) → колони = конкретните дати.
+// Дълго (≥5) → пълна седмична матрица Пон-Пет + "часа седмично".
+// И двата с ред "Общо за деня". Преизползваем блок (за всеки заместник).
+function scheduleMatrix(days: { date: string; items: { period: number; subject: string; cls: string }[] }[]): any[] {
   const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
   const th = (t: string) => new TableCell({ borders: CELLS, shading: { type: ShadingType.CLEAR, fill: 'EEEEEE' }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(t, 16)] })] })
-  const td = (t: string, center = false) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: center ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 16)] })] })
-  const rows: TableRow[] = [ new TableRow({ children: [th('Уч. час'), th('Пон'), th('Вт'), th('Ср'), th('Чет'), th('Пет')] }) ]
-  const periodsOrder = Array.from({ length: maxPeriod }, (_, i) => i + 1).filter(p => grid[p])
-  periodsOrder.forEach(p => {
-    const cells = [td(`${p}.`, true)]
-    for (let c = 0; c < 5; c++) cells.push(td(grid[p]?.[c] || '—', true))
-    rows.push(new TableRow({ children: cells }))
-  })
-  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [1000, 1720, 1720, 1720, 1720, 1720], rows })
-}
+  const td = (t: string, center = true, bold_ = false) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: center ? AlignmentType.CENTER : AlignmentType.LEFT, children: [bold_ ? bold(t, 16) : normal(t, 16)] })] })
+  const DOW_SHORT = ['', 'Пон', 'Вт', 'Ср', 'Чет', 'Пет']
+  const DOW_FULL = ['', 'Понеделник', 'Вторник', 'Сряда', 'Четвъртък', 'Петък']
+  const dowOf = (dstr: string) => { const [dd, mm, yy] = dstr.split('.').map(Number); return new Date(yy, mm - 1, dd).getDay() }
+  const workdays = days.filter(d => { const w = dowOf(d.date); return w >= 1 && w <= 5 })
 
+  let maxPeriod = 6
+  workdays.forEach(d => d.items.forEach(it => { if (it.period > maxPeriod) maxPeriod = it.period }))
+  const periods = Array.from({ length: maxPeriod }, (_, i) => i + 1)
+
+  const out: any[] = []
+  const SHORT = workdays.length <= 4
+
+  if (SHORT) {
+    // колони = конкретните дати
+    const cols = workdays
+    const head = [th('Уч. час'), ...cols.map(c => th(`${DOW_FULL[dowOf(c.date)]}\n(${c.date.slice(0, 5)})`))]
+    const rows: TableRow[] = [new TableRow({ children: head })]
+    const usedPeriods = periods.filter(p => cols.some(c => c.items.some(it => it.period === p)))
+    usedPeriods.forEach(p => {
+      const cells = [td(`${p}.`, true, true)]
+      cols.forEach(c => { const it = c.items.find(x => x.period === p); cells.push(td(it ? (it.subject || '—') : '—')) })
+      rows.push(new TableRow({ children: cells }))
+    })
+    // ред "Общо за деня"
+    const totalCells = [td('Общо:', true, true)]
+    cols.forEach(c => totalCells.push(td(`${c.items.length} ч.`, true, true)))
+    rows.push(new TableRow({ children: totalCells }))
+    out.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }))
+  } else {
+    // пълна седмична матрица Пон-Пет (шаблон); клетка = първата среща на предмет за този ден+час
+    const grid: Record<number, Record<number, string>> = {}
+    const dayCount: Record<number, number> = {}
+    workdays.forEach(d => {
+      const col = dowOf(d.date) // 1..5
+      d.items.forEach(it => { if (!grid[it.period]) grid[it.period] = {}; grid[it.period][col] = it.subject || '—' })
+    })
+    // общо за типичен ден от седмицата — вземаме макс срещан брой за деня
+    for (let c = 1; c <= 5; c++) {
+      const perDay = workdays.filter(d => dowOf(d.date) === c)
+      dayCount[c] = perDay.length ? Math.max(...perDay.map(d => d.items.length)) : 0
+    }
+    const usedPeriods = periods.filter(p => grid[p])
+    const rows: TableRow[] = [new TableRow({ children: [th('Уч. час'), th('Пон'), th('Вт'), th('Ср'), th('Чет'), th('Пет')] })]
+    usedPeriods.forEach(p => {
+      const cells = [td(`${p}.`, true, true)]
+      for (let c = 1; c <= 5; c++) cells.push(td(grid[p]?.[c] || '—'))
+      rows.push(new TableRow({ children: cells }))
+    })
+    const totalCells = [td('Общо:', true, true)]
+    for (let c = 1; c <= 5; c++) totalCells.push(td(`${dayCount[c]} ч.`, true, true))
+    rows.push(new TableRow({ children: totalCells }))
+    out.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [1000, 1720, 1720, 1720, 1720, 1720], rows }))
+    const weekTotal = Object.values(dayCount).reduce((a, b) => a + b, 0)
+    out.push(new Paragraph({ spacing: { before: 60 }, children: [normal(`Общ брой часове за една пълна работна седмица съгласно разписанието: ${weekTotal} учебни часа.`, 20)] }))
+  }
+  return out
+}
 export async function generateSubstitutionOrder(d: SubstOrderData) {
   const children: any[] = []
   header().forEach(p => children.push(p))
@@ -147,11 +181,11 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
         return t >= new Date(sb.from).getTime() && t <= new Date(sb.to).getTime()
       })
       children.push(new Paragraph({ spacing: { before: 80, after: 40 }, children: [bold(`${sb.name} (${formatDate(sb.from)} – ${formatDate(sb.to)}):`, 20)] }))
-      children.push(scheduleMatrix(sbDays))
+      children.push(...scheduleMatrix(sbDays))
     })
   } else {
     children.push(new Paragraph({ text: '', spacing: { after: 40 } }))
-    children.push(scheduleMatrix(d.days))
+    children.push(...scheduleMatrix(d.days))
   }
   children.push(new Paragraph({ text: '', spacing: { after: 120 } }))
 
