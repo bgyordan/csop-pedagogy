@@ -101,7 +101,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     const row = rows.find(r => r.id === id)
     const overNorm = row?.bsch ? true : (overNormMap[id] !== false)
     const register = registerMap[id] !== false
-    const res: any = await generateSubstitution(id, overNorm, register))
+    const res: any = await generateSubstitution(id, overNorm, register)
     if (res.error) { toast(res.error, 'error'); setGenId(null); return }
     try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ }
     // маркираме реда като издаден
