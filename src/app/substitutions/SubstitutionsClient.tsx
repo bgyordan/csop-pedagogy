@@ -3,7 +3,7 @@ import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Pencil, Trash2, ChevronDown } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { generateSubstitution } from './actions'
+import { generateSubstitution, getAssignments, saveAssignments } from './actions'
 import { generateSubstitutionOrder } from '@/lib/docx-substitution'
 import type { SubRow } from './page'
 
@@ -87,6 +87,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [editId, setEditId] = useState<string | null>(null)
   const [eAbsent, setEAbsent] = useState('')
   const [eSub, setESub] = useState('')
+  const [multiOpen, setMultiOpen] = useState(false)
+  const [assigns, setAssigns] = useState<{ substitute_staff_id: string; date_from: string; date_to: string; over_norm: boolean }[]>([])
   const [eFrom, setEFrom] = useState('')
   const [eTo, setETo] = useState('')
   const [eReason, setEReason] = useState('sick')
@@ -140,8 +142,14 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     setAbsentId(''); setSubId(''); setFrom(''); setTo(''); setReason('sick'); setBsch(false); setShowNew(false); setSaving(false)
   }
 
+  async function loadAssigns(id: string) {
+    const res: any = await getAssignments(id)
+    const a = (res.data || []).map((x: any) => ({ substitute_staff_id: x.substitute_staff_id, date_from: x.date_from, date_to: x.date_to, over_norm: x.over_norm !== false }))
+    setAssigns(a); setMultiOpen(a.length > 0)
+  }
   function startEdit(r: SubRow) {
     setEditId(r.id)
+    loadAssigns(r.id)
     const orig = rows.find(x => x.id === r.id)!
     // намираме id на отсъстващия по име (нямаме го в SubRow) — държим absentId в отделна карта
     setEAbsent(absentIdByRow[r.id] || '')
@@ -165,6 +173,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     }).eq('id', editId).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setESaving(false); return }
     const mapped: any = mapRow(data); mapped.absentStaffId = eAbsent
+    await saveAssignments(editId, multiOpen ? assigns.filter(a => a.substitute_staff_id && a.date_from && a.date_to) : [])
     setRows(prev => prev.map(x => x.id === editId ? mapped : x))
     toast('Записът е обновен')
     setEditId(null); setESaving(false)
@@ -342,6 +351,35 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                   По НП „Без свободен час"
                 </label>
               </div>
+            </div>
+
+            {/* Няколко заместника (по избор) */}
+            <div className="border-t border-slate-100 pt-3">
+              <label className="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                <input type="checkbox" checked={multiOpen} onChange={e => { setMultiOpen(e.target.checked); if (e.target.checked && assigns.length === 0) setAssigns([{ substitute_staff_id: '', date_from: eFrom, date_to: eTo, over_norm: true }]) }} className="rounded" />
+                Няколко заместника (различни периоди)
+              </label>
+              {multiOpen && (
+                <div className="mt-2 space-y-2">
+                  {assigns.map((a, i) => (
+                    <div key={i} className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center bg-slate-50/70 border border-slate-200 rounded-xl p-2">
+                      <div className="flex-1 min-w-0">
+                        <PersonCombo people={staff} value={a.substitute_staff_id} onChange={v => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, substitute_staff_id: v } : x))} placeholder="Заместник…" excludeId={eAbsent} />
+                      </div>
+                      <input type="date" value={a.date_from} onChange={e => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, date_from: e.target.value } : x))} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
+                      <input type="date" value={a.date_to} onChange={e => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, date_to: e.target.value } : x))} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
+                      <button type="button" onClick={() => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, over_norm: !x.over_norm } : x))}
+                        className={`px-2 py-1.5 rounded-lg text-[10px] font-medium whitespace-nowrap ${a.over_norm ? 'bg-[#0f2240] text-white' : 'bg-slate-200 text-slate-600'}`}>
+                        {a.over_norm ? 'Лекторски' : 'В норма'}
+                      </button>
+                      <button type="button" onClick={() => setAssigns(prev => prev.filter((_, j) => j !== i))} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 shrink-0"><X size={14} /></button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setAssigns(prev => [...prev, { substitute_staff_id: '', date_from: '', date_to: '', over_norm: true }])}
+                    className="text-xs font-medium text-[#0f2240] hover:underline">+ Добави заместник</button>
+                  <p className="text-[11px] text-slate-400">Общият период на отсъствието е {eFrom ? eFrom.split('-').reverse().join('.') : '…'} – {eTo ? eTo.split('-').reverse().join('.') : '…'}. Разпределете заместниците по подпериоди.</p>
+                </div>
+              )}
             </div>
             <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100">
               <button onClick={del} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-rose-600 hover:bg-rose-50"><Trash2 size={14} /> Изтрий</button>
