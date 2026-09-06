@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Loader2, Check, Save, Users, GraduationCap, X, Trash2 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { getTeacherSchedule, saveLecturerSlots, clearLecturerSlots, schoolWeeks } from './actions'
@@ -97,8 +97,21 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
     toast('Изтрито')
   }
 
+  // учебни седмици по период (от календара) — кеш
+  const [weeksCache, setWeeksCache] = useState<Record<string, number>>({})
+  useEffect(() => {
+    const periods = Array.from(new Set(marked.map(x => `${x.dateFrom}|${x.dateTo}`)))
+    periods.forEach(async p => {
+      if (weeksCache[p] !== undefined) return
+      const [f, t] = p.split('|')
+      if (!f || !t) return
+      const w = await schoolWeeks(f, t)
+      setWeeksCache(prev => ({ ...prev, [p]: w }))
+    })
+  }, [marked])
+
   // групиране на маркираните по учител (за списъка долу)
-  const r = useMemo(() => {
+  const byTeacher = useMemo(() => {
     const m: Record<string, { name: string; count: number; from: string; to: string; classes: Set<string> }> = {}
     marked.forEach(x => {
       if (!m[x.staffId]) m[x.staffId] = { name: x.staffName, count: 0, from: x.dateFrom, to: x.dateTo, classes: new Set() }
@@ -109,7 +122,7 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
       const weeks = weeksCache[`${v.from}|${v.to}`] ?? weeksBetween(v.from, v.to)
       return { id, name: v.name, count: v.count, from: v.from, to: v.to, weeks, total: v.count * weeks, classes: [...v.classes] }
     })
-  }, [marked])
+  }, [marked, weeksCache])
   const grandTotal = byTeacher.reduce((a, t) => a + t.total, 0)
 
   return (
