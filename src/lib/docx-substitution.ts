@@ -1,16 +1,19 @@
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-  WidthType, AlignmentType, BorderStyle, ShadingType,
+  WidthType, AlignmentType, BorderStyle, ShadingType, ImageRun,
 } from 'docx'
 import { saveAs } from 'file-saver'
 import { formatDate } from './utils'
+import { CSOP_LOGO_B64 } from './docx-generator'
 
 function bold(text: string, size = 22): TextRun { return new TextRun({ text, bold: true, size }) }
 function normal(text: string, size = 22): TextRun { return new TextRun({ text, size }) }
 function header(): Paragraph[] {
   return [
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 40 }, children: [new ImageRun({ data: Uint8Array.from(atob(CSOP_LOGO_B64), c => c.charCodeAt(0)), transformation: { width: 55, height: 55 }, type: 'jpg' })] }),
     new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Център за специална образователна подкрепа - гр. Варна', bold: true, size: 24 })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'ул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 052 619 456', size: 18, italics: true })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'ул. „Петко Стайнов" №7, гр. Варна', size: 18, italics: true })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'e-mail: info-400052@edu.mon.bg · тел. 052 619 456 · GSM 0888 490 771', size: 18, italics: true })] }),
     new Paragraph({ text: '' }),
   ]
 }
