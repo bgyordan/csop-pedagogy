@@ -1,10 +1,11 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Pencil, Trash2, ChevronDown } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { generateSubstitution, getAssignments, saveAssignments } from './actions'
 import { generateSubstitutionOrder } from '@/lib/docx-substitution'
+import SubstituteDayCanvas from './SubstituteDayCanvas'
 import type { SubRow } from './page'
 
 type Staff = { id: string; first_name: string; last_name: string }
@@ -17,8 +18,27 @@ function statusOf(r: SubRow): { label: string; cls: string } {
   return { label: 'Чака заместник', cls: 'bg-amber-50 text-amber-600' }
 }
 const todayStr = () => new Date().toISOString().split('T')[0]
-// уикенд проверка (0=нед, 6=съб)
 function isWeekend(d: string) { const day = new Date(d + 'T00:00').getDay(); return day === 0 || day === 6 }
+
+// Първият (по календарен ред) зает ден → неговият заместник (за представителен запис)
+function firstOwner(map: Record<string, string>, days: string[]) {
+  for (const d of days) if (map[d]) return map[d]
+  return ''
+}
+// Свива картата „ден → заместник" до непрекъснати периоди (по един ред на период).
+// Ако заместник е накъсан от друг/непокрит ден → отделни редове (коректно за заповедта).
+function mapToRows(map: Record<string, string>, days: string[]) {
+  const rows: { substitute_staff_id: string; date_from: string; date_to: string; over_norm: boolean }[] = []
+  let owner = '', start = '', end = ''
+  const flush = () => { if (owner) rows.push({ substitute_staff_id: owner, date_from: start, date_to: end, over_norm: true }) }
+  for (const d of days) {
+    const o = map[d] || ''
+    if (o && o === owner) { end = d }
+    else { flush(); owner = o; start = d; end = d }
+  }
+  flush()
+  return rows
+}
 
 function PersonCombo({ people, value, onChange, placeholder, excludeId }: {
   people: Staff[]; value: string; onChange: (id: string) => void; placeholder: string; excludeId?: string
@@ -51,7 +71,6 @@ function PersonCombo({ people, value, onChange, placeholder, excludeId }: {
   )
 }
 
-// поле за дата, което не допуска уикенд (нулира при избор на съб/нед)
 function DateField({ value, onChange, min, toast }: { value: string; onChange: (v: string) => void; min?: string; toast: (m: string, t?: any) => void }) {
   return (
     <input type="date" value={value} min={min}
@@ -68,11 +87,11 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const supabase = createClient()
   const { toast } = useToast()
   const [rows, setRows] = useState<SubRow[]>(initial)
-    const [search, setSearch] = useState('')
+  const [search, setSearch] = useState('')
   const [npOnly, setNpOnly] = useState(false)
   const [genId, setGenId] = useState<string | null>(null)
   const [overNormMap, setOverNormMap] = useState<Record<string, boolean>>({})
-    const [registerMap, setRegisterMap] = useState<Record<string, boolean>>({})
+  const [registerMap, setRegisterMap] = useState<Record<string, boolean>>({})
 
   // Създаване
   const [showNew, setShowNew] = useState(false)
@@ -88,15 +107,50 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [editId, setEditId] = useState<string | null>(null)
   const [eAbsent, setEAbsent] = useState('')
   const [eSub, setESub] = useState('')
-  const [multiOpen, setMultiOpen] = useState(false)
-  const [assigns, setAssigns] = useState<{ substitute_staff_id: string; date_from: string; date_to: string; over_norm: boolean }[]>([])
   const [eFrom, setEFrom] = useState('')
   const [eTo, setETo] = useState('')
   const [eReason, setEReason] = useState('sick')
   const [eBsch, setEBsch] = useState(false)
   const [eSaving, setESaving] = useState(false)
 
-      async function genOrder(id: string) {
+  // Няколко заместника — единен модел: карта „ден → заместник"
+  const [multiOpen, setMultiOpen] = useState(false)
+  const [dayMap, setDayMap] = useState<Record<string, string>>({})
+  const [schoolDays, setSchoolDays] = useState<string[]>([])
+  const [pendingRanges, setPendingRanges] = useState<{ substitute_staff_id: string; date_from: string; date_to: string; over_norm: boolean }[] | null>(null)
+
+  // активният период е този на отворения поток (редакция или нова форма)
+  const pf = editId ? eFrom : from
+  const pt = editId ? eTo : to
+
+  // Учебните дни на периода — директно от календара (RLS read=all)
+  useEffect(() => {
+    if (!multiOpen || !pf || !pt) { setSchoolDays([]); return }
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase
+        .from('academic_calendar_days')
+        .select('date').gte('date', pf).lte('date', pt).eq('is_school_day', true).order('date')
+      if (!cancelled) setSchoolDays((data || []).map((x: any) => x.date))
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [multiOpen, pf, pt])
+
+  // При редакция: разгъваме заредените периоди в картата, щом учебните дни са налични
+  useEffect(() => {
+    if (!pendingRanges || schoolDays.length === 0) return
+    const m: Record<string, string> = {}
+    for (const r of pendingRanges) {
+      for (const d of schoolDays) {
+        if (d >= r.date_from && d <= r.date_to) m[d] = r.substitute_staff_id
+      }
+    }
+    setDayMap(m)
+    setPendingRanges(null)
+  }, [pendingRanges, schoolDays])
+
+  async function genOrder(id: string) {
     setGenId(id)
     const row = rows.find(r => r.id === id)
     const overNorm = row?.bsch ? true : (overNormMap[id] !== false)
@@ -104,13 +158,12 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     const res: any = await generateSubstitution(id, overNorm, register)
     if (res.error) { toast(res.error, 'error'); setGenId(null); return }
     try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ }
-    // маркираме реда като издаден
     setRows(prev => prev.map(r => r.id === id ? { ...r, hasOrder: true } : r))
     toast('Заповедта е създадена и изтеглена')
     setGenId(null)
   }
 
-   const filtered = useMemo(() => {
+  const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return rows.filter(r => {
       if (npOnly && !r.bsch) return false
@@ -119,71 +172,76 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     })
   }, [rows, search, npOnly])
 
-    function mapRow(r: any): SubRow {
+  function mapRow(r: any): SubRow {
     return {
       id: r.id, absentName: r.absent ? `${r.absent.first_name} ${r.absent.last_name}` : '—',
       absentStaffId: r.absent_staff_id,
       substituteName: r.sub ? `${r.sub.first_name} ${r.sub.last_name}` : null,
       substituteId: r.substitute_staff_id, dateFrom: r.date_from, dateTo: r.date_to,
       reason: r.reason, hasOrder: !!r.substitution_order_id, bsch: r.bsch_eligible === true,
-    }
+    } as SubRow
   }
   const selectCols = `id, date_from, date_to, reason, substitute_staff_id, substitution_order_id, bsch_eligible,
     absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name),
     sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name)`
 
+  function resetMulti() { setMultiOpen(false); setDayMap({}); setSchoolDays([]); setPendingRanges(null) }
+
   async function saveNew() {
     if (!absentId || !from || !to) { toast('Отсъстващ и срок са задължителни', 'error'); return }
     setSaving(true)
+    const primary = multiOpen ? firstOwner(dayMap, schoolDays) : subId
     const { data, error } = await supabase.from('substitutions').insert({
-      absent_staff_id: absentId, substitute_staff_id: subId || null,
+      absent_staff_id: absentId, substitute_staff_id: primary || null,
       date_from: from, date_to: to, reason, bsch_eligible: bsch,
     }).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setSaving(false); return }
     if (multiOpen) {
-      await saveAssignments(data.id, assigns.filter(a => a.substitute_staff_id && a.date_from && a.date_to))
+      await saveAssignments(data.id, mapToRows(dayMap, schoolDays))
     }
     setRows(prev => [mapRow(data), ...prev])
     toast('Заместването е добавено')
     setAbsentId(''); setSubId(''); setFrom(''); setTo(''); setReason('sick'); setBsch(false); setShowNew(false); setSaving(false)
-    setMultiOpen(false); setAssigns([])
+    resetMulti()
   }
 
   async function loadAssigns(id: string) {
     const res: any = await getAssignments(id)
-    const a = (res.data || []).map((x: any) => ({ substitute_staff_id: x.substitute_staff_id, date_from: x.date_from, date_to: x.date_to, over_norm: x.over_norm !== false }))
-    setAssigns(a); setMultiOpen(a.length > 0)
+    const ranges = (res.data || []).map((x: any) => ({ substitute_staff_id: x.substitute_staff_id, date_from: x.date_from, date_to: x.date_to, over_norm: x.over_norm !== false }))
+    if (ranges.length > 0) { setPendingRanges(ranges); setMultiOpen(true) }
+    else { setPendingRanges(null); setMultiOpen(false); setDayMap({}) }
   }
   function startEdit(r: SubRow) {
     setEditId(r.id)
+    setDayMap({}); setSchoolDays([])
     loadAssigns(r.id)
-    const orig = rows.find(x => x.id === r.id)!
-    // намираме id на отсъстващия по име (нямаме го в SubRow) — държим absentId в отделна карта
     setEAbsent(absentIdByRow[r.id] || '')
     setESub(r.substituteId || '')
     setEFrom(r.dateFrom); setETo(r.dateTo); setEReason(r.reason); setEBsch(!!(r as any).bsch)
   }
-  // за редакция трябва absent_staff_id — пазим карта id->absentId от initial (page подава само име)
-  // затова добавяме absentId в SubRow (виж page.tsx: absentStaffId)
+  // за редакция трябва absent_staff_id — карта id->absentId от initial (page подава absentStaffId в SubRow)
   const absentIdByRow: Record<string, string> = useMemo(() => {
     const m: Record<string, string> = {}
     rows.forEach((r: any) => { if (r.absentStaffId) m[r.id] = r.absentStaffId })
     return m
   }, [rows])
 
+  function closeEdit() { setEditId(null); resetMulti() }
+
   async function saveEdit() {
     if (!editId || !eAbsent || !eFrom || !eTo) { toast('Отсъстващ и срок са задължителни', 'error'); return }
     setESaving(true)
+    const primary = multiOpen ? firstOwner(dayMap, schoolDays) : eSub
     const { data, error } = await supabase.from('substitutions').update({
-      absent_staff_id: eAbsent, substitute_staff_id: eSub || null,
+      absent_staff_id: eAbsent, substitute_staff_id: primary || null,
       date_from: eFrom, date_to: eTo, reason: eReason, bsch_eligible: eBsch,
     }).eq('id', editId).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setESaving(false); return }
     const mapped: any = mapRow(data); mapped.absentStaffId = eAbsent
-    await saveAssignments(editId, multiOpen ? assigns.filter(a => a.substitute_staff_id && a.date_from && a.date_to) : [])
+    await saveAssignments(editId, multiOpen ? mapToRows(dayMap, schoolDays) : [])
     setRows(prev => prev.map(x => x.id === editId ? mapped : x))
     toast('Записът е обновен')
-    setEditId(null); setESaving(false)
+    closeEdit(); setESaving(false)
   }
 
   async function del() {
@@ -192,7 +250,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     await supabase.from('substitutions').delete().eq('id', editId)
     setRows(prev => prev.filter(x => x.id !== editId))
     toast('Изтрито')
-    setEditId(null)
+    closeEdit()
   }
 
   return (
@@ -200,7 +258,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       <div className="flex items-center gap-2">
         <div className="relative flex-1 max-w-sm">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Търсене по име…"
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Търсене по име…"
             className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-full text-sm focus:outline-none focus:border-slate-400" />
         </div>
         <button onClick={() => setNpOnly(v => !v)}
@@ -210,7 +268,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
           само НП
         </button>
         {!showNew && (
-          <button onClick={() => { setShowNew(true); setMultiOpen(false); setAssigns([]) }}
+          <button onClick={() => { setShowNew(true); resetMulti() }}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-white text-sm font-medium hover:opacity-90 shrink-0"
             style={{ backgroundColor: '#0f2240' }}><Plus size={16} /> Ново заместване</button>
         )}
@@ -229,7 +287,9 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Заместник</label>
-              <PersonCombo people={staff} value={subId} onChange={setSubId} placeholder="Търси по име…" excludeId={absentId} />
+              {multiOpen
+                ? <div className="px-3 py-2 text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">Задава се по дни долу ↓</div>
+                : <PersonCombo people={staff} value={subId} onChange={setSubId} placeholder="Търси по име…" excludeId={absentId} />}
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">От *</label>
@@ -256,28 +316,16 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
 
           <div className="border-t border-slate-100 pt-3">
             <label className="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-              <input type="checkbox" checked={multiOpen} onChange={e => { setMultiOpen(e.target.checked); if (e.target.checked && assigns.length === 0) setAssigns([{ substitute_staff_id: subId || '', date_from: from, date_to: to, over_norm: true }]) }} className="rounded" />
-              Няколко заместника (различни периоди)
+              <input type="checkbox" checked={multiOpen} onChange={e => { setMultiOpen(e.target.checked); if (!e.target.checked) setDayMap({}) }} className="rounded" />
+              Няколко заместника
             </label>
             {multiOpen && (
-              <div className="mt-2 space-y-2">
-                {assigns.map((a, i) => (
-                  <div key={i} className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center bg-slate-50/70 border border-slate-200 rounded-xl p-2">
-                    <div className="flex-1 min-w-0">
-                      <PersonCombo people={staff} value={a.substitute_staff_id} onChange={v => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, substitute_staff_id: v } : x))} placeholder="Заместник…" excludeId={absentId} />
-                    </div>
-                    <input type="date" value={a.date_from} onChange={e => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, date_from: e.target.value } : x))} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
-                    <input type="date" value={a.date_to} onChange={e => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, date_to: e.target.value } : x))} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
-                    <button type="button" onClick={() => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, over_norm: !x.over_norm } : x))}
-                      className={`px-2 py-1.5 rounded-lg text-[10px] font-medium whitespace-nowrap ${a.over_norm ? 'bg-[#0f2240] text-white' : 'bg-slate-200 text-slate-600'}`}>
-                      {a.over_norm ? 'С лекторски' : 'Без лекторски'}
-                    </button>
-                    <button type="button" onClick={() => setAssigns(prev => prev.filter((_, j) => j !== i))} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 shrink-0"><X size={14} /></button>
-                  </div>
-                ))}
-                <button type="button" onClick={() => setAssigns(prev => [...prev, { substitute_staff_id: '', date_from: '', date_to: '', over_norm: true }])}
-                  className="text-xs font-medium text-[#0f2240] hover:underline">+ Добави заместник</button>
-                <p className="text-[11px] text-slate-400">Общ период: {from ? from.split('-').reverse().join('.') : '…'} – {to ? to.split('-').reverse().join('.') : '…'}. Разпределете заместниците по подпериоди.</p>
+              <div className="mt-3">
+                {(!from || !to)
+                  ? <p className="text-[13px] text-slate-500">Първо въведи периода (От / До), после разпредели дните.</p>
+                  : schoolDays.length === 0
+                    ? <p className="text-[13px] text-slate-500">Няма учебни дни в този период.</p>
+                    : <SubstituteDayCanvas schoolDays={schoolDays} staff={staff.filter(s => s.id !== absentId)} value={dayMap} onChange={setDayMap} />}
               </div>
             )}
           </div>
@@ -323,9 +371,9 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                 {(r as any).bsch && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">НП</span>}
               </span>
               <div className="flex items-center justify-end gap-1">
-                                {r.substituteId && !r.hasOrder && (
+                {r.substituteId && !r.hasOrder && (
                   <>
-                                        {(() => { const on = r.bsch ? true : (overNormMap[r.id] !== false); return (
+                    {(() => { const on = r.bsch ? true : (overNormMap[r.id] !== false); return (
                     <button type="button" disabled={r.bsch}
                       onClick={() => { if (!r.bsch) setOverNormMap(p => ({ ...p, [r.id]: !(p[r.id] !== false) })) }}
                       className={`relative inline-flex items-center h-7 rounded-full border transition-colors shrink-0 select-none mr-1 ${r.bsch ? 'opacity-90 cursor-not-allowed' : ''}`}
@@ -336,14 +384,14 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                       </span>
                       <span className="absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all" style={{ left: on ? 'calc(100% - 26px)' : '2px' }} />
                     </button>
-                                        )})()}
+                    )})()}
                     <label className="inline-flex items-center gap-1 text-[10px] text-slate-500 cursor-pointer mr-1 whitespace-nowrap" title="Регистрирай заповедта в Заповеди — после прикачи подписания скан. Без отметка само сваля Word.">
                       <input type="checkbox" checked={registerMap[r.id] !== false}
                         onChange={e => setRegisterMap(p => ({ ...p, [r.id]: e.target.checked }))}
                         className="rounded" />
                       Регистрирай
                     </label>
-                     <button onClick={() => genOrder(r.id)} disabled={genId === r.id}
+                    <button onClick={() => genOrder(r.id)} disabled={genId === r.id}
                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 disabled:opacity-50 shrink-0" style={{ backgroundColor: '#0f2240' }}>
                       {genId === r.id ? <Loader2 size={12} className="animate-spin" /> : <>Заповед <ArrowRight size={12} /></>}
                     </button>
@@ -358,11 +406,11 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
 
       {/* Модал редакция */}
       {editId && (
-        <div className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setEditId(null)}>
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-100 p-5 space-y-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={closeEdit}>
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-100 p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2"><Pencil size={15} style={{ color: '#0f2240' }} /> Редакция на заместване</h3>
-              <button onClick={() => setEditId(null)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600"><X size={18} /></button>
+              <button onClick={closeEdit} className="p-1 rounded-lg text-slate-400 hover:text-slate-600"><X size={18} /></button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
@@ -371,7 +419,9 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               </div>
               <div>
                 <label className="block text-xs text-slate-500 mb-1">Заместник</label>
-                <PersonCombo people={staff} value={eSub} onChange={setESub} placeholder="Търси по име…" excludeId={eAbsent} />
+                {multiOpen
+                  ? <div className="px-3 py-2 text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">Задава се по дни долу ↓</div>
+                  : <PersonCombo people={staff} value={eSub} onChange={setESub} placeholder="Търси по име…" excludeId={eAbsent} />}
               </div>
               <div>
                 <label className="block text-xs text-slate-500 mb-1">От *</label>
@@ -398,38 +448,27 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               </div>
             </div>
 
-            {/* Няколко заместника (по избор) */}
+            {/* Няколко заместника */}
             <div className="border-t border-slate-100 pt-3">
               <label className="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                <input type="checkbox" checked={multiOpen} onChange={e => { setMultiOpen(e.target.checked); if (e.target.checked && assigns.length === 0) setAssigns([{ substitute_staff_id: '', date_from: eFrom, date_to: eTo, over_norm: true }]) }} className="rounded" />
-                Няколко заместника (различни периоди)
+                <input type="checkbox" checked={multiOpen} onChange={e => { setMultiOpen(e.target.checked); if (!e.target.checked) setDayMap({}) }} className="rounded" />
+                Няколко заместника
               </label>
               {multiOpen && (
-                <div className="mt-2 space-y-2">
-                  {assigns.map((a, i) => (
-                    <div key={i} className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center bg-slate-50/70 border border-slate-200 rounded-xl p-2">
-                      <div className="flex-1 min-w-0">
-                        <PersonCombo people={staff} value={a.substitute_staff_id} onChange={v => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, substitute_staff_id: v } : x))} placeholder="Заместник…" excludeId={eAbsent} />
-                      </div>
-                      <input type="date" value={a.date_from} onChange={e => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, date_from: e.target.value } : x))} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
-                      <input type="date" value={a.date_to} onChange={e => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, date_to: e.target.value } : x))} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
-                      <button type="button" onClick={() => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, over_norm: !x.over_norm } : x))}
-                        className={`px-2 py-1.5 rounded-lg text-[10px] font-medium whitespace-nowrap ${a.over_norm ? 'bg-[#0f2240] text-white' : 'bg-slate-200 text-slate-600'}`}>
-                        {a.over_norm ? 'С лекторски' : 'Без лекторски'}
-                      </button>
-                      <button type="button" onClick={() => setAssigns(prev => prev.filter((_, j) => j !== i))} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 shrink-0"><X size={14} /></button>
-                    </div>
-                  ))}
-                  <button type="button" onClick={() => setAssigns(prev => [...prev, { substitute_staff_id: '', date_from: '', date_to: '', over_norm: true }])}
-                    className="text-xs font-medium text-[#0f2240] hover:underline">+ Добави заместник</button>
-                  <p className="text-[11px] text-slate-400">Общият период на отсъствието е {eFrom ? eFrom.split('-').reverse().join('.') : '…'} – {eTo ? eTo.split('-').reverse().join('.') : '…'}. Разпределете заместниците по подпериоди.</p>
+                <div className="mt-3">
+                  {(!eFrom || !eTo)
+                    ? <p className="text-[13px] text-slate-500">Първо въведи периода (От / До), после разпредели дните.</p>
+                    : schoolDays.length === 0
+                      ? <p className="text-[13px] text-slate-500">Няма учебни дни в този период.</p>
+                      : <SubstituteDayCanvas schoolDays={schoolDays} staff={staff.filter(s => s.id !== eAbsent)} value={dayMap} onChange={setDayMap} />}
                 </div>
               )}
             </div>
+
             <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100">
               <button onClick={del} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-rose-600 hover:bg-rose-50"><Trash2 size={14} /> Изтрий</button>
               <div className="flex items-center gap-2">
-                <button onClick={() => setEditId(null)} className="px-4 py-2 rounded-xl text-sm bg-slate-100 hover:bg-slate-200 text-slate-700">Отказ</button>
+                <button onClick={closeEdit} className="px-4 py-2 rounded-xl text-sm bg-slate-100 hover:bg-slate-200 text-slate-700">Отказ</button>
                 <button onClick={saveEdit} disabled={eSaving}
                   className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60 hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
                   {eSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Запази
