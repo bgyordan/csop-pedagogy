@@ -75,3 +75,12 @@ export async function clearLecturerSlots(staffId: string) {
   revalidatePath('/lecturer')
   return { success: true }
 }
+export async function schoolWeeks(from: string, to: string): Promise<number> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('academic_calendar_days')
+    .select('week_number')
+    .gte('date', from).lte('date', to).eq('is_school_day', true)
+  const weeks = new Set((data || []).map((d: any) => d.week_number))
+  return weeks.size
+}
