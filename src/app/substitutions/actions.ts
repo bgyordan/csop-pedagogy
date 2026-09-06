@@ -16,7 +16,7 @@ function workdays(from: string, to: string): { iso: string; dow: number }[] {
 
 // Генерира заповед за заместване: вади часовете на отсъстващия, създава РД-08 в orders,
 // връща данните за Word генератора.
-export async function generateSubstitution(substitutionId: string, overNorm: boolean = true) {
+export async function generateSubstitution(substitutionId: string, overNorm: boolean = true, register: boolean = true) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли' }
@@ -77,18 +77,19 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   const absentName = sub.absent ? `${(sub.absent as any).first_name} ${(sub.absent as any).last_name}` : ''
   const subName = sub.sub ? `${(sub.sub as any).first_name} ${(sub.sub as any).last_name}` : ''
 
-  // 5. Създаваме заповедта в orders (РД-08)
-  const { data: order, error: oErr } = await supabase.from('orders').insert({
-    number: orderNumber, date: orderDate,
-    title: `Заповед за заместване на ${absentName}`,
-    nomenclature_item: 'РД-08',
-    description: `Заместник: ${subName}, период ${sub.date_from.split('-').reverse().join('.')}–${sub.date_to.split('-').reverse().join('.')}`,
-    created_by: me?.id || null, seq: nextSeq,
-  }).select('id').single()
-  if (oErr) return { error: 'Грешка при създаване на заповедта: ' + oErr.message }
-
-  // 6. Връзваме заповедта към заместването
-  await supabase.from('substitutions').update({ substitution_order_id: order.id }).eq('id', substitutionId)
+    // 5. Създаваме заповедта в orders (РД-08) — само ако е избрано „Регистрирай"
+  if (register) {
+    const { data: order, error: oErr } = await supabase.from('orders').insert({
+      number: orderNumber, date: orderDate,
+      title: `Заповед за заместване на ${absentName}`,
+      nomenclature_item: 'РД-08',
+      description: `Заместник: ${subName}, период ${sub.date_from.split('-').reverse().join('.')}–${sub.date_to.split('-').reverse().join('.')} · ⚠ чака прикачване на подписан документ`,
+      created_by: me?.id || null, seq: nextSeq,
+    }).select('id').single()
+    if (oErr) return { error: 'Грешка при създаване на заповедта: ' + oErr.message }
+    // 6. Връзваме заповедта към заместването
+    await supabase.from('substitutions').update({ substitution_order_id: order.id }).eq('id', substitutionId)
+  }
 
     // Няколко заместника (ако има разпределение)
   const { data: assigns } = await supabase
