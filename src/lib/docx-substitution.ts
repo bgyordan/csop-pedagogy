@@ -5,7 +5,6 @@ import {
 import { CSOP_LOGO_B64 } from './docx-generator'
 import { saveAs } from 'file-saver'
 import { formatDate } from './utils'
-import { CSOP_LOGO_B64 } from './docx-generator'
 
 function bold(text: string, size = 22): TextRun { return new TextRun({ text, bold: true, size }) }
 function normal(text: string, size = 22): TextRun { return new TextRun({ text, size }) }
