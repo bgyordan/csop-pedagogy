@@ -33,6 +33,8 @@ export interface SubstOrderData {
   zdudName: string
   yearName: string
   days: { date: string; items: { period: number; subject: string; cls: string }[] }[]
+  // при НЯКОЛКО заместника — списък (иначе се ползва единичният substituteName)
+  substitutes?: { name: string; position: string; from: string; to: string; overNorm: boolean }[]
 }
 
 export async function generateSubstitutionOrder(d: SubstOrderData) {
@@ -68,13 +70,30 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
   children.push(new Paragraph({ children: [bold('ЗАПОВЯДВАМ:', 24)], spacing: { after: 120 } }))
 
   // ── Т.1 — възлагане (носител: паралелка / ИФО) ──
-  const holderPhrase = d.holderType === 'ifo'
+  const normPhraseFor = (on: boolean) => on ? 'извън времето на задължителната норма преподавателска заетост' : 'в рамките на задължителната норма преподавателска заетост'
+  const holderTail = d.holderType === 'ifo'
     ? `да замества отсъстващия титуляр в часовете с ${d.className} по утвърдено седмично разписание`
     : `да извърши целодневно заместване в ${d.className}`
-  children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
-    normal('1. Възлагам на ', 22), bold(d.substituteName, 22),
-    normal(`, на длъжност ${d.substitutePosition || 'учител'}, ${holderPhrase}.`, 22),
-  ] }))
+  const multi = d.substitutes && d.substitutes.length > 0
+  if (multi) {
+    // няколко заместника — изреждаме ги с под-периоди
+    children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 40 }, children: [
+      normal('1. Възлагам заместването на отсъстващия титуляр, ', 22), normal(`${holderTail}, както следва:`, 22),
+    ] }))
+    d.substitutes!.forEach((sb, i) => {
+      const df = formatDate(sb.from), dt = formatDate(sb.to)
+      children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 40 }, indent: { left: 400 }, children: [
+        normal(`${i + 1}) за периода ${df} – ${dt}: `, 22),
+        bold(sb.name, 22),
+        normal(`, на длъжност ${sb.position || 'учител'}, ${normPhraseFor(sb.overNorm)};`, 22),
+      ] }))
+    })
+  } else {
+    children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
+      normal('1. Възлагам на ', 22), bold(d.substituteName, 22),
+      normal(`, на длъжност ${d.substitutePosition || 'учител'}, ${holderTail}, ${normPhraseFor(d.overNorm)}.`, 22),
+    ] }))
+  }
 
   // ── Т.2 — период + препратка към таблицата ──
   children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
@@ -111,25 +130,21 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
   if (d.overNorm) {
     P('3. Реално проведените часове по заместване, които са извън личната норма за задължителна преподавателска заетост на заместващия учител, да се изплатят като лекторски часове, извън установеното му работно време.')
   } else {
-    children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
-      normal('3. За извършеното заместване на заместващия учител да се изплати допълнително възнаграждение по ', 22),
-      bold('чл. 259, ал. 3 от Кодекса на труда', 22),
-      normal('.', 22),
-    ] }))
+    P('3. Заместването се извършва в рамките на установеното работно време и задължителната норма преподавателска заетост на заместващия учител, без допълнително заплащане.')
   }
 
-  P('4. Отчитането на часовете да се извърши в края на месеца въз основа на отразените данни в електронния дневник на ЦСОП и представена „Справка-декларация за действително взети часове при заместване".')
-
-  // ── Т.5 — източник на финансиране ──
-  children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
-    normal('5. Източник на финансиране: ', 22),
-    bold(d.isBsch ? 'Национална програма „Без свободен час", Модул 1.' : 'бюджет на ЦСОП (собствени средства).', 22),
-  ] }))
-
-  P('6. Възнаграждението да се изплати съгласно ВПРЗ на Центъра за съответната година.')
-
+  let n = 3
+  if (d.overNorm) {
+    P('4. Отчитането на часовете да се извърши в края на месеца въз основа на отразените данни в електронния дневник на ЦСОП и представена „Справка-декларация за действително взети часове при заместване".')
+    children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
+      normal('5. Източник на финансиране: ', 22),
+      bold(d.isBsch ? 'Национална програма „Без свободен час", Модул 1.' : 'бюджет на ЦСОП (собствени средства).', 22),
+    ] }))
+    P('6. Възнаграждението да се изплати съгласно ВПРЗ на Центъра за съответната година.')
+    n = 6
+  }
   children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 200 }, children: [
-    normal('7. Контрол по изпълнението на заповедта възлагам на ', 22), bold(d.zdudName || '…………………', 22),
+    normal(`${n + 1}. Контрол по изпълнението на заповедта възлагам на `, 22), bold(d.zdudName || '…………………', 22),
     normal(', заместник-директор.', 22),
   ] }))
   children.push(new Paragraph({ children: [normal('Настоящата заповед да се връчи на лицето и на счетоводството за сведение и изпълнение.', 22)], spacing: { after: 300 } }))
