@@ -9,16 +9,24 @@ import { formatDate } from './utils'
 function bold(text: string, size = 22): TextRun { return new TextRun({ text, bold: true, size }) }
 function normal(text: string, size = 22): TextRun { return new TextRun({ text, size }) }
 // ═══ ХЕДЪР (лого вляво + текст) ═══
-function header(): Paragraph[] {
+function header(): any[] {
+  const noB = { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } }
   return [
-    new Paragraph({
-      children: [
-        new ImageRun({ data: Uint8Array.from(atob(CSOP_LOGO_B64), c => c.charCodeAt(0)), transformation: { width: 48, height: 48 }, type: 'jpg' }),
-        new TextRun({ text: '   Център за специална образователна подкрепа – гр. Варна', bold: true, size: 24 }),
-      ],
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE }, insideHorizontal: { style: BorderStyle.NONE }, insideVertical: { style: BorderStyle.NONE } },
+      columnWidths: [1100, 8500],
+      rows: [ new TableRow({ children: [
+        new TableCell({ borders: noB, verticalAlign: 'center', children: [
+          new Paragraph({ children: [new ImageRun({ data: Uint8Array.from(atob(CSOP_LOGO_B64), c => c.charCodeAt(0)), transformation: { width: 60, height: 60 }, type: 'jpg' })] }),
+        ] }),
+        new TableCell({ borders: noB, verticalAlign: 'center', children: [
+          new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 24 })] }),
+          new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'ул. „Петко Стайнов" №7, гр. Варна', size: 18, italics: true })] }),
+          new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'e-mail: info-400052@edu.mon.bg · тел. 052 619 456, 0878 521 823', size: 18, italics: true })] }),
+        ] }),
+      ] }) ],
     }),
-    new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg', size: 18, italics: true })] }),
-    new Paragraph({ children: [new TextRun({ text: 'тел. 052 619 456, 0878 521 823', size: 18, italics: true })] }),
     new Paragraph({ text: '' }),
   ]
 }
