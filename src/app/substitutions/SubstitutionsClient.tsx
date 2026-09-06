@@ -72,6 +72,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [npOnly, setNpOnly] = useState(false)
   const [genId, setGenId] = useState<string | null>(null)
   const [overNormMap, setOverNormMap] = useState<Record<string, boolean>>({})
+    const [registerMap, setRegisterMap] = useState<Record<string, boolean>>({})
 
   // Създаване
   const [showNew, setShowNew] = useState(false)
@@ -95,11 +96,12 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [eBsch, setEBsch] = useState(false)
   const [eSaving, setESaving] = useState(false)
 
-    async function genOrder(id: string) {
+      async function genOrder(id: string) {
     setGenId(id)
     const row = rows.find(r => r.id === id)
     const overNorm = row?.bsch ? true : (overNormMap[id] !== false)
-    const res: any = await generateSubstitution(id, overNorm)
+    const register = registerMap[id] !== false
+    const res: any = await generateSubstitution(id, overNorm, register))
     if (res.error) { toast(res.error, 'error'); setGenId(null); return }
     try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ }
     // маркираме реда като издаден
@@ -334,7 +336,13 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                       </span>
                       <span className="absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all" style={{ left: on ? 'calc(100% - 26px)' : '2px' }} />
                     </button>
-                    )})()}
+                                        )})()}
+                    <label className="inline-flex items-center gap-1 text-[10px] text-slate-500 cursor-pointer mr-1 whitespace-nowrap" title="Регистрирай заповедта в „Заповеди" (после прикачи подписания скан). Без отметка — само сваля Word.">
+                      <input type="checkbox" checked={registerMap[r.id] !== false}
+                        onChange={e => setRegisterMap(p => ({ ...p, [r.id]: e.target.checked }))}
+                        className="rounded" />
+                      Регистрирай
+                    </label>
                      <button onClick={() => genOrder(r.id)} disabled={genId === r.id}
                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 disabled:opacity-50 shrink-0" style={{ backgroundColor: '#0f2240' }}>
                       {genId === r.id ? <Loader2 size={12} className="animate-spin" /> : <>Заповед <ArrowRight size={12} /></>}
