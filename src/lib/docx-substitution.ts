@@ -52,6 +52,39 @@ export interface SubstOrderData {
   substitutes?: { name: string; position: string; from: string; to: string; overNorm: boolean }[]
 }
 
+// Матрица на седмичното разписание: дни (Пн-Пт) колони, часове редове.
+// Преизползваем блок — при няколко заместника се вика за всеки.
+function scheduleMatrix(days: { date: string; items: { period: number; subject: string; cls: string }[] }[]): any {
+  const DOW = ['Понеделник', 'Вторник', 'Сряда', 'Четвъртък', 'Петък']
+  // събираме предметите по (ден-от-седмицата, час); ден-от-седмицата = index 0..4 според датата
+  const grid: Record<number, Record<number, string>> = {}
+  let maxPeriod = 6
+  days.forEach(d => {
+    // датата е "дд.мм.гггг" → правим Date да вземем деня от седмицата
+    const [dd, mm, yy] = d.date.split('.').map(Number)
+    const dow = new Date(yy, mm - 1, dd).getDay() // 1..5
+    if (dow < 1 || dow > 5) return
+    const col = dow - 1
+    d.items.forEach(it => {
+      if (!grid[it.period]) grid[it.period] = {}
+      grid[it.period][col] = it.subject || '—'
+      if (it.period > maxPeriod) maxPeriod = it.period
+    })
+  })
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const CELLS = { top: B, bottom: B, left: B, right: B }
+  const th = (t: string) => new TableCell({ borders: CELLS, shading: { type: ShadingType.CLEAR, fill: 'EEEEEE' }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(t, 16)] })] })
+  const td = (t: string, center = false) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: center ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 16)] })] })
+  const rows: TableRow[] = [ new TableRow({ children: [th('Уч. час'), th('Пон'), th('Вт'), th('Ср'), th('Чет'), th('Пет')] }) ]
+  const periodsOrder = Array.from({ length: maxPeriod }, (_, i) => i + 1).filter(p => grid[p])
+  periodsOrder.forEach(p => {
+    const cells = [td(`${p}.`, true)]
+    for (let c = 0; c < 5; c++) cells.push(td(grid[p]?.[c] || '—', true))
+    rows.push(new TableRow({ children: cells }))
+  })
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [1000, 1720, 1720, 1720, 1720, 1720], rows })
+}
+
 export async function generateSubstitutionOrder(d: SubstOrderData) {
   const children: any[] = []
   header().forEach(p => children.push(p))
@@ -61,7 +94,6 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
   const df = formatDate(d.dateFrom), dt = formatDate(d.dateTo)
   const reasonWord = d.reason === 'sick' ? 'отсъствие поради болничен отпуск' : 'отсъствие поради отпуск'
 
-  // Основание (динамично)
   const baseText = d.overNorm
     ? 'На основание чл. 258, ал. 1 от Закона за предучилищното и училищното образование, във връзка с чл. 110 от Кодекса на труда и чл. 5, ал. 2 от Наредбата за финансиране на институциите в системата на предучилищното и училищното образование, във връзка със '
     : 'На основание чл. 258, ал. 1 от Закона за предучилищното и училищното образование, във връзка с чл. 259, ал. 1 от Кодекса на труда и чл. 5 от Наредбата за финансиране на институциите в системата на предучилищното и училищното образование, във връзка със '
@@ -72,16 +104,14 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
     normal(',', 22),
   ] }))
 
-  // ВЪЗЛАГАМ — центрирано
   children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('ВЪЗЛАГАМ:', 24)], spacing: { after: 120 } }))
 
-  // Носител: паралелка / ЦОУД група / ИФО (според длъжността на отсъстващия)
   const isEducator = /възпитател/i.test(d.absentPosition || '')
   const holderWord = d.holderType === 'coud' || isEducator ? 'група ЦОУД' : 'паралелка'
   const normPhraseFor = (on: boolean) => on ? 'извън времето на задължителната норма преподавателска заетост' : 'в рамките на задължителната норма преподавателска заетост'
   const holderTail = d.holderType === 'ifo'
     ? `да замества отсъстващия титуляр в часовете с ${d.className || '…………'} по утвърдено седмично разписание`
-    : `да извърши целодневно заместване в ${holderWord} № ${d.className || '…………'}`
+    : `да замества отсъстващия титуляр в ${holderWord} № ${d.className || '…………'}`
 
   const multi = d.substitutes && d.substitutes.length > 0
   if (multi) {
@@ -102,41 +132,42 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
     ] }))
   }
 
-  // т.2 период + таблица
   children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
     normal('2. Заместването да се извърши за периода от ', 22),
     bold(df, 22), normal(' до ', 22), bold(dt, 22),
-    normal(' включително, съгласно утвърденото седмично разписание на отсъстващия титуляр, както следва:', 22),
+    normal(' включително, съгласно утвърденото седмично разписание на отсъстващия титуляр:', 22),
   ] }))
-  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
-  const CELLS = { top: B, bottom: B, left: B, right: B }
-  const th = (t: string) => new TableCell({ borders: CELLS, shading: { type: ShadingType.CLEAR, fill: 'EEEEEE' }, children: [new Paragraph({ children: [bold(t, 18)] })] })
-  const td = (t: string) => new TableCell({ borders: CELLS, children: [new Paragraph({ children: [normal(t, 18)] })] })
-  const rows: TableRow[] = [ new TableRow({ children: [th('Дата'), th('Час'), th('Предмет'), th('Група/Паралелка')] }) ]
-  d.days.forEach(day => {
-    const items = [...day.items].sort((a, b) => a.period - b.period)
-    if (items.length === 0) { rows.push(new TableRow({ children: [td(day.date), td('—'), td('няма часове'), td('—')] })); return }
-    items.forEach((it, i) => { rows.push(new TableRow({ children: [td(i === 0 ? day.date : ''), td(`${it.period}.`), td(it.subject || '—'), td(it.cls || '—')] })) })
-  })
-  children.push(new Paragraph({ text: '', spacing: { after: 40 } }))
-  children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [1800, 900, 4000, 2500], rows }))
+
+  // Матрица (при няколко заместника — по една на всеки с неговия под-период)
+  if (multi) {
+    d.substitutes!.forEach(sb => {
+      const sbDays = d.days.filter(day => {
+        const [dd, mm, yy] = day.date.split('.').map(Number)
+        const t = new Date(yy, mm - 1, dd).getTime()
+        return t >= new Date(sb.from).getTime() && t <= new Date(sb.to).getTime()
+      })
+      children.push(new Paragraph({ spacing: { before: 80, after: 40 }, children: [bold(`${sb.name} (${formatDate(sb.from)} – ${formatDate(sb.to)}):`, 20)] }))
+      children.push(scheduleMatrix(sbDays))
+    })
+  } else {
+    children.push(new Paragraph({ text: '', spacing: { after: 40 } }))
+    children.push(scheduleMatrix(d.days))
+  }
   children.push(new Paragraph({ text: '', spacing: { after: 120 } }))
 
   const P = (t: string) => children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [normal(t, 22)] }))
 
-  // т.3 заплащане
   let n = 3
   if (d.overNorm) {
-    P('3. Реално проведените часове по заместване, които са извън личната норма за задължителна преподавателска заетост на заместващия учител, да се изплатят като лекторски часове, извън установеното му работно време.')
-    P('4. Отчитането на часовете да се извърши в края на месеца въз основа на отразените данни в електронния дневник на ЦСОП и представена „Справка-декларация за действително взети часове при заместване".')
+    P('3. Проведените часове по заместването да се изплатят на заместващия учител като лекторски часове.')
     children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
-      normal('5. Източник на финансиране: ', 22),
+      normal('4. Източник на финансиране: ', 22),
       bold(d.isBsch ? 'Национална програма „Без свободен час", Модул 1.' : 'бюджет на ЦСОП (собствени средства).', 22),
     ] }))
-    P('6. Възнаграждението да се изплати съгласно ВПРЗ на Центъра за съответната година.')
-    n = 6
+    P('5. Отчитането да се извърши в края на месеца въз основа на данните в електронния дневник и представена справка-декларация. Възнаграждението да се изплати съгласно ВПРЗ на Центъра.')
+    n = 5
   } else {
-    P('3. Заместването се извършва в рамките на установеното работно време и задължителната норма преподавателска заетост на заместващия учител, без допълнително заплащане.')
+    P('3. Заместването се извършва в рамките на установеното работно време на заместващия учител, без допълнително заплащане.')
     n = 3
   }
   children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 160 }, children: [
@@ -144,7 +175,6 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
     normal(', заместник-директор.', 22),
   ] }))
 
-  // Задължения на заместника
   const dutyName = multi ? 'заместващите учители' : d.substituteName
   children.push(new Paragraph({ spacing: { after: 60 }, children: [bold(`Задълженията на ${dutyName} са:`, 22)] }))
   P('1. Работи с поверените ученици;')
@@ -153,17 +183,12 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
   children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 200 }, children: [normal('4. Носи отговорност за опазване живота и здравето на учениците.', 22)] }))
 
   children.push(new Paragraph({ children: [normal('Настоящата заповед да се връчи на лицето и на счетоводството за сведение и изпълнение.', 22)], spacing: { after: 300 } }))
-
-  // Директор
   children.push(new Paragraph({ children: [bold('ДИРЕКТОР ЦСОП: ', 22), normal('.............................', 22)] }))
   children.push(new Paragraph({ children: [normal('(подпис и печат)', 18)], spacing: { before: 40, after: 240 } }))
 
-  // Запознати — долу отделно
   children.push(new Paragraph({ children: [bold('Запознати:', 22)], spacing: { after: 80 } }))
   if (multi) {
-    d.substitutes!.forEach((sb, i) => {
-      children.push(new Paragraph({ spacing: { after: 60 }, children: [normal(`${i + 1}. ${sb.name} – заместник     ..............................`, 22)] }))
-    })
+    d.substitutes!.forEach((sb, i) => children.push(new Paragraph({ spacing: { after: 60 }, children: [normal(`${i + 1}. ${sb.name} – заместник     ..............................`, 22)] })))
     const k = d.substitutes!.length + 1
     children.push(new Paragraph({ children: [normal(`${k}. ${d.zdudName || '…………………'} – заместник-директор     ..............................`, 22)] }))
   } else {
