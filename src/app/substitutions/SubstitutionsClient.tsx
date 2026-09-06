@@ -97,7 +97,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
 
     async function genOrder(id: string) {
     setGenId(id)
-    const overNorm = overNormMap[id] !== false
+    const row = rows.find(r => r.id === id)
+    const overNorm = row?.bsch ? true : (overNormMap[id] !== false)
     const res: any = await generateSubstitution(id, overNorm)
     if (res.error) { toast(res.error, 'error'); setGenId(null); return }
     try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ }
