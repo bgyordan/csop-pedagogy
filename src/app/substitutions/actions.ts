@@ -212,3 +212,28 @@ export async function getDeclarationData(substitutionId: string) {
     },
   }
 }
+// ── Няколко заместника (под-периоди) ──
+export async function getAssignments(substitutionId: string) {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('substitution_assignments')
+    .select('id, substitute_staff_id, date_from, date_to, over_norm')
+    .eq('substitution_id', substitutionId).order('date_from')
+  return { data: data || [] }
+}
+
+export async function saveAssignments(substitutionId: string, rows: { substitute_staff_id: string; date_from: string; date_to: string; over_norm: boolean }[]) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+  // трием старите и вписваме новите
+  await supabase.from('substitution_assignments').delete().eq('substitution_id', substitutionId)
+  if (rows.length > 0) {
+    const { error } = await supabase.from('substitution_assignments').insert(
+      rows.map(r => ({ substitution_id: substitutionId, ...r }))
+    )
+    if (error) return { error: error.message }
+  }
+  revalidatePath('/substitutions')
+  return { success: true }
+}
