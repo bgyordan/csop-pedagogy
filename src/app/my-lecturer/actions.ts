@@ -34,18 +34,24 @@ function datesForDow(from: string, to: string, dow: number): string[] {
   return out
 }
 
-// Разгъва моите слотове по конкретни дати в избрания период на декларацията
+// Разгъва моите слотове по конкретни дати в избрания период — САМО учебни дни (без ваканции, от календара)
 export async function getMyLecturerDates(periodFrom: string, periodTo: string) {
+  const supabase = await createClient()
   const { slots } = await getMyLecturerSlots()
-  const rows = slots.map((s: any) => ({
-    slotId: s.id, day: s.day, period: s.period, subject: s.subject, holderLabel: s.holderLabel,
-    // само дати, които са И в срока на слота, И в периода на декларацията
-    dates: datesForDow(
-      periodFrom > s.dateFrom ? periodFrom : s.dateFrom,
-      periodTo < s.dateTo ? periodTo : s.dateTo,
-      s.day
-    ),
-  }))
+  // учебните дни в периода от календара
+  const { data: cal } = await supabase
+    .from('academic_calendar_days')
+    .select('date, day_of_week')
+    .gte('date', periodFrom).lte('date', periodTo).eq('is_school_day', true)
+  const schoolDates = (cal || [])
+  const rows = slots.map((s: any) => {
+    const lo = periodFrom > s.dateFrom ? periodFrom : s.dateFrom
+    const hi = periodTo < s.dateTo ? periodTo : s.dateTo
+    const dates = schoolDates
+      .filter((c: any) => c.day_of_week === s.day && c.date >= lo && c.date <= hi)
+      .map((c: any) => c.date)
+    return { slotId: s.id, day: s.day, period: s.period, subject: s.subject, holderLabel: s.holderLabel, dates }
+  })
   return { rows }
 }
 
