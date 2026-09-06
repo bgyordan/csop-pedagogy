@@ -337,7 +337,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                       <span className="absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all" style={{ left: on ? 'calc(100% - 26px)' : '2px' }} />
                     </button>
                                         )})()}
-                    <label className="inline-flex items-center gap-1 text-[10px] text-slate-500 cursor-pointer mr-1 whitespace-nowrap" title="Регистрирай заповедта в „Заповеди" (после прикачи подписания скан). Без отметка — само сваля Word.">
+                    <label className="inline-flex items-center gap-1 text-[10px] text-slate-500 cursor-pointer mr-1 whitespace-nowrap" title="Регистрирай заповедта в Заповеди — после прикачи подписания скан. Без отметка само сваля Word.">
                       <input type="checkbox" checked={registerMap[r.id] !== false}
                         onChange={e => setRegisterMap(p => ({ ...p, [r.id]: e.target.checked }))}
                         className="rounded" />
