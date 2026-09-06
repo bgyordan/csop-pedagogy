@@ -3,17 +3,14 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 // Работни дни (пон-пет) между две дати, като { date: ISO, dow: 1..5 }
-function workdays(from: string, to: string): { iso: string; dow: number }[] {
-  const out: { iso: string; dow: number }[] = []
-  const d = new Date(from + 'T00:00'), end = new Date(to + 'T00:00')
-  while (d <= end) {
-    const wd = d.getDay() // 0=нед..6=съб
-    if (wd >= 1 && wd <= 5) out.push({ iso: d.toISOString().split('T')[0], dow: wd })
-    d.setDate(d.getDate() + 1)
-  }
-  return out
+async function workdays(supabase: any, from: string, to: string): Promise<{ iso: string; dow: number }[]> {
+  const { data } = await supabase
+    .from('academic_calendar_days')
+    .select('date, day_of_week')
+    .gte('date', from).lte('date', to).eq('is_school_day', true)
+    .order('date')
+  return (data || []).map((c: any) => ({ iso: c.date, dow: c.day_of_week }))
 }
-
 // Генерира заповед за заместване: вади часовете на отсъстващия, създава РД-08 в orders,
 // връща данните за Word генератора.
 export async function generateSubstitution(substitutionId: string, overNorm: boolean = true, register: boolean = true) {
@@ -173,26 +170,20 @@ export async function getDeclarationData(substitutionId: string) {
 
   // разгъваме по работни дни
   const out: { date: string; cls: string; subject: string; hours: number }[] = []
-  const d = new Date(sub.date_from + 'T00:00'), end = new Date(sub.date_to + 'T00:00')
-  while (d <= end) {
-    const wd = d.getDay()
-    if (wd >= 1 && wd <= 5) {
-      const dayItems = bySlot.filter(s => s.day === wd)
-      const dateStr = d.toISOString().split('T')[0].split('-').reverse().join('.')
-      if (dayItems.length === 0) {
-        // ден без часове — пропускаме в декларацията
-      } else {
-        // за декларацията групираме по паралелка: един ред на паралелка/ден с брой часове
-                const byCls: Record<string, { subjects: string[]; hours: number }> = {}
-        dayItems.forEach(it => {
-          if (!byCls[it.cls]) byCls[it.cls] = { subjects: [], hours: 0 }
-          if (it.subject && !byCls[it.cls].subjects.includes(it.subject)) byCls[it.cls].subjects.push(it.subject)
-          byCls[it.cls].hours++
-        })
-        Object.entries(byCls).forEach(([cls, v]) => out.push({ date: dateStr, cls, subject: v.subjects.join('; '), hours: v.hours }))
-      }
+   const wds = await workdays(supabase, sub.date_from, sub.date_to)
+  for (const w of wds) {
+    const wd = w.dow
+    const dayItems = bySlot.filter(s => s.day === wd)
+    const dateStr = w.iso.split('-').reverse().join('.')
+    if (dayItems.length > 0) {
+      const byCls: Record<string, { subjects: string[]; hours: number }> = {}
+      dayItems.forEach(it => {
+        if (!byCls[it.cls]) byCls[it.cls] = { subjects: [], hours: 0 }
+        if (it.subject && !byCls[it.cls].subjects.includes(it.subject)) byCls[it.cls].subjects.push(it.subject)
+        byCls[it.cls].hours++
+      })
+      Object.entries(byCls).forEach(([cls, v]) => out.push({ date: dateStr, cls, subject: v.subjects.join('; '), hours: v.hours }))
     }
-    d.setDate(d.getDate() + 1)
   }
   const totalHours = out.reduce((a, r) => a + r.hours, 0)
 
