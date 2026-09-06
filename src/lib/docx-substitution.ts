@@ -150,7 +150,7 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
   const multi = d.substitutes && d.substitutes.length > 0
   if (multi) {
     children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 40 }, children: [
-      normal(`1. Възлагам заместването на отсъстващия титуляр, ${holderTail}, както следва:`, 22),
+      normal(`1. Заместването на отсъстващия титуляр, ${holderTail}, се възлага, както следва:`, 22),
     ] }))
     d.substitutes!.forEach((sb, i) => {
       children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 40 }, indent: { left: 400 }, children: [
@@ -161,7 +161,7 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
     })
   } else {
     children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
-      normal('1. Възлагам на ', 22), bold(d.substituteName, 22),
+      normal('1. На ', 22), bold(d.substituteName, 22),
       normal(`, на длъжност ${d.substitutePosition || 'учител'}, ${holderTail}, ${normPhraseFor(d.overNorm)}.`, 22),
     ] }))
   }
@@ -193,7 +193,7 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
 
   let n = 3
   if (d.overNorm) {
-    P('3. Проведените часове по заместването да се изплатят на заместващия учител като лекторски часове.')
+    P('3. Проведените часове по заместването да се изплатят на заместващия педагогически специалист. като лекторски часове.')
     children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
       normal('4. Източник на финансиране: ', 22),
       bold(d.isBsch ? 'Национална програма „Без свободен час", Модул 1.' : 'бюджет на ЦСОП (собствени средства).', 22),
@@ -201,7 +201,7 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
     P('5. Отчитането да се извърши в края на месеца въз основа на данните в електронния дневник и представена справка-декларация. Възнаграждението да се изплати съгласно ВПРЗ на Центъра.')
     n = 5
   } else {
-    P('3. Заместването се извършва в рамките на установеното работно време на заместващия учител, без допълнително заплащане.')
+    P('3. Заместването се извършва в рамките на установеното работно време на заместващия педагогически специалист., без допълнително заплащане.')
     n = 3
   }
   children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 160 }, children: [
@@ -218,6 +218,7 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
 
   children.push(new Paragraph({ children: [normal('Настоящата заповед да се връчи на лицето и на счетоводството за сведение и изпълнение.', 22)], spacing: { after: 300 } }))
   children.push(new Paragraph({ children: [bold('ДИРЕКТОР ЦСОП: ', 22), normal('.............................', 22)] }))
+  children.push(new Paragraph({ children: [normal('/ Светлана Иванова /', 20)] }))
   children.push(new Paragraph({ children: [normal('(подпис и печат)', 18)], spacing: { before: 40, after: 240 } }))
 
   children.push(new Paragraph({ children: [bold('Запознати:', 22)], spacing: { after: 80 } }))
