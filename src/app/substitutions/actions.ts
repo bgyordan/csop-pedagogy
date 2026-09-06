@@ -83,7 +83,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
       number: orderNumber, date: orderDate,
       title: `Заповед за заместване на ${absentName}`,
       nomenclature_item: 'РД-08',
-      description: `Заместник: ${subName}, период ${sub.date_from.split('-').reverse().join('.')}–${sub.date_to.split('-').reverse().join('.')} · ⚠ чака прикачване на подписан документ`,
+      description: `Заместник: ${subName}, период ${sub.date_from.split('-').reverse().join('.')}–${sub.date_to.split('-').reverse().join('.')}`,
       created_by: me?.id || null, seq: nextSeq,
     }).select('id').single()
     if (oErr) return { error: 'Грешка при създаване на заповедта: ' + oErr.message }
