@@ -323,16 +323,19 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               <div className="flex items-center justify-end gap-1">
                                 {r.substituteId && !r.hasOrder && (
                   <>
-                    <button type="button" onClick={() => setOverNormMap(p => ({ ...p, [r.id]: !(p[r.id] !== false) }))}
-                      className="relative inline-flex items-center h-7 rounded-full border transition-colors shrink-0 select-none mr-1"
-                      style={{ width: '128px', backgroundColor: overNormMap[r.id] !== false ? '#0f2240' : '#e2e8f0', borderColor: overNormMap[r.id] !== false ? '#0f2240' : '#cbd5e1' }}
-                      title="Превключи: Лекторски (над норма) / В норма (без заплащане)">
-                      <span className={overNormMap[r.id] !== false ? 'absolute left-2.5 text-[10px] font-medium text-white' : 'absolute right-2.5 text-[10px] font-medium text-slate-600'}>
-                        {overNormMap[r.id] !== false ? 'С лекторски' : 'Без лекторски'}
+                                        {(() => { const on = r.bsch ? true : (overNormMap[r.id] !== false); return (
+                    <button type="button" disabled={r.bsch}
+                      onClick={() => { if (!r.bsch) setOverNormMap(p => ({ ...p, [r.id]: !(p[r.id] !== false) })) }}
+                      className={`relative inline-flex items-center h-7 rounded-full border transition-colors shrink-0 select-none mr-1 ${r.bsch ? 'opacity-90 cursor-not-allowed' : ''}`}
+                      style={{ width: '128px', backgroundColor: on ? '#0f2240' : '#e2e8f0', borderColor: on ? '#0f2240' : '#cbd5e1' }}
+                      title={r.bsch ? 'По НП винаги е с лекторски' : 'Превключи: със заплащане (лекторски) / без заплащане'}>
+                      <span className={on ? 'absolute left-2.5 text-[10px] font-medium text-white' : 'absolute right-2.5 text-[10px] font-medium text-slate-600'}>
+                        {on ? 'С лекторски' : 'Без лекторски'}
                       </span>
-                      <span className="absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all" style={{ left: overNormMap[r.id] !== false ? 'calc(100% - 26px)' : '2px' }} />
+                      <span className="absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all" style={{ left: on ? 'calc(100% - 26px)' : '2px' }} />
                     </button>
-                    <button onClick={() => genOrder(r.id)} disabled={genId === r.id}
+                    )})()}
+                     <button onClick={() => genOrder(r.id)} disabled={genId === r.id}
                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 disabled:opacity-50 shrink-0" style={{ backgroundColor: '#0f2240' }}>
                       {genId === r.id ? <Loader2 size={12} className="animate-spin" /> : <>Заповед <ArrowRight size={12} /></>}
                     </button>
