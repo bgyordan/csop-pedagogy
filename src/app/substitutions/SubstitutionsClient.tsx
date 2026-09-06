@@ -268,7 +268,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                     <input type="date" value={a.date_to} onChange={e => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, date_to: e.target.value } : x))} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
                     <button type="button" onClick={() => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, over_norm: !x.over_norm } : x))}
                       className={`px-2 py-1.5 rounded-lg text-[10px] font-medium whitespace-nowrap ${a.over_norm ? 'bg-[#0f2240] text-white' : 'bg-slate-200 text-slate-600'}`}>
-                      {a.over_norm ? 'Лекторски' : 'В норма'}
+                      {a.over_norm ? 'С лекторски' : 'Без лекторски'}
                     </button>
                     <button type="button" onClick={() => setAssigns(prev => prev.filter((_, j) => j !== i))} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 shrink-0"><X size={14} /></button>
                   </div>
@@ -328,7 +328,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                       style={{ width: '128px', backgroundColor: overNormMap[r.id] !== false ? '#0f2240' : '#e2e8f0', borderColor: overNormMap[r.id] !== false ? '#0f2240' : '#cbd5e1' }}
                       title="Превключи: Лекторски (над норма) / В норма (без заплащане)">
                       <span className={overNormMap[r.id] !== false ? 'absolute left-2.5 text-[10px] font-medium text-white' : 'absolute right-2.5 text-[10px] font-medium text-slate-600'}>
-                        {overNormMap[r.id] !== false ? 'Лекторски' : 'В норма'}
+                        {overNormMap[r.id] !== false ? 'С лекторски' : 'Без лекторски'}
                       </span>
                       <span className="absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all" style={{ left: overNormMap[r.id] !== false ? 'calc(100% - 26px)' : '2px' }} />
                     </button>
@@ -404,7 +404,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                       <input type="date" value={a.date_to} onChange={e => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, date_to: e.target.value } : x))} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
                       <button type="button" onClick={() => setAssigns(prev => prev.map((x, j) => j === i ? { ...x, over_norm: !x.over_norm } : x))}
                         className={`px-2 py-1.5 rounded-lg text-[10px] font-medium whitespace-nowrap ${a.over_norm ? 'bg-[#0f2240] text-white' : 'bg-slate-200 text-slate-600'}`}>
-                        {a.over_norm ? 'Лекторски' : 'В норма'}
+                        {a.over_norm ? 'С лекторски' : 'Без лекторски'}
                       </button>
                       <button type="button" onClick={() => setAssigns(prev => prev.filter((_, j) => j !== i))} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 shrink-0"><X size={14} /></button>
                     </div>
