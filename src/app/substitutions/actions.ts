@@ -229,3 +229,98 @@ export async function saveAssignments(substitutionId: string, rows: { substitute
   revalidatePath('/substitutions')
   return { success: true }
 }
+// ── МЕСЕЧНА обобщена декларация за ЗАМЕСТВАНЕ (всички замествания на заместника за месеца) ──
+export async function getMonthlyDeclaration(year: number, month: number) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+  const { data: me } = await supabase.from('staff_profiles').select('id, first_name, last_name, position').eq('user_id', user.id).single()
+  if (!me) return { error: 'Профил не е намерен' }
+
+  // граници на месеца
+  const mm = String(month).padStart(2, '0')
+  const first = `${year}-${mm}-01`
+  const lastDay = new Date(year, month, 0).getDate()
+  const last = `${year}-${mm}-${String(lastDay).padStart(2, '0')}`
+
+  const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
+
+  // всички мои замествания, застъпващи месеца
+  const { data: subs } = await supabase
+    .from('substitutions')
+    .select(`id, absent_staff_id, date_from, date_to, bsch_eligible, kt_article, substitution_order_id,
+      absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name)`)
+    .eq('substitute_staff_id', me.id)
+    .lte('date_from', last).gte('date_to', first)
+  if (!subs || subs.length === 0) return { error: 'Няма замествания за този месец' }
+
+  // разписания за учебната година (за часовете)
+  const { data: mySched } = await supabase
+    .from('class_schedules').select('id, class:classes(name)')
+    .eq('academic_year_id', cy?.id).eq('term', 1)
+  const schedName: Record<string, string> = {}
+  ;(mySched || []).forEach((s: any) => { schedName[s.id] = s.class?.name || '' })
+  const schedIds = (mySched || []).map((s: any) => s.id)
+
+  const rows: { date: string; orderRef: string; cls: string; subject: string; hours: number; bsch: boolean; kt: string }[] = []
+
+  for (const sub of subs) {
+    // orderRef
+    let orderRef = '—'
+    if (sub.substitution_order_id) {
+      const { data: o } = await supabase.from('orders').select('number').eq('id', sub.substitution_order_id).single()
+      if (o?.number) orderRef = o.number
+    }
+    // часовете на отсъстващия
+    const bySlot: { day: number; period: number; subject: string; cls: string }[] = []
+    if (schedIds.length > 0) {
+      const { data: slots } = await supabase
+        .from('schedule_slots').select('schedule_id, day, period, subject:subjects(name)')
+        .in('schedule_id', schedIds).eq('staff_id', sub.absent_staff_id)
+      ;(slots || []).forEach((sl: any) => bySlot.push({ day: sl.day, period: sl.period, subject: sl.subject?.name || '', cls: schedName[sl.schedule_id] || '' }))
+    }
+    const { data: ifo } = await supabase
+      .from('teacher_ifo_slots').select('day, period, subject:subjects(name), student:students(first_name, last_name)')
+      .eq('teacher_id', sub.absent_staff_id).eq('academic_year_id', cy?.id).eq('term', 1)
+    ;(ifo || []).forEach((sl: any) => bySlot.push({ day: sl.day, period: sl.period, subject: sl.subject?.name || '', cls: sl.student ? `ИФО ${sl.student.first_name} ${sl.student.last_name}` : 'ИФО' }))
+
+    // само учебните дни в ПРЕСЕЧЕНИЕТО на заместването и месеца
+    const lo = sub.date_from > first ? sub.date_from : first
+    const hi = sub.date_to < last ? sub.date_to : last
+    const wds = await workdays(supabase, lo, hi)
+    for (const w of wds) {
+      const dayItems = bySlot.filter(s => s.day === w.dow)
+      if (dayItems.length === 0) continue
+      const dateStr = w.iso.split('-').reverse().join('.')
+      const byCls: Record<string, { subjects: string[]; hours: number }> = {}
+      dayItems.forEach(it => {
+        if (!byCls[it.cls]) byCls[it.cls] = { subjects: [], hours: 0 }
+        if (it.subject && !byCls[it.cls].subjects.includes(it.subject)) byCls[it.cls].subjects.push(it.subject)
+        byCls[it.cls].hours++
+      })
+      Object.entries(byCls).forEach(([cls, v]) => rows.push({
+        date: dateStr, orderRef, cls, subject: v.subjects.join('; '), hours: v.hours,
+        bsch: sub.bsch_eligible === true, kt: sub.kt_article || '',
+      }))
+    }
+  }
+
+  rows.sort((a, b) => {
+    const [da, ma] = a.date.split('.'), [db, mb] = b.date.split('.')
+    return (ma + da).localeCompare(mb + db)
+  })
+  const totalHours = rows.reduce((a, r) => a + r.hours, 0)
+  const npHours = rows.filter(r => r.bsch).reduce((a, r) => a + r.hours, 0)
+  const budgetHours = totalHours - npHours
+
+  const MONTHS = ['януари','февруари','март','април','май','юни','юли','август','септември','октомври','ноември','декември']
+  return {
+    success: true,
+    data: {
+      substituteName: `${me.first_name} ${me.last_name}`,
+      substitutePosition: me.position || 'учител',
+      monthName: MONTHS[month - 1], year, yearName: cy?.name || '',
+      rows, totalHours, npHours, budgetHours,
+    },
+  }
+}
