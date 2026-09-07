@@ -205,7 +205,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     const primary = multiOpen ? firstOwner(dayMap, schoolDays) : subId
     const { data, error } = await supabase.from('substitutions').insert({
       absent_staff_id: absentId, substitute_staff_id: primary || null,
-      date_from: from, date_to: to, reason, bsch_eligible: bsch,
+      date_from: from, date_to: to, reason, bsch_eligible: bsch, kt_article: ktArticle,
     }).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setSaving(false); return }
     if (multiOpen) {
@@ -213,7 +213,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     }
     setRows(prev => [mapRow(data), ...prev])
     toast('Заместването е добавено')
-    setAbsentId(''); setSubId(''); setFrom(''); setTo(''); setReason('sick'); setBsch(false); setShowNew(false); setSaving(false)
+    setAbsentId(''); setSubId(''); setFrom(''); setTo(''); setReason('sick'); setBsch(false); setKtArticle('155'); setShowNew(false); setSaving(false)
     resetMulti()
   }
 
@@ -229,7 +229,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     loadAssigns(r.id)
     setEAbsent(absentIdByRow[r.id] || '')
     setESub(r.substituteId || '')
-    setEFrom(r.dateFrom); setETo(r.dateTo); setEReason(r.reason); setEBsch(!!(r as any).bsch)
+    setEFrom(r.dateFrom); setETo(r.dateTo); setEReason(r.reason); setEBsch(!!(r as any).bsch); setEKtArticle((r as any).ktArticle || '155')
   }
   // за редакция трябва absent_staff_id — карта id->absentId от initial (page подава absentStaffId в SubRow)
   const absentIdByRow: Record<string, string> = useMemo(() => {
