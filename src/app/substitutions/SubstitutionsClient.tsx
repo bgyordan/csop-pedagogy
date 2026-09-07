@@ -190,10 +190,10 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       absentStaffId: r.absent_staff_id,
       substituteName: r.sub ? `${r.sub.first_name} ${r.sub.last_name}` : null,
       substituteId: r.substitute_staff_id, dateFrom: r.date_from, dateTo: r.date_to,
-      reason: r.reason, hasOrder: !!r.substitution_order_id, bsch: r.bsch_eligible === true,
+           reason: r.reason, hasOrder: !!r.substitution_order_id, bsch: r.bsch_eligible === true, ktArticle: r.kt_article,
     } as SubRow
   }
-  const selectCols = `id, date_from, date_to, reason, substitute_staff_id, substitution_order_id, bsch_eligible,
+  const selectCols = `id, date_from, date_to, reason, substitute_staff_id, substitution_order_id, bsch_eligible, kt_article,
     absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name),
     sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name)`
 
@@ -246,7 +246,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     const primary = multiOpen ? firstOwner(dayMap, schoolDays) : eSub
     const { data, error } = await supabase.from('substitutions').update({
       absent_staff_id: eAbsent, substitute_staff_id: primary || null,
-      date_from: eFrom, date_to: eTo, reason: eReason, bsch_eligible: eBsch,
+      date_from: eFrom, date_to: eTo, reason: eReason, bsch_eligible: eBsch, kt_article: eKtArticle,
     }).eq('id', editId).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setESaving(false); return }
     const mapped: any = mapRow(data); mapped.absentStaffId = eAbsent
