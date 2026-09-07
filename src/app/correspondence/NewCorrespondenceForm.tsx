@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { generateNpLeaveOrder } from '@/lib/docx-substitution'
 import { X, Upload, FileText, Loader2, User, GraduationCap, ChevronDown, ArrowDownLeft, ArrowUpRight, Zap, ClipboardList } from 'lucide-react'
 // Деловодна година: 15.09 – 14.09 следващата
 function deloYearBounds(ref: Date): { start: string; end: string } {
@@ -276,9 +277,18 @@ export default function NewCorrespondenceForm({
           description: `Издадена въз основа на Вх. ${docNumber} · Отпуск по чл. ${ktArticle} КТ`,
                     file_url: fileUrl || null,
           file_name: fileName || null,
-          created_by: currentUserId,
+                    created_by: currentUserId,
           seq: oSeq,
         })
+        if (isNp) {
+          try {
+            await generateNpLeaveOrder({
+              orderNumber, absentName: fromWhom || '', absentPosition: '',
+              ktArticle, dateFrom: subFrom || docDate, dateTo: subTo || docDate, workDays: 0,
+              leaveRef: `Заявление вх. № ${docNumber}`, zdudName: '',
+            })
+          } catch (_) {}
+        }
       } catch (_) { /* заповедта не бива да блокира деловодството */ }
     }
 
@@ -291,7 +301,8 @@ export default function NewCorrespondenceForm({
           substitute_staff_id: substituteId,
           date_from: subFrom,
           date_to: subTo,
-          reason: 'vacation',
+                   reason: 'vacation',
+          bsch_eligible: isNp,
           leave_order_date: docDate,
           created_by: currentUserId,
         })
