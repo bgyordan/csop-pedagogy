@@ -447,3 +447,99 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
   const blob = await Packer.toBlob(doc)
   saveAs(blob, `декларация_лекторски_${d.teacherName.replace(/\\s+/g, '_')}.docx`)
 }
+// ═══ МЕСЕЧНА справка-декларация за ЗАМЕСТВАНЕ ═══
+export interface MonthlyDeclData {
+  substituteName: string
+  substitutePosition: string
+  monthName: string
+  year: number
+  yearName: string
+  rows: { date: string; orderRef: string; cls: string; subject: string; hours: number; bsch: boolean; kt: string; absentName: string }[]
+  totalHours: number
+}
+
+// НП вариант (само НП редове) — по Приложение 2
+export async function generateMonthlyNPDeclaration(d: MonthlyDeclData) {
+  const rows = d.rows.filter(r => r.bsch)
+  const total = rows.reduce((a, r) => a + r.hours, 0)
+  const children: any[] = []
+  const dots = (n: number) => '.'.repeat(n)
+
+  children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: 'Приложение № 2', italics: true, size: 20 })] }))
+  children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: 'Справка - декларация по Модул 1', italics: true, size: 20 })], spacing: { after: 200 } }))
+
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('Център за специална образователна подкрепа – гр. Варна', 22)] }))
+  children.push(new Paragraph({ children: [normal('ул. „Петко Стайнов" № 7, тел.: 052 619 456, e-mail: info-400052@edu.mon.bg', 20)], spacing: { after: 200 } }))
+
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'С П Р А В К А   –   Д Е К Л А Р А Ц И Я', bold: true, size: 26 })], spacing: { after: 40 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal('за възнаграждение за реално взетите часове по Националната програма „Без свободен час" за 2026 г., Модул 1,', 20)], spacing: { after: 20 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(`за месец ${d.monthName} ${d.year} г.`, 22)], spacing: { after: 200 } }))
+
+  children.push(new Paragraph({ children: [normal('Долуподписаният (ата) ', 22), bold(d.substituteName, 22), normal(', заемащ длъжността ', 22), bold(d.substitutePosition || 'учител', 22), normal(' в ЦСОП – гр. Варна,', 22)], spacing: { after: 120 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Д Е К Л А Р И Р А М ,', bold: true, size: 24 })], spacing: { after: 120 } }))
+  children.push(new Paragraph({ children: [normal(`че през месец ${d.monthName} ${d.year} г. действително съм провел/а следните часове като заместващ на отсъстващи учители:`, 22)], spacing: { after: 160 } }))
+
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
+  const CELLS = { top: B, bottom: B, left: B, right: B }
+  const th = (t: string) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(t, 16)] })] })
+  const td = (t: string, c = false) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 16)] })] })
+  const trows: TableRow[] = [ new TableRow({ children: [
+    th('Дата'), th('Заповед №'), th('Клас'), th('Тема (от дневника)'), th('Часове'), th('Отсъстващ учител'),
+  ] }) ]
+  rows.forEach(r => trows.push(new TableRow({ children: [
+    td(r.date, true), td(r.orderRef, true), td(r.cls, true), td(''), td(String(r.hours), true), td(r.absentName),
+  ] })))
+  children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [1100, 1600, 800, 3000, 800, 2100], rows: trows }))
+  children.push(new Paragraph({ text: '', spacing: { after: 160 } }))
+
+  children.push(new Paragraph({ children: [normal('Общ брой часове: ', 22), bold(String(total), 22), normal(' х ................ EUR = ........................ EUR', 22)], spacing: { after: 40 } }))
+  children.push(new Paragraph({ children: [normal('Темите на преподаденото съдържание са вписани в дневника на класа/групата.', 20)], spacing: { after: 80 } }))
+  children.push(new Paragraph({ children: [normal('Известно ми е, че при деклариране на неверни данни нося отговорност съгласно законите на Република България.', 20)], spacing: { after: 300 } }))
+
+  children.push(new Paragraph({ children: [normal('Декларатор: ' + dots(45), 22)], spacing: { after: 200 } }))
+  children.push(new Paragraph({ children: [normal('Директор: ' + dots(45), 22)] }))
+
+  const doc = new Document({ sections: [{ properties: { page: { margin: { top: 900, bottom: 900, left: 1000, right: 1000 } } }, children }] })
+  const blob = await Packer.toBlob(doc)
+  saveAs(blob, `декларация_НП_${d.monthName}_${d.substituteName.replace(/\s+/g, '_')}.docx`)
+}
+
+// Бюджетен вариант (само бюджетните редове) — вътрешна ЦСОП декларация
+export async function generateMonthlyBudgetDeclaration(d: MonthlyDeclData) {
+  const rows = d.rows.filter(r => !r.bsch)
+  const total = rows.reduce((a, r) => a + r.hours, 0)
+  const children: any[] = []
+  const dots = (n: number) => '.'.repeat(n)
+
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('Център за специална образователна подкрепа – гр. Варна', 22)] }))
+  children.push(new Paragraph({ children: [normal('ул. „Петко Стайнов" № 7, тел.: 052 619 456, e-mail: info-400052@edu.mon.bg', 20)], spacing: { after: 200 } }))
+
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'С П Р А В К А   –   Д Е К Л А Р А Ц И Я', bold: true, size: 26 })], spacing: { after: 40 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal('за реално взетите часове по заместване, финансирани от бюджета на ЦСОП,', 20)], spacing: { after: 20 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(`за месец ${d.monthName} ${d.year} г.`, 22)], spacing: { after: 200 } }))
+
+  children.push(new Paragraph({ children: [normal('Долуподписаният (ата) ', 22), bold(d.substituteName, 22), normal(', заемащ длъжността ', 22), bold(d.substitutePosition || 'учител', 22), normal(' в ЦСОП – гр. Варна,', 22)], spacing: { after: 120 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Д Е К Л А Р И Р А М ,', bold: true, size: 24 })], spacing: { after: 120 } }))
+  children.push(new Paragraph({ children: [normal(`че през месец ${d.monthName} ${d.year} г. действително съм провел/а следните часове като заместващ на отсъстващи учители:`, 22)], spacing: { after: 160 } }))
+
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
+  const CELLS = { top: B, bottom: B, left: B, right: B }
+  const th = (t: string) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(t, 16)] })] })
+  const td = (t: string, c = false) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 16)] })] })
+  const trows: TableRow[] = [ new TableRow({ children: [
+    th('Дата'), th('Заповед №'), th('Клас'), th('Предмет'), th('Часове'), th('Отсъстващ учител'),
+  ] }) ]
+  rows.forEach(r => trows.push(new TableRow({ children: [
+    td(r.date, true), td(r.orderRef, true), td(r.cls, true), td(r.subject), td(String(r.hours), true), td(r.absentName),
+  ] })))
+  children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [1100, 1600, 800, 3000, 800, 2100], rows: trows }))
+  children.push(new Paragraph({ text: '', spacing: { after: 160 } }))
+
+  children.push(new Paragraph({ children: [normal('Общ брой часове: ', 22), bold(String(total), 22), normal(' х ................ EUR = ........................ EUR', 22)], spacing: { after: 300 } }))
+  children.push(new Paragraph({ children: [normal('Декларатор: ' + dots(45), 22)], spacing: { after: 200 } }))
+  children.push(new Paragraph({ children: [normal('Директор: ' + dots(45), 22)] }))
+
+  const doc = new Document({ sections: [{ properties: { page: { margin: { top: 900, bottom: 900, left: 1000, right: 1000 } } }, children }] })
+  const blob = await Packer.toBlob(doc)
+  saveAs(blob, `декларация_бюджет_${d.monthName}_${d.substituteName.replace(/\s+/g, '_')}.docx`)
+}
