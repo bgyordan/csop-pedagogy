@@ -49,9 +49,13 @@ export async function saveLecturerSlots(
   if (!['admin', 'zdud', 'director'].includes(me?.role || '')) return { error: 'Нямате права' }
   const { data: cy } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
 
-  // трия старите за този учител/година, вписвам новите
-  await supabase.from('lecturer_slots').delete().eq('staff_id', staffId).eq('academic_year_id', cy?.id)
+  // ДОБАВЯЩ режим: трием само точно тези (day/period), които сега записваме (да не дублират),
+  // после ги вписваме с ТЕКУЩИЯ период — така стари слотове с ДРУГ период остават непокътнати
   if (slots.length > 0) {
+    for (const s of slots) {
+      await supabase.from('lecturer_slots').delete()
+        .eq('staff_id', staffId).eq('academic_year_id', cy?.id).eq('day', s.day).eq('period', s.period)
+    }
     const ins = slots.map(s => ({
       staff_id: staffId, day: s.day, period: s.period, subject_id: s.subjectId,
       holder_type: s.holderType, holder_label: s.holderLabel,
@@ -77,73 +81,22 @@ export async function clearLecturerSlots(staffId: string) {
 }
 export async function schoolWeeks(from: string, to: string): Promise<number> {
   const supabase = await createClient()
-  const { count } = await supabase
+  const { data } = await supabase
     .from('academic_calendar_days')
-    .select('*', { count: 'exact', head: true })
+    .select('week_number')
     .gte('date', from).lte('date', to).eq('is_school_day', true)
-  return Math.round((count || 0) / 5)
+  const weeks = new Set((data || []).map((d: any) => d.week_number))
+  return weeks.size
 }
-// ── Данни за ОБЩАТА ЗАПОВЕД за лекторски (таблица човек по човек) ──
-export async function getLecturerFrameworkData() {
+
+// Премахва един лекторски слот (day/period) на учител
+export async function removeLecturerSlot(staffId: string, day: number, period: number) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли' }
-  const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
-
-  const { data: slots } = await supabase
-    .from('lecturer_slots')
-    .select(`staff_id, day, period, holder_label, date_from, date_to,
-      subject:subjects(name),
-      staff:staff_profiles!lecturer_slots_staff_id_fkey(first_name, last_name, position, role)`)
-    .eq('academic_year_id', cy?.id)
-  if (!slots || slots.length === 0) return { error: 'Няма определени лекторски часове' }
-
-  const DOW = ['', 'понеделник', 'вторник', 'сряда', 'четвъртък', 'петък']
-  const NORMS: Record<string, number> = { class_teacher: 21, teacher: 21, educator: 25, psychologist: 30, speech_therapist: 21, rehabilitator: 21 }
-
-  // групиране: учител -> (предмет+клас) -> {дни:Set, часа, period}
-  const byStaff: Record<string, any> = {}
-  for (const s of (slots as any[])) {
-    const sid = s.staff_id
-    if (!byStaff[sid]) {
-      byStaff[sid] = {
-        name: s.staff ? `${s.staff.first_name} ${s.staff.last_name}` : '',
-        position: s.staff?.position || 'учител',
-        norm: NORMS[s.staff?.role || ''] || 21,
-        from: s.date_from, to: s.date_to,
-        groups: {} as Record<string, { subject: string; cls: string; days: Set<number>; hours: number }>,
-      }
-    }
-    const key = `${s.subject?.name || ''}||${s.holder_label || ''}`
-    if (!byStaff[sid].groups[key]) byStaff[sid].groups[key] = { subject: s.subject?.name || '—', cls: s.holder_label || '—', days: new Set(), hours: 0 }
-    byStaff[sid].groups[key].days.add(s.day)
-    byStaff[sid].groups[key].hours++  // брой слотове = часа/седмица за тази комбинация
-  }
-
-  // седмици по период (кеш)
-  const weeksCache: Record<string, number> = {}
-  async function weeksOf(from: string, to: string) {
-    const k = `${from}|${to}`
-    if (weeksCache[k] !== undefined) return weeksCache[k]
-    const { data } = await supabase.from('academic_calendar_days').select('week_number')
-      .gte('date', from).lte('date', to).eq('is_school_day', true)
-    const w = new Set((data || []).map((d: any) => d.week_number)).size
-    weeksCache[k] = w
-    return w
-  }
-
-  const teachers: any[] = []
-  for (const sid of Object.keys(byStaff)) {
-    const t = byStaff[sid]
-    const weeks = await weeksOf(t.from, t.to)
-    const rows = Object.values(t.groups).map((g: any) => {
-      const days = Array.from(g.days).sort().map((d: any) => DOW[d]).join(', ')
-      return { subject: g.subject, cls: g.cls, days, perWeek: g.hours, weeks, total: g.hours * weeks }
-    })
-    const totalHours = rows.reduce((a, r) => a + r.total, 0)
-    teachers.push({ name: t.name, position: t.position, norm: t.norm, from: t.from, to: t.to, rows, totalHours })
-  }
-  teachers.sort((a, b) => a.name.localeCompare(b.name, 'bg'))
-
-  return { success: true, data: { teachers, yearName: cy?.name || '' } }
+  const { data: cy } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
+  await supabase.from('lecturer_slots').delete()
+    .eq('staff_id', staffId).eq('academic_year_id', cy?.id).eq('day', day).eq('period', period)
+  revalidatePath('/lecturer')
+  return { success: true }
 }
