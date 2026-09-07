@@ -121,18 +121,21 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
     })
   }, [marked])
 
-  // групиране на маркираните по учител (за списъка долу)
+  // групиране по учител — общо часа = СУМА по слот × седмиците на СВОЯ период
   const byTeacher = useMemo(() => {
-    const m: Record<string, { name: string; count: number; from: string; to: string; classes: Set<string> }> = {}
+    const m: Record<string, { name: string; count: number; total: number; periods: Set<string>; classes: Set<string> }> = {}
     marked.forEach(x => {
-      if (!m[x.staffId]) m[x.staffId] = { name: x.staffName, count: 0, from: x.dateFrom, to: x.dateTo, classes: new Set() }
+      if (!m[x.staffId]) m[x.staffId] = { name: x.staffName, count: 0, total: 0, periods: new Set(), classes: new Set() }
+      const w = weeksCache[`${x.dateFrom}|${x.dateTo}`] ?? weeksBetween(x.dateFrom, x.dateTo)
       m[x.staffId].count++
+      m[x.staffId].total += w   // 1 час/седмица × седмиците на този слот
+      m[x.staffId].periods.add(`${fmt(x.dateFrom)}–${fmt(x.dateTo)}`)
       if (x.holderLabel) m[x.staffId].classes.add(x.holderLabel)
     })
-    return Object.entries(m).map(([id, v]) => {
-      const weeks = weeksCache[`${v.from}|${v.to}`] ?? weeksBetween(v.from, v.to)
-      return { id, name: v.name, count: v.count, from: v.from, to: v.to, weeks, total: v.count * weeks, classes: [...v.classes] }
-    })
+    return Object.entries(m).map(([id, v]) => ({
+      id, name: v.name, count: v.count, total: v.total,
+      periods: [...v.periods], classes: [...v.classes],
+    }))
   }, [marked, weeksCache])
   const grandTotal = byTeacher.reduce((a, t) => a + t.total, 0)
 
@@ -264,7 +267,7 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
                 <Users size={15} className="text-slate-400 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm text-slate-800">{t.name} {t.classes.length > 0 && <span className="text-xs text-slate-400 font-normal">· {t.classes.join(', ')}</span>}</div>
-                  <div className="text-xs text-slate-500">{t.count} ч./седмица × {t.weeks} седмици ≈ <span className="font-medium text-slate-700">{t.total} ч.</span> · {fmt(t.from)} – {fmt(t.to)}</div>
+                  <div className="text-xs text-slate-500">{t.count} часа седмично · общо <span className="font-medium text-slate-700">{t.total} ч.</span> · {t.periods.join('; ')}</div>
                 </div>
                 <button onClick={() => selectTeacher(t.id)} className="text-xs text-[#0f2240] hover:underline shrink-0">Редакция</button>
                 <button onClick={() => removeTeacher(t.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100"><Trash2 size={14} /></button>
