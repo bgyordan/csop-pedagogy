@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
-  Building2, Menu, X, GitBranch, BarChart3, FileSpreadsheet
+  Building2, Menu, X, GitBranch, BarChart3, FileSpreadsheet,
   Inbox, ClipboardList, FileSignature, Package, Star, CalendarClock, ChevronDown, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
