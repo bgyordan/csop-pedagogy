@@ -320,6 +320,13 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                 <option value="other">Друго</option>
               </select>
             </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs text-slate-500 mb-1">Член от КТ (вид отпуск на титуляря)</label>
+              <select value={ktArticle} onChange={e => setKtArticle(e.target.value)}
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 cursor-pointer">
+                {KT_ARTICLES.map(a => <option key={a.v} value={a.v}>{a.l}</option>)}
+              </select>
+            </div>
           </div>
           <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm cursor-pointer transition-all ${bsch ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
             <input type="checkbox" checked={bsch} onChange={e => setBsch(e.target.checked)} className="sr-only" />
@@ -450,6 +457,13 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                   <option value="sick">Болничен</option>
                   <option value="vacation">Отпуск</option>
                   <option value="other">Друго</option>
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs text-slate-500 mb-1">Член от КТ (вид отпуск на титуляря)</label>
+                <select value={eKtArticle} onChange={e => setEKtArticle(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 cursor-pointer">
+                  {KT_ARTICLES.map(a => <option key={a.v} value={a.v}>{a.l}</option>)}
                 </select>
               </div>
               <div className="md:col-span-2">
