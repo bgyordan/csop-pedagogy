@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
-  Building2, Menu, X, GitBranch, BarChart3,
+  Building2, Menu, X, GitBranch, BarChart3, FileSpreadsheet
   Inbox, ClipboardList, FileSignature, Package, Star, CalendarClock, ChevronDown, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -91,6 +91,7 @@ const navItems: NavItem[] = [
       { href: '/lecturer', label: 'Лекторски часове', icon: <GraduationCap size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/substitutions', label: 'Замествания', icon: <UserX size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/lecturer-review', label: 'Проверка лекторски', icon: <ClipboardList size={14} />, roles: ['admin', 'zdud', 'director'] },
+            { href: '/mon-export', label: 'Отчет НП (МОН)', icon: <FileSpreadsheet size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
   },
   {
