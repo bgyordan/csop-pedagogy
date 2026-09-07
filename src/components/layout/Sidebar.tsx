@@ -136,7 +136,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
    const [mobileOpen, setMobileOpen] = useState(false)
    const [settingsOpen, setSettingsOpen] = useState(false)
   const [deloOpen, setDeloOpen] = useState(true)
-     const [settingsOpen, setSettingsOpen] = useState(true)
+     
   useEffect(() => { setMobileOpen(false) }, [pathname])
   useEffect(() => {
     if (mobileOpen) {
