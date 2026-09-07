@@ -1,8 +1,9 @@
 'use client'
 import { useState, useMemo, useEffect } from 'react'
-import { Loader2, Check, Save, Users, GraduationCap, X, Trash2 } from 'lucide-react'
+import { Loader2, Check, Save, Users, GraduationCap, X, Trash2, FileDown } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { getTeacherSchedule, saveLecturerSlots, clearLecturerSlots, schoolWeeks } from './actions'
+import { getTeacherSchedule, saveLecturerSlots, clearLecturerSlots, schoolWeeks, getLecturerFrameworkData } from './actions'
+import { generateLecturerFrameworkOrder } from '@/lib/docx-substitution'
 
 type Teacher = { id: string; name: string }
 type Marked = { id: string; staffId: string; staffName: string; day: number; period: number; subject: string; holderLabel: string; dateFrom: string; dateTo: string; orderNumber: string }
@@ -87,6 +88,16 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
     setMarked([...mine, ...others])
     toast('Записано')
     setSaving(false)
+  }
+
+  const [genning, setGenning] = useState(false)
+  async function downloadOrder() {
+    setGenning(true)
+    const res: any = await getLecturerFrameworkData()
+    if (res.error) { toast(res.error, 'error'); setGenning(false); return }
+    try { await generateLecturerFrameworkOrder(res.data); toast('Заповедта е изтеглена') }
+    catch (e) { toast('Грешка при генериране', 'error') }
+    setGenning(false)
   }
 
   async function removeTeacher(id: string) {
@@ -221,7 +232,15 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/60">
           <h3 className="text-sm font-semibold text-slate-800">Определени лекторски</h3>
-          <span className="text-xs text-slate-500">Предв. общо: <span className="font-semibold text-slate-800">{grandTotal}</span> ч.</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500">Предв. общо: <span className="font-semibold text-slate-800">{grandTotal}</span> ч.</span>
+            {byTeacher.length > 0 && (
+              <button onClick={downloadOrder} disabled={genning}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>
+                {genning ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />} Обща заповед
+              </button>
+            )}
+          </div>
         </div>
         {byTeacher.length === 0 ? (
           <div className="px-4 py-8 text-center text-sm text-slate-400">Още няма определени лекторски.</div>
