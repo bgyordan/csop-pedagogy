@@ -10,7 +10,17 @@ import type { SubRow } from './page'
 
 type Staff = { id: string; first_name: string; last_name: string }
 const REASONS: Record<string, string> = { sick: 'Болничен', vacation: 'Отпуск', other: 'Друго' }
-
+const KT_ARTICLES: { v: string; l: string }[] = [
+  { v: '155', l: 'чл. 155 – платен годишен отпуск' },
+  { v: '157', l: 'чл. 157 – отпуск при събития (брак, кръводаряване и др.)' },
+  { v: '159', l: 'чл. 159 – отпуск за обучение' },
+  { v: '161', l: 'чл. 161 – неплатен отпуск' },
+  { v: '162', l: 'чл. 162 – отпуск при временна неработоспособност (болничен)' },
+  { v: '168', l: 'чл. 168 – допълнителен отпуск за отглеждане на дете' },
+  { v: '169', l: 'чл. 169 – отпуск при осиновяване' },
+  { v: '170', l: 'чл. 170 – отпуск за изпълнение на граждански/обществени задължения' },
+  { v: '176', l: 'чл. 176 – отпуск по други причини' },
+]
 function fmt(d: string) { return d ? d.split('-').reverse().join('.') : '—' }
 function statusOf(r: SubRow): { label: string; cls: string } {
   if (r.hasOrder) return { label: 'Заповед издадена', cls: 'bg-emerald-50 text-emerald-600' }
@@ -101,6 +111,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [to, setTo] = useState('')
   const [reason, setReason] = useState('sick')
   const [bsch, setBsch] = useState(false)
+    const [ktArticle, setKtArticle] = useState('155')
+  const [eKtArticle, setEKtArticle] = useState('155')
   const [saving, setSaving] = useState(false)
 
   // Редакция
