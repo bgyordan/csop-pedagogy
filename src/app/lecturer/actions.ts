@@ -81,12 +81,11 @@ export async function clearLecturerSlots(staffId: string) {
 }
 export async function schoolWeeks(from: string, to: string): Promise<number> {
   const supabase = await createClient()
-  const { data } = await supabase
+    const { count } = await supabase
     .from('academic_calendar_days')
-    .select('week_number')
+    .select('*', { count: 'exact', head: true })
     .gte('date', from).lte('date', to).eq('is_school_day', true)
-  const weeks = new Set((data || []).map((d: any) => d.week_number))
-  return weeks.size
+  return Math.round((count || 0) / 5)
 }
 
 // Премахва един лекторски слот (day/period) на учител
@@ -144,9 +143,10 @@ export async function getLecturerFrameworkData() {
   async function weeksOf(from: string, to: string) {
     const k = `${from}|${to}`
     if (weeksCache[k] !== undefined) return weeksCache[k]
-    const { data } = await supabase.from('academic_calendar_days').select('week_number')
+        const { count } = await supabase.from('academic_calendar_days')
+      .select('*', { count: 'exact', head: true })
       .gte('date', from).lte('date', to).eq('is_school_day', true)
-    const w = new Set((data || []).map((d: any) => d.week_number)).size
+    const w = Math.round((count || 0) / 5)
     weeksCache[k] = w
     return w
   }
