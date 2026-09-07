@@ -230,3 +230,36 @@ export function generateAnnualReportExcel(
   XLSX.utils.book_append_sheet(wb, ws, yearName)
   XLSX.writeFile(wb, `годишна_справка_${yearName}.xlsx`)
 }
+// ═══ МОН ОТЧЕТ НП „Без свободен час" — импорт xlsx (лист „Справка") ═══
+export function generateMonImport(rows: {
+  name: string; docType: string; docNumber: string; docDate: string;
+  hoursTaken: number; nonSpecHoursTaken: number; kt: string; amount: number;
+}[]) {
+  const HEADERS = ['name','docType','docNumber','docDate','hoursTaken','nonSpecHoursTaken',
+    'art155_176_2026EUR','art155_2026EUR','art157_2026EUR','art159_2026EUR','art161_2026EUR',
+    'art162_2026EUR','art168_2026EUR','art169_2026EUR','art170_2026EUR','insurance_2026EUR']
+  // коя колона за кой член
+  const KT_COL: Record<string, string> = {
+    '155': 'art155_2026EUR', '157': 'art157_2026EUR', '159': 'art159_2026EUR',
+    '161': 'art161_2026EUR', '162': 'art162_2026EUR', '168': 'art168_2026EUR',
+    '169': 'art169_2026EUR', '170': 'art170_2026EUR', '176': 'art155_176_2026EUR',
+  }
+  const data = rows.map(r => {
+    const o: Record<string, any> = {}
+    HEADERS.forEach(h => { o[h] = '' })
+    o.name = r.name
+    o.docType = r.docType
+    o.docNumber = r.docNumber
+    o.docDate = r.docDate
+    o.hoursTaken = r.hoursTaken
+    o.nonSpecHoursTaken = r.nonSpecHoursTaken
+    const col = KT_COL[r.kt] || 'art155_2026EUR'
+    o[col] = r.amount
+    o.insurance_2026EUR = ''
+    return o
+  })
+  const ws = XLSX.utils.json_to_sheet(data, { header: HEADERS })
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Справка')
+  XLSX.writeFile(wb, `МОН_НП_импорт.xlsx`)
+}
