@@ -94,12 +94,25 @@ function DateField({ value, onChange, min, toast }: { value: string; onChange: (
   )
 }
 
+const SCHOOL_MONTHS_FILTER = (() => {
+  const now = new Date()
+  const sy = (now.getMonth() + 1) >= 9 ? now.getFullYear() : now.getFullYear() - 1
+  const MB = ['януари','февруари','март','април','май','юни','юли','август','септември','октомври','ноември','декември']
+  return [9,10,11,12,1,2,3,4,5,6].map(m => {
+    const y = m >= 9 ? sy : sy + 1
+    const first = `${y}-${String(m).padStart(2,'0')}-01`
+    const last = `${y}-${String(m).padStart(2,'0')}-${String(new Date(y, m, 0).getDate()).padStart(2,'0')}`
+    return { label: `${MB[m-1]} ${y}`, first, last }
+  })
+})()
+
 export default function SubstitutionsClient({ rows: initial, staff }: { rows: SubRow[]; staff: Staff[] }) {
   const supabase = createClient()
   const { toast } = useToast()
   const [rows, setRows] = useState<SubRow[]>(initial)
   const [search, setSearch] = useState('')
   const [npOnly, setNpOnly] = useState(false)
+  const [periodIdx, setPeriodIdx] = useState(-1)
   const [genId, setGenId] = useState<string | null>(null)
   const [overNormMap, setOverNormMap] = useState<Record<string, boolean>>({})
   const [registerMap, setRegisterMap] = useState<Record<string, boolean>>({})
@@ -178,12 +191,14 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
+    const per = periodIdx >= 0 ? SCHOOL_MONTHS_FILTER[periodIdx] : null
     return rows.filter(r => {
       if (npOnly && !r.bsch) return false
+      if (per && !(r.dateFrom <= per.last && r.dateTo >= per.first)) return false
       if (q && !(r.absentName.toLowerCase().includes(q) || (r.substituteName || '').toLowerCase().includes(q))) return false
       return true
     })
-  }, [rows, search, npOnly])
+  }, [rows, search, npOnly, periodIdx])
 
   function mapRow(r: any): SubRow {
     return {
@@ -280,6 +295,11 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
           }`}>
           само НП
         </button>
+        <select value={periodIdx} onChange={e => setPeriodIdx(Number(e.target.value))}
+          className="px-3 py-2 rounded-full text-sm bg-white border border-slate-200 text-slate-600 focus:outline-none focus:border-slate-400 shrink-0 cursor-pointer">
+          <option value={-1}>Всички периоди</option>
+          {SCHOOL_MONTHS_FILTER.map((m, i) => <option key={i} value={i}>{m.label}</option>)}
+        </select>
         {!showNew && (
           <button onClick={() => { setShowNew(true); resetMulti() }}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-white text-sm font-medium hover:opacity-90 shrink-0"
