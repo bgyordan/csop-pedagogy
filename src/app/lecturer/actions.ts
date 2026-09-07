@@ -129,11 +129,11 @@ export async function getLecturerFrameworkData() {
         position: s.staff?.position || 'учител',
         norm: NORMS[s.staff?.role || ''] || 21,
         from: s.date_from, to: s.date_to,
-        groups: {} as Record<string, { subject: string; cls: string; days: Set<number>; hours: number }>,
+        groups: {} as Record<string, { subject: string; cls: string; days: Set<number>; hours: number; from: string; to: string }>,
       }
     }
     const key = `${s.subject?.name || ''}||${s.holder_label || ''}`
-    if (!byStaff[sid].groups[key]) byStaff[sid].groups[key] = { subject: s.subject?.name || '—', cls: s.holder_label || '—', days: new Set(), hours: 0 }
+        if (!byStaff[sid].groups[key]) byStaff[sid].groups[key] = { subject: s.subject?.name || '—', cls: s.holder_label || '—', days: new Set(), hours: 0, from: s.date_from, to: s.date_to }
     byStaff[sid].groups[key].days.add(s.day)
     byStaff[sid].groups[key].hours++  // брой слотове = часа/седмица за тази комбинация
   }
@@ -154,11 +154,11 @@ export async function getLecturerFrameworkData() {
   const teachers: any[] = []
   for (const sid of Object.keys(byStaff)) {
     const t = byStaff[sid]
-    const weeks = await weeksOf(t.from, t.to)
-    const rows = Object.values(t.groups).map((g: any) => {
+       const rows = await Promise.all(Object.values(t.groups).map(async (g: any) => {
+      const weeks = await weeksOf(g.from, g.to)
       const days = Array.from(g.days).sort().map((d: any) => DOW[d]).join(', ')
-      return { subject: g.subject, cls: g.cls, days, perWeek: g.hours, weeks, total: g.hours * weeks }
-    })
+           return { subject: g.subject, cls: g.cls, days, perWeek: g.hours, weeks, total: g.hours * weeks }
+    }))
     const totalHours = rows.reduce((a, r) => a + r.total, 0)
     teachers.push({ name: t.name, position: t.position, norm: t.norm, from: t.from, to: t.to, rows, totalHours })
   }
