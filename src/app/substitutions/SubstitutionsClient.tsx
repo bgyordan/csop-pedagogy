@@ -369,7 +369,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
           const st = statusOf(r)
           return (
             <div key={r.id}
-              className={`bg-white border border-slate-200 rounded-2xl px-4 py-3 grid grid-cols-1 md:grid-cols-[24px_1fr_1fr_74px_74px_110px_200px] gap-2 md:gap-3 md:items-center transition-all group hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] shadow-[0_1px_4px_rgba(15,34,64,0.06)] ${idx % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
+              className={`bg-white border border-slate-200 rounded-2xl px-4 py-3 grid grid-cols-1 md:grid-cols-[24px_1fr_1fr_74px_74px_210px] gap-2 md:gap-3 md:items-center transition-all group hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] shadow-[0_1px_4px_rgba(15,34,64,0.06)] ${idx % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
               <span className="text-xs text-slate-400">{idx + 1}</span>
               <span className="text-sm text-slate-800">{r.absentName}</span>
               <span className="text-sm text-slate-600">
@@ -377,8 +377,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               </span>
               <span className="text-xs text-slate-500">{fmt(r.dateFrom)}</span>
               <span className="text-xs text-slate-500">{fmt(r.dateTo)}</span>
-              <span className="flex items-center gap-1.5 flex-wrap">
-                <span className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>
+              <span className="flex items-center gap-1.5">
                 {(r as any).bsch && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">НП</span>}
               </span>
               <div className="flex items-center justify-end gap-1">
