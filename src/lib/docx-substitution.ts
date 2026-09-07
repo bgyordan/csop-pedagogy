@@ -603,9 +603,21 @@ export async function generateNpLeaveOrder(d: NpLeaveOrderData) {
   ] }))
   children.push(new Paragraph({ children: [normal('Настоящата заповед да се сведе до знанието на съответните лица за сведение и изпълнение.', 22)], spacing: { after: 300 } }))
 
-  children.push(new Paragraph({ children: [bold('ДИРЕКТОР ЦСОП: ', 22), normal('.............................', 22)] }))
-  children.push(new Paragraph({ children: [normal('/ Светлана Иванова /', 20)] }))
-  children.push(new Paragraph({ children: [normal('(подпис и печат)', 18)], spacing: { before: 20 } }))
+    children.push(new Paragraph({
+    tabStops: [{ type: 'right', position: 9600 }],
+    spacing: { after: 20 },
+    children: [
+      bold('ДИРЕКТОР ЦСОП: ', 22), normal('.....................', 22),
+      new TextRun({ text: '\tЗапознат: .....................', size: 22 }),
+    ],
+  }))
+  children.push(new Paragraph({
+    tabStops: [{ type: 'right', position: 9600 }],
+    children: [
+      normal('        / Светлана Иванова /', 18),
+      new TextRun({ text: `\t/ ${d.absentName} /`, size: 18 }),
+    ],
+  }))
 
   const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
   const blob = await Packer.toBlob(doc)
