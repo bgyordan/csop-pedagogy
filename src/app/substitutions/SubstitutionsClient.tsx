@@ -10,6 +10,7 @@ import type { SubRow } from './page'
 
 type Staff = { id: string; first_name: string; last_name: string }
 const REASONS: Record<string, string> = { sick: 'Болничен', vacation: 'Отпуск', other: 'Друго' }
+function reasonFromKt(kt: string): string { return kt === '162' ? 'sick' : (kt === '161' || kt === '176' ? 'other' : 'vacation') }
 const KT_ARTICLES: { v: string; l: string }[] = [
   { v: '155', l: 'чл. 155 – платен годишен отпуск' },
   { v: '157', l: 'чл. 157 – отпуск при събития (брак, кръводаряване и др.)' },
@@ -205,7 +206,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     const primary = multiOpen ? firstOwner(dayMap, schoolDays) : subId
     const { data, error } = await supabase.from('substitutions').insert({
       absent_staff_id: absentId, substitute_staff_id: primary || null,
-      date_from: from, date_to: to, reason, bsch_eligible: bsch, kt_article: ktArticle,
+      date_from: from, date_to: to, reason: reasonFromKt(ktArticle), bsch_eligible: bsch, kt_article: ktArticle,
     }).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setSaving(false); return }
     if (multiOpen) {
@@ -246,7 +247,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     const primary = multiOpen ? firstOwner(dayMap, schoolDays) : eSub
     const { data, error } = await supabase.from('substitutions').update({
       absent_staff_id: eAbsent, substitute_staff_id: primary || null,
-      date_from: eFrom, date_to: eTo, reason: eReason, bsch_eligible: eBsch, kt_article: eKtArticle,
+      date_from: eFrom, date_to: eTo, reason: reasonFromKt(eKtArticle), bsch_eligible: eBsch, kt_article: eKtArticle,
     }).eq('id', editId).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setESaving(false); return }
     const mapped: any = mapRow(data); mapped.absentStaffId = eAbsent
@@ -311,17 +312,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               <label className="block text-xs text-slate-500 mb-1">До *</label>
               <DateField value={to} min={from || todayStr()} toast={toast} onChange={setTo} />
             </div>
-            <div>
-              <label className="block text-xs text-slate-500 mb-1">Причина</label>
-              <select value={reason} onChange={e => setReason(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 cursor-pointer">
-                <option value="sick">Болничен</option>
-                <option value="vacation">Отпуск</option>
-                <option value="other">Друго</option>
-              </select>
-            </div>
             <div className="sm:col-span-2">
-              <label className="block text-xs text-slate-500 mb-1">Член от КТ (вид отпуск на титуляря)</label>
+              <label className="block text-xs text-slate-500 mb-1">Вид отпуск / член от КТ на титуляря</label>
               <select value={ktArticle} onChange={e => setKtArticle(e.target.value)}
                 className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 cursor-pointer">
                 {KT_ARTICLES.map(a => <option key={a.v} value={a.v}>{a.l}</option>)}
@@ -451,16 +443,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                 <DateField value={eTo} min={eFrom || undefined} toast={toast} onChange={setETo} />
               </div>
               <div>
-                <label className="block text-xs text-slate-500 mb-1">Причина</label>
-                <select value={eReason} onChange={e => setEReason(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 cursor-pointer">
-                  <option value="sick">Болничен</option>
-                  <option value="vacation">Отпуск</option>
-                  <option value="other">Друго</option>
-                </select>
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-xs text-slate-500 mb-1">Член от КТ (вид отпуск на титуляря)</label>
+                <label className="block text-xs text-slate-500 mb-1">Вид отпуск / член от КТ на титуляря</label>
                 <select value={eKtArticle} onChange={e => setEKtArticle(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 cursor-pointer">
                   {KT_ARTICLES.map(a => <option key={a.v} value={a.v}>{a.l}</option>)}
