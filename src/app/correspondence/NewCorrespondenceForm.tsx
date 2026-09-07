@@ -39,6 +39,7 @@ const QUICK_SCENARIOS: Record<string, {
   dossierDocType?: string
 }> = {
   vacation: { label: 'Отпуск', icon: 'staff', index: 'ЛС-02', template: 'Заявление за отпуск', directions: ['incoming'] },
+  vacation_np: { label: 'НП отпуск', icon: 'staff', index: 'ЛС-02', template: 'НП „Без свободен час" – заявление за отпуск', directions: ['incoming'] },
   enrollment: { label: 'Прием на ученик', icon: 'student', index: 'УВД-09', template: 'Заявление за прием на {name}', directions: ['incoming'], dossierDocType: 'enrollment_application' },
   coud: { label: 'ЦОУД', icon: 'student', index: 'УВД-12', template: 'Молба за ЦОУД на {name}', directions: ['incoming'], dossierDocType: 'coud_application' },
 }
@@ -144,6 +145,8 @@ export default function NewCorrespondenceForm({
   const [subTo, setSubTo] = useState('')
   const currentYear = new Date().getFullYear()
   const activeScenario = scenario ? QUICK_SCENARIOS[scenario] : null
+    const isVacation = scenario === 'vacation' || scenario === 'vacation_np'
+  const isNp = scenario === 'vacation_np'
   const selectedNomItem = nomenclature.find(n => n.item_code === folderIndex)
   const [nextNumVal, setNextNumVal] = useState<number | null>(null)
   useEffect(() => {
@@ -246,7 +249,7 @@ export default function NewCorrespondenceForm({
       from_whom: fromWhom || null,
       to_whom: toWhom || null,
       subject,
-      description: (scenario === 'vacation' && substituteId && subFrom && subTo)
+      description: (isVacation && substituteId && subFrom && subTo)
         ? `Заместник: ${(staff.find(x => x.id === substituteId)?.first_name || '')} ${(staff.find(x => x.id === substituteId)?.last_name || '')}, ${subFrom.split('-').reverse().join('.')}–${subTo.split('-').reverse().join('.')}${description ? ' · ' + description : ''}`.trim()
         : (description || null),
       file_url: fileUrl || null,
@@ -260,7 +263,7 @@ export default function NewCorrespondenceForm({
     if (error) { alert(`Грешка: ${error.message}`); setSaving(false); return }
 
     // Автоматична заповед за отпуск (сценарий vacation, отметка включена)
-    if (scenario === 'vacation' && createOrder) {
+    if (isVacation && createOrder) {
       try {
         const oSeq = await nextSeqOrders(supabase, dStart, dEnd)
         const oNum = String(oSeq).padStart(3, '0')
@@ -280,7 +283,7 @@ export default function NewCorrespondenceForm({
     }
 
     // Заместване (сценарий vacation, ако е избран заместник) -> ред в substitutions
-    if (scenario === 'vacation' && substituteId && subFrom && subTo) {
+    if (isVacation && substituteId && subFrom && subTo) {
       try {
         await supabase.from('substitutions').insert({
           absent_staff_id: staffId || null,
@@ -386,7 +389,7 @@ export default function NewCorrespondenceForm({
                 <PersonCombo people={staff} value={staffId} onChange={handleStaffSelect} placeholder="Служител — търси по име…" />
                 {subject && <div className="text-xs text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2">{subject}</div>}
                                {/* Вид отпуск / член от КТ */}
-                {scenario === 'vacation' && (
+                {isVacation && (
                   <div className="pt-1">
                     <label className="block text-[11px] text-slate-500 mb-1">Вид отпуск / член от КТ</label>
                     <select value={ktArticle} onChange={e => setKtArticle(e.target.value)}
@@ -404,7 +407,7 @@ export default function NewCorrespondenceForm({
                   </div>
                 )}
                 {/* Автоматична заповед за отпуск */}
-                {scenario === 'vacation' && (
+                {isVacation && (
                   <label className="flex items-start gap-2 pt-1 cursor-pointer select-none">
                     <input type="checkbox" checked={createOrder} onChange={e => setCreateOrder(e.target.checked)}
                       className="w-4 h-4 rounded border-slate-300 accent-[#0f2240] mt-0.5" />
@@ -414,7 +417,7 @@ export default function NewCorrespondenceForm({
                   </label>
                 )}
                 {/* Заместване (опционално) */}
-                {scenario === 'vacation' && (
+                {isVacation && (
                   <div className="pt-2 mt-1 border-t border-slate-200 space-y-2">
                     <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Заместване (по избор)</div>
                     {/* Комбо заместник */}
