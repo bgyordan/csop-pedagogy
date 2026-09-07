@@ -230,18 +230,14 @@ export async function saveAssignments(substitutionId: string, rows: { substitute
   return { success: true }
 }
 // ── МЕСЕЧНА обобщена декларация за ЗАМЕСТВАНЕ (всички замествания на заместника за месеца) ──
-export async function getMonthlyDeclaration(year: number, month: number) {
+export async function getMonthlyDeclaration(first: string, last: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли' }
   const { data: me } = await supabase.from('staff_profiles').select('id, first_name, last_name, position').eq('user_id', user.id).single()
   if (!me) return { error: 'Профил не е намерен' }
 
-  // граници на месеца
-  const mm = String(month).padStart(2, '0')
-  const first = `${year}-${mm}-01`
-  const lastDay = new Date(year, month, 0).getDate()
-  const last = `${year}-${mm}-${String(lastDay).padStart(2, '0')}`
+    // first/last идват като параметри (период от–до)
 
   const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
 
@@ -320,7 +316,7 @@ export async function getMonthlyDeclaration(year: number, month: number) {
     data: {
       substituteName: `${me.first_name} ${me.last_name}`,
       substitutePosition: me.position || 'учител',
-      monthName: MONTHS[month - 1], year, yearName: cy?.name || '',
+      monthName: `периода ${first.split('-').reverse().join('.')} – ${last.split('-').reverse().join('.')}`, year: new Date(first).getFullYear(), yearName: cy?.name || '',
       rows, totalHours, npHours, budgetHours,
     },
   }
