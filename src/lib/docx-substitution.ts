@@ -623,3 +623,65 @@ export async function generateNpLeaveOrder(d: NpLeaveOrderData) {
   const blob = await Packer.toBlob(doc)
   saveAs(blob, `заповед_отпуск_НП_${d.orderNumber.replace(/[^0-9]/g, '_')}.docx`)
 }
+// ═══ ОБЩА ЗАПОВЕД за ЛЕКТОРСКИ над норматив ═══
+export interface LecturerFrameworkData {
+  teachers: {
+    name: string; position: string; norm: number; from: string; to: string
+    rows: { subject: string; cls: string; days: string; perWeek: number; weeks: number; total: number }[]
+    totalHours: number
+  }[]
+  yearName: string
+  orderNumber?: string
+}
+export async function generateLecturerFrameworkOrder(d: LecturerFrameworkData) {
+  const children: any[] = []
+  header().forEach(p => children.push(p))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('ЗАПОВЕД', 28)], spacing: { before: 120, after: 40 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal(`№ ${d.orderNumber || '............'} / ............ ${(d.yearName || '').split('/')[0] || ''} г.`, 22)], spacing: { after: 160 } }))
+
+  children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 120 }, children: [
+    normal('На основание чл. 259, ал. 1 от Кодекса на труда, във връзка с чл. 4, ал. 11, чл. 10, ал. 2 и чл. 20, ал. 1, т. 1 от Наредба № 4 от 20.04.2017 г. за нормиране и заплащане на труда, Приложение № 1 към чл. 4, ал. 11 от същата наредба, утвърденото разпределение на преподавателската работа за учебната ', 22),
+    bold(`${d.yearName} година`, 22),
+    normal(', утвърденото седмично разписание и с оглед обезпечаване на образователния и терапевтичния процес в ЦСОП – гр. Варна,', 22),
+  ] }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('НАРЕЖДАМ:', 24)], spacing: { after: 120 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 120 }, children: [
+    normal('1. Възлагам на изброените педагогически специалисти провеждането на учебни/терапевтични часове над определената им минимална норма преподавателска работа, които се възлагат като лекторски часове, както следва:', 22),
+  ] }))
+
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '888888' }
+  const CELLS = { top: B, bottom: B, left: B, right: B }
+  const th = (t: string) => new TableCell({ borders: CELLS, shading: { type: ShadingType.CLEAR, fill: 'EDF2F7' }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(t, 15)] })] })
+  const td = (t: string, c = false) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 15)] })] })
+
+  d.teachers.forEach((t, ti) => {
+    children.push(new Paragraph({ spacing: { before: 160, after: 40 }, children: [
+      bold(`${ti + 1}. ${t.name}`, 20), normal(` – ${t.position}, минимална норма ${t.norm} ч./седмично. Общо `, 18),
+      bold(`${t.totalHours} лекторски часа`, 18),
+      normal(` за периода ${formatDate(t.from)} – ${formatDate(t.to)}:`, 18),
+    ] }))
+    const rows: TableRow[] = [ new TableRow({ children: [
+      th('Предмет / дейност'), th('Клас / група'), th('Дни'), th('Ч./седм.'), th('Седмици'), th('Общо'),
+    ] }) ]
+    t.rows.forEach(r => rows.push(new TableRow({ children: [
+      td(r.subject), td(r.cls, true), td(r.days), td(String(r.perWeek), true), td(String(r.weeks), true), td(String(r.total), true),
+    ] })))
+    children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [3000, 1800, 2400, 900, 900, 800], rows }))
+  })
+
+  const P = (t: string) => children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { before: 100, after: 60 }, children: [normal(t, 20)] }))
+  P('2. Лекторските часове се провеждат съобразно утвърденото седмично разписание и утвърдената учебна документация.')
+  P('3. Часовете се отчитат като действително проведени въз основа на съответната задължителна документация и установения в ЦСОП ред за отчитане.')
+  P('4. За действително проведените и отчетени часове над минималната норма да се изплаща допълнително трудово възнаграждение съгласно чл. 20, ал. 1, т. 1 от Наредба № 4 от 20.04.2017 г. и Вътрешните правила за организация на работната заплата в ЦСОП – Варна.')
+  P('5. Контрол по изпълнението на заповедта възлагам на заместник-директора по учебната дейност.')
+  children.push(new Paragraph({ spacing: { before: 60, after: 240 }, children: [normal('Настоящата заповед да се доведе до знанието на заинтересованите лица за сведение и изпълнение.', 20)] }))
+
+  children.push(new Paragraph({ children: [bold('ДИРЕКТОР ЦСОП: ', 22), normal('.............................', 22)] }))
+  children.push(new Paragraph({ children: [normal('/ Светлана Иванова /', 20)], spacing: { after: 200 } }))
+  children.push(new Paragraph({ children: [bold('Запознати:', 20)], spacing: { after: 60 } }))
+  d.teachers.forEach((t, i) => children.push(new Paragraph({ spacing: { after: 50 }, children: [normal(`${i + 1}. ${t.name}     ..............................`, 18)] })))
+
+  const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
+  const blob = await Packer.toBlob(doc)
+  saveAs(blob, `заповед_лекторски_${(d.yearName || '').replace('/', '_')}.docx`)
+}
