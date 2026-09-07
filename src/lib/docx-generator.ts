@@ -106,6 +106,10 @@ function generateProtocol1(student: Student, team: any, data: Record<string, str
         new Paragraph({ spacing: { after: 80 }, children: [bold('Мнение на родителя:')] }),
         ...textBlock(data.parent_opinion || '', 3),
         new Paragraph({ spacing: { before: 200 }, children: [bold('Подпис: '), normal('................................')] }),
+        new Paragraph({ spacing: { before: 300, after: 80 }, children: [bold('Представители на изпращащото училище:')] }),
+      new Paragraph({ spacing: { after: 120 }, children: [normal('1. ...........................................')] }),
+      new Paragraph({ spacing: { after: 120 }, children: [normal('2. ...........................................')] }),
+      new Paragraph({ children: [normal('3. ...........................................')] }),
       ],
     }],
   })
