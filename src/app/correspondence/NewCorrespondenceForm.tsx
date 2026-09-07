@@ -137,6 +137,7 @@ export default function NewCorrespondenceForm({
   const [showAllNom, setShowAllNom] = useState(false)
   const [addToDossier, setAddToDossier] = useState(true)
   const [createOrder, setCreateOrder] = useState(false)
+    const [ktArticle, setKtArticle] = useState('155')
   // Заместване (само сценарий отпуск, опционално)
   const [substituteId, setSubstituteId] = useState('')
   const [subFrom, setSubFrom] = useState('')
@@ -283,6 +284,7 @@ export default function NewCorrespondenceForm({
       try {
         await supabase.from('substitutions').insert({
           absent_staff_id: staffId || null,
+                    kt_article: ktArticle,
           substitute_staff_id: substituteId,
           date_from: subFrom,
           date_to: subTo,
@@ -383,6 +385,24 @@ export default function NewCorrespondenceForm({
                 </label>
                 <PersonCombo people={staff} value={staffId} onChange={handleStaffSelect} placeholder="Служител — търси по име…" />
                 {subject && <div className="text-xs text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2">{subject}</div>}
+                               {/* Вид отпуск / член от КТ */}
+                {scenario === 'vacation' && (
+                  <div className="pt-1">
+                    <label className="block text-[11px] text-slate-500 mb-1">Вид отпуск / член от КТ</label>
+                    <select value={ktArticle} onChange={e => setKtArticle(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-400 cursor-pointer">
+                      <option value="155">чл. 155 – платен годишен отпуск</option>
+                      <option value="157">чл. 157 – отпуск при събития (брак, кръводаряване и др.)</option>
+                      <option value="159">чл. 159 – отпуск за обучение</option>
+                      <option value="161">чл. 161 – неплатен отпуск</option>
+                      <option value="162">чл. 162 – временна неработоспособност (болничен)</option>
+                      <option value="168">чл. 168 – отглеждане на дете</option>
+                      <option value="169">чл. 169 – осиновяване</option>
+                      <option value="170">чл. 170 – граждански/обществени задължения</option>
+                      <option value="176">чл. 176 – по други причини</option>
+                    </select>
+                  </div>
+                )}
                 {/* Автоматична заповед за отпуск */}
                 {scenario === 'vacation' && (
                   <label className="flex items-start gap-2 pt-1 cursor-pointer select-none">
