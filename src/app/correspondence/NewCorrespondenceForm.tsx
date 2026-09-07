@@ -293,7 +293,21 @@ export default function NewCorrespondenceForm({
     }
 
     // Заместване (сценарий vacation, ако е избран заместник) -> ред в substitutions
-    if (isVacation && substituteId && subFrom && subTo) {
+        if ((isVacation && substituteId && subFrom && subTo) || isNp) {
+      try {
+        await supabase.from('substitutions').insert({
+          absent_staff_id: staffId || null,
+          kt_article: ktArticle,
+          substitute_staff_id: substituteId || null,
+          date_from: subFrom || dStart,
+          date_to: subTo || dEnd,
+          reason: 'vacation',
+          bsch_eligible: isNp,
+          leave_order_date: docDate,
+          created_by: currentUserId,
+        })
+      } catch (_) {}
+    }
       try {
         await supabase.from('substitutions').insert({
           absent_staff_id: staffId || null,
