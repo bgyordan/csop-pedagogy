@@ -543,3 +543,71 @@ export async function generateMonthlyBudgetDeclaration(d: MonthlyDeclData) {
   const blob = await Packer.toBlob(doc)
   saveAs(blob, `декларация_бюджет_${d.monthName}_${d.substituteName.replace(/\s+/g, '_')}.docx`)
 }
+// ═══ ЗАПОВЕД ЗА ПОЛЗВАНЕ НА ОТПУСК (образец №1 на НП „Без свободен час") ═══
+export interface NpLeaveOrderData {
+  orderNumber: string
+  absentName: string
+  absentPosition: string
+  ktArticle: string        // 155/157/159/161/162/168/169/170/176
+  dateFrom: string
+  dateTo: string
+  workDays: number         // брой работни/учебни дни отпуск
+  leaveRef: string         // "Заявление вх. № …"
+  zdudName: string
+}
+const KT_TEXT: Record<string, string> = {
+  '155': 'чл. 155 – платен годишен отпуск',
+  '157': 'чл. 157 – отпуск при определени събития',
+  '159': 'чл. 159 – отпуск за синдикална дейност',
+  '161': 'чл. 161 – платен служебен/творчески отпуск',
+  '162': 'чл. 162 – отпуск при временна неработоспособност',
+  '168': 'чл. 168 – допълнителен отпуск за отглеждане на дете',
+  '169': 'чл. 169 – отпуск при осиновяване',
+  '170': 'чл. 170 – отпуск за граждански и обществени задължения',
+  '176': 'чл. 176 – неплатен/друг отпуск',
+}
+export async function generateNpLeaveOrder(d: NpLeaveOrderData) {
+  const children: any[] = []
+  header().forEach(p => children.push(p))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('ЗАПОВЕД', 28)], spacing: { before: 120, after: 60 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal(`№ ${d.orderNumber}`, 22)], spacing: { after: 160 } }))
+
+  const df = formatDate(d.dateFrom), dt = formatDate(d.dateTo)
+  const ktText = KT_TEXT[d.ktArticle] || `чл. ${d.ktArticle} КТ`
+
+  children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 120 }, children: [
+    normal('На основание чл. 259, ал. 1 от Закона за предучилищното и училищното образование, ', 22),
+    normal(`${ktText.replace(/^чл\. \d+[^–]*– /, 'чл. ' + d.ktArticle + ' ')} от Глава осма, раздел I от Кодекса на труда`, 22),
+    normal(` и подадено `, 22), bold(d.leaveRef || 'заявление', 22),
+    normal(', както и във връзка с осигуряване на заместване по Национална програма „Без свободен час", Модул 1,', 22),
+  ] }))
+
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('РАЗРЕШАВАМ:', 24)], spacing: { after: 120 } }))
+
+  children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 }, children: [
+    normal('Ползване на отпуск на ', 22),
+    bold(`${d.absentName}${d.absentPosition ? ' – ' + d.absentPosition : ''}`, 22),
+    normal(`, на основание ${ktText},`, 22),
+  ] }))
+  children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 }, children: [
+    normal('за периода от ', 22), bold(df, 22), normal(' до ', 22), bold(dt, 22),
+    normal(` включително${d.workDays ? ` (${d.workDays} работни дни)` : ''}.`, 22),
+  ] }))
+
+  children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 }, children: [
+    normal('Заместването на отсъстващия учител да се осигури по реда на Националната програма „Без свободен час", Модул 1, за реално проведените учебни часове.', 22),
+  ] }))
+  children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 200 }, children: [
+    normal('Контрол по изпълнението на заповедта възлагам на ', 22), bold(d.zdudName || '…………………', 22),
+    normal(', заместник-директор.', 22),
+  ] }))
+  children.push(new Paragraph({ children: [normal('Настоящата заповед да се сведе до знанието на съответните лица за сведение и изпълнение.', 22)], spacing: { after: 300 } }))
+
+  children.push(new Paragraph({ children: [bold('ДИРЕКТОР ЦСОП: ', 22), normal('.............................', 22)] }))
+  children.push(new Paragraph({ children: [normal('/ Светлана Иванова /', 20)] }))
+  children.push(new Paragraph({ children: [normal('(подпис и печат)', 18)], spacing: { before: 20 } }))
+
+  const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
+  const blob = await Packer.toBlob(doc)
+  saveAs(blob, `заповед_отпуск_НП_${d.orderNumber.replace(/[^0-9]/g, '_')}.docx`)
+}
