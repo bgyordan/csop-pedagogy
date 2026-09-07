@@ -372,8 +372,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       )}
 
       {/* Заглавен ред */}
-      <div className="hidden md:grid grid-cols-[40px_1fr_1fr_90px_90px_150px_120px] gap-3 px-4 py-2">
-        {['№', 'Отсъстващ', 'Заместник', 'От', 'До', 'Статус', ''].map((h, i) => (
+      <div className="hidden md:grid grid-cols-[24px_1fr_1fr_70px_70px_1fr] gap-3 px-4 py-2">
+        {['№', 'Отсъстващ', 'Заместник', 'От', 'До', ''].map((h, i) => (
           <span key={i} className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{h}</span>
         ))}
       </div>
@@ -389,7 +389,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
           const st = statusOf(r)
           return (
             <div key={r.id}
-              className={`bg-white border border-slate-200 rounded-2xl px-4 py-3 grid grid-cols-1 md:grid-cols-[24px_1fr_1fr_74px_74px_210px] gap-2 md:gap-3 md:items-center transition-all group hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] shadow-[0_1px_4px_rgba(15,34,64,0.06)] ${idx % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
+              className={`bg-white border border-slate-200 rounded-2xl px-4 py-3 grid grid-cols-1 md:grid-cols-[24px_1fr_1fr_70px_70px_1fr] gap-2 md:gap-3 md:items-center transition-all group hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] shadow-[0_1px_4px_rgba(15,34,64,0.06)] ${idx % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
               <span className="text-xs text-slate-400">{idx + 1}</span>
               <span className="text-sm text-slate-800">{r.absentName}</span>
               <span className="text-sm text-slate-600">
@@ -397,10 +397,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               </span>
               <span className="text-xs text-slate-500">{fmt(r.dateFrom)}</span>
               <span className="text-xs text-slate-500">{fmt(r.dateTo)}</span>
-              <span className="flex items-center gap-1.5">
-                {(r as any).bsch && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">НП</span>}
-              </span>
-              <div className="flex items-center justify-end gap-1">
+              <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                {(r as any).bsch && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0">НП</span>}
                 {r.substituteId && !r.hasOrder && (
                   <>
                     {(() => { const on = r.bsch ? true : (overNormMap[r.id] !== false); return (
