@@ -262,7 +262,7 @@ export async function getMonthlyDeclaration(year: number, month: number) {
   ;(mySched || []).forEach((s: any) => { schedName[s.id] = s.class?.name || '' })
   const schedIds = (mySched || []).map((s: any) => s.id)
 
-  const rows: { date: string; orderRef: string; cls: string; subject: string; hours: number; bsch: boolean; kt: string }[] = []
+  const rows: { date: string; orderRef: string; cls: string; subject: string; hours: number; bsch: boolean; kt: string; absentName: string }[] = []
 
   for (const sub of subs) {
     // orderRef
@@ -300,7 +300,8 @@ export async function getMonthlyDeclaration(year: number, month: number) {
       })
       Object.entries(byCls).forEach(([cls, v]) => rows.push({
         date: dateStr, orderRef, cls, subject: v.subjects.join('; '), hours: v.hours,
-        bsch: sub.bsch_eligible === true, kt: sub.kt_article || '',
+               bsch: sub.bsch_eligible === true, kt: sub.kt_article || '',
+        absentName: sub.absent ? `${(sub.absent as any).first_name} ${(sub.absent as any).last_name}` : '',
       }))
     }
   }
