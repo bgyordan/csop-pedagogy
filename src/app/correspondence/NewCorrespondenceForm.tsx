@@ -284,8 +284,8 @@ export default function NewCorrespondenceForm({
           try {
             await generateNpLeaveOrder({
               orderNumber, absentName: fromWhom || '', absentPosition: '',
-              ktArticle, dateFrom: subFrom || docDate, dateTo: subTo || docDate, workDays: 0,
-              leaveRef: `Заявление вх. № ${docNumber}`, zdudName: '',
+                            ktArticle, dateFrom: subFrom || docDate, dateTo: subTo || docDate, workDays: 0,
+              leaveRef: `Заявление вх. № ${docNumber}`, zdudName: 'Силвия Кьошкерян',
             })
           } catch (_) {}
         }
