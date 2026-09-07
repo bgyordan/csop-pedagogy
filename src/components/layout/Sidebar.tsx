@@ -79,10 +79,18 @@ const navItems: NavItem[] = [
     children: [
       { href: '/staff', label: 'Служители', icon: <UserCircle size={14} />, roles: ['admin', 'director', 'zdud'] },
       { href: '/reports/hub', label: 'Справки', icon: <BarChart3 size={14} />, roles: ['admin', 'director', 'zdud'] },
-      { href: '/admin', label: 'Администрация', icon: <Settings size={14} />, roles: ['admin', 'zdud'] },
-            { href: '/lecturer', label: 'Лекторски часове', icon: <GraduationCap size={14} />, roles: ['admin', 'zdud', 'director'] },
+            { href: '/admin', label: 'Администрация', icon: <Settings size={14} />, roles: ['admin', 'zdud'] },
+    ],
+  },
+  {
+    href: '#lecturer-mgmt',
+    label: 'Лекторски',
+    icon: <GraduationCap size={16} />,
+    roles: ['admin', 'zdud', 'director'],
+    children: [
+      { href: '/lecturer', label: 'Лекторски часове', icon: <GraduationCap size={14} />, roles: ['admin', 'zdud', 'director'] },
+      { href: '/substitutions', label: 'Замествания', icon: <UserX size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/lecturer-review', label: 'Проверка лекторски', icon: <ClipboardList size={14} />, roles: ['admin', 'zdud', 'director'] },
-            { href: '/substitutions', label: 'Замествания', icon: <UserX size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
   },
   {
