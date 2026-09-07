@@ -12,10 +12,12 @@ import { GraduationCap, Home, Wifi } from 'lucide-react'
 import { EplrDocumentsSection } from './EplrDocumentsSection'
 import MarkProcessedButton from './MarkProcessedButton'
 import StudentDeclarations from './StudentDeclarations'
+
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
   'iup', 'iu_program', 'support_plan', 'parent_program'
 ]
+
 const ATTACHMENT_TYPE_LABELS: Record<string, string> = {
   enrollment_application: 'Заявление за прием',
   coud_application: 'Заявление за ЦОУД',
@@ -25,6 +27,7 @@ const ATTACHMENT_TYPE_LABELS: Record<string, string> = {
   medical_expertise: 'Медицинска експертиза',
   other: 'Друг документ',
 }
+
 function calculateAge(birthDate: string): string {
   const birth = new Date(birthDate)
   const now = new Date()
@@ -36,14 +39,17 @@ function calculateAge(birthDate: string): string {
   if (months === 0) return `${years} г.`
   return `${years} г. ${months} м.`
 }
+
 function getInitials(firstName: string, lastName: string): string {
   return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`
 }
+
 export default async function StudentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
+
   const { data: student } = await supabase
     .from('students')
     .select(`*,
@@ -53,25 +59,32 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       therapist_rehab:staff_profiles!students_therapist_rehab_id_fkey(id, first_name, middle_name, last_name)
     `)
     .eq('id', id).single()
+
   if (!student) notFound()
- const { data: profile } = await supabase
+
+  const { data: profile } = await supabase
     .from('staff_profiles').select('id, role, is_coordinator').eq('user_id', user.id).single()
   const canManage = ['admin', 'zdud'].includes(profile?.role || '')
   const isCoordinator = profile?.is_coordinator === true
+
   const { data: currentYear } = await supabase
     .from('academic_years').select('*').eq('is_current', true).single()
+
   const { data: enrollment } = await supabase
     .from('student_enrollments').select('*, class:classes(*)')
     .eq('student_id', id).eq('academic_year_id', currentYear?.id).single()
+
   const { data: externalMembers } = await supabase
     .from('eplr_external_members').select('id, full_name')
     .eq('student_id', id).eq('academic_year_id', currentYear?.id).order('created_at')
+
   const { data: eplrDocs } = await supabase
     .from('eplr_attachments')
     .select('*')
     .eq('student_id', id)
     .eq('academic_year_id', currentYear?.id)
     .order('created_at', { ascending: false })
+
   const { data: eplr } = await supabase
     .from('eplr_teams').select(`*,
       psychologist:staff_profiles!eplr_teams_psychologist_id_fkey(*),
@@ -79,19 +92,26 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       rehabilitator:staff_profiles!eplr_teams_rehabilitator_id_fkey(*),
       class_teacher:staff_profiles!eplr_teams_class_teacher_id_fkey(*)
     `).eq('student_id', id).eq('academic_year_id', currentYear?.id).single()
+
   const { data: documents } = await supabase
     .from('documents').select('*').eq('student_id', id).eq('academic_year_id', currentYear?.id)
+
   const { data: attachments } = await supabase
     .from('student_attachments').select('*').eq('student_id', id).order('created_at', { ascending: false })
+
   const { data: allEnrollments } = await supabase
     .from('student_enrollments').select('*, class:classes(*), academic_year:academic_years(*)')
     .eq('student_id', id).order('enrolled_at', { ascending: false })
+
   const { data: guardians } = await supabase
     .from('student_guardians').select('*').eq('student_id', id).order('relation')
+
   const { data: oresRecords } = await supabase
     .from('student_ores').select('*').eq('student_id', id).order('from_date', { ascending: false })
+
   const today = new Date().toISOString().split('T')[0]
   const activeOres = (oresRecords || []).find(o => o.from_date <= today && (!o.to_date || o.to_date >= today))
+  
   let canEditDossier = canManage || profile?.role === 'secretary'
   if (!canManage && profile?.role === 'class_teacher' && enrollment?.class_id) {
     const { data: myClasses } = await supabase
@@ -99,6 +119,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       .eq('staff_id', profile.id).eq('academic_year_id', currentYear?.id)
     canEditDossier = (myClasses || []).some(c => c.class_id === enrollment.class_id)
   }
+
   // Кой може да маха маркера "нов": админ, ЗДУД, координатор, класен (на своята паралелка)
   const canMarkProcessed = canManage || isCoordinator || canEditDossier
   const educationForm = (enrollment as any)?.education_form || 'daily'
@@ -117,13 +138,16 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   const sendingSchool = student.sending_school as any
   const className = (enrollment?.class as any)?.name || ''
   const age = student.birth_date ? calculateAge(student.birth_date) : null
-  const cardCls = "bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm"
+  
+  const cardCls = "bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm h-full"
   const cardHead = "flex items-center gap-2 mb-3 pb-2.5 border-b border-slate-100"
+
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8 animate-in fade-in duration-500">
       <Link href="/students" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-5 transition-colors">
         <ArrowLeft size={15} /> Назад към учениците
       </Link>
+
       {/* ХЕДЪР */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 md:p-6 mb-5">
         <div className="flex items-start gap-4 md:gap-5">
@@ -156,7 +180,6 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                   <Sparkles size={11} /> НОВ УЧЕНИК
                 </span>
               )}
-              
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
               <div>
@@ -182,7 +205,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                   <div className="text-sm font-medium text-slate-700 mt-0.5">{student.external_class}</div>
                 </div>
               )}
-                            {student.is_traveling && (
+              {student.is_traveling && (
                 <div>
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Транспорт</div>
                   <div className="text-sm font-medium text-slate-700 mt-0.5 inline-flex items-center gap-1.5">
@@ -195,6 +218,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
         </div>
+
         {(canManage || canEditDossier || isCoordinator) && student.status === 'active' && (
           <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-slate-100">
             {canManage && (
@@ -233,6 +257,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           </div>
         )}
       </div>
+
       {student.status === 'archived' && student.archive_reason && (
         <div className="mb-5 p-4 bg-amber-50/40 border border-amber-200/60 rounded-2xl text-sm text-slate-700 shadow-sm">
           <span className="font-semibold text-amber-800">Причина за напускане:</span> {student.archive_reason}
@@ -240,130 +265,170 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         </div>
       )}
 
-      {/* РЕД 1: ОБУЧЕНИЕ — цяла ширина, полетата хоризонтално вътре */}
-      <div className={`${cardCls} mb-4`}>
-        <div className={cardHead}>
-          <GraduationCap size={16} className="text-blue-500" />
-          <h2 className="font-semibold text-slate-800 text-sm">Обучение</h2>
-        </div>
-        <StudentStatusSection
-          studentId={id}
-          enrollmentId={enrollment?.id || null}
-          educationForm={educationForm}
-          coudEnrolled={coudEnrolled}
-          coudGroupName={coudGroupName}
-         coudTeacher={coudTeacher}
-          externalClass={student.external_class}
-          oresRecords={oresRecords || []}
-          intensity={(student as any).intensity}
-          canManage={canManage}
-        />
-      </div>
+      {/* 
+        СЕКЦИЯ С ТАБОВЕ (Чист CSS, без нужда от клиентски state)
+      */}
+      <div className="w-full relative">
+        {/* Скрити Radio бутони */}
+        <input type="radio" name="student-tabs" id="tab-data" className="peer/tab-data hidden" defaultChecked />
+        <input type="radio" name="student-tabs" id="tab-eplr" className="peer/tab-eplr hidden" />
+        <input type="radio" name="student-tabs" id="tab-therapy" className="peer/tab-therapy hidden" />
+        <input type="radio" name="student-tabs" id="tab-files" className="peer/tab-files hidden" />
 
-      {/* РЕД 2: ЕПЛР екип (тясна) + Документи ЕПЛР (широка) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4 items-start">
-        <div className={cardCls}>
-          <div className={cardHead}>
-            <Users size={16} className="text-blue-500" />
-            <h2 className="font-semibold text-slate-800 text-sm">ЕПЛР екип</h2>
-          </div>
-          <EplrTeam externals={externalMembers || []} eplr={eplr} id={id} canManage={canManage}
-            realPsy={(student as any).therapist_psychologist_id}
-            realSpe={(student as any).therapist_speech_id}
-            realReh={(student as any).therapist_rehab_id} />
+        {/* Навигация */}
+        <div className="flex flex-wrap border-b border-slate-200 mb-5 gap-6 px-1">
+          <label htmlFor="tab-data" className="cursor-pointer pb-2.5 text-sm font-semibold text-slate-500 border-b-2 border-transparent peer-checked/tab-data:text-blue-600 peer-checked/tab-data:border-blue-600 hover:text-slate-700 transition-all flex items-center gap-2">
+            <ClipboardList size={16} /> Данни
+          </label>
+          <label htmlFor="tab-eplr" className="cursor-pointer pb-2.5 text-sm font-semibold text-slate-500 border-b-2 border-transparent peer-checked/tab-eplr:text-blue-600 peer-checked/tab-eplr:border-blue-600 hover:text-slate-700 transition-all flex items-center gap-2">
+            <Users size={16} /> ЕПЛР
+          </label>
+          <label htmlFor="tab-therapy" className="cursor-pointer pb-2.5 text-sm font-semibold text-slate-500 border-b-2 border-transparent peer-checked/tab-therapy:text-blue-600 peer-checked/tab-therapy:border-blue-600 hover:text-slate-700 transition-all flex items-center gap-2">
+            <Heart size={16} /> Терапия
+          </label>
+          <label htmlFor="tab-files" className="cursor-pointer pb-2.5 text-sm font-semibold text-slate-500 border-b-2 border-transparent peer-checked/tab-files:text-blue-600 peer-checked/tab-files:border-blue-600 hover:text-slate-700 transition-all flex items-center gap-2">
+            <Paperclip size={16} /> Файлове
+          </label>
         </div>
-        <div className={`${cardCls} lg:col-span-2`}>
-          <div className={cardHead}>
-            <FileText size={16} className="text-emerald-500" />
-            <h2 className="font-semibold text-slate-800 text-sm">Документи ЕПЛР — {currentYear?.name}</h2>
-          </div>
-          <EplrDocumentsSection
-            studentId={student.id}
-            academicYearId={currentYear?.id || ''}
-            documents={eplrDocs || []}
-            canManage={canManage || canEditDossier}
-            staffId={profile?.id || ''}
-          />
-        </div>
-      </div>
 
-      {/* РЕД 3: Терапевти (тясна) + Досие външни документи (широка) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4 items-start">
-        <div className={cardCls}>
-          <div className={cardHead}>
-            <Heart size={16} className="text-teal-500" />
-            <h2 className="font-semibold text-slate-800 text-sm">Терапевти</h2>
-          </div>
-          <dl className="space-y-2.5">
-            {[
-              { label: 'Психолог', member: (student as any).therapist_psychologist },
-              { label: 'Логопед', member: (student as any).therapist_speech },
-              { label: 'Рехабилитатор', member: (student as any).therapist_rehab },
-            ].map(({ label, member }) => (
-              <div key={label}>
-                <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</dt>
-                <dd className="text-sm font-medium text-slate-700 mt-0.5">
-                  {member ? getFullName(member) : <span className="text-slate-400 font-normal">не е зачислен</span>}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-        <div className={`${cardCls} lg:col-span-2`}>
-          <div className={cardHead}>
-            <Paperclip size={16} className="text-amber-500" />
-            <h2 className="font-semibold text-slate-800 text-sm">Досие — външни документи</h2>
-          </div>
-          <AttachmentsSection
-            studentId={id}
-            attachments={attachments || []}
-            canManage={canEditDossier}
-            staffId={profile?.id || ''}
-            typeLabels={ATTACHMENT_TYPE_LABELS}
-            currentYearName={currentYearName}
-            yearOptions={yearOptions}
-          />
-        </div>
-      </div>
-
-      {/* РЕД 4: Родители (тясна) + История (широка, компактна) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-        <div className={cardCls}>
-          <div className={cardHead}>
-            <Heart size={16} className="text-rose-400" />
-            <h2 className="font-semibold text-slate-800 text-sm">Родители / Настойници</h2>
-          </div>
-          <GuardiansSection studentId={id} guardians={guardians || []} canManage={canEditDossier} />
-          </div>
-        <div className={`${cardCls} lg:col-span-2`}>
-          <div className={cardHead}>
-            <History size={16} className="text-indigo-400" />
-            <h2 className="font-semibold text-slate-800 text-sm">История на обучението</h2>
-          </div>
-          {allEnrollments && allEnrollments.length > 1 ? (
-            <div className="flex items-center gap-2 flex-wrap">
-              {allEnrollments.map(e => {
-                const yr = e.academic_year as any
-                const cls = e.class as any
-                const isCurrent = yr?.id === currentYear?.id
-                return (
-                  <span key={e.id} className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg ${isCurrent ? 'bg-blue-50 text-blue-700 font-semibold' : 'bg-slate-50 text-slate-500'}`}>
-                    {yr?.name || '—'} · Паралелка {cls?.name || '—'}
-                  </span>
-                )
-              })}
+        {/* ТАБ 1: ДАННИ */}
+        <div className="hidden peer-checked/tab-data:block animate-in fade-in duration-300">
+          <div className={`${cardCls} !h-auto mb-4`}>
+            <div className={cardHead}>
+              <GraduationCap size={16} className="text-blue-500" />
+              <h2 className="font-semibold text-slate-800 text-sm">Обучение</h2>
             </div>
-          ) : (
-            <p className="text-sm text-slate-400">Само текущата година</p>
-          )}
-        </div>
-      </div>
+            <StudentStatusSection
+              studentId={id}
+              enrollmentId={enrollment?.id || null}
+              educationForm={educationForm}
+              coudEnrolled={coudEnrolled}
+              coudGroupName={coudGroupName}
+              coudTeacher={coudTeacher}
+              externalClass={student.external_class}
+              oresRecords={oresRecords || []}
+              intensity={(student as any).intensity}
+              canManage={canManage}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+            <div className={cardCls}>
+              <div className={cardHead}>
+                <Heart size={16} className="text-rose-400" />
+                <h2 className="font-semibold text-slate-800 text-sm">Родители / Настойници</h2>
+              </div>
+              <GuardiansSection studentId={id} guardians={guardians || []} canManage={canEditDossier} />
+            </div>
+            
+            <div className={cardCls}>
+              <div className={cardHead}>
+                <History size={16} className="text-indigo-400" />
+                <h2 className="font-semibold text-slate-800 text-sm">История на обучението</h2>
+              </div>
+              {allEnrollments && allEnrollments.length > 1 ? (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {allEnrollments.map(e => {
+                    const yr = e.academic_year as any
+                    const cls = e.class as any
+                    const isCurrent = yr?.id === currentYear?.id
+                    return (
+                      <span key={e.id} className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg ${isCurrent ? 'bg-blue-50 text-blue-700 font-semibold' : 'bg-slate-50 text-slate-500'}`}>
+                        {yr?.name || '—'} · Паралелка {cls?.name || '—'}
+                      </span>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400">Само текущата година</p>
+              )}
+            </div>
+          </div>
+          
           <div className="mt-4">
-        <StudentDeclarations studentId={id} canManage={canEditDossier} />
+            <StudentDeclarations studentId={id} canManage={canEditDossier} />
+          </div>
+        </div>
+
+        {/* ТАБ 2: ЕПЛР */}
+        <div className="hidden peer-checked/tab-eplr:block animate-in fade-in duration-300">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+            <div className={cardCls}>
+              <div className={cardHead}>
+                <Users size={16} className="text-blue-500" />
+                <h2 className="font-semibold text-slate-800 text-sm">ЕПЛР екип</h2>
+              </div>
+              <EplrTeam externals={externalMembers || []} eplr={eplr} id={id} canManage={canManage}
+                realPsy={(student as any).therapist_psychologist_id}
+                realSpe={(student as any).therapist_speech_id}
+                realReh={(student as any).therapist_rehab_id} />
+            </div>
+            <div className={`${cardCls} lg:col-span-2`}>
+              <div className={cardHead}>
+                <FileText size={16} className="text-emerald-500" />
+                <h2 className="font-semibold text-slate-800 text-sm">Документи ЕПЛР — {currentYear?.name}</h2>
+              </div>
+              <EplrDocumentsSection
+                studentId={student.id}
+                academicYearId={currentYear?.id || ''}
+                documents={eplrDocs || []}
+                canManage={canManage || canEditDossier}
+                staffId={profile?.id || ''}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ТАБ 3: ТЕРАПИЯ */}
+        <div className="hidden peer-checked/tab-therapy:block animate-in fade-in duration-300">
+          <div className="max-w-md">
+            <div className={cardCls}>
+              <div className={cardHead}>
+                <Heart size={16} className="text-teal-500" />
+                <h2 className="font-semibold text-slate-800 text-sm">Терапевти</h2>
+              </div>
+              <dl className="space-y-2.5">
+                {[
+                  { label: 'Психолог', member: (student as any).therapist_psychologist },
+                  { label: 'Логопед', member: (student as any).therapist_speech },
+                  { label: 'Рехабилитатор', member: (student as any).therapist_rehab },
+                ].map(({ label, member }) => (
+                  <div key={label}>
+                    <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</dt>
+                    <dd className="text-sm font-medium text-slate-700 mt-0.5">
+                      {member ? getFullName(member) : <span className="text-slate-400 font-normal">не е зачислен</span>}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </div>
+        </div>
+
+        {/* ТАБ 4: ФАЙЛОВЕ */}
+        <div className="hidden peer-checked/tab-files:block animate-in fade-in duration-300">
+          <div className={`${cardCls} !h-auto`}>
+            <div className={cardHead}>
+              <Paperclip size={16} className="text-amber-500" />
+              <h2 className="font-semibold text-slate-800 text-sm">Досие — външни документи</h2>
+            </div>
+            <AttachmentsSection
+              studentId={id}
+              attachments={attachments || []}
+              canManage={canEditDossier}
+              staffId={profile?.id || ''}
+              typeLabels={ATTACHMENT_TYPE_LABELS}
+              currentYearName={currentYearName}
+              yearOptions={yearOptions}
+            />
+          </div>
+        </div>
+
       </div>
     </div>
   )
 }
+
 function EplrTeam({ eplr, id, canManage, externals = [], realPsy, realSpe, realReh }: { eplr: any, id: string, canManage: boolean, externals?: any[], realPsy?: string, realSpe?: string, realReh?: string }) {
   if (!eplr) return (
     <div>
