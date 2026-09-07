@@ -321,3 +321,58 @@ export async function getMonthlyDeclaration(first: string, last: string) {
     },
   }
 }
+// ── МОН ОТЧЕТ (НП „Без свободен час") — всички НП замествания за период, редове за импорт ──
+export async function getMonExport(first: string, last: string, rate: number) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+  const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
+
+  // всички НП замествания, застъпващи периода
+  const { data: subs } = await supabase
+    .from('substitutions')
+    .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, kt_article, substitution_order_id, bsch_eligible,
+      sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name, position)`)
+    .eq('bsch_eligible', true)
+    .lte('date_from', last).gte('date_to', first)
+  if (!subs || subs.length === 0) return { error: 'Няма НП замествания за този период' }
+
+  // разписания (за часовете)
+  const { data: mySched } = await supabase
+    .from('class_schedules').select('id').eq('academic_year_id', cy?.id).eq('term', 1)
+  const schedIds = (mySched || []).map((s: any) => s.id)
+
+  // за всяко заместване — брой учебни часове в пресечението с периода
+  const rows: any[] = []
+  for (const sub of subs) {
+    let orderNumber = '', orderDate = ''
+    if (sub.substitution_order_id) {
+      const { data: o } = await supabase.from('orders').select('number, date').eq('id', sub.substitution_order_id).single()
+      if (o) { orderNumber = o.number || ''; orderDate = o.date || '' }
+    }
+    // часовете на отсъстващия по ден
+    const bySlotDow: Record<number, number> = {}
+    if (schedIds.length > 0) {
+      const { data: slots } = await supabase.from('schedule_slots').select('day').in('schedule_id', schedIds).eq('staff_id', sub.absent_staff_id)
+      ;(slots || []).forEach((sl: any) => { bySlotDow[sl.day] = (bySlotDow[sl.day] || 0) + 1 })
+    }
+    const { data: ifo } = await supabase.from('teacher_ifo_slots').select('day').eq('teacher_id', sub.absent_staff_id).eq('academic_year_id', cy?.id).eq('term', 1)
+    ;(ifo || []).forEach((sl: any) => { bySlotDow[sl.day] = (bySlotDow[sl.day] || 0) + 1 })
+    // учебни дни в пресечението
+    const lo = sub.date_from > first ? sub.date_from : first
+    const hi = sub.date_to < last ? sub.date_to : last
+    const wds = await workdays(supabase, lo, hi)
+    let hours = 0
+    wds.forEach(w => { hours += (bySlotDow[w.dow] || 0) })
+    if (hours === 0) continue
+    const isNonSpec = /възпитател|помощник|психолог|логопед|рехабилитатор/i.test((sub.sub as any)?.position || '')
+    rows.push({
+      name: sub.sub ? `${(sub.sub as any).first_name} ${(sub.sub as any).last_name}` : '',
+      docType: 'Заповед', docNumber: orderNumber, docDate: orderDate,
+      hoursTaken: hours, nonSpecHoursTaken: isNonSpec ? hours : 0,
+      kt: sub.kt_article || '155', amount: +(hours * rate).toFixed(2),
+    })
+  }
+  if (rows.length === 0) return { error: 'Няма часове за отчет в този период' }
+  return { success: true, data: { rows, yearName: cy?.name || '', first, last } }
+}
