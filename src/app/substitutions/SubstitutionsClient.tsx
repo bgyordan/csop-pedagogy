@@ -369,7 +369,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
           const st = statusOf(r)
           return (
             <div key={r.id}
-              className={`bg-white border border-slate-200 rounded-2xl px-4 py-3 grid grid-cols-1 md:grid-cols-[36px_1fr_1fr_80px_80px_120px_230px] gap-2 md:gap-3 md:items-center transition-all group hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] shadow-[0_1px_4px_rgba(15,34,64,0.06)] ${idx % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
+              className={`bg-white border border-slate-200 rounded-2xl px-4 py-3 grid grid-cols-1 md:grid-cols-[24px_1fr_1fr_74px_74px_110px_200px] gap-2 md:gap-3 md:items-center transition-all group hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] shadow-[0_1px_4px_rgba(15,34,64,0.06)] ${idx % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
               <span className="text-xs text-slate-400">{idx + 1}</span>
               <span className="text-sm text-slate-800">{r.absentName}</span>
               <span className="text-sm text-slate-600">
@@ -387,24 +387,24 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                     {(() => { const on = r.bsch ? true : (overNormMap[r.id] !== false); return (
                     <button type="button" disabled={r.bsch}
                       onClick={() => { if (!r.bsch) setOverNormMap(p => ({ ...p, [r.id]: !(p[r.id] !== false) })) }}
-                      className={`relative inline-flex items-center h-7 rounded-full border transition-colors shrink-0 select-none mr-1 ${r.bsch ? 'opacity-90 cursor-not-allowed' : ''}`}
-                      style={{ width: '128px', backgroundColor: on ? '#0f2240' : '#e2e8f0', borderColor: on ? '#0f2240' : '#cbd5e1' }}
-                      title={r.bsch ? 'По НП винаги е с лекторски' : 'Превключи: със заплащане (лекторски) / без заплащане'}>
-                      <span className={on ? 'absolute left-2.5 text-[10px] font-medium text-white' : 'absolute right-2.5 text-[10px] font-medium text-slate-600'}>
-                        {on ? 'С лекторски' : 'Без лекторски'}
+                      className={`relative inline-flex items-center h-6 rounded-full border transition-colors shrink-0 select-none mr-1 ${r.bsch ? 'opacity-90 cursor-not-allowed' : ''}`}
+                      style={{ width: '90px', backgroundColor: on ? '#0f2240' : '#e2e8f0', borderColor: on ? '#0f2240' : '#cbd5e1' }}
+                      title={r.bsch ? 'По НП винаги е с лекторски' : 'Превключи: с лекторски / без лекторски'}>
+                      <span className={on ? 'absolute left-2 text-[10px] font-medium text-white' : 'absolute right-2 text-[10px] font-medium text-slate-600'}>
+                        {on ? 'Лект.' : 'Норма'}
                       </span>
-                      <span className="absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all" style={{ left: on ? 'calc(100% - 26px)' : '2px' }} />
+                      <span className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all" style={{ left: on ? 'calc(100% - 22px)' : '2px' }} />
                     </button>
                     )})()}
                     <label className="inline-flex items-center gap-1 text-[10px] text-slate-500 cursor-pointer mr-1 whitespace-nowrap" title="Регистрирай заповедта в Заповеди — после прикачи подписания скан. Без отметка само сваля Word.">
                       <input type="checkbox" checked={registerMap[r.id] !== false}
                         onChange={e => setRegisterMap(p => ({ ...p, [r.id]: e.target.checked }))}
                         className="rounded" />
-                      Регистрирай
+                      Рег.
                     </label>
                     <button onClick={() => genOrder(r.id)} disabled={genId === r.id}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 disabled:opacity-50 shrink-0" style={{ backgroundColor: '#0f2240' }}>
-                      {genId === r.id ? <Loader2 size={12} className="animate-spin" /> : <>Заповед <ArrowRight size={12} /></>}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 disabled:opacity-50 shrink-0" style={{ backgroundColor: '#0f2240' }}>
+                      {genId === r.id ? <Loader2 size={12} className="animate-spin" /> : <>Заповед</>}
                     </button>
                   </>
                 )}
