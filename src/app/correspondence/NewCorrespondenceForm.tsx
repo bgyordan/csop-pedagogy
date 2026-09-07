@@ -292,8 +292,8 @@ export default function NewCorrespondenceForm({
       } catch (_) { /* заповедта не бива да блокира деловодството */ }
     }
 
-    // Заместване (сценарий vacation, ако е избран заместник) -> ред в substitutions
-        if ((isVacation && substituteId && subFrom && subTo) || isNp) {
+// Заместване (сценарий vacation, ако е избран заместник)
+    if ((isVacation && substituteId && subFrom && subTo) || isNp) {
       try {
         await supabase.from('substitutions').insert({
           absent_staff_id: staffId || null,
@@ -302,20 +302,6 @@ export default function NewCorrespondenceForm({
           date_from: subFrom || dStart,
           date_to: subTo || dEnd,
           reason: 'vacation',
-          bsch_eligible: isNp,
-          leave_order_date: docDate,
-          created_by: currentUserId,
-        })
-      } catch (_) {}
-    }
-      try {
-        await supabase.from('substitutions').insert({
-          absent_staff_id: staffId || null,
-                    kt_article: ktArticle,
-          substitute_staff_id: substituteId,
-          date_from: subFrom,
-          date_to: subTo,
-                   reason: 'vacation',
           bsch_eligible: isNp,
           leave_order_date: docDate,
           created_by: currentUserId,
