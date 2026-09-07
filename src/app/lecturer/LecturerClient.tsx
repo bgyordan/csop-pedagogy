@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Loader2, Check, Save, Users, GraduationCap, X, Trash2, FileDown } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { getTeacherSchedule, saveLecturerSlots, clearLecturerSlots, schoolWeeks, getLecturerFrameworkData } from './actions'
+import { getTeacherSchedule, saveLecturerSlots, clearLecturerSlots, schoolWeeks, getLecturerFrameworkData, removeLecturerSlot } from './actions'
 import { generateLecturerFrameworkOrder } from '@/lib/docx-substitution'
 
 type Teacher = { id: string; name: string }
@@ -49,19 +49,17 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
     setLoadingSched(true); setSchedule([]); setPicked(new Set())
     const res: any = await getTeacherSchedule(id)
     setSchedule(res.slots || [])
-    // предзареждаме вече маркираните за този учител
-    const his = marked.filter(m => m.staffId === id)
-    if (his.length > 0) {
-      setPicked(new Set(his.map(m => `${m.day}-${m.period}`)))
-      setFrom(his[0].dateFrom); setTo(his[0].dateTo)
-    }
+    // НЕ зареждаме записаните в picked — те се показват отделно с периодите си; picked е за нова група
     setLoadingSched(false)
   }
 
   const slotAt = (day: number, period: number) => schedule.find(s => s.day === day && s.period === period)
+  // вече записан лекторски слот (с период) за текущия учител
+  const savedAt = (day: number, period: number) => marked.find(m => m.staffId === teacherId && m.day === day && m.period === period)
   function togglePick(day: number, period: number) {
     const key = `${day}-${period}`
     if (!slotAt(day, period)) return // само реални часове
+    if (savedAt(day, period)) return // вече записан — маха се с бутона за премахване
     setPicked(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n })
   }
 
@@ -79,14 +77,16 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
     })
     const res: any = await saveLecturerSlots(teacherId, from, to, slots)
     if (res.error) { toast(res.error, 'error'); setSaving(false); return }
-    // обновяваме списъка локално
-    const others = marked.filter(m => m.staffId !== teacherId)
+    // добавяме новите към marked (махаме само същите day/period, ако се презаписват)
+    const keys = new Set(slots.map(s => `${s.day}-${s.period}`))
+    const kept = marked.filter(m => !(m.staffId === teacherId && keys.has(`${m.day}-${m.period}`)))
     const mine: Marked[] = slots.map((s, i) => ({
-      id: `tmp-${i}`, staffId: teacherId, staffName: teacherName, day: s.day, period: s.period,
+      id: `tmp-${Date.now()}-${i}`, staffId: teacherId, staffName: teacherName, day: s.day, period: s.period,
       subject: slotAt(s.day, s.period)?.subject || '', holderLabel: s.holderLabel, dateFrom: from, dateTo: to, orderNumber: '',
     }))
-    setMarked([...mine, ...others])
-    toast('Записано')
+    setMarked([...mine, ...kept])
+    setPicked(new Set())  // чистим за следваща група
+    toast('Добавено')
     setSaving(false)
   }
 
@@ -181,9 +181,21 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
                             const sl = slotAt(d.n, period)
                             const key = `${d.n}-${period}`
                             const on = picked.has(key)
+                            const saved = savedAt(d.n, period)
                             return (
                               <td key={d.n} className="p-1">
                                 {sl ? (
+                                  saved ? (
+                                    <div className="relative w-full min-h-[42px] rounded-lg border border-emerald-300 bg-emerald-50 px-1.5 py-1 text-left">
+                                      <div className="text-[10px] text-emerald-700 opacity-80">{sl.holderLabel}</div>
+                                      <div className="text-[11px] truncate text-emerald-800">{sl.subject}</div>
+                                      <div className="text-[9px] text-emerald-600">{fmt(saved.dateFrom)}–{fmt(saved.dateTo)}</div>
+                                      <button onClick={async () => {
+                                        await removeLecturerSlot(teacherId, d.n, period)
+                                        setMarked(prev => prev.filter(m => !(m.staffId === teacherId && m.day === d.n && m.period === period)))
+                                      }} className="absolute top-0.5 right-0.5 text-emerald-400 hover:text-rose-600" title="Премахни"><X size={11} /></button>
+                                    </div>
+                                  ) : (
                                   <button onClick={() => togglePick(d.n, period)}
                                     className={`w-full min-h-[42px] rounded-lg border px-1.5 py-1 text-left transition-all ${
                                       on ? 'border-[#0f2240] bg-[#0f2240] text-white' : 'border-slate-200 bg-slate-50 hover:border-slate-400'
@@ -191,6 +203,7 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
                                     <div className="text-[10px] opacity-80">{sl.holderLabel}</div>
                                     <div className="text-[11px] truncate">{sl.subject}</div>
                                   </button>
+                                  )
                                 ) : <div className="min-h-[42px]" />}
                               </td>
                             )
@@ -219,7 +232,7 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
                   <div className="text-sm text-slate-600 ml-auto">Маркирани: <span className="font-semibold text-slate-800">{pickedCount}</span> ч./седмица</div>
                   <button onClick={save} disabled={saving || pickedCount === 0 || !from || !to}
                     className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-white text-sm font-medium disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
-                    {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Запази
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Добави с този период
                   </button>
                 </div>
               </>
