@@ -270,7 +270,7 @@ export default function NewCorrespondenceForm({
           date: docDate,
           title: `Заповед за отпуск на ${fromWhom || ''}`.trim(),
           nomenclature_item: 'РД-10',
-          description: `Издадена въз основа на Вх. ${docNumber}`,
+          description: `Издадена въз основа на Вх. ${docNumber} · Отпуск по чл. ${ktArticle} КТ`,
                     file_url: fileUrl || null,
           file_name: fileName || null,
           created_by: currentUserId,
