@@ -12,22 +12,20 @@ const MONTHS = ['януари','февруари','март','април','ма�
 export default function MySubstitutionsClient({ rows }: { rows: MySubRow[] }) {
   const { toast } = useToast()
   const now = new Date()
-  // месеците на учебната година: септ (год.старт) → юни (год.старт+1)
   const schoolStartYear = (now.getMonth() + 1) >= 9 ? now.getFullYear() : now.getFullYear() - 1
-  const SCHOOL_MONTHS = [
-    { m: 9, y: schoolStartYear }, { m: 10, y: schoolStartYear }, { m: 11, y: schoolStartYear }, { m: 12, y: schoolStartYear },
-    { m: 1, y: schoolStartYear + 1 }, { m: 2, y: schoolStartYear + 1 }, { m: 3, y: schoolStartYear + 1 },
-    { m: 4, y: schoolStartYear + 1 }, { m: 5, y: schoolStartYear + 1 }, { m: 6, y: schoolStartYear + 1 },
-  ]
-  const curIdx = SCHOOL_MONTHS.findIndex(x => x.m === (now.getMonth() + 1))
-  const [sel, setSel] = useState(curIdx >= 0 ? curIdx : 0)
-  const month = SCHOOL_MONTHS[sel].m
-  const year = SCHOOL_MONTHS[sel].y
+  const SCHOOL_MONTHS = [9,10,11,12,1,2,3,4,5,6].map(m => ({ m, y: m >= 9 ? schoolStartYear : schoolStartYear + 1, label: `${MONTHS[m-1]} ${m >= 9 ? schoolStartYear : schoolStartYear + 1}` }))
+  const curIdx = Math.max(0, SCHOOL_MONTHS.findIndex(x => x.m === (now.getMonth() + 1)))
+  const [fromIdx, setFromIdx] = useState(curIdx)
+  const [toIdx, setToIdx] = useState(curIdx)
+  const mFirst = (m: number, y: number) => `${y}-${String(m).padStart(2,'0')}-01`
+  const mLast = (m: number, y: number) => `${y}-${String(m).padStart(2,'0')}-${String(new Date(y, m, 0).getDate()).padStart(2,'0')}`
+  const first = mFirst(SCHOOL_MONTHS[fromIdx].m, SCHOOL_MONTHS[fromIdx].y)
+  const last = mLast(SCHOOL_MONTHS[toIdx].m, SCHOOL_MONTHS[toIdx].y)
   const [busy, setBusy] = useState<'np' | 'budget' | null>(null)
 
   async function gen(kind: 'np' | 'budget') {
     setBusy(kind)
-    const res: any = await getMonthlyDeclaration(year, month)
+    const res: any = await getMonthlyDeclaration(first, last)
     if (res.error) { toast(res.error, 'error'); setBusy(null); return }
     const d = res.data
     const has = kind === 'np' ? d.rows.some((r: any) => r.bsch) : d.rows.some((r: any) => !r.bsch)
@@ -47,10 +45,17 @@ export default function MySubstitutionsClient({ rows }: { rows: MySubRow[] }) {
       <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Месец от учебната година</label>
-            <select value={sel} onChange={e => setSel(Number(e.target.value))}
+            <label className="block text-xs text-slate-500 mb-1">От месец</label>
+            <select value={fromIdx} onChange={e => { const i = Number(e.target.value); setFromIdx(i); if (i > toIdx) setToIdx(i) }}
               className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none cursor-pointer">
-              {SCHOOL_MONTHS.map((x, i) => <option key={i} value={i}>{MONTHS[x.m - 1]} {x.y} г.</option>)}
+              {SCHOOL_MONTHS.map((x, i) => <option key={i} value={i}>{x.label} г.</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">До месец</label>
+            <select value={toIdx} onChange={e => setToIdx(Number(e.target.value))}
+              className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none cursor-pointer">
+              {SCHOOL_MONTHS.map((x, i) => <option key={i} value={i} disabled={i < fromIdx}>{x.label} г.</option>)}
             </select>
           </div>
           <div className="flex gap-2 ml-auto">
