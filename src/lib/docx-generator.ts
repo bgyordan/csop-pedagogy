@@ -1616,8 +1616,8 @@ export async function generateSchoolLetter(
   children.push(
     new Paragraph({ text: '' }),
     new Paragraph({ spacing: { before: 200, after: 40 }, children: [new TextRun({ text: 'С уважение,', size: 22 })] }),
-    new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Директор на ЦСОП – Варна:', size: 22 })] }),
-    new Paragraph({ children: [new TextRun({ text: '.', size: 22 })] }),
+    new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Светлана Иванова', size: 22 })] }),
+   new Paragraph({ children: [new TextRun({ text: 'Директор на ЦСОП – Варна', size: 22, italics: true })] }),
   )
 
   const doc = new Document({ sections: [{ properties: {}, children }] })
