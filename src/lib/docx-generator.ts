@@ -1525,16 +1525,21 @@ export async function generateSchoolLetter(
   )
 
   // Уводен текст
-  children.push(
-    new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: 'Здравейте,', size: 22 })] }),
-    new Paragraph({ text: '' }),
-    new Paragraph({
-      spacing: { after: 200 },
-      children: [new TextRun({
-        text: 'С цел по-добра координация, намаляване на административната тежест и оптимизиране на резултатите, както и въз основа на чл. 128 ал. 4 от Наредба за приобщаващо образование, отправяме предложение за включване на специалисти от ЦСОП – Варна в заповедите за ЕПЛР на децата и учениците записани във Вашето училище и обучаващи се в ЦСОП – Варна. Очакваме при готовност, да ни предоставите заповедта за съответните ученици.',
-        size: 22,
-      })],
-    }),
+ import { AlignmentType } from 'docx'; // Уверете се, че AlignmentType е импортиран
+
+children.push(
+  new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: 'Здравейте,', size: 24 })] }),
+  new Paragraph({ text: '' }),
+  new Paragraph({
+    alignment: AlignmentType.JUSTIFY, // Двустранно подравняване
+    indent: { firstLine: 720 },        // Отстъп на първия ред (720 twips ≈ 1.27 см)
+    spacing: { after: 200 },
+    children: [new TextRun({
+      text: 'С цел по-добра координация, намаляване на административната тежест и оптимизиране на резултатите, както и въз основа на чл. 128 ал. 4 от Наредба за приобщаващо образование, отправяме предложение за включване на специалисти от ЦСОП – Варна в заповедите за ЕПЛР на децата и учениците записани във Вашето училище и обучаващи се в ЦСОП – Варна. Очакваме при готовност, да ни предоставите заповедта за съответните ученици.',
+      size: 24,
+    })],
+  }),
+)
     new Paragraph({ text: '' }),
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 240 }, children: [new TextRun({ text: `${schoolName} — ${schoolCity}`, bold: true, size: 24 })] }),
   )
@@ -1555,7 +1560,7 @@ export async function generateSchoolLetter(
             children: [new Paragraph({
               children: [
                 new TextRun({ text: `${idx + 1}.  ${row.name}`, bold: true, size: 22 }),
-                new TextRun({ text: `   |   Паралелка ЦСОП: ${row.className}`, size: 20, color: '555555' }),
+                new TextRun({ text: `   |   Паралелка ЦСОП: ${row.className}`, size: 22, color: '555555' }),
                 ...(row.externalClass ? [new TextRun({ text: `   |   Клас: ${row.externalClass}`, size: 20, color: '555555' })] : []),
               ],
             })],
@@ -1585,7 +1590,7 @@ export async function generateSchoolLetter(
                 right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
               },
               margins: { top: 60, bottom: 60, left: 200, right: 80 },
-              children: [new Paragraph({ children: [new TextRun({ text: m.role, size: 20, color: '666666' })] })],
+              children: [new Paragraph({ children: [new TextRun({ text: m.role, size: 22, color: '666666' })] })],
             }),
             new TableCell({
               width: { size: 60, type: WidthType.PERCENTAGE },
@@ -1596,7 +1601,7 @@ export async function generateSchoolLetter(
                 right: BORDER_LIGHT,
               },
               margins: { top: 60, bottom: 60, left: 80, right: 120 },
-              children: [new Paragraph({ children: [new TextRun({ text: m.name, bold: true, size: 20 })] })],
+              children: [new Paragraph({ children: [new TextRun({ text: m.name, bold: true, size: 22 })] })],
             }),
           ],
         })
@@ -1615,9 +1620,9 @@ export async function generateSchoolLetter(
   // Подпис
   children.push(
     new Paragraph({ text: '' }),
-    new Paragraph({ spacing: { before: 200, after: 40 }, children: [new TextRun({ text: 'С уважение,', size: 22 })] }),
-    new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Светлана Иванова', size: 22 })] }),
-   new Paragraph({ children: [new TextRun({ text: 'Директор на ЦСОП – Варна', size: 22, italics: true })] }),
+    new Paragraph({ spacing: { before: 200, after: 40 }, children: [new TextRun({ text: 'С уважение,', size: 24 })] }),
+    new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Светлана Иванова', size: 24 })] }),
+   new Paragraph({ children: [new TextRun({ text: 'Директор на ЦСОП – Варна', size: 24, italics: true })] }),
   )
 
   const doc = new Document({ sections: [{ properties: {}, children }] })
