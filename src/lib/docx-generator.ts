@@ -1525,7 +1525,6 @@ export async function generateSchoolLetter(
   )
 
   // Уводен текст
- import { AlignmentType } from 'docx'; // Уверете се, че AlignmentType е импортиран
 
 children.push(
   new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: 'Здравейте,', size: 24 })] }),
