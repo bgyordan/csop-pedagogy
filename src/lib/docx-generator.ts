@@ -1524,25 +1524,26 @@ export async function generateSchoolLetter(
     new Paragraph({ text: '' }),
   )
 
-  // Уводен текст
-
+// Уводен текст
 children.push(
   new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: 'Здравейте,', size: 24 })] }),
   new Paragraph({ text: '' }),
   new Paragraph({
-    alignment: AlignmentType.JUSTIFY, // Двустранно подравняване
-    indent: { firstLine: 720 },        // Отстъп на първия ред (720 twips ≈ 1.27 см)
+    alignment: AlignmentType.JUSTIFY,
+    indent: { firstLine: 720 },
     spacing: { after: 200 },
     children: [new TextRun({
       text: 'С цел по-добра координация, намаляване на административната тежест и оптимизиране на резултатите, както и въз основа на чл. 128 ал. 4 от Наредба за приобщаващо образование, отправяме предложение за включване на специалисти от ЦСОП – Варна в заповедите за ЕПЛР на децата и учениците записани във Вашето училище и обучаващи се в ЦСОП – Варна. Очакваме при готовност, да ни предоставите заповедта за съответните ученици.',
       size: 24,
     })],
   }),
-)
-    new Paragraph({ text: '' }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 240 }, children: [new TextRun({ text: `${schoolName} — ${schoolCity}`, bold: true, size: 24 })] }),
-  )
-
+  new Paragraph({ text: '' }),
+  new Paragraph({ 
+    alignment: AlignmentType.CENTER, 
+    spacing: { after: 240 }, 
+    children: [new TextRun({ text: `${schoolName} — ${schoolCity}`, bold: true, size: 24 })] 
+  })
+);
   // Всяко дете в таблица-рамка
   rows.forEach((row, idx) => {
     const teamRows: TableRow[] = []
