@@ -1529,7 +1529,7 @@ children.push(
   new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: 'Здравейте,', size: 24 })] }),
   new Paragraph({ text: '' }),
   new Paragraph({
-    alignment: AlignmentType.JUSTIFY,
+    alignment: AlignmentType.JUSTIFIED,
     indent: { firstLine: 720 },
     spacing: { after: 200 },
     children: [new TextRun({
