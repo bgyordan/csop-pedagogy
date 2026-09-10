@@ -26,6 +26,7 @@ interface Props {
   studentId: string
   enrollmentId: string | null
   educationForm: string
+  coudEnrolled: boolean
   coudGroupName?: string | null
   coudTeacher?: string | null
   externalClass?: string | null
