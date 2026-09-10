@@ -135,7 +135,7 @@ export default function CorrespondenceClient({
         />
       )}
 
-          {/* Скролваема таблица: замразен заглавен ред + скролващи редове */}
+      {/* Скролваема таблица: замразен заглавен ред + скролващи редове */}
       <div className="max-h-[calc(100vh-320px)] overflow-y-auto rounded-lg">
       {/* Заглавен ред */}
       <div className="hidden md:grid grid-cols-[130px_80px_70px_1fr_1.5fr_1.5fr_56px] gap-3 px-4 py-2 sticky top-0 z-10 bg-slate-100">
@@ -155,7 +155,7 @@ export default function CorrespondenceClient({
           return (
             <div key={item.id}
               onClick={() => setViewItem(item)}
-              className={`border rounded-2xl px-3 py-1.5 cursor-pointer hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] transition-all group grid grid-cols-[130px_80px_70px_1fr_1.5fr_1.5fr_56px] gap-3 items-center shadow-[0_1px_4px_rgba(15,34,64,0.06)] ${item.is_reserved ? 'bg-amber-50 border-amber-200 hover:border-amber-300' : 'bg-white border-slate-200 hover:border-slate-400'}`}>
+              className={`border rounded-2xl px-3 py-1.5 cursor-pointer transition-all group grid grid-cols-[130px_80px_70px_1fr_1.5fr_1.5fr_56px] gap-3 items-center shadow-[0_1px_4px_rgba(15,34,64,0.06)] hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] ${item.is_reserved ? 'bg-amber-50 border-amber-200 hover:border-amber-300' : 'bg-white even:bg-slate-50/60 hover:bg-slate-100/50 border-slate-200 hover:border-slate-400'}`}>
 
               <span className="font-medium text-slate-800 text-xs whitespace-nowrap truncate flex items-center gap-1">{item.number}{item.is_reserved && <span className="text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 shrink-0">резерв.</span>}</span>
 
@@ -163,7 +163,7 @@ export default function CorrespondenceClient({
                 {item.date ? new Date(item.date).toLocaleDateString('bg-BG') : '—'}
               </span>
 
-                            <span className="text-xs text-slate-500 truncate" title={item.nomenclature_item || ''}>{item.nomenclature_item || '—'}</span>
+              <span className="text-xs text-slate-500 truncate" title={item.nomenclature_item || ''}>{item.nomenclature_item || '—'}</span>
               <span className="text-xs text-slate-800 truncate" title={personLabel || ''}>{personLabel || '—'}</span>
               <span className="text-xs text-slate-800 truncate" title={item.subject || ''}>{item.subject || '—'}</span>
               <span className="text-xs text-slate-800 truncate" title={item.description || ''}>{item.description || '—'}</span>
@@ -171,7 +171,7 @@ export default function CorrespondenceClient({
               <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
                 {item.file_url ? (
                   <button type="button" title="Отвори файл"
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition-colors"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-200 transition-colors"
                     onClick={async () => {
                       const win = window.open('', '_blank')
                       const { data } = await supabase.storage.from('documents').createSignedUrl(item.file_url, 120)
@@ -185,14 +185,14 @@ export default function CorrespondenceClient({
                 )}
                 {canEdit && (
                   <button type="button" onClick={() => setEditItem(item)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition-colors opacity-0 group-hover:opacity-100"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-200 transition-colors opacity-0 group-hover:opacity-100"
                     title="Редакция">
                     ✏️
                   </button>
                 )}
                 {canDelete && (
                   <button type="button" onClick={(e) => handleDelete(item.id, e)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors opacity-0 group-hover:opacity-100"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-100 transition-colors opacity-0 group-hover:opacity-100"
                     title="Изтрий">
                     🗑️
                   </button>
@@ -200,7 +200,7 @@ export default function CorrespondenceClient({
               </div>
             </div>
           )
-                })}
+        })}
       </div>
       </div>
       {/* Пагинация */}
