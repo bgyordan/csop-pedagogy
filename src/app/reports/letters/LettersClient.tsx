@@ -1,5 +1,6 @@
 'use client'
 import RuoLetterButton from '../RuoLetterButton'
+import OutreachLetterButton from '../OutreachLetterButton'
 import { Mail } from 'lucide-react'
 
 interface RuoRow { className: string; students: { name: string; school: string; externalClass: string }[] }
@@ -28,8 +29,10 @@ export default function LettersClient({ yearName, ruoData }: { yearName: string;
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-400">
-          Изнесени групи (до РЦПППО) — предстои.
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+          <h3 className="text-sm font-semibold text-slate-800 mb-1">Изнесени групи (до РЦПППО)</h3>
+          <p className="text-xs text-slate-500 mb-3">Само изнесените паралелки в социалните услуги (ДМСГД – Виница, ЦНСТ – Тополи), с основание чл.185, ал.2. Актуален състав, „Служебна" изключена.</p>
+          <OutreachLetterButton yearName={yearName} classes={ruoData} />
         </div>
       </div>
     </div>
