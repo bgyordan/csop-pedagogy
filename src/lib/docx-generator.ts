@@ -1229,7 +1229,148 @@ export async function generateRuoClassesLetter(
   const blob = await Packer.toBlob(doc)
   saveAs(blob, `паралелки_РУО_${yearName.replace(/[^0-9]/g, '_')}.docx`)
 }
+// ── ПИСМО ДО РЦПППО: ИЗНЕСЕНИ ГРУПИ (в социалните услуги) ───────────────────
+// Фиксирано подмножество паралелки, групирани по социална услуга. Само с деца.
+export async function generateOutreachGroupsLetter(
+  yearName: string,
+  classes: { className: string; students: { name: string; school: string; externalClass: string }[] }[],
+  opts?: { addressee?: string; position?: string; institution?: string; directorName?: string },
+) {
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const CELLS = { top: B, bottom: B, left: B, right: B }
+  const NONE = {
+    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  }
+  const addressee = opts?.addressee || 'ДО Г-ЖА МАРИЯНА ПАНТЕЛЕЕВА'
+  const position = opts?.position || 'ДИРЕКТОР НА'
+  const institution = opts?.institution || 'РЦПППО ГРАД ВАРНА'
+  const directorName = opts?.directorName || 'Светлана Иванова'
+  const BASIS = 'Във връзка с чл. 53, Приложение №7, раздел IV, т. 3 от Наредбата за финансиране на институциите в системата на предучилищното и училищно образование от 05.09.2017 г., предлагам да се сформира следната паралелка:'
 
+  // Място → изнесени паралелки (римски номер + пореден номер за заглавието)
+  const OUTREACH: { location: string; items: { roman: string; num: number }[] }[] = [
+    { location: 'ДМСГД – Виница', items: [
+      { roman: 'XVI', num: 16 }, { roman: 'XVII', num: 17 }, { roman: 'XVIII', num: 18 },
+      { roman: 'XIX', num: 19 }, { roman: 'XX', num: 20 }, { roman: 'XXIX', num: 29 },
+    ] },
+    { location: 'ЦНСТ – Тополи', items: [
+      { roman: 'XXI', num: 21 }, { roman: 'XXII', num: 22 },
+    ] },
+  ]
+
+  const romanOf = (name: string) => (name.trim().match(/^[IVXLCDM]+/i)?.[0] || '').toUpperCase()
+  const usable = classes.filter(c => !/служебна/i.test(c.className) && c.students.length > 0)
+  const byRoman: Record<string, typeof usable[number]> = {}
+  usable.forEach(c => { const r = romanOf(c.className); if (r) byRoman[r] = c })
+
+  const groups = OUTREACH.map(g => ({
+    location: g.location,
+    items: g.items.map(it => ({ ...it, cls: byRoman[it.roman] })).filter(x => x.cls),
+  })).filter(g => g.items.length > 0)
+
+  const totalParalelki = groups.reduce((a, g) => a + g.items.length, 0)
+
+  const children: any[] = []
+
+  // Хедър с лого
+  children.push(
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [new TableRow({ children: [
+        new TableCell({
+          width: { size: 20, type: WidthType.PERCENTAGE }, borders: NONE,
+          margins: { top: 0, bottom: 0, left: 0, right: 80 },
+          children: [new Paragraph({ alignment: AlignmentType.LEFT, children: [
+            new ImageRun({ data: Buffer.from(CSOP_LOGO_B64, 'base64'), transformation: { width: 60, height: 60 }, type: 'jpg' }),
+          ]})],
+        }),
+        new TableCell({
+          width: { size: 80, type: WidthType.PERCENTAGE }, borders: NONE,
+          verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
+          children: [
+            new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
+            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456, 0878 521 823', size: 17, italics: true, color: '555555' })] }),
+          ],
+        }),
+      ]})],
+    }),
+    new Paragraph({ spacing: { before: 80, after: 80 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
+    new Paragraph({ text: '' }),
+
+    new Paragraph({ alignment: AlignmentType.LEFT, spacing: { after: 20 }, children: [new TextRun({ text: addressee, bold: true, size: 22 })] }),
+    new Paragraph({ alignment: AlignmentType.LEFT, spacing: { after: 20 }, children: [new TextRun({ text: position, bold: true, size: 22 })] }),
+    new Paragraph({ alignment: AlignmentType.LEFT, spacing: { after: 320 }, children: [new TextRun({ text: institution, bold: true, size: 22 })] }),
+
+    new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: `УВАЖАЕМА ГОСПОЖО ${addressee.replace(/^ДО\s+Г-ЖА\s+/i, '').toUpperCase()},`, bold: true, size: 22 })] }),
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED, spacing: { after: 240 },
+      children: [new TextRun({ text: `Предлагам, да ми бъде разрешено сформиране на ${totalParalelki} изнесени групи и паралелки с деца и ученици за учебна ${yearName} г., организирани в социалните услуги в общността, насочени в ЦСОП –Варна на основание чл. 195, ал. 1 от ЗПУО и чл. 185, ал. 2 от Наредба за приобщаващо образование.`, size: 22 })],
+    }),
+  )
+
+  groups.forEach(g => {
+    children.push(new Paragraph({
+      keepNext: true, spacing: { before: 240, after: 120 },
+      children: [new TextRun({ text: `Прилагам списък с деца и ученици: ${g.location}`, bold: true, size: 22 })],
+    }))
+
+    g.items.forEach(({ num, cls }) => {
+      const title = classTitle(cls!.className, cls!.students.map(s => s.externalClass))
+
+      children.push(new Paragraph({
+        keepNext: true, spacing: { before: 160, after: 40 },
+        children: [new TextRun({ text: `${num}. ПАРАЛЕЛКА`, bold: true, size: 21 })],
+      }))
+      children.push(new Paragraph({
+        keepNext: true, alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 },
+        children: [new TextRun({ text: BASIS, size: 21 })],
+      }))
+
+      const rows: TableRow[] = []
+      rows.push(new TableRow({ cantSplit: true, children: [new TableCell({
+        columnSpan: 4, borders: CELLS,
+        shading: { type: ShadingType.CLEAR, fill: 'E8EEF5' },
+        margins: { top: 60, bottom: 60, left: 100, right: 100 },
+        children: [new Paragraph({ keepNext: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: title, bold: true, size: 20 })] })],
+      })]}))
+      rows.push(new TableRow({ cantSplit: true, children: [
+        { t: '№', w: 7 }, { t: 'Име, презиме, фамилия', w: 40 }, { t: 'Училище', w: 43 }, { t: 'Клас', w: 10 },
+      ].map(c => new TableCell({
+        width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
+        shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
+        margins: { top: 40, bottom: 40, left: 80, right: 80 },
+        children: [new Paragraph({ keepNext: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 18 })] })],
+      }))}))
+      cls!.students.forEach((st, i) => {
+        const cnum = classNumber(st.externalClass)
+        const notLast = i < cls!.students.length - 1
+        rows.push(new TableRow({ cantSplit: true, children: [
+          { t: String(i + 1), a: AlignmentType.CENTER },
+          { t: st.name, a: AlignmentType.LEFT },
+          { t: st.school || '—', a: AlignmentType.LEFT },
+          { t: cnum !== null ? toRoman(cnum) : (st.externalClass || ''), a: AlignmentType.CENTER },
+        ].map(c => new TableCell({
+          borders: CELLS, margins: { top: 40, bottom: 40, left: 80, right: 80 },
+          children: [new Paragraph({ keepNext: notLast, alignment: c.a, children: [new TextRun({ text: c.t, size: 18 })] })],
+        }))}))
+      })
+      children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }))
+    })
+  })
+
+  children.push(
+    new Paragraph({ text: '', spacing: { after: 400 } }),
+    new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: directorName, bold: true, size: 22 })] }),
+    new Paragraph({ children: [new TextRun({ text: 'Директор на ЦСОП-Варна', size: 20 })] }),
+  )
+
+  const doc = new Document({ sections: [{ properties: {}, children }] })
+  const blob = await Packer.toBlob(doc)
+  saveAs(blob, `изнесени_групи_РЦПППО_${yearName.replace(/[^0-9]/g, '_')}.docx`)
+}
 // ── ЗАПОВЕД ЗА СФОРМИРАНЕ НА ЦОУД ГРУПИ ─────────────────────────────────────
 
 const NUM_WORDS = ['', 'една', 'две', 'три', 'четири', 'пет', 'шест', 'седем', 'осем', 'девет', 'десет', 'единадесет', 'дванадесет']
