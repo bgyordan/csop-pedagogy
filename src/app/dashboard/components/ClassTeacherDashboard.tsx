@@ -1,10 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SchoolFilesCard from './SchoolFilesCard'
-import { Users, Calendar, Bell, CalendarClock, ChevronRight, ClipboardList, ShieldAlert, ShieldX } from 'lucide-react'
+import { Users, Calendar, Bell, CalendarClock, ChevronRight, ClipboardList } from 'lucide-react'
 import { getFullName, getMonthName, formatDate } from '@/lib/utils'
 import SharedFiles from './SharedFiles'
-import ExpiringDocsCard from './ExpiringDocsCard'
 import ClassTeacherTabs from './ClassTeacherTabs'
 export default async function ClassTeacherDashboard({ profile, currentYearId }: any) {
   const supabase = await createClient()
@@ -129,27 +128,6 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
   const eplrByStudent: Record<string, any> = {}
   ;(eplrTeams || []).forEach((e: any) => { eplrByStudent[e.student_id] = e })
 
-  // ── Изтичащи / изтекли документи на моите деца ──
-  const nameById: Record<string, string> = {}
-  activeEnrollments.forEach((e: any) => { nameById[e.student_id] = getFullName(e.student) })
-  const baseYear = new Date().getFullYear()
-  const { data: myAttachments } = studentIds.length > 0
-    ? await supabase.from('student_attachments')
-        .select('student_id, valid_until_year, doc_type')
-        .in('student_id', studentIds)
-    : { data: [] }
-  const expiredSet = new Set<string>()
-  const expiringSet = new Set<string>()
-  ;(myAttachments || []).forEach((a: any) => {
-     if (!a.valid_until_year) return
-    if (['enrollment_application', 'coud_application'].includes(a.doc_type)) return
-    const y = parseInt(a.valid_until_year.split('/')[0])
-    if (y < baseYear) expiredSet.add(a.student_id)
-    else if (y === baseYear) expiringSet.add(a.student_id)
-  })
-  const expiredNames = [...expiredSet].map(id => nameById[id]).filter(Boolean).sort((a, b) => a.localeCompare(b, 'bg'))
-  const expiringNames = [...expiringSet].map(id => nameById[id]).filter(Boolean).sort((a, b) => a.localeCompare(b, 'bg'))
-  const hasDocAlerts = expiredNames.length > 0 || expiringNames.length > 0
 
   // ── Терапии на моите деца ──
   const { data: therSlots } = studentIds.length > 0
@@ -230,29 +208,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
   }).sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
   return (
     <div className="animate-in fade-in duration-500">
-      {/* Предупреждение за изтичащи/изтекли документи */}
-      {hasDocAlerts && (
-        <div className="mb-6 space-y-2">
-          {expiredNames.length > 0 && (
-            <div className="flex items-start gap-3 px-4 py-3 rounded-2xl border border-red-200 bg-red-50/50">
-              <ShieldX size={18} className="text-red-500 flex-shrink-0 mt-0.5" />
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-800">Изтекли документи в досието</div>
-                <div className="text-xs text-slate-500 mt-0.5">{expiredNames.join(' · ')}</div>
-              </div>
-            </div>
-          )}
-          {expiringNames.length > 0 && (
-            <div className="flex items-start gap-3 px-4 py-3 rounded-2xl border border-amber-200 bg-amber-50/50">
-              <ShieldAlert size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-800">Изтичащи документи тази година</div>
-                <div className="text-xs text-slate-500 mt-0.5">{expiringNames.join(' · ')}</div>
-              </div>
-            </div>
-          )}
-                </div>
-      )}
+  
       {/* Изтичащи документи (по срок, от student_documents) */}
       <div className="mb-6">
         <ExpiringDocsCard studentIds={studentIds} />
