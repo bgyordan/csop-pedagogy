@@ -4,6 +4,7 @@ import SchoolFilesCard from './SchoolFilesCard'
 import { Users, Calendar, Bell, CalendarClock, ChevronRight, ClipboardList, ShieldAlert, ShieldX } from 'lucide-react'
 import { getFullName, getMonthName, formatDate } from '@/lib/utils'
 import SharedFiles from './SharedFiles'
+import ExpiringDocsCard from './ExpiringDocsCard'
 import ClassTeacherTabs from './ClassTeacherTabs'
 export default async function ClassTeacherDashboard({ profile, currentYearId }: any) {
   const supabase = await createClient()
@@ -250,8 +251,12 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
               </div>
             </div>
           )}
-        </div>
+                </div>
       )}
+      {/* Изтичащи документи (по срок, от student_documents) */}
+      <div className="mb-6">
+        <ExpiringDocsCard studentIds={studentIds} />
+      </div>
       {/* Карти горе: разписание + ИУП */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
         <Link href={`/classes/${myClasses[0].id}/schedule-view`}
