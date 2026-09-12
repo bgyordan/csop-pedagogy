@@ -1099,7 +1099,7 @@ export async function generateRuoClassesLetter(
     className: string
     students: { name: string; school: string; externalClass: string }[]
   }[],
-  opts?: { addressee?: string; position?: string; institution?: string; directorName?: string },
+  opts?: { addressee?: string; position?: string; institution?: string; directorName?: string; subject?: string; intro?: string },
 ) {
   const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
@@ -1114,6 +1114,8 @@ export async function generateRuoClassesLetter(
   const position = opts?.position || 'НАЧАЛНИК НА'
   const institution = opts?.institution || 'РУО ВАРНА'
   const directorName = opts?.directorName || 'Светлана Иванова'
+  const subjectText = (opts?.subject || `Организиране на групи на деца и ученици със специални образователни потребности от училищата от гр. Варна в ЦСОП–Варна за учебната ${yearName} г.`).replace(/\{year\}/g, yearName)
+  const introText = (opts?.intro || `Съгласно и при спазването на условията на чл. 195, ал. 2, ал. 3, ал. 5 от ЗПУО децата и учениците в ЦСОП-Варна за учебната ${yearName} са както следва:`).replace(/\{N\}/g, String(classes.length)).replace(/\{year\}/g, yearName)
 
   const BASIS = 'Във връзка с чл. 53, Приложение №7, раздел IV, т. 3 от Наредбата за финансиране на институциите в системата на предучилищното и училищно образование от 05.09.2017 г., предлагам да се сформира следната паралелка:'
 
@@ -1154,7 +1156,7 @@ export async function generateRuoClassesLetter(
       alignment: AlignmentType.JUSTIFIED, spacing: { after: 280 },
       children: [
         new TextRun({ text: 'Относно: ', bold: true, size: 22 }),
-        new TextRun({ text: `Организиране на групи на деца и ученици със специални образователни потребности от училищата от гр. Варна в ЦСОП–Варна за учебната ${yearName} г.`, size: 22 }),
+        new TextRun({ text: subjectText, size: 22 }),
       ],
     }),
 
@@ -1162,7 +1164,7 @@ export async function generateRuoClassesLetter(
 
     new Paragraph({
       alignment: AlignmentType.JUSTIFIED, spacing: { after: 240 },
-      children: [new TextRun({ text: `Съгласно и при спазването на условията на чл. 195, ал. 2, ал. 3, ал. 5 от ЗПУО децата и учениците в ЦСОП-Варна за учебната ${yearName} са както следва:`, size: 22 })],
+      children: [new TextRun({ text: introText, size: 22 })],
     }),
   )
 
