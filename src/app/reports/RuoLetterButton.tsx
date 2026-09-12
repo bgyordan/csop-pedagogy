@@ -9,21 +9,30 @@ interface Props {
     students: { name: string; school: string; externalClass: string }[]
   }[]
   label?: string
+  defaultAddressee?: string
+  defaultPosition?: string
+  defaultInstitution?: string
+  subject?: string
+  intro?: string
 }
-export default function RuoLetterButton({ yearName, classes, label = 'Писмо до РУО (паралелки)' }: Props) {
+export default function RuoLetterButton({ yearName, classes, label = 'Писмо до РУО (паралелки)', defaultAddressee, defaultPosition, defaultInstitution, subject, intro }: Props) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [addressee, setAddressee] = useState('ДО Г-ЖА РАДЕВА')
-  const [position, setPosition] = useState('НАЧАЛНИК НА')
-  const [institution, setInstitution] = useState('РУО ВАРНА')
+  const [addressee, setAddressee] = useState(defaultAddressee || 'ДО Г-ЖА РАДЕВА')
+  const [position, setPosition] = useState(defaultPosition || 'НАЧАЛНИК НА')
+  const [institution, setInstitution] = useState(defaultInstitution || 'РУО ВАРНА')
   const [director, setDirector] = useState('Светлана Иванова')
+
+  // Изключваме служебната паралелка (без класен/постоянни деца) от официалните списъци.
+  const usable = classes.filter(c => !/служебна/i.test(c.className))
+
   async function generate() {
-    const withStudents = classes.filter(c => c.students.length > 0)
+    const withStudents = usable.filter(c => c.students.length > 0)
     if (withStudents.length === 0) { alert('Няма ученици за включване'); return }
     setBusy(true)
     try {
       await generateRuoClassesLetter(yearName, withStudents, {
-        addressee, position, institution, directorName: director,
+        addressee, position, institution, directorName: director, subject, intro,
       })
       setOpen(false)
     } catch (e: any) {
@@ -31,8 +40,8 @@ export default function RuoLetterButton({ yearName, classes, label = 'Писмо
     }
     setBusy(false)
   }
-  const total = classes.reduce((s, c) => s + c.students.length, 0)
-  const missing = classes.flatMap(c =>
+  const total = usable.reduce((s, c) => s + c.students.length, 0)
+  const missing = usable.flatMap(c =>
     c.students
       .filter(s => !s.school?.trim() || !s.externalClass?.trim())
       .map(s => ({
@@ -55,7 +64,7 @@ export default function RuoLetterButton({ yearName, classes, label = 'Писмо
               <div>
                 <h3 className="font-medium text-slate-800 text-sm">{label}</h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  {classes.filter(c => c.students.length > 0).length} паралелки · {total} ученика
+                  {usable.filter(c => c.students.length > 0).length} паралелки · {total} ученика
                 </p>
               </div>
               <button onClick={() => setOpen(false)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400"><X size={18} /></button>
