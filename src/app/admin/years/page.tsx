@@ -5,6 +5,9 @@ import { Plus, Trash2, Loader2, Users, Pencil } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate } from '@/lib/utils'
+// Възможните места за изнесени групи (лесно се добавят нови)
+const OUTREACH_LOCATIONS = ['ДМСГД – Виница', 'ЦНСТ – Тополи']
+
 export default function AcademicYearsPage() {
   const supabase = createClient()
   const { toast } = useToast()
@@ -75,6 +78,12 @@ export default function AcademicYearsPage() {
     const { error } = await supabase.from('classes').update({ name: newName.trim() }).eq('id', cls.id)
     if (error) { toast('Грешка при преименуване (може би вече съществува)', 'error'); return }
     toast('Паралелката е преименувана')
+    load()
+  }
+  async function setOutreach(cls: any, value: string) {
+    const { error } = await supabase.from('classes').update({ outreach_location: value || null }).eq('id', cls.id)
+    if (error) { toast('Грешка при запис', 'error'); return }
+    toast(value ? 'Отбелязана като изнесена' : 'Премахнато')
     load()
   }
   async function handleDeleteClass(cls: any) {
@@ -169,6 +178,14 @@ export default function AcademicYearsPage() {
                   <Users size={9} />
                   {cnt.students}
                 </div>
+                {isCurrent && (
+                  <select value={c.outreach_location || ''} onChange={e => setOutreach(c, e.target.value)}
+                    title="Изнесена група (в социална услуга)"
+                    className={`mt-1.5 w-full text-[10px] rounded border px-1 py-0.5 bg-white cursor-pointer ${c.outreach_location ? 'border-teal-300 text-teal-700' : 'border-slate-200 text-slate-400'}`}>
+                    <option value="">Изнесена: —</option>
+                    {OUTREACH_LOCATIONS.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                  </select>
+                )}
               </div>
             )
           })}
