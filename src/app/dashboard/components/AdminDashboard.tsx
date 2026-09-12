@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SharedFiles from './SharedFiles'
+import ExpiringDocsCard from './ExpiringDocsCard'
 import { Users, BookOpen, Calendar, Bell, ArrowRight, GraduationCap, Home, Wifi, Coffee, ShieldX, ShieldAlert, ClipboardList, Clock, AlertTriangle, UserSearch } from 'lucide-react'
 import { formatDate, getDaysUntil, getMonthName } from '@/lib/utils'
 export default async function AdminDashboard({ profile, currentYearId }: any) {
@@ -179,6 +180,10 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
             ))}
           </div>
         )}
+           </div>
+      {/* Изтичащи документи */}
+      <div className="mb-6">
+        <ExpiringDocsCard />
       </div>
       {/* ── СРОКОВЕ & СЪОБЩЕНИЯ ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
