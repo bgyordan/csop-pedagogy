@@ -1663,6 +1663,7 @@ export async function generateClassSchedule(
   // slots: { "ден-час": "име на предмет" }
   slots: Record<string, string>,
   maxPeriod: number,      // до кой час се показва (6 или 7)
+  teachers?: Record<string, string>, // по избор: { "ден-час": "име на учител" } → добавя колона „Учител"
 ) {
   const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
@@ -1672,6 +1673,10 @@ export async function generateClassSchedule(
     left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
     right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
   }
+
+  // Показваме колона „Учител" само ако са подадени учители (за да не се чупят
+  // другите извиквания на функцията, които работят само с предмети).
+  const hasTeachers = !!teachers && Object.values(teachers).some(v => (v || '').trim())
 
   const periods = SCHEDULE_PERIODS.filter(p => p.gm || p.period <= maxPeriod)
   const children: any[] = []
@@ -1717,7 +1722,7 @@ export async function generateClassSchedule(
     rows.push(new TableRow({
       cantSplit: true,
       children: [new TableCell({
-        columnSpan: 3, borders: CELLS,
+        columnSpan: hasTeachers ? 4 : 3, borders: CELLS,
         shading: { type: ShadingType.CLEAR, fill: '0f2240' },
         margins: { top: 60, bottom: 60, left: 100, right: 100 },
         children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: day.full, bold: true, size: 20, color: 'FFFFFF' })] })],
@@ -1725,13 +1730,21 @@ export async function generateClassSchedule(
     }))
 
     // Хедър колони
+    const cols = hasTeachers
+      ? [
+          { t: '№', w: 7 },
+          { t: 'Час', w: 20 },
+          { t: 'Предмет / Образователно направление / Терапия', w: 48 },
+          { t: 'Учител', w: 25 },
+        ]
+      : [
+          { t: '№', w: 10 },
+          { t: 'Час', w: 25 },
+          { t: 'Предмет / Образователно направление / Терапия', w: 65 },
+        ]
     rows.push(new TableRow({
       cantSplit: true,
-      children: [
-        { t: '№', w: 10 },
-        { t: 'Час', w: 25 },
-        { t: 'Предмет / Образователно направление / Терапия', w: 65 },
-      ].map(c => new TableCell({
+      children: cols.map(c => new TableCell({
         width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
         shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
         margins: { top: 40, bottom: 40, left: 80, right: 80 },
@@ -1746,7 +1759,9 @@ export async function generateClassSchedule(
     if (!hasAny) return
 
     dayPeriods.forEach(p => {
-      const subject = p.gm ? '' : (slots[`${day.n}-${p.period}`] || '')
+      const key = `${day.n}-${p.period}`
+      const subject = p.gm ? '' : (slots[key] || '')
+      const teacher = p.gm ? '' : (teachers?.[key] || '')
       const isGm = p.gm
       rows.push(new TableRow({
         cantSplit: true,
@@ -1766,6 +1781,13 @@ export async function generateClassSchedule(
             ...(isGm ? { shading: { type: ShadingType.CLEAR, fill: 'EEEEEE' } } : {}),
             children: [new Paragraph({ children: [new TextRun({ text: isGm ? 'Голямо междучасие' : subject, size: 17, italics: isGm, color: isGm ? '888888' : '000000' })] })],
           }),
+          ...(hasTeachers ? [
+            new TableCell({
+              borders: CELLS, margins: { top: 40, bottom: 40, left: 80, right: 80 },
+              ...(isGm ? { shading: { type: ShadingType.CLEAR, fill: 'EEEEEE' } } : {}),
+              children: [new Paragraph({ children: [new TextRun({ text: teacher, size: 17, color: isGm ? '888888' : '000000' })] })],
+            }),
+          ] : []),
         ],
       }))
     })
