@@ -198,9 +198,7 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
             </button>
             <span className="text-xs text-slate-400 ml-auto">{distRows.length} ученика</span>
             <DistributionPdfButton rows={distRows} yearName={yearName} />
-            <RuoLetterButton yearName={yearName} classes={ruoData} label="Официален списък паралелки" />
-                        <RuoLetterButton yearName={yearName} classes={ruoData} label="Официален списък паралелки (до РЦПППО)"
-              defaultAddressee="ДО Г-ЖА МАРИЯНА ПАНТЕЛЕЕВА" defaultPosition="ДИРЕКТОР НА" defaultInstitution="РЦПППО ГРАД ВАРНА"
+            defaultAddressee="ДО Г-ЖА МАРИЯНА ПАНТЕЛЕЕВА" defaultPosition="ДИРЕКТОР НА" defaultInstitution="РЦПППО ГРАД ВАРНА"
               subject="Организиране на групи и паралелки на деца и ученици със специални образователни потребности от училищата от гр. Варна в ЦСОП–Варна за учебната {year} г."
               intro="Предлагам, да ми бъде разрешено сформиране на {N} групи и паралелки с деца и ученици за учебна {year} г., насочени в ЦСОП –Варна на основание чл.195, ал.1 от ЗПУО и чл.185, ал.1 от Наредба за приобщаващо образование." />
           </div>
