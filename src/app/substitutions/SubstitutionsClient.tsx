@@ -119,6 +119,10 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
 
   // Създаване
   const [showNew, setShowNew] = useState(false)
+  const [orderMode, setOrderMode] = useState<'create' | 'manual' | 'none'>('create')
+  const [nManualNumber, setNManualNumber] = useState('')
+  const [nManualDate, setNManualDate] = useState('')
+  const [nOverNorm, setNOverNorm] = useState(true)
   const [absentId, setAbsentId] = useState('')
   const [subId, setSubId] = useState('')
   const [from, setFrom] = useState('')
@@ -226,14 +230,25 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     const { data, error } = await supabase.from('substitutions').insert({
       absent_staff_id: absentId, substitute_staff_id: primary || null,
       date_from: from, date_to: to, reason: reasonFromKt(ktArticle), bsch_eligible: bsch, kt_article: ktArticle,
+      manual_order_number: orderMode === 'manual' ? (nManualNumber.trim() || null) : null,
+      manual_order_date: orderMode === 'manual' ? (nManualDate || null) : null,
+      no_order_needed: orderMode === 'none',
     }).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setSaving(false); return }
     if (multiOpen) {
       await saveAssignments(data.id, mapToRows(dayMap, schoolDays))
     }
-    setRows(prev => [mapRow(data), ...prev])
+    let newRow: any = mapRow(data)
+    // „Създай заповед" при запис: генерира Word + завежда номер (само ако има заместник)
+    if (orderMode === 'create' && primary) {
+      const overNorm = bsch ? true : nOverNorm
+      const res: any = await generateSubstitution(data.id, overNorm, true)
+      if (res.error) { toast(res.error, 'error') }
+      else { try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ } newRow = { ...newRow, hasOrder: true } }
+    }
+    setRows(prev => [newRow, ...prev])
     toast('Заместването е добавено')
-    setAbsentId(''); setSubId(''); setFrom(''); setTo(''); setReason('sick'); setBsch(false); setKtArticle('155'); setShowNew(false); setSaving(false)
+    setAbsentId(''); setSubId(''); setFrom(''); setTo(''); setReason('sick'); setBsch(false); setKtArticle('155'); setOrderMode('create'); setNManualNumber(''); setNManualDate(''); setNOverNorm(true); setShowNew(false); setSaving(false)
     resetMulti()
   }
 
@@ -367,6 +382,43 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
             )}
           </div>
 
+          <div className="border-t border-slate-100 pt-3 space-y-2.5">
+            <div className="text-xs text-slate-500">Заповед за заместване</div>
+            <div className="flex flex-wrap gap-1.5">
+              {([['create', 'Създай заповед'], ['manual', 'Вече е издадена'], ['none', 'Без заповед']] as const).map(([v, l]) => (
+                <button key={v} type="button" onClick={() => setOrderMode(v)}
+                  className="px-3 py-1.5 rounded-xl text-sm border transition-all"
+                  style={orderMode === v ? { backgroundColor: '#475569', color: '#fff', borderColor: '#475569' } : { backgroundColor: '#fff', color: '#475569', borderColor: '#e2e8f0' }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+            {orderMode === 'create' && (
+              <div className="space-y-2">
+                {!bsch && (
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <span>Вид:</span>
+                    <button type="button" onClick={() => setNOverNorm(true)}
+                      className="px-2.5 py-1 rounded-lg border text-xs transition-all"
+                      style={nOverNorm ? { backgroundColor: '#475569', color: '#fff', borderColor: '#475569' } : { backgroundColor: '#fff', color: '#475569', borderColor: '#e2e8f0' }}>Лекторски</button>
+                    <button type="button" onClick={() => setNOverNorm(false)}
+                      className="px-2.5 py-1 rounded-lg border text-xs transition-all"
+                      style={!nOverNorm ? { backgroundColor: '#475569', color: '#fff', borderColor: '#475569' } : { backgroundColor: '#fff', color: '#475569', borderColor: '#e2e8f0' }}>Вътрешно</button>
+                  </div>
+                )}
+                <p className="text-[12px] text-slate-500">При запис системата генерира заповедта (Word) и я завежда с номер{!(multiOpen ? true : !!subId) ? ' — първо посочи заместник' : ''}.</p>
+              </div>
+            )}
+            {orderMode === 'manual' && (
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-2">
+                <input value={nManualNumber} onChange={e => setNManualNumber(e.target.value)} placeholder="№ на издадената заповед"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
+                <input type="date" value={nManualDate} onChange={e => setNManualDate(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
             <button onClick={() => setShowNew(false)} className="px-4 py-2 rounded-xl text-sm bg-white border border-slate-200 hover:bg-slate-100 text-slate-700">Отказ</button>
             <button onClick={saveNew} disabled={saving || !absentId || !from || !to}
@@ -428,7 +480,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                     <button onClick={() => genOrder(r.id)} disabled={genId === r.id}
                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border shrink-0 transition-colors hover:bg-slate-50 disabled:opacity-50"
                       style={{ color: '#0f2240', borderColor: 'rgba(15,34,64,0.28)' }}>
-                      {genId === r.id ? <Loader2 size={12} className="animate-spin" /> : <>Заповед</>}
+                      {genId === r.id ? <Loader2 size={12} className="animate-spin" /> : <>Създай заповед</>}
                     </button>
                   </>
                 ) : null}
