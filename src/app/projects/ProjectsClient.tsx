@@ -22,6 +22,13 @@ const STATUS: { key: string; label: string; cls: string }[] = [
 const statusMeta = (k: string) => STATUS.find(s => s.key === k) || STATUS[0]
 const fmt = (d: string | null) => d ? new Date(d).toLocaleDateString('bg-BG') : ''
 
+// Учебна година: септ → юни
+const SCHOOL_MONTHS = [9, 10, 11, 12, 1, 2, 3, 4, 5, 6]
+const MONTH_LABEL: Record<number, string> = { 9: 'Септември', 10: 'Октомври', 11: 'Ноември', 12: 'Декември', 1: 'Януари', 2: 'Февруари', 3: 'Март', 4: 'Април', 5: 'Май', 6: 'Юни' }
+const pad = (n: number) => String(n).padStart(2, '0')
+const orderIdx = (m: number) => SCHOOL_MONTHS.indexOf(m)
+const monthOfISO = (iso: string | null) => iso ? parseInt(iso.slice(5, 7)) : null
+
 function AutoTextarea({ value, onChange, placeholder, minRows = 2 }: { value: string; onChange: (v: string) => void; placeholder?: string; minRows?: number }) {
   const ref = useRef<HTMLTextAreaElement>(null)
   useLayoutEffect(() => { const el = ref.current; if (!el) return; el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' }, [value])
@@ -43,6 +50,21 @@ export default function ProjectsClient({ meId, isManager, myClassIds, classes, p
   const [editing, setEditing] = useState<Project | null>(null)
   const [saving, setSaving] = useState(false)
   const [onlyMine, setOnlyMine] = useState<boolean>(!isManager && myClassIds.length > 0)
+
+  // Месец → дата (първо/последно число), за да пазим в period_from/period_to без миграция
+  const startYear = parseInt((yearName || '').split(/[-/]/)[0]) || new Date().getFullYear()
+  const monthYear = (m: number) => m >= 9 ? startYear : startYear + 1
+  const fromISOofMonth = (m: number) => `${monthYear(m)}-${pad(m)}-01`
+  const toISOofMonth = (m: number) => { const y = monthYear(m); const last = new Date(y, m, 0).getDate(); return `${y}-${pad(m)}-${pad(last)}` }
+  const setFromMonth = (m: number | null) => setEditing(prev => {
+    if (!prev) return prev
+    if (!m) return { ...prev, period_from: null }
+    let period_to = prev.period_to
+    const tm = monthOfISO(period_to)
+    if (tm && orderIdx(tm) < orderIdx(m)) period_to = toISOofMonth(m)
+    return { ...prev, period_from: fromISOofMonth(m), period_to }
+  })
+  const setToMonth = (m: number | null) => setEditing(prev => prev ? { ...prev, period_to: m ? toISOofMonth(m) : null } : prev)
 
   const nameById: Record<string, string> = {}
   classes.forEach(c => { nameById[c.id] = c.name })
@@ -131,7 +153,8 @@ export default function ProjectsClient({ meId, isManager, myClassIds, classes, p
         <div className="space-y-3">
           {shown.map(p => {
             const sm = statusMeta(p.status)
-            const period = p.period_from || p.period_to ? `${fmt(p.period_from)}${p.period_to ? ' – ' + fmt(p.period_to) : ''}` : ''
+            const fm = monthOfISO(p.period_from), tm = monthOfISO(p.period_to)
+            const period = fm && tm ? (fm === tm ? MONTH_LABEL[fm] : `${MONTH_LABEL[fm]} – ${MONTH_LABEL[tm]}`) : fm ? MONTH_LABEL[fm] : tm ? MONTH_LABEL[tm] : ''
             return (
               <div key={p.id} className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -200,14 +223,21 @@ export default function ProjectsClient({ meId, isManager, myClassIds, classes, p
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Период от</label>
-                  <input type="date" value={editing.period_from || ''} onChange={e => setEditing({ ...editing, period_from: e.target.value || null })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-300" />
+                  <label className="block text-xs font-medium text-slate-500 mb-1">От месец</label>
+                  <select value={monthOfISO(editing.period_from) ?? ''} onChange={e => setFromMonth(e.target.value ? parseInt(e.target.value) : null)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:border-slate-300">
+                    <option value="">—</option>
+                    {SCHOOL_MONTHS.map(m => <option key={m} value={m}>{MONTH_LABEL[m]}</option>)}
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Период до</label>
-                  <input type="date" value={editing.period_to || ''} onChange={e => setEditing({ ...editing, period_to: e.target.value || null })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-300" />
+                  <label className="block text-xs font-medium text-slate-500 mb-1">До месец</label>
+                  <select value={monthOfISO(editing.period_to) ?? ''} disabled={!editing.period_from}
+                    onChange={e => setToMonth(e.target.value ? parseInt(e.target.value) : null)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:border-slate-300 disabled:bg-slate-50 disabled:text-slate-400">
+                    <option value="">—</option>
+                    {SCHOOL_MONTHS.filter(m => { const fmv = monthOfISO(editing.period_from); return !fmv || orderIdx(m) >= orderIdx(fmv) }).map(m => <option key={m} value={m}>{MONTH_LABEL[m]}</option>)}
+                  </select>
                 </div>
               </div>
 
