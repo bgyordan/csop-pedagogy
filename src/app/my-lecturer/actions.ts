@@ -74,13 +74,13 @@ export async function submitLecturerDeclaration(
   if (overlap) return { error: 'Вече имате декларация за застъпващ се период' }
 
   const totalHours = entries.reduce((a, e) => a + e.dates.length, 0)
-  const { error } = await supabase.from('lecturer_declarations').insert({
+  const { data: ins, error } = await supabase.from('lecturer_declarations').insert({
     staff_id: me.id, period_from: periodFrom, period_to: periodTo,
     entries, total_hours: totalHours, status: 'submitted', academic_year_id: cy?.id,
-  })
+  }).select('id').single()
   if (error) return { error: error.message }
   revalidatePath('/my-lecturer')
-  return { success: true, totalHours }
+  return { success: true, totalHours, id: ins?.id }
 }
 
 // Изтрива подадена (непроверена) декларация на текущия учител
