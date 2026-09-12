@@ -244,7 +244,7 @@ export async function getMonthlyDeclaration(first: string, last: string) {
   // всички мои замествания, застъпващи месеца
   const { data: subs } = await supabase
     .from('substitutions')
-    .select(`id, absent_staff_id, date_from, date_to, bsch_eligible, kt_article, substitution_order_id,
+    .select(`id, absent_staff_id, date_from, date_to, bsch_eligible, kt_article, substitution_order_id, manual_order_number,
       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name)`)
     .eq('substitute_staff_id', me.id)
     .lte('date_from', last).gte('date_to', first)
@@ -266,6 +266,8 @@ export async function getMonthlyDeclaration(first: string, last: string) {
     if (sub.substitution_order_id) {
       const { data: o } = await supabase.from('orders').select('number').eq('id', sub.substitution_order_id).single()
       if (o?.number) orderRef = o.number
+    } else if (sub.manual_order_number) {
+      orderRef = sub.manual_order_number
     }
     // часовете на отсъстващия
     const bySlot: { day: number; period: number; subject: string; cls: string }[] = []
@@ -331,7 +333,7 @@ export async function getMonExport(first: string, last: string, rate: number) {
   // всички НП замествания, застъпващи периода
   const { data: subs } = await supabase
     .from('substitutions')
-    .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, kt_article, substitution_order_id, bsch_eligible,
+    .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, kt_article, substitution_order_id, manual_order_number, manual_order_date, bsch_eligible,
       sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name, position)`)
     .eq('bsch_eligible', true)
     .lte('date_from', last).gte('date_to', first)
@@ -349,6 +351,8 @@ export async function getMonExport(first: string, last: string, rate: number) {
     if (sub.substitution_order_id) {
       const { data: o } = await supabase.from('orders').select('number, date').eq('id', sub.substitution_order_id).single()
       if (o) { orderNumber = o.number || ''; orderDate = o.date || '' }
+    } else if (sub.manual_order_number) {
+      orderNumber = sub.manual_order_number; orderDate = sub.manual_order_date || ''
     }
     // часовете на отсъстващия по ден
     const bySlotDow: Record<number, number> = {}
