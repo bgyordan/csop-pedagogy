@@ -5,6 +5,7 @@ import { Users, Calendar, Bell, CalendarClock, ChevronRight, ClipboardList } fro
 import { getFullName, getMonthName, formatDate } from '@/lib/utils'
 import SharedFiles from './SharedFiles'
 import ClassTeacherTabs from './ClassTeacherTabs'
+import ExpiringDocsCard from './ExpiringDocsCard'
 export default async function ClassTeacherDashboard({ profile, currentYearId }: any) {
   const supabase = await createClient()
   const now = new Date()
