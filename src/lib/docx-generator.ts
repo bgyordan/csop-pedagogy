@@ -335,16 +335,42 @@ function generateSupportPlan(student: Student, team: any, data: Record<string, s
     new TableCell({ borders: CELLS, children: [new Paragraph({ children: [normal(data[key] || '', 20)] })] }),
   ] }))
 
-  // Цели и задачи таблица
+    // Цели и задачи таблица — блокове по специалист (нов модел), fallback към старите 7 реда
+  const COLW = [3800, 3850, 1350]  // цели ~42% · задачи ~43% · срок ~15%
+  const multiPara = (text: string, size = 20): Paragraph[] => {
+    const t = (text || '').replace(/\r/g, '')
+    const lines = t.length ? t.split('\n') : ['']
+    return lines.map((ln, i) => new Paragraph({ spacing: { before: i === 0 ? 40 : 0, after: 40 }, children: [normal(ln, size)] }))
+  }
+  let goalBlocks: { specialist?: string; goals?: string; tasks?: string; term?: string }[] = []
+  try { const parsed = JSON.parse(data.goal_blocks || '[]'); if (Array.isArray(parsed)) goalBlocks = parsed } catch {}
+
   const goalsRows: TableRow[] = [
     new TableRow({ children: [tcH('цели'), tcH('задачи'), tcH('срок за изпълнение')] }),
   ]
-  for (let i = 1; i <= 7; i++) {
-    goalsRows.push(new TableRow({ children: [
-      cell([new Paragraph({ spacing: { before: 80, after: 80 }, children: [normal(data[`goal_${i}`] || '', 20)] })]),
-      cell([new Paragraph({ children: [normal(data[`task_${i}`] || '', 20)] })]),
-      cell([new Paragraph({ children: [normal(data[`term_${i}`] || '', 20)] })]),
-    ] }))
+  if (goalBlocks.length > 0) {
+    goalBlocks.forEach(b => {
+      const name = (b.specialist || '').trim()
+      if (name) {
+        goalsRows.push(new TableRow({ children: [
+          new TableCell({ borders: CELLS, columnSpan: 3, shading: { type: ShadingType.CLEAR, fill: 'EEF1F5' },
+            children: [new Paragraph({ spacing: { before: 60, after: 60 }, children: [bold(name, 20)] })] }),
+        ] }))
+      }
+      goalsRows.push(new TableRow({ children: [
+        new TableCell({ borders: CELLS, width: { size: 42, type: WidthType.PERCENTAGE }, children: multiPara(b.goals || '') }),
+        new TableCell({ borders: CELLS, width: { size: 43, type: WidthType.PERCENTAGE }, children: multiPara(b.tasks || '') }),
+        new TableCell({ borders: CELLS, width: { size: 15, type: WidthType.PERCENTAGE }, children: multiPara(b.term || '') }),
+      ] }))
+    })
+  } else {
+    for (let i = 1; i <= 7; i++) {
+      goalsRows.push(new TableRow({ children: [
+        cell([new Paragraph({ spacing: { before: 80, after: 80 }, children: [normal(data[`goal_${i}`] || '', 20)] })]),
+        cell([new Paragraph({ children: [normal(data[`task_${i}`] || '', 20)] })]),
+        cell([new Paragraph({ children: [normal(data[`term_${i}`] || '', 20)] })]),
+      ] }))
+    }
   }
 
   return new Document({
@@ -388,7 +414,7 @@ function generateSupportPlan(student: Student, team: any, data: Record<string, s
         new Paragraph({ text: '' }),
 
         sectionTitle('V. Цели и задачи на допълнителната подкрепа за личностно развитие:'),
-        new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: goalsRows }),
+        new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: COLW, rows: goalsRows }),
         new Paragraph({ text: '' }),
 
         sectionTitle('VI. Специални методи и средства за постигане на поставените цели и задачи:'),
