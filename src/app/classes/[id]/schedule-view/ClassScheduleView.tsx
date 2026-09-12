@@ -24,8 +24,12 @@ export default function ClassScheduleView({ term, slots, className, yearName, ma
     setGenerating(true)
     try {
       const map: Record<string, string> = {}
-      slots.forEach(s => { map[`${s.day}-${s.period}`] = s.subjectName })
-      await generateClassSchedule(`Паралелка ${className}`, `${term === 1 ? 'I' : 'II'} срок · ${yearName}`, yearName, map, maxPeriod)
+      const teachers: Record<string, string> = {}
+      slots.forEach(s => {
+        map[`${s.day}-${s.period}`] = s.subjectName
+        if (s.teacher) teachers[`${s.day}-${s.period}`] = s.teacher
+      })
+      await generateClassSchedule(`Паралелка ${className}`, `${term === 1 ? 'I' : 'II'} срок · ${yearName}`, yearName, map, maxPeriod, teachers)
     } finally { setGenerating(false) }
   }
 
