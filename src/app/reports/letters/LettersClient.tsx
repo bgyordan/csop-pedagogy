@@ -4,8 +4,10 @@ import OutreachLetterButton from '../OutreachLetterButton'
 import { Mail } from 'lucide-react'
 
 interface RuoRow { className: string; students: { name: string; school: string; externalClass: string }[] }
+interface Group { location: string; items: RuoRow[] }
 
-export default function LettersClient({ yearName, ruoData }: { yearName: string; ruoData: RuoRow[] }) {
+export default function LettersClient({ yearName, ruoData, outreachGroups }: { yearName: string; ruoData: RuoRow[]; outreachGroups: Group[] }) {
+  const outreachCount = outreachGroups.reduce((a, g) => a + g.items.length, 0)
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
@@ -31,8 +33,13 @@ export default function LettersClient({ yearName, ruoData }: { yearName: string;
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
           <h3 className="text-sm font-semibold text-slate-800 mb-1">Изнесени групи (до РЦПППО)</h3>
-          <p className="text-xs text-slate-500 mb-3">Само изнесените паралелки в социалните услуги (ДМСГД – Виница, ЦНСТ – Тополи), с основание чл.185, ал.2. Актуален състав, „Служебна" изключена.</p>
-          <OutreachLetterButton yearName={yearName} classes={ruoData} />
+          <p className="text-xs text-slate-500 mb-3">
+            Само отбелязаните като изнесени паралелки (Администрация → Паралелки → моливчето), групирани по място, с основание чл.185, ал.2.
+            {outreachCount === 0
+              ? ' Няма отбелязани изнесени паралелки.'
+              : ` Отбелязани: ${outreachCount} паралелки в ${outreachGroups.length} места.`}
+          </p>
+          <OutreachLetterButton yearName={yearName} groups={outreachGroups} />
         </div>
       </div>
     </div>
