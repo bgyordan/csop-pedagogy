@@ -1,35 +1,49 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { CalendarClock, Check, X, Loader2, Trash2, Pencil, Stethoscope, ShieldCheck, Utensils } from 'lucide-react'
+import { Check, X, Loader2, Trash2, Pencil, Stethoscope, ShieldCheck, Utensils } from 'lucide-react'
 
-interface DocRow { doc_type: string; valid_until: string | null; note: string | null }
+interface DocRow {
+  doc_type: string
+  valid_until: string | null
+  note: string | null
+  doc_number: string | null
+  issued_on: string | null
+  support_type: string | null
+  diagnosis: string | null
+}
 interface Props { studentId: string; canManage: boolean }
 
-// Видовете следени документи. Добавяне на нов = един ред тук.
-const DOC_TYPES: { key: string; label: string; icon: any; notePlaceholder?: string }[] = [
-  { key: 'telk',   label: 'ТЕЛК / решение на МЕ',                    icon: Stethoscope },
-  { key: 'rcpppo', label: 'Заповед за насочване (РЦПППО)',           icon: ShieldCheck },
-  { key: 'allergy', label: 'Документ за алергии / специално хранене', icon: Utensils, notePlaceholder: 'напр. без глутен и млечни продукти' },
+// hasSupport = поле „вид подкрепа" (само РЦПППО); hasDiagnosis = „Диагноза" (само ТЕЛК).
+const DOC_TYPES: { key: string; label: string; icon: any; notePlaceholder?: string; hasSupport?: boolean; hasDiagnosis?: boolean }[] = [
+  { key: 'telk',    label: 'ТЕЛК / решение на МЕ',                     icon: Stethoscope, hasDiagnosis: true },
+  { key: 'rcpppo',  label: 'Заповед за насочване (РЦПППО)',            icon: ShieldCheck, hasSupport: true },
+  { key: 'allergy', label: 'Документ за алергии / специално хранене',  icon: Utensils, notePlaceholder: 'напр. без глутен и млечни продукти' },
 ]
 
-function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString('bg-BG')
+const SUPPORT_OPTIONS: { v: string; l: string }[] = [
+  { v: 'short', l: 'краткосрочна' },
+  { v: 'long',  l: 'дългосрочна' },
+]
+const supportLabel = (v?: string | null) => SUPPORT_OPTIONS.find(o => o.v === v)?.l || ''
+
+function fmtDate(d: string) { return new Date(d).toLocaleDateString('bg-BG') }
+
+function hasAnyData(row?: DocRow) {
+  if (!row) return false
+  return !!(row.valid_until || (row.note && row.note.trim()) || (row.doc_number && row.doc_number.trim())
+    || row.issued_on || row.support_type || (row.diagnosis && row.diagnosis.trim()))
 }
 
 function statusOf(row?: DocRow) {
-  if (!row || (!row.valid_until && !(row.note && row.note.trim()))) {
-    return { kind: 'none' as const }
-  }
-  if (!row.valid_until) {
-    return { kind: 'nodate' as const }
-  }
-  const validUntil = new Date(row.valid_until)
+  if (!hasAnyData(row)) return { kind: 'none' as const }
+  if (!row!.valid_until) return { kind: 'nodate' as const }
+  const validUntil = new Date(row!.valid_until)
   const now = new Date()
   const daysLeft = Math.ceil((validUntil.getTime() - now.getTime()) / (1000 * 3600 * 24))
-  if (daysLeft < 0) return { kind: 'expired' as const, date: row.valid_until }
-  if (daysLeft <= 30) return { kind: 'soon' as const, date: row.valid_until, daysLeft }
-  return { kind: 'valid' as const, date: row.valid_until }
+  if (daysLeft < 0) return { kind: 'expired' as const, date: row!.valid_until }
+  if (daysLeft <= 30) return { kind: 'soon' as const, date: row!.valid_until, daysLeft }
+  return { kind: 'valid' as const, date: row!.valid_until }
 }
 
 export default function StudentDocuments({ studentId, canManage }: Props) {
@@ -37,16 +51,21 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
   const [rows, setRows] = useState<Record<string, DocRow>>({})
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<string | null>(null)
-  const [draftDate, setDraftDate] = useState('')
-  const [draftNote, setDraftNote] = useState('')
   const [saving, setSaving] = useState(false)
+
+  const [dNumber, setDNumber] = useState('')
+  const [dIssued, setDIssued] = useState('')
+  const [dValid, setDValid] = useState('')
+  const [dNote, setDNote] = useState('')
+  const [dSupport, setDSupport] = useState('')
+  const [dDiagnosis, setDDiagnosis] = useState('')
 
   useEffect(() => {
     let active = true
     ;(async () => {
       const { data } = await supabase
         .from('student_documents')
-        .select('doc_type, valid_until, note')
+        .select('doc_type, valid_until, note, doc_number, issued_on, support_type, diagnosis')
         .eq('student_id', studentId)
       if (!active) return
       const map: Record<string, DocRow> = {}
@@ -59,23 +78,34 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
 
   function startEdit(key: string) {
     const r = rows[key]
-    setDraftDate(r?.valid_until || '')
-    setDraftNote(r?.note || '')
+    setDNumber(r?.doc_number || '')
+    setDIssued(r?.issued_on || '')
+    setDValid(r?.valid_until || '')
+    setDNote(r?.note || '')
+    setDSupport(r?.support_type || '')
+    setDDiagnosis(r?.diagnosis || '')
     setEditing(key)
   }
 
   async function save(key: string) {
+    const t = DOC_TYPES.find(x => x.key === key)
     setSaving(true)
-    const cleanDate = draftDate || null
-    const cleanNote = draftNote.trim() || null
-    // Ако и двете са празни — трети статус „не е въведено": трием реда.
-    if (!cleanDate && !cleanNote) {
+    const row: DocRow = {
+      doc_type: key,
+      doc_number: dNumber.trim() || null,
+      issued_on: dIssued || null,
+      valid_until: dValid || null,
+      note: dNote.trim() || null,
+      support_type: t?.hasSupport ? (dSupport || null) : null,
+      diagnosis: t?.hasDiagnosis ? (dDiagnosis.trim() || null) : null,
+    }
+    if (!hasAnyData(row)) {
       await supabase.from('student_documents').delete().eq('student_id', studentId).eq('doc_type', key)
       setRows(prev => { const n = { ...prev }; delete n[key]; return n })
     } else {
-      const payload = { student_id: studentId, doc_type: key, valid_until: cleanDate, note: cleanNote, updated_at: new Date().toISOString() }
-      const { error } = await supabase.from('student_documents').upsert(payload, { onConflict: 'student_id,doc_type' })
-      if (!error) setRows(prev => ({ ...prev, [key]: { doc_type: key, valid_until: cleanDate, note: cleanNote } }))
+      const { error } = await supabase.from('student_documents')
+        .upsert({ student_id: studentId, ...row, updated_at: new Date().toISOString() }, { onConflict: 'student_id,doc_type' })
+      if (!error) setRows(prev => ({ ...prev, [key]: row }))
     }
     setSaving(false)
     setEditing(null)
@@ -105,9 +135,22 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
     )
   }
 
+  function metaLine(t: typeof DOC_TYPES[number], row: DocRow) {
+    const parts: string[] = []
+    if (row.doc_number) parts.push(`№ ${row.doc_number}`)
+    if (row.issued_on) parts.push(`изд. ${fmtDate(row.issued_on)}`)
+    if (t.hasSupport && row.support_type) parts.push(`подкрепа: ${supportLabel(row.support_type)}`)
+    if (t.hasDiagnosis && row.diagnosis) parts.push(`диагноза: ${row.diagnosis}`)
+    if (row.note) parts.push(row.note)
+    return parts.join(' · ')
+  }
+
   if (loading) {
     return <div className="flex items-center gap-2 text-sm text-slate-400 py-4"><Loader2 size={14} className="animate-spin" /> Зареждане…</div>
   }
+
+  const inputCls = "w-full text-sm rounded-lg border border-slate-200 px-2.5 py-1.5 bg-white focus:outline-none focus:border-slate-400"
+  const labelCls = "block text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-1"
 
   return (
     <div className="space-y-2.5">
@@ -115,6 +158,7 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
         const Icon = t.icon
         const row = rows[t.key]
         const isEditing = editing === t.key
+        const meta = row ? metaLine(t, row) : ''
         return (
           <div key={t.key} className="rounded-xl border border-slate-200 bg-white">
             <div className="flex items-center justify-between gap-3 p-3">
@@ -124,7 +168,7 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-medium text-slate-700 leading-tight">{t.label}</div>
-                  {!isEditing && row?.note && <div className="text-[11px] text-slate-500 mt-0.5 truncate">{row.note}</div>}
+                  {!isEditing && meta && <div className="text-[11px] text-slate-500 mt-0.5 truncate">{meta}</div>}
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -142,15 +186,35 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
               <div className="px-3 pb-3 pt-1 border-t border-slate-100 bg-slate-50/60 rounded-b-xl space-y-2.5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2.5">
                   <div>
-                    <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-1">Валиден до</label>
-                    <input type="date" value={draftDate} onChange={e => setDraftDate(e.target.value)}
-                      className="w-full text-sm rounded-lg border border-slate-200 px-2.5 py-1.5 bg-white focus:outline-none focus:border-slate-400" />
+                    <label className={labelCls}>№ на документа</label>
+                    <input type="text" value={dNumber} onChange={e => setDNumber(e.target.value)} placeholder="напр. 123/12.09.2026" className={inputCls} />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-1">Бележка</label>
-                    <input type="text" value={draftNote} onChange={e => setDraftNote(e.target.value)}
-                      placeholder={t.notePlaceholder || 'незадължително'}
-                      className="w-full text-sm rounded-lg border border-slate-200 px-2.5 py-1.5 bg-white focus:outline-none focus:border-slate-400" />
+                    <label className={labelCls}>Дата на издаване</label>
+                    <input type="date" value={dIssued} onChange={e => setDIssued(e.target.value)} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Валиден до</label>
+                    <input type="date" value={dValid} onChange={e => setDValid(e.target.value)} className={inputCls} />
+                  </div>
+                  {t.hasSupport && (
+                    <div>
+                      <label className={labelCls}>Вид подкрепа</label>
+                      <select value={dSupport} onChange={e => setDSupport(e.target.value)} className={inputCls + ' cursor-pointer'}>
+                        <option value="">—</option>
+                        {SUPPORT_OPTIONS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {t.hasDiagnosis && (
+                    <div className="sm:col-span-2">
+                      <label className={labelCls}>Диагноза</label>
+                      <input type="text" value={dDiagnosis} onChange={e => setDDiagnosis(e.target.value)} placeholder="свободен текст" className={inputCls} />
+                    </div>
+                  )}
+                  <div className={t.hasSupport ? '' : 'sm:col-span-2'}>
+                    <label className={labelCls}>Бележка</label>
+                    <input type="text" value={dNote} onChange={e => setDNote(e.target.value)} placeholder={t.notePlaceholder || 'незадължително'} className={inputCls} />
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
