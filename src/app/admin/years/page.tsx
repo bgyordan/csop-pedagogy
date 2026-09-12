@@ -5,7 +5,6 @@ import { Plus, Trash2, Loader2, Users, Pencil } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate } from '@/lib/utils'
-// Възможните места за изнесени групи (лесно се добавят нови)
 const OUTREACH_LOCATIONS = ['ДМСГД – Виница', 'ЦНСТ – Тополи']
 
 export default function AcademicYearsPage() {
@@ -20,6 +19,11 @@ export default function AcademicYearsPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [form, setForm] = useState({ name: '', start_date: '', end_date: '' })
   const [className, setClassName] = useState('')
+  const [onlyCurrent, setOnlyCurrent] = useState(true)
+  const [editClass, setEditClass] = useState<any | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editOutreach, setEditOutreach] = useState(false)
+  const [editLocation, setEditLocation] = useState(OUTREACH_LOCATIONS[0])
   const currentYear = years.find(y => y.is_current)
   useEffect(() => { load() }, [])
   async function load() {
@@ -80,11 +84,24 @@ export default function AcademicYearsPage() {
     toast('Паралелката е преименувана')
     load()
   }
-  async function setOutreach(cls: any, value: string) {
-    const { error } = await supabase.from('classes').update({ outreach_location: value || null }).eq('id', cls.id)
-    if (error) { toast('Грешка при запис', 'error'); return }
-    toast(value ? 'Отбелязана като изнесена' : 'Премахнато')
-    load()
+  function openEdit(cls: any) {
+    setEditClass(cls); setEditName(cls.name)
+    setEditOutreach(!!cls.outreach_location)
+    setEditLocation(cls.outreach_location || OUTREACH_LOCATIONS[0])
+  }
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editClass) return
+    if (!editName.trim()) { toast('Въведи име', 'error'); return }
+    setSaving(true)
+    const { error } = await supabase.from('classes').update({
+      name: editName.trim(),
+      outreach_location: editOutreach ? editLocation : null,
+    }).eq('id', editClass.id)
+    setSaving(false)
+    if (error) { toast('Грешка при запис (може би името съществува)', 'error'); return }
+    toast('Записано')
+    setEditClass(null); load()
   }
   async function handleDeleteClass(cls: any) {
     const c = counts[cls.id] || { students: 0, teachers: 0 }
@@ -141,12 +158,18 @@ export default function AcademicYearsPage() {
               <p className="text-[11px] text-slate-400 mt-0.5">Новите се създават в {currentYear.name}</p>
             )}
           </div>
-          <button onClick={() => setClassOpen(true)} className="text-xs flex items-center gap-1 text-slate-500 hover:text-slate-800">
-            <Plus size={13} /> Добави паралелка
-          </button>
+          <div className="flex items-center gap-3">
+            <label className="inline-flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer select-none">
+              <input type="checkbox" checked={onlyCurrent} onChange={e => setOnlyCurrent(e.target.checked)} className="rounded border-slate-300" />
+              Само текущата година
+            </label>
+            <button onClick={() => setClassOpen(true)} className="text-xs flex items-center gap-1 text-slate-500 hover:text-slate-800">
+              <Plus size={13} /> Добави паралелка
+            </button>
+          </div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-          {classes.map(c => {
+          {(onlyCurrent ? classes.filter((c: any) => (c.academic_year as any)?.is_current) : classes).map(c => {
             const cnt = counts[c.id] || { students: 0, teachers: 0 }
             const canDelete = cnt.students === 0 && cnt.teachers === 0
             const isCurrent = (c.academic_year as any)?.is_current
@@ -155,8 +178,8 @@ export default function AcademicYearsPage() {
                 className={`relative p-3 pt-2 rounded-lg text-center ${isCurrent ? 'bg-slate-50' : 'bg-slate-50/50 opacity-60'}`}>
                 <div className="absolute top-1.5 right-1.5 flex gap-0.5">
                   <button
-                    onClick={() => handleRenameClass(c)}
-                    title="Преименувай паралелката"
+                    onClick={() => openEdit(c)}
+                    title="Редактирай паралелката"
                     className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
                     <Pencil size={13} />
                   </button>
@@ -174,18 +197,13 @@ export default function AcademicYearsPage() {
                 </div>
                 <div className="font-medium text-slate-800 mt-3">{c.name}</div>
                 <div className="text-xs text-slate-400 mt-0.5">{(c.academic_year as any)?.name}</div>
+                {c.outreach_location && (
+                  <div className="mt-1 inline-flex items-center gap-1 text-[9px] text-teal-700 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded" title={c.outreach_location}>изнесена</div>
+                )}
                 <div className="flex items-center justify-center gap-1 mt-1 text-[10px] text-slate-400">
                   <Users size={9} />
                   {cnt.students}
                 </div>
-                {isCurrent && (
-                  <select value={c.outreach_location || ''} onChange={e => setOutreach(c, e.target.value)}
-                    title="Изнесена група (в социална услуга)"
-                    className={`mt-1.5 w-full text-[10px] rounded border px-1 py-0.5 bg-white cursor-pointer ${c.outreach_location ? 'border-teal-300 text-teal-700' : 'border-slate-200 text-slate-400'}`}>
-                    <option value="">Изнесена: —</option>
-                    {OUTREACH_LOCATIONS.map(loc => <option key={loc} value={loc}>{loc}</option>)}
-                  </select>
-                )}
               </div>
             )
           })}
@@ -231,6 +249,31 @@ export default function AcademicYearsPage() {
           <div className="flex gap-3 pt-1">
             <button type="submit" disabled={saving || !currentYear} className="btn-primary" style={{ backgroundColor: '#0f2240' }}>Добави</button>
             <button type="button" onClick={() => setClassOpen(false)} className="btn-secondary">Отказ</button>
+          </div>
+        </form>
+      </Modal>
+      {/* Редакция на паралелка */}
+      <Modal open={!!editClass} onClose={() => setEditClass(null)} title="Редакция на паралелка" size="sm">
+        <form onSubmit={saveEdit} className="space-y-3">
+          <div>
+            <label className="label">Име на паралелката</label>
+            <input autoFocus className="input" value={editName} onChange={e => setEditName(e.target.value)} />
+          </div>
+          <label className="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+            <input type="checkbox" checked={editOutreach} onChange={e => setEditOutreach(e.target.checked)} className="rounded border-slate-300" />
+            Изнесена група (в социална услуга)
+          </label>
+          {editOutreach && (
+            <div>
+              <label className="label">Място</label>
+              <select className="input" value={editLocation} onChange={e => setEditLocation(e.target.value)}>
+                {OUTREACH_LOCATIONS.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+              </select>
+            </div>
+          )}
+          <div className="flex gap-3 pt-1">
+            <button type="submit" disabled={saving} className="btn-primary" style={{ backgroundColor: '#0f2240' }}>Запази</button>
+            <button type="button" onClick={() => setEditClass(null)} className="btn-secondary">Отказ</button>
           </div>
         </form>
       </Modal>
