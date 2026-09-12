@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { Users, BookOpen, UserCircle, Star, BarChart3, CalendarDays, Inbox, ClipboardList, ArrowRight, GraduationCap, Calendar, AlertTriangle } from 'lucide-react'
 import { formatDate, getDaysUntil } from '@/lib/utils'
 import SharedFiles from './SharedFiles'
-
+import ExpiringDocsCard from './ExpiringDocsCard'
 export default async function DirectorDashboard({ profile, currentYearId }: any) {
   const supabase = await createClient()
   const now = new Date()
@@ -60,7 +60,11 @@ export default async function DirectorDashboard({ profile, currentYearId }: any)
             <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
           </Link>
         ))}
+             ))}
       </div>
+
+      {/* Изтичащи документи */}
+      <ExpiringDocsCard />
 
       {/* Предстоящи срокове */}
       {deadlines && deadlines.length > 0 && (
