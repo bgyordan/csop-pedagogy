@@ -180,7 +180,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     setGenId(id)
     const row = rows.find(r => r.id === id)
     const overNorm = row?.bsch ? true : (overNormMap[id] !== false)
-    const register = registerMap[id] !== false
+    const register = true // заповедта винаги се завежда (регистрация = има номер)
     const res: any = await generateSubstitution(id, overNorm, register)
     if (res.error) { toast(res.error, 'error'); setGenId(null); return }
     try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ }
@@ -398,33 +398,32 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               <span className="text-xs text-slate-500">{fmt(r.dateFrom)}</span>
               <span className="text-xs text-slate-500">{fmt(r.dateTo)}</span>
               <div className="flex items-center justify-end gap-1.5 flex-nowrap">
-                {(r as any).bsch && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0">НП</span>}
-                {r.substituteId && !r.hasOrder && (
+                {(r as any).bsch && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0" title="По национална програма">НП</span>}
+                {r.hasOrder ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                    <Check size={12} /> Заповед издадена
+                  </span>
+                ) : r.substituteId ? (
                   <>
                     {(() => { const on = r.bsch ? true : (overNormMap[r.id] !== false); return (
                     <button type="button" disabled={r.bsch}
                       onClick={() => { if (!r.bsch) setOverNormMap(p => ({ ...p, [r.id]: !(p[r.id] !== false) })) }}
                       className={`relative inline-flex items-center h-6 rounded-full border transition-colors shrink-0 select-none mr-1 ${r.bsch ? 'opacity-90 cursor-not-allowed' : ''}`}
-                      style={{ width: '90px', backgroundColor: on ? '#0f2240' : '#e2e8f0', borderColor: on ? '#0f2240' : '#cbd5e1' }}
-                      title={r.bsch ? 'По НП винаги е с лекторски' : 'Превключи: с лекторски / без лекторски'}>
-                      <span className={on ? 'absolute left-2 text-[10px] font-medium text-white' : 'absolute right-2 text-[10px] font-medium text-slate-600'}>
-                        {on ? 'Лект.' : 'Норма'}
+                      style={{ width: '104px', backgroundColor: on ? '#64748b' : '#e2e8f0', borderColor: on ? '#64748b' : '#cbd5e1' }}
+                      title={r.bsch ? 'По НП винаги е с лекторски' : 'Превключи: лекторски (над норматив) / вътрешно заместване'}>
+                      <span className={on ? 'absolute left-2.5 text-[10px] font-medium text-white' : 'absolute right-2 text-[10px] font-medium text-slate-600'}>
+                        {on ? 'Лект.' : 'Вътр. зам.'}
                       </span>
                       <span className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all" style={{ left: on ? 'calc(100% - 22px)' : '2px' }} />
                     </button>
                     )})()}
-                    <label className="inline-flex items-center gap-1 text-[10px] text-slate-500 cursor-pointer mr-1 whitespace-nowrap" title="Регистрирай заповедта в Заповеди — после прикачи подписания скан. Без отметка само сваля Word.">
-                      <input type="checkbox" checked={registerMap[r.id] !== false}
-                        onChange={e => setRegisterMap(p => ({ ...p, [r.id]: e.target.checked }))}
-                        className="rounded" />
-                      Рег.
-                    </label>
                     <button onClick={() => genOrder(r.id)} disabled={genId === r.id}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 disabled:opacity-50 shrink-0" style={{ backgroundColor: '#0f2240' }}>
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border shrink-0 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                      style={{ color: '#0f2240', borderColor: 'rgba(15,34,64,0.28)' }}>
                       {genId === r.id ? <Loader2 size={12} className="animate-spin" /> : <>Заповед</>}
                     </button>
                   </>
-                )}
+                ) : null}
                 <button onClick={() => startEdit(r)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all" title="Редактирай"><Pencil size={14} /></button>
               </div>
             </div>
