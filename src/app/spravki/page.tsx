@@ -36,7 +36,7 @@ export default async function SpravkiPage() {
   ;(classTeachers || []).forEach((ct: any) => {
     if (ct.staff) classTeacherMap.set(ct.class_id, ct.staff)
   })
-  const allRows = (enrollments || []).map((e: any) => {
+  const allRows = (enrollments || []).filter((e: any) => e.student?.status === 'active').map((e: any) => {
     const student = e.student as any
     const cls = e.class as any
     const eplr = eplrMap.get(student?.id) as any
