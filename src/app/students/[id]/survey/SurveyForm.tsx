@@ -1,12 +1,41 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useLayoutEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Save, Loader2, Check, ChevronDown, FileText, Download } from 'lucide-react'
 import { generateSurveyDocument } from '@/lib/docx-generator'
 import { SURVEY_SECTIONS } from './survey-schema'
+
+// Многоредово поле, което расте според съдържанието (без вътрешен скрол),
+// включително при първоначално зареждане на вече записан текст.
+function AutoTextarea({
+  value, onChange, disabled, minRows = 2,
+}: {
+  value: string
+  onChange: (v: string) => void
+  disabled?: boolean
+  minRows?: number
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = el.scrollHeight + 'px'
+  }, [value])
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      disabled={disabled}
+      rows={minRows}
+      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-300 disabled:bg-slate-50 resize-none overflow-hidden"
+    />
+  )
+}
 
 interface Props {
   studentId: string
@@ -144,12 +173,11 @@ export default function SurveyForm({ studentId, studentName, initialData, canEdi
                       <div>
                         <label className="block text-[11px] font-semibold text-slate-500 mb-1">{field.label}</label>
                         {field.type === 'textarea' ? (
-                          <textarea
+                          <AutoTextarea
                             value={sec[field.key] || ''}
-                            onChange={e => setField(section.key, field.key, e.target.value)}
+                            onChange={v => setField(section.key, field.key, v)}
                             disabled={!canEdit}
-                            rows={2}
-                            className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-300 disabled:bg-slate-50 resize-y"
+                            minRows={2}
                           />
                         ) : (
                           <input type="text"
@@ -176,12 +204,11 @@ export default function SurveyForm({ studentId, studentName, initialData, canEdi
                   {section.hasNotes && (
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-500 mb-1">Бележки</label>
-                      <textarea
+                      <AutoTextarea
                         value={sec.__notes || ''}
-                        onChange={e => setNote(section.key, e.target.value)}
+                        onChange={v => setNote(section.key, v)}
                         disabled={!canEdit}
-                        rows={3}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-300 disabled:bg-slate-50 resize-y"
+                        minRows={3}
                       />
                     </div>
                   )}
