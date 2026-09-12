@@ -12,7 +12,7 @@ import { GraduationCap, Home, Wifi } from 'lucide-react'
 import { EplrDocumentsSection } from './EplrDocumentsSection'
 import MarkProcessedButton from './MarkProcessedButton'
 import StudentDeclarations from './StudentDeclarations'
-
+import StudentDocuments from './StudentDocuments'
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
   'iup', 'iu_program', 'support_plan', 'parent_program'
@@ -308,8 +308,16 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
               externalClass={student.external_class}
               oresRecords={oresRecords || []}
               intensity={(student as any).intensity}
-              canManage={canManage}
+                           canManage={canManage}
             />
+          </div>
+
+          <div className={`${cardCls} !h-auto mb-4`}>
+            <div className={cardHead}>
+              <CalendarClock size={16} className="text-amber-500" />
+              <h2 className="font-semibold text-slate-800 text-sm">Документи и срокове</h2>
+            </div>
+            <StudentDocuments studentId={id} canManage={canEditDossier} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
