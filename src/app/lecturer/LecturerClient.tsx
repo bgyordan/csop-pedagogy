@@ -143,6 +143,10 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
     <div className="space-y-5">
       {/* Избор учител */}
       <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-800">Определяне на лекторски (над норматив)</h3>
+          <p className="text-xs text-slate-500 mt-1">1) Изберете учител → 2) маркирайте часовете <b>над норматива</b> му → 3) задайте период → <b>Добави</b>. Може да добавите няколко групи с различни периоди (напр. едни часове до 30.06, други само за I срок).</p>
+        </div>
         <div className="relative max-w-sm">
           <label className="block text-xs text-slate-500 mb-1">Учител</label>
           <input type="text" value={teacherId ? teacherName : tSearch}
@@ -161,6 +165,12 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
           )}
         </div>
 
+        {!teacherId && (
+          <div className="flex items-center gap-2 text-sm text-slate-400">
+            <Users size={15} /> Изберете учител, за да видите разписанието му и да определите лекторските часове.
+          </div>
+        )}
+
         {teacherId && (
           <>
             {loadingSched ? (
@@ -169,7 +179,7 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
               <div className="py-6 text-center text-sm text-slate-400">Този учител няма въведено разписание.</div>
             ) : (
               <>
-                <p className="text-xs text-slate-500">Кликнете часовете, които са над норматива:</p>
+                <p className="text-xs text-slate-500">Кликнете часовете <span className="font-medium text-slate-700">над норматива</span>. Зелените са вече записани (с техния период); за нова група с друг период маркирайте други свободни часове.</p>
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-sm">
                     <thead>
@@ -201,7 +211,7 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
                                   ) : (
                                   <button onClick={() => togglePick(d.n, period)}
                                     className={`w-full min-h-[42px] rounded-lg border px-1.5 py-1 text-left transition-all ${
-                                      on ? 'border-[#0f2240] bg-[#0f2240] text-white' : 'border-slate-200 bg-slate-50 hover:border-slate-400'
+                                      on ? 'border-slate-500 bg-slate-500 text-white' : 'border-slate-200 bg-slate-50 hover:border-slate-400'
                                     }`}>
                                     <div className="text-[10px] opacity-80">{sl.holderLabel}</div>
                                     <div className="text-[11px] truncate">{sl.subject}</div>
@@ -236,6 +246,10 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
                   <button onClick={save} disabled={saving || pickedCount === 0 || !from || !to}
                     className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-white text-sm font-medium disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
                     {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Добави с този период
+                  </button>
+                  <button type="button" onClick={() => { setTeacherId(''); setSchedule([]); setPicked(new Set()); setFrom(''); setTo('') }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm text-slate-600 bg-white border border-slate-200 hover:bg-slate-50">
+                    Готово
                   </button>
                 </div>
               </>
