@@ -1,14 +1,14 @@
 'use client'
 import { BackButton } from '@/components/ui/BackButton'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Save, Download } from 'lucide-react'
+import { Save, Download, Plus, Trash2 } from 'lucide-react'
 import { DOCUMENT_TYPE_LABELS, DocumentType, DocumentStatus } from '@/types'
 import { generateAndDownloadDocument } from '@/lib/docx-generator'
 import { getFullName } from '@/lib/utils'
 
-type Field = { key: string; label: string; type: 'text' | 'textarea' | 'date' | 'yesno' | 'auto' }
+type Field = { key: string; label: string; type: 'text' | 'textarea' | 'date' | 'yesno' | 'auto' | 'goalblocks' }
 type Section = { title?: string; fields: Field[] }
 
 // Полетата по документ, групирани по секции (заглавие + полета)
@@ -85,14 +85,8 @@ const DOCUMENT_SECTIONS: Record<string, Section[]> = {
       { key: 'emotional_state', label: 'III. Емоционално състояние и поведение', type: 'textarea' },
       { key: 'strengths', label: 'IV. Възможности за обучение, силни страни и потенциал', type: 'textarea' },
     ] },
-    { title: 'V. Цели и задачи (до 7 реда)', fields: [
-      { key: 'goal_1', label: '1 · Цел', type: 'text' }, { key: 'task_1', label: '1 · Задача', type: 'text' }, { key: 'term_1', label: '1 · Срок', type: 'text' },
-      { key: 'goal_2', label: '2 · Цел', type: 'text' }, { key: 'task_2', label: '2 · Задача', type: 'text' }, { key: 'term_2', label: '2 · Срок', type: 'text' },
-      { key: 'goal_3', label: '3 · Цел', type: 'text' }, { key: 'task_3', label: '3 · Задача', type: 'text' }, { key: 'term_3', label: '3 · Срок', type: 'text' },
-      { key: 'goal_4', label: '4 · Цел', type: 'text' }, { key: 'task_4', label: '4 · Задача', type: 'text' }, { key: 'term_4', label: '4 · Срок', type: 'text' },
-      { key: 'goal_5', label: '5 · Цел', type: 'text' }, { key: 'task_5', label: '5 · Задача', type: 'text' }, { key: 'term_5', label: '5 · Срок', type: 'text' },
-      { key: 'goal_6', label: '6 · Цел', type: 'text' }, { key: 'task_6', label: '6 · Задача', type: 'text' }, { key: 'term_6', label: '6 · Срок', type: 'text' },
-      { key: 'goal_7', label: '7 · Цел', type: 'text' }, { key: 'task_7', label: '7 · Задача', type: 'text' }, { key: 'term_7', label: '7 · Срок', type: 'text' },
+    { title: 'V. Цели и задачи по специалисти', fields: [
+      { key: 'goal_blocks', label: '', type: 'goalblocks' },
     ] },
     { title: 'VII. Описание на екипната работа', fields: [
       { key: 'work_speech', label: 'Логопед — дейности', type: 'textarea' },
@@ -107,6 +101,65 @@ const DOCUMENT_SECTIONS: Record<string, Section[]> = {
 }
 
 interface Props { params: Promise<{ studentId: string; docType: string }> }
+
+// Многоредово поле, което расте според съдържанието (без вътрешен скрол)
+function AutoGrow({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  useLayoutEffect(() => { const el = ref.current; if (!el) return; el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' }, [value])
+  return (
+    <textarea ref={ref} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={2}
+      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none overflow-hidden" />
+  )
+}
+
+// Раздел V: блокове по специалист. Стойността е JSON масив в едно поле (goal_blocks).
+type GoalBlock = { specialist: string; goals: string; tasks: string; term: string }
+function GoalBlocksEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  let blocks: GoalBlock[] = []
+  try { const p = JSON.parse(value || '[]'); if (Array.isArray(p)) blocks = p } catch {}
+  const commit = (next: GoalBlock[]) => onChange(JSON.stringify(next))
+  const update = (i: number, k: keyof GoalBlock, v: string) => { const n = blocks.map((b, idx) => idx === i ? { ...b, [k]: v } : b); commit(n) }
+  const add = () => commit([...blocks, { specialist: '', goals: '', tasks: '', term: '' }])
+  const remove = (i: number) => commit(blocks.filter((_, idx) => idx !== i))
+
+  return (
+    <div className="space-y-3">
+      {blocks.length === 0 && (
+        <p className="text-xs text-slate-400">Няма добавени блокове. Добави по един за всяко направление/специалист (напр. „Педагогически", „Музикотерапия", „Психо-социална рехабилитация").</p>
+      )}
+      {blocks.map((b, i) => (
+        <div key={i} className="rounded-xl border border-slate-200 bg-slate-50/40 p-3 space-y-2.5">
+          <div className="flex items-center gap-2">
+            <input value={b.specialist} onChange={e => update(i, 'specialist', e.target.value)}
+              placeholder="Направление / специалист (напр. Педагогически)"
+              className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-200" />
+            <button type="button" onClick={() => remove(i)} title="Премахни блока"
+              className="p-2 text-slate-400 hover:text-rose-500 transition-colors"><Trash2 size={15} /></button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_120px] gap-2">
+            <div>
+              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1">Цели</label>
+              <AutoGrow value={b.goals} onChange={v => update(i, 'goals', v)} placeholder={'1. ...\n2. ...'} />
+            </div>
+            <div>
+              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1">Задачи</label>
+              <AutoGrow value={b.tasks} onChange={v => update(i, 'tasks', v)} placeholder={'1. ...\n2. ...'} />
+            </div>
+            <div>
+              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1">Срок</label>
+              <input value={b.term} onChange={e => update(i, 'term', e.target.value)} placeholder="Уч. година"
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+            </div>
+          </div>
+        </div>
+      ))}
+      <button type="button" onClick={add}
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-white hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
+        <Plus size={15} /> Добави блок
+      </button>
+    </div>
+  )
+}
 
 export default function DocumentEditorPage({ params }: Props) {
   const [resolvedParams, setResolvedParams] = useState<{ studentId: string; docType: string } | null>(null)
@@ -232,6 +285,8 @@ export default function DocumentEditorPage({ params }: Props) {
                       className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 cursor-pointer w-28">
                       <option value="">—</option><option value="Да">Да</option><option value="Не">Не</option>
                     </select>
+                  ) : field.type === 'goalblocks' ? (
+                    <GoalBlocksEditor value={formData[field.key] || ''} onChange={v => setF(field.key, v)} />
                   ) : field.type === 'auto' ? (
                     <div className="relative">
                       <input type="text" value={formData[field.key] || ''} onChange={e => setF(field.key, e.target.value)}
