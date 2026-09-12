@@ -60,7 +60,7 @@ export default async function DirectorDashboard({ profile, currentYearId }: any)
             <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
           </Link>
         ))}
-             ))}
+          
       </div>
 
       {/* Изтичащи документи */}
