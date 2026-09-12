@@ -391,8 +391,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
             <div key={r.id}
               className={`bg-white border border-slate-200 rounded-2xl px-4 py-2 grid grid-cols-1 md:grid-cols-[24px_minmax(0,1.3fr)_minmax(0,1.3fr)_66px_66px_262px] gap-2 md:gap-3 md:items-center transition-all group hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] shadow-[0_1px_4px_rgba(15,34,64,0.06)] ${idx % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
               <span className="text-xs text-slate-400">{idx + 1}</span>
-              <span className="text-sm text-slate-800">{r.absentName}</span>
-              <span className="text-sm text-slate-600">
+              <span className="text-sm text-slate-800 bg-rose-50/50 rounded-md px-2 py-1">{r.absentName}</span>
+              <span className={`text-sm text-slate-600 rounded-md px-2 py-1 ${r.substituteName ? 'bg-emerald-50/60' : ''}`}>
                 {r.substituteName || <span className="inline-flex items-center gap-1 text-amber-500 text-xs"><UserX size={13} /> няма</span>}
               </span>
               <span className="text-xs text-slate-500">{fmt(r.dateFrom)}</span>
