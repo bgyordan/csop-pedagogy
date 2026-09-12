@@ -80,6 +80,7 @@ const navItems: NavItem[] = [
     children: [
       { href: '/staff', label: 'Служители', icon: <UserCircle size={14} />, roles: ['admin', 'director', 'zdud'] },
       { href: '/reports/hub', label: 'Справки', icon: <BarChart3 size={14} />, roles: ['admin', 'director', 'zdud'] },
+      { href: '/reports/full', label: 'Пълна справка (Excel)', icon: <FileSpreadsheet size={14} />, roles: ['admin', 'zdud', 'director'] },
             { href: '/admin', label: 'Администрация', icon: <Settings size={14} />, roles: ['admin', 'zdud'] },
     ],
   },
