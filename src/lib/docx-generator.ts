@@ -1229,11 +1229,11 @@ export async function generateRuoClassesLetter(
   const blob = await Packer.toBlob(doc)
   saveAs(blob, `паралелки_РУО_${yearName.replace(/[^0-9]/g, '_')}.docx`)
 }
-// ── ПИСМО ДО РЦПППО: ИЗНЕСЕНИ ГРУПИ (в социалните услуги) ───────────────────
-// Фиксирано подмножество паралелки, групирани по социална услуга. Само с деца.
+// ── ПИСМО ДО РЦПППО: ИЗНЕСЕНИ ГРУПИ (чете маркера outreach_location) ──────────
+// groups идват готови от страницата: за всяко място — списък паралелки с деца.
 export async function generateOutreachGroupsLetter(
   yearName: string,
-  classes: { className: string; students: { name: string; school: string; externalClass: string }[] }[],
+  groups: { location: string; items: { className: string; students: { name: string; school: string; externalClass: string }[] }[] }[],
   opts?: { addressee?: string; position?: string; institution?: string; directorName?: string },
 ) {
   const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
@@ -1250,32 +1250,15 @@ export async function generateOutreachGroupsLetter(
   const directorName = opts?.directorName || 'Светлана Иванова'
   const BASIS = 'Във връзка с чл. 53, Приложение №7, раздел IV, т. 3 от Наредбата за финансиране на институциите в системата на предучилищното и училищно образование от 05.09.2017 г., предлагам да се сформира следната паралелка:'
 
-  // Място → изнесени паралелки (римски номер + пореден номер за заглавието)
-  const OUTREACH: { location: string; items: { roman: string; num: number }[] }[] = [
-    { location: 'ДМСГД – Виница', items: [
-      { roman: 'XVI', num: 16 }, { roman: 'XVII', num: 17 }, { roman: 'XVIII', num: 18 },
-      { roman: 'XIX', num: 19 }, { roman: 'XX', num: 20 }, { roman: 'XXIX', num: 29 },
-    ] },
-    { location: 'ЦНСТ – Тополи', items: [
-      { roman: 'XXI', num: 21 }, { roman: 'XXII', num: 22 },
-    ] },
-  ]
+  const numOf = (name: string) => { const m = name.trim().match(/^0*(\d+)$/); return m ? parseInt(m[1]) : null }
 
-    const numOf = (name: string) => { const m = name.trim().match(/^0*(\d+)$/); return m ? parseInt(m[1]) : null }
-  const usable = classes.filter(c => !/служебна/i.test(c.className) && c.students.length > 0)
-  const byNum: Record<number, typeof usable[number]> = {}
-  usable.forEach(c => { const n = numOf(c.className); if (n !== null) byNum[n] = c })
-
-  const groups = OUTREACH.map(g => ({
-    location: g.location,
-    items: g.items.map(it => ({ ...it, cls: byNum[it.num] })).filter(x => x.cls),
-  })).filter(g => g.items.length > 0)
-
-  const totalParalelki = groups.reduce((a, g) => a + g.items.length, 0)
+  const usableGroups = groups
+    .map(g => ({ location: g.location, items: g.items.filter(it => it.students.length > 0) }))
+    .filter(g => g.items.length > 0)
+  const totalParalelki = usableGroups.reduce((a, g) => a + g.items.length, 0)
 
   const children: any[] = []
 
-  // Хедър с лого
   children.push(
     new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
@@ -1311,18 +1294,19 @@ export async function generateOutreachGroupsLetter(
     }),
   )
 
-  groups.forEach(g => {
+  usableGroups.forEach(g => {
     children.push(new Paragraph({
       keepNext: true, spacing: { before: 240, after: 120 },
       children: [new TextRun({ text: `Прилагам списък с деца и ученици: ${g.location}`, bold: true, size: 22 })],
     }))
 
-    g.items.forEach(({ num, cls }) => {
-      const title = classTitle(cls!.className, cls!.students.map(s => s.externalClass))
+    g.items.forEach(cls => {
+      const num = numOf(cls.className)
+      const title = classTitle(cls.className, cls.students.map(s => s.externalClass))
 
       children.push(new Paragraph({
         keepNext: true, spacing: { before: 160, after: 40 },
-        children: [new TextRun({ text: `${num}. ПАРАЛЕЛКА`, bold: true, size: 21 })],
+        children: [new TextRun({ text: `${num ?? cls.className}. ПАРАЛЕЛКА`, bold: true, size: 21 })],
       }))
       children.push(new Paragraph({
         keepNext: true, alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 },
@@ -1344,9 +1328,9 @@ export async function generateOutreachGroupsLetter(
         margins: { top: 40, bottom: 40, left: 80, right: 80 },
         children: [new Paragraph({ keepNext: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 18 })] })],
       }))}))
-      cls!.students.forEach((st, i) => {
+      cls.students.forEach((st, i) => {
         const cnum = classNumber(st.externalClass)
-        const notLast = i < cls!.students.length - 1
+        const notLast = i < cls.students.length - 1
         rows.push(new TableRow({ cantSplit: true, children: [
           { t: String(i + 1), a: AlignmentType.CENTER },
           { t: st.name, a: AlignmentType.LEFT },
