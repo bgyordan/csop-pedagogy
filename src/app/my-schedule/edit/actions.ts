@@ -35,11 +35,10 @@ export async function saveMySchedule(
   const ifoCells = cells.filter(c => c.holderType === 'ifo' && c.subjectId)
 
   // ── ПАРАЛЕЛКИ (schedule_slots със staff_id) ──
-  // Групираме по паралелка; за всяка намираме/създаваме class_schedule.
+  // Намираме/създаваме class_schedule за всяка паралелка, която пипам сега.
   const classIds = Array.from(new Set(classCells.map(c => c.holderId)))
-  // Изтриваме МОИТЕ стари слотове във всички паралелки, които въобще пипам сега
-  // (за да махна и такива, които съм премахнал от решетката)
-  for (const classId of classIds.length ? classIds : []) {
+  const schedByClass: Record<string, string> = {}
+  for (const classId of classIds) {
     let { data: sched } = await supabase
       .from('class_schedules').select('id')
       .eq('class_id', classId).eq('academic_year_id', academicYearId).eq('term', term).maybeSingle()
@@ -51,16 +50,44 @@ export async function saveMySchedule(
       if (cErr) return { error: cErr.message }
       sched = created
     }
-    // трия само моите слотове в това разписание
-    await supabase.from('schedule_slots').delete().eq('schedule_id', sched!.id).eq('staff_id', myId)
-    // вписвам новите мои
-    const mine = classCells.filter(c => c.holderId === classId)
-      .map(c => ({ schedule_id: sched!.id, day: c.day, period: c.period, subject_id: c.subjectId, staff_id: myId }))
-    if (mine.length > 0) {
-      const { error: iErr } = await supabase.from('schedule_slots').insert(mine)
-      if (iErr) return { error: iErr.message }
-    }
-    await supabase.from('class_schedules').update({ updated_at: new Date().toISOString() }).eq('id', sched!.id)
+    schedByClass[classId] = sched!.id
+  }
+
+  // Кои разписания да изчистя от МОИТЕ слотове:
+  // тези, които пипам сега + тези, в които ВЕЧЕ имам слотове — за да се махнат и
+  // напълно премахнати паралелки (иначе последната изтрита клетка остава в базата).
+  const { data: yearScheds } = await supabase
+    .from('class_schedules').select('id')
+    .eq('academic_year_id', academicYearId).eq('term', term)
+  const yearSchedIds = (yearScheds || []).map((s: any) => s.id)
+  let mineSchedIds: string[] = []
+  if (yearSchedIds.length > 0) {
+    const { data: mineSlots } = await supabase
+      .from('schedule_slots').select('schedule_id')
+      .in('schedule_id', yearSchedIds).eq('staff_id', myId)
+    mineSchedIds = (mineSlots || []).map((s: any) => s.schedule_id)
+  }
+  const clearSchedIds = Array.from(new Set([...Object.values(schedByClass), ...mineSchedIds]))
+
+  // Трия всичките си стари слотове в тези разписания (само моите, чуждите не се пипат)
+  if (clearSchedIds.length > 0) {
+    const { error: dErr } = await supabase
+      .from('schedule_slots').delete().in('schedule_id', clearSchedIds).eq('staff_id', myId)
+    if (dErr) return { error: dErr.message }
+  }
+
+  // Вмъквам новите си слотове
+  const toInsert = classCells.map(c => ({
+    schedule_id: schedByClass[c.holderId], day: c.day, period: c.period, subject_id: c.subjectId, staff_id: myId,
+  }))
+  if (toInsert.length > 0) {
+    const { error: iErr } = await supabase.from('schedule_slots').insert(toInsert)
+    if (iErr) return { error: iErr.message }
+  }
+
+  // Отбелязвам пипнатите разписания като обновени
+  for (const sid of Object.values(schedByClass)) {
+    await supabase.from('class_schedules').update({ updated_at: new Date().toISOString() }).eq('id', sid)
   }
 
   // ── ИФО (teacher_ifo_slots) ──
