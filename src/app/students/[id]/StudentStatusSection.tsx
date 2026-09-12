@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { GraduationCap, Home, Wifi, Plus, X, Loader2, Check, Calendar, FileText, Activity } from 'lucide-react'
+import { GraduationCap, Home, Wifi, Plus, X, Loader2, Check, Calendar } from 'lucide-react'
 
 function coudEligible(ext?: string | null): boolean {
   if (!ext) return true
@@ -33,40 +33,29 @@ interface Props {
   oresRecords: OresRecord[]
   intensity?: string | null
   canManage: boolean
-  rcpppoValidUntil?: string | null
-  supportType?: string | null
-  telkValidUntil?: string | null
 }
 
 export default function StudentStatusSection({
-  studentId, enrollmentId, educationForm: initialForm, coudGroupName, coudTeacher, externalClass, oresRecords: initialOres, intensity: initialIntensity, canManage, rcpppoValidUntil, supportType, telkValidUntil
+  studentId, enrollmentId, educationForm: initialForm, coudGroupName, coudTeacher, externalClass, oresRecords: initialOres, intensity: initialIntensity, canManage
 }: Props) {
   const supabase = createClient()
   const router = useRouter()
   const [form, setForm] = useState(initialForm || 'daily')
   const [ores, setOres] = useState<OresRecord[]>(initialOres || [])
   const [saving, setSaving] = useState(false)
-  
+
   // ORES State
   const [showOresForm, setShowOresForm] = useState(false)
   const [oresFrom, setOresFrom] = useState(new Date().toISOString().split('T')[0])
   const [oresTo, setOresTo] = useState('')
   const [oresReason, setOresReason] = useState('')
-  
+
   // Intensity State
   const INTENSITY_PRESETS = ['8', '6', '4']
   const [intensity, setIntensity] = useState(initialIntensity || '')
   const [customIntensity, setCustomIntensity] = useState(
     !!(initialIntensity && !['8', '6', '4'].includes(initialIntensity))
   )
-
-  // New Docs State
-  const [isEditingDocs, setIsEditingDocs] = useState(false)
-  const [docForm, setDocForm] = useState({
-    rcpppo_valid_until: rcpppoValidUntil || '',
-    support_type: supportType || '',
-    telk_valid_until: telkValidUntil || '',
-  })
 
   async function updateIntensity(val: string) {
     setIntensity(val)
@@ -115,52 +104,13 @@ export default function StudentStatusSection({
     router.refresh()
   }
 
-  async function saveDocs() {
-    setSaving(true)
-    await supabase.from('students').update({
-      rcpppo_valid_until: docForm.rcpppo_valid_until || null,
-      support_type: docForm.support_type || null,
-      telk_valid_until: docForm.telk_valid_until || null,
-    }).eq('id', studentId)
-    setSaving(false)
-    setIsEditingDocs(false)
-    router.refresh()
-  }
-
   function fmtDate(d: string) {
     return new Date(d).toLocaleDateString('bg-BG')
   }
 
-  function renderDateStatus(dateStr?: string | null) {
-    if (!dateStr) return <span className="text-slate-400">Няма въведена дата</span>
-    const validUntil = new Date(dateStr)
-    const now = new Date()
-    const daysLeft = Math.ceil((validUntil.getTime() - now.getTime()) / (1000 * 3600 * 24))
-    
-    let colorCls = "text-emerald-700 bg-emerald-50 border-emerald-200"
-    let statusText = "Валиден"
-    
-    if (daysLeft < 0) {
-      colorCls = "text-rose-700 bg-rose-50 border-rose-200"
-      statusText = "Изтекъл"
-    } else if (daysLeft <= 30) {
-      colorCls = "text-amber-700 bg-amber-50 border-amber-200"
-      statusText = `Изтича след ${daysLeft} дни`
-    }
-
-    return (
-      <div className="flex flex-col gap-1 mt-1">
-        <span className="text-sm font-medium text-slate-700">{fmtDate(dateStr)}</span>
-        <span className={`text-[10px] px-2 py-0.5 rounded-md border font-semibold w-fit ${colorCls}`}>
-          {statusText}
-        </span>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-4">
-      {/* Първи ред: Съществуващи карти (Интензитет, Форма, ЦОУД, ОРЕС) с обновен дизайн */}
+      {/* Първи ред: Интензитет, Форма, ЦОУД, ОРЕС */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
         {/* Интензитет */}
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 h-full">
@@ -309,105 +259,6 @@ export default function StudentStatusSection({
             </button>
           )}
         </div>
-      </div>
-
-      {/* НОВА СЕКЦИЯ: Документи и Подкрепа */}
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
-        <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <FileText size={16} className="text-[#0f2240]" />
-            <h3 className="text-sm font-semibold text-slate-800">Експертни решения и срокове</h3>
-          </div>
-          {canManage && !isEditingDocs && (
-            <button 
-              onClick={() => setIsEditingDocs(true)}
-              className="text-xs font-semibold text-[#0f2240] hover:underline"
-            >
-              Редактирай данни
-            </button>
-          )}
-        </div>
-
-        {isEditingDocs ? (
-          <div className="bg-slate-50/80 border border-slate-200 p-4 rounded-xl space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1.5">Вид подкрепа</label>
-                <select 
-                  value={docForm.support_type} 
-                  onChange={e => setDocForm({...docForm, support_type: e.target.value})}
-                  className="w-full text-sm rounded-xl border border-slate-200 px-3 py-2 bg-white focus:outline-none focus:border-slate-400"
-                >
-                  <option value="">-- Избери --</option>
-                  <option value="Обща">Обща подкрепа</option>
-                  <option value="Допълнителна">Допълнителна подкрепа</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1.5">Заповед РЦПППО валидна до</label>
-                <input 
-                  type="date" 
-                  value={docForm.rcpppo_valid_until} 
-                  onChange={e => setDocForm({...docForm, rcpppo_valid_until: e.target.value})}
-                  className="w-full text-sm rounded-xl border border-slate-200 px-3 py-2 bg-white focus:outline-none focus:border-slate-400"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1.5">ТЕЛК / МЕ валиден до</label>
-                <input 
-                  type="date" 
-                  value={docForm.telk_valid_until} 
-                  onChange={e => setDocForm({...docForm, telk_valid_until: e.target.value})}
-                  className="w-full text-sm rounded-xl border border-slate-200 px-3 py-2 bg-white focus:outline-none focus:border-slate-400"
-                />
-              </div>
-            </div>
-            
-            <div className="flex gap-2 justify-end pt-2 border-t border-slate-200/60 mt-4">
-              <button 
-                onClick={() => setIsEditingDocs(false)}
-                disabled={saving}
-                className="px-4 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-colors"
-              >
-                Отказ
-              </button>
-              <button 
-                onClick={saveDocs}
-                disabled={saving}
-                className="px-4 py-2 text-xs font-medium text-white rounded-xl transition-colors flex items-center gap-1.5"
-                style={{ backgroundColor: '#0f2240' }}
-              >
-                {saving ? <Loader2 size={14} className="animate-spin"/> : <Check size={14}/>}
-                Запази
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-1">
-                <Activity size={13} /> Вид подкрепа
-              </div>
-              <div className="text-sm font-medium text-slate-700 mt-1">
-                {supportType ? (
-                  <span className="inline-flex px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-100">
-                    {supportType}
-                  </span>
-                ) : (
-                  <span className="text-slate-400 font-normal">—</span>
-                )}
-              </div>
-            </div>
-            <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">РЦПППО валидност</div>
-              {renderDateStatus(rcpppoValidUntil)}
-            </div>
-            <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ТЕЛК валидност</div>
-              {renderDateStatus(telkValidUntil)}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
