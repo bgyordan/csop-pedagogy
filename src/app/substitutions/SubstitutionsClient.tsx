@@ -137,6 +137,9 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [eTo, setETo] = useState('')
   const [eReason, setEReason] = useState('sick')
   const [eBsch, setEBsch] = useState(false)
+  const [eManualNumber, setEManualNumber] = useState('')
+  const [eManualDate, setEManualDate] = useState('')
+  const [eNoOrder, setENoOrder] = useState(false)
   const [eSaving, setESaving] = useState(false)
 
   // Няколко заместника — единен модел: карта „ден → заместник"
@@ -207,9 +210,10 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       substituteName: r.sub ? `${r.sub.first_name} ${r.sub.last_name}` : null,
       substituteId: r.substitute_staff_id, dateFrom: r.date_from, dateTo: r.date_to,
            reason: r.reason, hasOrder: !!r.substitution_order_id, bsch: r.bsch_eligible === true, ktArticle: r.kt_article,
+      manualNumber: r.manual_order_number || null, manualDate: r.manual_order_date || null, noOrder: r.no_order_needed === true,
     } as SubRow
   }
-  const selectCols = `id, date_from, date_to, reason, substitute_staff_id, substitution_order_id, bsch_eligible, kt_article,
+  const selectCols = `id, date_from, date_to, reason, substitute_staff_id, substitution_order_id, manual_order_number, manual_order_date, no_order_needed, bsch_eligible, kt_article,
     absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name),
     sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name)`
 
@@ -246,6 +250,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     setEAbsent(absentIdByRow[r.id] || '')
     setESub(r.substituteId || '')
     setEFrom(r.dateFrom); setETo(r.dateTo); setEReason(r.reason); setEBsch(!!(r as any).bsch); setEKtArticle((r as any).ktArticle || '155')
+    setEManualNumber((r as any).manualNumber || ''); setEManualDate((r as any).manualDate || ''); setENoOrder(!!(r as any).noOrder)
   }
   // за редакция трябва absent_staff_id — карта id->absentId от initial (page подава absentStaffId в SubRow)
   const absentIdByRow: Record<string, string> = useMemo(() => {
@@ -263,6 +268,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     const { data, error } = await supabase.from('substitutions').update({
       absent_staff_id: eAbsent, substitute_staff_id: primary || null,
       date_from: eFrom, date_to: eTo, reason: reasonFromKt(eKtArticle), bsch_eligible: eBsch, kt_article: eKtArticle,
+      manual_order_number: eManualNumber.trim() || null, manual_order_date: eManualDate || null, no_order_needed: eNoOrder,
     }).eq('id', editId).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setESaving(false); return }
     const mapped: any = mapRow(data); mapped.absentStaffId = eAbsent
@@ -399,10 +405,12 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               <span className="text-xs text-slate-500">{fmt(r.dateTo)}</span>
               <div className="flex items-center justify-end gap-1.5 flex-nowrap">
                 {(r as any).bsch && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0" title="По национална програма">НП</span>}
-                {r.hasOrder ? (
+                {(r.hasOrder || (r as any).manualNumber) ? (
                   <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                    <Check size={12} /> Заповед издадена
+                    <Check size={12} /> {(r as any).manualNumber ? `Заповед № ${(r as any).manualNumber}` : 'Заповед издадена'}
                   </span>
+                ) : (r as any).noOrder ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 shrink-0">Без заповед</span>
                 ) : r.substituteId ? (
                   <>
                     {(() => { const on = r.bsch ? true : (overNormMap[r.id] !== false); return (
@@ -471,6 +479,30 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                   По НП „Без свободен час"
                 </label>
               </div>
+            </div>
+
+            {/* Заповед: ръчно въведена или без заповед */}
+            <div className="border-t border-slate-100 pt-3 space-y-2">
+              <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Заповед за заместване</div>
+              <label className="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                <input type="checkbox" checked={eNoOrder} onChange={e => setENoOrder(e.target.checked)} className="rounded" />
+                Без заповед (напр. вътрешно заместване)
+              </label>
+              {!eNoOrder && (
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-2">
+                  <div>
+                    <label className="block text-[10px] text-slate-400 uppercase tracking-wide mb-1">№ на издадена заповед</label>
+                    <input value={eManualNumber} onChange={e => setEManualNumber(e.target.value)} placeholder="ако вече е издадена ръчно"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 uppercase tracking-wide mb-1">Дата</label>
+                    <input type="date" value={eManualDate} onChange={e => setEManualDate(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
+                  </div>
+                </div>
+              )}
+              <p className="text-[11px] text-slate-400">Въведеш ли номер, заместването се води с тази (ръчна) заповед и не се генерира нова.</p>
             </div>
 
             {/* Няколко заместника */}
