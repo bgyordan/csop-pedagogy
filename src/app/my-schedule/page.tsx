@@ -36,32 +36,27 @@ export default async function MySchedulePage({
   const { data: currentYear } = await supabase
     .from('academic_years').select('id, name').eq('is_current', true).single()
 
-  const { data: assignments } = await supabase
-    .from('class_teacher_assignments')
-    .select('class_id, class:classes(id, name)')
-    .eq('staff_id', target.id).eq('academic_year_id', currentYear?.id)
-  const classIds = (assignments || []).map((a: any) => a.class_id)
-  const classNameById: Record<string, string> = {}
-  ;(assignments || []).forEach((a: any) => { if (a.class) classNameById[a.class_id] = a.class.name })
+  // Всички разписания за текущата година и срок (НЕ само на паралелките, на които
+  // учителят е класен). Учителят пише слотове със staff_id=аз и в ЧУЖДИ паралелки
+  // (active-holder модел), затова слотовете се търсят по staff_id навсякъде, а
+  // името на паралелката се взима от самото разписание.
+  const { data: allSchedules } = await supabase
+    .from('class_schedules').select('id, class:classes(name)')
+    .eq('academic_year_id', currentYear?.id).eq('term', term)
+  const scheduleNameById: Record<string, string> = {}
+  ;(allSchedules || []).forEach((s: any) => { scheduleNameById[s.id] = s.class?.name || '' })
+  const scheduleIds = (allSchedules || []).map((s: any) => s.id)
 
   let classSlots: any[] = []
-  if (classIds.length > 0) {
-    const { data: schedules } = await supabase
-      .from('class_schedules').select('id, class_id')
-      .in('class_id', classIds).eq('academic_year_id', currentYear?.id).eq('term', term)
-    const scheduleIds = (schedules || []).map((s: any) => s.id)
-    const scheduleClassById: Record<string, string> = {}
-    ;(schedules || []).forEach((s: any) => { scheduleClassById[s.id] = s.class_id })
-    if (scheduleIds.length > 0) {
-      const { data: slots } = await supabase
-                .from('schedule_slots').select('schedule_id, day, period, subject:subjects(name, allows_pullout)')
-        .in('schedule_id', scheduleIds).eq('staff_id', target.id)
-      classSlots = (slots || []).map((s: any) => ({
-        source: 'class' as const, day: s.day, period: s.period,
-        subjectName: s.subject?.name || '', allowsPullout: s.subject?.allows_pullout || false,
-        label: classNameById[scheduleClassById[s.schedule_id]] || '',
-      }))
-    }
+  if (scheduleIds.length > 0) {
+    const { data: slots } = await supabase
+      .from('schedule_slots').select('schedule_id, day, period, subject:subjects(name, allows_pullout)')
+      .in('schedule_id', scheduleIds).eq('staff_id', target.id)
+    classSlots = (slots || []).map((s: any) => ({
+      source: 'class' as const, day: s.day, period: s.period,
+      subjectName: s.subject?.name || '', allowsPullout: s.subject?.allows_pullout || false,
+      label: scheduleNameById[s.schedule_id] || '',
+    }))
   }
 
   const { data: ifoSlots } = await supabase
@@ -74,7 +69,7 @@ export default async function MySchedulePage({
     label: s.student ? getFullName(s.student) : '',
   }))
 
-  const hasClasses = classIds.length > 0
+  const hasClasses = classSlots.length > 0
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
