@@ -1261,14 +1261,14 @@ export async function generateOutreachGroupsLetter(
     ] },
   ]
 
-  const romanOf = (name: string) => (name.trim().match(/^[IVXLCDM]+/i)?.[0] || '').toUpperCase()
+    const numOf = (name: string) => { const m = name.trim().match(/^0*(\d+)$/); return m ? parseInt(m[1]) : null }
   const usable = classes.filter(c => !/служебна/i.test(c.className) && c.students.length > 0)
-  const byRoman: Record<string, typeof usable[number]> = {}
-  usable.forEach(c => { const r = romanOf(c.className); if (r) byRoman[r] = c })
+  const byNum: Record<number, typeof usable[number]> = {}
+  usable.forEach(c => { const n = numOf(c.className); if (n !== null) byNum[n] = c })
 
   const groups = OUTREACH.map(g => ({
     location: g.location,
-    items: g.items.map(it => ({ ...it, cls: byRoman[it.roman] })).filter(x => x.cls),
+    items: g.items.map(it => ({ ...it, cls: byNum[it.num] })).filter(x => x.cls),
   })).filter(g => g.items.length > 0)
 
   const totalParalelki = groups.reduce((a, g) => a + g.items.length, 0)
@@ -1304,7 +1304,7 @@ export async function generateOutreachGroupsLetter(
     new Paragraph({ alignment: AlignmentType.LEFT, spacing: { after: 20 }, children: [new TextRun({ text: position, bold: true, size: 22 })] }),
     new Paragraph({ alignment: AlignmentType.LEFT, spacing: { after: 320 }, children: [new TextRun({ text: institution, bold: true, size: 22 })] }),
 
-    new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: `УВАЖАЕМА ГОСПОЖО ${addressee.replace(/^ДО\s+Г-ЖА\s+/i, '').toUpperCase()},`, bold: true, size: 22 })] }),
+    new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: `УВАЖАЕМА ГОСПОЖО ${(addressee.trim().split(/\s+/).pop() || '').toUpperCase()},`, bold: true, size: 22 })] }),
     new Paragraph({
       alignment: AlignmentType.JUSTIFIED, spacing: { after: 240 },
       children: [new TextRun({ text: `Предлагам, да ми бъде разрешено сформиране на ${totalParalelki} изнесени групи и паралелки с деца и ученици за учебна ${yearName} г., организирани в социалните услуги в общността, насочени в ЦСОП –Варна на основание чл. 195, ал. 1 от ЗПУО и чл. 185, ал. 2 от Наредба за приобщаващо образование.`, size: 22 })],
