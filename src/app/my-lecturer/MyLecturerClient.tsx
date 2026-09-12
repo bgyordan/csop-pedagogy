@@ -89,7 +89,7 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
       })
     } catch (e) { /* noop */ }
             toast('Декларацията е подадена и изтеглена')
-    setDeclarations(prev => [{ id: `tmp-${Date.now()}`, periodFrom: from, periodTo: to, totalHours: rows.length, status: 'submitted' }, ...prev])
+    setDeclarations(prev => [{ id: res.id || `tmp-${Date.now()}`, periodFrom: from, periodTo: to, totalHours: rows.length, status: 'submitted' }, ...prev])
     setSaving(false)
     setExpanded(null); setChecked({})
   }
