@@ -15,6 +15,9 @@ export interface SubRow {
   reason: string
   hasOrder: boolean
   bsch: boolean
+  manualNumber: string | null
+  manualDate: string | null
+  noOrder: boolean
 }
 export default async function SubstitutionsPage() {
   const supabase = await createClient()
@@ -27,7 +30,7 @@ export default async function SubstitutionsPage() {
 
   const { data } = await supabase
     .from('substitutions')
-    .select(`id, date_from, date_to, reason, absent_staff_id, substitute_staff_id, substitution_order_id, bsch_eligible,
+    .select(`id, date_from, date_to, reason, absent_staff_id, substitute_staff_id, substitution_order_id, manual_order_number, manual_order_date, no_order_needed, bsch_eligible,
       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name),
       sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name)`)
     .order('date_from', { ascending: false })
@@ -43,6 +46,9 @@ export default async function SubstitutionsPage() {
     reason: r.reason,
     hasOrder: !!r.substitution_order_id,
     bsch: r.bsch_eligible === true,
+    manualNumber: r.manual_order_number || null,
+    manualDate: r.manual_order_date || null,
+    noOrder: r.no_order_needed === true,
   }))
 
   const { data: staff } = await supabase
