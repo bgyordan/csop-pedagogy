@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ProjectsClient from './ProjectsClient'
+import ProjectsOverview from './ProjectsOverview'
 export const dynamic = 'force-dynamic'
 
 export default async function ProjectsPage() {
@@ -45,6 +46,10 @@ export default async function ProjectsPage() {
     created_by: p.created_by,
     classIds: (p.class_project_classes || []).map((c: any) => c.class_id),
   }))
+
+  if (isManager) {
+    return <ProjectsOverview classes={classes || []} projects={rows} yearName={currentYear?.name || ''} />
+  }
 
   return (
     <ProjectsClient
