@@ -7,7 +7,7 @@ const PAGE_SIZE = 20
 export default async function OrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string; idx?: string }>
+  searchParams: Promise<{ q?: string; page?: string; idx?: string; dyear?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
@@ -22,6 +22,11 @@ export default async function OrdersPage({
   const page = Math.max(1, parseInt(params.page || '1'))
   const q = params.q || ''
   const idx = params.idx || ''
+  const curDelo = (() => { const d = new Date(); const y = d.getFullYear(), m = d.getMonth() + 1, day = d.getDate(); return (m > 9 || (m === 9 && day >= 15)) ? y : y - 1 })()
+  const dyear = params.dyear ? parseInt(params.dyear) : curDelo
+  const dyStart = `${dyear}-09-15`, dyEnd = `${dyear + 1}-09-14`
+  const dyearOptions: { value: string; label: string }[] = []
+  for (let y = curDelo; y >= 2025; y--) dyearOptions.push({ value: String(y), label: `${y}/${y + 1}` })
   const from = (page - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
   let query = supabase
@@ -31,6 +36,7 @@ export default async function OrdersPage({
     .range(from, to)
   if (q) query = query.or(`number.ilike.%${q}%,title.ilike.%${q}%`)
   if (idx) query = query.eq('nomenclature_item', idx)
+  query = query.gte('date', dyStart).lte('date', dyEnd)
   const { data: orders, count } = await query
   const [{ data: students }, { data: staff }, { data: nomenclature }] = await Promise.all([
     supabase.from('students').select('id, first_name, last_name').eq('status', 'active').order('last_name'),
@@ -52,6 +58,8 @@ export default async function OrdersPage({
         pageSize={PAGE_SIZE}
         searchValue={q}
         filterIndex={idx}
+        dyearValue={String(dyear)}
+        dyearOptions={dyearOptions}
              canEdit={canEdit}
         canDelete={canDelete}
         currentUserId={profile?.id || ''}
