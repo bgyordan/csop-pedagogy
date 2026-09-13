@@ -24,6 +24,8 @@ interface Props {
   pageSize: number
   searchValue: string
   filterIndex: string
+  dyearValue: string
+  dyearOptions: { value: string; label: string }[]
    canEdit: boolean
   canDelete: boolean
   currentUserId: string
@@ -34,7 +36,7 @@ interface Props {
 
 export default function OrdersClient({
   orders, totalCount, page, pageSize,
-  searchValue, filterIndex, canEdit, canDelete, currentUserId, students, staff, nomenclature
+  searchValue, filterIndex, dyearValue, dyearOptions, canEdit, canDelete, currentUserId, students, staff, nomenclature
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
@@ -54,15 +56,18 @@ export default function OrdersClient({
 
   const totalPages = Math.ceil(totalCount / pageSize)
 
-  function buildUrl(opts: { q?: string; idx?: string; page?: number }) {
+  function buildUrl(opts: { q?: string; idx?: string; page?: number; dyear?: string }) {
     const params = new URLSearchParams()
     const q = opts.q !== undefined ? opts.q : searchValue
     const idx = opts.idx !== undefined ? opts.idx : filterIndex
+    const dy = opts.dyear !== undefined ? opts.dyear : dyearValue
     if (q) params.set('q', q)
     if (idx) params.set('idx', idx)
+    if (dy) params.set('dyear', dy)
     params.set('page', String(opts.page || 1))
     return `/orders?${params.toString()}`
   }
+  function handleYearChange(y: string) { router.push(buildUrl({ dyear: y, page: 1 })) }
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -115,6 +120,12 @@ export default function OrdersClient({
             {nomenclature.map(n => (
               <option key={n.id} value={n.item_code}>{n.item_code} — {n.name}</option>
             ))}
+          </select>
+
+          <select value={dyearValue} onChange={e => handleYearChange(e.target.value)}
+            className="text-xs border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-slate-400 flex-shrink-0 cursor-pointer"
+            title="Деловодна година">
+            {dyearOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
 
           <span className="text-xs bg-white text-slate-600 border border-slate-200 px-3 py-2 rounded-xl whitespace-nowrap flex-shrink-0">
