@@ -17,6 +17,7 @@ interface Protocol {
   id: string; number: number; date: string; kind: string
   agenda: string | null; decisions: string | null
   student_name: string | null; group_name: string | null; level: string | null; measures: string | null
+  file_url: string | null
   created_by: string | null
 }
 
@@ -192,6 +193,34 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
   }
   function genProtocol(p: Protocol) {
     generateBullyingProtocol(p, list.map(m => ({ name: m.name, position: m.position, is_chair: m.is_chair })))
+  }
+
+  // Подписан скан на протокола (на самото заседание)
+  const protoFileRef = useRef<HTMLInputElement>(null)
+  const pendingProto = useRef<string | null>(null)
+  const [uploadingProto, setUploadingProto] = useState<string | null>(null)
+  function pickProtoScan(id: string) { pendingProto.current = id; protoFileRef.current?.click() }
+  async function onProtoScan(listFiles: FileList | null) {
+    const id = pendingProto.current; if (!id || !listFiles || !listFiles[0]) return
+    const file = listFiles[0]; setUploadingProto(id)
+    const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_')
+    const path = `protocols/${id}_${Date.now()}_${safe}`
+    const { error } = await supabase.storage.from('bullying-council').upload(path, file)
+    if (!error) { await supabase.from('bullying_protocols').update({ file_url: path }).eq('id', id); setProts(prev => prev.map(p => p.id === id ? { ...p, file_url: path } : p)) }
+    else alert('Грешка при качване: ' + file.name)
+    setUploadingProto(null); if (protoFileRef.current) protoFileRef.current.value = ''; router.refresh()
+  }
+  async function downloadScan(p: Protocol) {
+    if (!p.file_url) return
+    const { data, error } = await supabase.storage.from('bullying-council').download(p.file_url)
+    if (error || !data) { alert('Грешка при сваляне'); return }
+    const url = URL.createObjectURL(data); const a = document.createElement('a'); a.href = url; a.download = `протокол_${p.number}_подписан`; a.click(); URL.revokeObjectURL(url)
+  }
+  async function removeScan(p: Protocol) {
+    if (!p.file_url || !confirm('Премахване на качения скан?')) return
+    await supabase.storage.from('bullying-council').remove([p.file_url])
+    await supabase.from('bullying_protocols').update({ file_url: null }).eq('id', p.id)
+    setProts(prev => prev.map(x => x.id === p.id ? { ...x, file_url: null } : x)); router.refresh()
   }
 
   // ── Документи ──
@@ -459,6 +488,7 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
           </div>
         ) : (
           <div className="space-y-3">
+            <input ref={protoFileRef} type="file" className="hidden" onChange={e => onProtoScan(e.target.files)} />
             {prots.map(p => (
               <div key={p.id} className="group flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 lg:p-5 rounded-2xl border border-slate-200 bg-white hover:border-[#0f2240]/20 hover:shadow-md transition-all duration-300 relative overflow-hidden">
                 {/* Индикатор за вид заседание (лента отляво) */}
@@ -482,11 +512,21 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
                 </div>
                 
                 <div className="flex items-center gap-2 shrink-0 border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-5">
+                  {p.file_url ? (
+                    <button onClick={() => downloadScan(p)} title="Изтегли подписания скан" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 transition-all shadow-sm active:scale-[0.98]">
+                      <CheckCircle2 size={16} /> Подписан
+                    </button>
+                  ) : (
+                    <button onClick={() => pickProtoScan(p.id)} disabled={uploadingProto === p.id} title="Качи подписания скан" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all shadow-sm active:scale-[0.98] disabled:opacity-50">
+                      {uploadingProto === p.id ? <Loader2 size={16} className="animate-spin" /> : <Paperclip size={16} />} Качи подписан
+                    </button>
+                  )}
                   <button onClick={() => genProtocol(p)} title="Свали като Word" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-slate-50 border border-slate-200 text-[#0f2240] hover:bg-[#0f2240] hover:text-white hover:border-[#0f2240] transition-all shadow-sm active:scale-[0.98]">
                     <FileText size={16} /> Word
                   </button>
                   {canEditMeeting(p) && (
                     <div className="flex gap-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {p.file_url && <button onClick={() => removeScan(p)} title="Премахни скана" className="p-2.5 text-slate-400 hover:text-white hover:bg-rose-500 rounded-xl transition-colors"><X size={16} /></button>}
                       <button onClick={() => openEdit(p)} title="Редактирай" className="p-2.5 text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 rounded-xl transition-colors"><Pencil size={16} /></button>
                       <button onClick={() => removeMeeting(p.id)} title="Изтрий" className="p-2.5 text-slate-400 hover:text-white hover:bg-rose-500 rounded-xl transition-colors"><Trash2 size={16} /></button>
                     </div>
