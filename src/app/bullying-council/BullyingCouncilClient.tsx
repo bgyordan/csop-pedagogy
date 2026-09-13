@@ -2,7 +2,7 @@
 import { useState, useRef, useLayoutEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { ShieldAlert, Crown, User, Plus, X, Loader2, UserPlus, FileText, Trash2, CalendarDays, ChevronDown, Pencil } from 'lucide-react'
+import { ShieldAlert, Crown, User, Plus, X, Loader2, UserPlus, FileText, Trash2, CalendarDays, ChevronDown, Pencil, Download, Paperclip } from 'lucide-react'
 import { generateBullyingProtocol } from '@/lib/docx-generator'
 
 interface Member { id: string; staff_id: string | null; name: string; position: string | null; is_chair: boolean; sort: number }
@@ -66,9 +66,22 @@ function AutoGrow({ value, onChange, placeholder, minRows = 2 }: { value: string
 }
 
 const fmtDate = (d: string) => d ? d.split('-').reverse().join('.') : ''
+function suggestDesc(filename: string): string {
+  let n = filename.replace(/\.[a-z0-9]+$/i, '')
+  n = n.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim()
+  return n.charAt(0).toUpperCase() + n.slice(1)
+}
+function fmtSize(b?: number | null) { if (!b) return ''; return b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB' }
+const DOC_CATEGORIES: { key: string; label: string }[] = [
+  { key: 'prevention_plan', label: 'План за превенция' },
+  { key: 'uks_plan', label: 'План на УКС' },
+  { key: 'materials', label: 'Материали / анкети' },
+  { key: 'other', label: 'Други документи' },
+]
+interface DocRow { id: string; category: string; name: string; description: string | null; path: string; size: number | null; mime_type: string | null }
 
-export default function BullyingCouncilClient({ meId, isManager, members, staff, protocols, students, academicYearId, yearName }: {
-  meId: string; isManager: boolean; members: Member[]; staff: Staff[]; protocols: Protocol[]; students: StudentOpt[]; academicYearId: string | null; yearName: string
+export default function BullyingCouncilClient({ meId, isManager, members, staff, protocols, students, documents, academicYearId, yearName }: {
+  meId: string; isManager: boolean; members: Member[]; staff: Staff[]; protocols: Protocol[]; students: StudentOpt[]; documents: DocRow[]; academicYearId: string | null; yearName: string
 }) {
   const supabase = createClient()
   const router = useRouter()
@@ -158,6 +171,47 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
   }
   function genProtocol(p: Protocol) {
     generateBullyingProtocol(p, list.map(m => ({ name: m.name, position: m.position, is_chair: m.is_chair })))
+  }
+
+  // ── Документи ──
+  const [docs, setDocs] = useState<DocRow[]>(documents)
+  const [uploadingCat, setUploadingCat] = useState<string | null>(null)
+  const [editDocId, setEditDocId] = useState<string | null>(null)
+  const [editDocDesc, setEditDocDesc] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+  const pendingCat = useRef<string | null>(null)
+
+  function pickFile(cat: string) { pendingCat.current = cat; fileRef.current?.click() }
+  async function onFiles(listFiles: FileList | null) {
+    const cat = pendingCat.current; if (!cat || !listFiles) return
+    setUploadingCat(cat)
+    for (const file of Array.from(listFiles)) {
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_')
+      const path = `${cat}/${Date.now()}_${safe}`
+      const { error } = await supabase.storage.from('bullying-council').upload(path, file)
+      if (error) { alert('Грешка при качване: ' + file.name); continue }
+      const { data } = await supabase.from('bullying_documents')
+        .insert({ academic_year_id: academicYearId, category: cat, name: file.name, description: suggestDesc(file.name), path, size: file.size, mime_type: file.type, uploaded_by: meId })
+        .select('*').single()
+      if (data) setDocs(prev => [data as DocRow, ...prev])
+    }
+    setUploadingCat(null); if (fileRef.current) fileRef.current.value = ''; router.refresh()
+  }
+  async function downloadDoc(d: DocRow) {
+    const { data, error } = await supabase.storage.from('bullying-council').download(d.path)
+    if (error || !data) { alert('Грешка при сваляне'); return }
+    const url = URL.createObjectURL(data); const a = document.createElement('a'); a.href = url; a.download = d.name; a.click(); URL.revokeObjectURL(url)
+  }
+  async function removeDoc(d: DocRow) {
+    if (!confirm(`Изтриване на „${d.name}"?`)) return
+    await supabase.storage.from('bullying-council').remove([d.path])
+    await supabase.from('bullying_documents').delete().eq('id', d.id)
+    setDocs(prev => prev.filter(x => x.id !== d.id)); router.refresh()
+  }
+  async function saveDocDesc(id: string) {
+    await supabase.from('bullying_documents').update({ description: editDocDesc.trim() || null }).eq('id', id)
+    setDocs(prev => prev.map(d => d.id === id ? { ...d, description: editDocDesc.trim() || null } : d))
+    setEditDocId(null)
   }
 
   const chair = list.find(m => m.is_chair)
@@ -303,9 +357,50 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
         )}
       </div>
 
-      {/* Документи — предстои (файлове с авто-описание) */}
-      <div className="mt-4 bg-white rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-400">
-        Документи (планове, материали) — предстои.
+      {/* Документи */}
+      <input ref={fileRef} type="file" multiple className="hidden" onChange={e => onFiles(e.target.files)} />
+      <div className="mt-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+        <h3 className="text-sm font-semibold text-slate-800 mb-3">Документи</h3>
+        <div className="space-y-4">
+          {DOC_CATEGORIES.map(cat => {
+            const files = docs.filter(d => d.category === cat.key)
+            return (
+              <div key={cat.key}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{cat.label}</span>
+                  <button onClick={() => pickFile(cat.key)} disabled={uploadingCat === cat.key}
+                    className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 disabled:opacity-50">
+                    {uploadingCat === cat.key ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Качи
+                  </button>
+                </div>
+                {files.length === 0 ? (
+                  <p className="text-xs text-slate-300 italic pl-1">— няма файлове</p>
+                ) : (
+                  <div className="space-y-1">
+                    {files.map(d => (
+                      <div key={d.id} className="group flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-100 bg-slate-50/60">
+                        <Paperclip size={13} className="text-slate-400 shrink-0" />
+                        <div className="min-w-0 flex-1 cursor-pointer" onClick={() => editDocId !== d.id && downloadDoc(d)}>
+                          {editDocId === d.id ? (
+                            <input value={editDocDesc} autoFocus onChange={e => setEditDocDesc(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') saveDocDesc(d.id) }} onBlur={() => saveDocDesc(d.id)}
+                              className="w-full text-sm rounded border border-slate-300 px-2 py-1" onClick={e => e.stopPropagation()} />
+                          ) : (
+                            <div className="text-sm text-slate-700 truncate">{d.description || d.name}</div>
+                          )}
+                          <div className="text-[10px] text-slate-400">{d.name}{d.size ? ` · ${fmtSize(d.size)}` : ''}</div>
+                        </div>
+                        <button onClick={() => { setEditDocId(d.id); setEditDocDesc(d.description || '') }} title="Редактирай описанието" className="p-1 text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100"><Pencil size={12} /></button>
+                        <button onClick={() => downloadDoc(d)} title="Изтегли" className="p-1 text-slate-400 hover:text-[#0f2240]"><Download size={13} /></button>
+                        <button onClick={() => removeDoc(d)} title="Изтрий" className="p-1 text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100"><Trash2 size={12} /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
