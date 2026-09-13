@@ -7,6 +7,34 @@ import { ShieldAlert, Crown, User, Plus, X, Loader2, UserPlus } from 'lucide-rea
 interface Member { id: string; staff_id: string | null; name: string; position: string | null; is_chair: boolean; sort: number }
 interface Staff { id: string; first_name: string; last_name: string; position: string | null }
 
+function PersonCombo({ people, value, onChange, placeholder }: { people: Staff[]; value: string; onChange: (id: string) => void; placeholder: string }) {
+  const [open, setOpen] = useState(false)
+  const [q, setQ] = useState('')
+  const selected = people.find(p => p.id === value)
+  const list = people
+    .filter(p => `${p.first_name} ${p.last_name}`.toLowerCase().includes(q.toLowerCase()))
+    .sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`, 'bg')).slice(0, 40)
+  return (
+    <div className="relative">
+      <input type="text" value={selected ? `${selected.first_name} ${selected.last_name}` : q}
+        onChange={e => { setQ(e.target.value); onChange(''); setOpen(true) }}
+        onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder={placeholder} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400" />
+      {selected && <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => { onChange(''); setQ('') }}
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><X size={14} /></button>}
+      {open && !selected && (
+        <div className="absolute z-30 mt-1 w-full max-h-52 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg">
+          {list.map(p => (
+            <button key={p.id} type="button" onMouseDown={e => e.preventDefault()} onClick={() => { onChange(p.id); setOpen(false); setQ('') }}
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-slate-50 text-slate-700">{p.first_name} {p.last_name}{p.position ? ` · ${p.position}` : ''}</button>
+          ))}
+          {list.length === 0 && <div className="px-3 py-2 text-sm text-slate-400">Няма съвпадение</div>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function BullyingCouncilClient({ isManager, members, staff, academicYearId, yearName }: {
   isManager: boolean; members: Member[]; staff: Staff[]; academicYearId: string | null; yearName: string
 }) {
@@ -113,11 +141,7 @@ export default function BullyingCouncilClient({ isManager, members, staff, acade
             <div className="flex flex-wrap items-end gap-2">
               <div className="flex-1 min-w-[200px]">
                 <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1">Добави служител</label>
-                <select value={addStaffId} onChange={e => setAddStaffId(e.target.value)}
-                  className="w-full text-sm rounded-lg border border-slate-200 px-2.5 py-1.5 bg-white cursor-pointer">
-                  <option value="">— избери —</option>
-                  {freeStaff.map(s => <option key={s.id} value={s.id}>{s.first_name} {s.last_name}{s.position ? ` (${s.position})` : ''}</option>)}
-                </select>
+                <PersonCombo people={freeStaff} value={addStaffId} onChange={setAddStaffId} placeholder="Търси колега по име..." />
               </div>
               <button onClick={addStaff} disabled={busy || !addStaffId}
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium text-white disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>
