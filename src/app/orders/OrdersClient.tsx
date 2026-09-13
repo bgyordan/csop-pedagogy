@@ -128,9 +128,6 @@ export default function OrdersClient({
             {dyearOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
 
-          <span className="text-xs bg-white text-slate-600 border border-slate-200 px-3 py-2 rounded-xl whitespace-nowrap flex-shrink-0">
-            {schoolYear}/{schoolYear + 1}
-          </span>
         </div>
       </div>
 
