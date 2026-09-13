@@ -2486,23 +2486,23 @@ export async function generateBullyingProtocol(
           children: [new Paragraph({ alignment: AlignmentType.LEFT, children: [new ImageRun({ data: Buffer.from(CSOP_LOGO_B64, 'base64'), transformation: { width: 60, height: 60 }, type: 'jpg' })] })] }),
         new TableCell({ width: { size: 80, type: WidthType.PERCENTAGE }, borders: NONE, verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
           children: [
-            new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
+            new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 24 })] }),
             new Paragraph({ children: [new TextRun({ text: 'бул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 0888 490 771', size: 17, italics: true, color: '555555' })] }),
           ] }),
       ]})],
     }),
     new Paragraph({ spacing: { before: 80, after: 120 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
-
+    new Paragraph({ text: '' }),
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 60, after: 20 }, children: [new TextRun({ text: `ПРОТОКОЛ № ${data.number}/ ${fmt(data.date)} г.`, bold: true, size: 26 })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: 'от заседание на Координационен съвет за противодействие на тормоза и насилието', size: 20 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: 'от заседание на Координационен съвет за противодействие на тормоза и насилието', size: 24 })] }),
   )
-
+new Paragraph({ text: '' }),
   if (data.kind === 'case') {
     const who = [data.student_name, data.group_name].filter(Boolean).join(' – ')
     children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 160 },
       children: [new TextRun({ text: `Днес, ${fmt(data.date)} г., се проведе заседание на Координационния съвет във връзка с ${who || 'случай на тормоз/насилие'}.`, size: 22 })] }))
   }
-
+new Paragraph({ text: '' }),
   if (data.agenda && data.agenda.trim()) {
     children.push(new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: data.kind === 'case' ? 'ОПИСАНИЕ:' : 'ДНЕВЕН РЕД:', bold: true, size: 22 })] }))
     children.push(...multi(data.agenda))
