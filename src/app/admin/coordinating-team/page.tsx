@@ -52,6 +52,27 @@ const emptySession = {
   agenda: '', protocol: '', decisions: '', deadline: '',
 }
 
+function PersonCombo({ people, value, onChange, placeholder }: { people: StaffMember[]; value: string; onChange: (id: string) => void; placeholder: string }) {
+  const [open, setOpen] = useState(false); const [q, setQ] = useState('')
+  const selected = people.find(p => p.id === value)
+  const list = people.filter(p => getFullName(p).toLowerCase().includes(q.toLowerCase())).slice(0, 40)
+  return (
+    <div className="relative">
+      <input type="text" value={selected ? getFullName(selected) : q}
+        onChange={e => { setQ(e.target.value); onChange(''); setOpen(true) }}
+        onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 200)}
+        placeholder={placeholder} className="input text-sm w-full" />
+      {selected && <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => { onChange(''); setQ('') }} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><X size={14} /></button>}
+      {open && !selected && (
+        <div className="absolute z-30 mt-1 w-full max-h-52 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg">
+          {list.map(p => <button key={p.id} type="button" onMouseDown={e => e.preventDefault()} onClick={() => { onChange(p.id); setOpen(false); setQ('') }} className="w-full text-left px-3 py-1.5 text-sm hover:bg-slate-50 text-slate-700">{getFullName(p)} <span className="text-xs text-slate-400">· {ROLE_LABELS[p.role] || p.role}</span></button>)}
+          {list.length === 0 && <div className="px-3 py-2 text-sm text-slate-400">Няма съвпадение</div>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function CoordinatingTeamPage() {
   const supabase = createClient()
   const { toast } = useToast()
@@ -68,6 +89,8 @@ export default function CoordinatingTeamPage() {
   const [showMemberForm, setShowMemberForm] = useState(false)
   const [canEditTeam, setCanEditTeam] = useState(false)
   const [savingMember, setSavingMember] = useState(false)
+  const [editMemberId, setEditMemberId] = useState<string | null>(null)
+  const [editRole, setEditRole] = useState('')
 
   // Форма за заседание
   const [showSessionForm, setShowSessionForm] = useState(false)
@@ -139,6 +162,13 @@ export default function CoordinatingTeamPage() {
     await supabase.from('staff_profiles').update({ is_coordinator: false }).eq('id', member.staff_id)
     setMembers(prev => prev.filter(m => m.id !== member.id))
     toast('Членът е премахнат от координиращия екип')
+  }
+
+  async function saveEditMember(member: TeamMember) {
+    const { error } = await supabase.from('coordinating_team').update({ role_in_team: editRole.trim() || null }).eq('id', member.id)
+    if (error) { toast('Грешка', 'error'); return }
+    setMembers(prev => prev.map(m => m.id === member.id ? { ...m, role_in_team: editRole.trim() || null } : m))
+    setEditMemberId(null); toast('Ролята е обновена')
   }
 
   async function handleAddSession() {
@@ -238,12 +268,7 @@ export default function CoordinatingTeamPage() {
 
             {showMemberForm && (
               <div className="mb-4 p-3 bg-indigo-50 rounded-lg space-y-2">
-                <select className="input text-sm w-full" value={selectedStaff} onChange={e => setSelectedStaff(e.target.value)}>
-                  <option value="">— Избери служител —</option>
-                  {availableStaff.map(s => (
-                    <option key={s.id} value={s.id}>{getFullName(s)} — {ROLE_LABELS[s.role] || s.role}</option>
-                  ))}
-                </select>
+                <PersonCombo people={availableStaff} value={selectedStaff} onChange={setSelectedStaff} placeholder="Търси служител по име..." />
                 <input className="input text-sm w-full" placeholder="Роля в екипа (Председател, Секретар...)"
                   value={roleInTeam} onChange={e => setRoleInTeam(e.target.value)} />
                 <p className="text-xs text-indigo-600">ℹ️ Служителят запазва основната си роля и получава допълнителни права на координатор</p>
@@ -271,20 +296,32 @@ export default function CoordinatingTeamPage() {
                       <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-bold flex-shrink-0">
                         {member.staff.first_name?.charAt(0)}{member.staff.last_name?.charAt(0)}
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium text-slate-800 truncate">{getFullName(member.staff)}</div>
-                        <div className="text-xs text-slate-400">
-                          {member.role_in_team && <span className="text-indigo-600 font-medium">{member.role_in_team} · </span>}
-                          {member.staff.position || ROLE_LABELS[member.staff.role] || member.staff.role}
-                        </div>
+                        {editMemberId === member.id ? (
+                          <input autoFocus value={editRole} onChange={e => setEditRole(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') saveEditMember(member) }}
+                            placeholder="Роля в екипа (Председател, Секретар...)"
+                            className="mt-1 w-full text-xs rounded-md border border-slate-300 px-2 py-1 focus:outline-none focus:border-indigo-400" />
+                        ) : (
+                          <div className="text-xs text-slate-400">
+                            {member.role_in_team && <span className="text-indigo-600 font-medium">{member.role_in_team} · </span>}
+                            {member.staff.position || ROLE_LABELS[member.staff.role] || member.staff.role}
+                          </div>
+                        )}
                       </div>
                     </div>
-                    {canEditTeam && (
-                      <button onClick={() => handleRemoveMember(member)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0">
-                        <X size={14} />
-                      </button>
-                    )}
+                    {canEditTeam && (editMemberId === member.id ? (
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button onClick={() => saveEditMember(member)} title="Запази" className="p-1.5 rounded-lg text-emerald-500 hover:bg-emerald-50"><Check size={14} /></button>
+                        <button onClick={() => setEditMemberId(null)} title="Отказ" className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"><X size={14} /></button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button onClick={() => { setEditMemberId(member.id); setEditRole(member.role_in_team || '') }} title="Редактирай ролята" className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"><Pencil size={14} /></button>
+                        <button onClick={() => handleRemoveMember(member)} title="Премахни" className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"><X size={14} /></button>
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
