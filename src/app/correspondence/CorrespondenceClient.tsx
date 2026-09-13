@@ -19,6 +19,8 @@ interface Props {
   pageSize: number
   searchValue: string
   directionValue: string
+  dyearValue: string
+  dyearOptions: { value: string; label: string }[]
   canEdit: boolean
   canDelete: boolean
   currentUserId: string
@@ -29,7 +31,7 @@ interface Props {
 
 export default function CorrespondenceClient({
   correspondence, totalCount, page, pageSize,
-  searchValue, directionValue, canEdit, canDelete, currentUserId, students, staff, nomenclature
+  searchValue, directionValue, dyearValue, dyearOptions, canEdit, canDelete, currentUserId, students, staff, nomenclature
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
@@ -56,6 +58,7 @@ export default function CorrespondenceClient({
       const params = new URLSearchParams()
       if (search.trim()) params.set('q', search.trim())
       params.set('direction', activeDir)
+      params.set('dyear', dyearValue)
       params.set('page', '1')
       router.push(`/correspondence?${params.toString()}`)
     }, 300)
@@ -65,6 +68,7 @@ export default function CorrespondenceClient({
   function handleTabChange(d: string) {
     const params = new URLSearchParams()
     params.set('direction', d)
+    params.set('dyear', dyearValue)
     params.set('page', '1')
     router.push(`/correspondence?${params.toString()}`)
   }
@@ -73,7 +77,17 @@ export default function CorrespondenceClient({
     const params = new URLSearchParams()
     if (search) params.set('q', search)
     params.set('direction', activeDir)
+    params.set('dyear', dyearValue)
     params.set('page', String(newPage))
+    router.push(`/correspondence?${params.toString()}`)
+  }
+
+  function handleYearChange(y: string) {
+    const params = new URLSearchParams()
+    if (search.trim()) params.set('q', search.trim())
+    params.set('direction', activeDir)
+    params.set('dyear', y)
+    params.set('page', '1')
     router.push(`/correspondence?${params.toString()}`)
   }
 
@@ -94,6 +108,14 @@ export default function CorrespondenceClient({
           }`}>
           <ArrowUpRight size={14} /> Изходящи
         </button>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-slate-400">Деловодна година:</span>
+        <select value={dyearValue} onChange={e => handleYearChange(e.target.value)}
+          className="text-sm rounded-lg border border-slate-200 px-2.5 py-1.5 bg-white cursor-pointer">
+          {dyearOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
       </div>
 
       {/* Лента с контроли */}
