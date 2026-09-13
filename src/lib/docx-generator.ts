@@ -2460,3 +2460,79 @@ export async function generateDutyRoster(
   const blob = await Packer.toBlob(doc)
   saveAs(blob, `дежурства_${subtitle.replace(/[^0-9]/g, '_')}.docx`)
 }
+// ── ПРОТОКОЛ НА КООРДИНАЦИОННИЯ СЪВЕТ (тормоз) — общо заседание или по казус ──
+export async function generateBullyingProtocol(
+  data: { number: number; date: string; kind: string; agenda?: string | null; decisions?: string | null; student_name?: string | null; group_name?: string | null; level?: string | null; measures?: string | null },
+  members: { name: string; position?: string | null; is_chair: boolean }[],
+) {
+  const NONE = {
+    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  }
+  const fmt = (d: string) => d ? d.split('-').reverse().join('.') : '..................'
+  const multi = (t?: string | null) => {
+    const lines = (t || '').replace(/\r/g, '').split('\n').filter(x => x.trim().length)
+    if (lines.length === 0) return [] as any[]
+    return lines.map(ln => new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 60 }, children: [new TextRun({ text: ln, size: 22 })] }))
+  }
+
+  const children: any[] = []
+  // Хедър с лого
+  children.push(
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [new TableRow({ children: [
+        new TableCell({ width: { size: 20, type: WidthType.PERCENTAGE }, borders: NONE, margins: { top: 0, bottom: 0, left: 0, right: 80 },
+          children: [new Paragraph({ alignment: AlignmentType.LEFT, children: [new ImageRun({ data: Buffer.from(CSOP_LOGO_B64, 'base64'), transformation: { width: 60, height: 60 }, type: 'jpg' })] })] }),
+        new TableCell({ width: { size: 80, type: WidthType.PERCENTAGE }, borders: NONE, verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
+          children: [
+            new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
+            new Paragraph({ children: [new TextRun({ text: 'бул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 0888 490 771', size: 17, italics: true, color: '555555' })] }),
+          ] }),
+      ]})],
+    }),
+    new Paragraph({ spacing: { before: 80, after: 120 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
+
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 60, after: 20 }, children: [new TextRun({ text: `ПРОТОКОЛ № ${data.number}/ ${fmt(data.date)} г.`, bold: true, size: 26 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: 'от заседание на Координационен съвет за противодействие на тормоза и насилието', size: 20 })] }),
+  )
+
+  if (data.kind === 'case') {
+    const who = [data.student_name, data.group_name].filter(Boolean).join(' – ')
+    children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 160 },
+      children: [new TextRun({ text: `Днес, ${fmt(data.date)} г., се проведе заседание на Координационния съвет във връзка с ${who || 'случай на тормоз/насилие'}.`, size: 22 })] }))
+  }
+
+  if (data.agenda && data.agenda.trim()) {
+    children.push(new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: data.kind === 'case' ? 'ОПИСАНИЕ:' : 'ДНЕВЕН РЕД:', bold: true, size: 22 })] }))
+    children.push(...multi(data.agenda))
+  }
+  if (data.kind === 'case' && data.level && data.level.trim()) {
+    children.push(new Paragraph({ spacing: { before: 80, after: 80 }, children: [new TextRun({ text: 'Ниво на проявата: ', bold: true, size: 22 }), new TextRun({ text: data.level, size: 22 })] }))
+  }
+  if (data.decisions && data.decisions.trim()) {
+    children.push(new Paragraph({ spacing: { before: 80, after: 60 }, children: [new TextRun({ text: 'РЕШЕНИЯ:', bold: true, size: 22 })] }))
+    children.push(...multi(data.decisions))
+  }
+  if (data.kind === 'case' && data.measures && data.measures.trim()) {
+    children.push(new Paragraph({ spacing: { before: 80, after: 60 }, children: [new TextRun({ text: 'МЕРКИ:', bold: true, size: 22 })] }))
+    children.push(...multi(data.measures))
+  }
+
+  // Подписи
+  const chair = members.find(m => m.is_chair)
+  const rest = members.filter(m => !m.is_chair)
+  const sig = (label: string, name: string, pos?: string | null) =>
+    new Paragraph({ spacing: { before: 120 }, children: [new TextRun({ text: `${label}${name}${pos ? ` – ${pos}` : ''} ……………………`, size: 22 })] })
+
+  children.push(new Paragraph({ spacing: { before: 320 }, children: [] }))
+  if (chair) children.push(sig('Председател: ', chair.name, chair.position))
+  if (rest.length) {
+    children.push(new Paragraph({ spacing: { before: 140, after: 20 }, children: [new TextRun({ text: 'Членове:', bold: true, size: 22 })] }))
+    rest.forEach(m => children.push(sig('', m.name, m.position)))
+  }
+
+  const doc = new Document({ sections: [{ properties: {}, children }] })
+  const blob = await Packer.toBlob(doc)
+  saveAs(blob, `протокол_КС_${data.number}_${(data.date || '').replace(/-/g, '.')}.docx`)
+}
