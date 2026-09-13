@@ -2496,15 +2496,15 @@ export async function generateBullyingProtocol(
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 60, after: 20 }, children: [new TextRun({ text: `ПРОТОКОЛ № ${data.number}/ ${fmt(data.date)} г.`, bold: true, size: 26 })] }),
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: 'от заседание на Координационен съвет за противодействие на тормоза и насилието', size: 24 })] }),
   )
-new Paragraph({ text: '' }),
+
   if (data.kind === 'case') {
     const who = [data.student_name, data.group_name].filter(Boolean).join(' – ')
     children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 160 },
       children: [new TextRun({ text: `Днес, ${fmt(data.date)} г., се проведе заседание на Координационния съвет във връзка с ${who || 'случай на тормоз/насилие'}.`, size: 22 })] }))
   }
-new Paragraph({ text: '' }),
+
   if (data.agenda && data.agenda.trim()) {
-    children.push(new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: data.kind === 'case' ? 'ОПИСАНИЕ:' : 'ДНЕВЕН РЕД:', bold: true, size: 22 })] }))
+    children.push(new Paragraph({ spacing: { before: 240, after: 60 }, children: [new TextRun({ text: data.kind === 'case' ? 'ОПИСАНИЕ:' : 'ДНЕВЕН РЕД:', bold: true, size: 22 })] }))
     children.push(...multi(data.agenda))
   }
   if (data.kind === 'case' && data.level && data.level.trim()) {
