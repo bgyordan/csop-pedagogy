@@ -23,6 +23,7 @@ interface NavItem {
   icon: React.ReactNode
   roles?: UserRole[]
   coordinatorOnly?: boolean
+  councilOnly?: boolean
    hideFromCoordinator?: boolean
   requiresClass?: boolean
   section?: string
@@ -72,6 +73,7 @@ const navItems: NavItem[] = [
       { href: '/duties', label: 'Дежурства', icon: <CalendarDays size={14} />, roles: ['admin', 'director', 'zdud'] },
     ],
   },
+  { href: '/bullying-council', label: 'К. Съвет', icon: <Shield size={16} />, councilOnly: true },
   {
     href: '#manage',
     label: 'Управление',
@@ -139,6 +141,19 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
    const [mobileOpen, setMobileOpen] = useState(false)
    const [settingsOpen, setSettingsOpen] = useState(true)
   const [deloOpen, setDeloOpen] = useState(true)
+  const [isCouncil, setIsCouncil] = useState(false)
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: prof } = await supabase.from('staff_profiles').select('id').eq('user_id', user.id).maybeSingle()
+      if (!prof) return
+      const { data } = await supabase.from('bullying_council_members').select('id').eq('staff_id', prof.id).limit(1)
+      if (active) setIsCouncil((data || []).length > 0)
+    })()
+    return () => { active = false }
+  }, [])
      
   useEffect(() => { setMobileOpen(false) }, [pathname])
   useEffect(() => {
@@ -161,6 +176,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
      if (item.hideFromCoordinator && isCoordinator) return false
     if (item.requiresClass && !hasClass) return false
     if (item.coordinatorOnly && isCoordinator) return true
+    if (item.councilOnly) return isCouncil || ['admin', 'zdud', 'director'].includes(userRole)
     if (!item.roles) return true
     return item.roles.some(r => effectiveRoles.includes(r))
   }
