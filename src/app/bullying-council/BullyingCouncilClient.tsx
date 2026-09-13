@@ -2,7 +2,7 @@
 import { useState, useRef, useLayoutEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { ShieldAlert, Crown, User, Plus, X, Loader2, UserPlus, FileText, Trash2, CalendarDays } from 'lucide-react'
+import { ShieldAlert, Crown, User, Plus, X, Loader2, UserPlus, FileText, Trash2, CalendarDays, ChevronDown, Pencil } from 'lucide-react'
 import { generateBullyingProtocol } from '@/lib/docx-generator'
 
 interface Member { id: string; staff_id: string | null; name: string; position: string | null; is_chair: boolean; sort: number }
@@ -75,11 +75,13 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
   const [list, setList] = useState<Member[]>(members)
   const [busy, setBusy] = useState(false)
   const [addStaffId, setAddStaffId] = useState('')
+  const [openComp, setOpenComp] = useState(false)
   const [extName, setExtName] = useState(''); const [extPos, setExtPos] = useState('')
 
   // Заседания
   const [prots, setProts] = useState<Protocol[]>(protocols)
   const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [kind, setKind] = useState<'general' | 'case'>('general')
   const [pDate, setPDate] = useState(new Date().toISOString().split('T')[0])
@@ -116,22 +118,38 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
 
   function resetForm() { setKind('general'); setPDate(new Date().toISOString().split('T')[0]); setPAgenda(''); setPDecisions(''); setPStudentId(''); setPGroup(''); setPLevel(''); setPMeasures('') }
 
+  function openEdit(p: Protocol) {
+    setEditId(p.id)
+    setKind((p.kind === 'case' ? 'case' : 'general'))
+    setPDate(p.date)
+    setPAgenda(p.agenda || ''); setPDecisions(p.decisions || '')
+    setPStudentId(students.find(s => s.name === p.student_name)?.id || '')
+    setPGroup(p.group_name || ''); setPLevel(p.level || ''); setPMeasures(p.measures || '')
+    setShowForm(true)
+  }
   async function saveMeeting() {
     if (!pDate) return
     setSaving(true)
-    const nextNum = (prots.reduce((m, p) => Math.max(m, p.number), 0)) + 1
     const studentName = kind === 'case' ? (students.find(s => s.id === pStudentId)?.name || null) : null
-    const payload = {
-      academic_year_id: academicYearId, number: nextNum, date: pDate, kind,
+    const common = {
+      date: pDate, kind,
       agenda: pAgenda.trim() || null, decisions: pDecisions.trim() || null,
       student_name: studentName, group_name: kind === 'case' ? (pGroup.trim() || null) : null,
       level: kind === 'case' ? (pLevel.trim() || null) : null, measures: kind === 'case' ? (pMeasures.trim() || null) : null,
-      created_by: meId,
     }
-    const { data, error } = await supabase.from('bullying_protocols').insert(payload).select('*').single()
-    setSaving(false)
-    if (error || !data) { alert('Грешка при запис: ' + (error?.message || '')); return }
-    setProts(prev => [data as Protocol, ...prev]); setShowForm(false); resetForm(); router.refresh()
+    if (editId) {
+      const { data, error } = await supabase.from('bullying_protocols').update(common).eq('id', editId).select('*').single()
+      setSaving(false)
+      if (error || !data) { alert('Грешка при запис: ' + (error?.message || '')); return }
+      setProts(prev => prev.map(p => p.id === editId ? (data as Protocol) : p))
+    } else {
+      const nextNum = (prots.reduce((m, p) => Math.max(m, p.number), 0)) + 1
+      const { data, error } = await supabase.from('bullying_protocols').insert({ ...common, academic_year_id: academicYearId, number: nextNum, created_by: meId }).select('*').single()
+      setSaving(false)
+      if (error || !data) { alert('Грешка при запис: ' + (error?.message || '')); return }
+      setProts(prev => [data as Protocol, ...prev])
+    }
+    setShowForm(false); setEditId(null); resetForm(); router.refresh()
   }
   async function removeMeeting(id: string) {
     if (!confirm('Изтриване на заседанието?')) return
@@ -156,9 +174,14 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
         </div>
       </div>
 
-      {/* Състав */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-4">
-        <h3 className="text-sm font-semibold text-slate-800 mb-3">Състав</h3>
+      {/* Състав (сгъваем) */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm mb-4">
+        <button type="button" onClick={() => setOpenComp(v => !v)} className="w-full flex items-center justify-between gap-3 p-4">
+          <h3 className="text-sm font-semibold text-slate-800">Състав <span className="text-slate-400 font-normal">({list.length} {list.length === 1 ? 'член' : 'члена'})</span></h3>
+          <ChevronDown size={16} className={`text-slate-400 transition-transform ${openComp ? 'rotate-180' : ''}`} />
+        </button>
+        {openComp && (
+        <div className="px-4 pb-4">
         {list.length === 0 && <p className="text-sm text-slate-400 mb-3">Още няма зададен състав.</p>}
         <div className="space-y-1.5">
           {chair && (
@@ -187,13 +210,15 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
             </div>
           </div>
         )}
+        </div>
+        )}
       </div>
 
       {/* Заседания */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-slate-800">Заседания</h3>
-          <button onClick={() => { setShowForm(v => !v); if (!showForm) resetForm() }}
+          <button onClick={() => { setShowForm(v => !v); if (!showForm) { resetForm(); setEditId(null) } }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-white hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
             <Plus size={14} className={showForm ? 'rotate-45 transition-transform' : 'transition-transform'} /> {showForm ? 'Затвори' : 'Ново заседание'}
           </button>
@@ -247,7 +272,7 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
             )}
 
             <div className="flex justify-end gap-2">
-              <button onClick={() => setShowForm(false)} disabled={saving} className="px-3 py-1.5 rounded-lg text-sm text-slate-600 bg-white border border-slate-200 hover:bg-slate-50">Отказ</button>
+              <button onClick={() => { setShowForm(false); setEditId(null) }} disabled={saving} className="px-3 py-1.5 rounded-lg text-sm text-slate-600 bg-white border border-slate-200 hover:bg-slate-50">Отказ</button>
               <button onClick={saveMeeting} disabled={saving || !pDate} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium text-white disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>{saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Запази</button>
             </div>
           </div>
@@ -269,6 +294,7 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => genProtocol(p)} title="Свали протокол (Word)" className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white border shrink-0 hover:bg-slate-50" style={{ color: '#0f2240', borderColor: 'rgba(15,34,64,0.28)' }}><FileText size={13} /> Протокол</button>
+                  {canEditMeeting(p) && <button onClick={() => openEdit(p)} title="Редактирай" className="p-1.5 text-slate-400 hover:text-slate-700"><Pencil size={13} /></button>}
                   {canEditMeeting(p) && <button onClick={() => removeMeeting(p.id)} title="Изтрий" className="p-1.5 text-slate-400 hover:text-rose-500"><Trash2 size={13} /></button>}
                 </div>
               </div>
