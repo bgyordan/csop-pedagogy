@@ -20,10 +20,11 @@ export default async function BullyingCouncilPage() {
   const amMember = (members || []).some((m: any) => m.staff_id === me.id)
   if (!isManager && !amMember) redirect('/dashboard')
 
-  const [{ data: staff }, { data: protocols }, { data: studentsRaw }] = await Promise.all([
+  const [{ data: staff }, { data: protocols }, { data: studentsRaw }, { data: documents }] = await Promise.all([
     supabase.from('staff_profiles').select('id, first_name, last_name, position').eq('is_active', true).order('last_name'),
     supabase.from('bullying_protocols').select('*').eq('academic_year_id', cy?.id).order('number', { ascending: false }),
     supabase.from('students').select('id, first_name, middle_name, last_name').eq('status', 'active').order('last_name'),
+    supabase.from('bullying_documents').select('*').eq('academic_year_id', cy?.id).order('created_at', { ascending: false }),
   ])
   const students = (studentsRaw || []).map((s: any) => ({ id: s.id, name: `${s.first_name} ${s.middle_name ? s.middle_name + ' ' : ''}${s.last_name}`.replace(/\s+/g, ' ').trim() }))
 
@@ -35,6 +36,7 @@ export default async function BullyingCouncilPage() {
       staff={staff || []}
       protocols={protocols || []}
       students={students}
+      documents={documents || []}
       academicYearId={cy?.id || null}
       yearName={cy?.name || ''}
     />
