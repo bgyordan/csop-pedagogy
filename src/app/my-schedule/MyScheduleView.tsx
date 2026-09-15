@@ -202,6 +202,7 @@ export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId
                       <div key={`${s.source}-${s.day}-${s.period}-${i}`}
                         className={`flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-50 last:border-0 ${i % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}`}>
                         <div className="flex items-center gap-3 min-w-0">
+                          <span className="inline-flex items-center justify-center h-5 w-5 rounded text-white text-[10px] font-bold flex-shrink-0" style={{ backgroundColor: '#0f2240' }}>{s.period}</span>
                           <span className="text-xs font-mono text-slate-400 w-24 flex-shrink-0">{time}</span>
                           <span className={`text-sm font-medium ${s.allowsPullout ? 'text-teal-700' : 'text-slate-800'}`}>
                             {s.allowsPullout ? '◆ ' : ''}{s.subjectName}
