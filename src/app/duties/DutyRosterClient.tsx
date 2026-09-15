@@ -35,7 +35,8 @@ interface Props {
 export default function DutyRosterClient({ staff, duties: initialDuties, weeks, canManage, academicYearId, yearName }: Props) {
   const supabase = createClient()
   const [duties, setDuties] = useState<Duty[]>(initialDuties)
-  const [view, setView] = useState<'staff' | 'week'>('staff')
+  const [view, setView] = useState<'matrix' | 'staff' | 'week'>('matrix')
+  const today = new Date().toISOString().split('T')[0]
   const [search, setSearch] = useState('')
   const [pickerStaff, setPickerStaff] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -152,6 +153,12 @@ export default function DutyRosterClient({ staff, duties: initialDuties, weeks, 
     setTimeout(() => setFlash(''), 2000)
   }
 
+  function toggleCell(staffId: string, week: Week) {
+    if (!canManage || busy) return
+    const d = duties.find(x => x.staff_id === staffId && x.start_date === week.start)
+    if (d) removeDuty(d.id); else addDuty(staffId, week)
+  }
+
   async function handleWord() {
     setGenerating(true)
     try {
@@ -197,6 +204,10 @@ export default function DutyRosterClient({ staff, duties: initialDuties, weeks, 
         </div>
         <div className="flex items-center gap-2">
           <div className="flex bg-slate-100 rounded-lg p-0.5">
+            <button onClick={() => setView('matrix')}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${view === 'matrix' ? 'bg-white text-[#0f2240] shadow-sm' : 'text-slate-500'}`}>
+              Матрица
+            </button>
             <button onClick={() => setView('staff')}
               className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${view === 'staff' ? 'bg-white text-[#0f2240] shadow-sm' : 'text-slate-500'}`}>
               По служител
@@ -217,12 +228,51 @@ export default function DutyRosterClient({ staff, duties: initialDuties, weeks, 
         </div>
       </div>
 
-      {view === 'staff' && (
+      {(view === 'matrix' || view === 'staff') && (
         <div className="relative">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Търси служител..."
             className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
+        </div>
+      )}
+
+      {view === 'matrix' && (
+        <div className="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-[0_1px_6px_rgba(15,34,64,0.06)]">
+          <table className="border-collapse text-xs">
+            <thead>
+              <tr>
+                <th className="sticky left-0 z-20 bg-slate-50 border-b border-r border-slate-200 px-3 py-2 text-left font-semibold text-slate-600 min-w-[190px]">Служител</th>
+                {weeks.map(w => {
+                  const isNow = today >= w.start && today <= w.end
+                  return <th key={w.index} title={w.label} className={`border-b border-l border-slate-100 px-1 py-2 font-medium text-[10px] whitespace-nowrap ${isNow ? 'bg-amber-100 text-amber-700' : 'text-slate-400'}`}>{w.start.slice(8, 10)}.{w.start.slice(5, 7)}</th>
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {staff.filter(s => s.name.toLowerCase().includes(search.toLowerCase())).map(s => (
+                <tr key={s.id} className="group">
+                  <td className="sticky left-0 z-10 bg-white group-hover:bg-slate-50 border-b border-r border-slate-200 px-3 py-1.5">
+                    <div className="text-sm text-slate-800 truncate max-w-[220px]">{s.name}</div>
+                    {s.className && <div className="text-[10px] text-indigo-500">Класен · {s.className}</div>}
+                  </td>
+                  {weeks.map(w => {
+                    const d = duties.find(x => x.staff_id === s.id && x.start_date === w.start)
+                    const isNow = today >= w.start && today <= w.end
+                    return (
+                      <td key={w.index} onClick={() => toggleCell(s.id, w)}
+                        className={`border-b border-l border-slate-100 h-8 w-9 min-w-[36px] text-center align-middle transition-colors ${canManage ? 'cursor-pointer' : ''} ${isNow ? 'bg-amber-50/50' : ''} ${!d && canManage ? 'hover:bg-slate-100' : ''}`}>
+                        {d && <div className="mx-auto h-5 w-5 rounded-md" style={{ backgroundColor: '#0f2240' }} />}
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+              {staff.filter(s => s.name.toLowerCase().includes(search.toLowerCase())).length === 0 && (
+                <tr><td className="px-3 py-6 text-sm text-slate-400" colSpan={weeks.length + 1}>Няма служители.</td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
       )}
 
