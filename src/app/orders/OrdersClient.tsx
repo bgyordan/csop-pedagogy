@@ -106,6 +106,12 @@ export default function OrdersClient({
             </button>
           )}
 
+          <select value={dyearValue} onChange={e => handleYearChange(e.target.value)}
+            className="text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-[#0f2240] focus:outline-none focus:border-slate-400 flex-shrink-0 cursor-pointer"
+            title="Деловодна година">
+            {dyearOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+
           <div className="relative flex-1 min-w-[160px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             <input type="text" placeholder="Търсене по №, заглавие..." value={search}
@@ -122,11 +128,6 @@ export default function OrdersClient({
             ))}
           </select>
 
-          <select value={dyearValue} onChange={e => handleYearChange(e.target.value)}
-            className="text-xs border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-slate-400 flex-shrink-0 cursor-pointer"
-            title="Деловодна година">
-            {dyearOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
 
         </div>
       </div>
