@@ -68,7 +68,10 @@ export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId
     return (
       <div className={`rounded-xl border p-2.5 ${isIfo ? 'bg-teal-50/50 border-teal-100' : 'bg-white border-slate-200'}`}>
         <div className="flex items-center justify-between gap-2 mb-1">
-          <span className="text-[10px] font-mono text-slate-400">{time}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center justify-center h-4 w-4 rounded text-white text-[9px] font-bold" style={{ backgroundColor: '#0f2240' }}>{s.period}</span>
+            <span className="text-[10px] font-mono text-slate-400">{time}</span>
+          </div>
           {isIfo ? (
             <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-teal-100 text-teal-800">
               <GraduationCap size={10} /> ИФО
