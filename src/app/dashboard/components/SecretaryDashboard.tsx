@@ -10,6 +10,10 @@ export default async function SecretaryDashboard({ profile }: any) {
   const currentYear = now.getFullYear()
   const today = now.toISOString().split('T')[0]
   const in30days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  // Деловодна година (15.09–14.09)
+  const _m = now.getMonth() + 1, _d = now.getDate()
+  const deloStartYear = (_m > 9 || (_m === 9 && _d >= 15)) ? currentYear : currentYear - 1
+  const deloStart = `${deloStartYear}-09-15`, deloEnd = `${deloStartYear + 1}-09-14`
 
   const [
     { data: lastIncoming },
@@ -27,11 +31,11 @@ export default async function SecretaryDashboard({ profile }: any) {
     { count: subsTotal },
   ] = await Promise.all([
     supabase.from('correspondence').select('number, date, subject').eq('direction', 'incoming').order('created_at', { ascending: false }).limit(1),
-    supabase.from('correspondence').select('*', { count: 'exact', head: true }).eq('direction', 'incoming').gte('date', `${currentYear}-01-01`),
+    supabase.from('correspondence').select('*', { count: 'exact', head: true }).eq('direction', 'incoming').gte('date', deloStart).lte('date', deloEnd),
     supabase.from('correspondence').select('number, date, subject').eq('direction', 'outgoing').order('created_at', { ascending: false }).limit(1),
-    supabase.from('correspondence').select('*', { count: 'exact', head: true }).eq('direction', 'outgoing').gte('date', `${currentYear}-01-01`),
+    supabase.from('correspondence').select('*', { count: 'exact', head: true }).eq('direction', 'outgoing').gte('date', deloStart).lte('date', deloEnd),
     supabase.from('orders').select('number, date, title').order('created_at', { ascending: false }).limit(1),
-    supabase.from('orders').select('*', { count: 'exact', head: true }).gte('date', `${currentYear}-01-01`),
+    supabase.from('orders').select('*', { count: 'exact', head: true }).gte('date', deloStart).lte('date', deloEnd),
     supabase.from('contracts').select('number, date, subject, counterparty').order('created_at', { ascending: false }).limit(1),
     supabase.from('contracts').select('*', { count: 'exact', head: true }),
     supabase.from('contracts').select('number, subject, counterparty, end_date').gte('end_date', today).lte('end_date', in30days).order('end_date'),
