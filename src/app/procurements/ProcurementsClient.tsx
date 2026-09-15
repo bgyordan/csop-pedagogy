@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, Package, Paperclip, Pencil, FileText } from 'lucide-react'
+import { Plus, Search, Package, Paperclip, Pencil, FileText, Trash2 } from 'lucide-react'
 import NewProcurementForm from './NewProcurementForm'
 import ProcurementModal from './ProcurementModal'
 
@@ -29,10 +29,23 @@ const STATUS_LABELS: Record<string, string> = {
 interface Props {
   procurements: any[]
   canEdit: boolean
+  canDelete: boolean
   currentUserId: string
 }
 
-export default function ProcurementsClient({ procurements, canEdit, currentUserId }: Props) {
+export default function ProcurementsClient({ procurements, canEdit, canDelete, currentUserId }: Props) {
+  const supabase = createClient()
+  async function handleDelete(item: any, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!confirm(`Изтриване на „${item.subject}"?`)) return
+    const { data: files } = await supabase.from('procurement_files').select('file_url').eq('procurement_id', item.id)
+    const paths = (files || []).map((f: any) => f.file_url).filter(Boolean)
+    if (paths.length) await supabase.storage.from('documents').remove(paths)
+    await supabase.from('procurement_files').delete().eq('procurement_id', item.id)
+    const { error } = await supabase.from('procurements').delete().eq('id', item.id)
+    if (error) { alert('Грешка при триене: ' + error.message); return }
+    router.refresh()
+  }
   const router = useRouter()
 
   const [search, setSearch] = useState('')
@@ -110,8 +123,9 @@ export default function ProcurementsClient({ procurements, canEdit, currentUserI
 
               <span className="text-xs text-slate-600">{STATUS_LABELS[item.status] || '—'}</span>
 
-              <div className="flex items-center gap-1 text-xs text-slate-400">
-                <Paperclip size={12} />{fileCount}
+              <div className="flex items-center justify-end gap-2 text-xs text-slate-400">
+                <span className="inline-flex items-center gap-1"><Paperclip size={12} />{fileCount}</span>
+                {canDelete && <button onClick={(e) => handleDelete(item, e)} title="Изтрий поръчката" className="text-slate-300 hover:text-rose-500 transition-colors"><Trash2 size={13} /></button>}
               </div>
             </div>
           )
