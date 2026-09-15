@@ -101,6 +101,7 @@ export default function DutyRosterClient({ staff, duties: initialDuties, weeks, 
 
   function WeekPicker({ staffId }: { staffId: string }) {
     const grouped = groupByMonth(staffFreeWeeks(staffId))
+    const occupied = new Set(duties.map(d => d.start_date))
     return (
       <div className="mt-2 p-3 rounded-xl bg-slate-50 border border-slate-200">
         <div className="flex items-center justify-between mb-2">
@@ -112,12 +113,16 @@ export default function DutyRosterClient({ staff, duties: initialDuties, weeks, 
             <div key={g.month} className="flex items-start gap-2">
               <span className="text-[10px] font-bold text-[#0f2240] uppercase tracking-wide w-16 flex-shrink-0 pt-1.5">{g.month}</span>
               <div className="flex flex-wrap gap-1 flex-1">
-                {g.weeks.map(w => (
-                  <button key={w.index} onClick={() => addDuty(staffId, w)} disabled={busy}
-                    className="px-2 py-1 rounded-lg text-[11px] bg-white border border-slate-200 hover:bg-[#0f2240] hover:text-white transition-colors">
-                    {w.label}
-                  </button>
-                ))}
+                {g.weeks.map(w => {
+                  const taken = occupied.has(w.start)
+                  return (
+                    <button key={w.index} onClick={() => addDuty(staffId, w)} disabled={busy}
+                      title={taken ? 'Вече раздадена на друг' : 'Свободна седмица'}
+                      className={`px-2 py-1 rounded-lg text-[11px] border transition-colors ${taken ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'}`}>
+                      {w.label}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           ))}
