@@ -17,6 +17,7 @@ export default async function ProcurementsPage() {
   if (!canAccess) redirect('/dashboard')
 
   const canEdit = ['admin', 'zdud', 'director', 'secretary'].includes(profile?.role || '')
+  const canDelete = ['admin', 'zdud'].includes(profile?.role || '')
 
   const { data: procurements } = await supabase
     .from('procurements')
@@ -34,6 +35,7 @@ export default async function ProcurementsPage() {
       <ProcurementsClient
         procurements={procurements || []}
         canEdit={canEdit}
+        canDelete={canDelete}
         currentUserId={profile?.id || ''}
       />
     </div>
