@@ -70,9 +70,9 @@ export default async function DutyPage() {
   })
 
   // Изключваме роли без дежурство (деловодство/админ по избор — включваме всички без secretary/admin/director? -> питане)
-  const EXCLUDE_ROLES = ['secretary']
+    const INCLUDE_ROLES = ['teacher', 'class_teacher']
   const staff = (staffRaw || [])
-    .filter((s: any) => !EXCLUDE_ROLES.includes(s.role))
+    .filter((s: any) => INCLUDE_ROLES.includes(s.role))
     .map((s: any) => ({
       id: s.id,
       name: getFullName(s),
