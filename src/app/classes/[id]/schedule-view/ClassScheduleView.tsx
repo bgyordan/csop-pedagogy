@@ -72,8 +72,10 @@ export default function ClassScheduleView({ term, slots, className, yearName, ma
                   ) : ds.map((s, i) => (
                     <div key={i} className="rounded-xl border bg-white border-slate-200 p-2.5">
                       <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="text-[10px] font-mono text-slate-400">{TIMES[s.period] || `${s.period}.`}</span>
-                        <span className="text-[9px] text-slate-400">{s.period}. час</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center justify-center h-4 w-4 rounded text-white text-[9px] font-bold" style={{ backgroundColor: '#0f2240' }}>{s.period}</span>
+                          <span className="text-[10px] font-mono text-slate-400">{TIMES[s.period] || `${s.period}.`}</span>
+                        </div>
                       </div>
                       <div className={`text-xs font-medium leading-tight ${s.allowsPullout ? 'text-teal-700' : 'text-slate-800'}`}>
                         {s.allowsPullout ? '◆ ' : ''}{s.subjectName}
