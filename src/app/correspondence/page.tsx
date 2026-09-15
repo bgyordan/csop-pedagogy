@@ -26,7 +26,7 @@ export default async function CorrespondencePage({
   const dyear = params.dyear ? parseInt(params.dyear) : curDelo
   const dyStart = `${dyear}-09-15`, dyEnd = `${dyear + 1}-09-14`
   const dyearOptions: { value: string; label: string }[] = []
-  for (let y = curDelo + 1; y >= 2025; y--) dyearOptions.push({ value: String(y), label: `${y}/${y + 1}` })
+  for (let y = curDelo; y >= 2025; y--) dyearOptions.push({ value: String(y), label: `${y}/${y + 1}` })
   const from = (page - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
   let query = supabase
