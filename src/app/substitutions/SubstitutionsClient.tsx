@@ -10,12 +10,12 @@ import type { SubRow } from './page'
 
 type Staff = { id: string; first_name: string; last_name: string }
 const REASONS: Record<string, string> = { sick: 'Болничен', vacation: 'Отпуск', other: 'Друго' }
-function reasonFromKt(kt: string): string { return kt === '162' ? 'sick' : (kt === '161' || kt === '176' ? 'other' : 'vacation') }
+function reasonFromKt(kt: string): string { return kt === '162' ? 'sick' : (kt === '160' || kt === '161' || kt === '176' ? 'other' : 'vacation') }
 const KT_ARTICLES: { v: string; l: string }[] = [
-  { v: '155', l: 'чл. 155 – платен годишен отпуск' },
+  { v: '155', l: 'чл. 155 и чл. 156 – платен годишен отпуск' },
   { v: '157', l: 'чл. 157 – отпуск при събития (брак, кръводаряване и др.)' },
   { v: '159', l: 'чл. 159 – отпуск за обучение' },
-  { v: '161', l: 'чл. 161 – неплатен отпуск' },
+  { v: '160', l: 'чл. 160 – неплатен отпуск' },
   { v: '162', l: 'чл. 162 – отпуск при временна неработоспособност (болничен)' },
   { v: '168', l: 'чл. 168 – допълнителен отпуск за отглеждане на дете' },
   { v: '169', l: 'чл. 169 – отпуск при осиновяване' },
