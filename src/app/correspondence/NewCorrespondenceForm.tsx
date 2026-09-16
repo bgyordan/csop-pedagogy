@@ -405,10 +405,10 @@ export default function NewCorrespondenceForm({
                     <label className="block text-[11px] text-slate-500 mb-1">Вид отпуск / член от КТ</label>
                     <select value={ktArticle} onChange={e => setKtArticle(e.target.value)}
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-400 cursor-pointer">
-                      <option value="155">чл. 155 – платен годишен отпуск</option>
+                      <option value="155">чл. 155 и чл. 156 – платен годишен отпуск</option>
                       <option value="157">чл. 157 – отпуск при събития (брак, кръводаряване и др.)</option>
                       <option value="159">чл. 159 – отпуск за обучение</option>
-                      <option value="161">чл. 161 – неплатен отпуск</option>
+                      <option value="160">чл. 160 – неплатен отпуск</option>
                       <option value="162">чл. 162 – временна неработоспособност (болничен)</option>
                       <option value="168">чл. 168 – отглеждане на дете</option>
                       <option value="169">чл. 169 – осиновяване</option>
