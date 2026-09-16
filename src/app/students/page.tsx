@@ -84,11 +84,15 @@ export default async function StudentsPage({
   }
   if (params.class) query = query.eq('class_id', params.class)
   if (params.form) query = query.eq('education_form', params.form)
-  if (params.coud === '1') query = query.eq('coud_enrolled', true)
   const { data: enrollments } = await query
 
   // ── НЕРАЗПРЕДЕЛЕНИ: активни ученици без записване за текущата година ──
   // Виждат се от админ/ЗДУД/координатор
+  // Реално записани в ЦОУД група за годината (истинската основа за колоната/филтъра ЦОУД)
+  const { data: coudEnrRows } = await supabase
+    .from('coud_enrollments').select('student_id').eq('academic_year_id', currentYear?.id)
+  const coudEnrolledIds = new Set((coudEnrRows || []).map((c: any) => c.student_id))
+
   type Row = { key: string; student: any; className: string | null; unassigned: boolean; educationForm: string | null; coudEnrolled: boolean }
   let unassignedRows: Row[] = []
   if (canSeeUnassigned) {
@@ -101,7 +105,7 @@ export default async function StudentsPage({
       .from('students').select('*').eq('status', 'active')
     unassignedRows = (allActive || [])
       .filter(s => !enrolledIds.has(s.id))
-            .map(s => ({ key: `u-${s.id}`, student: s, className: null, unassigned: true, educationForm: s.education_form || 'daily', coudEnrolled: s.coud_enrolled === true }))
+            .map(s => ({ key: `u-${s.id}`, student: s, className: null, unassigned: true, educationForm: s.education_form || 'daily', coudEnrolled: coudEnrolledIds.has(s.id) }))
   }
 
   // ОРЕС филтър — активни днес
@@ -124,7 +128,7 @@ export default async function StudentsPage({
       className: (e.class as any)?.name || null,
       unassigned: false,
       educationForm: e.education_form || 'daily',
-      coudEnrolled: e.student?.coud_enrolled === true,
+      coudEnrolled: coudEnrolledIds.has(e.student?.id),
     }))
 
   // Обединяваме. Ако е избрана конкретна паралелка от падащото меню — неразпределените нямат паралелка, скриваме ги.
@@ -138,6 +142,7 @@ export default async function StudentsPage({
     if (oresStudentIds && !oresStudentIds.has(r.student?.id)) return false
     if (params.new === '1' && !r.student?.is_new) return false
     if (params.unassigned === '1' && !r.unassigned) return false
+    if (params.coud === '1' && !r.coudEnrolled) return false
     if (params.incomplete === '1') {
       const st = r.student
       const noClass = !st?.external_class?.trim()
