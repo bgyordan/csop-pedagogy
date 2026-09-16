@@ -23,6 +23,7 @@ export default function AdminStaffPage() {
   const [classesByStaff, setClassesByStaff] = useState<Record<string, string[]>>({})
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<StaffProfile | null>(null)
+  const [cred, setCred] = useState<{ email: string; password: string } | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
@@ -74,8 +75,7 @@ export default function AdminStaffPage() {
     if (!confirm(`Създаване на достъп за ${getFullName(s)} (${s.email})?`)) return
     const res: any = await createStaffAccount(s.id)
     if (res.error) { alert(res.error); return }
-    alert(`Готово!\n\nИмейл: ${res.email}\nВременна парола: ${res.password}\n\nДай ги на служителя (може да си я смени после).`)
-    window.location.reload()
+    setCred({ email: res.email, password: res.password })
   }
   function openEdit(s: any) {
     setEditing(s)
@@ -138,6 +138,26 @@ export default function AdminStaffPage() {
 
   return (
     <div className="p-4 md:p-8">
+      {cred && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => { setCred(null); window.location.reload() }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5" onClick={e => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-slate-800 mb-1">Достъпът е създаден</h3>
+            <p className="text-xs text-slate-500 mb-3">Дай тези данни на служителя. Може да си смени паролата после.</p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                <div className="min-w-0"><div className="text-[10px] text-slate-400 uppercase">Имейл</div><div className="text-sm font-mono text-slate-700 truncate">{cred.email}</div></div>
+                <button onClick={() => navigator.clipboard.writeText(cred.email)} className="text-xs text-[#0f2240] hover:underline shrink-0">Копирай</button>
+              </div>
+              <div className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                <div className="min-w-0"><div className="text-[10px] text-slate-400 uppercase">Временна парола</div><div className="text-sm font-mono text-slate-700 truncate">{cred.password}</div></div>
+                <button onClick={() => navigator.clipboard.writeText(cred.password)} className="text-xs text-[#0f2240] hover:underline shrink-0">Копирай</button>
+              </div>
+            </div>
+            <button onClick={() => navigator.clipboard.writeText(`Имейл: ${cred.email}\nПарола: ${cred.password}`)} className="w-full mt-3 py-2 rounded-xl text-sm font-medium text-white" style={{ backgroundColor: '#0f2240' }}>Копирай двете</button>
+            <button onClick={() => { setCred(null); window.location.reload() }} className="w-full mt-2 py-2 rounded-xl text-sm text-slate-500 hover:bg-slate-50">Затвори</button>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-slate-800">Управление на служители</h1>
