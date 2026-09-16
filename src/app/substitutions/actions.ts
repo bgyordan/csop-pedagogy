@@ -64,13 +64,16 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
     items: bySlot.filter(s => s.day === wd.dow).map(s => ({ period: s.period, subject: s.subject, cls: s.cls })),
   }))
 
-  // 4. Номер от общия брояч (max seq +1 за деловодната година)
-  const { data: maxRow } = await supabase
-    .from('orders').select('seq').order('seq', { ascending: false, nullsFirst: false }).limit(1).maybeSingle()
-  const nextSeq = ((maxRow?.seq as number) || 0) + 1
+    // 4. Номер от общия брояч — max seq +1 САМО в текущата деловодна година (15.09–14.09)
   const orderDate = new Date().toISOString().split('T')[0]
+  const _p = orderDate.split('-').map(Number)
+  const _startYear = (_p[1] > 9 || (_p[1] === 9 && _p[2] >= 15)) ? _p[0] : _p[0] - 1
+  const dStart = `${_startYear}-09-15`, dEnd = `${_startYear + 1}-09-14`
+  const { data: maxRow } = await supabase
+    .from('orders').select('seq').gte('date', dStart).lte('date', dEnd)
+    .order('seq', { ascending: false, nullsFirst: false }).limit(1).maybeSingle()
+  const nextSeq = ((maxRow?.seq as number) || 0) + 1
   const orderNumber = `${String(nextSeq).padStart(3, '0')}/${orderDate.split('-').reverse().join('.')}г.`
-
   const absentName = sub.absent ? `${(sub.absent as any).first_name} ${(sub.absent as any).last_name}` : ''
   const subName = sub.sub ? `${(sub.sub as any).first_name} ${(sub.sub as any).last_name}` : ''
 
