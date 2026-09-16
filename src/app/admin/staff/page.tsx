@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { createStaffAccount } from './actions'
 import { Plus, Pencil, ExternalLink } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
@@ -69,6 +70,13 @@ export default function AdminStaffPage() {
     setOpen(true)
   }
 
+  async function createAccess(s: any) {
+    if (!confirm(`Създаване на достъп за ${getFullName(s)} (${s.email})?`)) return
+    const res: any = await createStaffAccount(s.id)
+    if (res.error) { alert(res.error); return }
+    alert(`Готово!\n\nИмейл: ${res.email}\nВременна парола: ${res.password}\n\nДай ги на служителя (може да си я смени после).`)
+    window.location.reload()
+  }
   function openEdit(s: any) {
     setEditing(s)
     setForm({
@@ -199,6 +207,11 @@ export default function AdminStaffPage() {
                           <Pencil size={12} />
                           Редактирай
                         </button>
+                        {!s.user_id && (
+                          <button onClick={() => createAccess(s)} className="text-xs font-medium px-2.5 py-1 rounded-lg text-white hover:opacity-90 whitespace-nowrap" style={{ backgroundColor: '#0f2240' }}>
+                            Създай достъп
+                          </button>
+                        )}
                         <button onClick={() => toggleActive(s)} className="text-xs text-slate-400 hover:text-slate-700 whitespace-nowrap">
                           {s.is_active ? 'Деактивирай' : 'Активирай'}
                         </button>
