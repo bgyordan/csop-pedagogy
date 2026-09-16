@@ -22,7 +22,7 @@ export async function createStaffAccount(staffId: string) {
   if (!target.email || !target.email.includes('@')) return { error: 'Профилът няма валиден имейл' }
 
   const admin = createAdminClient()
-  const password = genPassword()
+  const password = 'Csop2026!'
   const { data: created, error } = await admin.auth.admin.createUser({
     email: target.email, password, email_confirm: true,
   })
