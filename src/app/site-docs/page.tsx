@@ -8,15 +8,13 @@ export default async function SiteDocsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
   const { data: me } = await supabase.from('staff_profiles').select('role').eq('user_id', user.id).single()
-  if (!me) redirect('/dashboard')
-  const canManage = ['admin', 'zdud', 'director', 'secretary'].includes(me.role)
+  if (!me || !['admin', 'zdud', 'director', 'secretary'].includes(me.role)) redirect('/dashboard')
 
   const { data: docs } = await supabase.from('site_documents')
-    .select('id, name, file_url, academic_year, category, on_site, sort_order')
-    .eq('section', 'internal')
+    .select('id, name, file_url, academic_year, section, category, on_site, sort_order')
     .order('sort_order', { ascending: true })
 
   const { data: cy } = await supabase.from('academic_years').select('name').eq('is_current', true).single()
 
-  return <SiteDocsClient docs={docs || []} defaultYear={cy?.name || ''} canManage={canManage} />
+  return <SiteDocsClient docs={docs || []} defaultYear={cy?.name || ''} />
 }
