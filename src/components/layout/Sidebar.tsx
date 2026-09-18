@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3, FileSpreadsheet,
-  Inbox, ClipboardList, FileSignature, Package, Star, CalendarClock, ChevronDown, Lightbulb, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell
+  Inbox, ClipboardList, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Lightbulb, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
@@ -40,8 +40,7 @@ const navItems: NavItem[] = [
     icon: <FileText size={16} />,
     children: [
       { href: '/templates', label: 'Образци', icon: <FileText size={14} /> },
-     { href: '/site-docs', label: 'Нормативна база', icon: <ScrollText size={14} />, roles: ['secretary'], section: 'settings' },
-            { href: '/council', label: 'За съгласуване', icon: <ClipboardCheck size={14} /> },
+      { href: '/council', label: 'За съгласуване', icon: <ClipboardCheck size={14} /> },
     ],
   },
   { href: '/spravki', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'], hideFromCoordinator: true },
@@ -118,11 +117,12 @@ const navItems: NavItem[] = [
   { href: '/orders', label: 'Заповеди', icon: <ClipboardList size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/contracts', label: 'Договори', icon: <FileSignature size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/procurements', label: 'Обществени поръчки', icon: <Package size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
+  { href: '/site-docs', label: 'Сайт', icon: <Globe size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/admin/schools', label: 'Училища', icon: <School size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/students', label: 'Ученици', icon: <Users size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/templates', label: 'Образци на документи', icon: <FileText size={16} />, roles: ['secretary'], section: 'settings' },
-            { href: '/substitutions', label: 'Замествания', icon: <UserX size={16} />, roles: ['secretary'], section: 'settings' },
-    { href: '/lecturer-review', label: 'Проверка лекторски', icon: <ClipboardList size={16} />, roles: ['secretary'], section: 'settings' },
+  { href: '/substitutions', label: 'Замествания', icon: <UserX size={16} />, roles: ['secretary'], section: 'settings' },
+  { href: '/lecturer-review', label: 'Проверка лекторски', icon: <ClipboardList size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/duties', label: 'Дежурства', icon: <CalendarDays size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/reports/hub', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/students/documents', label: 'Досиета', icon: <FileText size={16} />, roles: ['secretary'], section: 'settings' },
