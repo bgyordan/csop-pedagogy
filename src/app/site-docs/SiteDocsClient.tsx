@@ -17,7 +17,7 @@ const CATEGORIES: { key: string; title: string; color: string }[] = [
 ]
 const catOf = (k: string | null) => CATEGORIES.find(c => c.key === k) || CATEGORIES[6]
 
-export default function SiteDocsClient({ docs, defaultYear }: { docs: Doc[]; defaultYear: string }) {
+export default function SiteDocsClient({ docs, defaultYear, canManage }: { docs: Doc[]; defaultYear: string; canManage: boolean }) {
   const supabase = createClient()
   const router = useRouter()
   const [list, setList] = useState<Doc[]>(docs)
@@ -81,12 +81,14 @@ export default function SiteDocsClient({ docs, defaultYear }: { docs: Doc[]; def
             <p className="text-slate-500 text-sm mt-0.5">Управление от деловодството · тогълът „За сайта" решава дали се показват публично</p>
           </div>
         </div>
-        <button onClick={() => setOpen(v => !v)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
-          <Plus size={16} className={open ? 'rotate-45 transition-transform' : 'transition-transform'} /> {open ? 'Затвори' : 'Качи документ'}
-        </button>
+        {canManage && (
+          <button onClick={() => setOpen(v => !v)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
+            <Plus size={16} className={open ? 'rotate-45 transition-transform' : 'transition-transform'} /> {open ? 'Затвори' : 'Качи документ'}
+          </button>
+        )}
       </div>
 
-      {open && (
+      {canManage && open && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-4 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
@@ -139,16 +141,20 @@ export default function SiteDocsClient({ docs, defaultYear }: { docs: Doc[]; def
                       <div className="text-sm font-medium text-slate-700 group-hover:text-[#0f2240] truncate">{d.name}</div>
                       {d.academic_year && <div className="text-[10px] text-slate-400">{d.academic_year}</div>}
                     </a>
-                    <select value={d.category || 'other'} onChange={e => changeCategory(d, e.target.value)}
-                      className="text-[11px] rounded-lg border border-slate-200 px-1.5 py-1 bg-white cursor-pointer hidden md:block" title="Категория">
-                      {CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.title}</option>)}
-                    </select>
-                    <button onClick={() => toggleSite(d)} title={d.on_site ? 'Показва се на сайта — изключи' : 'Само в деловодството — покажи на сайта'}
-                      className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg border transition-colors ${d.on_site ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-400 border-slate-200'}`}>
-                      {d.on_site ? <><Globe size={12} /> За сайта</> : <><EyeOff size={12} /> Само ЕИС</>}
-                    </button>
+                    {canManage && (
+                      <select value={d.category || 'other'} onChange={e => changeCategory(d, e.target.value)}
+                        className="text-[11px] rounded-lg border border-slate-200 px-1.5 py-1 bg-white cursor-pointer hidden md:block" title="Категория">
+                        {CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.title}</option>)}
+                      </select>
+                    )}
+                    {canManage && (
+                      <button onClick={() => toggleSite(d)} title={d.on_site ? 'Показва се на сайта — изключи' : 'Само в деловодството — покажи на сайта'}
+                        className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg border transition-colors ${d.on_site ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-400 border-slate-200'}`}>
+                        {d.on_site ? <><Globe size={12} /> За сайта</> : <><EyeOff size={12} /> Само ЕИС</>}
+                      </button>
+                    )}
                     <a href={d.file_url} target="_blank" rel="noopener noreferrer" className="p-1.5 text-slate-400 hover:text-[#0f2240]" title="Отвори"><Download size={15} /></a>
-                    <button onClick={() => remove(d)} className="p-1.5 text-slate-400 hover:text-rose-500" title="Изтрий"><Trash2 size={15} /></button>
+                    {canManage && <button onClick={() => remove(d)} className="p-1.5 text-slate-400 hover:text-rose-500" title="Изтрий"><Trash2 size={15} /></button>}
                   </div>
                 ))}
               </div>
