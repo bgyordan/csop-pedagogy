@@ -7,15 +7,15 @@ import { FileText, Upload, Loader2, Trash2, Download, Globe, EyeOff, Plus } from
 interface Doc { id: string; name: string; file_url: string; academic_year: string | null; category: string | null; on_site: boolean; sort_order: number }
 
 const CATEGORIES: { key: string; title: string; color: string }[] = [
-  { key: 'strategy', title: 'Стратегическо планиране', color: '#7c3aed' },
-  { key: 'annual', title: 'Годишно планиране', color: '#2563eb' },
+  { key: 'strategy', title: 'Стратегия и планове', color: '#7c3aed' },
   { key: 'rules', title: 'Правилници и вътрешни правила', color: '#0d9488' },
-  { key: 'edu', title: 'Образователна и терапевтична дейност', color: '#db2777' },
-  { key: 'safety', title: 'Безопасност и сигурност', color: '#ea580c' },
-  { key: 'data', title: 'Защита на данните и информацията', color: '#475569' },
-  { key: 'other', title: 'Други документи', color: '#64748b' },
+  { key: 'programs', title: 'Програми', color: '#2563eb' },
+  { key: 'ethics', title: 'Етика и приобщаване', color: '#db2777' },
+  { key: 'safety', title: 'Безопасност', color: '#ea580c' },
+  { key: 'data', title: 'Защита на данните', color: '#475569' },
+  { key: 'other', title: 'Общи', color: '#64748b' },
 ]
-const catOf = (k: string | null) => CATEGORIES.find(c => c.key === k) || CATEGORIES[6]
+
 function suggestName(filename: string): string {
   let n = filename.replace(/\.[a-z0-9]+$/i, '')
   n = n.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim()
@@ -29,8 +29,7 @@ export default function SiteDocsClient({ docs, defaultYear, canManage }: { docs:
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [name, setName] = useState('')
-  const [year, setYear] = useState(defaultYear)
-  const [category, setCategory] = useState('rules')
+  const [category, setCategory] = useState('other')
   const [onSite, setOnSite] = useState(true)
   const [file, setFile] = useState<File | null>(null)
 
@@ -44,13 +43,13 @@ export default function SiteDocsClient({ docs, defaultYear, canManage }: { docs:
     const { data: pub } = supabase.storage.from('public-docs').getPublicUrl(path)
     const sort = (list.reduce((m, d) => Math.max(m, d.sort_order), 0)) + 1
     const { data, error } = await supabase.from('site_documents').insert({
-      name: name.trim(), file_url: pub.publicUrl, academic_year: year.trim() || null,
+      name: name.trim(), file_url: pub.publicUrl, academic_year: defaultYear || null,
       section: 'internal', category, on_site: onSite, sort_order: sort,
     }).select('*').single()
     setBusy(false)
     if (error || !data) { alert('Грешка при запис: ' + (error?.message || '')); return }
     setList(prev => [...prev, data as Doc])
-    setName(''); setFile(null); setOpen(false)
+    setName(''); setFile(null); setCategory('other'); setOpen(false)
     const fi = document.getElementById('sd-file') as HTMLInputElement; if (fi) fi.value = ''
     router.refresh()
   }
@@ -74,16 +73,14 @@ export default function SiteDocsClient({ docs, defaultYear, canManage }: { docs:
     setList(prev => prev.filter(x => x.id !== d.id)); router.refresh()
   }
 
-  const inputCls = "w-full text-sm rounded-lg border border-slate-200 px-3 py-2 bg-white focus:outline-none focus:border-slate-400"
-
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto">
+    <div className="p-4 md:p-8 max-w-3xl mx-auto">
       <div className="flex items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl" style={{ backgroundColor: '#0f2240' }}><FileText size={20} className="text-white" /></div>
           <div>
             <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Нормативни документи</h1>
-            <p className="text-slate-500 text-sm mt-0.5">Управление от деловодството · тогълът „За сайта" решава дали се показват публично</p>
+            <p className="text-slate-500 text-sm mt-0.5">{canManage ? 'Тогълът „За сайта" решава дали се показва публично' : 'Актуалната нормативна база на ЦСОП – Варна'}</p>
           </div>
         </div>
         {canManage && (
@@ -95,24 +92,24 @@ export default function SiteDocsClient({ docs, defaultYear, canManage }: { docs:
 
       {canManage && open && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-4 space-y-3">
+          <div>
+            <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1">Файл (PDF)</label>
+            <input id="sd-file" type="file" accept="application/pdf"
+              onChange={e => { const f = e.target.files?.[0] || null; setFile(f); if (f && !name.trim()) setName(suggestName(f.name)) }}
+              className="w-full text-sm" />
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="sm:col-span-2">
+            <div>
               <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1">Име на документа</label>
-              <input value={name} onChange={e => setName(e.target.value)} placeholder="предлага се от файла — може да смениш" className={inputCls} />
+              <input value={name} onChange={e => setName(e.target.value)} placeholder="предлага се от файла — може да смениш"
+                className="w-full text-sm rounded-lg border border-slate-200 px-3 py-2 bg-white focus:outline-none focus:border-slate-400" />
             </div>
             <div>
-              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1">Категория</label>
-              <select value={category} onChange={e => setCategory(e.target.value)} className={inputCls + ' cursor-pointer'}>
+              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1">Рубрика</label>
+              <select value={category} onChange={e => setCategory(e.target.value)}
+                className="w-full text-sm rounded-lg border border-slate-200 px-3 py-2 bg-white cursor-pointer focus:outline-none focus:border-slate-400">
                 {CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.title}</option>)}
               </select>
-            </div>
-            <div>
-              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1">Учебна година (по избор)</label>
-              <input value={year} onChange={e => setYear(e.target.value)} placeholder="2025/2026" className={inputCls} />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1">Файл (PDF)</label>
-              <input id="sd-file" type="file" accept="application/pdf" onChange={e => { const f = e.target.files?.[0] || null; setFile(f); if (f && !name.trim()) setName(suggestName(f.name)) }} className="w-full text-sm" />
             </div>
           </div>
           <label className="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
@@ -141,25 +138,24 @@ export default function SiteDocsClient({ docs, defaultYear, canManage }: { docs:
               </div>
               <div className="space-y-1.5">
                 {items.map(d => (
-                  <div key={d.id} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-100 bg-white" style={{ borderLeft: `3px solid ${cat.color}` }}>
+                  <div key={d.id} className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-100 bg-white" style={{ borderLeft: `3px solid ${cat.color}` }}>
                     <a href={d.file_url} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-0 group">
-                      <div className="text-sm font-medium text-slate-700 group-hover:text-[#0f2240] truncate">{d.name}</div>
-                      {d.academic_year && <div className="text-[10px] text-slate-400">{d.academic_year}</div>}
+                      <span className="text-sm font-medium text-slate-700 group-hover:text-[#0f2240] truncate block">{d.name}</span>
                     </a>
                     {canManage && (
                       <select value={d.category || 'other'} onChange={e => changeCategory(d, e.target.value)}
-                        className="text-[11px] rounded-lg border border-slate-200 px-1.5 py-1 bg-white cursor-pointer hidden md:block" title="Категория">
+                        className="text-[11px] rounded-lg border border-slate-200 px-1.5 py-1 bg-white cursor-pointer hidden md:block shrink-0" title="Рубрика">
                         {CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.title}</option>)}
                       </select>
                     )}
                     {canManage && (
                       <button onClick={() => toggleSite(d)} title={d.on_site ? 'Показва се на сайта — изключи' : 'Само в деловодството — покажи на сайта'}
-                        className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg border transition-colors ${d.on_site ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-400 border-slate-200'}`}>
+                        className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg border transition-colors shrink-0 ${d.on_site ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-400 border-slate-200'}`}>
                         {d.on_site ? <><Globe size={12} /> За сайта</> : <><EyeOff size={12} /> Само ЕИС</>}
                       </button>
                     )}
-                    <a href={d.file_url} target="_blank" rel="noopener noreferrer" className="p-1.5 text-slate-400 hover:text-[#0f2240]" title="Отвори"><Download size={15} /></a>
-                    {canManage && <button onClick={() => remove(d)} className="p-1.5 text-slate-400 hover:text-rose-500" title="Изтрий"><Trash2 size={15} /></button>}
+                    <a href={d.file_url} target="_blank" rel="noopener noreferrer" className="p-1.5 text-slate-400 hover:text-[#0f2240] shrink-0" title="Отвори"><Download size={15} /></a>
+                    {canManage && <button onClick={() => remove(d)} className="p-1.5 text-slate-400 hover:text-rose-500 shrink-0" title="Изтрий"><Trash2 size={15} /></button>}
                   </div>
                 ))}
               </div>
