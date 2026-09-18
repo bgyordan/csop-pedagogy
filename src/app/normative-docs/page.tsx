@@ -18,7 +18,7 @@ export default async function NormativeDocsPage() {
   const { data } = await supabase
     .from('site_documents')
     .select('id, name, file_url, academic_year, sort_order')
-    .eq('section', 'internal')
+    .in('section', ['internal', 'eis'])
     .order('academic_year', { ascending: false })
     .order('sort_order', { ascending: true })
   const docs: NormDoc[] = data || []
