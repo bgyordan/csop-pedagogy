@@ -16,6 +16,11 @@ const CATEGORIES: { key: string; title: string; color: string }[] = [
   { key: 'other', title: 'Други документи', color: '#64748b' },
 ]
 const catOf = (k: string | null) => CATEGORIES.find(c => c.key === k) || CATEGORIES[6]
+function suggestName(filename: string): string {
+  let n = filename.replace(/\.[a-z0-9]+$/i, '')
+  n = n.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim()
+  return n.charAt(0).toUpperCase() + n.slice(1)
+}
 
 export default function SiteDocsClient({ docs, defaultYear, canManage }: { docs: Doc[]; defaultYear: string; canManage: boolean }) {
   const supabase = createClient()
@@ -93,7 +98,7 @@ export default function SiteDocsClient({ docs, defaultYear, canManage }: { docs:
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
               <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1">Име на документа</label>
-              <input value={name} onChange={e => setName(e.target.value)} placeholder="напр. Етичен кодекс 2025/2026" className={inputCls} />
+              <input value={name} onChange={e => setName(e.target.value)} placeholder="предлага се от файла — може да смениш" className={inputCls} />
             </div>
             <div>
               <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1">Категория</label>
@@ -102,12 +107,12 @@ export default function SiteDocsClient({ docs, defaultYear, canManage }: { docs:
               </select>
             </div>
             <div>
-              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1">Учебна година</label>
+              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1">Учебна година (по избор)</label>
               <input value={year} onChange={e => setYear(e.target.value)} placeholder="2025/2026" className={inputCls} />
             </div>
             <div className="sm:col-span-2">
               <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-1">Файл (PDF)</label>
-              <input id="sd-file" type="file" accept="application/pdf" onChange={e => setFile(e.target.files?.[0] || null)} className="w-full text-sm" />
+              <input id="sd-file" type="file" accept="application/pdf" onChange={e => { const f = e.target.files?.[0] || null; setFile(f); if (f && !name.trim()) setName(suggestName(f.name)) }} className="w-full text-sm" />
             </div>
           </div>
           <label className="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
