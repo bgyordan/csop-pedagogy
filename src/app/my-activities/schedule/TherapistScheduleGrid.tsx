@@ -295,6 +295,14 @@ export function TherapistScheduleGrid({
                             </div>
                           )
                         })}
+                        {paintable && (
+                          <button type="button"
+                            onClick={e => { e.stopPropagation(); toggleActiveInCell(d.n, period) }}
+                            className={`w-full text-left text-[10px] px-1 py-0.5 rounded truncate ${
+                              ev?.level === 'ok' ? 'text-emerald-700 hover:bg-emerald-100' : 'text-amber-700 hover:bg-amber-100'}`}>
+                            + {activeStudent?.name}
+                          </button>
+                        )}
                         {activeId && !activeHere && full && (
                           <div className="text-[10px] text-slate-400 px-1">Пълно (3)</div>
                         )}
