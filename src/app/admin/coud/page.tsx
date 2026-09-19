@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
 import CoudGroupsClient from './CoudGroupsClient'
+import EducatorScheduleCard from './EducatorScheduleCard'
+
 
 export const dynamic = 'force-dynamic'
 
@@ -46,8 +48,13 @@ export default async function CoudPage() {
     .from('staff_profiles')
     .select('id, first_name, last_name')
     .eq('is_active', true)
-    .eq('role', 'educator')
+       .eq('role', 'educator')
     .order('last_name')
+
+  const { data: seededRows } = await supabase
+    .from('educator_slots').select('educator_id').eq('academic_year_id', currentYear?.id)
+  const seededEducators = Array.from(new Set((seededRows || []).map((r: any) => r.educator_id)))
+  const canSeed = ['admin', 'zdud', 'director'].includes(profile?.role || '')
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
@@ -56,6 +63,13 @@ export default async function CoudPage() {
         <h1 className="text-2xl font-bold text-slate-800">ЦОУД групи</h1>
         <p className="text-slate-500 text-sm mt-1">Целодневна организация на учебния ден · {currentYear?.name}</p>
       </div>
+      {canSeed && (
+        <EducatorScheduleCard
+          educators={(teachers || []).map((t: any) => ({ id: t.id, name: `${t.first_name} ${t.last_name}` }))}
+          seeded={seededEducators}
+          academicYearId={currentYear?.id || ''}
+        />
+      )}
 
       <CoudGroupsClient
         groups={groupsWithStudents}
