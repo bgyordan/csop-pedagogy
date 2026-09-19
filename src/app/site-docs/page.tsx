@@ -33,6 +33,8 @@ export default async function SiteDocsPage() {
   const { data: jobs } = await supabase.from('site_jobs')
     .select('id, title, employment, description, requirements, location, status, sort_order')
     .order('sort_order', { ascending: true })
+  const { data: subscribers } = await supabase.from('job_subscribers')
+    .select('id, email, created_at').order('created_at', { ascending: false })
 
   const { data: cy } = await supabase.from('academic_years').select('name').eq('is_current', true).single()
 
@@ -41,7 +43,7 @@ export default async function SiteDocsPage() {
       docs={docs || []} defaultYear={cy?.name || ''}
       news={news || []} authorId={me.id}
       events={events || []} albums={albums || []} photos={photos || []} heroPhotos={heroPhotos}
-      jobs={jobs || []}
+      jobs={jobs || []} subscribers={subscribers || []}
     />
   )
 }
