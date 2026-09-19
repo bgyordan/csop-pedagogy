@@ -30,6 +30,10 @@ export default async function SiteDocsPage() {
   const { data: heroRow } = await supabase.from('site_settings').select('value').eq('key', 'hero_photos').maybeSingle()
   const heroPhotos = Array.isArray(heroRow?.value) ? (heroRow!.value as string[]) : []
 
+  const { data: jobs } = await supabase.from('site_jobs')
+    .select('id, title, employment, description, requirements, location, status, sort_order')
+    .order('sort_order', { ascending: true })
+
   const { data: cy } = await supabase.from('academic_years').select('name').eq('is_current', true).single()
 
   return (
@@ -37,6 +41,7 @@ export default async function SiteDocsPage() {
       docs={docs || []} defaultYear={cy?.name || ''}
       news={news || []} authorId={me.id}
       events={events || []} albums={albums || []} photos={photos || []} heroPhotos={heroPhotos}
+      jobs={jobs || []}
     />
   )
 }
