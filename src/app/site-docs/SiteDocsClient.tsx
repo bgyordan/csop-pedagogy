@@ -52,26 +52,26 @@ const TABS = [
   { id: 'hero', label: 'Начална страница', icon: LayoutTemplate },
 ]
 
-export default function SiteDocsClient({ docs = [], defaultYear }: { docs: Doc[]; defaultYear: string }) {
+export default function SiteDocsClient({ docs = [], defaultYear, news = [], authorId }: { docs: Doc[]; defaultYear: string; news?: News[]; authorId: string | null }) {
   const [tab, setTab] = useState('docs')
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto">
-      {/* Заглавие */}
-      <div className="flex items-end justify-between gap-4 flex-wrap mb-6">
-        <div>
-          <h1 className="text-2xl md:text-[26px] font-semibold tracking-tight" style={{ color: ACCENT }}>Сайт</h1>
-          <p className="text-slate-500 text-sm mt-1">Управление на съдържанието на публичния сайт — от едно място</p>
-        </div>
+      {/* Hero */}
+      <div className="text-center pt-3 pb-6">
+        <h1 className="text-[28px] md:text-[34px] font-semibold tracking-tight" style={{ color: ACCENT }}>Сайт</h1>
+        <p className="text-slate-500 text-sm md:text-[15px] mt-2 max-w-lg mx-auto">
+          Съдържанието на публичния сайт — новини, документи, събития и галерия, от едно място.
+        </p>
         <a href="https://csop-varna.bg" target="_blank" rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 text-[12.5px] text-slate-500 bg-white border border-slate-200 rounded-full px-3.5 py-2 hover:text-slate-700">
+          className="inline-flex items-center gap-2 text-[12.5px] text-slate-500 bg-white border border-slate-200 rounded-full px-3.5 py-2 hover:text-slate-700 mt-4">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 ring-4 ring-emerald-100"></span>
           csop-varna.bg
         </a>
       </div>
 
       {/* Секции */}
-      <div className="flex flex-wrap items-end border-b border-slate-200 mb-6">
+      <div className="flex flex-wrap justify-center items-end border-b border-slate-200 mb-7">
         {TABS.map((t) => {
           const Icon = t.icon
           const on = tab === t.id
@@ -88,7 +88,7 @@ export default function SiteDocsClient({ docs = [], defaultYear }: { docs: Doc[]
       </div>
 
       {tab === 'docs' && <DocumentsManager initial={docs} defaultYear={defaultYear} />}
-      {tab === 'news' && <Soon title="Новини" />}
+      {tab === 'news' && <NewsManager initial={news} authorId={authorId} />}
       {tab === 'events' && <Soon title="Събития" />}
       {tab === 'gallery' && <Soon title="Галерия" />}
       {tab === 'hero' && <Soon title="Начална страница" />}
@@ -440,6 +440,232 @@ function DocumentsManager({ initial, defaultYear }: { initial: Doc[]; defaultYea
         </div>
       </div>
 
+    </div>
+  )
+}
+
+/* ───────────────────────── НОВИНИ ───────────────────────── */
+
+interface News {
+  id: string
+  title: string
+  excerpt: string | null
+  content: string | null
+  cover_url: string | null
+  category: string
+  status: string
+  published_at: string | null
+  created_at: string
+}
+const NEWS_CATS = ['Новини', 'Събития', 'Публикации', 'Моменти']
+const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('bg-BG') : '')
+
+function NewsManager({ initial, authorId }: { initial: News[]; authorId: string | null }) {
+  const supabase = createClient()
+  const router = useRouter()
+
+  const [list, setList] = useState<News[]>(initial)
+  const [q, setQ] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'draft'>('all')
+
+  const [drawer, setDrawer] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [title, setTitle] = useState('')
+  const [category, setCategory] = useState('Новини')
+  const [excerpt, setExcerpt] = useState('')
+  const [content, setContent] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [existingCover, setExistingCover] = useState<string | null>(null)
+  const [notice, setNotice] = useState<{ msg: string; err?: boolean } | null>(null)
+
+  const flash = (msg: string, err = false) => {
+    setNotice({ msg, err })
+    setTimeout(() => setNotice((prev) => (prev?.msg === msg ? null : prev)), 3500)
+  }
+
+  const shown = useMemo(() => list
+    .filter((n) => (statusFilter === 'all' ? true : n.status === statusFilter))
+    .filter((n) => (q.trim() ? n.title.toLowerCase().includes(q.trim().toLowerCase()) : true)),
+    [list, statusFilter, q])
+
+  function openNew() {
+    setEditId(null); setTitle(''); setCategory('Новини'); setExcerpt(''); setContent('')
+    setFile(null); setExistingCover(null); setDrawer(true)
+  }
+  function openEdit(n: News) {
+    setEditId(n.id); setTitle(n.title); setCategory(n.category); setExcerpt(n.excerpt || '')
+    setContent(n.content || ''); setFile(null); setExistingCover(n.cover_url); setDrawer(true)
+  }
+
+  async function save(status: 'draft' | 'published') {
+    if (!title.trim()) { flash('Въведете заглавие.', true); return }
+    try {
+      setBusy(true)
+      let coverUrl = existingCover
+      if (file) {
+        const ext = file.name.split('.').pop()
+        const path = `news/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+        const { error: upErr } = await supabase.storage.from('public-media').upload(path, file)
+        if (upErr) throw upErr
+        coverUrl = supabase.storage.from('public-media').getPublicUrl(path).data.publicUrl
+      }
+      const payload = {
+        title: title.trim(), excerpt: excerpt.trim() || null, content: content.trim() || null,
+        cover_url: coverUrl, category, status, author_id: authorId,
+        published_at: status === 'published' ? new Date().toISOString() : null,
+      }
+      if (editId) {
+        const { data, error } = await supabase.from('site_news').update(payload).eq('id', editId).select('*').single()
+        if (error) throw error
+        setList((prev) => prev.map((x) => (x.id === editId ? (data as News) : x)))
+      } else {
+        const { data, error } = await supabase.from('site_news').insert(payload).select('*').single()
+        if (error) throw error
+        setList((prev) => [data as News, ...prev])
+      }
+      setDrawer(false)
+      flash(status === 'published' ? 'Публикувано.' : 'Запазено като чернова.')
+      router.refresh()
+    } catch (e: unknown) {
+      flash(e instanceof Error ? e.message : 'Грешка при запис.', true)
+    } finally { setBusy(false) }
+  }
+
+  async function togglePublish(n: News) {
+    const next = n.status === 'published' ? 'draft' : 'published'
+    const published_at = next === 'published' ? new Date().toISOString() : null
+    setList((prev) => prev.map((x) => (x.id === n.id ? { ...x, status: next, published_at } : x)))
+    await supabase.from('site_news').update({ status: next, published_at }).eq('id', n.id)
+    router.refresh()
+  }
+  async function remove(n: News) {
+    if (!confirm(`Изтриване на „${n.title}“?`)) return
+    await supabase.from('site_news').delete().eq('id', n.id)
+    setList((prev) => prev.filter((x) => x.id !== n.id))
+    flash('Новината е изтрита.')
+    router.refresh()
+  }
+
+  return (
+    <div>
+      {/* Лента */}
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-5">
+        <div>
+          <h2 className="text-[18px] font-semibold tracking-tight" style={{ color: ACCENT }}>Новини</h2>
+          <div className="text-slate-500 text-[12.5px] mt-0.5">Публикувани и чернови · подредени по дата</div>
+        </div>
+        <div className="flex gap-2.5 items-center flex-wrap">
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Търси новина…"
+              className="border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-[13px] bg-white w-[190px] focus:outline-none focus:border-slate-400" />
+          </div>
+          <div className="inline-flex bg-white border border-slate-200 rounded-xl p-0.5">
+            {([['all', 'Всички'], ['published', 'Публикувани'], ['draft', 'Чернови']] as const).map(([k, lbl]) => (
+              <button key={k} onClick={() => setStatusFilter(k)}
+                className={`text-[12.5px] px-3 py-1.5 rounded-lg ${statusFilter === k ? 'text-white font-medium' : 'text-slate-500'}`}
+                style={statusFilter === k ? { backgroundColor: ACCENT } : {}}>{lbl}</button>
+            ))}
+          </div>
+          <button onClick={openNew} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-white text-[13px] font-medium hover:opacity-90" style={{ backgroundColor: ACCENT }}>
+            <Plus size={15} /> Нова новина
+          </button>
+        </div>
+      </div>
+
+      {/* Карти */}
+      {shown.length === 0 ? (
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-14 text-center">
+          <Newspaper size={30} className="text-slate-200 mx-auto mb-2.5" />
+          <div className="text-slate-700 font-semibold text-[15px] mb-1">Няма новини</div>
+          <p className="text-sm text-slate-500 mb-4">{q.trim() ? 'Няма съвпадение с търсенето.' : 'Създай първата новина за сайта.'}</p>
+          {!q.trim() && <button onClick={openNew} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50"><Plus size={15} /> Нова новина</button>}
+        </div>
+      ) : (
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(290px,1fr))' }}>
+          {shown.map((n) => {
+            const draft = n.status !== 'published'
+            return (
+              <div key={n.id} className={`rounded-2xl border overflow-hidden shadow-sm flex flex-col ${draft ? 'border-dashed border-amber-300 bg-amber-50/30' : 'border-slate-200 bg-white'}`}>
+                <div className="h-[140px] relative flex items-center justify-center bg-gradient-to-br from-slate-200 to-slate-100">
+                  {n.cover_url
+                    ? <img src={n.cover_url} alt="" className="w-full h-full object-cover" />
+                    : <span className="text-[13px] font-bold text-slate-300 tracking-widest">ЦСОП</span>}
+                  <span className={`absolute top-2.5 left-2.5 text-[10.5px] font-semibold px-2.5 py-1 rounded-full ${draft ? 'bg-white text-amber-700 border border-amber-200' : 'bg-emerald-500 text-white'}`}>
+                    {draft ? 'Чернова' : 'Публикувана'}
+                  </span>
+                </div>
+                <div className="p-3.5 flex-1">
+                  <div className="text-[11px] font-semibold text-teal-600">{n.category}</div>
+                  <h4 className="text-[15px] font-semibold mt-1 mb-1.5 leading-snug tracking-tight" style={{ color: ACCENT }}>{n.title}</h4>
+                  {n.excerpt && <p className="text-[12.5px] text-slate-500 leading-relaxed line-clamp-2">{n.excerpt}</p>}
+                </div>
+                <div className="flex items-center justify-between px-3.5 py-2.5 border-t border-slate-100">
+                  {draft
+                    ? <button onClick={() => togglePublish(n)} className="text-[12px] font-semibold text-teal-600 hover:text-teal-700">Публикувай →</button>
+                    : <span className="text-[11.5px] text-slate-400">{fmtDate(n.published_at || n.created_at)}</span>}
+                  <div className="flex items-center gap-0.5">
+                    <button onClick={() => openEdit(n)} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-[#0f2240]" title="Редактирай"><Pencil size={14} /></button>
+                    {!draft && <button onClick={() => togglePublish(n)} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-[#0f2240]" title="Върни в чернова"><EyeOff size={14} /></button>}
+                    <button onClick={() => remove(n)} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Изтрий"><Trash2 size={14} /></button>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {notice && (
+        <div className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl text-sm shadow-lg ${notice.err ? 'bg-rose-600 text-white' : 'bg-slate-800 text-white'}`}>{notice.msg}</div>
+      )}
+
+      {/* Редактор */}
+      {drawer && <div className="fixed inset-0 bg-[#0f2240]/25 backdrop-blur-[2px] z-40" onClick={() => setDrawer(false)} />}
+      <div className={`fixed top-0 right-0 bottom-0 w-[min(500px,94vw)] bg-white z-50 shadow-2xl flex flex-col transition-transform duration-200 ${drawer ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+          <h3 className="text-base font-semibold flex-1" style={{ color: ACCENT }}>{editId ? 'Редактирай новина' : 'Нова новина'}</h3>
+          <button onClick={() => setDrawer(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+        </div>
+        <div className="p-5 overflow-y-auto flex-1 space-y-4">
+          <Field label="Заглавие">
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="напр. Открит урок по приобщаващо образование"
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-[13.5px] bg-slate-50 focus:outline-none focus:border-slate-500 focus:bg-white" />
+          </Field>
+          <Field label="Категория">
+            <select value={category} onChange={(e) => setCategory(e.target.value)}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-[13.5px] bg-slate-50 focus:outline-none focus:border-slate-500 focus:bg-white">
+              {NEWS_CATS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
+          <Field label="Кратък текст (откъс)">
+            <textarea value={excerpt} onChange={(e) => setExcerpt(e.target.value)} rows={2} placeholder="Едно-две изречения за списъка на сайта."
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-[13.5px] bg-slate-50 focus:outline-none focus:border-slate-500 focus:bg-white resize-y" />
+          </Field>
+          <Field label="Съдържание">
+            <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={6} placeholder="Пълният текст на новината…"
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-[13.5px] bg-slate-50 focus:outline-none focus:border-slate-500 focus:bg-white resize-y leading-relaxed" />
+          </Field>
+          <Field label="Корица (по избор)">
+            {existingCover && !file && <img src={existingCover} alt="" className="w-full h-32 object-cover rounded-xl mb-2" />}
+            <label className="block border-[1.5px] border-dashed border-slate-200 rounded-xl p-5 text-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/40 transition-colors">
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              <Upload size={18} className="mx-auto mb-1.5 text-slate-400" />
+              <span className="block text-[13px] font-medium text-slate-700">{file ? file.name : existingCover ? 'Смени снимката' : 'Избери снимка'}</span>
+              <span className="block text-[12px] text-slate-400 mt-0.5">JPG, PNG</span>
+            </label>
+          </Field>
+        </div>
+        <div className="px-5 py-4 border-t border-slate-100 flex gap-2.5">
+          <button onClick={() => save('draft')} disabled={busy} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60">
+            {busy ? '…' : 'Запази чернова'}
+          </button>
+          <button onClick={() => save('published')} disabled={busy} className="flex-1 py-2.5 rounded-xl text-white text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-60" style={{ backgroundColor: ACCENT }}>
+            {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Публикувай
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
