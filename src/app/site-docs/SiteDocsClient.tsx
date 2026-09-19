@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import {
   FileText, Upload, Loader2, Trash2, Download, Plus, X, Check,
   Search, Pencil, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ArrowLeft,
-  Newspaper, CalendarDays, Images, LayoutTemplate, EyeOff, Star, MapPin, Clock, Briefcase,
+  Newspaper, CalendarDays, Images, LayoutTemplate, EyeOff, Star, MapPin, Clock, Briefcase, Mail, Copy,
 } from 'lucide-react'
 
 const ACCENT = '#0f2240'
@@ -20,6 +20,7 @@ interface Ev { id: string; title: string; event_date: string; event_time: string
 interface Album { id: string; title: string; cover_url: string | null; event_date: string | null; sort_order: number }
 interface Photo { id: string; album_id: string; photo_url: string; caption: string | null; sort_order: number }
 interface Job { id: string; title: string; employment: string | null; description: string | null; requirements: string | null; location: string | null; status: string; sort_order: number }
+interface Subscriber { id: string; email: string; created_at: string }
 
 const SECTIONS: { id: string; label: string; note: string; internalOnly?: boolean }[] = [
   { id: 'internal', label: 'Вътрешни документи', note: 'За нас · Вътрешни правила' },
@@ -83,10 +84,10 @@ function Drawer({ open, onClose, title, children, footer, width = 500 }: { open:
 
 /* ═══════════════ обвивка ═══════════════ */
 export default function SiteDocsClient({
-  docs = [], defaultYear, news = [], authorId, events = [], albums = [], photos = [], heroPhotos = [], jobs = [],
+  docs = [], defaultYear, news = [], authorId, events = [], albums = [], photos = [], heroPhotos = [], jobs = [], subscribers = [],
 }: {
   docs: Doc[]; defaultYear: string; news?: News[]; authorId: string | null
-  events?: Ev[]; albums?: Album[]; photos?: Photo[]; heroPhotos?: string[]; jobs?: Job[]
+  events?: Ev[]; albums?: Album[]; photos?: Photo[]; heroPhotos?: string[]; jobs?: Job[]; subscribers?: Subscriber[]
 }) {
   const [tab, setTab] = useState('docs')
   return (
@@ -126,7 +127,7 @@ export default function SiteDocsClient({
       {tab === 'events' && <EventsManager initial={events} />}
       {tab === 'gallery' && <GalleryManager initialAlbums={albums} initialPhotos={photos} />}
       {tab === 'hero' && <HeroManager photos={photos} albums={albums} initialSelected={heroPhotos} />}
-      {tab === 'jobs' && <JobsManager initial={jobs} authorId={authorId} />}
+      {tab === 'jobs' && <JobsManager initial={jobs} authorId={authorId} subscribers={subscribers} />}
     </div>
   )
 }
@@ -711,7 +712,7 @@ function GalleryManager({ initialAlbums, initialPhotos }: { initialAlbums: Album
 }
 
 /* ═══════════════ КАРИЕРИ ═══════════════ */
-function JobsManager({ initial, authorId }: { initial: Job[]; authorId: string | null }) {
+function JobsManager({ initial, authorId, subscribers = [] }: { initial: Job[]; authorId: string | null; subscribers?: Subscriber[] }) {
   const supabase = createClient(); const router = useRouter()
   const [list, setList] = useState<Job[]>(initial)
   const [filter, setFilter] = useState<'all' | 'active' | 'closed'>('all')
@@ -721,6 +722,10 @@ function JobsManager({ initial, authorId }: { initial: Job[]; authorId: string |
   const [description, setDescription] = useState(''); const [requirements, setRequirements] = useState('')
   const [notice, setNotice] = useState<{ msg: string; err?: boolean } | null>(null)
   const flash = (msg: string, err = false) => { setNotice({ msg, err }); setTimeout(() => setNotice((p) => (p?.msg === msg ? null : p)), 3500) }
+  const [subs, setSubs] = useState<Subscriber[]>(subscribers)
+  const [showSubs, setShowSubs] = useState(false)
+  async function removeSub(id: string) { await supabase.from('job_subscribers').delete().eq('id', id); setSubs((p) => p.filter((x) => x.id !== id)); router.refresh() }
+  function copyEmails() { try { navigator.clipboard.writeText(subs.map((x) => x.email).join(', ')); flash('Имейлите са копирани.') } catch { flash('Копирането не сработи.', true) } }
 
   const shown = useMemo(() => list
     .filter((j) => (filter === 'all' ? true : j.status === filter))
@@ -808,6 +813,42 @@ function JobsManager({ initial, authorId }: { initial: Job[]; authorId: string |
         <Field label="Изисквания (по избор)"><textarea value={requirements} onChange={(e) => setRequirements(e.target.value)} rows={4} placeholder="Едно изискване на ред…" className={INPUT + ' resize-y'} /></Field>
         <p className="text-[12px] text-slate-400">Кандидатстването на сайта е по имейл / на място — няма форма.</p>
       </Drawer>
+
+      {/* Абонати за нови обяви */}
+      <div className="mt-6 bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <button onClick={() => setShowSubs((v) => !v)} className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-slate-50/60">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center"><Mail size={16} /></div>
+            <div className="text-left">
+              <div className="text-[14px] font-semibold text-slate-800">Абонати за нови обяви</div>
+              <div className="text-[12px] text-slate-500">{subs.length} души · известяваш ги ръчно по имейл (BCC)</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {subs.length > 0 && (
+              <span onClick={(e) => { e.stopPropagation(); copyEmails() }} className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-white cursor-pointer"><Copy size={13} /> Копирай имейлите</span>
+            )}
+            <ChevronDown size={16} className={`text-slate-400 transition-transform ${showSubs ? 'rotate-180' : ''}`} />
+          </div>
+        </button>
+        {showSubs && (
+          <div className="border-t border-slate-100 px-5 py-2 max-h-64 overflow-y-auto">
+            {subs.length === 0 ? (
+              <div className="text-[13px] text-slate-400 py-4 text-center">Още няма абонати.</div>
+            ) : subs.map((sub) => (
+              <div key={sub.id} className="flex items-center justify-between gap-3 py-2 border-b border-slate-50 last:border-0">
+                <span className="text-[13px] text-slate-700 truncate">{sub.email}</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] text-slate-400">{fmtDate(sub.created_at)}</span>
+                  <button onClick={() => removeSub(sub.id)} className="w-6 h-6 rounded flex items-center justify-center text-slate-300 hover:text-rose-600 hover:bg-rose-50" title="Премахни"><Trash2 size={13} /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Toast notice={notice} />
     </div>
   )
 }
