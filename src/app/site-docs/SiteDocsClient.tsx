@@ -71,17 +71,17 @@ export default function SiteDocsClient({ docs = [], defaultYear }: { docs: Doc[]
       </div>
 
       {/* Секции */}
-      <div className="flex gap-0.5 border-b border-slate-200 mb-6 overflow-x-auto">
+      <div className="flex flex-wrap items-end border-b border-slate-200 mb-6">
         {TABS.map((t) => {
           const Icon = t.icon
           const on = tab === t.id
           return (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className={`relative flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap rounded-t-lg transition-colors ${
+              className={`relative flex items-center gap-1.5 px-3 sm:px-3.5 h-11 text-[13px] sm:text-sm font-medium leading-none rounded-t-lg transition-colors ${
                 on ? '' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
               style={on ? { color: ACCENT } : {}}>
-              <Icon size={15} /> {t.label}
-              {on && <span className="absolute left-3 right-3 -bottom-px h-[2.5px] rounded" style={{ backgroundColor: ACCENT }} />}
+              <Icon size={15} className="shrink-0" /> <span className="whitespace-nowrap">{t.label}</span>
+              {on && <span className="absolute left-2 right-2 -bottom-px h-[2.5px] rounded" style={{ backgroundColor: ACCENT }} />}
             </button>
           )
         })}
