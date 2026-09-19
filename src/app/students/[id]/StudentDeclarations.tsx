@@ -37,6 +37,7 @@ export default function StudentDeclarations({ studentId, canManage }: { studentI
   const [type, setType] = useState('decl_1')
   const [vMonth, setVMonth] = useState('')
   const [vYear, setVYear] = useState('')
+  const [noExpiry, setNoExpiry] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function load() {
@@ -58,9 +59,10 @@ export default function StudentDeclarations({ studentId, canManage }: { studentI
     const { data: prof } = await supabase.from('staff_profiles').select('id').eq('user_id', user?.id!).single()
     await supabase.from('student_declarations').insert({
       student_id: studentId, decl_type: type, name: file.name, path, size: file.size, mime_type: file.type,
-      valid_month: vMonth ? parseInt(vMonth) : null, valid_year: vYear ? parseInt(vYear) : null, uploaded_by: prof?.id,
+      valid_month: noExpiry ? null : (vMonth ? parseInt(vMonth) : null),
+      valid_year: noExpiry ? null : (vYear ? parseInt(vYear) : null), uploaded_by: prof?.id,
     })
-    setVMonth(''); setVYear(''); setType('decl_1')
+    setVMonth(''); setVYear(''); setNoExpiry(false); setType('decl_1')
     await load(); setBusy(false)
   }
   async function download(d: Decl) {
@@ -94,14 +96,20 @@ export default function StudentDeclarations({ studentId, canManage }: { studentI
               className="flex-1 px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 cursor-pointer">
               {DECL_TYPES.map(t => <option key={t.code} value={t.code}>{t.label}</option>)}
             </select>
-            <div className="flex gap-2 sm:w-64">
-              <select value={vMonth} onChange={e => setVMonth(e.target.value)}
-                className="flex-1 px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 cursor-pointer">
-                <option value="">без срок</option>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none px-1">
+                <input type="checkbox" checked={noExpiry}
+                  onChange={e => { setNoExpiry(e.target.checked); if (e.target.checked) { setVMonth(''); setVYear('') } }}
+                  className="w-4 h-4 rounded accent-[#0f2240] cursor-pointer" />
+                Безсрочен
+              </label>
+              <select value={vMonth} onChange={e => setVMonth(e.target.value)} disabled={noExpiry}
+                className="flex-1 min-w-[7rem] px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+                <option value="">месец</option>
                 {MONTHS.slice(1).map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
               </select>
-              <select value={vYear} onChange={e => setVYear(e.target.value)} disabled={!vMonth}
-                className="w-24 px-2 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 cursor-pointer disabled:opacity-50">
+              <select value={vYear} onChange={e => setVYear(e.target.value)} disabled={noExpiry || !vMonth}
+                className="w-24 px-2 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
                 <option value="">год.</option>
                 {years.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
