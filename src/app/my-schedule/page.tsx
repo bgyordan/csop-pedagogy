@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowLeft, CalendarDays, Eye } from 'lucide-react'
 import { getFullName } from '@/lib/utils'
 import { MyScheduleView } from './MyScheduleView'
+import EducatorScheduleView from './EducatorScheduleView'
 export const dynamic = 'force-dynamic'
 
 export default async function MySchedulePage({
@@ -71,6 +72,15 @@ export default async function MySchedulePage({
 
   const hasClasses = classSlots.length > 0
 
+  const isEducator = target.role === 'educator'
+  let educatorView: { day: number; period: number; activity: string }[] = []
+  if (isEducator) {
+    const { data: eduSlots } = await supabase
+      .from('educator_slots').select('day, period, activity')
+      .eq('educator_id', target.id).eq('academic_year_id', currentYear?.id).eq('term', term)
+    educatorView = (eduSlots || []).map((s: any) => ({ day: s.day, period: s.period, activity: s.activity }))
+  }
+
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
       <Link href={viewingOther ? '/schedules?tab=teachers' : '/dashboard'} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6">
@@ -90,7 +100,11 @@ export default async function MySchedulePage({
           <p className="text-slate-500 text-sm mt-0.5">{target.first_name} {target.last_name} · {currentYear?.name}</p>
         </div>
       </div>
-      <MyScheduleView term={term} classSlots={classSlots} ifoSlots={ifoView} hasClasses={hasClasses} staffId={viewingOther ? target.id : undefined} staffName={`${target.first_name} ${target.last_name}`} yearName={currentYear?.name} />
+      {isEducator ? (
+        <EducatorScheduleView term={term} slots={educatorView} staffId={viewingOther ? target.id : undefined} staffName={`${target.first_name} ${target.last_name}`} yearName={currentYear?.name} />
+      ) : (
+        <MyScheduleView term={term} classSlots={classSlots} ifoSlots={ifoView} hasClasses={hasClasses} staffId={viewingOther ? target.id : undefined} staffName={`${target.first_name} ${target.last_name}`} yearName={currentYear?.name} />
+      )}
     </div>
   )
 }
