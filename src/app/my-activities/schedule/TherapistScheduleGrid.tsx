@@ -1,6 +1,6 @@
 'use client'
 import { useState, useTransition, useMemo } from 'react'
-import { Save, Loader2, AlertTriangle, Check, Lock, Info, Download, Copy, X, Search } from 'lucide-react'
+import { Save, Loader2, Info, Download, Copy, X, Search } from 'lucide-react'
 import { saveTherapistSchedule, copyTherapistFromTerm1 } from './actions'
 import { generateTherapistSchedule } from '@/lib/docx-generator'
 interface Student {
@@ -82,22 +82,17 @@ export function TherapistScheduleGrid({
     const key = `${day}-${period}`
     const arr = grid[key] || []
     if (arr.includes(activeId)) { removeFromCell(day, period, activeId); return }
-    // взето от друг → не пипаме
-    if (takenByOthers[`${activeId}-${day}-${period}`]) return
+    if (takenByOthers[`${activeId}-${day}-${period}`]) return // взето от друг → не пипаме
     if (arr.length >= 3) { setMsg({ type: 'err', text: 'Максимум 3 деца в един час.' }); return }
     addToCell(day, period, activeId)
   }
-  // Оценка на състоянието на избор: дете в слот
+  // Оценка на състоянието на активното дете в даден слот (за оцветяване)
   function evaluate(studentId: string, day: number, period: number) {
     const key = `${day}-${period}`
-    // 1. Взето ли е от друг терапевт?
     const other = takenByOthers[`${studentId}-${day}-${period}`]
     if (other) return { level: 'err' as const, text: `Взето от ${other}` }
-    // 2. Разписанието на детето
     const sched = studentSchedule[studentId]
-    if (sched === null || sched === undefined) {
-      return { level: 'warn' as const, text: 'Няма разписание на паралелката' }
-    }
+    if (sched === null || sched === undefined) return { level: 'warn' as const, text: 'Няма разписание на паралелката' }
     const cell = sched[key]
     if (!cell) return { level: 'ok' as const, text: 'Свободен час' }
     if (cell.allowsPullout) return { level: 'ok' as const, text: cell.name }
@@ -140,7 +135,6 @@ export function TherapistScheduleGrid({
     await generateTherapistSchedule(specialistName, roleLabel, subtitle, slotData, maxPeriod)
   }
   async function handleSave() {
-    // Проверка: няма ли дете, взето от друг терапевт в същия слот
     const conflicts: string[] = []
     Object.entries(grid).forEach(([key, arr]) => {
       const [day, period] = key.split('-')
@@ -211,14 +205,17 @@ export function TherapistScheduleGrid({
             {shownStudents.map(s => {
               const isActive = s.id === activeId
               const cnt = countByStudent[s.id] || 0
+              const done = cnt > 0
               return (
                 <button key={s.id} type="button" onClick={() => setActiveId(isActive ? '' : s.id)}
                   className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border transition ${
-                    isActive ? 'text-white border-transparent shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                    isActive ? 'text-white border-transparent shadow-sm'
+                      : done ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
                   style={isActive ? { backgroundColor: ACCENT } : {}}>
                   <span className="truncate max-w-[160px]">{studentLabel(s)}</span>
                   {cnt > 0 && (
-                    <span className={`text-[9px] leading-none px-1 py-0.5 rounded-full ${isActive ? 'bg-white/25' : 'bg-slate-100 text-slate-500'}`}>{cnt}</span>
+                    <span className={`text-[9px] leading-none px-1 py-0.5 rounded-full ${isActive ? 'bg-white/25' : 'bg-emerald-100 text-emerald-700'}`}>{cnt}</span>
                   )}
                 </button>
               )
@@ -269,7 +266,6 @@ export function TherapistScheduleGrid({
                   const full = arr.length >= 3
                   const activeHere = !!activeId && arr.includes(activeId)
                   const ev = activeId ? evaluate(activeId, d.n, period) : null
-                  // може ли активното дете да бъде сложено тук
                   const paintable = !!activeId && !activeHere && !full && ev?.level !== 'err'
                   let paintCls = ''
                   if (activeId && !activeHere) {
@@ -278,39 +274,29 @@ export function TherapistScheduleGrid({
                     else if (ev?.level === 'ok') paintCls = 'bg-emerald-50 border-emerald-300 hover:bg-emerald-100 cursor-pointer'
                     else paintCls = 'bg-amber-50 border-amber-300 hover:bg-amber-100 cursor-pointer'
                   }
-                  const clickable = paintable
                   return (
-                    <td key={d.n} className="px-1.5 py-1.5 align-top min-w-[140px]">
+                    <td key={d.n} className="px-1.5 py-1.5 align-top min-w-[130px]">
                       <div
-                        onClick={() => clickable && toggleActiveInCell(d.n, period)}
+                        onClick={() => paintable && toggleActiveInCell(d.n, period)}
                         title={ev?.text || ''}
-                        className={`rounded-lg border min-h-[34px] p-1 space-y-1 transition ${
-                          activeHere ? 'ring-2 ring-offset-0 border-transparent bg-emerald-50' :
-                          paintCls || 'border-transparent'}`}
+                        className={`rounded-lg border min-h-[32px] p-1 space-y-1 transition ${
+                          activeHere ? 'border-transparent bg-emerald-50' : paintCls || 'border-transparent'}`}
                         style={activeHere ? { boxShadow: `0 0 0 2px ${ACCENT}` } : {}}>
                         {arr.map(sid => {
                           const st = students.find(x => x.id === sid)
-                          const cev = evaluate(sid, d.n, period)
                           const isActiveChip = sid === activeId
                           return (
                             <div key={sid}
-                              className={`flex items-center gap-1 text-[11px] py-1 px-1.5 rounded-md border ${
-                                cev.level === 'ok' ? 'bg-white border-emerald-200' : cev.level === 'err' ? 'bg-white border-red-200' : 'bg-white border-amber-200'} ${isActiveChip ? 'font-semibold' : ''}`}
-                              title={cev.text}
+                              className={`flex items-center gap-1 text-[11px] py-0.5 px-1.5 rounded-md ${
+                                isActiveChip ? 'bg-white border border-emerald-300 font-semibold text-slate-700' : 'bg-slate-50 text-slate-500'}`}
                               onClick={e => e.stopPropagation()}>
-                              {cev.level === 'ok' ? <Check size={9} className="text-emerald-600 shrink-0" /> : cev.level === 'err' ? <Lock size={9} className="text-red-600 shrink-0" /> : <AlertTriangle size={9} className="text-amber-600 shrink-0" />}
-                              <span className="truncate flex-1">{studentLabel(st)}</span>
-                              <button type="button" onClick={() => removeFromCell(d.n, period, sid)} className="text-slate-400 hover:text-rose-600 shrink-0"><X size={11} /></button>
+                              <span className="truncate flex-1">{st?.name || '—'}</span>
+                              <button type="button" onClick={() => removeFromCell(d.n, period, sid)} className="text-slate-300 hover:text-rose-600 shrink-0"><X size={11} /></button>
                             </div>
                           )
                         })}
-                        {paintable && (
-                          <div className="text-[10px] text-slate-500 px-1 pb-0.5 truncate">
-                            + {activeStudent?.name}{ev?.level === 'warn' ? ` · ${ev.text}` : ''}
-                          </div>
-                        )}
                         {activeId && !activeHere && full && (
-                          <div className="text-[10px] text-slate-400 px-1 pb-0.5">Пълно (3)</div>
+                          <div className="text-[10px] text-slate-400 px-1">Пълно (3)</div>
                         )}
                       </div>
                     </td>
