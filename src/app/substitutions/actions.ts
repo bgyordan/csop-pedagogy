@@ -11,6 +11,21 @@ async function workdays(supabase: any, from: string, to: string): Promise<{ iso:
     .order('date')
   return (data || []).map((c: any) => ({ iso: c.date, dow: c.day_of_week }))
 }
+
+// ЦОУД етикет за възпитател (по coud_groups.teacher_id)
+async function coudLabel(supabase: any, staffId: string): Promise<string> {
+  const { data } = await supabase.from('coud_groups').select('name').eq('teacher_id', staffId).limit(1).maybeSingle()
+  return data?.name ? `група ЦОУД ${data.name}` : 'ЦОУД група'
+}
+// Добавя ЦОУД часовете на възпитател (educator_slots, I срок) към bySlot
+async function pushEducatorSlots(supabase: any, staffId: string, yearId: string | undefined, bySlot: { day: number; period: number; subject: string; cls: string }[]) {
+  const { data: edu } = await supabase.from('educator_slots')
+    .select('day, period, activity').eq('educator_id', staffId).eq('academic_year_id', yearId).eq('term', 1)
+  if (edu && edu.length) {
+    const label = await coudLabel(supabase, staffId)
+    edu.forEach((sl: any) => bySlot.push({ day: sl.day, period: sl.period, subject: sl.activity, cls: label }))
+  }
+}
 // Генерира заповед за заместване: вади часовете на отсъстващия, създава РД-08 в orders,
 // връща данните за Word генератора.
 export async function generateSubstitution(substitutionId: string, overNorm: boolean = true, register: boolean = true) {
@@ -56,6 +71,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
     const nm = sl.student ? `ИФО ${sl.student.first_name} ${sl.student.last_name}` : 'ИФО'
     bySlot.push({ day: sl.day, period: sl.period, subject: sl.subject?.name || '', cls: nm })
   })
+  await pushEducatorSlots(supabase, sub.absent_staff_id, cy?.id, bySlot)
 
   // 3. Разгъваме по работни дни в периода
   const wds = await workdays(supabase, sub.date_from, sub.date_to)
@@ -170,6 +186,7 @@ export async function getDeclarationData(substitutionId: string) {
     .from('teacher_ifo_slots').select('day, period, subject:subjects(name), student:students(first_name, last_name)')
     .eq('teacher_id', sub.absent_staff_id).eq('academic_year_id', cy?.id).eq('term', 1)
   ;(ifo || []).forEach((sl: any) => bySlot.push({ day: sl.day, period: sl.period, subject: sl.subject?.name || '', cls: sl.student ? `ИФО ${sl.student.first_name} ${sl.student.last_name}` : 'ИФО' }))
+  await pushEducatorSlots(supabase, sub.absent_staff_id, cy?.id, bySlot)
 
   // разгъваме по работни дни
   const out: { date: string; cls: string; subject: string; hours: number }[] = []
@@ -284,6 +301,7 @@ export async function getMonthlyDeclaration(first: string, last: string) {
       .from('teacher_ifo_slots').select('day, period, subject:subjects(name), student:students(first_name, last_name)')
       .eq('teacher_id', sub.absent_staff_id).eq('academic_year_id', cy?.id).eq('term', 1)
     ;(ifo || []).forEach((sl: any) => bySlot.push({ day: sl.day, period: sl.period, subject: sl.subject?.name || '', cls: sl.student ? `ИФО ${sl.student.first_name} ${sl.student.last_name}` : 'ИФО' }))
+    await pushEducatorSlots(supabase, sub.absent_staff_id, cy?.id, bySlot)
 
     // само учебните дни в ПРЕСЕЧЕНИЕТО на заместването и месеца
     const lo = sub.date_from > first ? sub.date_from : first
@@ -365,6 +383,8 @@ export async function getMonExport(first: string, last: string, rate: number) {
     }
     const { data: ifo } = await supabase.from('teacher_ifo_slots').select('day').eq('teacher_id', sub.absent_staff_id).eq('academic_year_id', cy?.id).eq('term', 1)
     ;(ifo || []).forEach((sl: any) => { bySlotDow[sl.day] = (bySlotDow[sl.day] || 0) + 1 })
+    const { data: eduD } = await supabase.from('educator_slots').select('day').eq('educator_id', sub.absent_staff_id).eq('academic_year_id', cy?.id).eq('term', 1)
+    ;(eduD || []).forEach((sl: any) => { bySlotDow[sl.day] = (bySlotDow[sl.day] || 0) + 1 })
     // учебни дни в пресечението
     const lo = sub.date_from > first ? sub.date_from : first
     const hi = sub.date_to < last ? sub.date_to : last
