@@ -101,9 +101,7 @@ export default function SiteDocsClient({
     setBusy(true)
 
     const ext = file.name.split('.').pop()
-    const path = `${tab}/${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2)}.${ext}`
+const path = `${tab}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
     const { error: upErr } = await supabase.storage
       .from('public-docs')
