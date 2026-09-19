@@ -54,6 +54,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <div><label className="block text-[12.5px] font-medium text-slate-600 mb-1.5">{label}</label>{children}</div>
 }
 const INPUT = 'w-full border border-slate-200 rounded-xl px-3 py-2.5 text-[13.5px] bg-slate-50 focus:outline-none focus:border-slate-500 focus:bg-white'
+function suggestName(filename: string): string {
+  const base = filename.replace(/\.[a-z0-9]+$/i, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim()
+  return base ? base.charAt(0).toUpperCase() + base.slice(1) : ''
+}
 function Toast({ notice }: { notice: { msg: string; err?: boolean } | null }) {
   if (!notice) return null
   return <div className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] px-4 py-2.5 rounded-xl text-sm shadow-lg ${notice.err ? 'bg-rose-600 text-white' : 'bg-slate-800 text-white'}`}>{notice.msg}</div>
@@ -300,7 +304,7 @@ function DocumentsManager({ initial, defaultYear }: { initial: Doc[]; defaultYea
         <Field label="Учебна година"><input value={year} onChange={(e) => setYear(e.target.value)} placeholder="2025/2026" className={INPUT} /></Field>
         <Field label="Файл">
           <label className="block border-[1.5px] border-dashed border-slate-200 rounded-xl p-6 text-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/40 transition-colors">
-            <input type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+            <input type="file" className="hidden" onChange={(e) => { const f = e.target.files?.[0] || null; setFile(f); if (f && !name.trim()) setName(suggestName(f.name)) }} />
             <Upload size={18} className="mx-auto mb-1.5 text-slate-400" />
             <span className="block text-[13.5px] font-medium text-slate-700">{file ? file.name : 'Избери файл'}</span>
             <span className="block text-[12px] text-slate-400 mt-0.5">PDF, Word · до 10 MB</span>
