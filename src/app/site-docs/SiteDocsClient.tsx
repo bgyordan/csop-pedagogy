@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import {
   FileText, Upload, Loader2, Trash2, Download, Plus, X, Check,
   Search, Pencil, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ArrowLeft,
-  Newspaper, CalendarDays, Images, LayoutTemplate, EyeOff, Star, MapPin, Clock,
+  Newspaper, CalendarDays, Images, LayoutTemplate, EyeOff, Star, MapPin, Clock, Briefcase,
 } from 'lucide-react'
 
 const ACCENT = '#0f2240'
@@ -19,6 +19,7 @@ interface News { id: string; title: string; excerpt: string | null; content: str
 interface Ev { id: string; title: string; event_date: string; event_time: string | null; location: string | null; description: string | null }
 interface Album { id: string; title: string; cover_url: string | null; event_date: string | null; sort_order: number }
 interface Photo { id: string; album_id: string; photo_url: string; caption: string | null; sort_order: number }
+interface Job { id: string; title: string; employment: string | null; description: string | null; requirements: string | null; location: string | null; status: string; sort_order: number }
 
 const SECTIONS: { id: string; label: string; note: string; internalOnly?: boolean }[] = [
   { id: 'internal', label: 'Вътрешни документи', note: 'За нас · Вътрешни правила' },
@@ -47,6 +48,7 @@ const TABS = [
   { id: 'events', label: 'Събития', icon: CalendarDays },
   { id: 'gallery', label: 'Галерия', icon: Images },
   { id: 'hero', label: 'Начална страница', icon: LayoutTemplate },
+  { id: 'jobs', label: 'Кариери', icon: Briefcase },
 ]
 
 /* ═══════════════ малки помощници за UI ═══════════════ */
@@ -81,10 +83,10 @@ function Drawer({ open, onClose, title, children, footer, width = 500 }: { open:
 
 /* ═══════════════ обвивка ═══════════════ */
 export default function SiteDocsClient({
-  docs = [], defaultYear, news = [], authorId, events = [], albums = [], photos = [], heroPhotos = [],
+  docs = [], defaultYear, news = [], authorId, events = [], albums = [], photos = [], heroPhotos = [], jobs = [],
 }: {
   docs: Doc[]; defaultYear: string; news?: News[]; authorId: string | null
-  events?: Ev[]; albums?: Album[]; photos?: Photo[]; heroPhotos?: string[]
+  events?: Ev[]; albums?: Album[]; photos?: Photo[]; heroPhotos?: string[]; jobs?: Job[]
 }) {
   const [tab, setTab] = useState('docs')
   return (
@@ -124,6 +126,7 @@ export default function SiteDocsClient({
       {tab === 'events' && <EventsManager initial={events} />}
       {tab === 'gallery' && <GalleryManager initialAlbums={albums} initialPhotos={photos} />}
       {tab === 'hero' && <HeroManager photos={photos} albums={albums} initialSelected={heroPhotos} />}
+      {tab === 'jobs' && <JobsManager initial={jobs} authorId={authorId} />}
     </div>
   )
 }
@@ -702,6 +705,108 @@ function GalleryManager({ initialAlbums, initialPhotos }: { initialAlbums: Album
         <Field label="Заглавие"><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="напр. Спортен празник 2026" className={INPUT} /></Field>
         <Field label="Дата на събитието (по избор)"><input type="date" value={evDate} onChange={(e) => setEvDate(e.target.value)} className={INPUT} /></Field>
         <p className="text-[12px] text-slate-400">Снимките се качват след създаване, отвътре в албума.</p>
+      </Drawer>
+    </div>
+  )
+}
+
+/* ═══════════════ КАРИЕРИ ═══════════════ */
+function JobsManager({ initial, authorId }: { initial: Job[]; authorId: string | null }) {
+  const supabase = createClient(); const router = useRouter()
+  const [list, setList] = useState<Job[]>(initial)
+  const [filter, setFilter] = useState<'all' | 'active' | 'closed'>('all')
+  const [drawer, setDrawer] = useState(false); const [busy, setBusy] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [title, setTitle] = useState(''); const [employment, setEmployment] = useState('Пълен работен ден')
+  const [description, setDescription] = useState(''); const [requirements, setRequirements] = useState('')
+  const [notice, setNotice] = useState<{ msg: string; err?: boolean } | null>(null)
+  const flash = (msg: string, err = false) => { setNotice({ msg, err }); setTimeout(() => setNotice((p) => (p?.msg === msg ? null : p)), 3500) }
+
+  const shown = useMemo(() => list
+    .filter((j) => (filter === 'all' ? true : j.status === filter))
+    .sort((a, b) => (a.status === b.status ? (a.sort_order || 0) - (b.sort_order || 0) : a.status === 'active' ? -1 : 1)), [list, filter])
+  const activeCount = list.filter((j) => j.status === 'active').length
+
+  function openNew() { setEditId(null); setTitle(''); setEmployment('Пълен работен ден'); setDescription(''); setRequirements(''); setDrawer(true) }
+  function openEdit(j: Job) { setEditId(j.id); setTitle(j.title); setEmployment(j.employment || ''); setDescription(j.description || ''); setRequirements(j.requirements || ''); setDrawer(true) }
+
+  async function save() {
+    if (!title.trim()) { flash('Въведете длъжност.', true); return }
+    try {
+      setBusy(true)
+      const payload = { title: title.trim(), employment: employment.trim() || null, description: description.trim() || null, requirements: requirements.trim() || null }
+      if (editId) { const { data, error } = await supabase.from('site_jobs').update(payload).eq('id', editId).select('*').single(); if (error) throw error; setList((p) => p.map((x) => x.id === editId ? (data as Job) : x)) }
+      else { const sort = list.reduce((m, j) => Math.max(m, j.sort_order || 0), 0) + 1; const { data, error } = await supabase.from('site_jobs').insert({ ...payload, status: 'active', sort_order: sort, created_by: authorId }).select('*').single(); if (error) throw error; setList((p) => [...p, data as Job]) }
+      setDrawer(false); flash('Записано.'); router.refresh()
+    } catch (e: unknown) { flash(e instanceof Error ? e.message : 'Грешка.', true) } finally { setBusy(false) }
+  }
+  async function toggleStatus(j: Job) { const next = j.status === 'active' ? 'closed' : 'active'; setList((p) => p.map((x) => x.id === j.id ? { ...x, status: next } : x)); await supabase.from('site_jobs').update({ status: next }).eq('id', j.id); router.refresh() }
+  async function remove(j: Job) { if (!confirm(`Изтриване на „${j.title}“?`)) return; await supabase.from('site_jobs').delete().eq('id', j.id); setList((p) => p.filter((x) => x.id !== j.id)); flash('Изтрито.'); router.refresh() }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-5">
+        <div><h2 className="text-[18px] font-semibold tracking-tight" style={{ color: ACCENT }}>Кариери</h2>
+          <div className="text-slate-500 text-[12.5px] mt-0.5">{activeCount} активни обяви · показват се на сайта</div></div>
+        <div className="flex gap-2.5 items-center flex-wrap">
+          <div className="inline-flex bg-white border border-slate-200 rounded-xl p-0.5">
+            {([['all', 'Всички'], ['active', 'Активни'], ['closed', 'Затворени']] as const).map(([k, lbl]) => (
+              <button key={k} onClick={() => setFilter(k)} className={`text-[12.5px] px-3 py-1.5 rounded-lg ${filter === k ? 'text-white font-medium' : 'text-slate-500'}`} style={filter === k ? { backgroundColor: ACCENT } : {}}>{lbl}</button>
+            ))}
+          </div>
+          <button onClick={openNew} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-white text-[13px] font-medium hover:opacity-90" style={{ backgroundColor: ACCENT }}><Plus size={15} /> Нова обява</button>
+        </div>
+      </div>
+
+      {shown.length === 0 ? (
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-14 text-center">
+          <Briefcase size={30} className="text-slate-200 mx-auto mb-2.5" />
+          <div className="text-slate-700 font-semibold text-[15px] mb-1">Няма обяви</div>
+          <p className="text-sm text-slate-500 mb-4">Публикувай първата обява за работа.</p>
+          <button onClick={openNew} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50"><Plus size={15} /> Нова обява</button>
+        </div>
+      ) : (
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+          {shown.map((j) => {
+            const closed = j.status !== 'active'
+            return (
+              <div key={j.id} className={`group flex gap-4 items-start px-5 py-4 border-b border-slate-50 last:border-0 hover:bg-blue-50/40 ${closed ? 'opacity-70' : ''}`}>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: closed ? '#f1f5f9' : ACCENT + '12', color: closed ? '#94a3b8' : ACCENT }}><Briefcase size={17} /></div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <b className="text-[14.5px] font-medium text-slate-800">{j.title}</b>
+                    <span className={`text-[10.5px] px-2 py-0.5 rounded-full font-semibold ${closed ? 'bg-slate-100 text-slate-400' : 'bg-emerald-50 text-emerald-600'}`}>{closed ? 'затворена' : 'активна'}</span>
+                  </div>
+                  <div className="text-[12px] text-slate-500 mt-0.5 flex gap-3 flex-wrap">
+                    {j.employment && <span className="inline-flex items-center gap-1"><Clock size={12} /> {j.employment}</span>}
+                    {j.location && <span className="inline-flex items-center gap-1"><MapPin size={12} /> {j.location}</span>}
+                  </div>
+                  {j.description && <p className="text-[12.5px] text-slate-500 mt-1.5 line-clamp-2 leading-relaxed">{j.description}</p>}
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button onClick={() => toggleStatus(j)} className="text-[11.5px] font-medium px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50" title={closed ? 'Активирай' : 'Затвори'}>{closed ? 'Активирай' : 'Затвори'}</button>
+                  <div className="flex items-center gap-0.5 opacity-40 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => openEdit(j)} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-[#0f2240]" title="Редактирай"><Pencil size={14} /></button>
+                    <button onClick={() => remove(j)} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Изтрий"><Trash2 size={14} /></button>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <Toast notice={notice} />
+      <Drawer open={drawer} onClose={() => setDrawer(false)} title={editId ? 'Редактирай обява' : 'Нова обява'}
+        footer={<>
+          <button onClick={() => setDrawer(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отказ</button>
+          <button onClick={save} disabled={busy} className="flex-1 py-2.5 rounded-xl text-white text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-60" style={{ backgroundColor: ACCENT }}>{busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Запази</button>
+        </>}>
+        <Field label="Длъжност"><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="напр. Логопед" className={INPUT} /></Field>
+        <Field label="Тип заетост"><input value={employment} onChange={(e) => setEmployment(e.target.value)} placeholder="Пълен работен ден" className={INPUT} /></Field>
+        <Field label="Описание (по избор)"><textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} placeholder="Кратко описание на позицията…" className={INPUT + ' resize-y'} /></Field>
+        <Field label="Изисквания (по избор)"><textarea value={requirements} onChange={(e) => setRequirements(e.target.value)} rows={4} placeholder="Едно изискване на ред…" className={INPUT + ' resize-y'} /></Field>
+        <p className="text-[12px] text-slate-400">Кандидатстването на сайта е по имейл / на място — няма форма.</p>
       </Drawer>
     </div>
   )
