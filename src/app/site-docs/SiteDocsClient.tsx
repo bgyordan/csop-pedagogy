@@ -40,7 +40,15 @@ const RUBRICS = [
   { key: 'data', title: 'Защита на данните', color: '#475569' },
   { key: 'other', title: 'Общи', color: '#64748b' },
 ]
-const rubricOf = (k: string | null) => RUBRICS.find((r) => r.key === k) || RUBRICS[RUBRICS.length - 1]
+// Рубрики за ЗДОИ — всяка се показва в отделен блок на публичната ЗДОИ страница.
+const ZDOI_RUBRICS = [
+  { key: 'pravila', title: 'Вътрешни правила', color: '#0d9488' },
+  { key: 'obrazec', title: 'Образец / бланка', color: '#2563eb' },
+  { key: 'normativ', title: 'Нормативи за разходите', color: '#ea580c' },
+  { key: 'otchet', title: 'Годишен отчет', color: '#7c3aed' },
+]
+const rubricSet = (section: string) => (section === 'internal' ? RUBRICS : section === 'zdoi' ? ZDOI_RUBRICS : null)
+const rubricOf = (section: string, k: string | null) => { const s = rubricSet(section) || RUBRICS; return s.find((r) => r.key === k) || s[s.length - 1] }
 const NEWS_CATS = ['Новини', 'Събития', 'Публикации', 'Моменти']
 
 const TABS = [
@@ -147,7 +155,8 @@ function DocumentsManager({ initial, defaultYear }: { initial: Doc[]; defaultYea
   const flash = (msg: string, err = false) => { setNotice({ msg, err }); setTimeout(() => setNotice((p) => (p?.msg === msg ? null : p)), 3500) }
 
   const curSection = SECTIONS.find((s) => s.id === section)!
-  const isInternal = section === 'internal'
+  const curRubrics = rubricSet(section)
+  const hasRubrics = curRubrics !== null
   const counts = useMemo(() => { const c: Record<string, number> = {}; list.forEach((d) => { c[d.section] = (c[d.section] || 0) + 1 }); return c }, [list])
   const sectionDocs = useMemo(() => list.filter((d) => d.section === section)
     .filter((d) => (visFilter === 'all' ? true : visFilter === 'on' ? d.on_site : !d.on_site))
@@ -164,10 +173,10 @@ function DocumentsManager({ initial, defaultYear }: { initial: Doc[]; defaultYea
       const sort = list.filter((d) => d.section === section).reduce((m, d) => Math.max(m, d.sort_order || 0), 0) + 1
       const { data, error } = await supabase.from('site_documents').insert({
         name: name.trim(), file_url: pub.publicUrl, academic_year: year.trim() || null, section,
-        category: isInternal ? category : null, on_site: onSite, sort_order: sort,
+        category: hasRubrics ? category : null, on_site: onSite, sort_order: sort,
       }).select('*').single()
       if (error || !data) throw error || new Error('Грешка при запис')
-      setList((prev) => [...prev, data as Doc]); setName(''); setFile(null); setCategory('rules'); setDrawer(false)
+      setList((prev) => [...prev, data as Doc]); setName(''); setFile(null); setCategory(rubricSet(section)?.[0].key || 'other'); setDrawer(false)
       flash('Документът е качен.'); router.refresh()
     } catch (e: unknown) { flash(e instanceof Error ? e.message : 'Грешка при качване.', true) } finally { setBusy(false) }
   }
@@ -242,10 +251,10 @@ function DocumentsManager({ initial, defaultYear }: { initial: Doc[]; defaultYea
         ) : (
           <div>
             {sectionDocs.map((d, idx) => {
-              const rub = rubricOf(d.category); const editing = editId === d.id; const confirming = deletingId === d.id
+              const rub = rubricOf(section, d.category); const editing = editId === d.id; const confirming = deletingId === d.id
               return (
                 <div key={d.id} className={`group grid items-center gap-3 px-5 py-3 border-b border-slate-50 last:border-0 transition-colors ${idx % 2 ? 'bg-slate-50/40' : ''} hover:bg-blue-50/40`}
-                  style={{ gridTemplateColumns: isInternal ? '1fr 100px 170px 92px 78px' : '1fr 110px 96px 78px' }}>
+                  style={{ gridTemplateColumns: hasRubrics ? '1fr 100px 170px 92px 78px' : '1fr 110px 96px 78px' }}>
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="flex flex-col -my-1">
                       <button onClick={() => move(d, -1)} disabled={idx === 0} className="w-5 h-4 flex items-center justify-center text-slate-300 hover:text-[#0f2240] disabled:opacity-0"><ChevronUp size={14} /></button>
@@ -259,10 +268,10 @@ function DocumentsManager({ initial, defaultYear }: { initial: Doc[]; defaultYea
                   {editing
                     ? <input value={editYear} onChange={(e) => setEditYear(e.target.value)} placeholder="година" className="text-[12.5px] border border-slate-300 rounded-lg px-2 py-1 w-full focus:outline-none focus:border-[#0f2240]" />
                     : <div className="text-[12.5px] text-slate-500">{d.academic_year || '—'}</div>}
-                  {isInternal && (
+                  {hasRubrics && curRubrics && (
                     <div>
-                      <select value={d.category || 'other'} onChange={(e) => changeCategory(d, e.target.value)} className="w-full text-[11.5px] rounded-lg border px-2 py-1 cursor-pointer focus:outline-none" style={{ color: rub.color, borderColor: rub.color + '55', backgroundColor: rub.color + '12' }}>
-                        {RUBRICS.map((c) => <option key={c.key} value={c.key} style={{ color: '#1f2a3d' }}>{c.title}</option>)}
+                      <select value={d.category || curRubrics[0].key} onChange={(e) => changeCategory(d, e.target.value)} className="w-full text-[11.5px] rounded-lg border px-2 py-1 cursor-pointer focus:outline-none" style={{ color: rub.color, borderColor: rub.color + '55', backgroundColor: rub.color + '12' }}>
+                        {curRubrics.map((c) => <option key={c.key} value={c.key} style={{ color: '#1f2a3d' }}>{c.title}</option>)}
                       </select>
                     </div>
                   )}
@@ -302,9 +311,9 @@ function DocumentsManager({ initial, defaultYear }: { initial: Doc[]; defaultYea
           <button onClick={() => setDrawer(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отказ</button>
           <button onClick={upload} disabled={busy} className="flex-1 py-2.5 rounded-xl text-white text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-60" style={{ backgroundColor: ACCENT }}>{busy ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />} Качи документа</button>
         </>}>
-        <Field label="Раздел"><select value={section} onChange={(e) => setSection(e.target.value)} className={INPUT}>{SECTIONS.map((s) => <option key={s.id} value={s.id}>{s.label}{s.internalOnly ? ' (не на сайта)' : ''}</option>)}</select></Field>
+        <Field label="Раздел"><select value={section} onChange={(e) => { const ns = e.target.value; setSection(ns); setCategory(rubricSet(ns)?.[0].key || 'other') }} className={INPUT}>{SECTIONS.map((s) => <option key={s.id} value={s.id}>{s.label}{s.internalOnly ? ' (не на сайта)' : ''}</option>)}</select></Field>
         <Field label="Наименование"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="напр. Правилник за дейността на ЦСОП" className={INPUT} /></Field>
-        {isInternal && <Field label="Рубрика"><select value={category} onChange={(e) => setCategory(e.target.value)} className={INPUT}>{RUBRICS.map((c) => <option key={c.key} value={c.key}>{c.title}</option>)}</select></Field>}
+        {hasRubrics && curRubrics && <Field label="Рубрика"><select value={category} onChange={(e) => setCategory(e.target.value)} className={INPUT}>{curRubrics.map((c) => <option key={c.key} value={c.key}>{c.title}</option>)}</select></Field>}
         <Field label="Учебна година"><input value={year} onChange={(e) => setYear(e.target.value)} placeholder="2025/2026" className={INPUT} /></Field>
         <Field label="Файл">
           <label className="block border-[1.5px] border-dashed border-slate-200 rounded-xl p-6 text-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/40 transition-colors">
