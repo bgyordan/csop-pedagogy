@@ -29,6 +29,7 @@ const SECTIONS: { id: string; label: string; note: string; internalOnly?: boolea
   { id: 'zdoi', label: 'Достъп до информация', note: 'ЗДОИ' },
   { id: 'privacy', label: 'Лични данни', note: 'ЗЗЛД' },
   { id: 'signali', label: 'Сигнали', note: 'ЗЗЛПСПОИН' },
+  { id: 'roditeli', label: 'Формуляри за родители', note: 'За родители · Формуляри' },
   { id: 'eis', label: 'Само за деловодство', note: 'Не се показва на сайта', internalOnly: true },
 ]
 const RUBRICS = [
