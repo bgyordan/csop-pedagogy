@@ -33,7 +33,8 @@ const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Начало', icon: <LayoutDashboard size={16} /> },
   { href: '/students', label: 'Ученици', icon: <Users size={16} /> },
   { href: '/classes', label: 'Паралелки', icon: <BookOpen size={16} />, roles: ['admin', 'director', 'zdud'] },
-     { href: '/projects', label: 'Проекти', icon: <Lightbulb size={16} />, roles: ['admin', 'director', 'zdud', 'class_teacher', 'teacher', 'educator'] },
+  { href: '/projects', label: 'Проекти', icon: <Lightbulb size={16} />, roles: ['admin', 'director', 'zdud', 'class_teacher', 'teacher', 'educator'] },
+  { href: '/admin/tasks', label: 'График срокове', icon: <CalendarClock size={16} />, roles: ['admin', 'zdud', 'director'] },
    {
     href: '#documents',
     label: 'Документи',
@@ -127,6 +128,7 @@ const navItems: NavItem[] = [
   { href: '/duties', label: 'Дежурства', icon: <CalendarDays size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/reports/hub', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/students/documents', label: 'Досиета', icon: <FileText size={16} />, roles: ['secretary'], section: 'settings' },
+    { href: '/admin/tasks', label: 'График срокове', icon: <CalendarClock size={16} />, roles: ['secretary'], section: 'settings' },
 ]
 interface SidebarProps {
   userRole: UserRole
