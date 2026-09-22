@@ -48,7 +48,11 @@ const ZDOI_RUBRICS = [
   { key: 'normativ', title: 'Нормативи за разходите', color: '#ea580c' },
   { key: 'otchet', title: 'Годишен отчет', color: '#7c3aed' },
 ]
-const rubricSet = (section: string) => (section === 'internal' ? RUBRICS : section === 'zdoi' ? ZDOI_RUBRICS : null)
+const BUDGET_RUBRICS = [
+  { key: 'approved', title: 'Утвърден бюджет', color: '#2f7d5e' },
+  { key: 'report', title: 'Отчет', color: '#b0805a' },
+]
+const rubricSet = (section: string) => (section === 'internal' ? RUBRICS : section === 'zdoi' ? ZDOI_RUBRICS : section === 'budget' ? BUDGET_RUBRICS : null)
 const rubricOf = (section: string, k: string | null) => { const s = rubricSet(section) || RUBRICS; return s.find((r) => r.key === k) || s[s.length - 1] }
 const NEWS_CATS = ['Новини', 'Събития', 'Публикации', 'Моменти']
 
