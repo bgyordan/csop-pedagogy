@@ -15,7 +15,9 @@ async function workdays(supabase: any, from: string, to: string): Promise<{ iso:
 // ЦОУД етикет за възпитател (по coud_groups.teacher_id)
 async function coudLabel(supabase: any, staffId: string): Promise<string> {
   const { data } = await supabase.from('coud_groups').select('name').eq('teacher_id', staffId).limit(1).maybeSingle()
-  return data?.name ? `група ЦОУД ${data.name}` : 'ЦОУД група'
+  if (!data?.name) return 'ЦОУД група'
+  // името вече може да съдържа „ЦОУД“ (напр. „ЦОУД №1“) — не го повтаряме
+  return /ЦОУД/i.test(data.name) ? `група ${data.name}` : `група ЦОУД ${data.name}`
 }
 // Добавя ЦОУД часовете на възпитател (educator_slots, I срок) към bySlot
 async function pushEducatorSlots(supabase: any, staffId: string, yearId: string | undefined, bySlot: { day: number; period: number; subject: string; cls: string }[]) {
@@ -254,7 +256,7 @@ export async function getMonthlyDeclaration(first: string, last: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли' }
-  const { data: me } = await supabase.from('staff_profiles').select('id, first_name, last_name, position').eq('user_id', user.id).single()
+  const { data: me } = await supabase.from('staff_profiles').select('id, first_name, middle_name, last_name, position').eq('user_id', user.id).single()
   if (!me) return { error: 'Профил не е намерен' }
 
     // first/last идват като параметри (период от–до)
@@ -337,8 +339,9 @@ export async function getMonthlyDeclaration(first: string, last: string) {
   return {
     success: true,
     data: {
-      substituteName: `${me.first_name} ${me.last_name}`,
+      substituteName: [me.first_name, (me as any).middle_name, me.last_name].filter(Boolean).join(' '),
       substitutePosition: me.position || 'учител',
+      periodFrom: first, periodTo: last,
       monthName: `периода ${first.split('-').reverse().join('.')} – ${last.split('-').reverse().join('.')}`, year: new Date(first).getFullYear(), yearName: cy?.name || '',
       rows, totalHours, npHours, budgetHours,
     },
