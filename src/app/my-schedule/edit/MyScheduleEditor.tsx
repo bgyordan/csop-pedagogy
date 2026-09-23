@@ -141,8 +141,6 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
   const totalCount = cellsAll.length
   const pulloutCount = cellsAll.filter(([, v]) => weightOf(v.subjectId) < 1).length
   const weighted = r1(cellsAll.reduce((a, [, v]) => a + weightOf(v.subjectId), 0))
-  const dayWeighted = (dn: number) => r1(cellsAll.filter(([k]) => Number(k.split('-')[0]) === dn).reduce((a, [, v]) => a + weightOf(v.subjectId), 0))
-  const dayCount = (dn: number) => cellsAll.filter(([k]) => Number(k.split('-')[0]) === dn).length
   const normOk = weighted >= NORM
 
   return (
@@ -318,17 +316,6 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
                 </>
               ))}
             </tbody>
-            <tfoot>
-              <tr className="border-t border-slate-200 bg-slate-50/60">
-                <td className="px-2 py-2 text-center text-[10px] font-semibold text-slate-400 uppercase">Общо</td>
-                {DAYS.map(d => (
-                  <td key={d.n} className="px-2 py-2 text-center">
-                    <span className="text-sm font-medium text-slate-700">{fmt(dayWeighted(d.n))}</span>
-                    {dayWeighted(d.n) !== dayCount(d.n) && <span className="text-[10px] text-slate-400 ml-1">({dayCount(d.n)} ч.)</span>}
-                  </td>
-                ))}
-              </tr>
-            </tfoot>
           </table>
         </div>
       )}
