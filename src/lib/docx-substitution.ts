@@ -551,44 +551,89 @@ export async function generateMonthlyNPDeclaration(d: MonthlyDeclData) {
   saveAs(blob, `декларация_НП_${period.replace(/\s+/g, '').replace(/[–.]/g, '-')}_${d.substituteName.replace(/\s+/g, '_')}.docx`)
 }
 
-// Бюджетен вариант (само бюджетните редове) — вътрешна ЦСОП декларация
+// Бюджетен вариант (само бюджетните редове) — точно по бланката „По заместване / ДЕКЛАРАЦИЯ“
 export async function generateMonthlyBudgetDeclaration(d: MonthlyDeclData) {
   const rows = d.rows.filter(r => !r.bsch)
   const total = rows.reduce((a, r) => a + r.hours, 0)
+  const F = 'Times New Roman'
+  const TEXT_W = 11906 - 1417 - 707          // 9782 — полетата от бланката
+  const t = (text: string, o: any = {}) => new TextRun({ text, font: F, size: 20, ...o })
+  const small = (text: string, o: any = {}) => new TextRun({ text, font: F, size: 16, ...o })
+  const tab = () => new TextRun({ font: F, size: 20, children: [new Tab()] })
+  const DOTS = [{ type: TabStopType.RIGHT, position: TEXT_W, leader: LeaderType.DOT }]
+  const P = (children: any[], o: any = {}) => new Paragraph({ children, spacing: { after: 0, line: 276 }, ...o })
+  const RULE = { bottom: { style: BorderStyle.SINGLE, size: 6, color: '000000', space: 4 } }
+  const uniq = (xs: string[]) => [...new Set(xs.filter(Boolean))]
+
+  // месец: един месец → „септември“; повече → „септември – октомври“
+  const MONTHS = ['януари','февруари','март','април','май','юни','юли','август','септември','октомври','ноември','декември']
+  let monthLabel = d.monthName.replace(/^периода\s*/, '')
+  if (d.periodFrom && d.periodTo) {
+    const m1 = MONTHS[new Date(d.periodFrom + 'T00:00').getMonth()], m2 = MONTHS[new Date(d.periodTo + 'T00:00').getMonth()]
+    monthLabel = m1 === m2 ? m1 : `${m1} – ${m2}`
+  }
+  const orders = uniq(rows.map(r => r.orderRef)).join(', ')
+  const absent = uniq(rows.map(r => r.absentName)).join(', ')
+
   const children: any[] = []
-  const dots = (n: number) => '.'.repeat(n)
+  children.push(P([t('По заместване', { bold: true, underline: {} })], { alignment: AlignmentType.RIGHT, spacing: { after: 360 } }))
+  children.push(P([new TextRun({ text: 'Д Е К Л А Р А Ц И Я', font: F, size: 24, bold: true })], { alignment: AlignmentType.CENTER, spacing: { after: 240 } }))
 
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('Център за специална образователна подкрепа – гр. Варна', 22)] }))
-  children.push(new Paragraph({ children: [normal('ул. „Петко Стайнов" № 7, тел.: 052 619 456, e-mail: info-400052@edu.mon.bg', 20)], spacing: { after: 200 } }))
+  children.push(P([t('Долуподписаният/та '), t(d.substituteName, { bold: true }), t(' '), tab()], { tabStops: DOTS }))
+  children.push(P([small('(име, презиме, фамилия)')], { alignment: AlignmentType.CENTER }))
+  children.push(P([t('учител по …………………………………………………, образование ……………………………')], { spacing: { after: 60 } }))
+  children.push(P([t('ДЕКЛАРИРАМ', { bold: true }), t(', '), t('че', { bold: true })], { spacing: { after: 60 } }))
+  children.push(P([
+    t('за месец '), t(monthLabel, { bold: true }), t(' 2026 година, съм взел/а следните часове над минималната норма задължителна преподавателска работа, съгласно Заповед № '),
+    t(orders || '…………………', { bold: true }), t(' за заместване на отсъстващ учител '), t(absent || '…………………', { bold: true }), t('.'),
+  ], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 160 } }))
 
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'С П Р А В К А   –   Д Е К Л А Р А Ц И Я', bold: true, size: 26 })], spacing: { after: 40 } }))
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal('за реално взетите часове по заместване, финансирани от бюджета на ЦСОП,', 20)], spacing: { after: 20 } }))
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(`за месец ${d.monthName} ${d.year} г.`, 22)], spacing: { after: 200 } }))
-
-  children.push(new Paragraph({ children: [normal('Долуподписаният (ата) ', 22), bold(d.substituteName, 22), normal(', заемащ длъжността ', 22), bold(d.substitutePosition || 'учител', 22), normal(' в ЦСОП – гр. Варна,', 22)], spacing: { after: 120 } }))
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Д Е К Л А Р И Р А М ,', bold: true, size: 24 })], spacing: { after: 120 } }))
-  children.push(new Paragraph({ children: [normal(`че през месец ${d.monthName} ${d.year} г. действително съм провел/а следните часове като заместващ на отсъстващи учители:`, 22)], spacing: { after: 160 } }))
-
+  // таблица — колоните от бланката
+  const COLS = [554, 1850, 2000, 3064, 2314]
   const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
-  const th = (t: string) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(t, 16)] })] })
-  const td = (t: string, c = false) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 16)] })] })
-  const trows: TableRow[] = [ new TableRow({ children: [
-    th('Дата'), th('Заповед №'), th('Клас'), th('Предмет'), th('Часове'), th('Отсъстващ учител'),
-  ] }) ]
-  rows.forEach(r => trows.push(new TableRow({ children: [
-    td(r.date, true), td(r.orderRef, true), td(r.cls, true), td(r.subject), td(String(r.hours), true), td(r.absentName),
+  const cell = (i: number, lines: string[], o: { bold?: boolean; align?: any; span?: number } = {}) => new TableCell({
+    borders: CELLS, columnSpan: o.span, verticalAlign: VerticalAlign.CENTER,
+    width: { size: o.span ? COLS.slice(i, i + o.span).reduce((a, x) => a + x, 0) : COLS[i], type: WidthType.DXA },
+    margins: { top: 30, bottom: 30, left: 60, right: 60 },
+    children: lines.map(l => new Paragraph({ alignment: o.align ?? AlignmentType.CENTER, spacing: { after: 0 }, children: [t(l, { size: 18, bold: !!o.bold })] })),
+  })
+  const trows: TableRow[] = [new TableRow({ tableHeader: true, children: [
+    cell(0, ['№', 'по', 'ред']), cell(1, ['Дата']), cell(2, ['Паралелка – клас']), cell(3, ['Предмет']), cell(4, ['Брой', 'часове']),
+  ] })]
+  rows.forEach((r, i) => trows.push(new TableRow({ children: [
+    cell(0, [String(i + 1)]), cell(1, [r.date]), cell(2, [r.cls]), cell(3, [r.subject], { align: AlignmentType.LEFT }), cell(4, [String(r.hours)]),
   ] })))
-  children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [1100, 1600, 800, 3000, 800, 2100], rows: trows }))
-  children.push(new Paragraph({ text: '', spacing: { after: 160 } }))
+  // празни редове до минимум 5 — като в бланката
+  for (let i = rows.length; i < 5; i++) trows.push(new TableRow({ children: [0, 1, 2, 3, 4].map(k => cell(k, [''])) }))
+  trows.push(new TableRow({ children: [
+    cell(0, [''], { span: 3 }), cell(3, ['Всичко:'], { align: AlignmentType.RIGHT }), cell(4, [String(total)], { bold: true }),
+  ] }))
+  children.push(new Table({ width: { size: TEXT_W, type: WidthType.DXA }, columnWidths: COLS, layout: TableLayoutType.FIXED, rows: trows }))
 
-  children.push(new Paragraph({ children: [normal('Общ брой часове: ', 22), bold(String(total), 22), normal(' х ................ EUR = ........................ EUR', 22)], spacing: { after: 300 } }))
-  children.push(new Paragraph({ children: [normal('Декларатор: ' + dots(45), 22)], spacing: { after: 200 } }))
-  children.push(new Paragraph({ children: [normal('Директор: ' + dots(45), 22)] }))
+  children.push(P([t('Общ брой учебни часове: '), t(String(total), { bold: true })], { alignment: AlignmentType.RIGHT, spacing: { before: 240, after: 160 } }))
+  ;['6,29', '5,16', '4,62'].forEach(r => children.push(P([t(`………… часа по ${r} евро на час - ………………………… евро;`)], { spacing: { after: 100 } })))
+  children.push(P([small('/ попълва се от декларатор/учител /')], { indent: { left: 1000 }, spacing: { after: 160 } }))
 
-  const doc = new Document({ sections: [{ properties: { page: { margin: { top: 900, bottom: 900, left: 1000, right: 1000 } } }, children }] })
+  children.push(P([t('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося наказателна отговорност съгласно законите на Република България.')], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 200 } }))
+
+  // подписи — ляво дата, дясно роля (като бланката)
+  const RIGHT_COL = [{ type: TabStopType.LEFT, position: 5500 }]
+  children.push(P([t('………………………… 2026 година'), tab(), t('ДЕКЛАРАТОР:', { bold: true }), t('……………………')], { tabStops: RIGHT_COL, spacing: { after: 60 } }))
+  children.push(P([tab(), t('         /подпис/')], { tabStops: RIGHT_COL, border: RULE, spacing: { after: 160 } }))
+  children.push(P([t('Посочените часове са действително проведени и са вписани в дневника на класа.')], { spacing: { after: 160 } }))
+  children.push(P([t('Дата: …………………2026г.'), tab(), t('Проверил:', { bold: true }), t('……………………')], { tabStops: RIGHT_COL, spacing: { after: 60 } }))
+  children.push(P([tab(), t('         ЗДУД')], { tabStops: RIGHT_COL, spacing: { after: 360 } }))
+  children.push(P([t('Сумата е проверена, начислена и изплатена по ведомост за месец ……………………… 2026г.')], { spacing: { after: 160 } }))
+  children.push(P([t('………………………… 2026 година')], { border: RULE, spacing: { after: 120 } }))
+  children.push(P([tab(), t('Главен счетоводител: ', { italics: true }), t('……………………')], { tabStops: [{ type: TabStopType.LEFT, position: 4500 }] }))
+
+  const doc = new Document({
+    styles: { default: { document: { run: { font: F, size: 20 } } } },
+    sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 709, right: 707, bottom: 851, left: 1417 } } }, children }],
+  })
   const blob = await Packer.toBlob(doc)
-  saveAs(blob, `декларация_бюджет_${d.monthName}_${d.substituteName.replace(/\s+/g, '_')}.docx`)
+  saveAs(blob, `декларация_бюджет_${monthLabel.replace(/\s+/g, '')}_${d.substituteName.replace(/\s+/g, '_')}.docx`)
 }
 // ═══ ЗАПОВЕД ЗА ПОЛЗВАНЕ НА ОТПУСК (образец №1 на НП „Без свободен час") ═══
 export interface NpLeaveOrderData {
