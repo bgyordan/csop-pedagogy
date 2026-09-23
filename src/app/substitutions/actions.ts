@@ -414,7 +414,8 @@ export async function getMonExport(first: string, last: string, rate: number) {
     const isNonSpec = /възпитател|помощник|психолог|логопед|рехабилитатор/i.test((sub.sub as any)?.position || '')
     rows.push({
       name: sub.sub ? `${(sub.sub as any).first_name} ${(sub.sub as any).last_name}` : '',
-      docType: 'Заповед', docNumber: orderNumber, docDate: orderDate,
+      // в портала номерът и датата са отделни полета → само номера („014“), без „/23.09.2026г.“
+      docType: 'Заповед', docNumber: String(orderNumber).split('/')[0].trim(), docDate: orderDate,
       hoursTaken: hours, nonSpecHoursTaken: isNonSpec ? hours : 0,
       kt: sub.kt_article || '155', amount: +(hours * rate).toFixed(2),
     })
