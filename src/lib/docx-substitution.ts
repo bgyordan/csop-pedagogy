@@ -1,6 +1,7 @@
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   WidthType, AlignmentType, BorderStyle, ShadingType, ImageRun,
+  Tab, TabStopType, LeaderType, VerticalAlign, TableLayoutType, LineRuleType,
 } from 'docx'
 import { CSOP_LOGO_B64 } from './docx-generator'
 import { saveAs } from 'file-saver'
@@ -458,52 +459,96 @@ export interface MonthlyDeclData {
   yearName: string
   rows: { date: string; orderRef: string; cls: string; subject: string; hours: number; bsch: boolean; kt: string; absentName: string }[]
   totalHours: number
+  periodFrom?: string
+  periodTo?: string
 }
 
-// НП вариант (само НП редове) — по Приложение 2
+// НП вариант (само НП редове) — точно по бланката Приложение № 2 (Times New Roman 12, полета и таблица като образеца)
 export async function generateMonthlyNPDeclaration(d: MonthlyDeclData) {
   const rows = d.rows.filter(r => r.bsch)
   const total = rows.reduce((a, r) => a + r.hours, 0)
+  const F = 'Times New Roman'
+  const TEXT_W = 9214                        // ширина на текста между полетата (като образеца)
+  const t = (text: string, o: any = {}) => new TextRun({ text, font: F, size: 24, ...o })
+  const it = (text: string, size = 24) => new TextRun({ text, font: F, size, italics: true })
+  const dotTab = () => new TextRun({ font: F, size: 24, children: [new Tab()] })
+  const DOTS = [{ type: TabStopType.RIGHT, position: TEXT_W, leader: LeaderType.DOT }]
+  const P = (children: any[], o: any = {}) => new Paragraph({ children, spacing: { after: 0, line: 276 }, ...o })
+  const hint = (text: string) => P([it(text)], { alignment: AlignmentType.CENTER })
+
+  const period = d.periodFrom && d.periodTo
+    ? `${formatDate(d.periodFrom)} – ${formatDate(d.periodTo)}`
+    : d.monthName.replace(/^периода\s*/, '')
+
   const children: any[] = []
-  const dots = (n: number) => '.'.repeat(n)
+  // горе вдясно
+  children.push(P([it('Приложение № 2')], { alignment: AlignmentType.RIGHT }))
+  children.push(P([it('Справка - декларация по Модул 1 и Модул 2')], { alignment: AlignmentType.RIGHT, spacing: { after: 240 } }))
 
-  children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: 'Приложение № 2', italics: true, size: 20 })] }))
-  children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: 'Справка - декларация по Модул 1', italics: true, size: 20 })], spacing: { after: 200 } }))
+  // институция
+  children.push(P([t('Център за специална образователна подкрепа – гр. Варна', { bold: true })], { alignment: AlignmentType.CENTER }))
+  children.push(hint('( детска градина/училище/ЦСОП/ЦПЛР)'))
+  children.push(P([t('ПК 9000, гр. Варна, община Варна, област Варна')], { spacing: { before: 120, after: 0 } }))
+  children.push(P([t('ул. „Петко Стайнов“ № 7, тел.: 052 619 456, e-mail: info-400052@edu.mon.bg')], { spacing: { before: 120, after: 480 } }))
 
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('Център за специална образователна подкрепа – гр. Варна', 22)] }))
-  children.push(new Paragraph({ children: [normal('ул. „Петко Стайнов" № 7, тел.: 052 619 456, e-mail: info-400052@edu.mon.bg', 20)], spacing: { after: 200 } }))
+  // заглавие
+  children.push(P([t('С П Р А В К А   –   Д Е К Л А Р А Ц И Я', { bold: true })], { alignment: AlignmentType.CENTER, spacing: { after: 120 } }))
+  children.push(P([t('за възнаграждение на учител за реално взетите учебни/астрономически часове')], { alignment: AlignmentType.CENTER, spacing: { after: 60 } }))
+  children.push(P([t('по Националната програма „Без свободен час“ за 2026 г.,')], { alignment: AlignmentType.CENTER, spacing: { after: 60 } }))
+  children.push(P([t('модул „Без свободен час в ЦСОП“')], { alignment: AlignmentType.CENTER, spacing: { after: 480 } }))
 
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'С П Р А В К А   –   Д Е К Л А Р А Ц И Я', bold: true, size: 26 })], spacing: { after: 40 } }))
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal('за възнаграждение за реално взетите часове по Националната програма „Без свободен час" за 2026 г., Модул 1,', 20)], spacing: { after: 20 } }))
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(`за месец ${d.monthName} ${d.year} г.`, 22)], spacing: { after: 200 } }))
+  // долуподписаният — редове с точки до края + пояснения
+  children.push(P([t('Долуподписаният (ата) '), t(d.substituteName, { bold: true }), t(' '), dotTab()], { tabStops: DOTS }))
+  children.push(hint('(име, презиме, фамилия)'))
+  children.push(P([t('заемащ (а) длъжността '), t(d.substitutePosition || 'учител', { bold: true }), t(' '), dotTab()], { tabStops: DOTS }))
+  children.push(hint('(наименование на длъжността)'))
+  children.push(P([t('в '), t('ЦСОП – гр. Варна', { bold: true }), t(' '), dotTab()], { tabStops: DOTS }))
+  children.push(hint('(училище/ЦСОП/ДГ/ЦПЛР)'))
 
-  children.push(new Paragraph({ children: [normal('Долуподписаният (ата) ', 22), bold(d.substituteName, 22), normal(', заемащ длъжността ', 22), bold(d.substitutePosition || 'учител', 22), normal(' в ЦСОП – гр. Варна,', 22)], spacing: { after: 120 } }))
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Д Е К Л А Р И Р А М ,', bold: true, size: 24 })], spacing: { after: 120 } }))
-  children.push(new Paragraph({ children: [normal(`че през месец ${d.monthName} ${d.year} г. действително съм провел/а следните часове като заместващ на отсъстващи учители:`, 22)], spacing: { after: 160 } }))
+  children.push(P([t('Д Е К Л А Р И Р А М ,', { bold: true })], { alignment: AlignmentType.CENTER, spacing: { before: 240, after: 240 } }))
+  children.push(P([t('че за периода '), t(period, { bold: true }), t(' действително съм провел следните учебни/астрономически часове като заместващ на отсъстващ учител:')],
+    { spacing: { after: 120, line: 360, lineRule: LineRuleType.AUTO } }))
 
+  // таблица — колоните от образеца
+  const COLS = [1300, 1750, 1250, 1750, 900, 2264]
   const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
-  const th = (t: string) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(t, 16)] })] })
-  const td = (t: string, c = false) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 16)] })] })
-  const trows: TableRow[] = [ new TableRow({ children: [
-    th('Дата'), th('Заповед №'), th('Клас'), th('Тема (от дневника)'), th('Часове'), th('Отсъстващ учител'),
-  ] }) ]
-  rows.forEach(r => trows.push(new TableRow({ children: [
-    td(r.date, true), td(r.orderRef, true), td(r.cls, true), td(''), td(String(r.hours), true), td(r.absentName),
-  ] })))
-  children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [1100, 1600, 800, 3000, 800, 2100], rows: trows }))
-  children.push(new Paragraph({ text: '', spacing: { after: 160 } }))
+  const cell = (i: number, lines: string[], bold = false, center = true) => new TableCell({
+    borders: CELLS, width: { size: COLS[i], type: WidthType.DXA }, verticalAlign: VerticalAlign.CENTER,
+    margins: { top: 40, bottom: 40, left: 60, right: 60 },
+    children: lines.map(l => new Paragraph({ alignment: center ? AlignmentType.CENTER : AlignmentType.LEFT, spacing: { after: 0, line: 252 }, children: [t(l, { size: 22, ...(bold ? { bold: true } : {}) })] })),
+  })
+  const head = new TableRow({ tableHeader: true, children: [
+    cell(0, ['Дата'], true), cell(1, ['Заповед №… от…', 'Договор №… от…'], true), cell(2, ['Клас'], true),
+    cell(3, ['Тема от учебното', '/образователното', 'съдържание'], true), cell(4, ['Брой', 'часове'], true), cell(5, ['Име на отсъстващия', 'учител'], true),
+  ] })
+  const body = rows.map(r => new TableRow({ children: [
+    cell(0, [r.date]), cell(1, [r.orderRef]), cell(2, [r.cls]), cell(3, ['']), cell(4, [String(r.hours)]), cell(5, [r.absentName], false, false),
+  ] }))
+  children.push(new Table({ width: { size: TEXT_W, type: WidthType.DXA }, columnWidths: COLS, layout: TableLayoutType.FIXED, rows: [head, ...body] }))
 
-  children.push(new Paragraph({ children: [normal('Общ брой часове: ', 22), bold(String(total), 22), normal(' х ................ EUR = ........................ EUR', 22)], spacing: { after: 40 } }))
-  children.push(new Paragraph({ children: [normal('Темите на преподаденото съдържание са вписани в дневника на класа/групата.', 20)], spacing: { after: 80 } }))
-  children.push(new Paragraph({ children: [normal('Известно ми е, че при деклариране на неверни данни нося отговорност съгласно законите на Република България.', 20)], spacing: { after: 300 } }))
+  // общо + цифром/словом
+  children.push(P([t('Общ брой учебни/астрономически часове: '), t(String(total), { bold: true }), t(' х ………… EUR = ……………… EUR')], { spacing: { before: 240, after: 0 } }))
+  children.push(P([dotTab()], { tabStops: DOTS, spacing: { before: 120, after: 0 } }))
+  children.push(P([it('(цифром, словом)')], { alignment: AlignmentType.RIGHT, spacing: { after: 240 } }))
 
-  children.push(new Paragraph({ children: [normal('Декларатор: ' + dots(45), 22)], spacing: { after: 200 } }))
-  children.push(new Paragraph({ children: [normal('Директор: ' + dots(45), 22)] }))
+  children.push(P([t('Темите на преподаденото учебно /образователно съдържание са вписани в дневника на класа/групата.')], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 120, line: 360, lineRule: LineRuleType.AUTO } }))
+  children.push(P([t('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося отговорност съгласно законите на Република България.')], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 480, line: 360, lineRule: LineRuleType.AUTO } }))
 
-  const doc = new Document({ sections: [{ properties: { page: { margin: { top: 900, bottom: 900, left: 1000, right: 1000 } } }, children }] })
+  // подписи
+  children.push(P([t('Декларатор: '), dotTab()], { tabStops: DOTS }))
+  const TABS2 = [{ type: TabStopType.CENTER, position: 4200 }, { type: TabStopType.CENTER, position: 8000 }]
+  const tab = () => new TextRun({ font: F, size: 24, children: [new Tab()] })
+  children.push(P([tab(), it('(личен подпис)'), tab(), it('(дата)')], { tabStops: TABS2, spacing: { after: 480 } }))
+  children.push(P([t('Директор: '), dotTab()], { tabStops: DOTS }))
+  children.push(P([tab(), it('(име, фамилия, подпис, кръгъл печат)'), tab(), it('(дата)')], { tabStops: TABS2 }))
+
+  const doc = new Document({
+    styles: { default: { document: { run: { font: F, size: 24 } } } },
+    sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 709, right: 1134, bottom: 567, left: 1701 } } }, children }],
+  })
   const blob = await Packer.toBlob(doc)
-  saveAs(blob, `декларация_НП_${d.monthName}_${d.substituteName.replace(/\s+/g, '_')}.docx`)
+  saveAs(blob, `декларация_НП_${period.replace(/\s+/g, '').replace(/[–.]/g, '-')}_${d.substituteName.replace(/\s+/g, '_')}.docx`)
 }
 
 // Бюджетен вариант (само бюджетните редове) — вътрешна ЦСОП декларация
