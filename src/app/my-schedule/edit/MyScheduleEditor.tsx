@@ -132,6 +132,19 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
 
   const hasHolders = myClasses.length > 0 || myStudents.length > 0
 
+  // ── Брой часове: обикновен час = 1, час с „позволява вземане“ (терапии) = 0,7 ──
+  const NORM = 21
+  const weightOf = (subjectId: string) => subjectList.find(s => s.id === subjectId)?.allows_pullout ? 0.7 : 1
+  const r1 = (x: number) => Math.round(x * 10) / 10
+  const fmt = (x: number) => r1(x).toLocaleString('bg-BG', { maximumFractionDigits: 1 })
+  const cellsAll = Object.entries(grid)
+  const totalCount = cellsAll.length
+  const pulloutCount = cellsAll.filter(([, v]) => weightOf(v.subjectId) < 1).length
+  const weighted = r1(cellsAll.reduce((a, [, v]) => a + weightOf(v.subjectId), 0))
+  const dayWeighted = (dn: number) => r1(cellsAll.filter(([k]) => Number(k.split('-')[0]) === dn).reduce((a, [, v]) => a + weightOf(v.subjectId), 0))
+  const dayCount = (dn: number) => cellsAll.filter(([k]) => Number(k.split('-')[0]) === dn).length
+  const normOk = weighted >= NORM
+
   return (
     <div className="space-y-5">
       {/* Срок */}
@@ -199,6 +212,29 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
         {hasHolders && !active && <div className="text-xs text-amber-600 mt-2">Избери активна паралелка/ученик, за да нареждаш.</div>}
       </div>
 
+      {hasHolders && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Часове седмично</div>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className={`text-2xl font-semibold ${normOk ? 'text-emerald-600' : 'text-amber-600'}`}>{fmt(weighted)}</span>
+                <span className="text-sm text-slate-500">от норма {NORM}</span>
+              </div>
+              <div className="text-xs text-slate-500 mt-0.5">
+                {totalCount} {totalCount === 1 ? 'час' : 'часа'} в разписанието{pulloutCount > 0 ? ` · от тях ${pulloutCount} × 0,7 (с вземане)` : ''}
+              </div>
+            </div>
+            <div className={`text-xs font-medium px-3 py-1.5 rounded-full ${normOk ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
+              {normOk ? (weighted > NORM ? `Нормата е изпълнена (+${fmt(weighted - NORM)})` : 'Нормата е изпълнена') : `Липсват ${fmt(NORM - weighted)}`}
+            </div>
+          </div>
+          <div className="h-1.5 bg-slate-100 rounded-full mt-3 overflow-hidden">
+            <div className={`h-full rounded-full transition-all ${normOk ? 'bg-emerald-400' : 'bg-amber-400'}`} style={{ width: `${Math.min(100, (weighted / NORM) * 100)}%` }} />
+          </div>
+        </div>
+      )}
+
       {Object.keys(collisions).length > 0 && (
         <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">
           <AlertTriangle size={16} className="shrink-0 mt-0.5" />
@@ -255,7 +291,10 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
                               <div className={`text-[11px] font-medium ${cell.holderType === 'ifo' ? 'text-violet-600' : 'text-blue-600'}`}>
                                 {cell.holderType === 'class' ? clsName(cell.holderId) : 'ИФО ' + studName(cell.holderId)}
                               </div>
-                              <div className="text-xs text-slate-700 truncate">{subjName(cell.subjectId)}</div>
+                              <div className="flex items-center gap-1">
+                                <div className="text-xs text-slate-700 truncate">{subjName(cell.subjectId)}</div>
+                                {weightOf(cell.subjectId) < 1 && <span className="shrink-0 text-[9px] px-1 rounded bg-teal-50 text-teal-700 border border-teal-100">0,7</span>}
+                              </div>
                             </>
                           ) : (
                             <div className="text-sm text-slate-300 pt-1.5 text-center">+</div>
@@ -279,6 +318,17 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
                 </>
               ))}
             </tbody>
+            <tfoot>
+              <tr className="border-t border-slate-200 bg-slate-50/60">
+                <td className="px-2 py-2 text-center text-[10px] font-semibold text-slate-400 uppercase">Общо</td>
+                {DAYS.map(d => (
+                  <td key={d.n} className="px-2 py-2 text-center">
+                    <span className="text-sm font-medium text-slate-700">{fmt(dayWeighted(d.n))}</span>
+                    {dayWeighted(d.n) !== dayCount(d.n) && <span className="text-[10px] text-slate-400 ml-1">({dayCount(d.n)} ч.)</span>}
+                  </td>
+                ))}
+              </tr>
+            </tfoot>
           </table>
         </div>
       )}
