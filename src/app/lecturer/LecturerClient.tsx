@@ -12,7 +12,8 @@ type SchedSlot = { day: number; period: number; subjectId: string | null; subjec
 const DAYS = [{ n: 1, l: 'Пон' }, { n: 2, l: 'Вт' }, { n: 3, l: 'Ср' }, { n: 4, l: 'Чет' }, { n: 5, l: 'Пет' }]
 const PERIODS = [1, 2, 3, 4, 5, 6, 7]
 function fmt(d: string) { return d ? d.split('-').reverse().join('.') : '' }
-const todayStr = () => new Date().toISOString().split('T')[0]
+// начало на лекторските часове: 15.09 на текущата учебна година
+const yearStart = () => { const d = new Date(); const y = d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1; return `${y}-09-15` }
 function weeksBetween(from: string, to: string): number {
   if (!from || !to) return 0
   const a = new Date(from + 'T00:00'), b = new Date(to + 'T00:00')
@@ -37,7 +38,7 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
   const [schedule, setSchedule] = useState<SchedSlot[]>([])
   const [loadingSched, setLoadingSched] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())  // "ден-час"
-  const [from, setFrom] = useState('')
+  const [from, setFrom] = useState(yearStart())
   const [to, setTo] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -229,13 +230,13 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
                 <div className="flex items-end gap-3 flex-wrap pt-2 border-t border-slate-100">
                   <div>
                     <label className="block text-xs text-slate-500 mb-1">От</label>
-                    <input type="date" value={from} min={todayStr()} onChange={e => { setFrom(e.target.value); if (to && e.target.value > to) setTo('') }}
+                    <input type="date" value={from} onChange={e => { setFrom(e.target.value); if (to && e.target.value > to) setTo('') }}
                       className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400" />
                   </div>
                   <div>
                     <label className="block text-xs text-slate-500 mb-1">До</label>
                     <div className="flex items-center gap-1.5">
-                      <input type="date" value={to} min={from || todayStr()} onChange={e => setTo(e.target.value)}
+                      <input type="date" value={to} min={from || undefined} onChange={e => setTo(e.target.value)}
                         className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400" />
                       <button type="button" onClick={() => setTo('2027-05-31')} className="px-2 py-1.5 rounded-lg text-[11px] bg-slate-100 text-slate-600 hover:bg-slate-200">31.05</button>
                       <button type="button" onClick={() => setTo('2027-06-15')} className="px-2 py-1.5 rounded-lg text-[11px] bg-slate-100 text-slate-600 hover:bg-slate-200">15.06</button>
@@ -247,7 +248,7 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
                     className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-white text-sm font-medium disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
                     {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Добави с този период
                   </button>
-                  <button type="button" onClick={() => { setTeacherId(''); setSchedule([]); setPicked(new Set()); setFrom(''); setTo('') }}
+                  <button type="button" onClick={() => { setTeacherId(''); setSchedule([]); setPicked(new Set()); setFrom(yearStart()); setTo('') }}
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm text-slate-600 bg-white border border-slate-200 hover:bg-slate-50">
                     Готово
                   </button>
