@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { BookOpen, GraduationCap, CalendarDays, Clock, FileText, Loader2 } from 'lucide-react'
+import { CalendarDays, Clock, FileText, Loader2 } from 'lucide-react'
 import { generateStaffSchedule } from '@/lib/docx-generator'
 interface Slot {
   source: 'class' | 'ifo'
@@ -26,20 +26,19 @@ const DAYS = [
   { n: 4, label: 'Четвъртък', short: 'Чет' },
   { n: 5, label: 'Петък', short: 'Пет' },
 ]
-const CLASS_TIMES: Record<number, string> = {
-  1: '8:30–9:05', 2: '9:15–9:50', 3: '10:20–10:55',
-  4: '11:05–11:40', 5: '11:50–12:25', 6: '12:35–13:05', 7: '13:15–13:50',
+// Същата номерация като в редактора: 1–7 сутрин, 8–12 следобедни ИФО
+const PERIOD_TIMES: Record<number, string> = {
+  1: '8:30–9:05', 2: '9:15–9:50', 3: '10:20–10:55', 4: '11:05–11:40',
+  5: '11:50–12:25', 6: '12:35–13:05', 7: '13:15–13:50',
+  8: '12:45–13:15', 9: '13:20–13:50', 10: '13:55–14:25', 11: '14:30–15:00', 12: '15:05–15:35',
 }
-const IFO_TIMES: Record<number, string> = {
-  1: '12:00–12:35', 2: '12:30–13:05', 3: '13:10–13:45', 4: '13:20–13:55',
-  5: '13:40–14:15', 6: '13:50–14:25', 7: '14:30–15:05', 8: '15:10–15:45',
+const PERIOD_LABEL: Record<number, string> = {
+  1:'1',2:'2',3:'3',4:'4',5:'5',6:'6',7:'7',8:'ИФО 1',9:'ИФО 2',10:'ИФО 3',11:'ИФО 4',12:'ИФО 5',
 }
-function startMinutes(source: 'class' | 'ifo', period: number): number {
-  const t = source === 'class' ? CLASS_TIMES[period] : IFO_TIMES[period]
-  if (!t) return 9999
-  const [h, m] = t.split('–')[0].split(':').map(Number)
-  return h * 60 + m
-}
+const NORM = 21
+const r1 = (x: number) => Math.round(x * 10) / 10
+const fmt = (x: number) => r1(x).toLocaleString('bg-BG', { maximumFractionDigits: 1 })
+const w = (s: { allowsPullout: boolean }) => (s.allowsPullout ? 0.7 : 1)
 export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId, staffName, yearName }: Props) {
   const staffQ = staffId ? `&staff=${staffId}` : ''
   const [activeDay, setActiveDay] = useState<number | 'all'>('all')
@@ -47,11 +46,15 @@ export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId
   const all = [...classSlots, ...ifoSlots]
   const totalClass = classSlots.length
   const totalIfo = ifoSlots.length
-  function daySlots(day: number) {
-    return all
-      .filter(s => s.day === day)
-      .sort((a, b) => startMinutes(a.source, a.period) - startMinutes(b.source, b.period))
-  }
+  const weighted = r1(all.reduce((a, s) => a + w(s), 0))
+  const pulloutCount = all.filter(s => s.allowsPullout).length
+  const normOk = weighted >= NORM
+  const maxP = all.reduce((m, s) => Math.max(m, s.period), 0)
+  const PERIODS = [1, 2, 3, 4, 5, 6, ...(all.some(s => s.period === 7) ? [7] : []), ...(maxP >= 8 ? [8, 9, 10, 11, 12] : [])]
+  const at = (day: number, period: number) => all.filter(s => s.day === day && s.period === period)
+  const daySlots = (day: number) => all.filter(s => s.day === day)
+  const dayW = (day: number) => r1(daySlots(day).reduce((a, s) => a + w(s), 0))
+
   async function handleWord() {
     if (all.length === 0) return
     setGenerating(true)
@@ -62,38 +65,27 @@ export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId
       setGenerating(false)
     }
   }
-  function SlotCard({ s }: { s: Slot }) {
-    const time = s.source === 'class' ? CLASS_TIMES[s.period] : IFO_TIMES[s.period]
+
+  function Cell({ s }: { s: Slot }) {
     const isIfo = s.source === 'ifo'
     return (
-      <div className={`rounded-xl border p-2.5 ${isIfo ? 'bg-teal-50/50 border-teal-100' : 'bg-white border-slate-200'}`}>
-        <div className="flex items-center justify-between gap-2 mb-1">
-          <div className="flex items-center gap-1.5">
-            <span className="inline-flex items-center justify-center h-4 w-4 rounded text-white text-[9px] font-bold" style={{ backgroundColor: '#0f2240' }}>{s.period}</span>
-            <span className="text-[10px] font-mono text-slate-400">{time}</span>
-          </div>
-          {isIfo ? (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-teal-100 text-teal-800">
-              <GraduationCap size={10} /> ИФО
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-              <BookOpen size={10} /> {s.label}
-            </span>
-          )}
+      <div className={`rounded-lg border px-2 py-1.5 ${isIfo ? 'bg-violet-50/60 border-violet-100' : 'bg-white border-slate-200'}`}>
+        <div className={`text-[10px] font-medium truncate ${isIfo ? 'text-violet-600' : 'text-blue-600'}`}>
+          {isIfo ? `ИФО ${s.label}` : s.label}
         </div>
-        <div className={`text-xs font-medium leading-tight ${s.allowsPullout ? 'text-teal-700' : 'text-slate-800'}`}>
-          {s.allowsPullout ? '◆ ' : ''}{s.subjectName}
+        <div className="flex items-center gap-1">
+          <div className="text-xs text-slate-700 truncate">{s.subjectName}</div>
+          {s.allowsPullout && <span className="shrink-0 text-[9px] px-1 rounded bg-teal-50 text-teal-700 border border-teal-100">0,7</span>}
         </div>
-        {isIfo && s.label && (
-          <div className="text-[10px] text-slate-400 mt-0.5">{s.label}</div>
-        )}
       </div>
     )
   }
+
+  const daysShown = activeDay === 'all' ? DAYS : DAYS.filter(d => d.n === activeDay)
+
   return (
     <div className="space-y-4">
-      {/* Срок + легенда + Word */}
+      {/* Срок + брой + Word */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl">
           <a href={`?term=1${staffQ}`} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 1 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
@@ -101,17 +93,14 @@ export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId
           <a href={`?term=2${staffQ}`} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 2 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
             style={term === 2 ? { backgroundColor: '#0f2240' } : {}}>II срок</a>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-4 text-xs text-slate-500">
-            {hasClasses && (
-              <span className="inline-flex items-center gap-1.5">
-                <BookOpen size={13} className="text-slate-500" /> Паралелка: <span className="font-semibold text-slate-700">{totalClass}</span>
-              </span>
-            )}
-            <span className="inline-flex items-center gap-1.5">
-              <GraduationCap size={13} className="text-teal-600" /> ИФО: <span className="font-semibold text-slate-700">{totalIfo}</span>
+        <div className="flex items-center gap-3 flex-wrap">
+          {all.length > 0 && (
+            <span title={`${totalClass} в паралелка · ${totalIfo} ИФО${pulloutCount ? ` · ${pulloutCount} × 0,7` : ''}`}
+              className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border ${normOk ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
+              <Clock size={12} /> {fmt(weighted)} / {NORM} ч.
+              <span className="text-[10px] opacity-70">({all.length} часа{pulloutCount ? `, ${pulloutCount} × 0,7` : ''})</span>
             </span>
-          </div>
+          )}
           {all.length > 0 && (
             <button type="button" onClick={handleWord} disabled={generating}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-60 transition-opacity hover:opacity-90"
@@ -122,108 +111,78 @@ export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId
           )}
         </div>
       </div>
+
       {all.length === 0 ? (
         <div className="text-center py-16 px-4 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
           <CalendarDays size={36} className="mx-auto mb-3 text-slate-300" />
           <p className="text-sm font-medium text-slate-600">Още няма часове за този срок</p>
-          <p className="text-xs text-slate-400 mt-1">
-            Часовете от паралелката се въвеждат в „Паралелки", ИФО часовете — в „Индивидуални часове (ИФО)".
-          </p>
+          <p className="text-xs text-slate-400 mt-1">Въвеждат се от „Редактирай разписание“.</p>
         </div>
       ) : (
         <>
           {/* Пилюли за дните */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-200/80">
             <button type="button" onClick={() => setActiveDay('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                activeDay === 'all' ? 'text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${activeDay === 'all' ? 'text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'}`}
               style={activeDay === 'all' ? { backgroundColor: '#0f2240' } : {}}>
-              Цялата седмица ({all.length})
+              Цялата седмица
             </button>
             {DAYS.map(d => {
-              const cnt = daySlots(d.n).length
               const active = activeDay === d.n
               return (
                 <button key={d.n} type="button" onClick={() => setActiveDay(d.n)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                    active ? 'text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${active ? 'text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'}`}
                   style={active ? { backgroundColor: '#0f2240' } : {}}>
-                  <span>{d.short}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                    active ? 'bg-white/20 text-white' : cnt > 0 ? 'bg-slate-200 text-slate-600' : 'bg-slate-100 text-slate-400'
-                  }`}>{cnt}</span>
+                  {d.short}
                 </button>
               )
             })}
           </div>
-          {/* Цялата седмица — 5 колони */}
-          {activeDay === 'all' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              {DAYS.map(d => {
-                const slots = daySlots(d.n)
-                return (
-                  <div key={d.n} className="bg-slate-50/60 rounded-xl border border-slate-200 flex flex-col overflow-hidden">
-                    <div className="px-3 py-2 bg-slate-100/80 border-b border-slate-200 flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">{d.short}</span>
-                      <span className="text-[10px] font-semibold text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200">{slots.length}</span>
-                    </div>
-                    <div className="p-2 space-y-2 flex-1">
-                      {slots.length === 0 ? (
-                        <div className="h-20 flex flex-col items-center justify-center text-slate-300">
-                          <Clock size={16} className="mb-1" />
-                          <span className="text-[10px]">Няма часове</span>
-                        </div>
-                      ) : (
-                        slots.map((s, i) => <SlotCard key={`${s.source}-${s.day}-${s.period}-${i}`} s={s} />)
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            /* Един ден — детайлно */
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-100 text-sm font-semibold text-slate-700">
-                {DAYS.find(d => d.n === activeDay)?.label}
-              </div>
-              {daySlots(activeDay as number).length === 0 ? (
-                <div className="py-12 text-center text-slate-300">
-                  <Clock size={28} className="mx-auto mb-2" />
-                  <p className="text-sm">Няма часове за този ден</p>
-                </div>
-              ) : (
-                <div>
-                  {daySlots(activeDay as number).map((s, i) => {
-                    const time = s.source === 'class' ? CLASS_TIMES[s.period] : IFO_TIMES[s.period]
-                    return (
-                      <div key={`${s.source}-${s.day}-${s.period}-${i}`}
-                        className={`flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-50 last:border-0 ${i % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}`}>
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span className="inline-flex items-center justify-center h-5 w-5 rounded text-white text-[10px] font-bold flex-shrink-0" style={{ backgroundColor: '#0f2240' }}>{s.period}</span>
-                          <span className="text-xs font-mono text-slate-400 w-24 flex-shrink-0">{time}</span>
-                          <span className={`text-sm font-medium ${s.allowsPullout ? 'text-teal-700' : 'text-slate-800'}`}>
-                            {s.allowsPullout ? '◆ ' : ''}{s.subjectName}
-                          </span>
-                        </div>
-                        {s.source === 'class' ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs flex-shrink-0 px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">
-                            <BookOpen size={12} /> {s.label}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 text-xs flex-shrink-0 px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 font-medium">
-                            <GraduationCap size={12} /> ИФО · {s.label}
-                          </span>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+
+          {/* Решетка: редове = часове, колони = дни; празните часове остават празни */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200">
+                  <th className="w-14 px-2 py-2.5 text-[11px] font-semibold text-slate-400 uppercase">Час</th>
+                  {daysShown.map(d => (
+                    <th key={d.n} className={`px-2 py-2.5 text-xs font-semibold text-slate-600 ${activeDay === 'all' ? 'min-w-[130px]' : ''}`}>{d.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {PERIODS.map(period => (
+                  <tr key={period} className={`border-b border-slate-100 last:border-0 ${period === 8 ? 'border-t-2 border-t-slate-200' : ''}`}>
+                    <td className="px-2 py-1.5 text-center align-top">
+                      <div className="font-semibold text-slate-700 text-xs pt-1">{PERIOD_LABEL[period]}{period <= 7 ? '.' : ''}</div>
+                      <div className="text-[9px] text-slate-400 leading-tight">{PERIOD_TIMES[period]}</div>
+                    </td>
+                    {daysShown.map(d => {
+                      const here = at(d.n, period)
+                      return (
+                        <td key={d.n} className="px-1.5 py-1.5 align-top">
+                          {here.length === 0
+                            ? <div className="min-h-[40px] rounded-lg border border-dashed border-slate-100" />
+                            : <div className="space-y-1">{here.map((s, i) => <Cell key={i} s={s} />)}</div>}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-slate-200 bg-slate-50/60">
+                  <td className="px-2 py-2 text-center text-[10px] font-semibold text-slate-400 uppercase">Общо</td>
+                  {daysShown.map(d => (
+                    <td key={d.n} className="px-2 py-2 text-center">
+                      <span className="text-sm font-medium text-slate-700">{fmt(dayW(d.n))}</span>
+                      {dayW(d.n) !== daySlots(d.n).length && <span className="text-[10px] text-slate-400 ml-1">({daySlots(d.n).length} ч.)</span>}
+                    </td>
+                  ))}
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         </>
       )}
     </div>
