@@ -502,7 +502,7 @@ export async function generateMonthlyNPDeclaration(d: MonthlyDeclData) {
   children.push(P([t('С П Р А В К А   –   Д Е К Л А Р А Ц И Я', { bold: true })], { alignment: AlignmentType.CENTER, spacing: { after: 120 } }))
   children.push(P([t('за възнаграждение на учител за реално взетите учебни/астрономически часове')], { alignment: AlignmentType.CENTER, spacing: { after: 60 } }))
   children.push(P([t('по Националната програма „Без свободен час“ за 2026 г.,')], { alignment: AlignmentType.CENTER, spacing: { after: 60 } }))
-  children.push(P([t('модул „Без свободен час в ЦСОП“')], { alignment: AlignmentType.CENTER, spacing: { after: 480 } }))
+  children.push(P([t('модул „Без свободен час в училище“')], { alignment: AlignmentType.CENTER, spacing: { after: 480 } }))
 
   // долуподписаният — редове с точки до края + пояснения
   children.push(P([t('Долуподписаният (ата) '), t(d.substituteName, { bold: true }), t(' '), dotTab()], { tabStops: DOTS }))
