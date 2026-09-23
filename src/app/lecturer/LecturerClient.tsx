@@ -46,7 +46,7 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
   const filtered = teachers.filter(t => t.name.toLowerCase().includes(tSearch.toLowerCase())).slice(0, 40)
 
   async function selectTeacher(id: string) {
-    setTeacherId(id); setTOpen(false); setTSearch('')
+    setTeacherId(id); setTOpen(false); setTSearch(''); setFrom(yearStart()); setTo('')
     setLoadingSched(true); setSchedule([]); setPicked(new Set())
     const res: any = await getTeacherSchedule(id)
     setSchedule(res.slots || [])
@@ -140,51 +140,127 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
   }, [marked, weeksCache])
   const grandTotal = byTeacher.reduce((a, t) => a + t.total, 0)
 
+  // цвят по период — за да се виждат групите на избрания учител
+  const PERIOD_COLORS = [
+    { cell: 'border-emerald-300 bg-emerald-50 text-emerald-800', dot: 'bg-emerald-400' },
+    { cell: 'border-sky-300 bg-sky-50 text-sky-800', dot: 'bg-sky-400' },
+    { cell: 'border-amber-300 bg-amber-50 text-amber-800', dot: 'bg-amber-400' },
+    { cell: 'border-violet-300 bg-violet-50 text-violet-800', dot: 'bg-violet-400' },
+    { cell: 'border-rose-300 bg-rose-50 text-rose-800', dot: 'bg-rose-400' },
+  ]
+  const myGroups = useMemo(() => {
+    const g: { key: string; from: string; to: string; count: number }[] = []
+    marked.filter(m => m.staffId === teacherId).forEach(m => {
+      const key = `${m.dateFrom}|${m.dateTo}`
+      const ex = g.find(x => x.key === key)
+      if (ex) ex.count++; else g.push({ key, from: m.dateFrom, to: m.dateTo, count: 1 })
+    })
+    return g.sort((x, y) => x.to.localeCompare(y.to))
+  }, [marked, teacherId])
+  const colorOf = (from: string, to: string) => PERIOD_COLORS[Math.max(0, myGroups.findIndex(g => g.key === `${from}|${to}`)) % PERIOD_COLORS.length]
+  const selectedInfo = byTeacher.find(t => t.id === teacherId)
+
+  function closeTeacher() { setTeacherId(''); setSchedule([]); setPicked(new Set()); setFrom(yearStart()); setTo('') }
+
   return (
-    <div className="space-y-5">
-      {/* Избор учител */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-800">Определяне на лекторски (над норматив)</h3>
-          <p className="text-xs text-slate-500 mt-1">1) Изберете учител → 2) маркирайте часовете <b>над норматива</b> му → 3) задайте период → <b>Добави</b>. Може да добавите няколко групи с различни периоди (напр. едни часове до 30.06, други само за I срок).</p>
+    <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
+      {/* ── ЛЯВО: списък с определените + обща заповед (не мърда) ── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden lg:sticky lg:top-4">
+        <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60 space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-800">Определени лекторски</h3>
+            <span className="text-xs text-slate-500">общо <span className="font-semibold text-slate-800">{grandTotal}</span> ч.</span>
+          </div>
+          <button onClick={downloadOrder} disabled={genning || byTeacher.length === 0}
+            className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-white text-xs font-medium hover:opacity-90 disabled:opacity-40" style={{ backgroundColor: '#0f2240' }}>
+            {genning ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />} Обща заповед
+          </button>
         </div>
-        <div className="relative max-w-sm">
-          <label className="block text-xs text-slate-500 mb-1">Учител</label>
-          <input type="text" value={teacherId ? teacherName : tSearch}
-            onChange={e => { setTSearch(e.target.value); setTeacherId(''); setTOpen(true) }}
+
+        {/* добавяне на учител */}
+        <div className="p-3 border-b border-slate-100 relative">
+          <input type="text" value={tSearch}
+            onChange={e => { setTSearch(e.target.value); setTOpen(true) }}
             onFocus={() => setTOpen(true)} onBlur={() => setTimeout(() => setTOpen(false), 150)}
-            placeholder="Търси учител…"
-            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400" />
-          {teacherId && <button onMouseDown={e => e.preventDefault()} onClick={() => { setTeacherId(''); setSchedule([]); setPicked(new Set()) }} className="absolute right-2 top-8 text-slate-400 hover:text-slate-600"><X size={14} /></button>}
-          {tOpen && !teacherId && (
-            <div className="absolute z-30 mt-1 w-full max-h-52 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg">
+            placeholder="+ Добави / търси учител…"
+            className="w-full px-3 py-2 bg-white border border-dashed border-slate-300 rounded-xl text-sm focus:outline-none focus:border-slate-400" />
+          {tOpen && (
+            <div className="absolute z-30 left-3 right-3 mt-1 max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg">
               {filtered.map(t => (
                 <button key={t.id} onMouseDown={e => e.preventDefault()} onClick={() => selectTeacher(t.id)}
                   className="w-full text-left px-3 py-1.5 text-sm hover:bg-slate-50 text-slate-700">{t.name}</button>
               ))}
+              {filtered.length === 0 && <div className="px-3 py-2 text-xs text-slate-400">Няма такъв</div>}
             </div>
           )}
         </div>
 
-        {!teacherId && (
-          <div className="flex items-center gap-2 text-sm text-slate-400">
-            <Users size={15} /> Изберете учител, за да видите разписанието му и да определите лекторските часове.
+        {byTeacher.length === 0 ? (
+          <div className="px-4 py-8 text-center text-sm text-slate-400">Още няма определени.</div>
+        ) : (
+          <div className="divide-y divide-slate-100 max-h-[60vh] overflow-y-auto">
+            {byTeacher.map(t => {
+              const sel = t.id === teacherId
+              return (
+                <div key={t.id} onClick={() => !sel && selectTeacher(t.id)}
+                  className={`flex items-center gap-2 px-4 py-2.5 cursor-pointer group border-l-4 ${sel ? 'bg-teal-50/70 border-l-teal-500' : 'border-l-transparent hover:bg-slate-50'}`}>
+                  <div className="min-w-0 flex-1">
+                    <div className={`text-sm truncate ${sel ? 'font-semibold text-teal-900' : 'text-slate-800'}`}>{t.name}</div>
+                    <div className="text-[11px] text-slate-500">{t.count} ч./седм. · общо <span className="font-medium text-slate-700">{t.total} ч.</span></div>
+                  </div>
+                  <button onClick={e => { e.stopPropagation(); removeTeacher(t.id) }}
+                    className="p-1.5 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100" title="Изтрий лекторските на учителя"><Trash2 size={13} /></button>
+                </div>
+              )
+            })}
           </div>
         )}
+      </div>
 
-        {teacherId && (
+      {/* ── ДЯСНО: избраният учител ── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
+        {!teacherId ? (
+          <div className="p-12 text-center text-slate-400">
+            <Users size={28} className="mx-auto mb-2 text-slate-300" />
+            <p className="text-sm">Изберете учител отляво — от списъка или с „+ Добави“.</p>
+            <p className="text-xs mt-1">После маркирате часовете над норматива, задавате период и „Добави“.</p>
+          </div>
+        ) : (
           <>
+            {/* заглавие — ясно кой е избран */}
+            <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 bg-teal-50/50 rounded-t-2xl">
+              <div className="min-w-0">
+                <div className="text-[10px] uppercase tracking-wider text-teal-700 font-semibold">Въвеждате лекторски за</div>
+                <div className="text-lg font-semibold text-slate-800 truncate">{teacherName}</div>
+                {selectedInfo && <div className="text-xs text-slate-500">{selectedInfo.count} ч./седм. · общо {selectedInfo.total} ч.</div>}
+              </div>
+              <button type="button" onClick={closeTeacher}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 shrink-0">
+                <Check size={14} /> Готово
+              </button>
+            </div>
+
             {loadingSched ? (
-              <div className="py-8 text-center text-slate-400"><Loader2 size={20} className="animate-spin inline" /></div>
+              <div className="py-12 text-center text-slate-400"><Loader2 size={20} className="animate-spin inline" /></div>
             ) : schedule.length === 0 ? (
-              <div className="py-6 text-center text-sm text-slate-400">Този учител няма въведено разписание.</div>
+              <div className="py-10 text-center text-sm text-slate-400">Този учител няма въведено разписание.</div>
             ) : (
-              <>
-                <p className="text-xs text-slate-500">Кликнете часовете <span className="font-medium text-slate-700">над норматива</span>. Зелените са вече записани (с техния период); за нова група с друг период маркирайте други свободни часове.</p>
+              <div className="p-4 space-y-3">
+                {/* легенда на записаните периоди */}
+                <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                  {myGroups.map(g => (
+                    <span key={g.key} className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border ${colorOf(g.from, g.to).cell}`}>
+                      <span className={`h-2 w-2 rounded-full ${colorOf(g.from, g.to).dot}`} /> {fmt(g.from)}–{fmt(g.to)} · {g.count} ч./седм.
+                    </span>
+                  ))}
+                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-slate-500 bg-slate-500 text-white">маркирани сега</span>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-slate-200 bg-slate-50 text-slate-600">свободни</span>
+                </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-sm">
                     <thead>
-                      <tr><th className="w-12 px-1 py-1.5 text-[10px] text-slate-400">Час</th>
+                      <tr><th className="w-10 px-1 py-1.5 text-[10px] text-slate-400">Час</th>
                         {DAYS.map(d => <th key={d.n} className="px-1 py-1.5 text-xs font-semibold text-slate-600">{d.l}</th>)}</tr>
                     </thead>
                     <tbody>
@@ -200,25 +276,23 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
                               <td key={d.n} className="p-1">
                                 {sl ? (
                                   saved ? (
-                                    <div className="relative w-full min-h-[42px] rounded-lg border border-emerald-300 bg-emerald-50 px-1.5 py-1 text-left">
-                                      <div className="text-[10px] text-emerald-700 opacity-80">{sl.holderLabel}</div>
-                                      <div className="text-[11px] truncate text-emerald-800">{sl.subject}</div>
-                                      <div className="text-[9px] text-emerald-600">{fmt(saved.dateFrom)}–{fmt(saved.dateTo)}</div>
+                                    <div className={`relative w-full min-h-[46px] rounded-lg border px-1.5 py-1 text-left ${colorOf(saved.dateFrom, saved.dateTo).cell}`}>
+                                      <div className="text-[10px] opacity-80 truncate pr-3">{sl.holderLabel}</div>
+                                      <div className="text-[11px] truncate">{sl.subject}</div>
+                                      <div className="text-[9px] opacity-80">{fmt(saved.dateFrom)}–{fmt(saved.dateTo)}</div>
                                       <button onClick={async () => {
                                         await removeLecturerSlot(teacherId, d.n, period)
                                         setMarked(prev => prev.filter(m => !(m.staffId === teacherId && m.day === d.n && m.period === period)))
-                                      }} className="absolute top-0.5 right-0.5 text-emerald-400 hover:text-rose-600" title="Премахни"><X size={11} /></button>
+                                      }} className="absolute top-0.5 right-0.5 opacity-50 hover:opacity-100 hover:text-rose-600" title="Премахни"><X size={11} /></button>
                                     </div>
                                   ) : (
-                                  <button onClick={() => togglePick(d.n, period)}
-                                    className={`w-full min-h-[42px] rounded-lg border px-1.5 py-1 text-left transition-all ${
-                                      on ? 'border-slate-500 bg-slate-500 text-white' : 'border-slate-200 bg-slate-50 hover:border-slate-400'
-                                    }`}>
-                                    <div className="text-[10px] opacity-80">{sl.holderLabel}</div>
-                                    <div className="text-[11px] truncate">{sl.subject}</div>
-                                  </button>
+                                    <button onClick={() => togglePick(d.n, period)}
+                                      className={`w-full min-h-[46px] rounded-lg border px-1.5 py-1 text-left transition-all ${on ? 'border-slate-500 bg-slate-500 text-white' : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-400'}`}>
+                                      <div className="text-[10px] opacity-80 truncate">{sl.holderLabel}</div>
+                                      <div className="text-[11px] truncate">{sl.subject}</div>
+                                    </button>
                                   )
-                                ) : <div className="min-h-[42px]" />}
+                                ) : <div className="min-h-[46px]" />}
                               </td>
                             )
                           })}
@@ -227,7 +301,9 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
                     </tbody>
                   </table>
                 </div>
-                <div className="flex items-end gap-3 flex-wrap pt-2 border-t border-slate-100">
+
+                {/* период + добави — точно под решетката на този учител */}
+                <div className="flex items-end gap-3 flex-wrap p-3 rounded-xl bg-slate-50 border border-slate-100">
                   <div>
                     <label className="block text-xs text-slate-500 mb-1">От</label>
                     <input type="date" value={from} onChange={e => { setFrom(e.target.value); if (to && e.target.value > to) setTo('') }}
@@ -238,57 +314,19 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
                     <div className="flex items-center gap-1.5">
                       <input type="date" value={to} min={from || undefined} onChange={e => setTo(e.target.value)}
                         className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400" />
-                      <button type="button" onClick={() => setTo('2027-05-31')} className="px-2 py-1.5 rounded-lg text-[11px] bg-slate-100 text-slate-600 hover:bg-slate-200">31.05</button>
-                      <button type="button" onClick={() => setTo('2027-06-15')} className="px-2 py-1.5 rounded-lg text-[11px] bg-slate-100 text-slate-600 hover:bg-slate-200">15.06</button>
-                      <button type="button" onClick={() => setTo('2027-06-30')} className="px-2 py-1.5 rounded-lg text-[11px] bg-slate-100 text-slate-600 hover:bg-slate-200">30.06</button>
+                      <button type="button" onClick={() => setTo('2027-05-31')} className="px-2 py-1.5 rounded-lg text-[11px] bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">31.05</button>
+                      <button type="button" onClick={() => setTo('2027-06-15')} className="px-2 py-1.5 rounded-lg text-[11px] bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">15.06</button>
+                      <button type="button" onClick={() => setTo('2027-06-30')} className="px-2 py-1.5 rounded-lg text-[11px] bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">30.06</button>
                     </div>
                   </div>
-                  <div className="text-sm text-slate-600 ml-auto">Маркирани: <span className="font-semibold text-slate-800">{pickedCount}</span> ч./седмица</div>
                   <button onClick={save} disabled={saving || pickedCount === 0 || !from || !to}
-                    className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-white text-sm font-medium disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
-                    {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Добави с този период
-                  </button>
-                  <button type="button" onClick={() => { setTeacherId(''); setSchedule([]); setPicked(new Set()); setFrom(yearStart()); setTo('') }}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm text-slate-600 bg-white border border-slate-200 hover:bg-slate-50">
-                    Готово
+                    className="ml-auto inline-flex items-center gap-2 px-5 py-2 rounded-xl text-white text-sm font-medium disabled:opacity-40 hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Добави {pickedCount > 0 ? `${pickedCount} ч.` : ''}
                   </button>
                 </div>
-              </>
+              </div>
             )}
           </>
-        )}
-      </div>
-
-      {/* Списък на определените */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/60">
-          <h3 className="text-sm font-semibold text-slate-800">Определени лекторски</h3>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-500">Предв. общо: <span className="font-semibold text-slate-800">{grandTotal}</span> ч.</span>
-            {byTeacher.length > 0 && (
-              <button onClick={downloadOrder} disabled={genning}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>
-                {genning ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />} Обща заповед
-              </button>
-            )}
-          </div>
-        </div>
-        {byTeacher.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-slate-400">Още няма определени лекторски.</div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {byTeacher.map(t => (
-              <div key={t.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 group">
-                <Users size={15} className="text-slate-400 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm text-slate-800">{t.name} {t.classes.length > 0 && <span className="text-xs text-slate-400 font-normal">· {t.classes.join(', ')}</span>}</div>
-                  <div className="text-xs text-slate-500">{t.count} часа седмично · общо <span className="font-medium text-slate-700">{t.total} ч.</span> · {t.periods.join('; ')}</div>
-                </div>
-                <button onClick={() => selectTeacher(t.id)} className="text-xs text-[#0f2240] hover:underline shrink-0">Редакция</button>
-                <button onClick={() => removeTeacher(t.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100"><Trash2 size={14} /></button>
-              </div>
-            ))}
-          </div>
         )}
       </div>
     </div>
