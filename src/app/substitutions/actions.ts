@@ -47,7 +47,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   // 1. Заместването
   const { data: sub } = await supabase
     .from('substitutions')
-    .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, reason, leave_order_number, leave_order_date, bsch_eligible,
+    .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, reason, leave_order_number, leave_order_date, bsch_eligible, kt_article,
        absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, position),
       sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name, position)`)
     .eq('id', substitutionId).single()
@@ -89,6 +89,10 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
     date: wd.iso.split('-').reverse().join('.'),
     items: bySlot.filter(s => s.day === wd.dow).map(s => ({ period: s.period, subject: s.subject, cls: s.cls })),
   }))
+  // НП при болничен (чл. 162): НП само за първите 2 работни дни, останалите — бюджет
+  const npSplit = (sub.bsch_eligible === true && (sub as any).kt_article === '162' && wds.length > 2)
+    ? { npFrom: wds[0].iso, npTo: wds[1].iso, budgetFrom: wds[2].iso, budgetTo: sub.date_to }
+    : null
 
     // 4. Номер от общия брояч — max seq +1 САМО в текущата деловодна година (15.09–14.09)
   const orderDate = new Date().toISOString().split('T')[0]
@@ -149,6 +153,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
       zdudName: zdud ? `${zdud.first_name} ${zdud.last_name}` : '',
             yearName: cy?.name || '',
       isBsch: sub.bsch_eligible === true,
+      npSplit,
       days,
       substitutes,
     },
