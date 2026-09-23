@@ -13,6 +13,14 @@ async function workdays(supabase: any, from: string, to: string): Promise<{ iso:
 }
 
 // ЦОУД етикет за възпитател (по coud_groups.teacher_id)
+// НП при болничен (чл. 162): финансират се само първите 2 работни дни от болничния
+// (тези, които плаща работодателят). Връща множеството НП дни или null = всички дни са НП.
+async function npDays(supabase: any, sub: { date_from: string; date_to: string; kt_article?: string | null; bsch_eligible?: boolean | null }): Promise<Set<string> | null> {
+  if (sub.bsch_eligible !== true) return new Set()
+  if (sub.kt_article !== '162') return null
+  const all = await workdays(supabase, sub.date_from, sub.date_to)
+  return new Set(all.slice(0, 2).map(w => w.iso))
+}
 async function coudLabel(supabase: any, staffId: string): Promise<string> {
   const { data } = await supabase.from('coud_groups').select('name').eq('teacher_id', staffId).limit(1).maybeSingle()
   if (!data?.name) return 'ЦОУД група'
@@ -309,7 +317,9 @@ export async function getMonthlyDeclaration(first: string, last: string) {
     const lo = sub.date_from > first ? sub.date_from : first
     const hi = sub.date_to < last ? sub.date_to : last
     const wds = await workdays(supabase, lo, hi)
+    const npSet = await npDays(supabase, sub)
     for (const w of wds) {
+      const isNp = npSet === null ? true : npSet.has(w.iso)
       const dayItems = bySlot.filter(s => s.day === w.dow)
       if (dayItems.length === 0) continue
       const dateStr = w.iso.split('-').reverse().join('.')
@@ -321,7 +331,7 @@ export async function getMonthlyDeclaration(first: string, last: string) {
       })
       Object.entries(byCls).forEach(([cls, v]) => rows.push({
         date: dateStr, orderRef, cls, subject: v.subjects.join('; '), hours: v.hours,
-               bsch: sub.bsch_eligible === true, kt: sub.kt_article || '',
+               bsch: isNp, kt: sub.kt_article || '',
         absentName: sub.absent ? `${(sub.absent as any).first_name} ${(sub.absent as any).last_name}` : '',
       }))
     }
@@ -392,8 +402,9 @@ export async function getMonExport(first: string, last: string, rate: number) {
     const lo = sub.date_from > first ? sub.date_from : first
     const hi = sub.date_to < last ? sub.date_to : last
     const wds = await workdays(supabase, lo, hi)
+    const npSet = await npDays(supabase, sub)   // при чл. 162 — само първите 2 работни дни
     let hours = 0
-    wds.forEach(w => { hours += (bySlotDow[w.dow] || 0) })
+    wds.forEach(w => { if (npSet === null || npSet.has(w.iso)) hours += (bySlotDow[w.dow] || 0) })
     if (hours === 0) continue
     const isNonSpec = /възпитател|помощник|психолог|логопед|рехабилитатор/i.test((sub.sub as any)?.position || '')
     rows.push({
