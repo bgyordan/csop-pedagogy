@@ -52,8 +52,6 @@ export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId
   const maxP = all.reduce((m, s) => Math.max(m, s.period), 0)
   const PERIODS = [1, 2, 3, 4, 5, 6, ...(all.some(s => s.period === 7) ? [7] : []), ...(maxP >= 8 ? [8, 9, 10, 11, 12] : [])]
   const at = (day: number, period: number) => all.filter(s => s.day === day && s.period === period)
-  const daySlots = (day: number) => all.filter(s => s.day === day)
-  const dayW = (day: number) => r1(daySlots(day).reduce((a, s) => a + w(s), 0))
 
   async function handleWord() {
     if (all.length === 0) return
@@ -98,7 +96,6 @@ export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId
             <span title={`${totalClass} в паралелка · ${totalIfo} ИФО${pulloutCount ? ` · ${pulloutCount} × 0,7` : ''}`}
               className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border ${normOk ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
               <Clock size={12} /> {fmt(weighted)} / {NORM} ч.
-              <span className="text-[10px] opacity-70">({all.length} часа{pulloutCount ? `, ${pulloutCount} × 0,7` : ''})</span>
             </span>
           )}
           {all.length > 0 && (
@@ -170,17 +167,6 @@ export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId
                   </tr>
                 ))}
               </tbody>
-              <tfoot>
-                <tr className="border-t border-slate-200 bg-slate-50/60">
-                  <td className="px-2 py-2 text-center text-[10px] font-semibold text-slate-400 uppercase">Общо</td>
-                  {daysShown.map(d => (
-                    <td key={d.n} className="px-2 py-2 text-center">
-                      <span className="text-sm font-medium text-slate-700">{fmt(dayW(d.n))}</span>
-                      {dayW(d.n) !== daySlots(d.n).length && <span className="text-[10px] text-slate-400 ml-1">({daySlots(d.n).length} ч.)</span>}
-                    </td>
-                  ))}
-                </tr>
-              </tfoot>
             </table>
           </div>
         </>
