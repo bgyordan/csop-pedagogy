@@ -41,15 +41,15 @@ export default async function DashboardPage() {
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 animate-in fade-in duration-700 space-y-6">
 
-      {/* Тъмносин хедър */}
-      <div className="bg-[#0f2240] text-white p-6 md:p-8 rounded-3xl shadow-sm relative overflow-hidden">
+      {/* Хедър — синкаво-зелен */}
+      <div className="bg-gradient-to-r from-teal-600 to-cyan-600 text-white p-6 md:p-8 rounded-3xl shadow-sm relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight">
+            <h1 className="text-xl md:text-2xl font-semibold tracking-tight">
               Добре дошли в Информационната система на ЦСОП-Варна!
             </h1>
-            <p className="text-sm text-sky-100/80 mt-1.5">
-              Влязохте като <strong>{profile.first_name} {profile.last_name}</strong>{' '}
+            <p className="text-sm text-teal-50/90 mt-1.5">
+              Влязохте като <span className="font-semibold">{profile.first_name} {profile.last_name}</span>{' '}
               ({roleLabel}{isCoordinator ? ' & Координатор' : ''}).
             </p>
             <div className="mt-3">
@@ -57,13 +57,13 @@ export default async function DashboardPage() {
             </div>
           </div>
           <div className="flex-shrink-0 text-right">
-            <div className="text-[10px] font-bold uppercase tracking-widest text-sky-200/60 mb-1">
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-teal-50/80 mb-1">
               {isSecretary ? 'Деловодство' : 'Учебна година'}
             </div>
-            <div className="text-base font-bold text-white bg-white/10 px-4 py-1.5 rounded-xl border border-white/10">
+            <div className="text-base font-semibold text-white bg-white/15 px-4 py-1.5 rounded-xl border border-white/20">
               {isSecretary ? 'ЦСОП Варна' : currentYear.name}
             </div>
-            <div className="text-[10px] text-sky-100/50 mt-1.5 font-mono">
+            <div className="text-sm text-teal-50/90 mt-1.5">
               {new Date().toLocaleDateString('bg-BG', { weekday: 'long', day: 'numeric', month: 'long' })}
             </div>
           </div>
