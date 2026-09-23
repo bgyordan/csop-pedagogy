@@ -40,7 +40,7 @@ export default async function LecturerPage() {
   }))
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto animate-in fade-in duration-500">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto animate-in fade-in duration-500">
       <BackButton />
       <header className="flex items-center gap-4 mt-2 mb-7 pb-5 border-b border-slate-100">
         <div className="flex items-center justify-center shrink-0 w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 shadow-sm text-blue-600">
