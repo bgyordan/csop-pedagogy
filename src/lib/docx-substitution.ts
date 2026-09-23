@@ -51,6 +51,7 @@ export interface SubstOrderData {
   yearName: string
   days: { date: string; items: { period: number; subject: string; cls: string }[] }[]
   substitutes?: { name: string; position: string; from: string; to: string; overNorm: boolean }[]
+  npSplit?: { npFrom: string; npTo: string; budgetFrom: string; budgetTo: string } | null
 }
 
 // Матрица на седмичното разписание: дни (Пн-Пт) колони, часове редове.
@@ -172,7 +173,8 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
   children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
     normal('2. Заместването да се извърши за периода от ', 22),
     bold(df, 22), normal(' до ', 22), bold(dt, 22),
-    normal(' включително, съгласно утвърденото седмично разписание на отсъстващия титуляр:', 22),
+    normal(' включително, общо ', 22), bold(`${d.days.reduce((a, x) => a + x.items.length, 0)} учебни часа`, 22),
+    normal(', съгласно утвърденото седмично разписание на отсъстващия титуляр:', 22),
   ] }))
 
   // Матрица (при няколко заместника — по една на всеки с неговия под-период)
@@ -199,7 +201,12 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
     P('3. Проведените часове по заместването да се изплатят на заместващия педагогически специалист като лекторски часове.')
     children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
       normal('4. Източник на финансиране: ', 22),
-      bold(d.isBsch ? 'Национална програма „Без свободен час", Модул 1.' : 'бюджет на ЦСОП (собствени средства).', 22),
+      ...(d.isBsch && d.npSplit
+        ? [bold('Национална програма „Без свободен час", Модул 1', 22),
+           normal(` – за ${formatDate(d.npSplit.npFrom)} – ${formatDate(d.npSplit.npTo)} (първите два работни дни от временната неработоспособност); `, 22),
+           bold('бюджет на ЦСОП (собствени средства)', 22),
+           normal(` – за ${formatDate(d.npSplit.budgetFrom)} – ${formatDate(d.npSplit.budgetTo)}.`, 22)]
+        : [bold(d.isBsch ? 'Национална програма „Без свободен час", Модул 1.' : 'бюджет на ЦСОП (собствени средства).', 22)]),
     ] }))
     P('5. Отчитането да се извърши в края на месеца въз основа на данните в електронния дневник и представена справка-декларация. Възнаграждението да се изплати съгласно ВПРЗ на Центъра.')
     n = 5
