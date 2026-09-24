@@ -38,7 +38,9 @@ const PERIOD_LABEL: Record<number, string> = {
 const NORM = 21
 const r1 = (x: number) => Math.round(x * 10) / 10
 const fmt = (x: number) => r1(x).toLocaleString('bg-BG', { maximumFractionDigits: 1 })
-const w = (s: { allowsPullout: boolean }) => (s.allowsPullout ? 0.7 : 1)
+// „Час на класа“ винаги = 1, дори да е маркиран с вземане
+const w = (s: { allowsPullout: boolean; subjectName: string }) =>
+  (s.allowsPullout && !s.subjectName.toLowerCase().includes('час на класа') ? 0.7 : 1)
 export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId, staffName, yearName }: Props) {
   const staffQ = staffId ? `&staff=${staffId}` : ''
   const [activeDay, setActiveDay] = useState<number | 'all'>('all')
@@ -47,7 +49,7 @@ export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId
   const totalClass = classSlots.length
   const totalIfo = ifoSlots.length
   const weighted = r1(all.reduce((a, s) => a + w(s), 0))
-  const pulloutCount = all.filter(s => s.allowsPullout).length
+  const pulloutCount = all.filter(s => w(s) < 1).length
   const normOk = weighted >= NORM
   const maxP = all.reduce((m, s) => Math.max(m, s.period), 0)
   const PERIODS = [1, 2, 3, 4, 5, 6, ...(all.some(s => s.period === 7) ? [7] : []), ...(maxP >= 8 ? [8, 9, 10, 11, 12] : [])]
@@ -73,7 +75,7 @@ export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId
         </div>
         <div className="flex items-center gap-1">
           <div className="text-xs text-slate-700 truncate">{s.subjectName}</div>
-          {s.allowsPullout && <span className="shrink-0 text-[9px] px-1 rounded bg-teal-50 text-teal-700 border border-teal-100">0,7</span>}
+          {w(s) < 1 && <span className="shrink-0 text-[9px] px-1 rounded bg-teal-50 text-teal-700 border border-teal-100">0,7</span>}
         </div>
       </div>
     )
