@@ -134,7 +134,12 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
 
   // ── Брой часове: обикновен час = 1, час с „позволява вземане“ (терапии) = 0,7 ──
   const NORM = 21
-  const weightOf = (subjectId: string) => subjectList.find(s => s.id === subjectId)?.allows_pullout ? 0.7 : 1
+  // „Час на класа“ винаги = 1, дори да е маркиран с вземане
+  const weightOf = (subjectId: string) => {
+    const sub = subjectList.find(s => s.id === subjectId)
+    if (!sub?.allows_pullout) return 1
+    return (sub.name || '').toLowerCase().includes('час на класа') ? 1 : 0.7
+  }
   const r1 = (x: number) => Math.round(x * 10) / 10
   const fmt = (x: number) => r1(x).toLocaleString('bg-BG', { maximumFractionDigits: 1 })
   const cellsAll = Object.entries(grid)
