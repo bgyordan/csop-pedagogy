@@ -1575,6 +1575,18 @@ export async function generateAndDownloadDocument(
   data: Record<string, string>,
   yearName: string
 ) {
+  const blob = await buildStudentDocumentBlob(docType, student, team, data, yearName)
+  saveAs(blob, `${docType}_${getFullName(student).replace(/ /g, '_')}_${yearName}.docx`)
+}
+
+// Същият документ като Blob (за качване в Drive)
+export async function buildStudentDocumentBlob(
+  docType: DocumentType,
+  student: Student,
+  team: { psychologist?: StaffProfile; speech_therapist?: StaffProfile; rehabilitator?: StaffProfile; class_teacher?: StaffProfile },
+  data: Record<string, string>,
+  yearName: string
+): Promise<Blob> {
   let doc: Document
   switch (docType) {
     case 'protocol_1': doc = generateProtocol1(student, team, data, yearName); break
@@ -1585,8 +1597,7 @@ export async function generateAndDownloadDocument(
     case 'parent_program': doc = generateParentProgram(student, team, data, yearName); break
     default: doc = generateProtocol1(student, team, data, yearName)
   }
-  const blob = await Packer.toBlob(doc)
-  saveAs(blob, `${docType}_${getFullName(student).replace(/ /g, '_')}_${yearName}.docx`)
+  return Packer.toBlob(doc)
 }
 
 // ── ПИСМО ДО УЧИЛИЩЕ ─────────────────────────────────────────────────────────
