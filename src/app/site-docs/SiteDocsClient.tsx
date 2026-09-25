@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import {
   FileText, Upload, Loader2, Trash2, Download, Plus, X, Check,
   Search, Pencil, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ArrowLeft,
-  Newspaper, CalendarDays, Images, LayoutTemplate, EyeOff, Star, MapPin, Clock, Briefcase, Mail, Copy,
+  Newspaper, CalendarDays, Images, ImagePlus, LayoutTemplate, EyeOff, Star, MapPin, Clock, Briefcase, Mail, Copy,
 } from 'lucide-react'
 
 const ACCENT = '#0f2240'
@@ -63,6 +63,7 @@ const TABS = [
   { id: 'gallery', label: 'Галерия', icon: Images },
   { id: 'hero', label: 'Начална страница', icon: LayoutTemplate },
   { id: 'jobs', label: 'Кариери', icon: Briefcase },
+  { id: 'site-images', label: 'Снимки за сайта', icon: ImagePlus },
 ]
 
 /* ═══════════════ малки помощници за UI ═══════════════ */
@@ -141,6 +142,7 @@ export default function SiteDocsClient({
       {tab === 'gallery' && <GalleryManager initialAlbums={albums} initialPhotos={photos} />}
       {tab === 'hero' && <HeroManager photos={photos} albums={albums} initialSelected={heroPhotos} />}
       {tab === 'jobs' && <JobsManager initial={jobs} authorId={authorId} subscribers={subscribers} />}
+      {tab === 'site-images' && <SiteImagesManager />}
     </div>
   )
 }
@@ -982,6 +984,117 @@ function HeroManager({ photos, albums, initialSelected }: { photos: Photo[]; alb
         </div>
       </>)}
 
+      <Toast notice={notice} />
+    </div>
+  )
+}
+
+
+/* ═══════════════ СНИМКИ ЗА САЙТА (склад, не се показват като галерия) ═══════════════ */
+const SITE_IMG_DIR = 'site'
+const TR: Record<string, string> = { а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ж:'zh',з:'z',и:'i',й:'y',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'h',ц:'ts',ч:'ch',ш:'sh',щ:'sht',ъ:'a',ь:'y',ю:'yu',я:'ya' }
+function slugName(name: string) {
+  const base = name.replace(/\.[^.]+$/, '').toLowerCase().split('').map((c) => TR[c] ?? c).join('')
+  return base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'snimka'
+}
+// Смалява до 2000px по дългата страна (снимките от телефон са по 5–8 MB)
+async function shrinkImage(file: File): Promise<Blob> {
+  if (!file.type.startsWith('image/') || file.type === 'image/svg+xml' || file.type === 'image/gif') return file
+  const bmp = await createImageBitmap(file)
+  const max = 2000; const k = Math.min(1, max / Math.max(bmp.width, bmp.height))
+  if (k === 1 && file.size < 1_500_000) return file
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k)
+  c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height)
+  const png = file.type === 'image/png'
+  return await new Promise<Blob>((res) => c.toBlob((b) => res(b || file), png ? 'image/png' : 'image/jpeg', 0.85))
+}
+
+function SiteImagesManager() {
+  const supabase = createClient()
+  const [items, setItems] = useState<{ name: string; size: number; url: string }[] | null>(null)
+  const [busy, setBusy] = useState(false); const [q, setQ] = useState('')
+  const [notice, setNotice] = useState<{ msg: string; err?: boolean } | null>(null)
+  const flash = (msg: string, err = false) => { setNotice({ msg, err }); setTimeout(() => setNotice((p) => (p?.msg === msg ? null : p)), 3000) }
+  const urlOf = (name: string) => supabase.storage.from('public-media').getPublicUrl(`${SITE_IMG_DIR}/${name}`).data.publicUrl
+
+  async function load() {
+    const { data, error } = await supabase.storage.from('public-media').list(SITE_IMG_DIR, { limit: 1000, sortBy: { column: 'created_at', order: 'desc' } })
+    if (error) { flash(error.message, true); setItems([]); return }
+    setItems((data || []).filter((f) => f.name && !f.name.startsWith('.')).map((f) => ({ name: f.name, size: (f.metadata as any)?.size || 0, url: urlOf(f.name) })))
+  }
+  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function upload(files: FileList) {
+    setBusy(true)
+    try {
+      const taken = new Set((items || []).map((i) => i.name))
+      for (const f of Array.from(files)) {
+        const blob = await shrinkImage(f)
+        const ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/jpeg' ? 'jpg' : (f.name.split('.').pop() || 'jpg').toLowerCase()
+        const base = slugName(f.name); let name = `${base}.${ext}`; let n = 2
+        while (taken.has(name)) name = `${base}-${n++}.${ext}`
+        taken.add(name)
+        const { error } = await supabase.storage.from('public-media').upload(`${SITE_IMG_DIR}/${name}`, blob, { contentType: blob.type || f.type })
+        if (error) throw error
+      }
+      flash(`Качени ${files.length} снимки.`); await load()
+    } catch (e: unknown) { flash(e instanceof Error ? e.message : 'Грешка при качване.', true) } finally { setBusy(false) }
+  }
+  async function remove(name: string) {
+    if (!confirm(`Изтриване на „${name}"? Ако е сложена на страница от сайта, там ще изчезне.`)) return
+    const { error } = await supabase.storage.from('public-media').remove([`${SITE_IMG_DIR}/${name}`])
+    if (error) { flash(error.message, true); return }
+    setItems((p) => (p || []).filter((i) => i.name !== name)); flash('Изтрито.')
+  }
+  async function copy(text: string, what: string) { try { await navigator.clipboard.writeText(text); flash(`Копирано: ${what}`) } catch { flash('Не можах да копирам.', true) } }
+
+  const shown = (items || []).filter((i) => !q.trim() || i.name.includes(q.trim().toLowerCase()))
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-3 mb-5">
+        <div>
+          <div className="text-slate-800 font-semibold text-[15px]">Снимки за сайта</div>
+          <div className="text-slate-500 text-[12.5px] mt-0.5">Склад за снимки, които се слагат по страниците. Не се показват като галерия. {items ? `${items.length} снимки` : ''}</div>
+        </div>
+        <div className="flex-1" />
+        <div className="relative">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Търси по име…" className="pl-9 pr-3 py-2 w-56 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400" />
+        </div>
+        <label className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-medium cursor-pointer ${busy ? 'opacity-60 pointer-events-none' : ''}`} style={{ backgroundColor: ACCENT }}>
+          {busy ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />} Качи снимки
+          <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { if (e.target.files?.length) upload(e.target.files); e.currentTarget.value = '' }} />
+        </label>
+      </div>
+
+      {items === null ? (
+        <div className="flex justify-center py-16 text-slate-400"><Loader2 className="animate-spin" /></div>
+      ) : shown.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-2xl border border-slate-100">
+          <ImagePlus size={28} className="mx-auto mb-2 text-slate-300" />
+          <p className="text-sm text-slate-500">{items.length ? 'Няма съвпадение.' : 'Още няма качени снимки.'}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          {shown.map((i) => (
+            <div key={i.name} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5 group">
+              <a href={i.url} target="_blank" rel="noopener noreferrer" className="block aspect-[4/3] bg-slate-50">
+                <img src={i.url} alt={i.name} loading="lazy" className="w-full h-full object-cover" />
+              </a>
+              <div className="px-3 py-2.5">
+                <div className="text-[13px] text-slate-800 truncate" title={i.name}>{i.name}</div>
+                <div className="flex items-center gap-1 mt-1.5">
+                  <span className="text-[11px] text-slate-400">{i.size ? `${Math.round(i.size / 1024)} KB` : ''}</span>
+                  <div className="flex-1" />
+                  <button onClick={() => copy(i.name, i.name)} title="Копирай името" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50"><Copy size={14} /></button>
+                  <button onClick={() => remove(i.name)} title="Изтрий" className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"><Trash2 size={14} /></button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       <Toast notice={notice} />
     </div>
   )
