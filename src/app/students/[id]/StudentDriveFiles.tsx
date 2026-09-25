@@ -5,8 +5,6 @@ import { createClient } from '@/lib/supabase/client'
 import { FileText, FileSpreadsheet, Presentation, File, ExternalLink, Plus, Trash2, X, FilePlus2 } from 'lucide-react'
 import { createDriveDoc } from './drive-actions'
 
-const PRESETS = ['Протокол 1', 'Протокол 2', 'Протокол 3', 'План за подкрепа']
-
 type DriveFile = {
   id: string
   title: string
@@ -139,21 +137,11 @@ export default function StudentDriveFiles({ studentId }: { studentId: string }) 
 
       {creating && (
         <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50/60 p-4 space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {PRESETS.map((p) => (
-              <button
-                key={p}
-                onClick={() => setNewTitle(p)}
-                className={`text-xs rounded-full px-3 py-1 border transition ${newTitle === p ? 'bg-[#0f2240]/10 border-[#0f2240]/40 text-[#0f2240]' : 'border-gray-200 text-gray-600 hover:bg-white'}`}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
+          <p className="text-xs text-gray-500">Празен документ за свободни бележки. Протоколите и плановете се отварят в Drive от генератора, попълнени.</p>
           <input
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="Име на документа"
+            placeholder="Име, напр. Бележки от среща с родител"
             className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0f2240]/20"
           />
           {error && <p className="text-sm text-red-600">{error}</p>}
