@@ -385,7 +385,10 @@ function NewsManager({ initial, authorId }: { initial: News[]; authorId: string 
       }
       if (coverNew !== null && newUrls[coverNew]) coverUrl = newUrls[coverNew]
       const galleryAll = [...gallery, ...newUrls]
-      const payload = { title: title.trim(), excerpt: excerpt.trim() || null, content: content.trim() || null, cover_url: coverUrl, gallery_images: galleryAll, category, status, author_id: authorId, published_at: status === 'published' ? new Date().toISOString() : null }
+      const payload = { title: title.trim(), excerpt: excerpt.trim() || null, content: content.trim() || null, cover_url: coverUrl, gallery_images: galleryAll, category, status,
+        // при редакция пазим оригиналната дата и автор (иначе мигрираните новини стават „днес“)
+        ...(editId ? {} : { author_id: authorId }),
+        published_at: status === 'published' ? (list.find((x) => x.id === editId)?.published_at || new Date().toISOString()) : null }
       if (editId) { const { data, error } = await supabase.from('site_news').update(payload).eq('id', editId).select('*').single(); if (error) throw error; setList((p) => p.map((x) => x.id === editId ? (data as News) : x)) }
       else { const { data, error } = await supabase.from('site_news').insert(payload).select('*').single(); if (error) throw error; setList((p) => [data as News, ...p]) }
       setDrawer(false); flash(status === 'published' ? 'Публикувано.' : 'Запазено като чернова.'); router.refresh()
