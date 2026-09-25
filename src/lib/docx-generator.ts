@@ -1,8 +1,39 @@
 import {
-  Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+  Document, Packer, Paragraph, TextRun, Table as DocxTable, TableRow, TableCell,
   WidthType, HeadingLevel, AlignmentType, BorderStyle, ShadingType,
   convertInchesToTwip, PageOrientation, ImageRun,
 } from 'docx'
+import type { ITableOptions } from 'docx'
+
+// Таблиците без columnWidths се записват с колони по 100 twips. Word ги разширява сам,
+// но Google Docs ги показва свити. Тук ширините се изчисляват от ширините на клетките.
+const CONTENT_TW = 9000
+
+function autoColumnWidths(rows: readonly TableRow[]): number[] {
+  const row = rows.reduce((a, r) => (r.cells.length > a.cells.length ? r : a), rows[0])
+  const n = row.cells.length
+  let pct: (number | null)[] = row.cells.map((c) => {
+    const w: any = c.options.width
+    if (!w || w.size == null) return null
+    const size = Number(String(w.size).replace('%', ''))
+    if (!isFinite(size) || size <= 0) return null
+    if (w.type === WidthType.DXA) return (size / CONTENT_TW) * 100
+    if (w.type === WidthType.PERCENTAGE) return size
+    return null
+  })
+  const known = pct.reduce<number>((a, x) => a + (x ?? 0), 0)
+  const unknown = pct.filter((x) => x == null).length
+  const rest = unknown ? Math.max(100 - known, unknown * 5) / unknown : 0
+  const filled = pct.map((x) => x ?? rest)
+  const sum = filled.reduce((a, b) => a + b, 0) || n
+  return filled.map((p) => Math.round((p / sum) * CONTENT_TW))
+}
+
+class Table extends DocxTable {
+  constructor(opts: ITableOptions) {
+    super(opts.columnWidths || !opts.rows?.length ? opts : { ...opts, columnWidths: autoColumnWidths(opts.rows) })
+  }
+}
 import { saveAs } from 'file-saver'
 import { DocumentType, StaffProfile, Student } from '@/types'
 import { formatDate, getFullName } from './utils'
@@ -392,7 +423,7 @@ function generateSupportPlan(student: Student, team: any, data: Record<string, s
         line('Начин на оценяване', data.assessment_type || ''),
         line('Разработен индивидуален учебен план и/или индивидуални учебни програми по предмети', data.iup_note || ''),
         new Paragraph({ spacing: { before: 80, after: 200 }, children: [normal('Допълнителната подкрепа за личностно развитие се осъществява за:', 22)] }),
-        new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: rehabRows }),
+        new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [7200, 1800], rows: rehabRows }),
         new Paragraph({ text: '' }),
 
         new Paragraph({ spacing: { after: 60 }, children: [bold('Данни за родителите/настойниците', 22)] }),
