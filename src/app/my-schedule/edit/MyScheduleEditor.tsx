@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Loader2, Check, Plus, X, Save, AlertTriangle, Copy } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { saveMySchedule, checkClassCollision, addSubjectQuick, type MyCell } from './actions'
+import { saveMySchedule, checkClassCollision, addSubjectQuick, releaseClassSlot, type MyCell } from './actions'
 
 type Cls = { id: string; name: string }
 type Stud = { id: string; name: string }
@@ -23,10 +23,14 @@ const DAYS = [
 ]
 
 
-export default function MyScheduleEditor({ academicYearId, term, classes, students, subjects, initialSlots, myClassTeacherIds = [], targetStaffId }: {
+export default function MyScheduleEditor({ academicYearId, term, classes, students, subjects, initialSlots, myClassTeacherIds = [], targetStaffId, taken = {} }: {
   academicYearId: string; term: number; classes: Cls[]; students: Stud[]; subjects: Subj[]; initialSlots: Slot[]; myClassTeacherIds?: string[]; targetStaffId?: string
+  taken?: Record<string, Record<string, { by: string; subject: string }>>
 }) {
   const { toast } = useToast()
+  const [takenMap, setTakenMap] = useState(taken)
+  const [busyOpen, setBusyOpen] = useState<string | null>(null)
+  const [releasing, setReleasing] = useState(false)
   const [subjectList, setSubjectList] = useState<Subj[]>(subjects)
   const [show7, setShow7] = useState<boolean>(() => initialSlots.some(s => s.period === 7))
   const [showAfternoon, setShowAfternoon] = useState<boolean>(() => initialSlots.some(s => s.period >= 8))
@@ -131,6 +135,25 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
   }
 
   const hasHolders = myClasses.length > 0 || myStudents.length > 0
+  // заетите от други учители клетки в АКТИВНАТА паралелка
+  const activeClassId = active.startsWith('class:') ? active.split(':')[1] : ''
+  const takenHere = activeClassId ? (takenMap[activeClassId] || {}) : {}
+  const takenCount = Object.keys(takenHere).length
+  // класният на активната паралелка (или мениджър, който нарежда от името на класния) е „шеф“ на паралелката
+  const isBoss = !!activeClassId && myClassTeacherIds.includes(activeClassId)
+
+  async function release(day: number, period: number) {
+    const key = `${day}-${period}`
+    const b = takenHere[key]
+    if (!b || !confirm(`Да се освободи ${period}. час (${b.by}${b.subject ? ' · ' + b.subject : ''})? Часът ще изчезне от разписанието на ${b.by}.`)) return
+    setReleasing(true)
+    const res: any = await releaseClassSlot(activeClassId, academicYearId, term, day, period, targetStaffId)
+    setReleasing(false)
+    if (res.error) { toast(res.error, 'error'); return }
+    setTakenMap(prev => { const n = { ...prev, [activeClassId]: { ...(prev[activeClassId] || {}) } }; delete n[activeClassId][key]; return n })
+    setBusyOpen(null)
+    toast('Часът е освободен')
+  }
 
   // ── Брой часове: обикновен час = 1, час с „позволява вземане“ (терапии) = 0,7 ──
   const NORM = 21
@@ -213,6 +236,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
           </div>
         </div>
         {hasHolders && !active && <div className="text-xs text-amber-600 mt-2">Избери активна паралелка/ученик, за да нареждаш.</div>}
+        {takenCount > 0 && <div className="text-xs text-slate-500 mt-2">Сивите клетки са заети от други учители в паралелка {clsName(activeClassId)} ({takenCount} ч.).{isBoss ? ' Като класен можеш да освободиш час с клик върху него.' : ''}</div>}
       </div>
 
       {hasHolders && (
@@ -281,6 +305,31 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
                     const key = `${d.n}-${period}`
                     const cell = grid[key]
                     const collided = collisions[key]
+                    const busy = !cell ? takenHere[key] : undefined
+                    if (busy) return (
+                      <td key={d.n} className="px-1.5 py-1.5 align-top relative">
+                        <div title={`Заето: ${busy.by}${busy.subject ? ' · ' + busy.subject : ''}`}
+                          onClick={() => isBoss && setBusyOpen(busyOpen === key ? null : key)}
+                          className={`w-full min-h-[56px] rounded-xl bg-slate-100 border border-slate-100 px-2.5 py-2 select-none ${isBoss ? 'cursor-pointer hover:border-slate-300' : 'cursor-not-allowed'}`}>
+                          <div className="text-[11px] text-slate-500 truncate">{busy.by}</div>
+                          <div className="text-xs text-slate-400 truncate">{busy.subject || 'заето'}</div>
+                        </div>
+                        {isBoss && busyOpen === key && (
+                          <div className="absolute z-40 mt-1 left-1.5 w-60 bg-white border border-slate-200 rounded-xl shadow-xl p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-semibold text-slate-500 uppercase">Зает час</span>
+                              <button onClick={() => setBusyOpen(null)} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+                            </div>
+                            <div className="text-sm text-slate-700">{busy.by}</div>
+                            {busy.subject && <div className="text-xs text-slate-500">{busy.subject}</div>}
+                            <button onClick={() => release(d.n, period)} disabled={releasing}
+                              className="w-full mt-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 text-xs font-medium hover:bg-rose-50 disabled:opacity-50">
+                              {releasing ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />} Освободи часа
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    )
                     return (
                       <td key={d.n} className="px-1.5 py-1.5 align-top relative">
                         <button onClick={() => onCellClick(d.n, period)}
