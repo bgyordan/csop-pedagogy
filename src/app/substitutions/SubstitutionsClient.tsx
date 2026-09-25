@@ -28,7 +28,8 @@ function statusOf(r: SubRow): { label: string; cls: string } {
   if (r.substituteId) return { label: 'Готово за заповед', cls: 'bg-blue-50 text-blue-600' }
   return { label: 'Чака заместник', cls: 'bg-amber-50 text-amber-600' }
 }
-const todayStr = () => new Date().toISOString().split('T')[0]
+const BACK_DAYS = 7 // колко календарни дни назад може да се въвежда заместване
+const todayStr = () => { const d = new Date(); d.setDate(d.getDate() - BACK_DAYS); return d.toISOString().split('T')[0] }
 function isWeekend(d: string) { const day = new Date(d + 'T00:00').getDay(); return day === 0 || day === 6 }
 
 // Първият (по календарен ред) зает ден → неговият заместник (за представителен запис)
