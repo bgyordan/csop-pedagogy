@@ -15,7 +15,7 @@ export default async function SiteDocsPage() {
     .order('sort_order', { ascending: true })
 
   const { data: news } = await supabase.from('site_news')
-    .select('id, title, excerpt, content, cover_url, category, status, published_at, created_at')
+    .select('id, title, excerpt, content, cover_url, gallery_images, category, status, published_at, created_at')
     .order('created_at', { ascending: false })
 
   const { data: events } = await supabase.from('site_events')
