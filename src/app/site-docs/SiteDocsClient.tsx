@@ -15,7 +15,7 @@ const MONTHS_SHORT = ['яну', 'фев', 'мар', 'апр', 'май', 'юни'
 
 /* ═══════════════ типове ═══════════════ */
 interface Doc { id: string; name: string; file_url: string; academic_year: string | null; section: string; category: string | null; on_site: boolean; sort_order: number }
-interface News { id: string; title: string; excerpt: string | null; content: string | null; cover_url: string | null; category: string; status: string; published_at: string | null; created_at: string }
+interface News { id: string; title: string; excerpt: string | null; content: string | null; cover_url: string | null; gallery_images?: string[] | null; category: string; status: string; published_at: string | null; created_at: string }
 interface Ev { id: string; title: string; event_date: string; event_time: string | null; location: string | null; description: string | null }
 interface Album { id: string; title: string; cover_url: string | null; event_date: string | null; sort_order: number }
 interface Photo { id: string; album_id: string; photo_url: string; caption: string | null; sort_order: number }
@@ -350,6 +350,8 @@ function NewsManager({ initial, authorId }: { initial: News[]; authorId: string 
   const [title, setTitle] = useState(''); const [category, setCategory] = useState('Новини')
   const [excerpt, setExcerpt] = useState(''); const [content, setContent] = useState('')
   const [file, setFile] = useState<File | null>(null); const [existingCover, setExistingCover] = useState<string | null>(null)
+  const [gallery, setGallery] = useState<string[]>([]); const [galleryFiles, setGalleryFiles] = useState<File[]>([])
+  const [coverNew, setCoverNew] = useState<number | null>(null) // корица = нова (още некачена) снимка от галерията
   const [notice, setNotice] = useState<{ msg: string; err?: boolean } | null>(null)
   const flash = (msg: string, err = false) => { setNotice({ msg, err }); setTimeout(() => setNotice((p) => (p?.msg === msg ? null : p)), 3500) }
 
@@ -359,8 +361,8 @@ function NewsManager({ initial, authorId }: { initial: News[]; authorId: string 
   const paged = perPage >= 9999 ? shown : shown.slice((curPage - 1) * perPage, curPage * perPage)
   const draftCount = list.filter((n) => n.status !== 'published').length
 
-  function openNew() { setEditId(null); setTitle(''); setCategory('Новини'); setExcerpt(''); setContent(''); setFile(null); setExistingCover(null); setDrawer(true) }
-  function openEdit(n: News) { setEditId(n.id); setTitle(n.title); setCategory(n.category); setExcerpt(n.excerpt || ''); setContent(n.content || ''); setFile(null); setExistingCover(n.cover_url); setDrawer(true) }
+  function openNew() { setEditId(null); setTitle(''); setCategory('Новини'); setExcerpt(''); setContent(''); setFile(null); setExistingCover(null); setGallery([]); setGalleryFiles([]); setCoverNew(null); setDrawer(true) }
+  function openEdit(n: News) { setEditId(n.id); setTitle(n.title); setCategory(n.category); setExcerpt(n.excerpt || ''); setContent(n.content || ''); setFile(null); setExistingCover(n.cover_url); setGallery(Array.isArray(n.gallery_images) ? n.gallery_images : []); setGalleryFiles([]); setCoverNew(null); setDrawer(true) }
 
   async function save(status: 'draft' | 'published') {
     if (!title.trim()) { flash('Въведете заглавие.', true); return }
@@ -372,7 +374,16 @@ function NewsManager({ initial, authorId }: { initial: News[]; authorId: string 
         const { error: upErr } = await supabase.storage.from('public-media').upload(path, file); if (upErr) throw upErr
         coverUrl = supabase.storage.from('public-media').getPublicUrl(path).data.publicUrl
       }
-      const payload = { title: title.trim(), excerpt: excerpt.trim() || null, content: content.trim() || null, cover_url: coverUrl, category, status, author_id: authorId, published_at: status === 'published' ? new Date().toISOString() : null }
+      const newUrls: string[] = []
+      for (let i = 0; i < galleryFiles.length; i++) {
+        const f = galleryFiles[i]; const ext = f.name.split('.').pop()
+        const path = `news/gallery/${Date.now()}-${i}-${Math.random().toString(36).slice(2)}.${ext}`
+        const { error: gErr } = await supabase.storage.from('public-media').upload(path, f); if (gErr) throw gErr
+        newUrls.push(supabase.storage.from('public-media').getPublicUrl(path).data.publicUrl)
+      }
+      if (coverNew !== null && newUrls[coverNew]) coverUrl = newUrls[coverNew]
+      const galleryAll = [...gallery, ...newUrls]
+      const payload = { title: title.trim(), excerpt: excerpt.trim() || null, content: content.trim() || null, cover_url: coverUrl, gallery_images: galleryAll, category, status, author_id: authorId, published_at: status === 'published' ? new Date().toISOString() : null }
       if (editId) { const { data, error } = await supabase.from('site_news').update(payload).eq('id', editId).select('*').single(); if (error) throw error; setList((p) => p.map((x) => x.id === editId ? (data as News) : x)) }
       else { const { data, error } = await supabase.from('site_news').insert(payload).select('*').single(); if (error) throw error; setList((p) => [data as News, ...p]) }
       setDrawer(false); flash(status === 'published' ? 'Публикувано.' : 'Запазено като чернова.'); router.refresh()
@@ -467,12 +478,44 @@ function NewsManager({ initial, authorId }: { initial: News[]; authorId: string 
         <Field label="Кратък текст (откъс)"><textarea value={excerpt} onChange={(e) => setExcerpt(e.target.value)} rows={2} placeholder="Едно-две изречения за списъка на сайта." className={INPUT + ' resize-y'} /></Field>
         <Field label="Съдържание"><textarea value={content} onChange={(e) => setContent(e.target.value)} rows={6} placeholder="Пълният текст на новината…" className={INPUT + ' resize-y leading-relaxed'} /></Field>
         <Field label="Корица (по избор)">
-          {existingCover && !file && <img src={existingCover} alt="" className="w-full h-32 object-cover rounded-xl mb-2" />}
+          {coverNew !== null && galleryFiles[coverNew]
+            ? <img src={URL.createObjectURL(galleryFiles[coverNew])} alt="" className="w-full h-32 object-cover rounded-xl mb-2" />
+            : existingCover && !file && <img src={existingCover} alt="" className="w-full h-32 object-cover rounded-xl mb-2" />}
           <label className="block border-[1.5px] border-dashed border-slate-200 rounded-xl p-5 text-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/40 transition-colors">
-            <input type="file" accept="image/*" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+            <input type="file" accept="image/*" className="hidden" onChange={(e) => { setFile(e.target.files?.[0] || null); setCoverNew(null) }} />
             <Upload size={18} className="mx-auto mb-1.5 text-slate-400" />
-            <span className="block text-[13px] font-medium text-slate-700">{file ? file.name : existingCover ? 'Смени снимката' : 'Избери снимка'}</span>
+            <span className="block text-[13px] font-medium text-slate-700">{file ? file.name : (existingCover || coverNew !== null) ? 'Смени снимката' : 'Избери снимка'}</span>
             <span className="block text-[12px] text-slate-400 mt-0.5">JPG, PNG</span>
+          </label>
+        </Field>
+        <Field label={`Снимки към новината (${gallery.length + galleryFiles.length})`}>
+          {(gallery.length > 0 || galleryFiles.length > 0) && (
+            <div className="grid grid-cols-4 gap-2 mb-2">
+              {gallery.map((u) => { const isCov = !file && coverNew === null && existingCover === u; return (
+                <div key={u} className={`relative aspect-square rounded-lg overflow-hidden group ${isCov ? 'ring-2 ring-amber-400' : ''}`}>
+                  {isCov
+                    ? <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-md bg-amber-400 text-white text-[10px] font-medium">Корица</span>
+                    : <button type="button" onClick={() => { setExistingCover(u); setFile(null); setCoverNew(null) }} className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-md bg-white/90 text-slate-700 text-[10px] font-medium hover:bg-white opacity-0 group-hover:opacity-100 transition-opacity">Корица</button>}
+                  <img src={u} alt="" className="w-full h-full object-cover" />
+                  <button type="button" onClick={() => setGallery((p) => p.filter((x) => x !== u))} title="Махни" className="absolute top-1 right-1 p-1 rounded-md bg-white/90 text-slate-600 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
+                </div>
+              ) })}
+              {galleryFiles.map((f, i) => { const isCov = coverNew === i; return (
+                <div key={i} className={`relative aspect-square rounded-lg overflow-hidden group ring-2 ${isCov ? 'ring-amber-400' : 'ring-emerald-300'}`}>
+                  {isCov
+                    ? <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-md bg-amber-400 text-white text-[10px] font-medium">Корица</span>
+                    : <button type="button" onClick={() => { setCoverNew(i); setFile(null) }} className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-md bg-white/90 text-slate-700 text-[10px] font-medium hover:bg-white opacity-0 group-hover:opacity-100 transition-opacity">Корица</button>}
+                  <img src={URL.createObjectURL(f)} alt="" className="w-full h-full object-cover" />
+                  <button type="button" onClick={() => { setGalleryFiles((p) => p.filter((_, j) => j !== i)); setCoverNew((c) => c === null ? null : c === i ? null : c > i ? c - 1 : c) }} title="Махни" className="absolute top-1 right-1 p-1 rounded-md bg-white/90 text-slate-600 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
+                </div>
+              ) })}
+            </div>
+          )}
+          <label className="block border-[1.5px] border-dashed border-slate-200 rounded-xl p-5 text-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/40 transition-colors">
+            <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { const fs = Array.from(e.target.files || []); if (fs.length) setGalleryFiles((p) => [...p, ...fs]); e.currentTarget.value = '' }} />
+            <Upload size={18} className="mx-auto mb-1.5 text-slate-400" />
+            <span className="block text-[13px] font-medium text-slate-700">Избери снимки (може много наведнъж)</span>
+            <span className="block text-[12px] text-slate-400 mt-0.5">Показват се под текста на новината</span>
           </label>
         </Field>
       </Drawer>
