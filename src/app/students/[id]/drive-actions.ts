@@ -1,0 +1,50 @@
+'use server'
+
+import { createClient } from '@/lib/supabase/server'
+import { ensureStudentFolder, createGoogleDoc, shareWriter, schoolEmail } from '@/lib/google-drive'
+
+// Създава Google документ в папката на детето, дава права на ЕПЛР екипа и го записва в досието
+export async function createDriveDoc(studentId: string, title: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли в системата' }
+
+  const { data: me } = await supabase.from('staff_profiles').select('id').eq('user_id', user.id).maybeSingle()
+
+  const { data: student } = await supabase
+    .from('students').select('first_name, last_name').eq('id', studentId).single()
+  if (!student) return { error: 'Няма такова дете' }
+
+  const { data: year } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
+  const { data: team } = await supabase
+    .from('eplr_teams').select(`
+      psychologist:staff_profiles!eplr_teams_psychologist_id_fkey(email),
+      speech_therapist:staff_profiles!eplr_teams_speech_therapist_id_fkey(email),
+      rehabilitator:staff_profiles!eplr_teams_rehabilitator_id_fkey(email),
+      class_teacher:staff_profiles!eplr_teams_class_teacher_id_fkey(email)
+    `).eq('student_id', studentId).eq('academic_year_id', year?.id).maybeSingle()
+
+  const raw = [team?.psychologist, team?.speech_therapist, team?.rehabilitator, team?.class_teacher]
+    .map((m: any) => m?.email as string | undefined)
+  const emails = Array.from(new Set(raw.map(schoolEmail).filter(Boolean) as string[]))
+
+  try {
+    const folderId = await ensureStudentFolder(studentId, `${student.last_name} ${student.first_name}`)
+    const doc = await createGoogleDoc(title, folderId)
+
+    const shared: string[] = []
+    const failed: string[] = []
+    for (const e of emails) {
+      try { await shareWriter(doc.id, e); shared.push(e) } catch { failed.push(e) }
+    }
+
+    const { error } = await supabase.from('student_drive_files').insert({
+      student_id: studentId, title, url: doc.url, created_by: me?.id ?? null,
+    })
+    if (error) return { error: 'Документът е създаден, но не се записа в досието: ' + error.message, url: doc.url }
+
+    return { url: doc.url, shared, failed }
+  } catch (e: any) {
+    return { error: e?.message || 'Грешка при връзката с Drive' }
+  }
+}
