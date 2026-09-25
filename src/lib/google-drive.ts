@@ -67,6 +67,31 @@ export async function createGoogleDoc(title: string, folderId: string) {
   return { id: f.id as string, url: f.webViewLink as string }
 }
 
+// Качва .docx и го превръща в Google документ в папката
+export async function uploadDocxAsGoogleDoc(title: string, folderId: string, base64: string) {
+  const token = await accessToken()
+  const boundary = 'eis' + Date.now()
+  const meta = JSON.stringify({ name: title, mimeType: GDOC, parents: [folderId] })
+  const body = Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n`),
+    Buffer.from(`--${boundary}\r\nContent-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document\r\n\r\n`),
+    Buffer.from(base64, 'base64'),
+    Buffer.from(`\r\n--${boundary}--`),
+  ])
+  const res = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,webViewLink',
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+      body,
+      cache: 'no-store',
+    }
+  )
+  const j = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(j?.error?.message || `Drive грешка ${res.status}`)
+  return { id: j.id as string, url: j.webViewLink as string }
+}
+
 // Дава право за редакция, без имейл известие
 export async function shareWriter(fileId: string, email: string) {
   await drive(`/files/${fileId}/permissions?supportsAllDrives=true&sendNotificationEmail=false`, {
