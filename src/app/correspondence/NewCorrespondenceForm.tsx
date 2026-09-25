@@ -440,11 +440,11 @@ export default function NewCorrespondenceForm({
                       <div className="flex items-center gap-2">
                         <div className="flex-1">
                           <label className="block text-[10px] text-slate-400 mb-0.5">От</label>
-                          <input type="date" value={subFrom} min={new Date().toISOString().split('T')[0]} onChange={e => { setSubFrom(e.target.value); if (subTo && e.target.value > subTo) setSubTo('') }} className="input w-full text-xs" />
+                          <input type="date" value={subFrom} min={new Date(Date.now() - 7 * 864e5).toISOString().split('T')[0]} onChange={e => { setSubFrom(e.target.value); if (subTo && e.target.value > subTo) setSubTo('') }} className="input w-full text-xs" />
                         </div>
                         <div className="flex-1">
                           <label className="block text-[10px] text-slate-400 mb-0.5">До</label>
-                          <input type="date" value={subTo} min={subFrom || new Date().toISOString().split('T')[0]} onChange={e => setSubTo(e.target.value)} className="input w-full text-xs" />
+                          <input type="date" value={subTo} min={subFrom || new Date(Date.now() - 7 * 864e5).toISOString().split('T')[0]} onChange={e => setSubTo(e.target.value)} className="input w-full text-xs" />
                         </div>
                       </div>
                     )}
