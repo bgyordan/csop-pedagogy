@@ -1,6 +1,7 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // Клетка от моята решетка: ден·час + носител (паралелка ИЛИ ИФО ученик) + предмет
 export interface MyCell {
@@ -153,4 +154,34 @@ export async function addSubjectQuick(name: string, allowsPullout: boolean) {
     return { error: error.message }
   }
   return { subject: data }
+}
+
+
+// Класният ръководител (или admin/zdud) освобождава час в СВОЯТА паралелка,
+// зает от друг учител. Трие чужд слот → нужен е service-role клиент (RLS).
+export async function releaseClassSlot(
+  classId: string, academicYearId: string, term: number, day: number, period: number, keepStaffId?: string
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+  const { data: me } = await supabase.from('staff_profiles').select('id, role').eq('user_id', user.id).single()
+  if (!me) return { error: 'Няма профил' }
+  const isManager = ['admin', 'zdud'].includes(me.role || '')
+  if (!isManager) {
+    const { data: cta } = await supabase.from('class_teacher_assignments').select('class_id')
+      .eq('staff_id', me.id).eq('class_id', classId).eq('academic_year_id', academicYearId).maybeSingle()
+    if (!cta) return { error: 'Само класният ръководител може да освобождава часове в паралелката.' }
+  }
+  const { data: sched } = await supabase.from('class_schedules').select('id')
+    .eq('class_id', classId).eq('academic_year_id', academicYearId).eq('term', term).maybeSingle()
+  if (!sched) return { error: 'Няма разписание за паралелката' }
+  const admin = createAdminClient()
+  const { error } = await admin.from('schedule_slots').delete()
+    .eq('schedule_id', sched.id).eq('day', day).eq('period', period)
+    .neq('staff_id', (isManager && keepStaffId) ? keepStaffId : me.id)
+  if (error) return { error: error.message }
+  revalidatePath('/my-schedule')
+  revalidatePath('/my-schedule/edit')
+  return { success: true }
 }
