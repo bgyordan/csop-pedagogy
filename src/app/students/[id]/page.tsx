@@ -5,6 +5,7 @@ import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, S
 import { formatDate, getFullName } from '@/lib/utils'
 import { DOCUMENT_TYPE_LABELS, DocumentType, STATUS_LABELS, DocumentStatus } from '@/types'
 import { AttachmentsSection } from './AttachmentsSection'
+import StudentDriveFiles from './StudentDriveFiles'
 import DocumentsList from './DocumentsList'
 import GuardiansSection from './GuardiansSection'
 import StudentStatusSection from './StudentStatusSection'
@@ -424,6 +425,9 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
               currentYearName={currentYearName}
               yearOptions={yearOptions}
             />
+          </div>
+          <div className="mt-4">
+            <StudentDriveFiles studentId={id} />
           </div>
         </div>
 
