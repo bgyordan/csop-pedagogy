@@ -3,9 +3,10 @@ import { BackButton } from '@/components/ui/BackButton'
 import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Save, Download, Plus, Trash2 } from 'lucide-react'
+import { Save, Download, Plus, Trash2, FileText } from 'lucide-react'
 import { DOCUMENT_TYPE_LABELS, DocumentType, DocumentStatus } from '@/types'
-import { generateAndDownloadDocument } from '@/lib/docx-generator'
+import { generateAndDownloadDocument, buildStudentDocumentBlob } from '@/lib/docx-generator'
+import { openGeneratedInDrive } from '@/app/students/[id]/drive-actions'
 import { getFullName } from '@/lib/utils'
 
 type Field = { key: string; label: string; type: 'text' | 'textarea' | 'date' | 'yesno' | 'auto' | 'goalrows' }
@@ -162,6 +163,8 @@ export default function DocumentEditorPage({ params }: Props) {
   const [yearName, setYearName] = useState('')
   const [className, setClassName] = useState('')
   const [autoValues, setAutoValues] = useState<Record<string, string>>({})
+  const [driveBusy, setDriveBusy] = useState(false)
+  const [driveMsg, setDriveMsg] = useState('')
   const router = useRouter()
   const supabase = createClient()
 
@@ -238,6 +241,39 @@ export default function DocumentEditorPage({ params }: Props) {
     )
   }
 
+  async function handleOpenInDrive() {
+    if (!student || !resolvedParams) return
+    setDriveMsg('')
+    const win = window.open('', '_blank')
+    setDriveBusy(true)
+    try {
+      await handleSave()
+      const blob = await buildStudentDocumentBlob(
+        resolvedParams.docType as DocumentType, student, team || {},
+        { ...formData, class_name: className, age: formData.age || autoValues.age || '', study_form: formData.study_form || autoValues.study_form || '', parent_name: formData.parent_name || autoValues.parent_name || '' }, yearName
+      )
+      const buf = new Uint8Array(await blob.arrayBuffer())
+      let bin = ''
+      for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...Array.from(buf.subarray(i, i + 0x8000)))
+      const title = `${DOCUMENT_TYPE_LABELS[resolvedParams.docType as DocumentType]} ${yearName}`
+      const r = await openGeneratedInDrive(resolvedParams.studentId, title, btoa(bin))
+      if (r.error || !r.url) {
+        win?.close()
+        setDriveMsg(r.error || 'Неуспешно отваряне в Drive.')
+      } else {
+        if (win) win.location.href = r.url
+        else window.open(r.url, '_blank')
+        setDriveMsg(r.existed
+          ? 'Документът вече е в Drive — отворен е съществуващият. Промените по формуляра след това не се пренасят.'
+          : 'Създаден в Drive и добавен в досието.')
+      }
+    } catch (e: any) {
+      win?.close()
+      setDriveMsg('Грешка: ' + (e?.message || 'неизвестна'))
+    }
+    setDriveBusy(false)
+  }
+
   if (!resolvedParams) return null
   const { studentId, docType } = resolvedParams
   const sections = DOCUMENT_SECTIONS[docType] || []
@@ -308,7 +344,11 @@ export default function DocumentEditorPage({ params }: Props) {
         <button onClick={handleDownload} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-slate-200 text-slate-700 hover:bg-slate-50 ml-auto">
           <Download size={15} /> Изтегли Word
         </button>
+        <button onClick={handleOpenInDrive} disabled={driveBusy} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50">
+          <FileText size={15} /> {driveBusy ? 'Отваря…' : 'Отвори в Drive'}
+        </button>
       </div>
+      {driveMsg && <p className="mt-3 text-sm text-slate-600 text-right">{driveMsg}</p>}
     </div>
   )
 }
