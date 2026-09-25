@@ -1,10 +1,28 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { ensureStudentFolder, createGoogleDoc, shareWriter, schoolEmail } from '@/lib/google-drive'
+import { ensureStudentFolder, createGoogleDoc, uploadDocxAsGoogleDoc, shareWriter, schoolEmail } from '@/lib/google-drive'
 
-// Създава Google документ в папката на детето, дава права на ЕПЛР екипа и го записва в досието
-export async function createDriveDoc(studentId: string, title: string) {
+type DriveResult = { url?: string; error?: string; shared?: string[]; failed?: string[]; existed?: boolean }
+
+// Празен Google документ (свободни бележки)
+export async function createDriveDoc(studentId: string, title: string): Promise<DriveResult> {
+  return makeDriveDoc(studentId, title, null)
+}
+
+// Документ от генератора: първия път го създава попълнен, после само връща линка
+export async function openGeneratedInDrive(studentId: string, title: string, docxBase64: string): Promise<DriveResult> {
+  const supabase = await createClient()
+  const { data: existing } = await supabase
+    .from('student_drive_files').select('url')
+    .eq('student_id', studentId).eq('title', title)
+    .order('created_at', { ascending: false }).limit(1).maybeSingle()
+  if (existing?.url) return { url: existing.url, existed: true }
+  return makeDriveDoc(studentId, title, docxBase64)
+}
+
+// Създава документа в папката на детето, дава права на ЕПЛР екипа и го записва в досието
+async function makeDriveDoc(studentId: string, title: string, docxBase64: string | null): Promise<DriveResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли в системата' }
@@ -30,7 +48,9 @@ export async function createDriveDoc(studentId: string, title: string) {
 
   try {
     const folderId = await ensureStudentFolder(studentId, `${student.last_name} ${student.first_name}`)
-    const doc = await createGoogleDoc(title, folderId)
+    const doc = docxBase64
+      ? await uploadDocxAsGoogleDoc(title, folderId, docxBase64)
+      : await createGoogleDoc(title, folderId)
 
     const shared: string[] = []
     const failed: string[] = []
@@ -43,7 +63,7 @@ export async function createDriveDoc(studentId: string, title: string) {
     })
     if (error) return { error: 'Документът е създаден, но не се записа в досието: ' + error.message, url: doc.url }
 
-    return { url: doc.url, shared, failed }
+    return { url: doc.url, shared, failed, existed: false }
   } catch (e: any) {
     return { error: e?.message || 'Грешка при връзката с Drive' }
   }
