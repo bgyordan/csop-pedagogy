@@ -1,7 +1,7 @@
 'use server'
 
 import { ensureStudentFolder, createGoogleDoc, uploadDocxAsGoogleDoc } from '@/lib/google-drive'
-import { studentContext, shareTeam, listForStudent, createBlankForStudent, renameForStudent, trashForStudent } from '@/lib/student-drive'
+import { studentContext, shareTeam, listForStudent, createBlankForStudent, renameForStudent, trashForStudent, listTemplates, createFromTemplateForStudent } from '@/lib/student-drive'
 
 type DriveResult = { url?: string; error?: string; shared?: string[]; failed?: string[]; existed?: boolean }
 
@@ -15,6 +15,16 @@ export async function listStudentDocs(studentId: string) {
 // Нов празен документ с дадено име
 export async function createBlankDoc(studentId: string, name: string) {
   return createBlankForStudent(studentId, name)
+}
+
+// Бланките от папка „Бланки“ в диска
+export async function listDocTemplates() {
+  return listTemplates()
+}
+
+// Нов документ от бланка (с попълнени данни за детето)
+export async function createFromTemplate(studentId: string, templateId: string) {
+  return createFromTemplateForStudent(studentId, templateId)
 }
 
 export async function renameDoc(studentId: string, fileId: string, name: string) {

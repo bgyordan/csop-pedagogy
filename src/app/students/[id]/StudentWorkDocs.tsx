@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import {
-  Upload, FilePlus2, Loader2, X, ExternalLink, FolderOpen, Download, FileDown, Pencil, Trash2, Check,
+  Upload, FilePlus2, Loader2, X, ExternalLink, FolderOpen, Download, FileDown, Pencil, Trash2, Check, FileText,
 } from 'lucide-react'
-import { listStudentDocs, createBlankDoc, renameDoc, trashDocs } from './drive-actions'
+import { listStudentDocs, createBlankDoc, renameDoc, trashDocs, listDocTemplates, createFromTemplate } from './drive-actions'
 
 type Item = { id: string; name: string; mimeType: string; modifiedTime: string; modifiedBy: string; url: string }
 
@@ -60,6 +60,7 @@ export default function StudentWorkDocs({ studentId }: { studentId: string }) {
   const [renaming, setRenaming] = useState<string | null>(null)
   const [renameVal, setRenameVal] = useState('')
   const [confirmDel, setConfirmDel] = useState<string[] | null>(null)
+  const [templates, setTemplates] = useState<{ id: string; name: string; mimeType: string }[] | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function load() {
@@ -113,6 +114,22 @@ export default function StudentWorkDocs({ studentId }: { studentId: string }) {
     if (r.error) return setError(r.error)
     setCreating(false)
     setNewName('')
+    if (r.url) window.open(withAccount(r.url, myEmail), '_blank')
+    await load()
+  }
+
+  // ── нов от бланка ──
+  async function openCreate() {
+    setCreating(v => !v)
+    if (templates === null) setTemplates(await listDocTemplates())
+  }
+  async function fromTemplate(t: { id: string; name: string }) {
+    setBusy(`Създаване: ${t.name}…`)
+    setError('')
+    const r = await createFromTemplate(studentId, t.id)
+    setBusy('')
+    if (r.error) return setError(r.error)
+    setCreating(false)
     if (r.url) window.open(withAccount(r.url, myEmail), '_blank')
     await load()
   }
@@ -195,7 +212,7 @@ export default function StudentWorkDocs({ studentId }: { studentId: string }) {
               className={`${softBtn} border-slate-200 hover:bg-slate-50`}>
               <Upload size={14} /> Качи файлове
             </button>
-            <button type="button" onClick={() => setCreating(v => !v)} disabled={!!busy}
+            <button type="button" onClick={openCreate} disabled={!!busy}
               className={`${softBtn} border-sky-200 bg-sky-50 hover:bg-sky-100`}>
               <FilePlus2 size={14} /> Нов документ
             </button>
@@ -206,20 +223,39 @@ export default function StudentWorkDocs({ studentId }: { studentId: string }) {
         )}
       </div>
 
-      {/* нов документ */}
+      {/* нов документ: от бланка или празен */}
       {creating && (
-        <div className="flex items-center gap-2 mb-3">
-          <input autoFocus value={newName} onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') create(); if (e.key === 'Escape') setCreating(false) }}
-            placeholder="Име на документа, напр. Протокол 2"
-            className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-100" />
-          <button type="button" onClick={create} disabled={!newName.trim() || !!busy}
-            className="px-3 py-2 rounded-lg border border-sky-200 bg-sky-50 text-sm text-[#0f2240] hover:bg-sky-100 disabled:opacity-50">
-            Създай
-          </button>
-          <button type="button" onClick={() => setCreating(false)} className="p-2 text-slate-400 hover:text-slate-600">
-            <X size={16} />
-          </button>
+        <div className="mb-3 p-3 rounded-xl border border-sky-100 bg-sky-50/40">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-slate-500">Изберете бланка — данните на детето се попълват сами</span>
+            <button type="button" onClick={() => setCreating(false)} className="p-1 text-slate-400 hover:text-slate-600"><X size={15} /></button>
+          </div>
+          {templates === null ? (
+            <div className="flex items-center gap-2 py-2 text-xs text-slate-400"><Loader2 size={13} className="animate-spin" /> Зареждане на бланките…</div>
+          ) : templates.length === 0 ? (
+            <div className="py-2 text-xs text-slate-400 font-light">Няма бланки. Качете ги в папка „Бланки“ в споделения диск.</div>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 mb-3">
+              {templates.map(t => (
+                <button key={t.id} type="button" onClick={() => fromTemplate(t)} disabled={!!busy}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-left text-sm text-slate-700 hover:border-sky-200 hover:shadow-sm hover:-translate-y-0.5 transition disabled:opacity-50">
+                  <Badge mime={t.mimeType} />
+                  <span className="truncate">{t.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="flex items-center gap-2 pt-2 border-t border-sky-100">
+            <FileText size={14} className="text-slate-400 shrink-0" />
+            <input value={newName} onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') create(); if (e.key === 'Escape') setCreating(false) }}
+              placeholder="или празен документ с име…"
+              className="flex-1 px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-100" />
+            <button type="button" onClick={create} disabled={!newName.trim() || !!busy}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm text-[#0f2240] hover:bg-slate-50 disabled:opacity-50">
+              Създай
+            </button>
+          </div>
         </div>
       )}
 

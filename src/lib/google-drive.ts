@@ -186,6 +186,44 @@ export async function listFolder(folderId: string): Promise<DriveItem[]> {
   }))
 }
 
+// ── Бланки: папка „Бланки“ в корена на диска ───────────────────────────
+
+export async function findTemplatesFolder() {
+  const q = `mimeType='${FOLDER}' and trashed=false and name='Бланки' and '${driveId()}' in parents`
+  const r = await drive(
+    `/files?q=${encodeURIComponent(q)}&corpora=drive&driveId=${driveId()}&includeItemsFromAllDrives=true&supportsAllDrives=true&fields=files(id)`
+  )
+  return (r.files?.[0]?.id as string | undefined) ?? null
+}
+
+// Копие на файл в друга папка; Word бланка се превръща в Google документ
+export async function copyFile(fileId: string, name: string, folderId: string, sourceMime: string) {
+  const toGdoc = sourceMime.includes('word') || sourceMime === 'application/vnd.oasis.opendocument.text'
+  const f = await drive(`/files/${fileId}/copy?supportsAllDrives=true&fields=id,webViewLink,mimeType`, {
+    method: 'POST',
+    body: JSON.stringify({ name, parents: [folderId], ...(toGdoc ? { mimeType: GDOC } : {}) }),
+  })
+  return { id: f.id as string, url: f.webViewLink as string, mimeType: f.mimeType as string }
+}
+
+// Замяна на маркерите {{ИМЕ}} и т.н. в Google документ (Google Docs API)
+export async function replaceMarkers(docId: string, values: Record<string, string>) {
+  const requests = Object.entries(values).map(([k, v]) => ({
+    replaceAllText: { containsText: { text: `{{${k}}}`, matchCase: true }, replaceText: v || '' },
+  }))
+  if (!requests.length) return
+  const res = await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${await accessToken()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requests }),
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const j = await res.json().catch(() => ({}))
+    throw new Error('Маркерите не се попълниха: ' + (j?.error?.message || res.status))
+  }
+}
+
 // ── Един файл: данни, сваляне, преименуване, изтриване ─────────────────
 
 export async function getFileMeta(fileId: string) {

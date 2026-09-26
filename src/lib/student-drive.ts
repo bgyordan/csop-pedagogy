@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import {
   ensureStudentFolder, findStudentFolder, listFolder, uploadFile, createGoogleDoc,
   shareWriter, accountEmails, getFileMeta, downloadFile, renameFile, trashFile, type DriveItem,
+  findTemplatesFolder, copyFile, replaceMarkers,
 } from '@/lib/google-drive'
 
 // Тези роли могат да качват/създават документи за всяко дете; останалите — само ако са в ЕПЛР екипа му
@@ -187,5 +188,93 @@ export async function trashForStudent(studentId: string, fileIds: string[]) {
     return { ok: true }
   } catch (e: any) {
     return { error: e?.message || 'Грешка при изтриването' }
+  }
+}
+
+// ── Бланки ──────────────────────────────────────────────────────────────
+
+const TEMPLATE_TYPES = /document|word|opendocument\.text|spreadsheet|excel|presentation|powerpoint/
+
+// Списъкът с бланки от папка „Бланки“ (само документи/таблици)
+export async function listTemplates(): Promise<{ id: string; name: string; mimeType: string }[]> {
+  try {
+    const folderId = await findTemplatesFolder()
+    if (!folderId) return []
+    const items = await listFolder(folderId)
+    return items
+      .filter(f => TEMPLATE_TYPES.test(f.mimeType))
+      .map(f => ({ id: f.id, name: f.name.replace(/\.(docx?|odt|xlsx?|pptx?)$/i, ''), mimeType: f.mimeType }))
+  } catch {
+    return []
+  }
+}
+
+const fullName = (p: any) => p ? [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ') : ''
+
+function ageOn(birth: string | null | undefined) {
+  if (!birth) return ''
+  const b = new Date(birth), n = new Date()
+  let a = n.getFullYear() - b.getFullYear()
+  if (n.getMonth() < b.getMonth() || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) a--
+  return String(a)
+}
+const bgDate = (d: string | Date | null | undefined) =>
+  d ? new Date(d).toLocaleDateString('bg-BG', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
+
+// Всички маркери, които могат да се ползват в бланките
+async function markerValues(ctx: StudentCtx, studentId: string): Promise<Record<string, string>> {
+  const sb = ctx.supabase
+  const { data: st } = await sb.from('students')
+    .select('first_name, middle_name, last_name, birth_date, sending_school:sending_schools(name, city)')
+    .eq('id', studentId).single()
+  const { data: year } = await sb.from('academic_years').select('id').eq('is_current', true).single()
+  const { data: team } = await sb.from('eplr_teams').select(`
+      psychologist:staff_profiles!eplr_teams_psychologist_id_fkey(first_name, middle_name, last_name),
+      speech_therapist:staff_profiles!eplr_teams_speech_therapist_id_fkey(first_name, middle_name, last_name),
+      rehabilitator:staff_profiles!eplr_teams_rehabilitator_id_fkey(first_name, middle_name, last_name),
+      class_teacher:staff_profiles!eplr_teams_class_teacher_id_fkey(first_name, middle_name, last_name)
+    `).eq('student_id', studentId).eq('academic_year_id', year?.id).maybeSingle()
+  const { data: guardians } = await sb.from('student_guardians').select('full_name').eq('student_id', studentId).order('relation')
+  const school = (st as any)?.sending_school
+  return {
+    'ИМЕ': fullName(st),
+    'ИМЕ_КРАТКО': st ? `${st.first_name} ${st.last_name}` : ctx.studentName,
+    'ДАТА_РАЖДАНЕ': bgDate(st?.birth_date),
+    'ВЪЗРАСТ': ageOn(st?.birth_date),
+    'КЛАС': ctx.className,
+    'УЧИЛИЩЕ': school ? [school.name, school.city].filter(Boolean).join(', ') : '',
+    'ГОДИНА': ctx.yearName,
+    'ДАТА': bgDate(new Date()),
+    'КЛАСЕН': fullName((team as any)?.class_teacher),
+    'ПСИХОЛОГ': fullName((team as any)?.psychologist),
+    'ЛОГОПЕД': fullName((team as any)?.speech_therapist),
+    'РЕХАБИЛИТАТОР': fullName((team as any)?.rehabilitator),
+    'РОДИТЕЛ': (guardians || []).map(g => g.full_name).filter(Boolean).join(', '),
+  }
+}
+
+// Нов документ от бланка: копие в папката на детето + попълнени маркери
+export async function createFromTemplateForStudent(studentId: string, templateId: string) {
+  const ctx = await studentContext(studentId)
+  if ('error' in ctx) return { error: ctx.error }
+  if (!ctx.canEdit) return { error: 'Само ЕПЛР екипът на детето може да създава документи.' }
+  try {
+    const tplFolder = await findTemplatesFolder()
+    const tpl = await getFileMeta(templateId)
+    if (!tplFolder || !tpl.parents?.includes(tplFolder)) return { error: 'Няма такава бланка' }
+    const name = tpl.name.replace(/\.(docx?|odt|xlsx?|pptx?)$/i, '')
+
+    const folderId = await folderFor(ctx, studentId)
+    // вече има документ с това име → отваряме него, не правим дубликат
+    const existing = (await listFolder(folderId)).find(f => f.name === name)
+    if (existing) return { url: existing.url, existed: true }
+
+    const copy = await copyFile(templateId, name, folderId, tpl.mimeType)
+    if (copy.mimeType === 'application/vnd.google-apps.document') {
+      await replaceMarkers(copy.id, await markerValues(ctx, studentId))
+    }
+    return { url: copy.url }
+  } catch (e: any) {
+    return { error: e?.message || 'Грешка при създаването от бланка' }
   }
 }
