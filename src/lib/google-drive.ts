@@ -44,18 +44,52 @@ export function driveId() {
   return id
 }
 
-// Папка на детето в споделения диск (намира я по studentId или я създава)
-export async function ensureStudentFolder(studentId: string, name: string) {
-  const q = `mimeType='${FOLDER}' and trashed=false and appProperties has { key='studentId' and value='${studentId}' }`
-  const found = await drive(
-    `/files?q=${encodeURIComponent(q)}&corpora=drive&driveId=${driveId()}&includeItemsFromAllDrives=true&supportsAllDrives=true&fields=files(id,name)`
+function esc(v: string) {
+  return v.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+}
+
+async function findFolder(props: Record<string, string>) {
+  const cond = Object.entries(props)
+    .map(([k, v]) => `appProperties has { key='${k}' and value='${esc(v)}' }`)
+    .join(' and ')
+  const q = `mimeType='${FOLDER}' and trashed=false and ${cond}`
+  const r = await drive(
+    `/files?q=${encodeURIComponent(q)}&corpora=drive&driveId=${driveId()}&includeItemsFromAllDrives=true&supportsAllDrives=true&fields=files(id,name,parents)`
   )
-  if (found.files?.length) return found.files[0].id as string
-  const created = await drive(`/files?supportsAllDrives=true&fields=id`, {
+  return (r.files?.[0] as { id: string; name: string; parents?: string[] } | undefined) ?? null
+}
+
+async function createFolder(name: string, parent: string, props: Record<string, string>) {
+  const f = await drive(`/files?supportsAllDrives=true&fields=id`, {
     method: 'POST',
-    body: JSON.stringify({ name, mimeType: FOLDER, parents: [driveId()], appProperties: { studentId } }),
+    body: JSON.stringify({ name, mimeType: FOLDER, parents: [parent], appProperties: props }),
   })
-  return created.id as string
+  return f.id as string
+}
+
+// Структура: 2026-2027 / 01 / Иван Иванов
+export async function ensureStudentFolder(studentId: string, studentName: string, yearName: string, className: string) {
+  const year = yearName || 'Без година'
+  const cls = className || 'Без паралелка'
+
+  const yProps = { kind: 'year', year }
+  const yearId = (await findFolder(yProps))?.id ?? (await createFolder(year.replace(/\//g, '-'), driveId(), yProps))
+
+  const cProps = { kind: 'class', year, cls }
+  const classId = (await findFolder(cProps))?.id ?? (await createFolder(cls, yearId, cProps))
+
+  const sProps = { studentId, year }
+  const existing = await findFolder(sProps)
+  if (!existing) return createFolder(studentName, classId, sProps)
+
+  // детето е сменило паралелката през годината → местим папката
+  if (existing.parents && !existing.parents.includes(classId)) {
+    await drive(
+      `/files/${existing.id}?supportsAllDrives=true&addParents=${classId}&removeParents=${existing.parents.join(',')}`,
+      { method: 'PATCH', body: JSON.stringify({}) }
+    )
+  }
+  return existing.id
 }
 
 // Празен Google документ в папката
@@ -92,7 +126,7 @@ export async function uploadDocxAsGoogleDoc(title: string, folderId: string, bas
   return { id: j.id as string, url: j.webViewLink as string }
 }
 
-// Дава право за редакция, без имейл известие
+// Дава право за редакция, без имейл известие (на файл или папка)
 export async function shareWriter(fileId: string, email: string) {
   await drive(`/files/${fileId}/permissions?supportsAllDrives=true&sendNotificationEmail=false`, {
     method: 'POST',
