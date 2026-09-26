@@ -268,7 +268,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       {/* 
         СЕКЦИЯ С ТАБОВЕ (Чист CSS, без нужда от клиентски state)
       */}
-      <div className="w-full relative">
+      <div className="w-full relative group/tabs">
         {/* Скрити Radio бутони */}
         <input type="radio" name="student-tabs" id="tab-docs" className="peer/tab-docs hidden" defaultChecked />
         <input type="radio" name="student-tabs" id="tab-data" className="peer/tab-data hidden" />
@@ -278,19 +278,19 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
 
         {/* Навигация */}
         <div className="flex flex-wrap gap-1 p-1 mb-6 bg-slate-100 rounded-xl w-fit">
-          <label htmlFor="tab-docs" className="cursor-pointer px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 peer-checked/tab-docs:bg-white peer-checked/tab-docs:text-[#0f2240] peer-checked/tab-docs:shadow-sm transition-all flex items-center gap-2">
+          <label htmlFor="tab-docs" className="cursor-pointer px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all flex items-center gap-2 group-has-[#tab-docs:checked]/tabs:bg-white group-has-[#tab-docs:checked]/tabs:text-[#0f2240] group-has-[#tab-docs:checked]/tabs:shadow-sm group-has-[#tab-docs:checked]/tabs:ring-1 group-has-[#tab-docs:checked]/tabs:ring-slate-200">
             <FolderOpen size={16} /> Документи
           </label>
-          <label htmlFor="tab-data" className="cursor-pointer px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 peer-checked/tab-data:bg-white peer-checked/tab-data:text-[#0f2240] peer-checked/tab-data:shadow-sm transition-all flex items-center gap-2">
+          <label htmlFor="tab-data" className="cursor-pointer px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all flex items-center gap-2 group-has-[#tab-data:checked]/tabs:bg-white group-has-[#tab-data:checked]/tabs:text-[#0f2240] group-has-[#tab-data:checked]/tabs:shadow-sm group-has-[#tab-data:checked]/tabs:ring-1 group-has-[#tab-data:checked]/tabs:ring-slate-200">
             <ClipboardList size={16} /> Данни
           </label>
-          <label htmlFor="tab-eplr" className="cursor-pointer px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 peer-checked/tab-eplr:bg-white peer-checked/tab-eplr:text-[#0f2240] peer-checked/tab-eplr:shadow-sm transition-all flex items-center gap-2">
+          <label htmlFor="tab-eplr" className="cursor-pointer px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all flex items-center gap-2 group-has-[#tab-eplr:checked]/tabs:bg-white group-has-[#tab-eplr:checked]/tabs:text-[#0f2240] group-has-[#tab-eplr:checked]/tabs:shadow-sm group-has-[#tab-eplr:checked]/tabs:ring-1 group-has-[#tab-eplr:checked]/tabs:ring-slate-200">
             <Users size={16} /> ЕПЛР екип
           </label>
-          <label htmlFor="tab-therapy" className="cursor-pointer px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 peer-checked/tab-therapy:bg-white peer-checked/tab-therapy:text-[#0f2240] peer-checked/tab-therapy:shadow-sm transition-all flex items-center gap-2">
+          <label htmlFor="tab-therapy" className="cursor-pointer px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all flex items-center gap-2 group-has-[#tab-therapy:checked]/tabs:bg-white group-has-[#tab-therapy:checked]/tabs:text-[#0f2240] group-has-[#tab-therapy:checked]/tabs:shadow-sm group-has-[#tab-therapy:checked]/tabs:ring-1 group-has-[#tab-therapy:checked]/tabs:ring-slate-200">
             <Heart size={16} /> Терапия
           </label>
-          <label htmlFor="tab-files" className="cursor-pointer px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 peer-checked/tab-files:bg-white peer-checked/tab-files:text-[#0f2240] peer-checked/tab-files:shadow-sm transition-all flex items-center gap-2">
+          <label htmlFor="tab-files" className="cursor-pointer px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all flex items-center gap-2 group-has-[#tab-files:checked]/tabs:bg-white group-has-[#tab-files:checked]/tabs:text-[#0f2240] group-has-[#tab-files:checked]/tabs:shadow-sm group-has-[#tab-files:checked]/tabs:ring-1 group-has-[#tab-files:checked]/tabs:ring-slate-200">
             <Paperclip size={16} /> Досие и файлове
           </label>
         </div>
