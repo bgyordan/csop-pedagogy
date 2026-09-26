@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { ensureStudentFolder, createGoogleDoc, uploadDocxAsGoogleDoc, shareWriter, schoolEmail } from '@/lib/google-drive'
+import { ensureStudentFolder, createGoogleDoc, uploadDocxAsGoogleDoc, shareWriter, accountEmails } from '@/lib/google-drive'
 
 type DriveResult = { url?: string; error?: string; shared?: string[]; failed?: string[]; existed?: boolean }
 
@@ -49,7 +49,8 @@ async function makeDriveDoc(studentId: string, title: string, driveName: string,
 
   const raw = [team?.psychologist, team?.speech_therapist, team?.rehabilitator, team?.class_teacher]
     .map((m: any) => m?.email as string | undefined)
-  const emails = Array.from(new Set(raw.map(schoolEmail).filter(Boolean) as string[]))
+  // права и на csop-varna.bg, и на edu.mon.bg акаунта
+  const emails = Array.from(new Set(raw.flatMap(accountEmails)))
 
   try {
     const folderId = await ensureStudentFolder(studentId, `${student.first_name} ${student.last_name}`, year?.name || '', className)
