@@ -7,6 +7,13 @@ import { Save, Download, Plus, Trash2, FileText } from 'lucide-react'
 import { DOCUMENT_TYPE_LABELS, DocumentType, DocumentStatus } from '@/types'
 import { generateAndDownloadDocument, buildStudentDocumentBlob } from '@/lib/docx-generator'
 import { openGeneratedInDrive } from '@/app/students/[id]/drive-actions'
+
+// Кратки имена на файловете в Drive (папка: година / паралелка / дете)
+const DRIVE_NAMES: Record<string, string> = {
+  protocol_1: 'Протокол 1', protocol_2: 'Протокол 2', protocol_3: 'Протокол 3',
+  iup: 'ИУП', iu_program: 'Индивидуална учебна програма',
+  support_plan: 'План за подкрепа', parent_program: 'Програма за родители',
+}
 import { getFullName } from '@/lib/utils'
 
 type Field = { key: string; label: string; type: 'text' | 'textarea' | 'date' | 'yesno' | 'auto' | 'goalrows' }
@@ -255,8 +262,9 @@ export default function DocumentEditorPage({ params }: Props) {
       const buf = new Uint8Array(await blob.arrayBuffer())
       let bin = ''
       for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...Array.from(buf.subarray(i, i + 0x8000)))
-      const title = `${DOCUMENT_TYPE_LABELS[resolvedParams.docType as DocumentType]} ${yearName}`
-      const r = await openGeneratedInDrive(resolvedParams.studentId, title, btoa(bin))
+      const driveName = DRIVE_NAMES[resolvedParams.docType] || DOCUMENT_TYPE_LABELS[resolvedParams.docType as DocumentType]
+      const title = `${driveName} (${yearName})`
+      const r = await openGeneratedInDrive(resolvedParams.studentId, title, driveName, btoa(bin))
       if (r.error || !r.url) {
         win?.close()
         setDriveMsg(r.error || 'Неуспешно отваряне в Drive.')
