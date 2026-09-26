@@ -235,6 +235,17 @@ async function markerValues(ctx: StudentCtx, studentId: string): Promise<Record<
       class_teacher:staff_profiles!eplr_teams_class_teacher_id_fkey(first_name, middle_name, last_name)
     `).eq('student_id', studentId).eq('academic_year_id', year?.id).maybeSingle()
   const { data: guardians } = await sb.from('student_guardians').select('full_name').eq('student_id', studentId).order('relation')
+  // Координиращ екип за годината: председателят (роля „Председател…“) + останалите по реда на добавяне
+  const { data: ke } = await sb.from('coordinating_team')
+    .select('role_in_team, created_at, staff:staff_profiles(first_name, last_name, position)')
+    .eq('academic_year_id', year?.id).order('created_at')
+  const keLine = (m: any) => {
+    if (!m?.staff) return ''
+    const pos = (m.staff.position || '').trim()
+    return `${m.staff.first_name} ${m.staff.last_name}` + (pos ? ` /${pos.charAt(0).toLowerCase() + pos.slice(1)}/` : '')
+  }
+  const chair = (ke || []).find((m: any) => /председател/i.test(m.role_in_team || ''))
+  const others = (ke || []).filter((m: any) => m !== chair)
   const school = (st as any)?.sending_school
   return {
     'ИМЕ': fullName(st),
@@ -250,6 +261,10 @@ async function markerValues(ctx: StudentCtx, studentId: string): Promise<Record<
     'ЛОГОПЕД': fullName((team as any)?.speech_therapist),
     'РЕХАБИЛИТАТОР': fullName((team as any)?.rehabilitator),
     'РОДИТЕЛ': (guardians || []).map(g => g.full_name).filter(Boolean).join(', '),
+    'КЕ_ПРЕДСЕДАТЕЛ': keLine(chair),
+    'КЕ_ЧЛЕН_1': keLine(others[0]),
+    'КЕ_ЧЛЕН_2': keLine(others[1]),
+    'КЕ_ЧЛЕН_3': keLine(others[2]),
   }
 }
 
