@@ -1,11 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Check, Heart, CalendarClock, ClipboardList, Sparkles } from 'lucide-react'
+import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Check, Heart, CalendarClock, ClipboardList, Sparkles, FolderOpen } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
 import { DOCUMENT_TYPE_LABELS, DocumentType, STATUS_LABELS, DocumentStatus } from '@/types'
 import { AttachmentsSection } from './AttachmentsSection'
-import StudentDriveFiles from './StudentDriveFiles'
+import StudentWorkDocs from './StudentWorkDocs'
 import DocumentsList from './DocumentsList'
 import GuardiansSection from './GuardiansSection'
 import StudentStatusSection from './StudentStatusSection'
@@ -270,13 +270,17 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       */}
       <div className="w-full relative">
         {/* Скрити Radio бутони */}
-        <input type="radio" name="student-tabs" id="tab-data" className="peer/tab-data hidden" defaultChecked />
+        <input type="radio" name="student-tabs" id="tab-docs" className="peer/tab-docs hidden" defaultChecked />
+        <input type="radio" name="student-tabs" id="tab-data" className="peer/tab-data hidden" />
         <input type="radio" name="student-tabs" id="tab-eplr" className="peer/tab-eplr hidden" />
         <input type="radio" name="student-tabs" id="tab-therapy" className="peer/tab-therapy hidden" />
         <input type="radio" name="student-tabs" id="tab-files" className="peer/tab-files hidden" />
 
         {/* Навигация */}
         <div className="flex flex-wrap gap-1 p-1 mb-6 bg-slate-100 rounded-xl w-fit">
+          <label htmlFor="tab-docs" className="cursor-pointer px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 peer-checked/tab-docs:bg-white peer-checked/tab-docs:text-[#0f2240] peer-checked/tab-docs:shadow-sm transition-all flex items-center gap-2">
+            <FolderOpen size={16} /> Документи
+          </label>
           <label htmlFor="tab-data" className="cursor-pointer px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 peer-checked/tab-data:bg-white peer-checked/tab-data:text-[#0f2240] peer-checked/tab-data:shadow-sm transition-all flex items-center gap-2">
             <ClipboardList size={16} /> Данни
           </label>
@@ -287,8 +291,13 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
             <Heart size={16} /> Терапия
           </label>
           <label htmlFor="tab-files" className="cursor-pointer px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 peer-checked/tab-files:bg-white peer-checked/tab-files:text-[#0f2240] peer-checked/tab-files:shadow-sm transition-all flex items-center gap-2">
-            <Paperclip size={16} /> Документи и файлове
+            <Paperclip size={16} /> Досие и файлове
           </label>
+        </div>
+
+        {/* ТАБ 0: ДОКУМЕНТИ (Google Drive, като в Teams) */}
+        <div className="hidden peer-checked/tab-docs:block animate-in fade-in duration-300">
+          <StudentWorkDocs studentId={id} />
         </div>
 
         {/* ТАБ 1: ДАННИ */}
@@ -425,9 +434,6 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
               currentYearName={currentYearName}
               yearOptions={yearOptions}
             />
-          </div>
-          <div className="mt-4">
-            <StudentDriveFiles studentId={id} />
           </div>
         </div>
 

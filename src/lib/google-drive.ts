@@ -101,15 +101,29 @@ export async function createGoogleDoc(title: string, folderId: string) {
   return { id: f.id as string, url: f.webViewLink as string }
 }
 
-// Качва .docx и го превръща в Google документ в папката
-export async function uploadDocxAsGoogleDoc(title: string, folderId: string, base64: string) {
+// Office файлове → превръщат се в Google формат (за да се редактират заедно); другите се качват както са
+const CONVERT: Record<string, string> = {
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': GDOC,
+  'application/msword': GDOC,
+  'application/vnd.oasis.opendocument.text': GDOC,
+  'application/rtf': GDOC,
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'application/vnd.google-apps.spreadsheet',
+  'application/vnd.ms-excel': 'application/vnd.google-apps.spreadsheet',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'application/vnd.google-apps.presentation',
+  'application/vnd.ms-powerpoint': 'application/vnd.google-apps.presentation',
+}
+
+// Качва файл в папката; Word/Excel/PowerPoint стават Google документи с ОРИГИНАЛНОТО име (без разширението)
+export async function uploadFile(name: string, folderId: string, data: Buffer, mime: string) {
   const token = await accessToken()
+  const target = CONVERT[mime]
+  const cleanName = target ? name.replace(/\.(docx?|odt|rtf|xlsx?|pptx?)$/i, '') : name
   const boundary = 'eis' + Date.now()
-  const meta = JSON.stringify({ name: title, mimeType: GDOC, parents: [folderId] })
+  const meta = JSON.stringify({ name: cleanName, parents: [folderId], ...(target ? { mimeType: target } : {}) })
   const body = Buffer.concat([
     Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n`),
-    Buffer.from(`--${boundary}\r\nContent-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document\r\n\r\n`),
-    Buffer.from(base64, 'base64'),
+    Buffer.from(`--${boundary}\r\nContent-Type: ${mime || 'application/octet-stream'}\r\n\r\n`),
+    data,
     Buffer.from(`\r\n--${boundary}--`),
   ])
   const res = await fetch(
@@ -124,6 +138,45 @@ export async function uploadDocxAsGoogleDoc(title: string, folderId: string, bas
   const j = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(j?.error?.message || `Drive грешка ${res.status}`)
   return { id: j.id as string, url: j.webViewLink as string }
+}
+
+// Качва .docx (base64 от генератора) и го превръща в Google документ
+export async function uploadDocxAsGoogleDoc(title: string, folderId: string, base64: string) {
+  return uploadFile(title, folderId, Buffer.from(base64, 'base64'),
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+}
+
+// Папката на детето за годината, БЕЗ да я създава (null ако още няма)
+export async function findStudentFolder(studentId: string, yearName: string) {
+  const f = await findFolder({ studentId, year: yearName || 'Без година' })
+  return f?.id ?? null
+}
+
+export type DriveItem = {
+  id: string
+  name: string
+  mimeType: string
+  modifiedTime: string
+  modifiedBy: string
+  url: string
+}
+
+// Съдържанието на папка (без изтритите), подредено: първо папки, после по име
+export async function listFolder(folderId: string): Promise<DriveItem[]> {
+  const q = `'${folderId}' in parents and trashed=false`
+  const r = await drive(
+    `/files?q=${encodeURIComponent(q)}&corpora=drive&driveId=${driveId()}&includeItemsFromAllDrives=true&supportsAllDrives=true` +
+    `&orderBy=${encodeURIComponent('folder,name_natural')}&pageSize=200` +
+    `&fields=${encodeURIComponent('files(id,name,mimeType,modifiedTime,webViewLink,lastModifyingUser(displayName))')}`
+  )
+  return (r.files ?? []).map((f: any) => ({
+    id: f.id,
+    name: f.name,
+    mimeType: f.mimeType,
+    modifiedTime: f.modifiedTime,
+    modifiedBy: f.lastModifyingUser?.displayName || '',
+    url: f.webViewLink,
+  }))
 }
 
 // Дава право за редакция, без имейл известие (на файл или папка)
