@@ -69,6 +69,24 @@ export default async function MyScheduleEditPage({
     }))
   }
 
+  // заетите от ДРУГИ учители клетки във всяка паралелка → сиви в редактора (класният може да ги освободи)
+  const taken: Record<string, Record<string, { by: string; subject: string }>> = {}
+  if (schedIds.length > 0) {
+    const { data: others } = await supabase
+      .from('schedule_slots')
+      .select('schedule_id, day, period, subject:subjects(name), staff:staff_profiles(first_name, last_name)')
+      .in('schedule_id', schedIds).neq('staff_id', targetId)
+    for (const o of (others || []) as any[]) {
+      const cls = schedClassById[o.schedule_id]
+      if (!cls) continue
+      taken[cls] = taken[cls] || {}
+      taken[cls][`${o.day}-${o.period}`] = {
+        by: o.staff ? `${o.staff.first_name} ${o.staff.last_name}` : 'друг учител',
+        subject: o.subject?.name || '',
+      }
+    }
+  }
+
   // моите ИФО слотове
   const { data: myIfo } = await supabase
     .from('teacher_ifo_slots').select('day, period, student_id, subject_id')
@@ -98,6 +116,7 @@ export default async function MyScheduleEditPage({
         initialSlots={[...myClassSlots, ...myIfoSlots]}
         myClassTeacherIds={myClassTeacherIds}
         targetStaffId={viewingOther ? targetId : undefined}
+        taken={taken}
       />
     </div>
   )
