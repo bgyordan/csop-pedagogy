@@ -1,6 +1,6 @@
 'use client'
 
-// „Какво ново в EIS“ — изскача при влизане, по веднъж на човек.
+// „Какво ново в JORDAN“ — изскача при влизане, по веднъж на човек.
 // Показва активните съобщения с show_popup, които този потребител още не е потвърдил с „Разбрах“.
 
 import { useEffect, useState } from 'react'
@@ -116,7 +116,7 @@ export default function WhatsNewModal() {
               <Sparkles size={20} className="text-teal-500" />
             </span>
             <span className="px-2.5 py-1 rounded-full bg-white/70 text-[11px] uppercase tracking-wider text-teal-700">
-              Ново в EIS
+              Ново в JORDAN
             </span>
             {queue.length > 1 && (
               <span className="ml-auto flex items-center gap-1.5" aria-label={`${idx + 1} от ${queue.length}`}>
