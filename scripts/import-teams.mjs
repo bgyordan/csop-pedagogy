@@ -126,7 +126,13 @@ async function upload(file, folderId) {
 }
 
 // ── Имена: „Иван Петров Иванов“ ~ „иванов иван“ ~ „Иван Иванов - 3 клас“ ─
-const norm = s => (s || '').toLowerCase().replace(/ё/g, 'е').replace(/ѝ/g, 'и').replace(/[^a-zа-я\s-]/g, ' ').replace(/[-_]/g, ' ').split(/\s+/).filter(Boolean)
+// латиница → кирилица (за папки като „DENIZ“, „Kaloqn“, „MIROSLAW“)
+const LAT = [['sht','щ'],['zh','ж'],['ch','ч'],['sh','ш'],['yu','ю'],['ya','я'],['ts','ц'],
+  ['a','а'],['b','б'],['v','в'],['w','в'],['g','г'],['d','д'],['e','е'],['z','з'],['i','и'],['j','й'],['k','к'],
+  ['l','л'],['m','м'],['n','н'],['o','о'],['p','п'],['r','р'],['s','с'],['t','т'],['u','у'],['f','ф'],['h','х'],
+  ['c','ц'],['q','я'],['y','й'],['x','кс']]
+const cyr = s => { let t = s.toLowerCase(); for (const [l, c] of LAT) t = t.split(l).join(c); return t }
+const norm = s => cyr(s || '').replace(/ё/g, 'е').replace(/ѝ/g, 'и').replace(/[^a-zа-я\s-]/g, ' ').replace(/[-_]/g, ' ').split(/\s+/).filter(Boolean)
 
 // ── Данни от EIS ────────────────────────────────────────────────────────
 const { data: year } = await sb.from('academic_years').select('id, name').eq('is_current', true).single()
@@ -146,10 +152,24 @@ function accounts(email) {
   return [`${user}@csop-varna.bg`, `${user}@edu.mon.bg`]
 }
 
-function match(segment) {
+// „07 Светлана Живкова“ → 7 ; паралелката в EIS „07“ → 7
+const clsNum = v => { const m = String(v || '').match(/^\s*(\d{1,2})(\D|$)/); return m ? parseInt(m[1], 10) : null }
+const inClass = (s, cls) => cls != null && clsNum(classOf.get(s.id)) === cls
+
+function match(segment, cls) {
   const t = new Set(norm(segment))
-  if (t.size < 2) return { kind: 'none' }
-  const hits = (students || []).filter(s => t.has(norm(s.first_name)[0]) && t.has(norm(s.last_name)[0]))
+  if (!t.size) return { kind: 'none' }
+  let hits = t.size >= 2 ? (students || []).filter(s => t.has(norm(s.first_name)[0]) && t.has(norm(s.last_name)[0])) : []
+  if (hits.length > 1 && cls != null) {
+    const here = hits.filter(s => inClass(s, cls))
+    if (here.length === 1) return { kind: 'ok', s: here[0], how: 'клас' }
+  }
+  // само малко име (или името не е същото като в EIS) → търсим САМО в паралелката на папката
+  if (hits.length === 0 && cls != null) {
+    const here = (students || []).filter(s => s.status === 'active' && inClass(s, cls) && t.has(norm(s.first_name)[0]))
+    if (here.length === 1) return { kind: 'ok', s: here[0], how: 'малко име' }
+    if (here.length > 1) return { kind: 'many', list: here }
+  }
   if (hits.length > 1) {
     const byMiddle = hits.filter(s => s.middle_name && t.has(norm(s.middle_name)[0]))
     if (byMiddle.length === 1) return { kind: 'ok', s: byMiddle[0] }
@@ -183,13 +203,14 @@ for (const file of walk(ROOT)) {
   if (base.startsWith('~$') || base.startsWith('.')) continue  // временни файлове на Office
   const dirs = segs.slice(0, -1)                               // папките по пътя (без файла)
   const yi = dirs.findIndex(isCurrentYear)
+  const cls = clsNum(dirs[1])                                  // „07 Светлана Живкова“ → 7
 
   let hit = null, candidate = '', label = ''
   if (yi >= 0) {
     // детето: първо СЛЕД годината, после МЕЖДУ класа и годината, накрая в самото име на годината
     const order = [...dirs.slice(yi + 1), ...dirs.slice(2, yi), dirs[yi]]
     for (const seg of order) {
-      const m = match(seg)
+      const m = match(seg, cls)
       if (m.kind !== 'none') { hit = m; candidate = seg; break }
     }
     candidate = candidate || dirs[yi + 1] || '(файлове направо в папката на годината)'
@@ -197,7 +218,7 @@ for (const file of walk(ROOT)) {
   } else {
     // няма папка за 2026/2027: дете направо под класа?
     if (dirs.length < 3 || dirs.slice(1).some(anyYear)) continue   // друга година или не е в клас
-    const m = match(dirs[2])
+    const m = match(dirs[2], cls)
     if (m.kind === 'none') continue
     if (!NOYEAR) { noYear.set(dirs.slice(0, 3).join(' / '), (noYear.get(dirs.slice(0, 3).join(' / ')) || 0) + 1); continue }
     hit = m; candidate = dirs[2]; label = dirs.slice(0, 3).join(' / ')
@@ -212,7 +233,7 @@ for (const file of walk(ROOT)) {
   if (!TYPES[ext]) { skipped.push(`[тип .${ext || '?'}] ${path.relative(ROOT, file)}`); continue }
   if (size > MAX) { skipped.push(`[${(size / 1048576).toFixed(1)} MB] ${path.relative(ROOT, file)}`); continue }
 
-  if (!plan.has(hit.s.id)) plan.set(hit.s.id, { s: hit.s, files: [] })
+  if (!plan.has(hit.s.id)) plan.set(hit.s.id, { s: hit.s, files: [], how: hit.how, from: candidate })
   plan.get(hit.s.id).files.push(file)
 }
 
@@ -226,8 +247,10 @@ log(`БЕЗ ПАПКА ЗА ГОДИНА (не се качват без --bez-go
 log(`НЕРАЗПОЗНАТИ папки: ${unmatched.size}   ЕДНАКВИ ИМЕНА: ${ambiguous.size}   НЕАКТИВНИ (напуснали/архив): ${inactive.size}   ПРЕСКОЧЕНИ файлове: ${skipped.length}`)
 log('')
 log('── Разпознати ──')
-for (const { s, files } of [...plan.values()].sort((a, b) => a.s.last_name.localeCompare(b.s.last_name, 'bg')))
-  log(`  ${s.first_name} ${s.last_name}  [${classOf.get(s.id) || 'без паралелка'}]  ${files.length} файла${teamOf.get(s.id)?.length ? '' : '  ⚠ няма ЕПЛР екип'}`)
+for (const { s, files, how, from } of [...plan.values()].sort((a, b) => a.s.last_name.localeCompare(b.s.last_name, 'bg')))
+  log(`  ${s.first_name} ${s.last_name}  [${classOf.get(s.id) || 'без паралелка'}]  ${files.length} файла` +
+      (how ? `   ⚑ по ${how}: папка „${from}“ — ПРОВЕРИ` : '') +
+      (teamOf.get(s.id)?.length ? '' : '  ⚠ няма ЕПЛР екип'))
 log('\n── Неразпознати папки (няма такова дете в EIS) ──')
 for (const [k, n] of unmatched) log(`  ${k}  (${n} файла)`)
 log('\n── Еднакви имена (оправи ръчно) ──')
