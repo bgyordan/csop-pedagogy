@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Loader2, Check, Plus, X, Save, AlertTriangle, Copy } from 'lucide-react'
+import { Loader2, Check, Plus, X, Save, AlertTriangle, Copy, Lock, Unlock } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { saveMySchedule, checkClassCollision, addSubjectQuick, releaseClassSlot, type MyCell } from './actions'
 
@@ -310,9 +310,13 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
                       <td key={d.n} className="px-1.5 py-1.5 align-top relative">
                         <div title={`Заето: ${busy.by}${busy.subject ? ' · ' + busy.subject : ''}`}
                           onClick={() => isBoss && setBusyOpen(busyOpen === key ? null : key)}
-                          className={`w-full min-h-[56px] rounded-xl bg-slate-100 border border-slate-100 px-2.5 py-2 select-none ${isBoss ? 'cursor-pointer hover:border-slate-300' : 'cursor-not-allowed'}`}>
-                          <div className="text-[11px] text-slate-500 truncate">{busy.by}</div>
-                          <div className="text-xs text-slate-400 truncate">{busy.subject || 'заето'}</div>
+                          style={{ backgroundImage: 'repeating-linear-gradient(135deg, rgba(148,163,184,0.16) 0 6px, rgba(255,255,255,0) 6px 12px)' }}
+                          className={`w-full min-h-[56px] rounded-xl bg-slate-50 border border-slate-300 px-2.5 py-2 select-none ${isBoss ? 'cursor-pointer hover:border-amber-400 hover:shadow-sm' : 'cursor-not-allowed'}`}>
+                          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">
+                            {isBoss ? <Unlock size={11} className="text-amber-500" /> : <Lock size={11} />} Зает
+                          </div>
+                          <div className="text-[11px] font-medium text-slate-700 truncate">{busy.by}</div>
+                          {busy.subject && <div className="text-[11px] text-slate-500 truncate">{busy.subject}</div>}
                         </div>
                         {isBoss && busyOpen === key && (
                           <div className="absolute z-40 mt-1 left-1.5 w-60 bg-white border border-slate-200 rounded-xl shadow-xl p-3 space-y-2">
