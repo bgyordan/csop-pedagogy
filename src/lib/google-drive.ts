@@ -142,3 +142,11 @@ export function schoolEmail(email?: string | null) {
   if (e.endsWith('@edu.mon.bg')) return e.replace('@edu.mon.bg', '@csop-varna.bg')
   return null
 }
+
+// ivan.ivanov@... -> [ivan.ivanov@csop-varna.bg, ivan.ivanov@edu.mon.bg]
+// Колегата отваря документа с който от двата акаунта е влязъл в браузъра
+export function accountEmails(email?: string | null) {
+  const school = schoolEmail(email)
+  if (!school) return []
+  return [school, school.replace('@csop-varna.bg', '@edu.mon.bg')]
+}
