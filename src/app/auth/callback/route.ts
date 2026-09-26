@@ -5,10 +5,15 @@ import type { NextRequest } from 'next/server'
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
-  const origin = requestUrl.origin
+  // зад Cloudflare тунела request.url е вътрешният адрес → вземаме истинския от заглавките
+  const fwdHost = request.headers.get('x-forwarded-host') || request.headers.get('host')
+  const fwdProto = request.headers.get('x-forwarded-proto') || requestUrl.protocol.replace(':', '')
+  const origin = fwdHost ? `${fwdProto}://${fwdHost}` : requestUrl.origin
 
   if (!code) {
-    return NextResponse.redirect(`${origin}/auth/login?error=auth_failed`)
+    // напр. Google акаунт, който не е регистриран в EIS (новите регистрации са забранени)
+    const err = requestUrl.searchParams.get('error')
+    return NextResponse.redirect(`${origin}/auth/login?error=${err ? 'unauthorized' : 'auth_failed'}`)
   }
 
   // Създаваме временен response за да можем да записваме cookies
