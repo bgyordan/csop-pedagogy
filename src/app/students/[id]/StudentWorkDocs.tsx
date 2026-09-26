@@ -43,6 +43,17 @@ function withAccount(url: string, email?: string) {
   return url + (url.includes('?') ? '&' : '?') + 'authuser=' + encodeURIComponent(email)
 }
 
+// Табът се отваря ВЕДНАГА при натискането (иначе браузърът го блокира като изскачащ прозорец),
+// а адресът се зарежда в него, когато сървърът е готов
+function openPending() {
+  const w = window.open('', '_blank')
+  if (w) w.document.title = 'Създаване…'
+  return {
+    go(url: string) { if (w) w.location.href = url; else window.location.href = url },
+    cancel() { w?.close() },
+  }
+}
+
 const isFolder = (f: Item) => f.mimeType === 'application/vnd.google-apps.folder'
 
 export default function StudentWorkDocs({ studentId }: { studentId: string }) {
@@ -107,14 +118,15 @@ export default function StudentWorkDocs({ studentId }: { studentId: string }) {
   // ── нов документ ──
   async function create() {
     if (!newName.trim()) return
+    const tab = openPending()
     setBusy('Създаване…')
     setError('')
     const r = await createBlankDoc(studentId, newName)
     setBusy('')
-    if (r.error) return setError(r.error)
+    if (r.error || !r.url) { tab.cancel(); return setError(r.error || 'Документът не се създаде') }
     setCreating(false)
     setNewName('')
-    if (r.url) window.open(withAccount(r.url, myEmail), '_blank')
+    tab.go(withAccount(r.url, myEmail))
     await load()
   }
 
@@ -124,13 +136,14 @@ export default function StudentWorkDocs({ studentId }: { studentId: string }) {
     if (templates === null) setTemplates(await listDocTemplates())
   }
   async function fromTemplate(t: { id: string; name: string }) {
+    const tab = openPending()
     setBusy(`Създаване: ${t.name}…`)
     setError('')
     const r = await createFromTemplate(studentId, t.id)
     setBusy('')
-    if (r.error) return setError(r.error)
+    if (r.error || !r.url) { tab.cancel(); return setError(r.error || 'Документът не се създаде') }
     setCreating(false)
-    if (r.url) window.open(withAccount(r.url, myEmail), '_blank')
+    tab.go(withAccount(r.url, myEmail))
     await load()
   }
 
