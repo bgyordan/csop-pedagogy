@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Trash2, Pencil, Eye, EyeOff } from 'lucide-react'
+import { Plus, Trash2, Pencil, Eye, EyeOff, Sparkles, RotateCcw } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { Confirm } from '@/components/ui/Confirm'
@@ -15,16 +15,36 @@ export default function AnnouncementsPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ title: '', body: '', expires_at: '', target_roles: [] as UserRole[] })
+  const [form, setForm] = useState({ title: '', body: '', expires_at: '', target_roles: [] as UserRole[], show_popup: false })
+  const [readCount, setReadCount] = useState<Record<string, number>>({})
+  const [staff, setStaff] = useState<{ role: string; therapy_role: string | null }[]>([])
   useEffect(() => { load() }, [])
   async function load() {
-    const { data } = await supabase.from('announcements').select('*').order('created_at', { ascending: false })
+    const [{ data }, { data: reads }, { data: st }] = await Promise.all([
+      supabase.from('announcements').select('*').order('created_at', { ascending: false }),
+      supabase.from('announcement_reads').select('announcement_id'),
+      supabase.from('staff_profiles').select('role, therapy_role').not('user_id', 'is', null),
+    ])
     setAnnouncements(data || [])
+    const rc: Record<string, number> = {}
+    for (const r of reads || []) rc[r.announcement_id] = (rc[r.announcement_id] || 0) + 1
+    setReadCount(rc)
+    setStaff(st || [])
   }
   function openNew() {
     setEditId(null)
-    setForm({ title: '', body: '', expires_at: '', target_roles: [] })
+    setForm({ title: '', body: '', expires_at: '', target_roles: [], show_popup: true })
     setOpen(true)
+  }
+  // колко колеги трябва да го видят (с акаунт, в целевите роли)
+  function audience(ann: any) {
+    const roles: string[] = ann.target_roles || []
+    return staff.filter(s => !roles.length || roles.includes(s.role) || (s.therapy_role && roles.includes(s.therapy_role))).length
+  }
+  async function resetReads(ann: any) {
+    await supabase.from('announcement_reads').delete().eq('announcement_id', ann.id)
+    toast('Ще изскочи отново на всички')
+    load()
   }
   function openEdit(ann: any) {
     setEditId(ann.id)
@@ -33,6 +53,7 @@ export default function AnnouncementsPage() {
       body: ann.body,
       expires_at: ann.expires_at ? ann.expires_at.split('T')[0] : '',
       target_roles: ann.target_roles || [],
+      show_popup: !!ann.show_popup,
     })
     setOpen(true)
   }
@@ -46,6 +67,7 @@ export default function AnnouncementsPage() {
         body: form.body,
         target_roles: form.target_roles,
         expires_at: form.expires_at || null,
+        show_popup: form.show_popup,
       }).eq('id', editId)
       toast('Съобщението е обновено')
     } else {
@@ -57,13 +79,14 @@ export default function AnnouncementsPage() {
         expires_at: form.expires_at || null,
         created_by: profile?.id,
         is_active: true,
+        show_popup: form.show_popup,
       })
       toast('Съобщението е публикувано')
     }
     setOpen(false)
     setEditId(null)
     setSaving(false)
-    setForm({ title: '', body: '', expires_at: '', target_roles: [] })
+    setForm({ title: '', body: '', expires_at: '', target_roles: [], show_popup: false })
     load()
   }
   async function toggleActive(ann: any) {
@@ -102,6 +125,11 @@ export default function AnnouncementsPage() {
               <div className="flex items-center gap-2 mb-1">
                 <h2 className="font-semibold text-slate-800">{ann.title}</h2>
                 {!ann.is_active && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">Скрито</span>}
+                {ann.show_popup && (
+                  <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-gradient-to-r from-teal-50 to-cyan-50 text-teal-700 border border-teal-100">
+                    <Sparkles size={10} /> Изскача при влизане
+                  </span>
+                )}
               </div>
               <p className="text-sm text-slate-600 mb-2 whitespace-pre-wrap">{ann.body}</p>
               <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
@@ -110,12 +138,29 @@ export default function AnnouncementsPage() {
                 {ann.target_roles?.length > 0 && (
                   <span>За: {ann.target_roles.map((r: UserRole) => ROLE_LABELS[r]).join(', ')}</span>
                 )}
+                {ann.show_popup && (() => {
+                  const n = readCount[ann.id] || 0, total = audience(ann)
+                  const pct = total ? Math.min(100, Math.round(n / total * 100)) : 0
+                  return (
+                    <span className="inline-flex items-center gap-2">
+                      <span className="w-20 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                        <span className="block h-full rounded-full bg-gradient-to-r from-teal-400 to-cyan-500" style={{ width: pct + '%' }} />
+                      </span>
+                      Прочели {n} от {total}
+                    </span>
+                  )
+                })()}
               </div>
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
               <button onClick={() => toggleActive(ann)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title={ann.is_active ? 'Скрий' : 'Покажи'}>
                 {ann.is_active ? <Eye size={15} /> : <EyeOff size={15} />}
               </button>
+              {ann.show_popup && (readCount[ann.id] || 0) > 0 && (
+                <button onClick={() => resetReads(ann)} className="p-1.5 rounded-lg text-slate-400 hover:text-teal-700 hover:bg-teal-50 transition-colors opacity-0 group-hover:opacity-100" title="Покажи отново на всички">
+                  <RotateCcw size={15} />
+                </button>
+              )}
               <button onClick={() => openEdit(ann)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors opacity-0 group-hover:opacity-100" title="Редактирай">
                 <Pencil size={15} />
               </button>
@@ -135,7 +180,23 @@ export default function AnnouncementsPage() {
           </div>
           <div>
             <label className="label">Текст</label>
-            <textarea rows={4} className="input resize-none" value={form.body} onChange={e => setForm(p => ({ ...p, body: e.target.value }))} />
+            <textarea rows={7} className="input resize-none" value={form.body} onChange={e => setForm(p => ({ ...p, body: e.target.value }))} />
+          </div>
+          <div>
+            <label className="label">Как да се показва</label>
+            <div className="inline-flex p-1 rounded-xl bg-slate-100 mt-1">
+              <button type="button" onClick={() => setForm(p => ({ ...p, show_popup: false }))}
+                className={`px-3 py-1.5 rounded-lg text-xs transition ${!form.show_popup ? 'bg-white shadow-sm text-[#0f2240]' : 'text-slate-500 hover:text-slate-700'}`}>
+                Само на таблото
+              </button>
+              <button type="button" onClick={() => setForm(p => ({ ...p, show_popup: true }))}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition ${form.show_popup ? 'bg-white shadow-sm text-teal-700' : 'text-slate-500 hover:text-slate-700'}`}>
+                <Sparkles size={12} /> Изскача при влизане
+              </button>
+            </div>
+            {form.show_popup && (
+              <p className="text-xs text-slate-400 mt-1.5">Всеки колега го вижда веднъж и го затваря с „Разбрах“. Редове, започващи с „-“, стават точки.</p>
+            )}
           </div>
           <div>
             <label className="label">Изтича на (по избор)</label>

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
+import WhatsNewModal from './WhatsNewModal'
 import { cn } from '@/lib/utils'
 import { AutoLogout } from '@/components/AutoLogout'
 const SIDEBAR_BG = '#f0f7ff'
@@ -427,6 +428,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
         {sidebarContent}
       </div>
       <div className="md:hidden h-14 flex-shrink-0" />
+      <WhatsNewModal />
     </>
   )
 }

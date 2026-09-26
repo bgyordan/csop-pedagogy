@@ -170,6 +170,7 @@ export interface Announcement {
   created_by?: string
   target_roles: UserRole[]
   is_active: boolean
+  show_popup?: boolean
   created_at: string
   expires_at?: string
 }
