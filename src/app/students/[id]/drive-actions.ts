@@ -1,7 +1,7 @@
 'use server'
 
 import { ensureStudentFolder, createGoogleDoc, uploadDocxAsGoogleDoc } from '@/lib/google-drive'
-import { studentContext, shareTeam, listForStudent, createBlankForStudent } from '@/lib/student-drive'
+import { studentContext, shareTeam, listForStudent, createBlankForStudent, renameForStudent, trashForStudent } from '@/lib/student-drive'
 
 type DriveResult = { url?: string; error?: string; shared?: string[]; failed?: string[]; existed?: boolean }
 
@@ -15,6 +15,15 @@ export async function listStudentDocs(studentId: string) {
 // Нов празен документ с дадено име
 export async function createBlankDoc(studentId: string, name: string) {
   return createBlankForStudent(studentId, name)
+}
+
+export async function renameDoc(studentId: string, fileId: string, name: string) {
+  return renameForStudent(studentId, fileId, name)
+}
+
+// Към кошчето в Drive (възстановимо 30 дни)
+export async function trashDocs(studentId: string, fileIds: string[]) {
+  return trashForStudent(studentId, fileIds)
 }
 
 // ── Генераторът и старата карта с линкове ───────────────────────────────

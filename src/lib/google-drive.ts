@@ -114,12 +114,12 @@ const CONVERT: Record<string, string> = {
 }
 
 // Качва файл в папката; Word/Excel/PowerPoint стават Google документи с ОРИГИНАЛНОТО име (без разширението)
-export async function uploadFile(name: string, folderId: string, data: Buffer, mime: string) {
+export async function uploadFile(name: string, folderId: string, data: Buffer, mime: string, props?: Record<string, string>) {
   const token = await accessToken()
   const target = CONVERT[mime]
   const cleanName = target ? name.replace(/\.(docx?|odt|rtf|xlsx?|pptx?)$/i, '') : name
   const boundary = 'eis' + Date.now()
-  const meta = JSON.stringify({ name: cleanName, parents: [folderId], ...(target ? { mimeType: target } : {}) })
+  const meta = JSON.stringify({ name: cleanName, parents: [folderId], ...(target ? { mimeType: target } : {}), ...(props ? { appProperties: props } : {}) })
   const body = Buffer.concat([
     Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n`),
     Buffer.from(`--${boundary}\r\nContent-Type: ${mime || 'application/octet-stream'}\r\n\r\n`),
@@ -161,22 +161,76 @@ export type DriveItem = {
   url: string
 }
 
+// EIS качва файловете от името на eis@ → показваме истинския колега, записан при качването
+function whoModified(f: any) {
+  const u = f.lastModifyingUser
+  if (u?.emailAddress && /^eis@/i.test(u.emailAddress)) return f.appProperties?.uploadedBy || 'EIS'
+  return u?.displayName || ''
+}
+
 // Съдържанието на папка (без изтритите), подредено: първо папки, после по име
 export async function listFolder(folderId: string): Promise<DriveItem[]> {
   const q = `'${folderId}' in parents and trashed=false`
   const r = await drive(
     `/files?q=${encodeURIComponent(q)}&corpora=drive&driveId=${driveId()}&includeItemsFromAllDrives=true&supportsAllDrives=true` +
     `&orderBy=${encodeURIComponent('folder,name_natural')}&pageSize=200` +
-    `&fields=${encodeURIComponent('files(id,name,mimeType,modifiedTime,webViewLink,lastModifyingUser(displayName))')}`
+    `&fields=${encodeURIComponent('files(id,name,mimeType,modifiedTime,webViewLink,appProperties,lastModifyingUser(displayName,emailAddress))')}`
   )
   return (r.files ?? []).map((f: any) => ({
     id: f.id,
     name: f.name,
     mimeType: f.mimeType,
     modifiedTime: f.modifiedTime,
-    modifiedBy: f.lastModifyingUser?.displayName || '',
+    modifiedBy: whoModified(f),
     url: f.webViewLink,
   }))
+}
+
+// ── Един файл: данни, сваляне, преименуване, изтриване ─────────────────
+
+export async function getFileMeta(fileId: string) {
+  return drive(`/files/${fileId}?supportsAllDrives=true&fields=id,name,mimeType,parents`) as Promise<
+    { id: string; name: string; mimeType: string; parents?: string[] }
+  >
+}
+
+// Google формат → Office формат при сваляне
+const EXPORT_OFFICE: Record<string, { mime: string; ext: string }> = {
+  [GDOC]: { mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', ext: 'docx' },
+  'application/vnd.google-apps.spreadsheet': { mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', ext: 'xlsx' },
+  'application/vnd.google-apps.presentation': { mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', ext: 'pptx' },
+}
+
+// as='office' → Word/Excel/PowerPoint (или оригиналът); as='pdf' → PDF
+export async function downloadFile(fileId: string, as: 'office' | 'pdf') {
+  const meta = await getFileMeta(fileId)
+  const token = await accessToken()
+  const isGoogle = meta.mimeType.startsWith('application/vnd.google-apps.')
+  let url: string
+  let contentType: string
+  let filename = meta.name
+  if (isGoogle) {
+    const target = as === 'pdf' ? { mime: 'application/pdf', ext: 'pdf' } : EXPORT_OFFICE[meta.mimeType]
+    if (!target) throw new Error('Този тип файл не може да се свали')
+    url = `${API}/files/${fileId}/export?mimeType=${encodeURIComponent(target.mime)}`
+    contentType = target.mime
+    filename = `${meta.name}.${target.ext}`
+  } else {
+    url = `${API}/files/${fileId}?alt=media&supportsAllDrives=true`
+    contentType = meta.mimeType || 'application/octet-stream'
+  }
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+  if (!res.ok) throw new Error(`Drive грешка ${res.status}`)
+  return { data: Buffer.from(await res.arrayBuffer()), contentType, filename }
+}
+
+export async function renameFile(fileId: string, name: string) {
+  await drive(`/files/${fileId}?supportsAllDrives=true`, { method: 'PATCH', body: JSON.stringify({ name }) })
+}
+
+// В кошчето на споделения диск (възстановява се от Drive до 30 дни)
+export async function trashFile(fileId: string) {
+  await drive(`/files/${fileId}?supportsAllDrives=true`, { method: 'PATCH', body: JSON.stringify({ trashed: true }) })
 }
 
 // Дава право за редакция, без имейл известие (на файл или папка)

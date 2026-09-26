@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import {
   ensureStudentFolder, findStudentFolder, listFolder, uploadFile, createGoogleDoc,
-  shareWriter, accountEmails, type DriveItem,
+  shareWriter, accountEmails, getFileMeta, downloadFile, renameFile, trashFile, type DriveItem,
 } from '@/lib/google-drive'
 
 // Тези роли могат да качват/създават документи за всяко дете; останалите — само ако са в ЕПЛР екипа му
@@ -13,6 +13,7 @@ export type StudentCtx = {
   supabase: Awaited<ReturnType<typeof createClient>>
   userEmail: string
   meId: string | null
+  myName: string
   studentName: string
   yearName: string
   className: string
@@ -25,7 +26,7 @@ export async function studentContext(studentId: string): Promise<StudentCtx | { 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли в системата' }
 
-  const { data: me } = await supabase.from('staff_profiles').select('id, role').eq('user_id', user.id).maybeSingle()
+  const { data: me } = await supabase.from('staff_profiles').select('id, role, first_name, last_name').eq('user_id', user.id).maybeSingle()
 
   const { data: student } = await supabase
     .from('students').select('first_name, last_name').eq('id', studentId).single()
@@ -56,6 +57,7 @@ export async function studentContext(studentId: string): Promise<StudentCtx | { 
     supabase,
     userEmail: user.email || '',
     meId: me?.id ?? null,
+    myName: me ? `${me.first_name} ${me.last_name}` : (user.email || ''),
     studentName: `${student.first_name} ${student.last_name}`,
     yearName: year?.name || '',
     className,
@@ -118,7 +120,7 @@ export async function uploadForStudent(studentId: string, name: string, mime: st
   if (!ctx.canEdit) return { error: 'Само ЕПЛР екипът на детето може да качва документи.' }
   try {
     const folderId = await folderFor(ctx, studentId)
-    const doc = await uploadFile(name, folderId, data, mime)
+    const doc = await uploadFile(name, folderId, data, mime, { uploadedBy: ctx.myName })
     return { url: doc.url }
   } catch (e: any) {
     return { error: e?.message || 'Грешка при качването' }
@@ -137,5 +139,53 @@ export async function createBlankForStudent(studentId: string, name: string) {
     return { url: doc.url }
   } catch (e: any) {
     return { error: e?.message || 'Грешка при създаването' }
+  }
+}
+
+// Проверка, че файлът е в папката на ТОВА дете (за да не може да се тегли/трие чужд файл по id)
+async function ownFile(ctx: StudentCtx, studentId: string, fileId: string) {
+  const folderId = await findStudentFolder(studentId, ctx.yearName)
+  if (!folderId) return false
+  const meta = await getFileMeta(fileId)
+  return !!meta.parents?.includes(folderId)
+}
+
+export async function downloadForStudent(studentId: string, fileId: string, as: 'office' | 'pdf') {
+  const ctx = await studentContext(studentId)
+  if ('error' in ctx) return { error: ctx.error }
+  try {
+    if (!(await ownFile(ctx, studentId, fileId))) return { error: 'Файлът не е на това дете' }
+    return await downloadFile(fileId, as)
+  } catch (e: any) {
+    return { error: e?.message || 'Грешка при свалянето' }
+  }
+}
+
+export async function renameForStudent(studentId: string, fileId: string, name: string) {
+  const ctx = await studentContext(studentId)
+  if ('error' in ctx) return { error: ctx.error }
+  if (!ctx.canEdit) return { error: 'Само ЕПЛР екипът на детето може да преименува.' }
+  if (!name.trim()) return { error: 'Името не може да е празно.' }
+  try {
+    if (!(await ownFile(ctx, studentId, fileId))) return { error: 'Файлът не е на това дете' }
+    await renameFile(fileId, name.trim())
+    return { ok: true }
+  } catch (e: any) {
+    return { error: e?.message || 'Грешка при преименуването' }
+  }
+}
+
+export async function trashForStudent(studentId: string, fileIds: string[]) {
+  const ctx = await studentContext(studentId)
+  if ('error' in ctx) return { error: ctx.error }
+  if (!ctx.canEdit) return { error: 'Само ЕПЛР екипът на детето може да изтрива.' }
+  try {
+    for (const id of fileIds) {
+      if (!(await ownFile(ctx, studentId, id))) return { error: 'Файлът не е на това дете' }
+      await trashFile(id)
+    }
+    return { ok: true }
+  } catch (e: any) {
+    return { error: e?.message || 'Грешка при изтриването' }
   }
 }
