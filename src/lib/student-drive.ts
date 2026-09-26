@@ -225,7 +225,7 @@ const bgDate = (d: string | Date | null | undefined) =>
 async function markerValues(ctx: StudentCtx, studentId: string): Promise<Record<string, string>> {
   const sb = ctx.supabase
   const { data: st } = await sb.from('students')
-    .select('first_name, middle_name, last_name, birth_date, sending_school:sending_schools(name, city)')
+    .select('first_name, middle_name, last_name, birth_date, external_class, sending_school:sending_schools(name, city)')
     .eq('id', studentId).single()
   const { data: year } = await sb.from('academic_years').select('id').eq('is_current', true).single()
   const { data: team } = await sb.from('eplr_teams').select(`
@@ -253,6 +253,7 @@ async function markerValues(ctx: StudentCtx, studentId: string): Promise<Record<
     'ДАТА_РАЖДАНЕ': bgDate(st?.birth_date),
     'ВЪЗРАСТ': ageOn(st?.birth_date),
     'КЛАС': ctx.className,
+    'КЛАС_УЧИЛИЩЕ': ((st as any)?.external_class || '').toString(),
     'УЧИЛИЩЕ': school ? [school.name, school.city].filter(Boolean).join(', ') : '',
     'ГОДИНА': ctx.yearName,
     'ДАТА': bgDate(new Date()),
