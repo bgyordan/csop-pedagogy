@@ -24,7 +24,7 @@ export default function NoDocsCount({ students }: { students: { id: string; name
           : <span className={`px-2 py-0.5 rounded-full text-xs ${missing.length ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{missing.length || '✓'}</span>}
       </button>
       {open && !!missing?.length && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="mt-2 flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1">
           {missing.map(s => (
             <Link key={s.id} href={`/students/${s.id}`} className="px-2 py-0.5 rounded-md bg-slate-50 border border-slate-100 text-[11px] text-slate-600 hover:border-sky-200 hover:text-[#0f2240]">{s.name}</Link>
           ))}
