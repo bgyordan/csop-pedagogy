@@ -44,13 +44,24 @@ export async function getMyLecturerDates(periodFrom: string, periodTo: string) {
     .select('date, day_of_week')
     .gte('date', periodFrom).lte('date', periodTo).eq('is_school_day', true)
   const schoolDates = (cal || [])
+
+  // дните, в които самият учител отсъства (отпуск/болничен в „Замествания“) — не е провел часа
+  const absent = new Set<string>()
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: me } = user ? await supabase.from('staff_profiles').select('id').eq('user_id', user.id).single() : { data: null }
+  if (me) {
+    const { data: abs } = await supabase.from('substitutions').select('date_from, date_to')
+      .eq('absent_staff_id', me.id).lte('date_from', periodTo).gte('date_to', periodFrom)
+    ;(abs || []).forEach((a: any) => schoolDates.forEach((c: any) => { if (c.date >= a.date_from && c.date <= a.date_to) absent.add(c.date) }))
+  }
+
   const rows = slots.map((s: any) => {
     const lo = periodFrom > s.dateFrom ? periodFrom : s.dateFrom
     const hi = periodTo < s.dateTo ? periodTo : s.dateTo
     const dates = schoolDates
       .filter((c: any) => c.day_of_week === s.day && c.date >= lo && c.date <= hi)
       .map((c: any) => c.date)
-    return { slotId: s.id, day: s.day, period: s.period, subject: s.subject, holderLabel: s.holderLabel, dates }
+    return { slotId: s.id, day: s.day, period: s.period, subject: s.subject, holderLabel: s.holderLabel, dates, absent: dates.filter((d: string) => absent.has(d)) }
   })
   return { rows }
 }
