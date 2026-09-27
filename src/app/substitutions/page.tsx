@@ -54,7 +54,7 @@ export default async function SubstitutionsPage() {
   }))
 
   const { data: staff } = await supabase
-    .from('staff_profiles').select('id, first_name, last_name').eq('is_active', true)
+    .from('staff_profiles').select('id, first_name, last_name, role').eq('is_active', true)
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto animate-in fade-in duration-500">

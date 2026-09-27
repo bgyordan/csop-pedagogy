@@ -7,8 +7,9 @@ import { generateSubstitution, getAssignments, saveAssignments } from './actions
 import { generateSubstitutionOrder } from '@/lib/docx-substitution'
 import SubstituteDayCanvas from './SubstituteDayCanvas'
 import type { SubRow } from './page'
+import { canSubstitute } from '@/lib/pedagogues'
 
-type Staff = { id: string; first_name: string; last_name: string }
+type Staff = { id: string; first_name: string; last_name: string; role?: string | null }
 const REASONS: Record<string, string> = { sick: 'Болничен', vacation: 'Отпуск', other: 'Друго' }
 function reasonFromKt(kt: string): string { return kt === '162' ? 'sick' : (kt === '160' || kt === '161' || kt === '176' ? 'other' : 'vacation') }
 const KT_ARTICLES: { v: string; l: string }[] = [
@@ -125,6 +126,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const supabase = createClient()
   const { toast } = useToast()
   const [rows, setRows] = useState<SubRow[]>(initial)
+  // само учители и възпитатели (при редакция запазваме и вече избрания, ако е друг)
+  const pedStaff = (...keep: string[]) => staff.filter(s => canSubstitute(s.role) || keep.includes(s.id))
   const [search, setSearch] = useState('')
   const [npOnly, setNpOnly] = useState(false)
   const [periodIdx, setPeriodIdx] = useState(-1)
@@ -367,13 +370,13 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-slate-500 mb-1">Отсъстващ *</label>
-              <PersonCombo people={staff} value={absentId} onChange={setAbsentId} placeholder="Търси по име…" excludeId={subId} />
+              <PersonCombo people={pedStaff()} value={absentId} onChange={setAbsentId} placeholder="Търси по име…" excludeId={subId} />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Заместник</label>
               {multiOpen
                 ? <div className="px-3 py-2 text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">Задава се по дни долу ↓</div>
-                : <PersonCombo people={staff} value={subId} onChange={setSubId} placeholder="Търси по име…" excludeId={absentId} />}
+                : <PersonCombo people={pedStaff()} value={subId} onChange={setSubId} placeholder="Търси по име…" excludeId={absentId} />}
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">От *</label>
@@ -407,7 +410,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                   ? <p className="text-[13px] text-slate-500">Първо въведи периода (От / До), после разпредели дните.</p>
                   : schoolDays.length === 0
                     ? <p className="text-[13px] text-slate-500">Няма учебни дни в този период.</p>
-                    : <SubstituteDayCanvas schoolDays={schoolDays} staff={staff.filter(s => s.id !== absentId)} value={dayMap} onChange={setDayMap} />}
+                    : <SubstituteDayCanvas schoolDays={schoolDays} staff={pedStaff().filter(s => s.id !== absentId)} value={dayMap} onChange={setDayMap} />}
               </div>
             )}
           </div>
@@ -523,13 +526,13 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-slate-500 mb-1">Отсъстващ *</label>
-                <PersonCombo people={staff} value={eAbsent} onChange={setEAbsent} placeholder="Търси по име…" excludeId={eSub} />
+                <PersonCombo people={pedStaff(eAbsent)} value={eAbsent} onChange={setEAbsent} placeholder="Търси по име…" excludeId={eSub} />
               </div>
               <div>
                 <label className="block text-xs text-slate-500 mb-1">Заместник</label>
                 {multiOpen
                   ? <div className="px-3 py-2 text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">Задава се по дни долу ↓</div>
-                  : <PersonCombo people={staff} value={eSub} onChange={setESub} placeholder="Търси по име…" excludeId={eAbsent} />}
+                  : <PersonCombo people={pedStaff(eSub)} value={eSub} onChange={setESub} placeholder="Търси по име…" excludeId={eAbsent} />}
               </div>
               <div>
                 <label className="block text-xs text-slate-500 mb-1">От *</label>
@@ -591,7 +594,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                     ? <p className="text-[13px] text-slate-500">Първо въведи периода (От / До), после разпредели дните.</p>
                     : schoolDays.length === 0
                       ? <p className="text-[13px] text-slate-500">Няма учебни дни в този период.</p>
-                      : <SubstituteDayCanvas schoolDays={schoolDays} staff={staff.filter(s => s.id !== eAbsent)} value={dayMap} onChange={setDayMap} />}
+                      : <SubstituteDayCanvas schoolDays={schoolDays} staff={pedStaff(...Object.values(dayMap)).filter(s => s.id !== eAbsent)} value={dayMap} onChange={setDayMap} />}
                 </div>
               )}
             </div>

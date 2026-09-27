@@ -1,6 +1,7 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { isPedagogical } from '@/lib/pedagogues'
 
 // Работни дни (пон-пет) между две дати, като { date: ISO, dow: 1..5, term: 1|2 }
 async function workdays(supabase: any, from: string, to: string): Promise<{ iso: string; dow: number; term: number }[]> {
@@ -381,7 +382,7 @@ export async function getMonExport(first: string, last: string, rate: number) {
   const { data: subs } = await supabase
     .from('substitutions')
     .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, kt_article, substitution_order_id, manual_order_number, manual_order_date, bsch_eligible,
-      sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name, position)`)
+      sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name, position, role)`)
     .eq('bsch_eligible', true)
     .lte('date_from', last).gte('date_to', first)
   if (!subs || subs.length === 0) return { error: 'Няма НП замествания за този период' }
@@ -389,11 +390,11 @@ export async function getMonExport(first: string, last: string, rate: number) {
   // разпределения по дни + имената/длъжностите на всички заместници в тях
   const assignMap = await assignmentsBySub(supabase, subs.map((x: any) => x.id))
   const extraIds = Array.from(new Set(Object.values(assignMap).flat().map(a => a.staffId)))
-  const people: Record<string, { name: string; position: string }> = {}
-  ;(subs as any[]).forEach(x => { if (x.substitute_staff_id && x.sub) people[x.substitute_staff_id] = { name: `${x.sub.first_name} ${x.sub.last_name}`, position: x.sub.position || '' } })
+  const people: Record<string, { name: string; position: string; role: string }> = {}
+  ;(subs as any[]).forEach(x => { if (x.substitute_staff_id && x.sub) people[x.substitute_staff_id] = { name: `${x.sub.first_name} ${x.sub.last_name}`, position: x.sub.position || '', role: x.sub.role || '' } })
   if (extraIds.length > 0) {
-    const { data: ppl } = await supabase.from('staff_profiles').select('id, first_name, last_name, position').in('id', extraIds)
-    ;(ppl || []).forEach((p: any) => { people[p.id] = { name: `${p.first_name} ${p.last_name}`, position: p.position || '' } })
+    const { data: ppl } = await supabase.from('staff_profiles').select('id, first_name, last_name, position, role').in('id', extraIds)
+    ;(ppl || []).forEach((p: any) => { people[p.id] = { name: `${p.first_name} ${p.last_name}`, position: p.position || '', role: p.role || '' } })
   }
 
 
@@ -421,8 +422,9 @@ export async function getMonExport(first: string, last: string, rate: number) {
       let hours = 0
       wds.forEach(w => { if ((npSet === null || npSet.has(w.iso)) && inRanges(w.iso, ranges)) hours += perDay(w.term, w.dow) })
       if (hours === 0) continue
-      const person = people[staffId] || { name: '', position: '' }
-      const isNonSpec = /възпитател|помощник|психолог|логопед|рехабилитатор/i.test(person.position)
+      const person = people[staffId] || { name: '', position: '', role: '' }
+      // непедагогически = не е педагогически специалист по ЗПУО (по роля)
+      const isNonSpec = !isPedagogical(person.role)
       rows.push({
         name: person.name,
         // в портала номерът и датата са отделни полета → само номера („014“), без „/23.09.2026г.“

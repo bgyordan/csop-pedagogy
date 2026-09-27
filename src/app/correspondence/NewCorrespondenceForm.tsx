@@ -1,5 +1,6 @@
 'use client'
 import React, { useState, useRef, useEffect } from 'react'
+import { canSubstitute } from '@/lib/pedagogues'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { generateNpLeaveOrder } from '@/lib/docx-substitution'
@@ -64,7 +65,7 @@ interface Props {
   totalCount: number
   currentUserId: string
   students: { id: string; first_name: string; last_name: string }[]
-  staff: { id: string; first_name: string; last_name: string }[]
+  staff: { id: string; first_name: string; last_name: string; role?: string | null }[]
   nomenclature: NomenclatureItem[]
   direction: Direction
   onClose: () => void
@@ -203,6 +204,8 @@ export default function NewCorrespondenceForm({
     setGuardians([])
     setCreateOrder(false)
   }
+  // отсъстващият може ли да бъде заместван (учител / възпитател)
+  const absentCanBeSubstituted = canSubstitute(staff.find(x => x.id === staffId)?.role)
   function handleStaffSelect(id: string) {
     setStaffId(id)
     const s = staff.find(x => x.id === id)
@@ -292,8 +295,8 @@ export default function NewCorrespondenceForm({
       } catch (_) { /* заповедта не бива да блокира деловодството */ }
     }
 
-// Заместване (сценарий vacation, ако е избран заместник)
-    if ((isVacation && substituteId && subFrom && subTo) || isNp) {
+// Заместване (сценарий vacation, ако е избран заместник) — само за учители и възпитатели
+    if (((isVacation && substituteId && subFrom && subTo) || isNp) && absentCanBeSubstituted) {
       try {
         await supabase.from('substitutions').insert({
           absent_staff_id: staffId || null,
@@ -427,12 +430,17 @@ export default function NewCorrespondenceForm({
                     </span>
                   </label>
                 )}
-                {/* Заместване (опционално) */}
-                {isVacation && (
+                {/* Заместване (опционално) — само за учители и възпитатели */}
+                {isVacation && staffId && !absentCanBeSubstituted && (
+                  <div className="pt-2 mt-1 border-t border-slate-200 text-[11px] text-slate-500">
+                    Без заместване — заместват се само учители и възпитатели.
+                  </div>
+                )}
+                {isVacation && absentCanBeSubstituted && (
                   <div className="pt-2 mt-1 border-t border-slate-200 space-y-2">
                     <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Заместване (по избор)</div>
                     {/* Комбо заместник */}
-                    <PersonCombo people={staff} value={substituteId} excludeId={staffId}
+                    <PersonCombo people={staff.filter(s => canSubstitute(s.role))} value={substituteId} excludeId={staffId}
                       onChange={(id) => { setSubstituteId(id); if (!id) { setSubFrom(''); setSubTo('') } }}
                       placeholder="Заместник — търси по име…" />
                     {/* Срок — само ако има избран заместник */}
