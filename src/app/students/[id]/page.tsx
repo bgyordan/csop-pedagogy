@@ -202,7 +202,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
               {student.external_class && (
                 <div>
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Клас в изпр. училище</div>
-                  <div className="text-sm font-medium text-slate-700 mt-0.5">{student.external_class}</div>
+                  <div className="text-sm font-medium text-slate-700 mt-0.5">{student.external_class}{(student as any).external_class_letter ? ` ${(student as any).external_class_letter}` : ''}</div>
                 </div>
               )}
               {student.is_traveling && (

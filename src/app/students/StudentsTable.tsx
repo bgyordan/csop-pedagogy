@@ -87,7 +87,7 @@ export default function StudentsTable({ rows }: { rows: Row[] }) {
               {/* Клас */}
               <div className="text-sm text-slate-500">
                 <span className="md:hidden text-[10px] uppercase text-slate-400 mr-1">Клас:</span>
-                {r.student?.external_class?.trim() || '—'}
+                {r.student?.external_class?.trim() ? `${r.student.external_class.trim()}${r.student?.external_class_letter ? ' ' + r.student.external_class_letter : ''}` : '—'}
               </div>
               {/* Форма */}
               <div>

@@ -17,6 +17,7 @@ export default function EditStudentPage() {
     first_name: '', middle_name: '', last_name: '', birth_date: '',
     sending_school_id: '' as string | null,
     external_class: '',
+    external_class_letter: '',
     is_traveling: false,
   })
 
@@ -40,6 +41,7 @@ export default function EditStudentPage() {
             birth_date: data.birth_date,
             sending_school_id: data.sending_school_id || null,
             external_class: data.external_class || '',
+            external_class_letter: data.external_class_letter || '',
             is_traveling: data.is_traveling || false,
           })
         }
@@ -96,7 +98,8 @@ export default function EditStudentPage() {
       last_name: form.last_name,
       birth_date: form.birth_date,
       sending_school_id: form.sending_school_id || null,
-      external_class: form.external_class || null,
+      external_class: form.external_class.trim() || null,
+      external_class_letter: form.external_class_letter.trim() || null,
       is_traveling: form.is_traveling,
     }).eq('id', id)
     if (error) { toast('Грешка при запис', 'error'); setSaving(false); return }
@@ -176,13 +179,15 @@ export default function EditStudentPage() {
         {/* Клас в изпращащото училище */}
         <div>
           <label className="label">Клас в изпращащото училище</label>
-          <input
-            className="input"
-            placeholder="напр. 2 а, 5 б, ПГ..."
-            value={form.external_class}
-            onChange={e => setForm(p => ({ ...p, external_class: e.target.value }))}
-          />
-          <p className="text-xs text-slate-400 mt-1">Класът по който се обучава в изпращащото училище</p>
+          <div className="flex gap-2">
+            <input className="input flex-1" placeholder="напр. IX, II, ПГ…"
+              value={form.external_class}
+              onChange={e => setForm(p => ({ ...p, external_class: e.target.value }))} />
+            <input className="input w-24 text-center" placeholder="буква" maxLength={3}
+              value={form.external_class_letter}
+              onChange={e => setForm(p => ({ ...p, external_class_letter: e.target.value.toLowerCase() }))} />
+          </div>
+          <p className="text-xs text-slate-400 mt-1">Класът (римско) и отделно буквата на паралелката в училището — напр. IX и „а“. Буквата е важна за учебния план.</p>
         </div>
 
         {/* Пътуващ ученик */}
