@@ -95,7 +95,6 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
   const noTpl = noTplKind || !!yr          // …и само за текущата година
   // предходната учебна година (за „Копирай от …“)
   const prevYear = years ? years.years[years.years.indexOf(years.current) + 1] : undefined
-  const [confirmCopy, setConfirmCopy] = useState(false)
   const [folders, setFolders] = useState<Group[]>([])
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [dropOn, setDropOn] = useState<string | null>(null)
@@ -224,17 +223,17 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
     await load()
   }
 
-  // ── копиране на документите от предходната година в текущата ──
-  async function doCopyPrev() {
-    if (!prevYear) return
-    setConfirmCopy(false)
-    setBusy(`Копиране от ${prevYear}…`)
+  // ── копиране на избраните документи от минала година в текущата ──
+  async function copySelectedToCurrent(ids: string[]) {
+    if (!yr || !ids.length) return
+    setBusy(`Копиране на ${ids.length} в ${years?.current}…`)
     setError('')
-    const r: any = await copyFromYear(ownerId, prevYear)
+    const r: any = await copyFromYear(ownerId, yr, ids)
     setBusy('')
-    if (r.error) setError(r.error)
-    else if (r.skipped) setError(`Копирани ${r.copied}; ${r.skipped} вече ги имаше (същото име) — прескочени.`)
-    await load()
+    if (r.error) { setError(r.error); return }
+    setSelected(new Set())
+    setYear('')   // обратно в текущата година, за да се видят копията
+    if (r.skipped) setError(`Копирани ${r.copied}; ${r.skipped} вече ги имаше (същото име) — прескочени.`)
   }
 
   // ── споделяне с колегите (само „Моите документи“) ──
@@ -434,19 +433,11 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
         {canEdit && (
           <div className="ml-auto flex items-center gap-2">
             {kind === 'student' && !yr && prevYear && (
-              confirmCopy ? (
-                <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
-                  Копирай всичко от {prevYear} тук?
-                  <button type="button" onClick={doCopyPrev} className="px-2 py-1 rounded-md border border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100">Да</button>
-                  <button type="button" onClick={() => setConfirmCopy(false)} className="px-2 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50">Не</button>
-                </span>
-              ) : (
-                <button type="button" onClick={() => setConfirmCopy(true)} disabled={!!busy}
-                  title={`Копира документите на детето от ${prevYear} в текущата година (оригиналите остават)`}
-                  className={`${softBtn} border-slate-200 hover:bg-slate-50`}>
-                  <Copy size={14} /> Копирай от {prevYear}
-                </button>
-              )
+              <button type="button" onClick={() => { setYear(prevYear); setSelected(new Set()) }} disabled={!!busy}
+                title={`Отваря ${prevYear} — отметни кои файлове да се копират в текущата година`}
+                className={`${softBtn} border-slate-200 hover:bg-slate-50`}>
+                <Copy size={14} /> Копирай от {prevYear}
+              </button>
             )}
             <button type="button" onClick={() => inputRef.current?.click()} disabled={!!busy}
               className={`${softBtn} border-slate-200 hover:bg-slate-50`}>
@@ -509,6 +500,12 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
       {sel.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 mb-2 px-3 py-2 rounded-lg bg-sky-50/70 border border-sky-100 text-xs">
           <span className="text-[#0f2240]">Избрани: {sel.length}</span>
+          {yr && years?.current && (
+            <button type="button" onClick={() => copySelectedToCurrent(sel)} disabled={!!busy}
+              className={`${softBtn} border-sky-200 bg-sky-50 hover:bg-sky-100`}>
+              <Copy size={13} /> Копирай в {years.current}
+            </button>
+          )}
           <button type="button" onClick={() => download(sel, 'office')} className={`${softBtn} border-slate-200 bg-white hover:bg-slate-50`}>
             <Download size={13} /> Изтегли
           </button>
@@ -534,6 +531,13 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
         </div>
       )}
 
+      {yr && years?.current && sel.length === 0 && files.length > 0 && (
+        <div className="mb-2 px-3 py-2 rounded-lg bg-amber-50/70 border border-amber-100 text-xs text-amber-900 flex items-center gap-2">
+          <Copy size={13} className="text-amber-600" />
+          Гледаш {yr}. Отметни файловете, които ти трябват, и натисни „Копирай в {years.current}“.
+          <button type="button" onClick={() => setYear('')} className="ml-auto underline hover:text-amber-700">обратно в {years.current}</button>
+        </div>
+      )}
       {busy && (
         <div className="flex items-center gap-2 mb-2 text-xs text-sky-700">
           <Loader2 size={14} className="animate-spin" /> {busy}

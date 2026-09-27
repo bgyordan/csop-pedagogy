@@ -13,8 +13,8 @@ export async function listStudentDocs(studentId: string, year?: string) {
 }
 
 // Копира документите на детето от минала година в текущата
-export async function copyFromYear(studentId: string, fromYear: string) {
-  return copyFromYearForStudent(studentId, fromYear)
+export async function copyFromYear(studentId: string, fromYear: string, fileIds?: string[]) {
+  return copyFromYearForStudent(studentId, fromYear, fileIds)
 }
 
 // Годините за избора горе вдясно
