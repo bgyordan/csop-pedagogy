@@ -55,6 +55,27 @@ export async function saveMySchedule(
     schedByClass[classId] = sched!.id
   }
 
+  // ЗАБРАНА: в една паралелка по едно и също време не може да има двама учители.
+  // Ако друг учител вече е заел някой от часовете, които записвам → спираме с ясен списък.
+  const DAYS_BG = ['', 'пон', 'вт', 'ср', 'чет', 'пет']
+  const clashes: string[] = []
+  for (const [classId, schedId] of Object.entries(schedByClass)) {
+    const mine = classCells.filter(c => c.holderId === classId)
+    if (mine.length === 0) continue
+    const { data: others } = await supabase
+      .from('schedule_slots')
+      .select('day, period, subject:subjects(name), staff:staff_profiles(first_name, last_name)')
+      .eq('schedule_id', schedId).neq('staff_id', myId)
+    ;(others || []).forEach((o: any) => {
+      if (mine.some(c => c.day === o.day && c.period === o.period)) {
+        clashes.push(`${DAYS_BG[o.day]} ${o.period}. час — ${o.subject?.name || ''} (${o.staff ? `${o.staff.first_name} ${o.staff.last_name}` : 'друг учител'})`)
+      }
+    })
+  }
+  if (clashes.length > 0) {
+    return { error: `Тези часове в паралелката вече са заети от друг учител: ${clashes.join('; ')}. Махни ги от своето разписание или помоли класния да ги освободи.` }
+  }
+
   // Кои разписания да изчистя от МОИТЕ слотове:
   // тези, които пипам сега + тези, в които ВЕЧЕ имам слотове — за да се махнат и
   // напълно премахнати паралелки (иначе последната изтрита клетка остава в базата).
