@@ -52,6 +52,20 @@ function mapToRows(map: Record<string, string>, days: string[]) {
   return rows
 }
 
+// Лекторски (над норматив, платено) / Вътрешно (в рамките на нормата, без заплащане)
+function OverNormPick({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  const btn = (on: boolean) => on
+    ? { backgroundColor: '#475569', color: '#fff', borderColor: '#475569' }
+    : { backgroundColor: '#fff', color: '#475569', borderColor: '#e2e8f0' }
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+      <span>Вид заместване:</span>
+      <button type="button" onClick={() => onChange(true)} className="px-2.5 py-1 rounded-lg border text-xs transition-all" style={btn(value)}>Лекторски (платено)</button>
+      <button type="button" onClick={() => onChange(false)} className="px-2.5 py-1 rounded-lg border text-xs transition-all" style={btn(!value)}>Вътрешно (без заплащане)</button>
+    </div>
+  )
+}
+
 function PersonCombo({ people, value, onChange, placeholder, excludeId }: {
   people: Staff[]; value: string; onChange: (id: string) => void; placeholder: string; excludeId?: string
 }) {
@@ -115,7 +129,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [npOnly, setNpOnly] = useState(false)
   const [periodIdx, setPeriodIdx] = useState(-1)
   const [genId, setGenId] = useState<string | null>(null)
-  const [overNormMap, setOverNormMap] = useState<Record<string, boolean>>({})
+  const [overNormMap, setOverNormMap] = useState<Record<string, boolean>>(() => Object.fromEntries(initial.map(r => [r.id, r.overNorm !== false])))
   const [registerMap, setRegisterMap] = useState<Record<string, boolean>>({})
 
   // Създаване
@@ -145,6 +159,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [eManualNumber, setEManualNumber] = useState('')
   const [eManualDate, setEManualDate] = useState('')
   const [eNoOrder, setENoOrder] = useState(false)
+  const [eOverNorm, setEOverNorm] = useState(true)
   const [eSaving, setESaving] = useState(false)
 
   // Няколко заместника — единен модел: карта „ден → заместник"
@@ -184,6 +199,14 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     setPendingRanges(null)
   }, [pendingRanges, schoolDays])
 
+  // Лекторски / вътрешно — записва се веднага (от него зависи дали часовете се плащат)
+  async function toggleOverNorm(id: string) {
+    const next = !(overNormMap[id] !== false)
+    setOverNormMap(p => ({ ...p, [id]: next }))
+    const { error } = await supabase.from('substitutions').update({ over_norm: next }).eq('id', id)
+    if (error) { setOverNormMap(p => ({ ...p, [id]: !next })); toast('Грешка при запис', 'error') }
+  }
+
   async function genOrder(id: string) {
     setGenId(id)
     const row = rows.find(r => r.id === id)
@@ -216,9 +239,10 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       substituteId: r.substitute_staff_id, dateFrom: r.date_from, dateTo: r.date_to,
            reason: r.reason, hasOrder: !!r.substitution_order_id, bsch: r.bsch_eligible === true, ktArticle: r.kt_article,
       manualNumber: r.manual_order_number || null, manualDate: r.manual_order_date || null, noOrder: r.no_order_needed === true,
+      overNorm: r.over_norm !== false,
     } as SubRow
   }
-  const selectCols = `id, date_from, date_to, reason, substitute_staff_id, substitution_order_id, manual_order_number, manual_order_date, no_order_needed, bsch_eligible, kt_article,
+  const selectCols = `id, date_from, date_to, reason, substitute_staff_id, substitution_order_id, manual_order_number, manual_order_date, no_order_needed, bsch_eligible, kt_article, over_norm,
     absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name),
     sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name)`
 
@@ -234,6 +258,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       manual_order_number: orderMode === 'manual' ? (nManualNumber.trim() || null) : null,
       manual_order_date: orderMode === 'manual' ? (nManualDate || null) : null,
       no_order_needed: orderMode === 'none',
+      over_norm: bsch ? true : nOverNorm,
     }).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setSaving(false); return }
     if (multiOpen) {
@@ -248,6 +273,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       else { try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ } newRow = { ...newRow, hasOrder: true } }
     }
     setRows(prev => [newRow, ...prev])
+    setOverNormMap(p => ({ ...p, [newRow.id]: newRow.overNorm }))
     toast('Заместването е добавено')
     setAbsentId(''); setSubId(''); setFrom(''); setTo(''); setReason('sick'); setBsch(false); setKtArticle('155'); setOrderMode('create'); setNManualNumber(''); setNManualDate(''); setNOverNorm(true); setShowNew(false); setSaving(false)
     resetMulti()
@@ -267,6 +293,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     setESub(r.substituteId || '')
     setEFrom(r.dateFrom); setETo(r.dateTo); setEReason(r.reason); setEBsch(!!(r as any).bsch); setEKtArticle((r as any).ktArticle || '155')
     setEManualNumber((r as any).manualNumber || ''); setEManualDate((r as any).manualDate || ''); setENoOrder(!!(r as any).noOrder)
+    setEOverNorm(overNormMap[r.id] !== false)
   }
   // за редакция трябва absent_staff_id — карта id->absentId от initial (page подава absentStaffId в SubRow)
   const absentIdByRow: Record<string, string> = useMemo(() => {
@@ -285,11 +312,13 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       absent_staff_id: eAbsent, substitute_staff_id: primary || null,
       date_from: eFrom, date_to: eTo, reason: reasonFromKt(eKtArticle), bsch_eligible: eBsch, kt_article: eKtArticle,
       manual_order_number: eManualNumber.trim() || null, manual_order_date: eManualDate || null, no_order_needed: eNoOrder,
+      over_norm: eBsch ? true : eOverNorm,
     }).eq('id', editId).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setESaving(false); return }
     const mapped: any = mapRow(data); mapped.absentStaffId = eAbsent
     await saveAssignments(editId, multiOpen ? mapToRows(dayMap, schoolDays) : [])
     setRows(prev => prev.map(x => x.id === editId ? mapped : x))
+    setOverNormMap(p => ({ ...p, [editId]: mapped.overNorm }))
     toast('Записът е обновен')
     closeEdit(); setESaving(false)
   }
@@ -394,19 +423,9 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                 </button>
               ))}
             </div>
+            {!bsch && <OverNormPick value={nOverNorm} onChange={setNOverNorm} />}
             {orderMode === 'create' && (
               <div className="space-y-2">
-                {!bsch && (
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <span>Вид:</span>
-                    <button type="button" onClick={() => setNOverNorm(true)}
-                      className="px-2.5 py-1 rounded-lg border text-xs transition-all"
-                      style={nOverNorm ? { backgroundColor: '#475569', color: '#fff', borderColor: '#475569' } : { backgroundColor: '#fff', color: '#475569', borderColor: '#e2e8f0' }}>Лекторски</button>
-                    <button type="button" onClick={() => setNOverNorm(false)}
-                      className="px-2.5 py-1 rounded-lg border text-xs transition-all"
-                      style={!nOverNorm ? { backgroundColor: '#475569', color: '#fff', borderColor: '#475569' } : { backgroundColor: '#fff', color: '#475569', borderColor: '#e2e8f0' }}>Вътрешно</button>
-                  </div>
-                )}
                 <p className="text-[12px] text-slate-500">При запис системата генерира заповедта (Word) и я завежда с номер{!(multiOpen ? true : !!subId) ? ' — първо посочи заместник' : ''}.</p>
               </div>
             )}
@@ -458,6 +477,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               <span className="text-xs text-slate-500">{fmt(r.dateTo)}</span>
               <div className="flex items-center justify-end gap-1.5 flex-nowrap">
                 {(r as any).bsch && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0" title="По национална програма">НП</span>}
+                {!r.bsch && overNormMap[r.id] === false && (r.hasOrder || (r as any).manualNumber || (r as any).noOrder) && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 shrink-0" title="В рамките на нормата — без заплащане">вътр.</span>}
                 {(r.hasOrder || (r as any).manualNumber) ? (
                   <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
                     <Check size={12} /> {(r as any).manualNumber ? `Заповед № ${(r as any).manualNumber}` : 'Заповед издадена'}
@@ -468,7 +488,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                   <>
                     {(() => { const on = r.bsch ? true : (overNormMap[r.id] !== false); return (
                     <button type="button" disabled={r.bsch}
-                      onClick={() => { if (!r.bsch) setOverNormMap(p => ({ ...p, [r.id]: !(p[r.id] !== false) })) }}
+                      onClick={() => { if (!r.bsch) toggleOverNorm(r.id) }}
                       className={`relative inline-flex items-center h-6 rounded-full border transition-colors shrink-0 select-none mr-1 ${r.bsch ? 'opacity-90 cursor-not-allowed' : ''}`}
                       style={{ width: '104px', backgroundColor: on ? '#64748b' : '#e2e8f0', borderColor: on ? '#64748b' : '#cbd5e1' }}
                       title={r.bsch ? 'По НП винаги е с лекторски' : 'Превключи: лекторски (над норматив) / вътрешно заместване'}>
@@ -532,6 +552,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                   По НП „Без свободен час"
                 </label>
               </div>
+              {!eBsch && <div className="md:col-span-2"><OverNormPick value={eOverNorm} onChange={setEOverNorm} /></div>}
             </div>
 
             {/* Заповед: ръчно въведена или без заповед */}
