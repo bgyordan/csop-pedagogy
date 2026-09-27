@@ -63,11 +63,11 @@ export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId
     const isIfo = s.source === 'ifo'
     return (
       <div className={`rounded-lg border px-2 py-1.5 ${isIfo ? 'bg-violet-50/60 border-violet-100' : 'bg-white border-slate-200'}`}>
-        <div className={`text-[10px] font-medium truncate ${isIfo ? 'text-violet-600' : 'text-blue-600'}`}>
+        <div title={isIfo ? `ИФО ${s.label}` : s.label} className={`text-[10px] font-medium truncate ${isIfo ? 'text-violet-600' : 'text-blue-600'}`}>
           {isIfo ? `ИФО ${s.label}` : s.label}
         </div>
         <div className="flex items-center gap-1">
-          <div className="text-xs text-slate-700 truncate">{s.subjectName}</div>
+          <div className="text-xs text-slate-700 leading-snug line-clamp-2 break-words min-w-0" title={s.subjectName}>{s.subjectName}</div>
           {w(s) < 1 && <span className="shrink-0 text-[9px] px-1 rounded bg-teal-50 text-teal-700 border border-teal-100">0,7</span>}
         </div>
       </div>
@@ -133,12 +133,12 @@ export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId
 
           {/* Решетка: редове = часове, колони = дни; празните часове остават празни */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-            <table className="w-full border-collapse">
+            <table className={`w-full border-collapse ${activeDay === 'all' ? 'table-fixed min-w-[720px]' : ''}`}>
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="w-14 px-2 py-2.5 text-[11px] font-semibold text-slate-400 uppercase">Час</th>
                   {daysShown.map(d => (
-                    <th key={d.n} className={`px-2 py-2.5 text-xs font-semibold text-slate-600 ${activeDay === 'all' ? 'min-w-[130px]' : ''}`}>{d.label}</th>
+                    <th key={d.n} className={`px-2 py-2.5 text-xs font-semibold text-slate-600 `}>{d.label}</th>
                   ))}
                 </tr>
               </thead>
