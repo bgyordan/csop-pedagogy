@@ -1,5 +1,6 @@
 'use client'
 import { GraduationCap, Calendar } from 'lucide-react'
+import { PERIOD_TIMES, PERIOD_LABEL, byStartTime } from '@/lib/periods'
 interface ViewSlot {
   day: number
   period: number
@@ -19,10 +20,6 @@ const DAYS = [
   { n: 4, label: 'Четвъртък' },
   { n: 5, label: 'Петък' },
 ]
-const IFO_PERIOD_TIMES: Record<number, string> = {
-  1: '12:00–12:35', 2: '12:30–13:05', 3: '13:10–13:45', 4: '13:20–13:55',
-  5: '13:40–14:15', 6: '13:50–14:25', 7: '14:30–15:05', 8: '15:10–15:45',
-}
 export function IfoScheduleView({ term, slots, fromSchedules }: Props) {
   const fromQ = fromSchedules ? '&from=schedules' : ''
   return (
@@ -43,12 +40,12 @@ export function IfoScheduleView({ term, slots, fromSchedules }: Props) {
         <div className="text-center py-16 px-4 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
           <Calendar size={36} className="mx-auto mb-3 text-slate-300" />
           <p className="text-sm font-medium text-slate-600">Още няма въведени индивидуални часове</p>
-          <p className="text-xs text-slate-400 mt-1">Часовете се въвеждат от учителите в „Индивидуални часове (ИФО)".</p>
+          <p className="text-xs text-slate-400 mt-1">Часовете се въвеждат от учителите в „Моето разписание“ (ИФО ученик).</p>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           {DAYS.map(d => {
-            const daySlots = slots.filter(s => s.day === d.n).sort((a, b) => a.period - b.period)
+            const daySlots = slots.filter(s => s.day === d.n).sort((a, b) => byStartTime(a.period, b.period))
             if (daySlots.length === 0) return null
             return (
               <div key={d.n} className="border-b border-slate-100 last:border-0">
@@ -57,7 +54,7 @@ export function IfoScheduleView({ term, slots, fromSchedules }: Props) {
                   <div key={`${s.day}-${s.period}-${i}`}
                     className={`flex items-center justify-between gap-3 px-4 py-2.5 border-b border-slate-50 last:border-0 hover:bg-blue-50/30 transition-colors ${i % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}`}>
                     <div className="flex items-center gap-3 min-w-0">
-                      <span className="text-xs font-mono text-slate-400 w-24 flex-shrink-0">{IFO_PERIOD_TIMES[s.period]}</span>
+                      <span className="text-xs font-mono text-slate-400 w-32 flex-shrink-0">{PERIOD_TIMES[s.period]} <span className="text-[10px] text-slate-300">· {PERIOD_LABEL[s.period]}</span></span>
                       <span className={`text-sm font-medium truncate ${s.allowsPullout ? 'text-teal-700' : 'text-slate-700'}`}>
                         {s.allowsPullout ? '◆ ' : ''}{s.subjectName}
                       </span>

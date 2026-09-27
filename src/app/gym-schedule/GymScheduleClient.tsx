@@ -4,10 +4,15 @@ import { Dumbbell, User } from 'lucide-react'
 interface Occupant { label: string; teacher: string; ifo?: boolean }
 
 const DAYS = [{ n: 1, l: 'Понеделник' }, { n: 2, l: 'Вторник' }, { n: 3, l: 'Сряда' }, { n: 4, l: 'Четвъртък' }, { n: 5, l: 'Петък' }]
-const PERIODS = [1, 2, 3, 4, 5, 6, 7]
-const TIMES: Record<number, string> = { 1: '8:30–9:05', 2: '9:15–9:50', 3: '10:20–10:55', 4: '11:05–11:40', 5: '11:50–12:25', 6: '12:35–13:05', 7: '13:15–13:50' }
+import { MORNING_PERIODS, AFTERNOON_PERIODS, PERIOD_TIMES as TIMES, PERIOD_LABEL, periodsOverlap, byStartTime } from '@/lib/periods'
 
 export default function GymScheduleClient({ cells, yearName, capacity }: { cells: Record<string, Occupant[]>; yearName: string; capacity: number }) {
+  // сутрешните часове + следобедните ИФО часове, в които има някой — подредени по време
+  const usedAfternoon = AFTERNOON_PERIODS.filter(p => DAYS.some(d => (cells[`${d.n}-${p}`] || []).length > 0))
+  const PERIODS = [...MORNING_PERIODS, ...usedAfternoon].sort(byStartTime)
+  // едновременно в салона = заетите в този час + в часовете, които се застъпват по време (напр. 6. час и ИФО 1)
+  const concurrent = (day: number, p: number) => PERIODS.filter(q => q === p || periodsOverlap(p, q))
+    .reduce((a, q) => a + (cells[`${day}-${q}`] || []).length, 0)
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
@@ -30,13 +35,14 @@ export default function GymScheduleClient({ cells, yearName, capacity }: { cells
             {PERIODS.map(p => (
               <tr key={p} className="align-top">
                 <td className="sticky left-0 z-10 bg-slate-50 border-b border-r border-slate-200 px-2 py-2 text-center">
-                  <div className="inline-flex items-center justify-center h-5 w-5 rounded text-white text-[10px] font-bold" style={{ backgroundColor: '#0f2240' }}>{p}</div>
+                  <div className="inline-flex items-center justify-center h-5 w-5 rounded text-white text-[10px] font-bold" style={{ backgroundColor: p >= 8 ? '#0d9488' : '#0f2240', width: p >= 8 ? 'auto' : undefined, padding: p >= 8 ? '0 4px' : undefined }}>{PERIOD_LABEL[p]}</div>
                   <div className="text-[9px] text-slate-400 mt-0.5">{TIMES[p]}</div>
                 </td>
                 {DAYS.map(d => {
                   const occ = cells[`${d.n}-${p}`] || []
-                  const over = occ.length > capacity
-                  const full = occ.length === capacity
+                  const together = concurrent(d.n, p)
+                  const over = together > capacity
+                  const full = together === capacity && occ.length > 0
                   const bg = over ? 'bg-rose-50' : full ? 'bg-amber-50/50' : ''
                   return (
                     <td key={d.n} className={`border-b border-l border-slate-100 px-1.5 py-1.5 ${bg}`}>
@@ -49,7 +55,7 @@ export default function GymScheduleClient({ cells, yearName, capacity }: { cells
                         ))}
                         {occ.length === 0 && <div className="text-[10px] text-slate-300 text-center py-1">свободно</div>}
                       </div>
-                      {over && <div className="text-[9px] text-rose-500 font-medium text-center mt-0.5">{occ.length}/{capacity}</div>}
+                      {over && <div className="text-[9px] text-rose-500 font-medium text-center mt-0.5" title="Заедно с часовете, които се застъпват по време">{together}/{capacity}</div>}
                     </td>
                   )
                 })}

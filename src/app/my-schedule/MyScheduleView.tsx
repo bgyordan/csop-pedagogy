@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { CalendarDays, Clock, FileText, Loader2 } from 'lucide-react'
 import { generateStaffSchedule } from '@/lib/docx-generator'
+import { PERIOD_TIMES, PERIOD_LABEL } from '@/lib/periods'
 interface Slot {
   source: 'class' | 'ifo'
   day: number
@@ -27,14 +28,6 @@ const DAYS = [
   { n: 5, label: 'Петък', short: 'Пет' },
 ]
 // Същата номерация като в редактора: 1–7 сутрин, 8–12 следобедни ИФО
-const PERIOD_TIMES: Record<number, string> = {
-  1: '8:30–9:05', 2: '9:15–9:50', 3: '10:20–10:55', 4: '11:05–11:40',
-  5: '11:50–12:25', 6: '12:35–13:05', 7: '13:15–13:50',
-  8: '12:45–13:15', 9: '13:20–13:50', 10: '13:55–14:25', 11: '14:30–15:00', 12: '15:05–15:35',
-}
-const PERIOD_LABEL: Record<number, string> = {
-  1:'1',2:'2',3:'3',4:'4',5:'5',6:'6',7:'7',8:'ИФО 1',9:'ИФО 2',10:'ИФО 3',11:'ИФО 4',12:'ИФО 5',
-}
 const NORM = 21
 const r1 = (x: number) => Math.round(x * 10) / 10
 const fmt = (x: number) => r1(x).toLocaleString('bg-BG', { maximumFractionDigits: 1 })

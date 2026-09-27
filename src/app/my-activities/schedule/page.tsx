@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowLeft, Eye } from 'lucide-react'
 import { ROLE_LABELS } from '@/types'
 import { TherapistScheduleGrid } from './TherapistScheduleGrid'
+import { PERIOD_DEFS } from '@/lib/periods'
 export const dynamic = 'force-dynamic'
 const ROLE_FIELD: Record<string, string> = {
   psychologist: 'therapist_psychologist_id',
@@ -16,11 +17,8 @@ const THERAPIST_PERIOD_RANGE: Record<number, [number, number]> = {
   3: [10 * 60 + 20, 10 * 60 + 55], 4: [11 * 60 + 5, 11 * 60 + 40], 5: [11 * 60 + 50, 12 * 60 + 25],
   6: [12 * 60 + 35, 13 * 60 + 5], 7: [13 * 60 + 15, 13 * 60 + 50], 8: [13 * 60 + 50, 14 * 60],
 }
-const IFO_PERIOD_RANGE: Record<number, [number, number]> = {
-  1: [12 * 60, 12 * 60 + 35], 2: [12 * 60 + 30, 13 * 60 + 5], 3: [13 * 60 + 10, 13 * 60 + 45],
-  4: [13 * 60 + 20, 13 * 60 + 55], 5: [13 * 60 + 40, 14 * 60 + 15], 6: [13 * 60 + 50, 14 * 60 + 25],
-  7: [14 * 60 + 30, 15 * 60 + 5], 8: [15 * 60 + 10, 15 * 60 + 45],
-}
+// ИФО часовете по ЕДИННАТА номерация (1–7 сутрин, 8–12 следобед) — вж. @/lib/periods
+const IFO_PERIOD_RANGE: Record<number, [number, number]> = Object.fromEntries(PERIOD_DEFS.map(p => [p.n, [p.start, p.end]]))
 function overlaps(a: [number, number], b: [number, number]): boolean { return a[0] < b[1] && b[0] < a[1] }
 
 export default async function TherapistSchedulePage({
