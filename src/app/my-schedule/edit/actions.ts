@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { periodsOverlap, PERIOD_LABEL } from '@/lib/periods'
 
 // Клетка от моята решетка: ден·час + носител (паралелка ИЛИ ИФО ученик) + предмет
 export interface MyCell {
@@ -101,7 +102,7 @@ export async function saveMySchedule(
       day: c.day, period: c.period, subject_id: c.subjectId,
     }))
     const { error: iErr } = await supabase.from('teacher_ifo_slots').insert(ins)
-    if (iErr) return { error: iErr.message }
+    if (iErr) return { error: /duplicate|unique/i.test(iErr.message) ? 'ИФО дете вече е заето от друг учител в някой от тези часове' : iErr.message }
   }
 
   revalidatePath('/my-schedule')
@@ -219,4 +220,29 @@ export async function releaseClassSlot(
   revalidatePath('/my-schedule')
   revalidatePath('/my-schedule/edit')
   return { success: true }
+}
+
+
+// Проверка за колизия на ИФО ДЕТЕ: при друг учител ли е вече в час, застъпващ се по време?
+export async function checkIfoCollision(
+  studentId: string, academicYearId: string, term: number, day: number, period: number, targetStaffId?: string
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { busy: false }
+  const { data: me } = await supabase.from('staff_profiles').select('id, role').eq('user_id', user.id).single()
+  const myId = (targetStaffId && ['admin', 'zdud'].includes(me?.role || '')) ? targetStaffId : me?.id
+  const { data: rows } = await supabase
+    .from('teacher_ifo_slots')
+    .select('period, teacher_id, subject:subjects(name), teacher:staff_profiles(first_name, last_name)')
+    .eq('student_id', studentId).eq('academic_year_id', academicYearId).eq('term', term).eq('day', day)
+    .neq('teacher_id', myId || '')
+  const hit: any = (rows || []).find((r: any) => periodsOverlap(r.period, period))
+  if (!hit) return { busy: false }
+  return {
+    busy: true,
+    by: hit.teacher ? `${hit.teacher.first_name} ${hit.teacher.last_name}` : 'друг учител',
+    subject: hit.subject?.name || '',
+    at: PERIOD_LABEL[hit.period] || String(hit.period),
+  }
 }
