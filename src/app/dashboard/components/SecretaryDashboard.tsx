@@ -49,7 +49,7 @@ export default async function SecretaryDashboard({ profile }: any) {
     <div className="animate-in fade-in duration-500 space-y-4 max-w-7xl">
 
       {/* Статистика */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         <Link href="/correspondence?direction=incoming"
           className="block bg-white px-5 py-4 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 hover:bg-slate-50/50 transition-colors">
           <div className="flex justify-between items-baseline mb-1">
@@ -124,11 +124,23 @@ export default async function SecretaryDashboard({ profile }: any) {
             {subsWaiting ? 'чакат заместник' : 'няма чакащи'}
           </div>
         </Link>
+        {/* Заявления за прием — малка плочка като останалите (беше голяма карта) */}
+        <Link href="/reports/enrollments"
+          className="block bg-white px-5 py-4 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 hover:bg-slate-50/50 transition-colors">
+          <div className="flex justify-between items-baseline mb-1">
+            <div className="text-xs font-medium text-slate-500">Заявления</div>
+            <div className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{currentYear}</div>
+          </div>
+          <div className="text-3xl font-medium text-slate-800 tracking-tight my-2">{new Set((enrollments || []).map((e: any) => e.student_id)).size}</div>
+          <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-2 mt-2 truncate">
+            за записване · {new Set((couds || []).map((c: any) => c.student_id)).size} за ЦОУД
+          </div>
+        </Link>
       </div>
 
 
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
         {/* Изтичащи договори */}
         {expiringContracts && expiringContracts.length > 0 && (
@@ -156,27 +168,6 @@ export default async function SecretaryDashboard({ profile }: any) {
           </div>
         )}
 
-        {/* Заявления */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-full">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50 rounded-t-xl">
-            <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Заявления за прием ({currentYear})</span>
-            <Link href="/reports/enrollments" className="text-[10px] font-medium text-slate-400 flex items-center gap-1 hover:text-slate-700 transition-colors">
-              Справка <ArrowRight size={10} />
-            </Link>
-          </div>
-          <div className="p-5 flex-1 flex flex-col justify-center">
-            <div className="grid grid-cols-2 gap-4 divide-x divide-slate-100">
-              <div className="pr-4">
-                <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">За записване</div>
-                <div className="text-3xl font-medium text-slate-800 tracking-tight">{new Set((enrollments || []).map((e: any) => e.student_id)).size}</div>
-              </div>
-              <div className="pl-4">
-                <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">За ЦОУД</div>
-                <div className="text-3xl font-medium text-slate-800 tracking-tight">{new Set((couds || []).map((c: any) => c.student_id)).size}</div>
-              </div>
-            </div>
-          </div>
-        </div>
         <div className="h-full"><ReserveNumberCard profileId={profile.id} /></div>
       </div>
       <SharedFiles />

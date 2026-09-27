@@ -123,15 +123,17 @@ const navItems: NavItem[] = [
   { href: '/contracts', label: 'Договори', icon: <FileSignature size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/procurements', label: 'Обществени поръчки', icon: <Package size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/site-docs', label: 'Сайт', icon: <Globe size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
-  { href: '/admin/schools', label: 'Училища', icon: <School size={16} />, roles: ['secretary'], section: 'settings' },
+  // Секретар: „При нужда“ (под Деловодство, свито по подразбиране) — подредено по смисъл
   { href: '/students', label: 'Ученици', icon: <Users size={16} />, roles: ['secretary'], section: 'settings' },
-  { href: '/templates', label: 'Образци на документи', icon: <FileText size={16} />, roles: ['secretary'], section: 'settings' },
+  { href: '/students/documents', label: 'Досиета', icon: <FileText size={16} />, roles: ['secretary'], section: 'settings' },
+  { href: '/admin/schools', label: 'Училища', icon: <School size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/substitutions', label: 'Замествания', icon: <UserX size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/lecturer-review', label: 'Проверка лекторски', icon: <ClipboardList size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/duties', label: 'Дежурства', icon: <CalendarDays size={16} />, roles: ['secretary'], section: 'settings' },
+  { href: '/templates', label: 'Образци на документи', icon: <FileText size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/reports/hub', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['secretary'], section: 'settings' },
-  { href: '/students/documents', label: 'Досиета', icon: <FileText size={16} />, roles: ['secretary'], section: 'settings' },
-    { href: '/admin/tasks', label: 'График срокове', icon: <CalendarClock size={16} />, roles: ['secretary'], section: 'settings' },
+  { href: '/admin/tasks', label: 'График срокове', icon: <CalendarClock size={16} />, roles: ['secretary'], section: 'settings' },
+  { href: '/gym-schedule', label: 'Физк. салон', icon: <Dumbbell size={16} />, roles: ['secretary'], section: 'settings' },
 ]
 interface SidebarProps {
   userRole: UserRole
@@ -146,7 +148,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   const router = useRouter()
   const supabase = createClient()
    const [mobileOpen, setMobileOpen] = useState(false)
-   const [settingsOpen, setSettingsOpen] = useState(true)
+   const [settingsOpen, setSettingsOpen] = useState(false)
   const [deloOpen, setDeloOpen] = useState(true)
   const [isCouncil, setIsCouncil] = useState(false)
   useEffect(() => {
@@ -257,6 +259,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   const mainItems = visibleItems.filter(item => !item.section)
   const deloItems = visibleItems.filter(item => item.section === 'delo')
   const settingsItems = visibleItems.filter(item => item.section === 'settings')
+  const settingsActive = settingsItems.some(i => pathname === i.href || pathname.startsWith(i.href + '/'))
   function NavLink({ item }: { item: NavItem }) {
     const active = pathname === item.href || pathname.startsWith(item.href + '/')
     return (
@@ -338,11 +341,20 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
             )}
           </div>
         )}
-                                        {settingsItems.length > 0 && (
+        {settingsItems.length > 0 && (
           <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(15,34,64,0.08)' }}>
-                       <div className="space-y-0.5">
-              {settingsItems.map(item => <NavLink key={item.href} item={item} />)}
-            </div>
+            {/* „При нужда“ — свито; отваря се само, ако сме на някоя от тези страници */}
+            <button type="button" onClick={() => setSettingsOpen(o => !o)} className="w-full flex items-center gap-1.5 px-3 mb-2">
+              <span className="text-[10px] font-bold uppercase tracking-widest flex-1 text-left" style={{ color: TEXT_MUTED }}>
+                При нужда
+              </span>
+              <ChevronDown size={13} style={{ color: TEXT_MUTED, transform: (settingsOpen || settingsActive) ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', opacity: 0.6 }} />
+            </button>
+            {(settingsOpen || settingsActive) && (
+              <div className="space-y-0.5">
+                {settingsItems.map(item => <NavLink key={item.href} item={item} />)}
+              </div>
+            )}
           </div>
         )}
       </nav>
