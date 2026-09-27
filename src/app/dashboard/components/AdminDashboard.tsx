@@ -59,7 +59,17 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
     else if (y === baseYear) expiringStudents.add(a.student_id)
   })
   const expiredCount = expiredStudents.size
-  const expiringCount = expiringStudents.size
+  // „изтичащи тази година“ има смисъл едва към края на годината (май–август), не от септември
+  const nowMonth = new Date().getMonth() + 1
+  const expiringCount = nowMonth >= 5 && nowMonth <= 8 ? expiringStudents.size : 0
+  // имената на децата — за да се покажат в самото предупреждение (без да се отваря целият списък)
+  const flagged = Array.from(new Set([...Array.from(expiredStudents), ...(expiringCount ? Array.from(expiringStudents) : [])]))
+  const { data: flaggedKids } = flagged.length
+    ? await supabase.from('students').select('id, first_name, last_name').in('id', flagged)
+    : { data: [] as any[] }
+  const kidName: Record<string, string> = {}
+  ;(flaggedKids || []).forEach((k: any) => { kidName[k.id] = `${k.first_name} ${k.last_name}` })
+  const peopleOf = (ids: Set<string>) => Array.from(ids).map(id => ({ id, name: kidName[id] || '—' })).sort((a, b) => a.name.localeCompare(b.name, 'bg'))
   // Ученици с непълни данни (за писмото до РУО и справките)
   const incompleteStudents = (dataCheck || [])
     .map((e: any) => e.student)
@@ -67,12 +77,12 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
     .filter((s: any) => !s.external_class?.trim() || (!s.sending_school_id && !s.sending_school_other?.trim()))
   const incompleteCount = incompleteStudents.length
   // Събиране на всички аларми
-  const alerts: { type: 'error' | 'warning' | 'info'; icon: any; text: string; href: string; badge?: string }[] = []
+  const alerts: { type: 'error' | 'warning' | 'info'; icon: any; text: string; href: string; badge?: string; people?: { id: string; name: string }[] }[] = []
   if (expiredCount > 0) {
-    alerts.push({ type: 'error', icon: <ShieldX size={16} />, text: `Изтекли документи`, href: '/students/documents', badge: `${expiredCount} ${expiredCount === 1 ? 'ученик' : 'ученика'}` })
+    alerts.push({ type: 'error', icon: <ShieldX size={16} />, text: `Изтекли документи`, href: '/students/documents', badge: `${expiredCount} ${expiredCount === 1 ? 'ученик' : 'ученика'}`, people: peopleOf(expiredStudents) })
   }
   if (expiringCount > 0) {
-    alerts.push({ type: 'warning', icon: <ShieldAlert size={16} />, text: `Изтичащи документи тази година`, href: '/students/documents', badge: `${expiringCount} ${expiringCount === 1 ? 'ученик' : 'ученика'}` })
+    alerts.push({ type: 'warning', icon: <ShieldAlert size={16} />, text: `Изтичащи документи тази година`, href: '/students/documents', badge: `${expiringCount} ${expiringCount === 1 ? 'ученик' : 'ученика'}`, people: peopleOf(expiringStudents) })
   }
   if (incompleteCount > 0) {
     alerts.push({
@@ -89,7 +99,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
   ;(deadlines || []).forEach(d => {
     const days = getDaysUntil(d.deadline_date)
     if (days <= 14) {
-      alerts.push({ type: days <= 3 ? 'error' : 'info', icon: <Calendar size={16} />, text: d.title, href: '/admin', badge: days === 0 ? 'Днес' : `${days} дни` })
+      alerts.push({ type: days <= 3 ? 'error' : 'info', icon: <Calendar size={16} />, text: d.title, href: '/admin/tasks', badge: days === 0 ? 'Днес' : `${days} дни` })
     }
   })
   return (
@@ -160,29 +170,39 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
           </div>
         ) : (
           <div className="divide-y divide-slate-50">
-            {alerts.map((a, i) => (
-              <Link key={i} href={a.href}
-                className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors group">
-                <span className={`flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 ${
-                  a.type === 'error' ? 'bg-red-50 text-red-500' :
-                  a.type === 'warning' ? 'bg-amber-50 text-amber-500' :
-                  'bg-blue-50 text-blue-500'
-                }`}>
-                  {a.icon}
-                </span>
-                <span className="text-sm text-slate-700 flex-1 font-medium">{a.text}</span>
-                {a.badge && (
-                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg ${
-                    a.type === 'error' ? 'bg-red-50 text-red-600' :
-                    a.type === 'warning' ? 'bg-amber-50 text-amber-600' :
-                    'bg-slate-100 text-slate-500'
-                  }`}>
-                    {a.badge}
-                  </span>
-                )}
-                <ArrowRight size={15} className="text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all" />
-              </Link>
-            ))}
+            {alerts.map((a, i) => {
+              const iconBox = <span className={`flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 ${
+                a.type === 'error' ? 'bg-red-50 text-red-500' : a.type === 'warning' ? 'bg-amber-50 text-amber-500' : 'bg-blue-50 text-blue-500'
+              }`}>{a.icon}</span>
+              const badge = a.badge && <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg ${
+                a.type === 'error' ? 'bg-red-50 text-red-600' : a.type === 'warning' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500'
+              }`}>{a.badge}</span>
+              // с деца → разгъва се на място (имената водят към досието), без да отваря целия списък
+              if (a.people?.length) return (
+                <details key={i} className="group">
+                  <summary className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors cursor-pointer list-none">
+                    {iconBox}
+                    <span className="text-sm text-slate-700 flex-1 font-medium">{a.text}</span>
+                    {badge}
+                    <ArrowRight size={15} className="text-slate-300 group-open:rotate-90 transition-transform" />
+                  </summary>
+                  <div className="flex flex-wrap gap-1.5 px-5 pb-3 pl-16">
+                    {a.people.map(p => (
+                      <Link key={p.id} href={`/students/${p.id}`} className="px-2 py-0.5 rounded-md bg-slate-50 border border-slate-100 text-[12px] text-slate-600 hover:border-sky-200 hover:text-[#0f2240]">{p.name}</Link>
+                    ))}
+                  </div>
+                </details>
+              )
+              return (
+                <Link key={i} href={a.href}
+                  className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors group">
+                  {iconBox}
+                  <span className="text-sm text-slate-700 flex-1 font-medium">{a.text}</span>
+                  {badge}
+                  <ArrowRight size={15} className="text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all" />
+                </Link>
+              )
+            })}
           </div>
         )}
       </div>
