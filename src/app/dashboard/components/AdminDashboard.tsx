@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import OpsPanel from './OpsPanel'
 import Link from 'next/link'
 import SharedFiles from './SharedFiles'
 import ExpiringDocsCard from './ExpiringDocsCard'
@@ -137,6 +138,8 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
           <div className={`text-2xl font-semibold ${oresCount > 0 ? 'text-amber-600' : 'text-slate-800'}`}>{oresCount}</div>
         </Link>
       </div>
+      {/* ── ОПЕРАТИВНО: днес · реализация на ИУП · ЕПЛР ── */}
+      <OpsPanel currentYearId={currentYearId} />
       {/* ── АЛАРМИ / ИЗИСКВА ВНИМАНИЕ ── */}
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm mb-6 overflow-hidden">
         <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-100 bg-slate-50/50">
