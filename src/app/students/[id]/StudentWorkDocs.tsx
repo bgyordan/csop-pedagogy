@@ -5,7 +5,7 @@ import {
   Upload, FilePlus2, Loader2, X, ExternalLink, FolderOpen, Download, FileDown, Pencil, Trash2, Check, FileText, Share2,
   Folder, FolderPlus, ChevronRight, ChevronDown,
 } from 'lucide-react'
-import { listStudentDocs, createBlankDoc, renameDoc, trashDocs, listDocTemplates, createFromTemplate } from './drive-actions'
+import { listStudentDocs, createBlankDoc, renameDoc, trashDocs, listDocTemplates, createFromTemplate, listDocYears } from './drive-actions'
 import { listClassDocs, createBlankClassDoc, renameClassDoc, trashClassDocs, createClassFolder, moveClassDoc } from '@/app/dashboard/components/class-drive-actions'
 import { listStaffDocs, createBlankStaffDoc, renameStaffDoc, trashStaffDocs, shareStaffDoc, createStaffFolder, moveStaffDoc } from '@/app/my-files/staff-drive-actions'
 
@@ -79,7 +79,7 @@ async function filesOf(entry: any): Promise<File[]> {
 export default function StudentWorkDocs({ studentId, classId, staff }: { studentId?: string; classId?: string; staff?: boolean }) {
   const kind: 'student' | 'class' | 'staff' = staff ? 'staff' : classId ? 'class' : 'student'
   const isClass = kind === 'class'
-  const noTpl = kind !== 'student'          // бланките са само за деца
+  const noTplKind = kind !== 'student'      // бланките са само за деца
   const ownerId = (classId || studentId || 'me') as string
   const api = kind === 'staff'
     ? { list: listStaffDocs, blank: createBlankStaffDoc, rename: renameStaffDoc, trash: trashStaffDocs, folder: createStaffFolder, move: moveStaffDoc, base: '/api/staff-docs', key: 'owner' }
@@ -88,6 +88,11 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
     : { list: listStudentDocs, blank: createBlankDoc, rename: renameDoc, trash: trashDocs, folder: null, move: null, base: '/api/student-docs', key: 'studentId' }
   const withFolders = kind !== 'student'   // папки (едно ниво) — само в „Моите документи“ и при паралелката
   const [files, setFiles] = useState<Item[]>([])
+  // учебна година на документите на детето ('' = текущата); минали години — за пренасяне на стари документи
+  const [year, setYear] = useState('')
+  const [years, setYears] = useState<{ years: string[]; current: string } | null>(null)
+  const yr = kind === 'student' && year ? year : undefined
+  const noTpl = noTplKind || !!yr          // …и само за текущата година
   const [folders, setFolders] = useState<Group[]>([])
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [dropOn, setDropOn] = useState<string | null>(null)
@@ -109,7 +114,7 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function load() {
-    const r = await api.list(ownerId)
+    const r = await (api.list as any)(ownerId, yr)
     if (r.error) setError(r.error)
     setFiles(r.files ?? [])
     setFolders(((r as any).folders ?? []) as Group[])
@@ -121,9 +126,14 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
   }
 
   useEffect(() => {
+    setLoading(true)
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ownerId])
+  }, [ownerId, year])
+  useEffect(() => {
+    if (kind === 'student') listDocYears().then(setYears).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── качване ──
   async function upload(list: FileList | File[], folderId?: string) {
@@ -138,6 +148,7 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
       setBusy(arr.length > 1 ? `Качване ${i + 1} от ${arr.length}: ${f.name}` : `Качване: ${f.name}`)
       const fd = new FormData()
       fd.append(api.key, ownerId)
+      if (yr) fd.append('year', yr)
       if (folderId) fd.append('folderId', folderId)
       fd.append('file', f)
       try {
@@ -159,7 +170,7 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
     const tab = openPending()
     setBusy('Създаване…')
     setError('')
-    const r = await api.blank(ownerId, newName)
+    const r = await (api.blank as any)(ownerId, newName, yr)
     setBusy('')
     if (r.error || !r.url) { tab.cancel(); return setError(r.error || 'Документът не се създаде') }
     setCreating(false)
@@ -171,7 +182,7 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
   // ── нов от бланка ──
   async function openCreate() {
     setCreating(v => !v)
-    if (templates === null) setTemplates(noTpl ? [] : await listDocTemplates())
+    if (templates === null || yr) setTemplates(noTpl ? [] : await listDocTemplates())
   }
   async function fromTemplate(t: { id: string; name: string }) {
     const tab = openPending()
@@ -189,7 +200,7 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
   async function download(ids: string[], as: 'office' | 'pdf') {
     for (const id of ids) {
       const a = document.createElement('a')
-      a.href = `${api.base}/download?${api.key}=${ownerId}&fileId=${id}&as=${as}`
+      a.href = `${api.base}/download?${api.key}=${ownerId}&fileId=${id}&as=${as}${yr ? `&year=${encodeURIComponent(yr)}` : ''}`
       a.rel = 'noopener'
       document.body.appendChild(a)
       a.click()
@@ -204,7 +215,7 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
     setRenaming(null)
     if (!name || name === [...allFiles, ...folders].find(f => f.id === id)?.name) return
     setBusy('Преименуване…')
-    const r = await api.rename(ownerId, id, name)
+    const r = await (api.rename as any)(ownerId, id, name, yr)
     setBusy('')
     if (r.error) setError(r.error)
     await load()
@@ -223,7 +234,7 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
   async function doDelete(ids: string[]) {
     setConfirmDel(null)
     setBusy(ids.length > 1 ? `Изтриване на ${ids.length} файла…` : 'Изтриване…')
-    const r = await api.trash(ownerId, ids)
+    const r = await (api.trash as any)(ownerId, ids, yr)
     setBusy('')
     if (r.error) setError(r.error)
     await load()
@@ -391,6 +402,13 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
       <div className="flex flex-wrap items-center gap-2 mb-3 pb-3 border-b border-slate-100">
         <FolderOpen size={16} className="text-sky-500" />
         <h2 className="text-sm font-semibold text-slate-800">{kind === 'staff' ? 'Моите документи' : isClass ? 'Документи на паралелката' : 'Документи на детето'}</h2>
+        {kind === 'student' && years && years.years.length > 1 && (
+          <select value={year || years.current} onChange={e => { setYear(e.target.value === years.current ? '' : e.target.value); setTemplates(null); setSelected(new Set()) }}
+            title="Учебна година на документите"
+            className={`ml-1 px-2 py-0.5 rounded-lg border text-xs focus:outline-none ${yr ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-slate-200 bg-white text-slate-600'}`}>
+            {years.years.map(y => <option key={y} value={y}>{y}{y === years.current ? ' (текуща)' : ''}</option>)}
+          </select>
+        )}
         {folderUrl && (
           <a href={withAccount(folderUrl, myEmail)} target="_blank" rel="noreferrer"
              className="text-xs text-slate-400 hover:text-slate-600 inline-flex items-center gap-1 ml-1">
@@ -424,7 +442,7 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
       {creating && (
         <div className="mb-3 p-3 rounded-xl border border-sky-100 bg-sky-50/40">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-slate-500">{kind === 'staff' ? 'Нов празен документ в „Моите документи“' : isClass ? 'Нов празен документ в папката на паралелката' : 'Изберете бланка — данните на детето се попълват сами'}</span>
+            <span className="text-xs text-slate-500">{kind === 'staff' ? 'Нов празен документ в „Моите документи“' : isClass ? 'Нов празен документ в папката на паралелката' : yr ? `Нов празен документ за ${yr}` : 'Изберете бланка — данните на детето се попълват сами'}</span>
             <button type="button" onClick={() => setCreating(false)} className="p-1 text-slate-400 hover:text-slate-600"><X size={15} /></button>
           </div>
           {noTpl ? null : templates === null ? (

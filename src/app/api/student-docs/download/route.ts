@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const as = sp.get('as') === 'pdf' ? 'pdf' : 'office'
   if (!studentId || !fileId) return NextResponse.json({ error: 'Липсват данни' }, { status: 400 })
 
-  const r = await downloadForStudent(studentId, fileId, as)
+  const r = await downloadForStudent(studentId, fileId, as, sp.get('year') || undefined)
   if ('error' in r) return NextResponse.json({ error: r.error }, { status: 400 })
 
   const ascii = r.filename.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '')

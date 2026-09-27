@@ -1,20 +1,25 @@
 'use server'
 
 import { ensureStudentFolder, createGoogleDoc, uploadDocxAsGoogleDoc } from '@/lib/google-drive'
-import { studentContext, shareTeam, listForStudent, createBlankForStudent, renameForStudent, trashForStudent, listTemplates, createFromTemplateForStudent } from '@/lib/student-drive'
+import { studentContext, shareTeam, listForStudent, createBlankForStudent, renameForStudent, trashForStudent, listTemplates, createFromTemplateForStudent, yearsForStudent } from '@/lib/student-drive'
 
 type DriveResult = { url?: string; error?: string; shared?: string[]; failed?: string[]; existed?: boolean }
 
 // ── Таб „Документи" в досието ──────────────────────────────────────────
 
 // Файловете на детето за текущата година (направо от Drive)
-export async function listStudentDocs(studentId: string) {
-  return listForStudent(studentId)
+export async function listStudentDocs(studentId: string, year?: string) {
+  return listForStudent(studentId, year)
+}
+
+// Годините за избора горе вдясно
+export async function listDocYears() {
+  return yearsForStudent()
 }
 
 // Нов празен документ с дадено име
-export async function createBlankDoc(studentId: string, name: string) {
-  return createBlankForStudent(studentId, name)
+export async function createBlankDoc(studentId: string, name: string, year?: string) {
+  return createBlankForStudent(studentId, name, year)
 }
 
 // Бланките от папка „Бланки“ в диска
@@ -27,13 +32,13 @@ export async function createFromTemplate(studentId: string, templateId: string) 
   return createFromTemplateForStudent(studentId, templateId)
 }
 
-export async function renameDoc(studentId: string, fileId: string, name: string) {
-  return renameForStudent(studentId, fileId, name)
+export async function renameDoc(studentId: string, fileId: string, name: string, year?: string) {
+  return renameForStudent(studentId, fileId, name, year)
 }
 
 // Към кошчето в Drive (възстановимо 30 дни)
-export async function trashDocs(studentId: string, fileIds: string[]) {
-  return trashForStudent(studentId, fileIds)
+export async function trashDocs(studentId: string, fileIds: string[], year?: string) {
+  return trashForStudent(studentId, fileIds, year)
 }
 
 // ── Генераторът и старата карта с линкове ───────────────────────────────
