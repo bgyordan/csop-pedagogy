@@ -6,6 +6,7 @@ import {
 import { CSOP_LOGO_B64 } from './docx-generator'
 import { saveAs } from 'file-saver'
 import { formatDate } from './utils'
+import { PERIOD_LABEL, PERIOD_TIMES, byStartTime } from './periods'
 
 function bold(text: string, size = 22): TextRun { return new TextRun({ text, bold: true, size }) }
 function normal(text: string, size = 22): TextRun { return new TextRun({ text, size }) }
@@ -69,9 +70,10 @@ function scheduleMatrix(days: { date: string; items: { period: number; subject: 
   const dowOf = (dstr: string) => { const [dd, mm, yy] = dstr.split('.').map(Number); return new Date(yy, mm - 1, dd).getDay() }
   const workdays = days.filter(d => { const w = dowOf(d.date); return w >= 1 && w <= 5 })
 
-  let maxPeriod = 6
-  workdays.forEach(d => d.items.forEach(it => { if (it.period > maxPeriod) maxPeriod = it.period }))
-  const periods = Array.from({ length: maxPeriod }, (_, i) => i + 1)
+  // всички реално срещани часове, подредени по начален час (1–7 сутрин, ИФО 8–12, ЦОУД 21–26)
+  const periods = Array.from(new Set(workdays.flatMap(d => d.items.map(it => it.period)))).sort(byStartTime)
+  // надпис на реда: „1.“ за сутрешен час; „ИФО 1 (12:45–13:15)“ / „ЦОУД 1 (12:25–13:00)“ за следобедните
+  const rowLabel = (p: number) => p <= 7 ? `${p}.` : `${PERIOD_LABEL[p] || p} (${PERIOD_TIMES[p] || ''})`
 
   const out: any[] = []
   const SHORT = workdays.length <= 4
@@ -83,7 +85,7 @@ function scheduleMatrix(days: { date: string; items: { period: number; subject: 
     const rows: TableRow[] = [new TableRow({ children: head })]
     const usedPeriods = periods.filter(p => cols.some(c => c.items.some(it => it.period === p)))
     usedPeriods.forEach(p => {
-      const cells = [td(`${p}.`, true, true)]
+      const cells = [td(rowLabel(p), true, true)]
       cols.forEach(c => { const it = c.items.find(x => x.period === p); cells.push(td(it ? (it.subject || '—') : '—')) })
       rows.push(new TableRow({ children: cells }))
     })
@@ -108,7 +110,7 @@ function scheduleMatrix(days: { date: string; items: { period: number; subject: 
     const usedPeriods = periods.filter(p => grid[p])
     const rows: TableRow[] = [new TableRow({ children: [th('Уч. час'), th('Пон'), th('Вт'), th('Ср'), th('Чет'), th('Пет')] })]
     usedPeriods.forEach(p => {
-      const cells = [td(`${p}.`, true, true)]
+      const cells = [td(rowLabel(p), true, true)]
       for (let c = 1; c <= 5; c++) cells.push(td(grid[p]?.[c] || '—'))
       rows.push(new TableRow({ children: cells }))
     })
