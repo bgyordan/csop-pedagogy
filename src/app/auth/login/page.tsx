@@ -50,11 +50,9 @@ function LoginForm() {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-        <img src="/csop-varna-logo.jpg" alt="ЦСОП Варна"
-               className="inline-block w-16 h-16 rounded-2xl mb-4 object-cover" />
-          <h1 className="text-2xl font-semibold text-slate-800">ЦСОП Варна</h1>
-          <p className="text-slate-500 text-sm mt-1">Информационна система</p>
+        <div className="text-center mb-6">
+          <img src="/jordan-logo.png" alt="JORDAN — Educational Support System, ЦСОП Варна"
+               className="inline-block w-[280px] max-w-full h-auto" />
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
