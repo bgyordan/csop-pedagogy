@@ -75,7 +75,7 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
   const more = 'mt-auto pt-3 text-[11px] text-slate-400 hover:text-[#0f2240] inline-flex items-center gap-1'
 
   return (
-    <div className="grid gap-4 md:grid-cols-3 mb-6">
+    <div className="grid gap-4 md:grid-cols-3 items-start mb-6">
       {/* ДНЕС */}
       <div className={card}>
         <div className={head}>
