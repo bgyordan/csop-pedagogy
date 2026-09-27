@@ -320,12 +320,12 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-          <table className="w-full border-collapse">
+          <table className="w-full border-collapse table-fixed min-w-[820px]">
             <thead>
               <tr className="border-b border-slate-200">
                 <th className="w-14 px-2 py-3 text-[11px] font-semibold text-slate-400 uppercase">Час</th>
                 {DAYS.map(d => (
-                  <th key={d.n} className="px-2 py-3 text-xs font-semibold text-slate-600 min-w-[155px]">{d.label}</th>
+                  <th key={d.n} className="px-2 py-3 text-xs font-semibold text-slate-600">{d.label}</th>
                 ))}
               </tr>
             </thead>
@@ -358,7 +358,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
                             {isBoss ? <Unlock size={11} className="text-amber-500" /> : <Lock size={11} />} Зает
                           </div>
                           <div className="text-[11px] font-medium text-slate-700 truncate">{busy.by}</div>
-                          {busy.subject && <div className="text-[11px] text-slate-500 truncate">{busy.subject}</div>}
+                          {busy.subject && <div className="text-[11px] text-slate-500 line-clamp-2 break-words" title={busy.subject}>{busy.subject}</div>}
                         </div>
                         {isBoss && busyOpen === key && (
                           <div className="absolute z-40 mt-1 left-1.5 w-60 bg-white border border-slate-200 rounded-xl shadow-xl p-3 space-y-2">
@@ -386,11 +386,11 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
                           }`}>
                           {cell ? (
                             <>
-                              <div className={`text-[11px] font-medium ${cell.holderType === 'ifo' ? 'text-violet-600' : 'text-blue-600'}`}>
+                              <div className={`text-[11px] font-medium truncate ${cell.holderType === 'ifo' ? 'text-violet-600' : 'text-blue-600'}`}>
                                 {cell.holderType === 'class' ? clsName(cell.holderId) : 'ИФО ' + studName(cell.holderId)}
                               </div>
                               <div className="flex items-center gap-1">
-                                <div className="text-xs text-slate-700 truncate">{subjName(cell.subjectId)}</div>
+                                <div className="text-xs text-slate-700 leading-snug line-clamp-2 break-words min-w-0" title={subjName(cell.subjectId)}>{subjName(cell.subjectId)}</div>
                                 {weightOf(cell.subjectId) < 1 && <span className="shrink-0 text-[9px] px-1 rounded bg-teal-50 text-teal-700 border border-teal-100">0,7</span>}
                               </div>
                             </>
