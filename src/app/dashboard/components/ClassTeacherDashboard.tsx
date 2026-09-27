@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { iupPeriod } from '@/lib/iup-period'
 import Link from 'next/link'
 import SchoolFilesCard from './SchoolFilesCard'
 import { Users, Calendar, Bell, CalendarClock, ClipboardList } from 'lucide-react'
@@ -19,9 +20,11 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
   const supabase = await createClient()
   const now = new Date()
   const month = now.getMonth() + 1
-  const isSummer = month >= 7 && month <= 10
-  const reportMonth = now.getMonth() === 0 ? 12 : now.getMonth()
-  const reportYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear()
+  // едно правило за периода (lib/iup-period)
+  const iup = iupPeriod()
+  const isSummer = iup.offSeason
+  const reportMonth = iup.month
+  const reportYear = iup.year
   const { data: assignments } = await supabase
     .from('class_teacher_assignments')
     .select('class:classes(*)')
@@ -242,7 +245,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
           <ClipboardList size={15} className={isSummer ? 'text-slate-400' : 'text-amber-600'} />
           Реализация на ИУП
           <span className="text-xs text-slate-500 font-light">
-            {isSummer ? '· лятна ваканция' : `· ${getMonthName(reportMonth)} ${myClasses.map((c: any) => submittedIds.has(c.id) ? '✓' : '—').join(' ')}`}
+            {isSummer ? `· първи отчет ${iup.window}` : `· ${iup.label} ${myClasses.map((c: any) => submittedIds.has(c.id) ? '✓' : '—').join(' ')}`}
           </span>
         </Link>
       </div>
