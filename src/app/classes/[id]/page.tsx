@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import OutreachBadge from '@/components/OutreachBadge'
 import StudentWorkDocs from '@/app/students/[id]/StudentWorkDocs'
+import { DocCount } from '@/components/DocCounts'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { BackButton } from '@/components/ui/BackButton'
@@ -25,7 +26,9 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
     supabase.from('staff_profiles').select('id, role, is_coordinator').eq('user_id', user.id).single(),
     supabase.from('staff_profiles').select('id, first_name, middle_name, last_name').eq('is_active', true).order('first_name'),
   ])
-  const students = enrollments?.map(e => e.student).filter((s: any) => s && s.status === 'active') || []
+  const students = (enrollments?.map(e => e.student).filter((s: any) => s && s.status === 'active') || [])
+    .sort((a: any, b: any) => getFullName(a).localeCompare(getFullName(b), 'bg'))
+  const formByStudent = new Map<string, string>((enrollments || []).map((e: any) => [e.student_id, e.education_form || 'daily']))
   const canManageTeachers = ['admin', 'zdud'].includes(myProfile?.role || '')
   const canManageStudents = ['admin', 'zdud'].includes(myProfile?.role || '') || myProfile?.is_coordinator === true
   const teacherList = (assignments || [])
@@ -54,6 +57,13 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
   // ── ЦДО (ЦОУД) данни за учениците в тази паралелка ──
   const studentIds = students.map((s: any) => s.id)
   const coudMap = new Map<string, { group: string; teacher: string }>()
+  // Терапевтите на децата (кратко име) и активни ОРЕС
+  const staffName = new Map<string, string>((allStaff || []).map((s: any) => [s.id, `${s.first_name} ${s.last_name}`]))
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const { data: oresRows } = studentIds.length
+    ? await supabase.from('student_ores').select('student_id, to_date').in('student_id', studentIds).lte('from_date', todayStr)
+    : { data: [] as any[] }
+  const oresSet = new Set((oresRows || []).filter((o: any) => !o.to_date || o.to_date >= todayStr).map((o: any) => o.student_id))
   if (studentIds.length > 0) {
     const { data: coudEnr } = await supabase
       .from('coud_enrollments')
@@ -122,9 +132,10 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
             <thead className="bg-slate-50/70 border-b border-slate-200">
               <tr className="[&>th]:border-r [&>th]:border-slate-100 [&>th:last-child]:border-r-0">
                 <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Ученик</th>
-                <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Изпращащо училище</th>
-                <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Клас</th>
+                <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Изпращащо училище · клас</th>
+                <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Терапевти</th>
                 <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">ЦДО</th>
+                <th className="text-center px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Документи</th>
               </tr>
             </thead>
             <tbody>
@@ -139,9 +150,22 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
                       <Link href={`/students/${student.id}`} className="font-medium text-slate-800 hover:text-blue-700 hover:underline transition-colors">
                         {getFullName(student)}
                       </Link>
+                      <div className="flex flex-wrap gap-1 mt-0.5">
+                        {formByStudent.get(student.id) === 'ifo' && <span className="text-[9px] font-bold px-1.5 py-px rounded bg-slate-100 text-slate-600">ИФО</span>}
+                        {oresSet.has(student.id) && <span className="text-[9px] font-bold px-1.5 py-px rounded bg-amber-50 text-amber-700 border border-amber-200">ОРЕС</span>}
+                        {student.is_new && <span className="text-[9px] font-bold px-1.5 py-px rounded bg-violet-50 text-violet-700 border border-violet-200">НОВ</span>}
+                      </div>
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-slate-500">{schoolName}</td>
-                    <td className="px-4 py-2.5 text-xs text-slate-600">{student.external_class || '—'}</td>
+                    <td className="px-4 py-2.5 text-xs text-slate-500">
+                      <div className="truncate max-w-[260px]" title={schoolName}>{schoolName}</div>
+                      {student.external_class && <div className="text-slate-600">{student.external_class}{student.external_class_letter ? ` ${student.external_class_letter}` : ''} клас</div>}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-slate-600 leading-relaxed">
+                      {([['Псих.', student.therapist_psychologist_id], ['Лог.', student.therapist_speech_id], ['Рех.', student.therapist_rehab_id]] as [string, string | null][])
+                        .filter(([, sid]) => sid && staffName.get(sid))
+                        .map(([l, sid]) => <div key={l}><span className="text-slate-400">{l}</span> {staffName.get(sid!)}</div>)}
+                      {!student.therapist_psychologist_id && !student.therapist_speech_id && !student.therapist_rehab_id && <span className="text-slate-300">—</span>}
+                    </td>
                     <td className="px-4 py-2.5 text-xs">
                       {coud ? (
                         <span className="inline-flex items-center gap-1.5">
@@ -151,6 +175,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
                         </span>
                       ) : <span className="text-slate-300">—</span>}
                     </td>
+                    <td className="px-4 py-2.5 text-center"><DocCount id={student.id} /></td>
                   </tr>
                 )
               })}
