@@ -123,7 +123,7 @@ const navItems: NavItem[] = [
   { href: '/contracts', label: 'Договори', icon: <FileSignature size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/procurements', label: 'Обществени поръчки', icon: <Package size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/site-docs', label: 'Сайт', icon: <Globe size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
-  // Секретар: „При нужда“ (под Деловодство, свито по подразбиране) — подредено по смисъл
+  // Секретар: „Още“ (под Деловодство, свито по подразбиране) — подредено по смисъл
   { href: '/students', label: 'Ученици', icon: <Users size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/students/documents', label: 'Досиета', icon: <FileText size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/admin/schools', label: 'Училища', icon: <School size={16} />, roles: ['secretary'], section: 'settings' },
@@ -343,10 +343,10 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
         )}
         {settingsItems.length > 0 && (
           <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(15,34,64,0.08)' }}>
-            {/* „При нужда“ — свито; отваря се само, ако сме на някоя от тези страници */}
+            {/* „Още“ — свито; отваря се само, ако сме на някоя от тези страници */}
             <button type="button" onClick={() => setSettingsOpen(o => !o)} className="w-full flex items-center gap-1.5 px-3 mb-2">
               <span className="text-[10px] font-bold uppercase tracking-widest flex-1 text-left" style={{ color: TEXT_MUTED }}>
-                При нужда
+                Още
               </span>
               <ChevronDown size={13} style={{ color: TEXT_MUTED, transform: (settingsOpen || settingsActive) ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', opacity: 0.6 }} />
             </button>
