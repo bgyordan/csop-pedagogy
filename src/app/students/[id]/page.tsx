@@ -138,6 +138,13 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   const docMap = Object.fromEntries(documents?.map(d => [d.doc_type, d]) || [])
   const sendingSchool = student.sending_school as any
   const className = (enrollment?.class as any)?.name || ''
+  // Класният ръководител на паралелката (за хедъра)
+  const { data: ctRows } = enrollment?.class_id
+    ? await supabase.from('class_teacher_assignments')
+        .select('staff:staff_profiles(id, first_name, last_name, is_active)')
+        .eq('class_id', enrollment.class_id).eq('academic_year_id', currentYear?.id)
+    : { data: [] as any[] }
+  const classTeachers = (ctRows || []).map((r: any) => r.staff).filter((t: any) => t && t.is_active !== false)
   const age = student.birth_date ? calculateAge(student.birth_date) : null
   
   const cardCls = "bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm h-full"
@@ -186,7 +193,18 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
               <div>
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Паралелка ЦСОП</div>
-                <div className="text-sm font-medium text-slate-700 mt-0.5">{className || '—'}</div>
+                <div className="text-sm font-medium text-slate-700 mt-0.5">
+                  {enrollment?.class_id && className
+                    ? <Link href={`/classes/${enrollment.class_id}`} className="hover:text-blue-700 hover:underline">{className}</Link>
+                    : (className || '—')}
+                </div>
+                {classTeachers.length > 0 && (
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    Класен: {classTeachers.map((t: any, i: number) => (
+                      <span key={t.id}>{i > 0 && ', '}<Link href={`/staff/${t.id}`} className="font-medium text-slate-700 hover:text-blue-700 hover:underline">{t.first_name} {t.last_name}</Link></span>
+                    ))}
+                  </div>
+                )}
               </div>
               <div>
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Дата на раждане</div>
