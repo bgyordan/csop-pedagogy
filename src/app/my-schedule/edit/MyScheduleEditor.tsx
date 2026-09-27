@@ -1,9 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Loader2, Check, Plus, X, Save, AlertTriangle, Copy, Lock, Unlock } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { saveMySchedule, checkClassCollision, addSubjectQuick, releaseClassSlot, copyMyScheduleFromTerm1, type MyCell } from './actions'
-import { PERIOD_TIMES, PERIOD_LABEL } from '@/lib/periods'
+import { saveMySchedule, checkClassCollision, checkIfoCollision, addSubjectQuick, releaseClassSlot, copyMyScheduleFromTerm1, type MyCell } from './actions'
+import { PERIOD_TIMES, PERIOD_LABEL, periodsOverlap } from '@/lib/periods'
 
 type Cls = { id: string; name: string }
 type Stud = { id: string; name: string }
@@ -77,6 +77,9 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
     if (holderType === 'class') {
       const res: any = await checkClassCollision(holderId, academicYearId, term, day, period)
       if (res.busy) { setCollisions(prev => ({ ...prev, [key]: `${clsName(holderId)}: заета от ${res.by}${res.subject ? ' (' + res.subject + ')' : ''}` })); return }
+    } else {
+      const res: any = await checkIfoCollision(holderId, academicYearId, term, day, period, targetStaffId)
+      if (res.busy) { setCollisions(prev => ({ ...prev, [key]: `ИФО ${studName(holderId)} е при ${res.by} (${res.at}${res.subject ? ', ' + res.subject : ''})` })); return }
     }
     setCollisions(prev => { const n = { ...prev }; delete n[key]; return n })
   }
@@ -105,6 +108,8 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
   }
 
   async function save() {
+    const n = Object.keys(allCollisions).length
+    if (n > 0 && !confirm(`Има ${n} колизии (виж червеното каре). Да запазя ли все пак?`)) return
     setSaving(true)
     const cells: MyCell[] = Object.entries(grid).map(([key, v]) => {
       const [day, period] = key.split('-').map(Number)
@@ -126,6 +131,19 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
       toast('Предметът е добавен')
     }
   }
+
+  // моите часове, които се застъпват ПО ВРЕМЕ в един ден (напр. 6. час и ИФО 1)
+  const ownOverlaps = useMemo(() => {
+    const out: Record<string, string> = {}
+    const keys = Object.keys(grid)
+    keys.forEach(k => {
+      const [d, p] = k.split('-').map(Number)
+      const other = keys.map(x => x.split('-').map(Number)).find(([d2, p2]) => d2 === d && p2 !== p && periodsOverlap(p, p2))
+      if (other) out[k] = `застъпва се по време с ${PERIOD_LABEL[other[1]]}${other[1] < 8 ? '. час' : ''} (${PERIOD_TIMES[other[1]]}) — не можете да сте на две места`
+    })
+    return out
+  }, [grid])
+  const allCollisions: Record<string, string> = { ...ownOverlaps, ...collisions }
 
   const hasHolders = myClasses.length > 0 || myStudents.length > 0
   // заетите от други учители клетки в АКТИВНАТА паралелка
@@ -286,12 +304,12 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
         </div>
       )}
 
-      {Object.keys(collisions).length > 0 && (
+      {Object.keys(allCollisions).length > 0 && (
         <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">
           <AlertTriangle size={16} className="shrink-0 mt-0.5" />
           <div>
-            <div className="font-semibold mb-0.5">Внимание — застъпване на цяла паралелка:</div>
-            {Object.entries(collisions).map(([k, txt]) => <div key={k} className="text-xs">{DAYS.find(d => d.n === Number(k.split('-')[0]))?.label}, {k.split('-')[1]}. час — {txt}</div>)}
+            <div className="font-semibold mb-0.5">Внимание — колизии:</div>
+            {Object.entries(allCollisions).map(([k, txt]) => <div key={k} className="text-xs">{DAYS.find(d => d.n === Number(k.split('-')[0]))?.label}, {PERIOD_LABEL[Number(k.split('-')[1])]}{Number(k.split('-')[1]) < 8 ? '. час' : ''} — {txt}</div>)}
           </div>
         </div>
       )}
@@ -328,7 +346,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
                   {DAYS.map(d => {
                     const key = `${d.n}-${period}`
                     const cell = grid[key]
-                    const collided = collisions[key]
+                    const collided = allCollisions[key]
                     const busy = !cell ? takenHere[key] : undefined
                     if (busy) return (
                       <td key={d.n} className="px-1.5 py-1.5 align-top relative">
