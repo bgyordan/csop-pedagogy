@@ -36,7 +36,7 @@ export default function ViewAsPicker({ people, viewing }: { people: Person[]; vi
         <Eye size={13} /> Виж като…
       </button>
       {open && (
-        <div className="absolute right-0 z-30 mt-2 w-72 rounded-xl border border-slate-200 bg-white shadow-lg p-2 text-slate-700">
+        <div className="absolute left-0 z-50 mt-2 w-80 rounded-xl border border-slate-200 bg-white shadow-lg p-2 text-slate-700">
           <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Търси служител…"
             className="w-full px-3 py-1.5 mb-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-100" />
           <div className="max-h-72 overflow-y-auto">

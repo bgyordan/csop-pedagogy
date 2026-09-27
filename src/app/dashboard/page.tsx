@@ -55,7 +55,7 @@ export default async function DashboardPage() {
       {viewing && <ViewAsPicker people={[]} viewing={viewing} />}
 
       {/* Хедър — синкаво-зелен */}
-      <div className="bg-gradient-to-r from-teal-600 to-cyan-600 text-white p-6 md:p-8 rounded-3xl shadow-sm relative overflow-hidden">
+      <div className="bg-gradient-to-r from-teal-600 to-cyan-600 text-white p-6 md:p-8 rounded-3xl shadow-sm relative">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-xl md:text-2xl font-semibold tracking-tight">
@@ -82,8 +82,11 @@ export default async function DashboardPage() {
             </div>
           </div>
         </div>
-        <div className="absolute right-0 top-0 bottom-0 opacity-10 flex items-center pr-8 pointer-events-none">
-          <Megaphone className="h-40 w-40 rotate-12" />
+        {/* декорацията се реже тук, а не целият хедър — иначе падащото „Виж като…“ се скрива */}
+        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+          <div className="absolute right-0 top-0 bottom-0 opacity-10 flex items-center pr-8">
+            <Megaphone className="h-40 w-40 rotate-12" />
+          </div>
         </div>
       </div>
 
