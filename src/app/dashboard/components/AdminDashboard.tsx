@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import ClassTeacherSide from './ClassTeacherSide'
 import OpsPanel from './OpsPanel'
 import Link from 'next/link'
 import SharedFiles from './SharedFiles'
@@ -140,8 +141,9 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
       </div>
       {/* ── ОПЕРАТИВНО: днес · реализация на ИУП · ЕПЛР ── */}
       <OpsPanel currentYearId={currentYearId} />
-      {/* ── АЛАРМИ / ИЗИСКВА ВНИМАНИЕ ── */}
-      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm mb-6 overflow-hidden">
+      {/* ── ИЗИСКВА ВНИМАНИЕ + Срокове/Съобщения/Файлове (една карта с табове) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
         <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-100 bg-slate-50/50">
           <AlertTriangle size={16} className="text-slate-500" />
           <h2 className="font-semibold text-slate-700 text-sm">Изисква внимание</h2>
@@ -183,88 +185,20 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
             ))}
           </div>
         )}
-           </div>
+      </div>
+      <div>
+        <ClassTeacherSide
+          deadlines={(deadlines || []) as any}
+          announcements={(announcements || []) as any}
+          deadlinesHref="/admin/deadlines"
+          newsHref="/admin/announcements"
+          files={<SharedFiles bare />}
+        />
+      </div>
+      </div>
       {/* Изтичащи документи */}
       <div className="mb-6">
         <ExpiringDocsCard />
-      </div>
-      {/* ── СРОКОВЕ & СЪОБЩЕНИЯ ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl border border-slate-200/70 p-6 shadow-sm">
-                    <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <Calendar size={18} className="text-slate-400" />
-              <h2 className="font-semibold text-slate-800 text-sm">Предстоящи срокове</h2>
-            </div>
-            <Link href="/admin/deadlines" className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
-              Управление <ArrowRight size={12} />
-            </Link>
-          </div>
-          {!deadlines?.length ? (
-            <p className="text-sm text-slate-400">Няма предстоящи срокове</p>
-          ) : (
-            <div className="space-y-4">
-              {deadlines.map(d => {
-                const days = getDaysUntil(d.deadline_date)
-                return (
-                  <div key={d.id} className="flex items-center justify-between gap-4 p-3 rounded-xl bg-slate-50">
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-slate-700 truncate">{d.title}</div>
-                      <div className="text-[11px] text-slate-400 font-medium mt-0.5">{formatDate(d.deadline_date)}</div>
-                    </div>
-                    <span className={`text-[10px] font-semibold px-3 py-1 rounded-md border ${
-                      days === 0 ? 'bg-rose-50 text-rose-700 border-rose-100' :
-                      days <= 7 ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                      'bg-emerald-50 text-emerald-700 border-emerald-100'
-                    }`}>
-                      {days === 0 ? 'Днес' : `${days} дни`}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-        <div className="bg-white rounded-2xl border border-slate-200/70 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <Bell size={18} className="text-slate-400" />
-              <h2 className="font-semibold text-slate-800 text-sm">Съобщения</h2>
-            </div>
-            <Link href="/admin/announcements" className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
-              Управление <ArrowRight size={12} />
-            </Link>
-          </div>
-          {!announcements?.length ? (
-            <p className="text-sm text-slate-400">Няма активни съобщения</p>
-          ) : (
-            <div className="space-y-4">
-              {announcements.map(ann => (
-                <div key={ann.id} className="relative pl-4 border-l-2 border-indigo-100">
-                  <div className="text-sm font-semibold text-slate-800">{ann.title}</div>
-                  <div className="text-xs text-slate-500 mt-1.5 leading-relaxed">{ann.body}</div>
-                  <div className="text-[10px] text-slate-300 mt-2 font-medium">{formatDate(ann.created_at)}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-            {/* ── ЗАМЕСТВАНИЯ ── */}
-      <div className="mt-6">
-        <Link href="/substitutions" className="flex items-center gap-3 bg-white rounded-2xl border border-slate-200/70 shadow-sm px-5 py-4 hover:border-slate-300 transition-all group">
-          <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-50 text-blue-500"><Clock size={17} /></span>
-          <div className="flex-1">
-            <div className="text-sm font-semibold text-slate-800">Замествания</div>
-            <div className="text-xs text-slate-500">Отсъстващи, заместници и заповеди за заместване</div>
-          </div>
-          <ArrowRight size={15} className="text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all" />
-        </Link>
-      </div>
-
-      {/* ── СПОДЕЛЕНИ ФАЙЛОВЕ ── */}
-      <div className="mt-6">
-        <SharedFiles />
       </div>
     </div>
   )
