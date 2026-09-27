@@ -4,10 +4,12 @@ import { Calendar, Bell, FolderOpen } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 // Дясната колона на класния: една карта с три таба вместо четири отделни кутии
-export default function ClassTeacherSide({ deadlines, announcements, files }: {
+export default function ClassTeacherSide({ deadlines, announcements, files, deadlinesHref, newsHref }: {
   deadlines: { id: string; title: string; deadline_date: string }[]
   announcements: { id: string; title: string; body: string }[]
   files: ReactNode
+  deadlinesHref?: string   // „Управление →“ (за управата)
+  newsHref?: string
 }) {
   const [tab, setTab] = useState<'deadlines' | 'news' | 'files'>('deadlines')
   const btn = (id: typeof tab, icon: ReactNode, label: string, n?: number) => (
@@ -53,6 +55,12 @@ export default function ClassTeacherSide({ deadlines, announcements, files }: {
           )
         )}
         {tab === 'files' && <div className="space-y-5">{files}</div>}
+        {tab === 'deadlines' && deadlinesHref && (
+          <a href={deadlinesHref} className="mt-3 inline-block text-[11px] text-slate-400 hover:text-[#0f2240]">График срокове — управление →</a>
+        )}
+        {tab === 'news' && newsHref && (
+          <a href={newsHref} className="mt-3 inline-block text-[11px] text-slate-400 hover:text-[#0f2240]">Съобщения — управление →</a>
+        )}
       </div>
     </div>
   )

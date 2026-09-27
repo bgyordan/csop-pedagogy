@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import OpsPanel from './OpsPanel'
 import Link from 'next/link'
 import { Users, BookOpen, UserCircle, Star, BarChart3, CalendarDays, Inbox, ClipboardList, ArrowRight, GraduationCap, Calendar, AlertTriangle } from 'lucide-react'
 import { formatDate, getDaysUntil } from '@/lib/utils'
@@ -62,6 +63,9 @@ export default async function DirectorDashboard({ profile, currentYearId }: any)
         ))}
           
       </div>
+
+      {/* Оперативно: днес · реализация на ИУП · ЕПЛР */}
+      <OpsPanel currentYearId={currentYearId} />
 
       {/* Изтичащи документи */}
       <ExpiringDocsCard />
