@@ -1,6 +1,11 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Loader2, CalendarRange } from 'lucide-react'
+import { Loader2, CalendarRange, FileDown } from 'lucide-react'
+import { generateLecturerPaymentOrder } from '@/lib/docx-substitution'
+
+// ВПРЗ чл. 10, ал. 2, т. 1 (учител с висше образование) и НП „Без свободен час“
+const RATE_BUDGET = 6.29
+const RATE_NP = 7.38
 import { getLecturerOverview } from './actions'
 
 type Row = {
@@ -16,6 +21,7 @@ function schoolMonths() {
 const mFirst = (m: number, y: number) => `${y}-${String(m).padStart(2,'0')}-01`
 const mLast = (m: number, y: number) => `${y}-${String(m).padStart(2,'0')}-${String(new Date(y, m, 0).getDate()).padStart(2,'0')}`
 const n = (v: number) => v > 0 ? v : <span className="text-slate-300">—</span>
+const money = (v: number) => v > 0 ? v.toFixed(2).replace('.', ',') : <span className="text-slate-300">—</span>
 
 // Месечен преглед на лекторските: над норматив (по заповед / декларирани) + заместване (НП / бюджет)
 export default function OverviewClient() {
@@ -40,6 +46,22 @@ export default function OverviewClient() {
     })
     return () => { off = true }
   }, [first, last])
+
+  const periodLabel = fromIdx === toIdx ? `${SM[fromIdx].label} г.` : `периода ${SM[fromIdx].label} – ${SM[toIdx].label} г.`
+  const notDeclared = (rows || []).filter(r => r.planned > 0 && !r.hasDecl).length
+  const [genning, setGenning] = useState(false)
+  async function paymentOrder() {
+    if (!rows || rows.length === 0) return
+    if (notDeclared > 0 && !confirm(`${notDeclared} служители не са подали декларация за над норматив — техните часове над норматив няма да влязат. Продължаваме ли?`)) return
+    setGenning(true)
+    try {
+      await generateLecturerPaymentOrder({
+        periodLabel, yearName: '', rateBudget: RATE_BUDGET, rateNp: RATE_NP,
+        rows: rows.map(r => ({ name: r.name, position: r.position, overNorm: r.declared, budgetSub: r.budget, np: r.np })),
+      })
+    } catch (e) { /* noop */ }
+    setGenning(false)
+  }
 
   const tot = (rows || []).reduce((a, r) => ({
     planned: a.planned + r.planned, declared: a.declared + r.declared, np: a.np + r.np, budget: a.budget + r.budget,
@@ -69,6 +91,10 @@ export default function OverviewClient() {
             {SM.map((x, i) => <option key={i} value={i} disabled={i < fromIdx}>{x.label}</option>)}
           </select>
         </div>
+        <button onClick={paymentOrder} disabled={genning || loading || !rows || rows.length === 0}
+          className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-white text-sm hover:opacity-90 disabled:opacity-40" style={{ backgroundColor: '#0f2240' }}>
+          {genning ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} Заповед за изплащане
+        </button>
       </div>
 
       {loading ? (
@@ -87,7 +113,8 @@ export default function OverviewClient() {
                 <th className={th} title="Подадени от учителя в „Над норматив“">Над норм. декларирани</th>
                 <th className={th}>Заместване НП</th>
                 <th className={th}>Заместване бюджет</th>
-                <th className={th} title="Декларирани над норматив + заместване">Общо за плащане</th>
+                <th className={th} title="Декларирани над норматив + заместване">Общо, ч.</th>
+                <th className={th} title={`Бюджет × ${RATE_BUDGET} € + НП × ${RATE_NP} €`}>Сума, €</th>
               </tr>
             </thead>
             <tbody>
@@ -108,6 +135,7 @@ export default function OverviewClient() {
                     <td className={`${td} text-emerald-700`}>{n(r.np)}</td>
                     <td className={`${td} text-slate-700`}>{n(r.budget)}</td>
                     <td className={`${td} text-slate-900 font-medium`}>{n(r.declared + r.np + r.budget)}</td>
+                    <td className={`${td} text-slate-700`}>{money((r.declared + r.budget) * RATE_BUDGET + r.np * RATE_NP)}</td>
                   </tr>
                 )
               })}
@@ -120,11 +148,12 @@ export default function OverviewClient() {
                 <td className={`${td} text-emerald-700`}>{tot.np}</td>
                 <td className={td}>{tot.budget}</td>
                 <td className={`${td} font-medium`}>{tot.declared + tot.np + tot.budget}</td>
+                <td className={`${td} font-medium`}>{money((tot.declared + tot.budget) * RATE_BUDGET + tot.np * RATE_NP)}</td>
               </tr>
             </tfoot>
           </table>
           <p className="px-4 py-2.5 text-[11px] text-slate-400">
-            Жълто — декларираните се различават от заповедта (виж подробностите в архива долу). Вътрешните замествания (в рамките на нормата) не се броят.
+            Жълто — декларираните се различават от заповедта (виж подробностите в архива долу). Вътрешните замествания (в рамките на нормата) не се броят. Ставки: 6,29 € (ВПРЗ чл. 10, ал. 2) и 7,38 € за НП.
           </p>
         </div>
       )}

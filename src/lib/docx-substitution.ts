@@ -784,3 +784,92 @@ export async function generateLecturerFrameworkOrder(d: LecturerFrameworkData) {
   const blob = await Packer.toBlob(doc)
   saveAs(blob, `заповед_лекторски_${(d.yearName || '').replace('/', '_')}.docx`)
 }
+
+// ═══ ЗАПОВЕД ЗА ИЗПЛАЩАНЕ НА ЛЕКТОРСКИ ЧАСОВЕ (ВПРЗ чл. 10, ал. 2, 3 и 8) ═══
+export interface LecturerPaymentData {
+  periodLabel: string          // напр. „октомври 2026 г.“
+  yearName: string
+  rateBudget: number           // 6,29 € — ВПРЗ чл. 10, ал. 2, т. 1
+  rateNp: number               // 7,38 € — НП „Без свободен час“
+  rows: { name: string; position: string; overNorm: number; budgetSub: number; np: number }[]
+}
+export async function generateLecturerPaymentOrder(d: LecturerPaymentData) {
+  const eur = (v: number) => v.toFixed(2).replace('.', ',')
+  const children: any[] = []
+  header().forEach(p => children.push(p))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('ЗАПОВЕД', 28)], spacing: { before: 120, after: 40 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal('№ ............ / ............ г.', 22)], spacing: { after: 160 } }))
+
+  const budget = d.rows.filter(r => r.overNorm + r.budgetSub > 0)
+  const np = d.rows.filter(r => r.np > 0)
+
+  children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 120 }, children: [
+    normal('На основание чл. 259, ал. 1 от Кодекса на труда, чл. 20, ал. 1, т. 1 от Наредба № 4 от 20.04.2017 г. за нормиране и заплащане на труда, чл. 10, ал. 2, ал. 3 и ал. 8 от Вътрешните правила за работната заплата в ЦСОП – Варна', 22),
+    normal(np.length > 0 ? ', Национална програма „Без свободен час в училище“ – Модул 1' : '', 22),
+    normal(' и подадените декларации за проведени лекторски часове за ', 22),
+    bold(d.periodLabel, 22), normal(',', 22),
+  ] }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('НАРЕЖДАМ:', 24)], spacing: { after: 120 } }))
+
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '888888' }
+  const CELLS = { top: B, bottom: B, left: B, right: B }
+  const th = (t: string) => new TableCell({ borders: CELLS, shading: { type: ShadingType.CLEAR, fill: 'EDF2F7' }, verticalAlign: VerticalAlign.CENTER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(t, 16)] })] })
+  const td = (t: string, a: 'l' | 'c' | 'r' = 'c', b = false) => new TableCell({ borders: CELLS, children: [new Paragraph({
+    alignment: a === 'l' ? AlignmentType.LEFT : a === 'r' ? AlignmentType.RIGHT : AlignmentType.CENTER,
+    children: [b ? bold(t, 17) : normal(t, 17)] })] })
+  let pt = 1
+
+  if (budget.length > 0) {
+    children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
+      normal(`${pt++}. Да се изплатят лекторски часове (над норматива и по заместване) за ${d.periodLabel} по ставка ${eur(d.rateBudget)} € за час, както следва:`, 22),
+    ] }))
+    const rows: TableRow[] = [new TableRow({ tableHeader: true, children: [
+      th('№'), th('Име и фамилия'), th('Длъжност'), th('Над норматив, ч.'), th('Заместване, ч.'), th('Общо, ч.'), th('Сума, €'),
+    ] })]
+    let tH = 0, tS = 0
+    budget.forEach((r, i) => {
+      const h = r.overNorm + r.budgetSub, sum = h * d.rateBudget
+      tH += h; tS += sum
+      rows.push(new TableRow({ children: [
+        td(String(i + 1)), td(r.name, 'l'), td(r.position, 'l'), td(String(r.overNorm || '–')), td(String(r.budgetSub || '–')), td(String(h)), td(eur(sum), 'r'),
+      ] }))
+    })
+    rows.push(new TableRow({ children: [
+      td(''), td('Общо', 'l', true), td(''), td(''), td(''), td(String(tH), 'c', true), td(eur(tS), 'r', true),
+    ] }))
+    children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [500, 2600, 2200, 1100, 1100, 900, 1200], rows }))
+    children.push(new Paragraph({ text: '', spacing: { after: 80 } }))
+  }
+
+  if (np.length > 0) {
+    children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
+      normal(`${pt++}. Да се изплатят часовете по заместване по НП „Без свободен час в училище“ – Модул 1 за ${d.periodLabel} по ставка ${eur(d.rateNp)} € за час, със средства по програмата, както следва:`, 22),
+    ] }))
+    const rows: TableRow[] = [new TableRow({ tableHeader: true, children: [
+      th('№'), th('Име и фамилия'), th('Длъжност'), th('Часове'), th('Сума, €'),
+    ] })]
+    let tH = 0, tS = 0
+    np.forEach((r, i) => {
+      const sum = r.np * d.rateNp
+      tH += r.np; tS += sum
+      rows.push(new TableRow({ children: [td(String(i + 1)), td(r.name, 'l'), td(r.position, 'l'), td(String(r.np)), td(eur(sum), 'r')] }))
+    })
+    rows.push(new TableRow({ children: [td(''), td('Общо', 'l', true), td(''), td(String(tH), 'c', true), td(eur(tS), 'r', true)] }))
+    children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [500, 3200, 2800, 1200, 1400], rows }))
+    children.push(new Paragraph({ text: '', spacing: { after: 80 } }))
+  }
+
+  const P = (t: string) => children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { before: 80, after: 60 }, children: [normal(t, 20)] }))
+  P(`${pt++}. Сумите да се изплатят с работната заплата в срока по чл. 10, ал. 3 от Вътрешните правила за работната заплата, като се начислят дължимите осигурителни вноски.`)
+  P(`${pt++}. Изпълнението на заповедта възлагам на Радка Георгиева – счетоводител.`)
+  P(`${pt++}. Контрол по изпълнението на заповедта ще упражнявам лично.`)
+  children.push(new Paragraph({ spacing: { before: 60, after: 240 }, children: [normal('Настоящата заповед да се доведе до знанието на заинтересованите лица за сведение и изпълнение.', 20)] }))
+
+  children.push(new Paragraph({ children: [bold('ДИРЕКТОР ЦСОП: ', 22), normal('.............................', 22)] }))
+  children.push(new Paragraph({ children: [normal('/ Светлана Иванова /', 20)], spacing: { after: 200 } }))
+  children.push(new Paragraph({ children: [bold('Запознат: ', 20), normal('Радка Георгиева – счетоводител     ..............................', 18)] }))
+
+  const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
+  const blob = await Packer.toBlob(doc)
+  saveAs(blob, `заповед_изплащане_лекторски_${d.periodLabel.replace(/\s+/g, '_')}.docx`)
+}
