@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { BookOpen, CalendarDays, Clock, FileText, Loader2, User } from 'lucide-react'
+import { CalendarDays, FileText, Loader2, User } from 'lucide-react'
 import { generateClassSchedule } from '@/lib/docx-generator'
 
 interface Slot { day: number; period: number; subjectName: string; allowsPullout: boolean; teacher: string }
@@ -55,38 +55,46 @@ export default function ClassScheduleView({ term, slots, className, yearName, ma
           <p className="text-xs text-slate-400 mt-1">Учителите въвеждат своите часове в „Разписание → Моите часове → Редактирай“.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {DAYS.map(d => {
-            const ds = daySlots(d.n)
-            return (
-              <div key={d.n} className="bg-slate-50/60 rounded-xl border border-slate-200 flex flex-col overflow-hidden">
-                <div className="px-3 py-2 bg-slate-100/80 border-b border-slate-200 flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">{d.short}</span>
-                  <span className="text-[10px] font-medium text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200">{ds.length}</span>
-                </div>
-                <div className="p-2 space-y-2 flex-1">
-                  {ds.length === 0 ? (
-                    <div className="h-20 flex flex-col items-center justify-center text-slate-300">
-                      <Clock size={16} className="mb-1" /><span className="text-[10px]">Няма часове</span>
-                    </div>
-                  ) : ds.map((s, i) => (
-                    <div key={i} className="rounded-xl border bg-white border-slate-200 p-2.5">
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="inline-flex items-center justify-center h-4 w-4 rounded text-white text-[9px] font-bold" style={{ backgroundColor: '#0f2240' }}>{s.period}</span>
-                          <span className="text-[10px] font-mono text-slate-400">{TIMES[s.period] || `${s.period}.`}</span>
-                        </div>
-                      </div>
-                      <div className={`text-xs font-medium leading-tight ${s.allowsPullout ? 'text-teal-700' : 'text-slate-800'}`}>
-                        {s.allowsPullout ? '◆ ' : ''}{s.subjectName}
-                      </div>
-                      {s.teacher && <div className="text-[10px] text-slate-400 mt-0.5 inline-flex items-center gap-1"><User size={9} /> {s.teacher}</div>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+          <table className="w-full border-collapse table-fixed min-w-[720px]">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50/70">
+                <th className="w-20 px-2 py-2.5 text-[10px] font-medium uppercase tracking-wider text-slate-400 text-left">Час</th>
+                {DAYS.map(d => (
+                  <th key={d.n} className="px-2 py-2.5 text-xs font-medium text-slate-600 text-left">
+                    {d.label} <span className="text-[10px] font-normal text-slate-400">· {daySlots(d.n).length} ч.</span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: maxPeriod }, (_, k) => k + 1).map((p, ri) => (
+                <tr key={p} className={`border-b border-slate-100 last:border-0 ${ri % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
+                  <td className="px-2 py-2 align-top">
+                    <div className="text-sm font-medium text-slate-700">{p}.</div>
+                    <div className="text-[10px] font-mono text-slate-400">{TIMES[p] || ''}</div>
+                  </td>
+                  {DAYS.map(d => {
+                    const cell = slots.filter(s => s.day === d.n && s.period === p)
+                    return (
+                      <td key={d.n} className="px-1.5 py-1.5 align-top">
+                        {cell.length === 0 ? (
+                          <div className="min-h-[44px] flex items-center justify-center text-slate-200 text-xs">—</div>
+                        ) : cell.map((s, i) => (
+                          <div key={i} className="min-h-[44px] rounded-lg border border-slate-200 bg-white px-2 py-1.5 hover:border-slate-300 transition-colors">
+                            <div title={s.subjectName} className={`text-xs leading-snug line-clamp-2 break-words ${s.allowsPullout ? 'text-teal-700' : 'text-slate-800'}`}>
+                              {s.allowsPullout ? '◆ ' : ''}{s.subjectName}
+                            </div>
+                            {s.teacher && <div className="text-[10px] text-slate-400 mt-0.5 truncate inline-flex items-center gap-1 max-w-full" title={s.teacher}><User size={9} className="shrink-0" /> {s.teacher}</div>}
+                          </div>
+                        ))}
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
