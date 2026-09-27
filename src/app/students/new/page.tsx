@@ -19,6 +19,7 @@ export default function NewStudentPage() {
     birth_date: '',
     class_id: '',
     external_class: '',
+    external_class_letter: '',
     sending_school_id: '' as string | null,
   })
   const [classes, setClasses] = useState<{ id: string; name: string }[]>([])
@@ -95,7 +96,8 @@ export default function NewStudentPage() {
         middle_name: form.middle_name || null,
         last_name: form.last_name,
         birth_date: form.birth_date,
-        external_class: form.external_class || null,
+        external_class: form.external_class.trim() || null,
+        external_class_letter: form.external_class_letter.trim() || null,
         sending_school_id: form.sending_school_id || null,
         status: 'active',
       })
@@ -213,10 +215,15 @@ export default function NewStudentPage() {
         {/* Клас в изпращащото училище */}
         <div>
           <label className="label">Клас в изпращащото училище</label>
-          <input className="input" value={form.external_class}
-            onChange={e => setForm(p => ({ ...p, external_class: e.target.value }))}
-            placeholder="напр. 2 а, 5 б, ПГ..." />
-          <p className="text-xs text-slate-400 mt-1">Класът по който се обучава в изпращащото училище</p>
+          <div className="flex gap-2">
+            <input className="input flex-1" placeholder="напр. IX, II, ПГ…"
+              value={form.external_class}
+              onChange={e => setForm(p => ({ ...p, external_class: e.target.value }))} />
+            <input className="input w-24 text-center" placeholder="буква" maxLength={3}
+              value={form.external_class_letter}
+              onChange={e => setForm(p => ({ ...p, external_class_letter: e.target.value.toLowerCase() }))} />
+          </div>
+          <p className="text-xs text-slate-400 mt-1">Класът (римско) и отделно буквата на паралелката в училището — напр. IX и „а“. Буквата е важна за учебния план.</p>
         </div>
 
         <div>
