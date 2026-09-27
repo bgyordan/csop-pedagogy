@@ -133,6 +133,12 @@ export default function NewCorrespondenceForm({
   const [subject, setSubject] = useState('')
   const [description, setDescription] = useState('')
   const [studentId, setStudentId] = useState('')
+  // „+ Нов ученик“ при прием — детето се създава направо от деловодството
+  const [extraStudents, setExtraStudents] = useState<{ id: string; first_name: string; last_name: string }[]>([])
+  const allStudents = [...students, ...extraStudents]
+  const [showNewStud, setShowNewStud] = useState(false)
+  const [ns, setNs] = useState({ first: '', middle: '', last: '', birth: '', parent: '', relation: 'майка', phone: '' })
+  const [nsSaving, setNsSaving] = useState(false)
   const [staffId, setStaffId] = useState('')
   const [guardians, setGuardians] = useState<{ full_name: string; relation: string }[]>([])
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
@@ -214,10 +220,34 @@ export default function NewCorrespondenceForm({
       setFromWhom(`${s.first_name} ${s.last_name}`)
     }
   }
-  async function handleStudentSelect(id: string) {
+  async function createIntakeStudent() {
+    if (!ns.first.trim() || !ns.last.trim() || !ns.birth) return
+    setNsSaving(true)
+    const { data: year } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
+    const { data: st, error } = await supabase.from('students').insert({
+      first_name: ns.first.trim(), middle_name: ns.middle.trim() || null, last_name: ns.last.trim(),
+      birth_date: ns.birth, status: 'active', is_new: true,
+    }).select('id, first_name, last_name').single()
+    if (error || !st) { setNsSaving(false); alert('Грешка при добавяне на ученика: ' + (error?.message || '')); return }
+    // временно в Служебна паралелка — класът се определя по-късно
+    if (year) {
+      const { data: sl } = await supabase.from('classes').select('id').eq('academic_year_id', year.id).ilike('name', 'служебна').limit(1).maybeSingle()
+      if (sl) await supabase.from('student_enrollments').insert({ student_id: st.id, class_id: sl.id, academic_year_id: year.id })
+    }
+    if (ns.parent.trim()) {
+      await supabase.from('student_guardians').insert({ student_id: st.id, full_name: ns.parent.trim(), relation: ns.relation, phone: ns.phone.trim() || null })
+    }
+    setExtraStudents(prev => [...prev, st])
+    setShowNewStud(false)
+    setNs({ first: '', middle: '', last: '', birth: '', parent: '', relation: 'майка', phone: '' })
+    setNsSaving(false)
+    await handleStudentSelect(st.id, st)
+  }
+
+  async function handleStudentSelect(id: string, justCreated?: { id: string; first_name: string; last_name: string }) {
     setStudentId(id)
     setFromWhom('')
-    const s = students.find(x => x.id === id)
+    const s = justCreated || allStudents.find(x => x.id === id)
     if (s && activeScenario) {
       setSubject(activeScenario.template.replace('{name}', `${s.first_name} ${s.last_name}`))
     }
@@ -466,7 +496,39 @@ export default function NewCorrespondenceForm({
                 <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1">
                   <GraduationCap size={11} /> Ученик *
                 </label>
-                <PersonCombo people={students} value={studentId} onChange={(id) => id ? handleStudentSelect(id) : setStudentId('')} placeholder="Ученик — търси по име…" />
+                <PersonCombo people={allStudents} value={studentId} onChange={(id) => id ? handleStudentSelect(id) : setStudentId('')} placeholder="Ученик — търси по име…" />
+                {scenario === 'enrollment' && !studentId && !showNewStud && (
+                  <button type="button" onClick={() => setShowNewStud(true)}
+                    className="text-[12px] text-[#0f2240] hover:underline">+ Нов ученик (още го няма в системата)</button>
+                )}
+                {scenario === 'enrollment' && !studentId && showNewStud && (
+                  <div className="p-2.5 rounded-lg bg-white border border-slate-200 space-y-2">
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <input value={ns.first} onChange={e => setNs({ ...ns, first: e.target.value })} placeholder="Име *" className="input text-xs" />
+                      <input value={ns.middle} onChange={e => setNs({ ...ns, middle: e.target.value })} placeholder="Презиме" className="input text-xs" />
+                      <input value={ns.last} onChange={e => setNs({ ...ns, last: e.target.value })} placeholder="Фамилия *" className="input text-xs" />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <label className="text-[11px] text-slate-500 shrink-0">Роден(а) *</label>
+                      <input type="date" value={ns.birth} onChange={e => setNs({ ...ns, birth: e.target.value })} className="input text-xs w-40" />
+                    </div>
+                    <div className="grid grid-cols-[1fr_110px] gap-1.5">
+                      <input value={ns.parent} onChange={e => setNs({ ...ns, parent: e.target.value })} placeholder="Родител — име и фамилия" className="input text-xs" />
+                      <select value={ns.relation} onChange={e => setNs({ ...ns, relation: e.target.value })} className="input text-xs cursor-pointer">
+                        {['майка', 'баща', 'настойник', 'баба', 'дядо', 'приемен родител', 'друг'].map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <input value={ns.phone} onChange={e => setNs({ ...ns, phone: e.target.value })} placeholder="Телефон на родителя" className="input text-xs w-full" />
+                    <p className="text-[10px] text-slate-400">Детето влиза като „ново“ в Служебна паралелка. Останалото (паралелка, форма, училище, ЕПЛР) се попълва после.</p>
+                    <div className="flex justify-end gap-1.5">
+                      <button type="button" onClick={() => setShowNewStud(false)} className="px-2.5 py-1 rounded-lg text-[11px] border border-slate-200 text-slate-600 hover:bg-slate-50">Отказ</button>
+                      <button type="button" onClick={createIntakeStudent} disabled={nsSaving || !ns.first.trim() || !ns.last.trim() || !ns.birth}
+                        className="px-3 py-1 rounded-lg text-[11px] text-white disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>
+                        {nsSaving ? 'Добавяне…' : 'Добави ученика'}
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {studentId && (
                   <>
                     <input type="text" list="guardian-list" value={fromWhom} onChange={e => setFromWhom(e.target.value)} required
