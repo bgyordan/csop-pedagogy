@@ -13,6 +13,7 @@ import StudentStatusSection from './StudentStatusSection'
 import { GraduationCap, Home, Wifi } from 'lucide-react'
 import { EplrDocumentsSection } from './EplrDocumentsSection'
 import MarkProcessedButton from './MarkProcessedButton'
+import IntakeCard from './IntakeCard'
 import StudentDocuments from './StudentDocuments'
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
@@ -283,6 +284,11 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           <span className="font-semibold text-amber-800">Причина за напускане:</span> {student.archive_reason}
           {student.archived_at && <span className="ml-3 text-slate-400 font-medium">({formatDate(student.archived_at)})</span>}
         </div>
+      )}
+
+      {(student as any).is_new && student.status === 'active' && (
+        <IntakeCard student={student} enrollment={enrollment} guardiansCount={(guardians || []).length}
+          eplr={eplr} coudEnrolled={coudEnrolled} canManage={canManage} />
       )}
 
       {/* 
