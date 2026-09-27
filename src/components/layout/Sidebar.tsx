@@ -57,7 +57,6 @@ const navItems: NavItem[] = [
       { href: '/council', label: 'За съгласуване', icon: <ClipboardCheck size={14} /> },
     ],
   },
-  { href: '/spravki', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'], hideFromCoordinator: true },
     { href: '/my-schedule', label: 'Разписание', icon: <CalendarDays size={16} />, roles: ['class_teacher', 'teacher', 'educator'] },
   { href: '/gym-schedule', label: 'Физк. салон', icon: <Dumbbell size={16} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'secretary', 'support'] },
        {
@@ -74,7 +73,7 @@ const navItems: NavItem[] = [
   { href: '/my-activities', label: 'Списък за терапия', icon: <HeartPulse size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
     { href: '/surveys', label: 'Анкети на новите деца', icon: <ClipboardList size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
     // Генераторът е скрит от менюто — заменен е от „Нов документ“ (бланки) в досието. Страницата /generator още работи.
-  { href: '/reports', label: 'Натовареност', icon: <BarChart3 size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
+  { href: '/reports', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
   {
     href: '#process',
     label: 'Учебен процес',
@@ -90,17 +89,7 @@ const navItems: NavItem[] = [
     ],
   },
   { href: '/bullying-council', label: 'К. Съвет', icon: <Shield size={16} />, councilOnly: true },
-  {
-    href: '#reports',
-    label: 'Справки',
-    icon: <BarChart3 size={16} />,
-    roles: ['admin', 'zdud', 'director'],
-    children: [
-      { href: '/reports/hub', label: 'Всички справки', icon: <BarChart3 size={14} />, roles: ['admin', 'director', 'zdud'] },
-      { href: '/reports/letters', label: 'Официални писма (паралелки)', icon: <FileText size={14} />, roles: ['admin', 'zdud', 'director'] },
-      { href: '/reports/full', label: 'Пълна справка (Excel)', icon: <FileSpreadsheet size={14} />, roles: ['admin', 'zdud', 'director'] },
-    ],
-  },
+  { href: '/reports/hub', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['admin', 'zdud', 'director'] },
   {
     href: '#lecturer-mgmt',
     label: 'Лекторски',

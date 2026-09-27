@@ -16,7 +16,8 @@ const ROLE_LABELS_BG: Record<string, string> = {
   speech_therapist: 'Логопед',
   rehabilitator: 'Рехабилитатор',
 }
-export default async function ReportsPage() {
+export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const { tab } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
@@ -240,7 +241,7 @@ export default async function ReportsPage() {
     <div className="p-4 md:p-8">
       <BackButton />
       <div className="mb-6">
-        <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Справки</h1>
+        <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Терапии — справки</h1>
         <p className="text-slate-500 text-sm mt-1">{currentYear?.name}</p>
       </div>
       <ReportsClient
@@ -258,6 +259,7 @@ export default async function ReportsPage() {
         }))}
         yearName={currentYear?.name || ''}
         limitedView={isSpecialist && !isManager}
+        initialTab={(['distribution', 'school', 'workload', 'intensity'] as const).find(t => t === tab)}
       />
     </div>
   )
