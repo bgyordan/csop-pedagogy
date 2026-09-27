@@ -52,42 +52,44 @@ export default function ReserveNumberCard({ profileId }: { profileId: string }) 
     setBusy(false)
   }
 
-  // Един ред: заглавие · вид · бележка · бутон · резултат (като плочките горе, не голяма карта)
+  // Плочка като останалите в таблото: вид · бележка · бутон; резервираният номер излиза едро
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3">
-      <div className="flex flex-wrap items-center gap-2.5">
-        <div className="flex items-center gap-1.5 shrink-0">
-          <Bookmark size={15} className="text-amber-500" />
-          <span className="text-xs font-medium text-slate-500">Резервирай номер</span>
-        </div>
-        <div className="flex gap-1 p-0.5 rounded-lg bg-slate-100 shrink-0">
-          {KINDS.map(k => {
-            const Icon = k.icon
-            const on = kind === k.id
-            return (
-              <button key={k.id} onClick={() => { setKind(k.id); setResult(null) }}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] transition ${
-                  on ? 'bg-white shadow-sm text-[#0f2240]' : 'text-slate-500 hover:text-slate-700'
-                }`}>
-                <Icon size={12} /> {k.label}
-              </button>
-            )
-          })}
-        </div>
-        <input value={note} onChange={e => setNote(e.target.value)} placeholder="бележка (по избор) — за кого е"
-          onKeyDown={e => { if (e.key === 'Enter' && !busy) reserve() }}
-          className="flex-1 min-w-[160px] px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[13px] focus:outline-none focus:border-slate-400" />
-        <button onClick={reserve} disabled={busy}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-[13px] hover:bg-amber-100 disabled:opacity-60 shrink-0">
-          {busy ? <Loader2 size={14} className="animate-spin" /> : <Bookmark size={14} />} Резервирай
-        </button>
-        {result && result !== 'Грешка' && (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-sm text-slate-800 shrink-0">
-            <Check size={14} className="text-amber-600" /> <b className="font-semibold">{result}</b>
-          </span>
-        )}
-        {result === 'Грешка' && <span className="text-sm text-rose-600">Грешка при резервиране.</span>}
+    <div className="flex flex-col bg-white px-5 py-5 min-h-[160px] rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500 mb-2">
+        <Bookmark size={13} className="text-amber-500" /> Резервирай номер
       </div>
+      <div className="flex gap-1 p-0.5 rounded-lg bg-slate-100 mb-2">
+        {KINDS.map(k => {
+          const Icon = k.icon
+          const on = kind === k.id
+          return (
+            <button key={k.id} onClick={() => { setKind(k.id); setResult(null) }}
+              className={`flex-1 inline-flex items-center justify-center gap-1 px-1 py-1 rounded-md text-[11px] transition ${
+                on ? 'bg-white shadow-sm text-[#0f2240]' : 'text-slate-500 hover:text-slate-700'
+              }`}>
+              <Icon size={11} /> {k.label}
+            </button>
+          )
+        })}
+      </div>
+      {result && result !== 'Грешка' ? (
+        <button onClick={() => setResult(null)} title="Нов резерв"
+          className="flex-1 flex flex-col items-start justify-center text-left">
+          <span className="text-[11px] text-amber-600 inline-flex items-center gap-1"><Check size={12} /> резервиран</span>
+          <span className="text-2xl font-medium text-slate-800 tracking-tight">{result}</span>
+        </button>
+      ) : (
+        <>
+          <input value={note} onChange={e => setNote(e.target.value)} placeholder="бележка — за кого е"
+            onKeyDown={e => { if (e.key === 'Enter' && !busy) reserve() }}
+            className="w-full px-2.5 py-1.5 mb-2 bg-white border border-slate-200 rounded-lg text-[13px] focus:outline-none focus:border-slate-400" />
+          <button onClick={reserve} disabled={busy}
+            className="mt-auto w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-[13px] hover:bg-amber-100 disabled:opacity-60">
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <Bookmark size={14} />} Резервирай
+          </button>
+          {result === 'Грешка' && <span className="mt-1 text-xs text-rose-600">Грешка при резервиране.</span>}
+        </>
+      )}
     </div>
   )
 }

@@ -48,16 +48,16 @@ export default async function SecretaryDashboard({ profile }: any) {
     <div className="animate-in fade-in duration-500 space-y-4 max-w-7xl">
 
       {/* Статистика */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Link href="/correspondence?direction=incoming"
-          className="block bg-white px-5 py-4 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 hover:bg-slate-50/50 transition-colors">
+          className="block bg-white px-5 py-5 min-h-[160px] rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition">
           <div className="flex justify-between items-baseline mb-1">
             <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
               <ArrowDownLeft size={13} /> Входящи
             </div>
             <div className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{currentYear}</div>
           </div>
-          <div className="text-3xl font-medium text-slate-800 tracking-tight my-2">{incomingCount || 0}</div>
+          <div className="text-4xl font-medium text-slate-800 tracking-tight my-3">{incomingCount || 0}</div>
           <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-2 mt-2 truncate">
             {lastIncoming?.[0] ? lastIncoming[0].number : 'Няма записи'}
           </div>
@@ -67,14 +67,14 @@ export default async function SecretaryDashboard({ profile }: any) {
         </Link>
 
         <Link href="/correspondence?direction=outgoing"
-          className="block bg-white px-5 py-4 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 hover:bg-slate-50/50 transition-colors">
+          className="block bg-white px-5 py-5 min-h-[160px] rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition">
           <div className="flex justify-between items-baseline mb-1">
             <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
               <ArrowUpRight size={13} /> Изходящи
             </div>
             <div className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{currentYear}</div>
           </div>
-          <div className="text-3xl font-medium text-slate-800 tracking-tight my-2">{outgoingCount || 0}</div>
+          <div className="text-4xl font-medium text-slate-800 tracking-tight my-3">{outgoingCount || 0}</div>
           <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-2 mt-2 truncate">
             {lastOutgoing?.[0] ? lastOutgoing[0].number : 'Няма записи'}
           </div>
@@ -84,12 +84,12 @@ export default async function SecretaryDashboard({ profile }: any) {
         </Link>
 
         <Link href="/orders"
-          className="block bg-white px-5 py-4 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 hover:bg-slate-50/50 transition-colors">
+          className="block bg-white px-5 py-5 min-h-[160px] rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition">
           <div className="flex justify-between items-baseline mb-1">
             <div className="text-xs font-medium text-slate-500">Заповеди</div>
             <div className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{currentYear}</div>
           </div>
-          <div className="text-3xl font-medium text-slate-800 tracking-tight my-2">{orderCount || 0}</div>
+          <div className="text-4xl font-medium text-slate-800 tracking-tight my-3">{orderCount || 0}</div>
           <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-2 mt-2 truncate">
             {lastOrder?.[0] ? lastOrder[0].number : 'Няма записи'}
           </div>
@@ -99,12 +99,12 @@ export default async function SecretaryDashboard({ profile }: any) {
         </Link>
 
         <Link href="/contracts"
-          className="block bg-white px-5 py-4 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 hover:bg-slate-50/50 transition-colors">
+          className="block bg-white px-5 py-5 min-h-[160px] rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition">
           <div className="flex justify-between items-baseline mb-1">
             <div className="text-xs font-medium text-slate-500">Договори</div>
             <div className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">общо</div>
           </div>
-          <div className="text-3xl font-medium text-slate-800 tracking-tight my-2">{contractCount || 0}</div>
+          <div className="text-4xl font-medium text-slate-800 tracking-tight my-3">{contractCount || 0}</div>
           <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-2 mt-2 truncate">
             {lastContract?.[0] ? lastContract[0].number : 'Няма записи'}
           </div>
@@ -113,34 +113,32 @@ export default async function SecretaryDashboard({ profile }: any) {
           )}
         </Link>
         <Link href="/substitutions"
-          className="block bg-white px-5 py-4 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 hover:bg-slate-50/50 transition-colors">
+          className="block bg-white px-5 py-5 min-h-[160px] rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition">
           <div className="flex justify-between items-baseline mb-1">
             <div className="text-xs font-medium text-slate-500">Замествания</div>
             <div className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">общо {subsTotal || 0}</div>
           </div>
-          <div className="text-3xl font-medium text-slate-800 tracking-tight my-2">{subsWaiting || 0}</div>
+          <div className="text-4xl font-medium text-slate-800 tracking-tight my-3">{subsWaiting || 0}</div>
           <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-2 mt-2 truncate">
             {subsWaiting ? 'чакат заместник' : 'няма чакащи'}
           </div>
         </Link>
         {/* Заявления за прием — малка плочка като останалите (беше голяма карта) */}
         <Link href="/reports/enrollments"
-          className="block bg-white px-5 py-4 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 hover:bg-slate-50/50 transition-colors">
+          className="block bg-white px-5 py-5 min-h-[160px] rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition">
           <div className="flex justify-between items-baseline mb-1">
             <div className="text-xs font-medium text-slate-500">Заявления</div>
             <div className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{currentYear}</div>
           </div>
-          <div className="text-3xl font-medium text-slate-800 tracking-tight my-2">{new Set((enrollments || []).map((e: any) => e.student_id)).size}</div>
+          <div className="text-4xl font-medium text-slate-800 tracking-tight my-3">{new Set((enrollments || []).map((e: any) => e.student_id)).size}</div>
           <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-2 mt-2 truncate">
             за записване · {new Set((couds || []).map((c: any) => c.student_id)).size} за ЦОУД
           </div>
         </Link>
+        <ReserveNumberCard profileId={profile.id} />
       </div>
 
 
-
-      {/* Резервирай номер — един ред */}
-      <ReserveNumberCard profileId={profile.id} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
