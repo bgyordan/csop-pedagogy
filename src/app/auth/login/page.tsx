@@ -2,7 +2,6 @@
 import { createClient } from '@/lib/supabase/client'
 import { useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import JordanLogo from '@/components/JordanLogo'
 
 function LoginForm() {
   const [loading, setLoading] = useState(false)
@@ -51,13 +50,9 @@ function LoginForm() {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <JordanLogo />
-          <p className="text-slate-500 text-sm mt-3">всичко за ЦСОП на едно място</p>
-          <div className="mt-4 inline-flex items-center gap-2 text-xs text-slate-400">
-            <img src="/csop-varna-logo.jpg" alt="" className="w-5 h-5 rounded-md object-cover" />
-            ЦСОП Варна
-          </div>
+        <div className="text-center mb-6">
+          <img src="/jordan-logo.png" alt="JORDAN — Educational Support System, ЦСОП Варна"
+               className="inline-block w-[280px] max-w-full h-auto" />
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
