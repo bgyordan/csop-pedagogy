@@ -118,7 +118,7 @@ export async function getLecturerFrameworkData() {
   if (!slots || slots.length === 0) return { error: 'Няма определени лекторски часове' }
 
   const DOW = ['', 'понеделник', 'вторник', 'сряда', 'четвъртък', 'петък']
-  const NORMS: Record<string, number> = { class_teacher: 21, teacher: 21, educator: 25, psychologist: 30, speech_therapist: 21, rehabilitator: 21 }
+  const NORMS: Record<string, number> = { class_teacher: 21, teacher: 21, educator: 30, psychologist: 30, speech_therapist: 21, rehabilitator: 21 }
 
   // групиране: учител -> (предмет+клас) -> {дни:Set, часа, period}
   const byStaff: Record<string, any> = {}

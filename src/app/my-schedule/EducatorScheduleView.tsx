@@ -1,5 +1,6 @@
 'use client'
 import { CalendarDays } from 'lucide-react'
+import { PERIOD_TIMES, coudPeriod } from '@/lib/periods'
 
 interface Slot { day: number; period: number; activity: string }
 interface Props {
@@ -16,10 +17,7 @@ const DAYS = [
   { n: 4, label: 'Четвъртък', short: 'Чет' },
   { n: 5, label: 'Петък', short: 'Пет' },
 ]
-const COUD_TIMES: Record<number, string> = {
-  1: '12:25–13:00', 2: '13:20–13:55', 3: '14:15–14:50',
-  4: '15:05–15:40', 5: '15:55–16:30', 6: '16:45–17:20',
-}
+const COUD_TIMES: Record<number, string> = Object.fromEntries([1, 2, 3, 4, 5, 6].map(p => [p, PERIOD_TIMES[coudPeriod(p)]]))
 const PERIODS = [1, 2, 3, 4, 5, 6]
 const ACCENT = '#0f2240'
 // Тон по дейност (меко, за четимост)

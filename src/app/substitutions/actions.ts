@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { isPedagogical } from '@/lib/pedagogues'
+import { coudPeriod } from '@/lib/periods'
 
 // Работни дни (пон-пет) между две дати, като { date: ISO, dow: 1..5, term: 1|2 }
 async function workdays(supabase: any, from: string, to: string): Promise<{ iso: string; dow: number; term: number }[]> {
@@ -83,7 +84,7 @@ async function slotsByTerm(supabase: any, staffId: string, yearId: string | unde
     .select('day, period, activity, term').eq('educator_id', staffId).eq('academic_year_id', yearId)
   if (edu && edu.length) {
     const label = await coudLabel(supabase, staffId)
-    edu.forEach((sl: any) => out[sl.term === 2 ? 2 : 1].push({ day: sl.day, period: sl.period, subject: sl.activity, cls: label }))
+    edu.forEach((sl: any) => out[sl.term === 2 ? 2 : 1].push({ day: sl.day, period: coudPeriod(sl.period), subject: sl.activity, cls: label }))
   }
   if (out[2].length === 0) out[2] = out[1]
   return out
