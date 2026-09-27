@@ -5,6 +5,7 @@ import {
   Upload, FilePlus2, Loader2, X, ExternalLink, FolderOpen, Download, FileDown, Pencil, Trash2, Check, FileText,
 } from 'lucide-react'
 import { listStudentDocs, createBlankDoc, renameDoc, trashDocs, listDocTemplates, createFromTemplate } from './drive-actions'
+import { listClassDocs, createBlankClassDoc, renameClassDoc, trashClassDocs } from '@/app/dashboard/components/class-drive-actions'
 
 type Item = { id: string; name: string; mimeType: string; modifiedTime: string; modifiedBy: string; url: string }
 
@@ -56,7 +57,13 @@ function openPending() {
 
 const isFolder = (f: Item) => f.mimeType === 'application/vnd.google-apps.folder'
 
-export default function StudentWorkDocs({ studentId }: { studentId: string }) {
+// Един и същ списък за документите на дете (studentId) и за общите файлове на паралелка (classId)
+export default function StudentWorkDocs({ studentId, classId }: { studentId?: string; classId?: string }) {
+  const isClass = !!classId
+  const ownerId = (classId || studentId) as string
+  const api = isClass
+    ? { list: listClassDocs, blank: createBlankClassDoc, rename: renameClassDoc, trash: trashClassDocs, base: '/api/class-docs', key: 'classId' }
+    : { list: listStudentDocs, blank: createBlankDoc, rename: renameDoc, trash: trashDocs, base: '/api/student-docs', key: 'studentId' }
   const [files, setFiles] = useState<Item[]>([])
   const [folderUrl, setFolderUrl] = useState<string>()
   const [myEmail, setMyEmail] = useState<string>()
@@ -75,7 +82,7 @@ export default function StudentWorkDocs({ studentId }: { studentId: string }) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function load() {
-    const r = await listStudentDocs(studentId)
+    const r = await api.list(ownerId)
     if (r.error) setError(r.error)
     setFiles(r.files ?? [])
     setFolderUrl(r.folderUrl)
@@ -88,7 +95,7 @@ export default function StudentWorkDocs({ studentId }: { studentId: string }) {
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId])
+  }, [ownerId])
 
   // ── качване ──
   async function upload(list: FileList | File[]) {
@@ -100,10 +107,10 @@ export default function StudentWorkDocs({ studentId }: { studentId: string }) {
       const f = arr[i]
       setBusy(arr.length > 1 ? `Качване ${i + 1} от ${arr.length}: ${f.name}` : `Качване: ${f.name}`)
       const fd = new FormData()
-      fd.append('studentId', studentId)
+      fd.append(api.key, ownerId)
       fd.append('file', f)
       try {
-        const res = await fetch('/api/student-docs/upload', { method: 'POST', body: fd })
+        const res = await fetch(`${api.base}/upload`, { method: 'POST', body: fd })
         const j = await res.json().catch(() => ({}))
         if (!res.ok || j.error) errors.push(j.error || `„${f.name}“ не се качи`)
       } catch {
@@ -121,7 +128,7 @@ export default function StudentWorkDocs({ studentId }: { studentId: string }) {
     const tab = openPending()
     setBusy('Създаване…')
     setError('')
-    const r = await createBlankDoc(studentId, newName)
+    const r = await api.blank(ownerId, newName)
     setBusy('')
     if (r.error || !r.url) { tab.cancel(); return setError(r.error || 'Документът не се създаде') }
     setCreating(false)
@@ -133,13 +140,13 @@ export default function StudentWorkDocs({ studentId }: { studentId: string }) {
   // ── нов от бланка ──
   async function openCreate() {
     setCreating(v => !v)
-    if (templates === null) setTemplates(await listDocTemplates())
+    if (templates === null) setTemplates(isClass ? [] : await listDocTemplates())
   }
   async function fromTemplate(t: { id: string; name: string }) {
     const tab = openPending()
     setBusy(`Създаване: ${t.name}…`)
     setError('')
-    const r = await createFromTemplate(studentId, t.id)
+    const r = await createFromTemplate(ownerId, t.id)
     setBusy('')
     if (r.error || !r.url) { tab.cancel(); return setError(r.error || 'Документът не се създаде') }
     setCreating(false)
@@ -151,7 +158,7 @@ export default function StudentWorkDocs({ studentId }: { studentId: string }) {
   async function download(ids: string[], as: 'office' | 'pdf') {
     for (const id of ids) {
       const a = document.createElement('a')
-      a.href = `/api/student-docs/download?studentId=${studentId}&fileId=${id}&as=${as}`
+      a.href = `${api.base}/download?${api.key}=${ownerId}&fileId=${id}&as=${as}`
       a.rel = 'noopener'
       document.body.appendChild(a)
       a.click()
@@ -166,7 +173,7 @@ export default function StudentWorkDocs({ studentId }: { studentId: string }) {
     setRenaming(null)
     if (!name || name === files.find(f => f.id === id)?.name) return
     setBusy('Преименуване…')
-    const r = await renameDoc(studentId, id, name)
+    const r = await api.rename(ownerId, id, name)
     setBusy('')
     if (r.error) setError(r.error)
     await load()
@@ -176,7 +183,7 @@ export default function StudentWorkDocs({ studentId }: { studentId: string }) {
   async function doDelete(ids: string[]) {
     setConfirmDel(null)
     setBusy(ids.length > 1 ? `Изтриване на ${ids.length} файла…` : 'Изтриване…')
-    const r = await trashDocs(studentId, ids)
+    const r = await api.trash(ownerId, ids)
     setBusy('')
     if (r.error) setError(r.error)
     await load()
@@ -212,7 +219,7 @@ export default function StudentWorkDocs({ studentId }: { studentId: string }) {
       {/* заглавие + действия */}
       <div className="flex flex-wrap items-center gap-2 mb-3 pb-3 border-b border-slate-100">
         <FolderOpen size={16} className="text-sky-500" />
-        <h2 className="text-sm font-semibold text-slate-800">Документи на детето</h2>
+        <h2 className="text-sm font-semibold text-slate-800">{isClass ? 'Документи на паралелката' : 'Документи на детето'}</h2>
         {folderUrl && (
           <a href={withAccount(folderUrl, myEmail)} target="_blank" rel="noreferrer"
              className="text-xs text-slate-400 hover:text-slate-600 inline-flex items-center gap-1 ml-1">
@@ -240,10 +247,10 @@ export default function StudentWorkDocs({ studentId }: { studentId: string }) {
       {creating && (
         <div className="mb-3 p-3 rounded-xl border border-sky-100 bg-sky-50/40">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-slate-500">Изберете бланка — данните на детето се попълват сами</span>
+            <span className="text-xs text-slate-500">{isClass ? 'Нов празен документ в папката на паралелката' : 'Изберете бланка — данните на детето се попълват сами'}</span>
             <button type="button" onClick={() => setCreating(false)} className="p-1 text-slate-400 hover:text-slate-600"><X size={15} /></button>
           </div>
-          {templates === null ? (
+          {isClass ? null : templates === null ? (
             <div className="flex items-center gap-2 py-2 text-xs text-slate-400"><Loader2 size={13} className="animate-spin" /> Зареждане на бланките…</div>
           ) : templates.length === 0 ? (
             <div className="py-2 text-xs text-slate-400 font-light">Няма бланки. Качете ги в папка „Бланки“ в споделения диск.</div>
@@ -258,11 +265,11 @@ export default function StudentWorkDocs({ studentId }: { studentId: string }) {
               ))}
             </div>
           )}
-          <div className="flex items-center gap-2 pt-2 border-t border-sky-100">
+          <div className={`flex items-center gap-2 ${isClass ? '' : 'pt-2 border-t border-sky-100'}`}>
             <FileText size={14} className="text-slate-400 shrink-0" />
             <input value={newName} onChange={e => setNewName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') create(); if (e.key === 'Escape') setCreating(false) }}
-              placeholder="или празен документ с име…"
+              placeholder={isClass ? 'име на документа…' : 'или празен документ с име…'}
               className="flex-1 px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-100" />
             <button type="button" onClick={create} disabled={!newName.trim() || !!busy}
               className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm text-[#0f2240] hover:bg-slate-50 disabled:opacity-50">
@@ -321,7 +328,7 @@ export default function StudentWorkDocs({ studentId }: { studentId: string }) {
       ) : files.length === 0 ? (
         <div className="py-10 text-center border-2 border-dashed border-slate-200 rounded-xl text-sm text-slate-400 font-light">
           {canEdit
-            ? <>Още няма документи за тази година.<br />Провлачете файлове тук (напр. от Teams) или натиснете „Качи файлове“.</>
+            ? <>Още няма {isClass ? 'общи файлове на паралелката' : 'документи'} за тази година.<br />Провлачете файлове тук (напр. от Teams) или натиснете „Качи файлове“.</>
             : 'Още няма документи за тази година.'}
         </div>
       ) : (

@@ -1,11 +1,19 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SchoolFilesCard from './SchoolFilesCard'
-import { Users, Calendar, Bell, CalendarClock, ChevronRight, ClipboardList } from 'lucide-react'
+import { Users, Calendar, Bell, CalendarClock, ClipboardList } from 'lucide-react'
 import { getFullName, getMonthName, formatDate } from '@/lib/utils'
 import SharedFiles from './SharedFiles'
 import ClassTeacherTabs from './ClassTeacherTabs'
 import ExpiringDocsCard from './ExpiringDocsCard'
+// "01" → "I паралелка"; нечислови имена остават както са
+function paralelkaTitle(name: string) {
+  const m = (name || '').trim().match(/^0*(\d+)$/)
+  if (!m) return name || ''
+  let n = parseInt(m[1]), r = ''
+  for (const [v, t] of [[10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']] as [number, string][]) while (n >= v) { r += t; n -= v }
+  return `${r} паралелка`
+}
 export default async function ClassTeacherDashboard({ profile, currentYearId }: any) {
   const supabase = await createClient()
   const now = new Date()
@@ -174,6 +182,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
       coud: coudByStudent[e.student_id] || '',
       guardian: guardianByStudent[e.student_id] || '',
       sendingSchool: (s.sending_school as any)?.name || '',
+      externalClass: (s.external_class || '').toString(),
     }
   }).sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
 
@@ -214,37 +223,26 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
       <div className="mb-6">
         <ExpiringDocsCard studentIds={studentIds} />
       </div>
-      {/* Карти горе: разписание + ИУП */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+      {/* Лента на паралелката: коя е, колко деца + разписание и реализация на ИУП */}
+      <div className="flex flex-wrap items-center gap-3 mb-6 px-5 py-3.5 rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+        <div className="flex items-center gap-2.5 mr-auto">
+          <Users size={18} className="text-sky-500" />
+          <span className="text-base font-medium text-[#0f2240]">{myClasses.map((c: any) => paralelkaTitle(c.name)).join(', ')}</span>
+          <span className="text-sm text-slate-400 font-light">· {activeEnrollments.length} деца</span>
+        </div>
         <Link href={`/classes/${myClasses[0].id}/schedule-view`}
-          className="flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl border border-teal-200 bg-teal-50/50 hover:bg-teal-50 transition-colors group">
-          <div className="flex items-center gap-2.5">
-            <CalendarClock size={18} className="text-teal-600" />
-            <div>
-                           <div className="text-sm font-semibold text-slate-800">Разписание на паралелката</div>
-              <div className="text-xs text-slate-500">Справка · </div>
-            </div>
-          </div>
-          <ChevronRight size={16} className="text-teal-400 group-hover:text-teal-600" />
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-teal-200 bg-teal-50/50 text-sm text-slate-700 hover:bg-teal-50 hover:shadow-sm transition">
+          <CalendarClock size={15} className="text-teal-600" /> Разписание
         </Link>
         <Link href="/absences"
-          className={`flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl border transition-colors group ${
+          className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-sm text-slate-700 hover:shadow-sm transition ${
             isSummer ? 'border-slate-200 bg-slate-50/50 hover:bg-slate-50' : 'border-amber-200 bg-amber-50/40 hover:bg-amber-50'
           }`}>
-          <div className="flex items-center gap-2.5">
-            <ClipboardList size={18} className={isSummer ? 'text-slate-400' : 'text-amber-600'} />
-            <div>
-              <div className="text-sm font-semibold text-slate-800">Реализация на ИУП</div>
-              <div className="text-xs text-slate-500">
-                {isSummer ? 'Лятна ваканция' : (
-                  <>
-                    {getMonthName(reportMonth)} · {myClasses.map((c: any) => submittedIds.has(c.id) ? '✓' : '—').join(' ')}
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-          <ChevronRight size={16} className="text-slate-400 group-hover:text-slate-600" />
+          <ClipboardList size={15} className={isSummer ? 'text-slate-400' : 'text-amber-600'} />
+          Реализация на ИУП
+          <span className="text-xs text-slate-500 font-light">
+            {isSummer ? '· лятна ваканция' : `· ${getMonthName(reportMonth)} ${myClasses.map((c: any) => submittedIds.has(c.id) ? '✓' : '—').join(' ')}`}
+          </span>
         </Link>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

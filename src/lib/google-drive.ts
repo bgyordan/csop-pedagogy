@@ -152,6 +152,59 @@ export async function findStudentFolder(studentId: string, yearName: string) {
   return f?.id ?? null
 }
 
+// Папката на паралелката (2026-2027 / 01) — там стоят и общите файлове на паралелката
+export async function ensureClassFolder(yearName: string, className: string) {
+  const year = yearName || 'Без година'
+  const cls = className || 'Без паралелка'
+  const yProps = { kind: 'year', year }
+  const yearId = (await findFolder(yProps))?.id ?? (await createFolder(year.replace(/\//g, '-'), driveId(), yProps))
+  const cProps = { kind: 'class', year, cls }
+  return (await findFolder(cProps))?.id ?? (await createFolder(cls, yearId, cProps))
+}
+
+export async function findClassFolder(yearName: string, className: string) {
+  const f = await findFolder({ kind: 'class', year: yearName || 'Без година', cls: className || 'Без паралелка' })
+  return f?.id ?? null
+}
+
+export function folderUrl(folderId: string) {
+  return `https://drive.google.com/drive/folders/${folderId}`
+}
+
+// Брой файлове в папките на децата за годината → { studentId: брой } (без значение в коя паралелка е папката)
+export async function countStudentFiles(studentIds: string[], yearName: string): Promise<Record<string, number>> {
+  const out: Record<string, number> = {}
+  for (const sid of studentIds) out[sid] = 0
+  if (!studentIds.length) return out
+  const year = yearName || 'Без година'
+  const list = async (q: string, fields: string, each: (f: any) => void) => {
+    let page = ''
+    do {
+      const r = await drive(
+        `/files?q=${encodeURIComponent(q)}&corpora=drive&driveId=${driveId()}&includeItemsFromAllDrives=true&supportsAllDrives=true` +
+        `&pageSize=1000&fields=${encodeURIComponent(`nextPageToken,files(${fields})`)}${page ? `&pageToken=${page}` : ''}`
+      )
+      for (const f of r.files ?? []) each(f)
+      page = r.nextPageToken || ''
+    } while (page)
+  }
+  // 1) папките на децата за годината
+  const folderOf: Record<string, string> = {}
+  await list(`mimeType='${FOLDER}' and trashed=false and appProperties has { key='year' and value='${esc(year)}' }`, 'id,appProperties', f => {
+    const sid = f.appProperties?.studentId
+    if (sid && sid in out) folderOf[f.id] = sid
+  })
+  // 2) файловете в тях — на порции, заради дължината на заявката
+  const ids = Object.keys(folderOf)
+  for (let i = 0; i < ids.length; i += 40) {
+    const chunk = ids.slice(i, i + 40)
+    await list(`(${chunk.map(id => `'${id}' in parents`).join(' or ')}) and trashed=false and mimeType!='${FOLDER}'`, 'parents', f => {
+      for (const p of f.parents ?? []) if (folderOf[p]) out[folderOf[p]]++
+    })
+  }
+  return out
+}
+
 export type DriveItem = {
   id: string
   name: string
