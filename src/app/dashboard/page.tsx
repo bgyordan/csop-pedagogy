@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import AdminDashboard from './components/AdminDashboard'
 import SpecialistDashboard from './components/SpecialistDashboard'
 import ClassTeacherDashboard from './components/ClassTeacherDashboard'
+import EducatorDashboard from './components/EducatorDashboard'
 import SecretaryDashboard from './components/SecretaryDashboard'
 import DirectorDashboard from './components/DirectorDashboard'
 import { SessionTimerBadge } from '@/components/SessionTimerBadge'
@@ -112,7 +113,8 @@ export default async function DashboardPage() {
         {isAdmin && <AdminDashboard profile={profile} currentYearId={currentYear.id} />}
         {isDirector && <DirectorDashboard profile={profile} currentYearId={currentYear.id} />}
         {isSpecialist && <SpecialistDashboard profile={profile} currentYearId={currentYear.id} />}
-        {(profile.role === 'class_teacher' || profile.role === 'teacher' || profile.role === 'educator') && <ClassTeacherDashboard profile={profile} currentYearId={currentYear.id} />}
+        {(profile.role === 'class_teacher' || profile.role === 'teacher') && <ClassTeacherDashboard profile={profile} currentYearId={currentYear.id} />}
+        {profile.role === 'educator' && <EducatorDashboard profile={profile} currentYearId={currentYear.id} />}
         {isSecretary && <SecretaryDashboard profile={profile} />}
       </div>
     </div>
