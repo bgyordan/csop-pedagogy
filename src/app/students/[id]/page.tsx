@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
+import OutreachBadge from '@/components/OutreachBadge'
 import Link from 'next/link'
 import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Check, Heart, CalendarClock, ClipboardList, Sparkles, FolderOpen } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
@@ -167,6 +168,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
               <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
                 {educationForm === 'ifo' ? <><Home size={11} /> ИФО</> : <><GraduationCap size={11} /> Дневна</>}
               </span>
+              {(enrollment?.class as any)?.outreach_location && <OutreachBadge location={(enrollment?.class as any).outreach_location} />}
               {coudEnrolled && (
                 <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600">{coudGroupName || 'ЦОУД'}</span>
               )}

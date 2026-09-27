@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import OutreachBadge from '@/components/OutreachBadge'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Settings2, CalendarClock, Users, Check } from 'lucide-react'
@@ -164,6 +165,7 @@ export default async function ClassesPage({
                           <Link href={`/classes/${cls.id}`} className="font-semibold text-slate-800 hover:text-blue-700 hover:underline transition-colors">
                             {cls.name}
                           </Link>
+                          {cls.outreach_location && <span className="ml-2"><OutreachBadge location={cls.outreach_location} /></span>}
                         </td>
                         <td className="px-4 py-2.5 text-slate-600 text-xs">{teachers.join(', ') || '—'}</td>
                         <td className="text-center px-4 py-2.5">
@@ -194,7 +196,7 @@ export default async function ClassesPage({
                 <div key={cls.id} className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-sm transition-shadow">
                   <div className="flex items-start justify-between gap-3">
                     <Link href={`/classes/${cls.id}`} className="min-w-0 flex-1">
-                      <div className="font-semibold text-slate-800 text-base hover:text-blue-700 transition-colors">Паралелка {cls.name}</div>
+                      <div className="font-semibold text-slate-800 text-base hover:text-blue-700 transition-colors">Паралелка {cls.name} {cls.outreach_location && <OutreachBadge location={cls.outreach_location} />}</div>
                       <div className="text-xs text-slate-500 mt-0.5">{teachers.join(', ') || 'Без класен'}</div>
                     </Link>
                     <div className="flex items-center gap-3 flex-shrink-0">

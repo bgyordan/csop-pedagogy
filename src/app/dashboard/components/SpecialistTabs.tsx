@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import OutreachBadge from '@/components/OutreachBadge'
 import Link from 'next/link'
 import { HeartPulse, Users, FileText } from 'lucide-react'
 import StudentWorkDocs from '@/app/students/[id]/StudentWorkDocs'
@@ -8,6 +9,7 @@ interface TherapyRow {
   id: string
   name: string
   className: string
+  outreach?: string
   intensity: string
   sendingSchool: string
   others: string[]
@@ -16,6 +18,7 @@ interface EplrRow {
   id: string
   name: string
   className: string
+  outreach?: string
   classTeacher: string
   docsCompleted: number
   docsTotal: number
@@ -95,6 +98,7 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
                     )}
                   </div>
                   <div className="text-xs text-slate-500 font-light truncate" title={r.sendingSchool}>
+                    {r.outreach && <span className="mr-1"><OutreachBadge location={r.outreach} size="xs" /></span>}
                     {[r.className && `паралелка ${r.className}`, r.sendingSchool].filter(Boolean).join(' · ')}
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-auto text-[11px] text-slate-500">
@@ -126,6 +130,7 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
                   </Link>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
                     {r.className && <span className="text-[11px] text-slate-500">Паралелка {r.className}</span>}
+                    {r.outreach && <OutreachBadge location={r.outreach} size="xs" />}
                     {r.classTeacher && <span className="text-[11px] text-slate-400">· класен: {r.classTeacher}</span>}
                   </div>
                 </div>

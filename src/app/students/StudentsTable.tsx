@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { studentDocCounts } from '@/app/dashboard/components/class-drive-actions'
 import Link from 'next/link'
+import OutreachBadge from '@/components/OutreachBadge'
 import { getFullName } from '@/lib/utils'
 import { ChevronRight, ChevronsUpDown, ChevronUp, ChevronDown, Home, GraduationCap, Coffee, Check, FileText } from 'lucide-react'
 
@@ -11,6 +12,7 @@ interface Row {
   key: string
   student: any
   className: string | null
+  outreach?: string | null
   unassigned: boolean
   educationForm?: string | null
   coudEnrolled?: boolean
@@ -93,6 +95,7 @@ export default function StudentsTable({ rows }: { rows: Row[] }) {
               <div className="text-sm text-slate-600">
                 <span className="md:hidden text-[10px] uppercase text-slate-400 mr-1">Паралелка:</span>
                 {r.className || <span className="text-slate-300">—</span>}
+                {r.outreach && <span className="ml-1.5"><OutreachBadge location={r.outreach} size="xs" /></span>}
               </div>
               {/* Клас */}
               <div className="text-sm text-slate-500">
