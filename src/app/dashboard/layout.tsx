@@ -37,7 +37,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 />
       <main className="flex-1 overflow-auto flex flex-col">
         <div className="flex-1">{children}</div>
-        <footer className="py-6 opacity-60 hover:opacity-100 transition-opacity"><JordanBadge /></footer>
+        <footer className="py-6 flex justify-center opacity-70 hover:opacity-100 transition-opacity"><JordanBadge height={40} /></footer>
       </main>
     </div>
   )

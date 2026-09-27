@@ -127,7 +127,7 @@ function LoginForm() {
           )}
         </div>
 
-        <div className="mt-8"><JordanBadge /></div>
+        <div className="mt-10 flex justify-center"><JordanBadge height={64} /></div>
       </div>
     </div>
   )
