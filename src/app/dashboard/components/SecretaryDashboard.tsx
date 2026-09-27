@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { ArrowRight, AlertTriangle, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
-import SharedFiles from './SharedFiles'
 import ReserveNumberCard from './ReserveNumberCard'
 
 export default async function SecretaryDashboard({ profile }: any) {
@@ -140,6 +139,9 @@ export default async function SecretaryDashboard({ profile }: any) {
 
 
 
+      {/* Резервирай номер — един ред */}
+      <ReserveNumberCard profileId={profile.id} />
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
         {/* Изтичащи договори */}
@@ -168,9 +170,7 @@ export default async function SecretaryDashboard({ profile }: any) {
           </div>
         )}
 
-        <div className="h-full"><ReserveNumberCard profileId={profile.id} /></div>
       </div>
-      <SharedFiles />
     </div>
   )
 }
