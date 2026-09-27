@@ -475,7 +475,7 @@ export default function NewCorrespondenceForm({
                       placeholder="Заместник — търси по име…" />
                     {/* Срок — само ако има избран заместник */}
                     {substituteId && (
-                      <div className="flex items-center gap-2">
+                      <div className="reveal-panel flex items-center gap-2">
                         <div className="flex-1">
                           <label className="block text-[10px] text-slate-400 mb-0.5">От</label>
                           <input type="date" value={subFrom} min={new Date(Date.now() - 7 * 864e5).toISOString().split('T')[0]} onChange={e => { setSubFrom(e.target.value); if (subTo && e.target.value > subTo) setSubTo('') }} className="input w-full text-xs" />
@@ -502,7 +502,7 @@ export default function NewCorrespondenceForm({
                     className="text-[12px] text-[#0f2240] hover:underline">+ Нов ученик (още го няма в системата)</button>
                 )}
                 {scenario === 'enrollment' && !studentId && showNewStud && (
-                  <div className="p-2.5 rounded-lg bg-white border border-slate-200 space-y-2">
+                  <div className="reveal-panel space-y-2">
                     <div className="grid grid-cols-3 gap-1.5">
                       <input value={ns.first} onChange={e => setNs({ ...ns, first: e.target.value })} placeholder="Име *" className="input text-xs" />
                       <input value={ns.middle} onChange={e => setNs({ ...ns, middle: e.target.value })} placeholder="Презиме" className="input text-xs" />

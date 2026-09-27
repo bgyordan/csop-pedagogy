@@ -118,3 +118,19 @@
     padding-top: 3.5rem;
   }
 }
+
+/* Панел, който се появява след избор (напр. „Вече е издадена“, „+ Нов ученик“):
+   тъмна рамка + кратко пулсиране при появата, без цветове */
+@keyframes reveal-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(15, 34, 64, 0.35); }
+  70%  { box-shadow: 0 0 0 7px rgba(15, 34, 64, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(15, 34, 64, 0); }
+}
+.reveal-panel {
+  border: 1.5px solid #0f2240 !important;
+  border-radius: 0.75rem;
+  background: #fff;
+  padding: 0.75rem;
+  animation: reveal-pulse 1.3s ease-out 2;
+}
+.reveal-panel input, .reveal-panel select, .reveal-panel textarea { border-color: #94a3b8 !important; }

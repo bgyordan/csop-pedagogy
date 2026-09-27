@@ -457,12 +457,12 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
             </div>
             {!bsch && <OverNormPick value={nOverNorm} onChange={setNOverNorm} />}
             {orderMode === 'create' && (
-              <div className="space-y-2">
+              <div key="create" className="reveal-panel space-y-2">
                 <p className="text-[12px] text-slate-500">При запис системата генерира заповедта (Word) и я завежда с номер{!(multiOpen ? true : !!subId) ? ' — първо посочи заместник' : ''}.</p>
               </div>
             )}
             {orderMode === 'manual' && (
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-2">
+              <div key="manual" className="reveal-panel grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-2">
                 <input value={nManualNumber} onChange={e => setNManualNumber(e.target.value)} placeholder="№ на издадената заповед"
                   className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
                 <input type="date" value={nManualDate} onChange={e => setNManualDate(e.target.value)}
