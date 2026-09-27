@@ -12,6 +12,7 @@ export interface MySubRow {
   reason: string
   bsch: boolean
   hasOrder: boolean
+  overNorm: boolean
 }
 export default async function MySubstitutionsPage() {
   const supabase = await createClient()
@@ -23,7 +24,7 @@ export default async function MySubstitutionsPage() {
 
   const { data } = await supabase
     .from('substitutions')
-    .select(`id, date_from, date_to, reason, bsch_eligible, substitution_order_id,
+    .select(`id, date_from, date_to, reason, bsch_eligible, substitution_order_id, over_norm,
       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name)`)
     .eq('substitute_staff_id', me.id)
     .order('date_from', { ascending: false })
@@ -33,6 +34,7 @@ export default async function MySubstitutionsPage() {
     absentName: r.absent ? `${r.absent.first_name} ${r.absent.last_name}` : '—',
     dateFrom: r.date_from, dateTo: r.date_to, reason: r.reason,
     bsch: r.bsch_eligible === true, hasOrder: !!r.substitution_order_id,
+    overNorm: r.over_norm !== false,
   }))
 
   return (

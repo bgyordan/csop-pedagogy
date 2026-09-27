@@ -91,6 +91,7 @@ export default function MySubstitutionsClient({ rows }: { rows: MySubRow[] }) {
                 <div className="text-xs text-slate-500 mt-0.5">
                   {fmt(r.dateFrom)} – {fmt(r.dateTo)}
                   {r.bsch && <span className="ml-2 inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">НП</span>}
+                  {!r.bsch && !r.overNorm && <span className="ml-2 inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200" title="В рамките на нормата — не влиза в декларацията">без заплащане</span>}
                 </div>
               </div>
             </div>

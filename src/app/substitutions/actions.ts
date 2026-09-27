@@ -83,6 +83,9 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   })
   await pushEducatorSlots(supabase, sub.absent_staff_id, cy?.id, bySlot)
 
+  // Пазим избора лекторски/вътрешно — от него зависи дали часовете влизат в декларацията
+  await supabase.from('substitutions').update({ over_norm: sub.bsch_eligible === true ? true : overNorm }).eq('id', substitutionId)
+
   // 3. Разгъваме по работни дни в периода
   const wds = await workdays(supabase, sub.date_from, sub.date_to)
   const days = wds.map(wd => ({
@@ -279,7 +282,7 @@ export async function getMonthlyDeclaration(first: string, last: string) {
   // всички мои замествания, застъпващи месеца
   const { data: subs } = await supabase
     .from('substitutions')
-    .select(`id, absent_staff_id, date_from, date_to, bsch_eligible, kt_article, substitution_order_id, manual_order_number,
+    .select(`id, absent_staff_id, date_from, date_to, bsch_eligible, kt_article, over_norm, substitution_order_id, manual_order_number,
       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name)`)
     .eq('substitute_staff_id', me.id)
     .lte('date_from', last).gte('date_to', first)
@@ -325,6 +328,8 @@ export async function getMonthlyDeclaration(first: string, last: string) {
     const npSet = await npDays(supabase, sub)
     for (const w of wds) {
       const isNp = npSet === null ? true : npSet.has(w.iso)
+      // вътрешно заместване (в рамките на нормата) не се плаща → не влиза в бюджетната декларация
+      if (!isNp && (sub as any).over_norm === false) continue
       const dayItems = bySlot.filter(s => s.day === w.dow)
       if (dayItems.length === 0) continue
       const dateStr = w.iso.split('-').reverse().join('.')
