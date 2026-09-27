@@ -10,6 +10,8 @@ import { Megaphone } from 'lucide-react'
 import { viewProfile } from '@/lib/view-as'
 import { getFullName } from '@/lib/utils'
 import ViewAsPicker from './view-as/ViewAsPicker'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { loginTime } from '@/lib/login-time'
 export const dynamic = 'force-dynamic'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -33,6 +35,18 @@ export default async function DashboardPage() {
     supabase.from('academic_years').select('*').eq('is_current', true).single()
   ])
   if (!profile || !currentYear) redirect('/auth/login')
+
+  // Предишно влизане: при ново влизане (Supabase Auth last_sign_in_at се е сменил)
+  // старото „последно“ става „предишно“. Записва се за ИСТИНСКИЯ потребител, не при „Виж като…“.
+  let prevLogin: string | null = real?.prev_login_at ?? null
+  if (real && user.last_sign_in_at && 'last_login_at' in real && real.last_login_at !== user.last_sign_in_at) {
+    prevLogin = real.last_login_at ?? null
+    try {
+      await createAdminClient().from('staff_profiles')
+        .update({ prev_login_at: real.last_login_at ?? null, last_login_at: user.last_sign_in_at })
+        .eq('id', real.id)
+    } catch { /* колоните още не са добавени — нищо */ }
+  }
 
   // „Виж като…“ — само за админ: списък на служителите (без помощния персонал)
   const labelOf = (p: any) => p.position || ROLE_LABELS[p.role] || p.role
@@ -65,6 +79,9 @@ export default async function DashboardPage() {
               Влязохте като <span className="font-semibold">{profile.first_name} {profile.last_name}</span>{' '}
               ({roleLabel}{isCoordinator ? ' & Координатор' : ''}).
             </p>
+            {!viewing && prevLogin && (
+              <p className="text-xs text-teal-50/80 mt-1 font-light">Предишно влизане: {loginTime(prevLogin)}</p>
+            )}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <SessionTimerBadge />
               {real?.role === 'admin' && !viewing && <ViewAsPicker people={people} />}

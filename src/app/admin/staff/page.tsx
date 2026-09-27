@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { loginTime } from '@/lib/login-time'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { createStaffAccount } from './actions'
@@ -190,6 +191,7 @@ export default function AdminStaffPage() {
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Класен на</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Имейл</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Статус</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide whitespace-nowrap">Последно влизане</th>
                 <th className="px-4 py-2.5"></th>
               </tr>
             </thead>
@@ -220,6 +222,9 @@ export default function AdminStaffPage() {
                       <span className={s.is_active ? 'badge-completed' : 'badge-empty'}>
                         {s.is_active ? 'Активен' : 'Неактивен'}
                       </span>
+                    </td>
+                    <td className="px-4 py-2 text-xs text-slate-500 whitespace-nowrap">
+                      {(s as any).last_login_at ? loginTime((s as any).last_login_at) : <span className="text-slate-300">{s.user_id ? 'никога' : '—'}</span>}
                     </td>
                     <td className="px-4 py-2">
                       <div className="flex items-center gap-2">
