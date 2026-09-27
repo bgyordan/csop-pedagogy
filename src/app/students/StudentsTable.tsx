@@ -1,8 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { studentDocCounts } from '@/app/dashboard/components/class-drive-actions'
 import Link from 'next/link'
 import { getFullName } from '@/lib/utils'
-import { ChevronRight, ChevronsUpDown, ChevronUp, ChevronDown, Home, GraduationCap, Coffee, Check } from 'lucide-react'
+import { ChevronRight, ChevronsUpDown, ChevronUp, ChevronDown, Home, GraduationCap, Coffee, Check, FileText } from 'lucide-react'
 
 type SortKey = 'name' | 'class'
 type SortDir = 'asc' | 'desc'
@@ -18,6 +19,14 @@ interface Row {
 export default function StudentsTable({ rows }: { rows: Row[] }) {
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
+  // брой документи в Drive за всяко дете (текущата година) — зарежда се след списъка
+  const [docs, setDocs] = useState<Record<string, number> | null>(null)
+  useEffect(() => {
+    const ids = rows.map(r => r.student?.id).filter(Boolean)
+    if (!ids.length) { setDocs({}); return }
+    studentDocCounts(ids).then(setDocs).catch(() => setDocs({}))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows.length])
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -50,7 +59,7 @@ export default function StudentsTable({ rows }: { rows: Row[] }) {
     <div>
           <div className="max-h-[calc(100vh-280px)] overflow-y-auto rounded-lg">
       {/* Заглавен ред (десктоп) */}
-      <div className="hidden md:grid grid-cols-[1fr_130px_90px_110px_90px] gap-3 px-4 py-2 sticky top-0 z-10 bg-slate-100">
+      <div className="hidden md:grid grid-cols-[1fr_130px_90px_110px_90px_90px] gap-3 px-4 py-2 sticky top-0 z-10 bg-slate-100">
         <button type="button" onClick={() => toggleSort('name')}
           className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-slate-400 hover:text-slate-600 transition-colors">
           Три имена <SortIcon col="name" />
@@ -62,6 +71,7 @@ export default function StudentsTable({ rows }: { rows: Row[] }) {
         <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Клас</span>
         <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Форма</span>
         <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400 text-center">ЦОУД</span>
+        <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400 text-center">Документи</span>
       </div>
 
       {/* Редове като карти */}
@@ -70,7 +80,7 @@ export default function StudentsTable({ rows }: { rows: Row[] }) {
           const isIfo = r.educationForm === 'ifo'
           return (
             <Link key={r.key} href={`/students/${r.student.id}`}
-              className="block bg-white border border-slate-200 rounded-2xl px-4 py-2.5 cursor-pointer hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] transition-all group grid grid-cols-1 md:grid-cols-[1fr_130px_90px_110px_90px] gap-1 md:gap-3 md:items-center shadow-[0_1px_4px_rgba(15,34,64,0.06)]">
+              className="block bg-white border border-slate-200 rounded-2xl px-4 py-2.5 cursor-pointer hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] transition-all group grid grid-cols-1 md:grid-cols-[1fr_130px_90px_110px_90px_90px] gap-1 md:gap-3 md:items-center shadow-[0_1px_4px_rgba(15,34,64,0.06)]">
               {/* Име */}
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-sm text-slate-800 truncate">{getFullName(r.student)}</span>
@@ -107,6 +117,19 @@ export default function StudentsTable({ rows }: { rows: Row[] }) {
                   </span>
                 ) : (
                   <span className="text-slate-300 text-xs">—</span>
+                )}
+              </div>
+              {/* Документи (Drive, текущата година) */}
+              <div className="md:text-center">
+                <span className="md:hidden text-[10px] uppercase text-slate-400 mr-1">Документи:</span>
+                {docs === null ? (
+                  <span className="inline-block w-8 h-4 rounded-full bg-slate-100 animate-pulse align-middle" />
+                ) : docs[r.student?.id] ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-sky-50 text-sky-700">
+                    <FileText size={11} /> {docs[r.student.id]}
+                  </span>
+                ) : (
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">няма</span>
                 )}
               </div>
             </Link>
