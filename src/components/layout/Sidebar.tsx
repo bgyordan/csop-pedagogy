@@ -29,11 +29,24 @@ interface NavItem {
   requiresClass?: boolean
   section?: string
   children?: NavItem[]
+  defaultOpen?: boolean   // групата е отворена по подразбиране
 }
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Начало', icon: <LayoutDashboard size={16} /> },
-  { href: '/students', label: 'Ученици', icon: <Users size={16} /> },
-  { href: '/classes', label: 'Паралелки', icon: <BookOpen size={16} />, roles: ['admin', 'director', 'zdud'] },
+  { href: '/students', label: 'Ученици', icon: <Users size={16} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'support'] },
+  // Управата: основните регистри в една група, отворена по подразбиране
+  {
+    href: '#school',
+    label: 'Училище',
+    icon: <School size={16} />,
+    roles: ['admin', 'zdud', 'director'],
+    defaultOpen: true,
+    children: [
+      { href: '/students', label: 'Ученици', icon: <Users size={14} />, roles: ['admin', 'zdud', 'director'] },
+      { href: '/classes', label: 'Паралелки', icon: <BookOpen size={14} />, roles: ['admin', 'director', 'zdud'] },
+      { href: '/staff', label: 'Служители', icon: <UserCircle size={14} />, roles: ['admin', 'director', 'zdud'] },
+    ],
+  },
   { href: '/projects', label: 'Проекти', icon: <Lightbulb size={16} />, roles: ['class_teacher', 'teacher', 'educator'] },
    {
     href: '#documents',
@@ -117,16 +130,8 @@ const navItems: NavItem[] = [
      { href: '/admin/eplr-schedule', label: 'График ЕПЛР', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
     ],
   },
-  {
-    href: '#manage',
-    label: 'Управление',
-    icon: <Settings size={16} />,
-    roles: ['admin', 'zdud', 'director'],
-    children: [
-      { href: '/staff', label: 'Служители', icon: <UserCircle size={14} />, roles: ['admin', 'director', 'zdud'] },
-      { href: '/admin', label: 'Администрация', icon: <Settings size={14} />, roles: ['admin', 'zdud'] },
-    ],
-  },
+  // Администрация (рядко: структура, предмети, училища, съобщения, нова година…) — един ред най-долу
+  { href: '/admin', label: 'Администрация', icon: <Settings size={16} />, roles: ['admin', 'zdud'] },
   { href: '/correspondence', label: 'Регистър', icon: <Inbox size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/orders', label: 'Заповеди', icon: <ClipboardList size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/contracts', label: 'Договори', icon: <FileSignature size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
@@ -208,7 +213,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   function NavGroup({ item }: { item: NavItem }) {
     const kids = item.children || []
     const hasActiveChild = kids.some(k => pathname === k.href || pathname.startsWith(k.href + '/'))
-    const [open, setOpen] = useState(hasActiveChild)
+    const [open, setOpen] = useState(hasActiveChild || !!item.defaultOpen)
     return (
       <div>
         <button
