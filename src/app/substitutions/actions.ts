@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { isPedagogical } from '@/lib/pedagogues'
-import { coudPeriod } from '@/lib/periods'
+import { coudPeriod, periodsOverlap, PERIOD_LABEL, PERIOD_TIMES } from '@/lib/periods'
 
 // Работни дни (пон-пет) между две дати, като { date: ISO, dow: 1..5, term: 1|2 }
 async function workdays(supabase: any, from: string, to: string): Promise<{ iso: string; dow: number; term: number }[]> {
@@ -477,4 +477,35 @@ export async function getSubstitutionHoursByStaff(first: string, last: string) {
     }
   }
   return { data: out }
+}
+
+// ── ПРЕДУПРЕЖДЕНИЕ: заместникът има ли свой час, който се застъпва ПО ВРЕМЕ с часовете на отсъстващия ──
+// parts = кой заместник кои дни покрива. Връща по един ред на конфликтен ден (първите 8).
+export async function checkSubstituteOverlap(absentId: string, parts: { staffId: string; from: string; to: string }[]) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !absentId || parts.length === 0) return { conflicts: [] as string[], total: 0 }
+  const { data: cy } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
+  const absent = await slotsByTerm(supabase, absentId, cy?.id)
+  const cache: Record<string, Record<number, Slot[]>> = {}
+  const { data: ppl } = await supabase.from('staff_profiles').select('id, first_name, last_name').in('id', parts.map(p => p.staffId))
+  const nameOf: Record<string, string> = {}
+  ;(ppl || []).forEach((p: any) => { nameOf[p.id] = `${p.first_name} ${p.last_name}` })
+  const DOW = ['', 'пон', 'вт', 'ср', 'чет', 'пет']
+  const out: string[] = []
+  let total = 0
+  for (const part of parts) {
+    if (!cache[part.staffId]) cache[part.staffId] = await slotsByTerm(supabase, part.staffId, cy?.id)
+    const own = cache[part.staffId]
+    const wds = await workdays(supabase, part.from, part.to)
+    for (const w of wds) {
+      const a = absent[w.term].filter(s => s.day === w.dow)
+      const b = own[w.term].filter(s => s.day === w.dow)
+      const hit = a.flatMap(x => b.filter(y => periodsOverlap(x.period, y.period)).map(y => ({ x, y })))[0]
+      if (!hit) continue
+      total++
+      if (out.length < 8) out.push(`${nameOf[part.staffId] || ''}, ${DOW[w.dow]} ${w.iso.split('-').reverse().slice(0, 2).join('.')}: неговият ${PERIOD_LABEL[hit.y.period]}${hit.y.period <= 7 ? '. час' : ''} (${PERIOD_TIMES[hit.y.period]}) ↔ ${PERIOD_LABEL[hit.x.period]}${hit.x.period <= 7 ? '. час' : ''} на отсъстващия (${PERIOD_TIMES[hit.x.period]})`)
+    }
+  }
+  return { conflicts: out, total }
 }

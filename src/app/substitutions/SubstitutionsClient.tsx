@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Pencil, Trash2, ChevronDown } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { generateSubstitution, getAssignments, saveAssignments } from './actions'
+import { generateSubstitution, getAssignments, saveAssignments, checkSubstituteOverlap } from './actions'
 import { generateSubstitutionOrder } from '@/lib/docx-substitution'
 import SubstituteDayCanvas from './SubstituteDayCanvas'
 import type { SubRow } from './page'
@@ -209,6 +209,35 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     const { error } = await supabase.from('substitutions').update({ over_norm: next }).eq('id', id)
     if (error) { setOverNormMap(p => ({ ...p, [id]: !next })); toast('Грешка при запис', 'error') }
   }
+
+  // Предупреждение: заместникът има свой час, застъпващ се по време с часовете на отсъстващия
+  const [overlap, setOverlap] = useState<{ conflicts: string[]; total: number } | null>(null)
+  const ovAbsent = editId ? eAbsent : absentId
+  const ovParts = useMemo(() => {
+    const f = editId ? eFrom : from, t = editId ? eTo : to, single = editId ? eSub : subId
+    if (!(editId || showNew) || !f || !t) return []
+    if (multiOpen) return mapToRows(dayMap, schoolDays).map(r => ({ staffId: r.substitute_staff_id, from: r.date_from, to: r.date_to }))
+    return single ? [{ staffId: single, from: f, to: t }] : []
+  }, [editId, showNew, eFrom, eTo, from, to, eSub, subId, multiOpen, dayMap, schoolDays])
+  const ovKey = JSON.stringify([ovAbsent, ovParts])
+  useEffect(() => {
+    if (!ovAbsent || ovParts.length === 0) { setOverlap(null); return }
+    let off = false
+    const tm = setTimeout(async () => {
+      const res: any = await checkSubstituteOverlap(ovAbsent, ovParts)
+      if (!off) setOverlap(res && res.total > 0 ? res : null)
+    }, 400)
+    return () => { off = true; clearTimeout(tm) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ovKey])
+  const overlapBox = overlap && (
+    <div className="px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[12px] space-y-0.5">
+      <div className="font-medium">Заместникът има свои часове по същото време ({overlap.total} {overlap.total === 1 ? 'ден' : 'дни'}):</div>
+      {overlap.conflicts.map((c, i) => <div key={i}>· {c}</div>)}
+      {overlap.total > overlap.conflicts.length && <div>· … и още {overlap.total - overlap.conflicts.length}</div>}
+      <div className="text-amber-700/80 pt-0.5">Може да е нормално (замества до обяд, после си води часовете) — провери и реши.</div>
+    </div>
+  )
 
   async function genOrder(id: string) {
     setGenId(id)
@@ -442,6 +471,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
             )}
           </div>
 
+          {!editId && overlapBox}
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
             <button onClick={() => setShowNew(false)} className="px-4 py-2 rounded-xl text-sm bg-white border border-slate-200 hover:bg-slate-100 text-slate-700">Отказ</button>
             <button onClick={saveNew} disabled={saving || !absentId || !from || !to}
@@ -599,6 +629,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               )}
             </div>
 
+            {overlapBox}
             <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100">
               <button onClick={del} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-rose-600 hover:bg-rose-50"><Trash2 size={14} /> Изтрий</button>
               <div className="flex items-center gap-2">
