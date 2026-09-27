@@ -37,6 +37,23 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
+  // „На линия сега“: отбелязваме активност най-много веднъж на 5 минути на потребител
+  if (!request.cookies.get('eis_seen') && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/staff_profiles?user_id=eq.${user.id}`, {
+        method: 'PATCH',
+        headers: {
+          apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify({ last_seen_at: new Date().toISOString() }),
+      })
+    } catch { /* не пречи на страницата */ }
+    supabaseResponse.cookies.set('eis_seen', '1', { maxAge: 300, path: '/', httpOnly: true, sameSite: 'lax' })
+  }
+
   return supabaseResponse
 }
 

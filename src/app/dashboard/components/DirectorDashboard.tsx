@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import OnlineNow from './OnlineNow'
 import { upcomingTasks } from '@/lib/upcoming-tasks'
 import OpsPanel from './OpsPanel'
 import Link from 'next/link'
@@ -64,6 +65,7 @@ export default async function DirectorDashboard({ profile, currentYearId }: any)
           
       </div>
 
+      <OnlineNow />
       {/* Оперативно: днес · реализация на ИУП · ЕПЛР */}
       <OpsPanel currentYearId={currentYearId} />
 

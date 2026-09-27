@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import OnlineNow from './OnlineNow'
 import { iupPeriod } from '@/lib/iup-period'
 import { upcomingTasks } from '@/lib/upcoming-tasks'
 import ClassTeacherSide from './ClassTeacherSide'
@@ -152,6 +153,8 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
           <div className={`text-2xl font-semibold ${oresCount > 0 ? 'text-amber-600' : 'text-slate-800'}`}>{oresCount}</div>
         </Link>
       </div>
+      {/* ── На линия сега ── */}
+      <OnlineNow />
       {/* ── ОПЕРАТИВНО: днес · реализация на ИУП · ЕПЛР ── */}
       <OpsPanel currentYearId={currentYearId} />
       {/* ── ИЗИСКВА ВНИМАНИЕ + Срокове/Съобщения/Файлове (една карта с табове) ── */}
