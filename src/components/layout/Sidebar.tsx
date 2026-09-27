@@ -112,6 +112,7 @@ const navItems: NavItem[] = [
       { href: '/admin/coordinating-team', label: 'Заседания и документи', icon: <ClipboardList size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
       { href: '/admin/eplr-assignment', label: 'Разпределение ЕПЛР', icon: <GitBranch size={14} />, roles: ['admin', 'zdud'], coordinatorOnly: true },
       { href: '/admin/therapists', label: 'Терапевти', icon: <HeartPulse size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
+      { href: '/admin/coud', label: 'ЦОУД групи', icon: <Users size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
       { href: '/reports/hub', label: 'Справки и писма', icon: <BarChart3 size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
             { href: '/surveys', label: 'Анкети на новите деца', icon: <ClipboardList size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
      { href: '/admin/eplr-schedule', label: 'График ЕПЛР', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
