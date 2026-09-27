@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { iupPeriod } from '@/lib/iup-period'
 import { upcomingTasks } from '@/lib/upcoming-tasks'
 import ClassTeacherSide from './ClassTeacherSide'
 import OpsPanel from './OpsPanel'
@@ -14,10 +15,9 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
   const currentMonth = now.getMonth() + 1
   const currentYearNum = now.getFullYear()
   const todayStr = now.toISOString().split('T')[0]
-  // ИУП период — само през учебните месеци (не юли/август)
-  const isSummer = currentMonth === 7 || currentMonth === 8
-  const isActivePeriod = !isSummer && (currentDay >= 28 || currentDay <= 8)
-  const reportMonth = currentDay >= 28 ? currentMonth : (currentMonth === 1 ? 12 : currentMonth - 1)
+  // ИУП период — едно правило (lib/iup-period)
+  const iup = iupPeriod()
+  const isActivePeriod = iup.open
   const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1
   const { data: currentYear } = await supabase
     .from('academic_years').select('name').eq('id', currentYearId).single()
@@ -95,7 +95,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
     })
   }
   if (isActivePeriod) {
-    alerts.push({ type: 'warning', icon: <ClipboardList size={16} />, text: `Въвеждане на реализация на ИУП — ${getMonthName(reportMonth)}`, href: '/absences', badge: 'До 8-ми' })
+    alerts.push({ type: 'warning', icon: <ClipboardList size={16} />, text: `Въвеждане на реализация на ИУП — ${iup.label}`, href: '/absences', badge: `до ${iup.window.split('– ')[1]}` })
   }
   // сроковете от „График срокове“: просрочени и наближаващи (според „напомни N дни преди“)
   ;(deadlines || []).forEach(d => {

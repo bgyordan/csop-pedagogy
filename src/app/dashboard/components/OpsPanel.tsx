@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { iupPeriod } from '@/lib/iup-period'
 import { createClient } from '@/lib/supabase/server'
 import { UserX, ClipboardList, HeartPulse, ArrowRight } from 'lucide-react'
 import { getFullName, getMonthName } from '@/lib/utils'
@@ -19,10 +20,11 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
   const supabase = await createClient()
   const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Sofia' }))
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  const month = now.getMonth() + 1
-  const isSummer = month >= 7 && month <= 10
-  const reportMonth = month === 1 ? 12 : month - 1
-  const reportYear = month === 1 ? now.getFullYear() - 1 : now.getFullYear()
+  // едно правило за периода (lib/iup-period)
+  const P = iupPeriod()
+  const isSummer = P.offSeason
+  const reportMonth = P.month
+  const reportYear = P.year
 
   const [{ data: subs }, { data: assigns }, { count: waiting }, { data: cta }, { data: iup }, { data: enr }, { data: teams }, { data: newKids }] = await Promise.all([
     supabase.from('substitutions')
@@ -105,15 +107,15 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
         <div className={head}>
           <ClipboardList size={16} className="text-amber-500" />
           <h2 className="text-sm font-medium text-slate-800">Реализация на ИУП</h2>
-          {!isSummer && <span className="ml-auto text-xs text-slate-400">{getMonthName(reportMonth)}</span>}
+          {!isSummer && <span className="ml-auto text-xs text-slate-400">{P.label} · {P.overdue ? 'срокът изтече' : `до ${P.window.split('– ')[1]}`}</span>}
         </div>
         {isSummer ? (
-          <p className="text-sm text-slate-400 font-light">Лятна ваканция — не се подава.</p>
+          <p className="text-sm text-slate-400 font-light">Сега няма отчет. Първият е за {P.label}: {P.window}.</p>
         ) : missingIup.length === 0 ? (
           <p className="text-sm text-emerald-700">✓ Всички паралелки са подали.</p>
         ) : (
           <>
-            <p className="text-xs text-slate-500 mb-2">Не са подали: {missingIup.length} от {(cta || []).length}</p>
+            <p className={`text-xs mb-2 ${P.overdue ? 'text-rose-600' : 'text-slate-500'}`}>{P.overdue ? 'Просрочени' : 'Не са подали'}: {missingIup.length} от {(cta || []).length}</p>
             <div className="space-y-1">
               {missingIup.slice(0, 8).map((m: any, i: number) => (
                 <div key={i} className="flex items-center gap-2 text-sm">

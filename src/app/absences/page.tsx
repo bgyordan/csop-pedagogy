@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getMonthName } from '@/lib/utils'
+import { iupPeriod } from '@/lib/iup-period'
 
 export default async function AbsencesPage() {
   const supabase = await createClient()
@@ -22,14 +23,18 @@ export default async function AbsencesPage() {
   const currentMonth = now.getMonth() + 1
   const currentYearNum = now.getFullYear()
 
-  // През юли и август няма реализация на ИУП (ваканция)
-  const isSummer = currentMonth >= 7 && currentMonth <= 10
-
-  const isActivePeriod = !isSummer && (currentDay >= 28 || currentDay <= 8)
-  const reportMonth = currentDay >= 28 ? currentMonth : (currentMonth === 1 ? 12 : currentMonth - 1)
-  const reportYear = currentDay >= 28 ? currentYearNum : (currentMonth === 1 ? currentYearNum - 1 : currentYearNum)
-  const deadlinePassed = currentDay > 8 && currentDay < 28
-  const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1
+  // Едно правило за периода (lib/iup-period): 28-ми – 8-ми; първи отчет октомври (+септември), последен юни
+  const P = iupPeriod()
+  const isSummer = P.offSeason
+  const isActivePeriod = P.open
+  const reportMonth = P.month
+  const reportYear = P.year
+  const deadlinePassed = P.overdue
+  const nextMonth = P.month === 12 ? 1 : P.month + 1          // месецът на срока (8-ми)
+  const monthLabel = P.label.charAt(0).toUpperCase() + P.label.slice(1)
+  // следващият прозорец (за съобщението към класните извън периода)
+  const nextReport = P.offSeason ? P.month : (P.month === 6 ? 10 : P.month === 12 ? 1 : P.month + 1)
+  const nextWindow = `28 ${getMonthName(nextReport)} до 8 ${getMonthName(nextReport === 12 ? 1 : nextReport + 1)}`
 
   const isAdmin = ['admin', 'zdud', 'director'].includes(profile?.role || '')
 
@@ -41,10 +46,10 @@ export default async function AbsencesPage() {
         <p className="text-slate-500 text-sm mb-8">{currentYear?.name}</p>
         <div className="card text-center py-12">
           <p className="text-slate-500 text-sm">
-            През <strong>юли</strong> и <strong>август</strong> няма въвеждане на реализация на ИУП.
+            През <strong>юли</strong>, <strong>август</strong> и <strong>септември</strong> няма отчет за реализация на ИУП.
           </p>
           <p className="text-slate-400 text-xs mt-2">
-            Въвеждането се възобновява през септември.
+            Първият отчет е за <strong>октомври (и септември)</strong> — въвежда се от 28 октомври до 8 ноември.
           </p>
         </div>
       </div>
@@ -85,7 +90,7 @@ export default async function AbsencesPage() {
             Периодът за въвеждане е от <strong>28-ми</strong> до <strong>8-ми на следващия месец</strong>.
           </p>
           <p className="text-slate-400 text-xs mt-2">
-            Следващ период: от 28 {getMonthName(currentMonth)} до 8 {getMonthName(nextMonth)}
+            Следващ период: от {nextWindow}
           </p>
         </div>
       </div>
@@ -99,7 +104,7 @@ export default async function AbsencesPage() {
           <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Реализация на ИУП</h1>
           <p className="text-slate-500 text-sm mt-1 flex flex-wrap gap-x-2">
             <span>{currentYear?.name}</span>
-            <span>· Месец: <strong>{getMonthName(reportMonth)}</strong></span>
+            <span>· Месец: <strong>{monthLabel}</strong></span>
             <span>· Срок: <strong className={deadlinePassed ? 'text-red-600' : 'text-green-600'}>
               до 8 {getMonthName(nextMonth)}
             </strong></span>
@@ -122,7 +127,7 @@ export default async function AbsencesPage() {
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Паралелка</th>
                   <th className="text-center px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">
-                    Статус — {getMonthName(reportMonth)}
+                    Статус — {monthLabel}
                   </th>
                   <th className="px-4 py-2.5"></th>
                 </tr>
@@ -196,7 +201,7 @@ export default async function AbsencesPage() {
                 className="flex items-center justify-between p-4 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
               >
                 <div>
-                  <div className="font-medium text-slate-700">{getMonthName(reportMonth)} {reportYear}</div>
+                  <div className="font-medium text-slate-700">{monthLabel} {reportYear}</div>
                   <div className="text-xs text-slate-400 mt-0.5">Срок до 8 {getMonthName(nextMonth)}</div>
                 </div>
                 <span className={`text-xs font-medium px-3 py-1 rounded-full flex-shrink-0 ${
