@@ -37,7 +37,7 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
   const [toIdx, setToIdx] = useState(curIdx)
   const from = monthFirst(SM[fromIdx].m, SM[fromIdx].y)
   const to = monthLast(SM[toIdx].m, SM[toIdx].y)
-  const [expanded, setExpanded] = useState<{ slotId: string; day: number; period: number; subject: string; holderLabel: string; dates: string[] }[] | null>(null)
+  const [expanded, setExpanded] = useState<{ slotId: string; day: number; period: number; subject: string; holderLabel: string; dates: string[]; absent?: string[] }[] | null>(null)
   const [checked, setChecked] = useState<Record<string, Set<string>>>({}) // slotId -> Set(dates)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -47,9 +47,9 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
     setLoading(true)
     const res: any = await getMyLecturerDates(from, to)
     setExpanded(res.rows || [])
-    // по подразбиране всички дати отметнати (учителят маха неучебните)
+    // по подразбиране всички дати отметнати — без дните, в които учителят е отсъствал (отпуск/болничен)
     const init: Record<string, Set<string>> = {}
-    ;(res.rows || []).forEach((r: any) => { init[r.slotId] = new Set(r.dates) })
+    ;(res.rows || []).forEach((r: any) => { const ab = new Set(r.absent || []); init[r.slotId] = new Set(r.dates.filter((d: string) => !ab.has(d))) })
     setChecked(init)
     setLoading(false)
   }
@@ -143,17 +143,20 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
 
         {expanded && (
           <div className="space-y-3 pt-2 border-t border-slate-100">
-            <p className="text-xs text-slate-500">Отметнете реално взетите часове (махнете неучебните дни):</p>
+            <p className="text-xs text-slate-500">Отметнете реално взетите часове (махнете неучебните дни). Дните, в които сте били в отпуск или болничен, са махнати и оцветени в жълто.</p>
             {expanded.map(sl => (
               <div key={sl.slotId}>
                 <div className="text-sm font-medium text-slate-700 mb-1">{DAY_L[sl.day]} {sl.period}. час · {sl.subject} {sl.holderLabel && <span className="text-slate-400 font-normal">· {sl.holderLabel}</span>}</div>
                 <div className="flex flex-wrap gap-1.5">
                   {sl.dates.map(dt => {
                     const on = checked[sl.slotId]?.has(dt)
+                    const wasAbsent = (sl.absent || []).includes(dt)
                     return (
-                      <button key={dt} onClick={() => toggleDate(sl.slotId, dt)}
+                      <button key={dt} onClick={() => toggleDate(sl.slotId, dt)} title={wasAbsent ? 'В този ден сте отсъствали (отпуск/болничен)' : undefined}
                         className={`px-2.5 py-1 rounded-lg text-xs border transition-all ${
-                          on ? 'border-[#0f2240] bg-[#0f2240] text-white' : 'border-slate-200 bg-slate-50 text-slate-400 line-through'
+                          on ? 'border-[#0f2240] bg-[#0f2240] text-white'
+                            : wasAbsent ? 'border-amber-200 bg-amber-50 text-amber-700 line-through'
+                            : 'border-slate-200 bg-slate-50 text-slate-400 line-through'
                         }`}>
                         {fmt(dt)}
                       </button>
