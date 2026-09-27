@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/client'
 import { useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import JordanLogo from '@/components/JordanLogo'
 
 function LoginForm() {
   const [loading, setLoading] = useState(false)
@@ -51,10 +52,12 @@ function LoginForm() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-        <img src="/csop-varna-logo.jpg" alt="ЦСОП Варна"
-               className="inline-block w-16 h-16 rounded-2xl mb-4 object-cover" />
-          <h1 className="text-2xl font-semibold text-slate-800">ЦСОП Варна</h1>
-          <p className="text-slate-500 text-sm mt-1">Информационна система</p>
+          <JordanLogo />
+          <p className="text-slate-500 text-sm mt-3">всичко за ЦСОП на едно място</p>
+          <div className="mt-4 inline-flex items-center gap-2 text-xs text-slate-400">
+            <img src="/csop-varna-logo.jpg" alt="" className="w-5 h-5 rounded-md object-cover" />
+            ЦСОП Варна
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
