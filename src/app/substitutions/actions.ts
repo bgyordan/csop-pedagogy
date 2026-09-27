@@ -2,14 +2,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-// Работни дни (пон-пет) между две дати, като { date: ISO, dow: 1..5 }
-async function workdays(supabase: any, from: string, to: string): Promise<{ iso: string; dow: number }[]> {
+// Работни дни (пон-пет) между две дати, като { date: ISO, dow: 1..5, term: 1|2 }
+async function workdays(supabase: any, from: string, to: string): Promise<{ iso: string; dow: number; term: number }[]> {
   const { data } = await supabase
     .from('academic_calendar_days')
-    .select('date, day_of_week')
+    .select('date, day_of_week, term')
     .gte('date', from).lte('date', to).eq('is_school_day', true)
     .order('date')
-  return (data || []).map((c: any) => ({ iso: c.date, dow: c.day_of_week }))
+  return (data || []).map((c: any) => ({ iso: c.date, dow: c.day_of_week, term: c.term === 2 ? 2 : 1 }))
 }
 
 // ЦОУД етикет за възпитател (по coud_groups.teacher_id)
@@ -52,14 +52,40 @@ async function coudLabel(supabase: any, staffId: string): Promise<string> {
   // името вече може да съдържа „ЦОУД“ (напр. „ЦОУД №1“) — не го повтаряме
   return /ЦОУД/i.test(data.name) ? `група ${data.name}` : `група ЦОУД ${data.name}`
 }
-// Добавя ЦОУД часовете на възпитател (educator_slots, I срок) към bySlot
-async function pushEducatorSlots(supabase: any, staffId: string, yearId: string | undefined, bySlot: { day: number; period: number; subject: string; cls: string }[]) {
+type Slot = { day: number; period: number; subject: string; cls: string }
+// Всички часове на служител ПО СРОКОВЕ: паралелки (schedule_slots) + ИФО (teacher_ifo_slots)
+// + ЦОУД (educator_slots). Ако за II срок още няма въведено разписание — ползва I срок.
+async function slotsByTerm(supabase: any, staffId: string, yearId: string | undefined): Promise<Record<number, Slot[]>> {
+  const out: Record<number, Slot[]> = { 1: [], 2: [] }
+  const { data: scheds } = await supabase
+    .from('class_schedules').select('id, term, class:classes(name)').eq('academic_year_id', yearId)
+  const info: Record<string, { term: number; name: string }> = {}
+  ;(scheds || []).forEach((s: any) => { info[s.id] = { term: s.term === 2 ? 2 : 1, name: s.class?.name || '' } })
+  const ids = Object.keys(info)
+  if (ids.length > 0) {
+    const { data: slots } = await supabase
+      .from('schedule_slots').select('schedule_id, day, period, subject:subjects(name)')
+      .in('schedule_id', ids).eq('staff_id', staffId)
+    ;(slots || []).forEach((sl: any) => {
+      const i = info[sl.schedule_id]
+      if (i) out[i.term].push({ day: sl.day, period: sl.period, subject: sl.subject?.name || '', cls: i.name })
+    })
+  }
+  const { data: ifo } = await supabase
+    .from('teacher_ifo_slots').select('day, period, term, subject:subjects(name), student:students(first_name, last_name)')
+    .eq('teacher_id', staffId).eq('academic_year_id', yearId)
+  ;(ifo || []).forEach((sl: any) => out[sl.term === 2 ? 2 : 1].push({
+    day: sl.day, period: sl.period, subject: sl.subject?.name || '',
+    cls: sl.student ? `ИФО ${sl.student.first_name} ${sl.student.last_name}` : 'ИФО',
+  }))
   const { data: edu } = await supabase.from('educator_slots')
-    .select('day, period, activity').eq('educator_id', staffId).eq('academic_year_id', yearId).eq('term', 1)
+    .select('day, period, activity, term').eq('educator_id', staffId).eq('academic_year_id', yearId)
   if (edu && edu.length) {
     const label = await coudLabel(supabase, staffId)
-    edu.forEach((sl: any) => bySlot.push({ day: sl.day, period: sl.period, subject: sl.activity, cls: label }))
+    edu.forEach((sl: any) => out[sl.term === 2 ? 2 : 1].push({ day: sl.day, period: sl.period, subject: sl.activity, cls: label }))
   }
+  if (out[2].length === 0) out[2] = out[1]
+  return out
 }
 // Генерира заповед за заместване: вади часовете на отсъстващия, създава РД-08 в orders,
 // връща данните за Word генератора.
@@ -81,32 +107,8 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
 
   const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
 
-  // 2. Часовете на отсъстващия — schedule_slots (staff_id) + teacher_ifo_slots (teacher_id), I срок
-  const { data: mySched } = await supabase
-    .from('class_schedules').select('id, class_id, class:classes(name)')
-    .eq('academic_year_id', cy?.id).eq('term', 1)
-  const schedInfo: Record<string, string> = {}
-  ;(mySched || []).forEach((s: any) => { schedInfo[s.id] = s.class?.name || '' })
-  const schedIds = (mySched || []).map((s: any) => s.id)
-
-  const bySlot: { day: number; period: number; subject: string; cls: string }[] = []
-  if (schedIds.length > 0) {
-    const { data: slots } = await supabase
-      .from('schedule_slots').select('schedule_id, day, period, subject:subjects(name)')
-      .in('schedule_id', schedIds).eq('staff_id', sub.absent_staff_id)
-    ;(slots || []).forEach((sl: any) => {
-      bySlot.push({ day: sl.day, period: sl.period, subject: sl.subject?.name || '', cls: schedInfo[sl.schedule_id] || '' })
-    })
-  }
-  const { data: ifo } = await supabase
-    .from('teacher_ifo_slots')
-    .select('day, period, subject:subjects(name), student:students(first_name, middle_name, last_name)')
-    .eq('teacher_id', sub.absent_staff_id).eq('academic_year_id', cy?.id).eq('term', 1)
-  ;(ifo || []).forEach((sl: any) => {
-    const nm = sl.student ? `ИФО ${sl.student.first_name} ${sl.student.last_name}` : 'ИФО'
-    bySlot.push({ day: sl.day, period: sl.period, subject: sl.subject?.name || '', cls: nm })
-  })
-  await pushEducatorSlots(supabase, sub.absent_staff_id, cy?.id, bySlot)
+  // 2. Часовете на отсъстващия — по срокове (денят в периода решава кое разписание важи)
+  const byTerm = await slotsByTerm(supabase, sub.absent_staff_id, cy?.id)
 
   // Пазим избора лекторски/вътрешно — от него зависи дали часовете влизат в декларацията
   await supabase.from('substitutions').update({ over_norm: sub.bsch_eligible === true ? true : overNorm }).eq('id', substitutionId)
@@ -115,8 +117,11 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   const wds = await workdays(supabase, sub.date_from, sub.date_to)
   const days = wds.map(wd => ({
     date: wd.iso.split('-').reverse().join('.'),
-    items: bySlot.filter(s => s.day === wd.dow).map(s => ({ period: s.period, subject: s.subject, cls: s.cls })),
+    items: byTerm[wd.term].filter(s => s.day === wd.dow).map(s => ({ period: s.period, subject: s.subject, cls: s.cls })),
   }))
+  // часовете, които реално попадат в периода (за паралелките в текста на заповедта)
+  const usedTerms = Array.from(new Set(wds.map(w => w.term)))
+  const bySlot: Slot[] = (usedTerms.length ? usedTerms : [1]).flatMap(t => byTerm[t])
   // НП при болничен (чл. 162): НП само за първите 2 работни дни, останалите — бюджет
   const npSplit = (sub.bsch_eligible === true && (sub as any).kt_article === '162' && wds.length > 2)
     ? { npFrom: wds[0].iso, npTo: wds[1].iso, budgetFrom: wds[2].iso, budgetTo: sub.date_to }
@@ -211,32 +216,15 @@ export async function getDeclarationData(substitutionId: string) {
     if (o?.number) orderRef = `Заповед № ${o.number}`
   }
 
-  // часовете на отсъстващия
-  const { data: mySched } = await supabase
-    .from('class_schedules').select('id, class:classes(name)')
-    .eq('academic_year_id', cy?.id).eq('term', 1)
-  const schedName: Record<string, string> = {}
-  ;(mySched || []).forEach((s: any) => { schedName[s.id] = s.class?.name || '' })
-  const schedIds = (mySched || []).map((s: any) => s.id)
-  const bySlot: { day: number; period: number; subject: string; cls: string }[] = []
-  if (schedIds.length > 0) {
-    const { data: slots } = await supabase
-      .from('schedule_slots').select('schedule_id, day, period, subject:subjects(name)')
-      .in('schedule_id', schedIds).eq('staff_id', sub.absent_staff_id)
-    ;(slots || []).forEach((sl: any) => bySlot.push({ day: sl.day, period: sl.period, subject: sl.subject?.name || '', cls: schedName[sl.schedule_id] || '' }))
-  }
-  const { data: ifo } = await supabase
-    .from('teacher_ifo_slots').select('day, period, subject:subjects(name), student:students(first_name, last_name)')
-    .eq('teacher_id', sub.absent_staff_id).eq('academic_year_id', cy?.id).eq('term', 1)
-  ;(ifo || []).forEach((sl: any) => bySlot.push({ day: sl.day, period: sl.period, subject: sl.subject?.name || '', cls: sl.student ? `ИФО ${sl.student.first_name} ${sl.student.last_name}` : 'ИФО' }))
-  await pushEducatorSlots(supabase, sub.absent_staff_id, cy?.id, bySlot)
+  // часовете на отсъстващия — по срокове
+  const byTerm = await slotsByTerm(supabase, sub.absent_staff_id, cy?.id)
 
   // разгъваме по работни дни
   const out: { date: string; cls: string; subject: string; hours: number }[] = []
    const wds = await workdays(supabase, sub.date_from, sub.date_to)
   for (const w of wds) {
     const wd = w.dow
-    const dayItems = bySlot.filter(s => s.day === wd)
+    const dayItems = byTerm[w.term].filter(s => s.day === wd)
     const dateStr = w.iso.split('-').reverse().join('.')
     if (dayItems.length > 0) {
       const byCls: Record<string, { subjects: string[]; hours: number }> = {}
@@ -317,13 +305,6 @@ export async function getMonthlyDeclaration(first: string, last: string) {
   if (!subs || subs.length === 0) return { error: 'Няма замествания за този месец' }
   const assignMap = await assignmentsBySub(supabase, subs.map((x: any) => x.id))
 
-  // разписания за учебната година (за часовете)
-  const { data: mySched } = await supabase
-    .from('class_schedules').select('id, class:classes(name)')
-    .eq('academic_year_id', cy?.id).eq('term', 1)
-  const schedName: Record<string, string> = {}
-  ;(mySched || []).forEach((s: any) => { schedName[s.id] = s.class?.name || '' })
-  const schedIds = (mySched || []).map((s: any) => s.id)
 
   const rows: { date: string; orderRef: string; cls: string; subject: string; hours: number; bsch: boolean; kt: string; absentName: string }[] = []
 
@@ -339,19 +320,8 @@ export async function getMonthlyDeclaration(first: string, last: string) {
     } else if (sub.manual_order_number) {
       orderRef = sub.manual_order_number
     }
-    // часовете на отсъстващия
-    const bySlot: { day: number; period: number; subject: string; cls: string }[] = []
-    if (schedIds.length > 0) {
-      const { data: slots } = await supabase
-        .from('schedule_slots').select('schedule_id, day, period, subject:subjects(name)')
-        .in('schedule_id', schedIds).eq('staff_id', sub.absent_staff_id)
-      ;(slots || []).forEach((sl: any) => bySlot.push({ day: sl.day, period: sl.period, subject: sl.subject?.name || '', cls: schedName[sl.schedule_id] || '' }))
-    }
-    const { data: ifo } = await supabase
-      .from('teacher_ifo_slots').select('day, period, subject:subjects(name), student:students(first_name, last_name)')
-      .eq('teacher_id', sub.absent_staff_id).eq('academic_year_id', cy?.id).eq('term', 1)
-    ;(ifo || []).forEach((sl: any) => bySlot.push({ day: sl.day, period: sl.period, subject: sl.subject?.name || '', cls: sl.student ? `ИФО ${sl.student.first_name} ${sl.student.last_name}` : 'ИФО' }))
-    await pushEducatorSlots(supabase, sub.absent_staff_id, cy?.id, bySlot)
+    // часовете на отсъстващия — по срокове
+    const byTerm = await slotsByTerm(supabase, sub.absent_staff_id, cy?.id)
 
     // само учебните дни в ПРЕСЕЧЕНИЕТО на заместването и месеца
     const lo = sub.date_from > first ? sub.date_from : first
@@ -363,7 +333,7 @@ export async function getMonthlyDeclaration(first: string, last: string) {
       const isNp = npSet === null ? true : npSet.has(w.iso)
       // вътрешно заместване (в рамките на нормата) не се плаща → не влиза в бюджетната декларация
       if (!isNp && (sub as any).over_norm === false) continue
-      const dayItems = bySlot.filter(s => s.day === w.dow)
+      const dayItems = byTerm[w.term].filter(s => s.day === w.dow)
       if (dayItems.length === 0) continue
       const dateStr = w.iso.split('-').reverse().join('.')
       const byCls: Record<string, { subjects: string[]; hours: number }> = {}
@@ -426,10 +396,6 @@ export async function getMonExport(first: string, last: string, rate: number) {
     ;(ppl || []).forEach((p: any) => { people[p.id] = { name: `${p.first_name} ${p.last_name}`, position: p.position || '' } })
   }
 
-  // разписания (за часовете)
-  const { data: mySched } = await supabase
-    .from('class_schedules').select('id').eq('academic_year_id', cy?.id).eq('term', 1)
-  const schedIds = (mySched || []).map((s: any) => s.id)
 
   // за всяко заместване — брой учебни часове в пресечението с периода
   const rows: any[] = []
@@ -441,16 +407,9 @@ export async function getMonExport(first: string, last: string, rate: number) {
     } else if (sub.manual_order_number) {
       orderNumber = sub.manual_order_number; orderDate = sub.manual_order_date || ''
     }
-    // часовете на отсъстващия по ден
-    const bySlotDow: Record<number, number> = {}
-    if (schedIds.length > 0) {
-      const { data: slots } = await supabase.from('schedule_slots').select('day').in('schedule_id', schedIds).eq('staff_id', sub.absent_staff_id)
-      ;(slots || []).forEach((sl: any) => { bySlotDow[sl.day] = (bySlotDow[sl.day] || 0) + 1 })
-    }
-    const { data: ifo } = await supabase.from('teacher_ifo_slots').select('day').eq('teacher_id', sub.absent_staff_id).eq('academic_year_id', cy?.id).eq('term', 1)
-    ;(ifo || []).forEach((sl: any) => { bySlotDow[sl.day] = (bySlotDow[sl.day] || 0) + 1 })
-    const { data: eduD } = await supabase.from('educator_slots').select('day').eq('educator_id', sub.absent_staff_id).eq('academic_year_id', cy?.id).eq('term', 1)
-    ;(eduD || []).forEach((sl: any) => { bySlotDow[sl.day] = (bySlotDow[sl.day] || 0) + 1 })
+    // часовете на отсъстващия по срок и ден
+    const byTerm = await slotsByTerm(supabase, sub.absent_staff_id, cy?.id)
+    const perDay = (term: number, dow: number) => byTerm[term].filter(x => x.day === dow).length
     // учебни дни в пресечението
     const lo = sub.date_from > first ? sub.date_from : first
     const hi = sub.date_to < last ? sub.date_to : last
@@ -460,7 +419,7 @@ export async function getMonExport(first: string, last: string, rate: number) {
     const cov = coverageOf(sub as any, assignMap[sub.id])
     for (const [staffId, ranges] of Object.entries(cov)) {
       let hours = 0
-      wds.forEach(w => { if ((npSet === null || npSet.has(w.iso)) && inRanges(w.iso, ranges)) hours += (bySlotDow[w.dow] || 0) })
+      wds.forEach(w => { if ((npSet === null || npSet.has(w.iso)) && inRanges(w.iso, ranges)) hours += perDay(w.term, w.dow) })
       if (hours === 0) continue
       const person = people[staffId] || { name: '', position: '' }
       const isNonSpec = /възпитател|помощник|психолог|логопед|рехабилитатор/i.test(person.position)
