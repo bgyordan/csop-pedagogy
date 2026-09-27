@@ -125,6 +125,9 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   // Кой може да маха маркера "нов": админ, ЗДУД, координатор, класен (на своята паралелка)
   const canMarkProcessed = canManage || isCoordinator || canEditDossier
   const educationForm = (enrollment as any)?.education_form || 'daily'
+  // анкетата остава достъпна и след „Вече не е нов“
+  const { data: surveyRow } = await supabase.from('student_surveys').select('status').eq('student_id', id).limit(1).maybeSingle()
+  const hasSurvey = !!surveyRow
   const { data: coudEnroll } = await supabase
     .from('coud_enrollments')
     .select('coud_group:coud_groups(name, teacher:staff_profiles(first_name, last_name))')
@@ -257,7 +260,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                 <CalendarClock size={13} /> Седмично разписание
               </Link>
             )}
-            {(student as any).is_new && (
+            {((student as any).is_new || hasSurvey) && (
               <Link href={`/students/${id}/survey`} className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-700 bg-violet-50 border border-violet-200 px-3 py-2 rounded-xl hover:bg-violet-100 transition-colors">
                 <ClipboardList size={13} /> Анкета
               </Link>
