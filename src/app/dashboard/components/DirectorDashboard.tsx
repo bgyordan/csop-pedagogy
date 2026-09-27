@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { upcomingTasks } from '@/lib/upcoming-tasks'
 import OpsPanel from './OpsPanel'
 import Link from 'next/link'
 import { Users, BookOpen, UserCircle, Star, BarChart3, CalendarDays, Inbox, ClipboardList, ArrowRight, GraduationCap, Calendar, AlertTriangle } from 'lucide-react'
@@ -27,8 +28,7 @@ export default async function DirectorDashboard({ profile, currentYearId }: any)
     supabase.from('classes').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
     supabase.from('staff_profiles').select('*', { count: 'exact', head: true }).eq('is_active', true),
     supabase.from('eplr_teams').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
-    supabase.from('calendar_deadlines').select('*').eq('academic_year_id', currentYearId)
-      .gte('deadline_date', todayStr).order('deadline_date').limit(4),
+    upcomingTasks(supabase, 5).then(data => ({ data })),   // от „График срокове“
   ])
 
   const stats = [
@@ -90,7 +90,7 @@ export default async function DirectorDashboard({ profile, currentYearId }: any)
                   <div className="text-xs text-slate-400 flex-shrink-0 ml-3">
                     {formatDate(d.deadline_date)}
                     <span className={`ml-1.5 font-medium ${urgent ? 'text-amber-600' : 'text-slate-400'}`}>
-                      {days === 0 ? 'днес' : days === 1 ? 'утре' : `след ${days} дни`}
+                      {days < 0 ? `просрочено ${-days} дни` : days === 0 ? 'днес' : days === 1 ? 'утре' : `след ${days} дни`}
                     </span>
                   </div>
                 </div>

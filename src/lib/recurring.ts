@@ -101,7 +101,8 @@ export function taskStatus(t: RecTask, completed: Set<string>, today = new Date(
   const occ = expandOccurrences(t, from, to)
   const todayStr = ymd(t0)
 
-  const current = occ.find(d => !completed.has(d))
+  // отметнатите се пазят като "дата" или "taskId:дата" (страницата ползва второто) — приемаме и двете
+  const current = occ.find(d => !completed.has(d) && !completed.has(`${t.id}:${d}`))
   if (!current) return { current: null, daysUntil: null, state: 'none' }
 
   const days = daysBetween(todayStr, current)

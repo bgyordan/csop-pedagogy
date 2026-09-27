@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { upcomingTasks } from '@/lib/upcoming-tasks'
 import ClassTeacherSide from './ClassTeacherSide'
 import OpsPanel from './OpsPanel'
 import Link from 'next/link'
@@ -34,7 +35,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
   ] = await Promise.all([
     supabase.from('student_enrollments').select('student:students!inner(status)', { count: 'exact', head: true }).eq('academic_year_id', currentYearId).eq('student.status', 'active'),
     supabase.from('classes').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
-    supabase.from('calendar_deadlines').select('*').eq('academic_year_id', currentYearId).gte('deadline_date', todayStr).order('deadline_date').limit(5),
+    upcomingTasks(supabase, 6).then(data => ({ data })),   // от „График срокове“
     supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
     supabase.from('student_enrollments').select('education_form, student:students!inner(status)').eq('academic_year_id', currentYearId).eq('student.status', 'active'),
     supabase.from('student_ores').select('student_id, from_date, to_date').lte('from_date', todayStr),
@@ -96,11 +97,13 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
   if (isActivePeriod) {
     alerts.push({ type: 'warning', icon: <ClipboardList size={16} />, text: `Въвеждане на реализация на ИУП — ${getMonthName(reportMonth)}`, href: '/absences', badge: 'До 8-ми' })
   }
+  // сроковете от „График срокове“: просрочени и наближаващи (според „напомни N дни преди“)
   ;(deadlines || []).forEach(d => {
-    const days = getDaysUntil(d.deadline_date)
-    if (days <= 14) {
-      alerts.push({ type: days <= 3 ? 'error' : 'info', icon: <Calendar size={16} />, text: d.title, href: '/admin/tasks', badge: days === 0 ? 'Днес' : `${days} дни` })
-    }
+    if (d.state === 'upcoming') return
+    alerts.push({
+      type: d.state === 'overdue' ? 'error' : 'warning', icon: <Calendar size={16} />, text: d.title, href: '/admin/tasks',
+      badge: d.days < 0 ? `просрочено ${-d.days} дни` : d.days === 0 ? 'Днес' : `след ${d.days} дни`,
+    })
   })
   return (
     <div className="animate-in fade-in duration-500">
@@ -210,7 +213,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
         <ClassTeacherSide
           deadlines={(deadlines || []) as any}
           announcements={(announcements || []) as any}
-          deadlinesHref="/admin/deadlines"
+          deadlinesHref="/admin/tasks"
           newsHref="/admin/announcements"
           files={<SharedFiles bare />}
         />
