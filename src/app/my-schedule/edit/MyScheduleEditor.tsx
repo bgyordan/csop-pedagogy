@@ -3,20 +3,13 @@ import { useState } from 'react'
 import { Loader2, Check, Plus, X, Save, AlertTriangle, Copy, Lock, Unlock } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { saveMySchedule, checkClassCollision, addSubjectQuick, releaseClassSlot, copyMyScheduleFromTerm1, type MyCell } from './actions'
+import { PERIOD_TIMES, PERIOD_LABEL } from '@/lib/periods'
 
 type Cls = { id: string; name: string }
 type Stud = { id: string; name: string }
 type Subj = { id: string; name: string; allows_pullout?: boolean }
 type Slot = { day: number; period: number; holderType: 'class' | 'ifo'; holderId: string; subjectId: string }
 
-const PERIOD_TIMES: Record<number, string> = {
-  1: '8:30–9:05', 2: '9:15–9:50', 3: '10:20–10:55', 4: '11:05–11:40',
-  5: '11:50–12:25', 6: '12:35–13:05', 7: '13:15–13:50',
-  8: '12:45–13:15', 9: '13:20–13:50', 10: '13:55–14:25', 11: '14:30–15:00', 12: '15:05–15:35',
-}
-const PERIOD_LABEL: Record<number, string> = {
-  1:'1',2:'2',3:'3',4:'4',5:'5',6:'6',7:'7',8:'ИФО 1',9:'ИФО 2',10:'ИФО 3',11:'ИФО 4',12:'ИФО 5',
-}
 const DAYS = [
   { n: 1, label: 'Понеделник' }, { n: 2, label: 'Вторник' }, { n: 3, label: 'Сряда' },
   { n: 4, label: 'Четвъртък' }, { n: 5, label: 'Петък' },
