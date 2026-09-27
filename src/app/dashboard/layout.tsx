@@ -3,17 +3,15 @@ import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { UserRole } from '@/types'
 import { getFullName } from '@/lib/utils'
+import { viewProfile } from '@/lib/view-as'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  const { data: profile } = await supabase
-    .from('staff_profiles')
-    .select('*')
-    .eq('user_id', user.id)
-    .maybeSingle()
+  // при „Виж като…“ (само админ) менюто е на избрания служител
+  const { profile } = await viewProfile(supabase, user.id)
 
    if (!profile) redirect('/auth/login')
   // има ли class_teacher_assignment за текущата година (за да различим класен от учител без клас)
