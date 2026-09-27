@@ -106,6 +106,7 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
                     {counts && !counts[r.id] && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-white" title="Няма документи" />}
                   </span>
                   <span className="min-w-0 truncate whitespace-nowrap text-sm font-medium text-slate-700 group-hover:text-[#0f2240]">{nm}</span>
+                  {r.className && <span className="ml-auto shrink-0 text-[11px] font-medium text-slate-400 bg-slate-50 border border-slate-100 rounded-md px-1.5 py-px" title={`Паралелка ${r.className}`}>{r.className}</span>}
                 </Link>
               )
             })}
