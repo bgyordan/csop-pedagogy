@@ -1,10 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import OutreachBadge from '@/components/OutreachBadge'
+import StudentWorkDocs from '@/app/students/[id]/StudentWorkDocs'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { BackButton } from '@/components/ui/BackButton'
 import { getFullName } from '@/lib/utils'
-import { Users, Coffee } from 'lucide-react'
+import { Users, Coffee, FolderOpen } from 'lucide-react'
 import ClassTeachersSection from './ClassTeachersSection'
 import AddStudentsSection from './AddStudentsSection'
 import ClassScheduleWord from './ClassScheduleWord'
@@ -21,7 +22,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
   const [{ data: enrollments }, { data: assignments }, { data: myProfile }, { data: allStaff }] = await Promise.all([
     supabase.from('student_enrollments').select('*, student:students(*, sending_school:sending_schools(name, city))').eq('class_id', id).eq('academic_year_id', currentYear?.id),
     supabase.from('class_teacher_assignments').select('id, staff_id, staff:staff_profiles(id, first_name, middle_name, last_name, is_active)').eq('class_id', id).eq('academic_year_id', currentYear?.id),
-    supabase.from('staff_profiles').select('role, is_coordinator').eq('user_id', user.id).single(),
+    supabase.from('staff_profiles').select('id, role, is_coordinator').eq('user_id', user.id).single(),
     supabase.from('staff_profiles').select('id, first_name, middle_name, last_name').eq('is_active', true).order('first_name'),
   ])
   const students = enrollments?.map(e => e.student).filter((s: any) => s && s.status === 'active') || []
@@ -35,6 +36,8 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
       name: a.staff ? getFullName(a.staff) : '—',
     }))
   const teachers = teacherList.map(t => t.name)
+  // Общите файлове на паралелката (Drive): класният + админ/директор/ЗДУД
+  const canSeeClassDocs = ['admin', 'director', 'zdud'].includes(myProfile?.role || '') || teacherList.some(t => t.id === myProfile?.id)
   const staffOptions = (allStaff || []).map((s: any) => ({ id: s.id, name: getFullName(s) }))
   let unassignedList: { id: string; name: string; isNew: boolean }[] = []
   if (canManageStudents) {
@@ -181,6 +184,12 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
           )
         })}
       </div>
+      {canSeeClassDocs && (
+        <div className="mt-8">
+          <h2 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2"><FolderOpen size={16} className="text-sky-500" /> Документи на паралелката</h2>
+          <StudentWorkDocs classId={id} />
+        </div>
+      )}
     </div>
   )
 }
