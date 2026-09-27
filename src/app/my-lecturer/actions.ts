@@ -78,11 +78,12 @@ export async function submitLecturerDeclaration(
   if (!me) return { error: 'Няма профил' }
   const { data: cy } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
 
-  // защита: няма застъпване с вече подадена декларация на същия учител
+  // подаване наново за същия период → старата (неприключена) се заменя; проверена/изплатена не се пипа
   const { data: existing } = await supabase.from('lecturer_declarations')
-    .select('period_from, period_to').eq('staff_id', me.id)
-  const overlap = (existing || []).some((e: any) => periodFrom <= e.period_to && periodTo >= e.period_from)
-  if (overlap) return { error: 'Вече имате декларация за застъпващ се период' }
+    .select('id, status, period_from, period_to').eq('staff_id', me.id)
+  const overlap = (existing || []).filter((e: any) => periodFrom <= e.period_to && periodTo >= e.period_from)
+  if (overlap.some((e: any) => e.status !== 'submitted')) return { error: 'За част от този период декларацията вече е проверена — обърнете се към ЗДУД' }
+  if (overlap.length > 0) await supabase.from('lecturer_declarations').delete().in('id', overlap.map((e: any) => e.id))
 
   const totalHours = entries.reduce((a, e) => a + e.dates.length, 0)
   const { data: ins, error } = await supabase.from('lecturer_declarations').insert({
