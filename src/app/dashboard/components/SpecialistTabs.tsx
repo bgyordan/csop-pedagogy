@@ -1,7 +1,8 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { HeartPulse, Users } from 'lucide-react'
+import { HeartPulse, Users, FileText } from 'lucide-react'
+import StudentWorkDocs from '@/app/students/[id]/StudentWorkDocs'
 interface TherapyRow {
   id: string
   name: string
@@ -20,11 +21,11 @@ interface EplrRow {
   isReal: boolean
 }
 export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows: TherapyRow[]; eplrRows: EplrRow[] }) {
-  const [tab, setTab] = useState<'therapy' | 'eplr'>('therapy')
+  const [tab, setTab] = useState<'therapy' | 'eplr' | 'mine'>('therapy')
   return (
     <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
       {/* Табове */}
-      <div className="flex gap-1 p-1.5 border-b border-slate-100 bg-slate-50/50">
+      <div className="flex flex-wrap gap-1 p-1.5 border-b border-slate-100 bg-slate-50/50">
         <button onClick={() => setTab('therapy')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
             tab === 'therapy' ? 'bg-white shadow-sm text-teal-700 border border-teal-100' : 'text-slate-500 hover:text-slate-700'
@@ -45,7 +46,20 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
             {eplrRows.length}
           </span>
         </button>
+        <button onClick={() => setTab('mine')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+            tab === 'mine' ? 'bg-white shadow-sm text-sky-700 border border-sky-100' : 'text-slate-500 hover:text-slate-700'
+          }`}>
+          <FileText size={15} />
+          Моите документи
+        </button>
       </div>
+      {/* ТАБ 3: Моите документи — личната папка в Drive */}
+      {tab === 'mine' && (
+        <div className="p-4">
+          <StudentWorkDocs staff />
+        </div>
+      )}
       {/* ТАБ 1: За терапия — интензитет · паралелка · училище */}
       {tab === 'therapy' && (
         <div className="divide-y divide-slate-50">

@@ -43,7 +43,7 @@ export default function ClassTeacherTabs({
   className: string
   classId: string
 }) {
-  const [tab, setTab] = useState<'paralelka' | 'docs' | 'eplr' | 'therapy'>('paralelka')
+  const [tab, setTab] = useState<'paralelka' | 'docs' | 'mine' | 'eplr' | 'therapy'>('paralelka')
   // брой документи на всяко дете (от папките в Drive) — зарежда се след като таблото се покаже
   const [counts, setCounts] = useState<Record<string, number> | null>(null)
   useEffect(() => {
@@ -58,7 +58,7 @@ export default function ClassTeacherTabs({
   return (
     <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
       {/* Табове */}
-      <div className="flex items-center gap-1 p-1.5 border-b border-slate-100 bg-slate-50/50">
+      <div className="flex flex-wrap items-center gap-1 p-1.5 border-b border-slate-100 bg-slate-50/50">
         <button onClick={() => setTab('paralelka')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
             tab === 'paralelka' ? 'bg-white shadow-sm text-blue-700 border border-blue-100' : 'text-slate-500 hover:text-slate-700'
@@ -75,6 +75,13 @@ export default function ClassTeacherTabs({
           }`}>
           <FolderOpen size={15} />
           Документи на паралелката
+        </button>
+        <button onClick={() => setTab('mine')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+            tab === 'mine' ? 'bg-white shadow-sm text-sky-700 border border-sky-100' : 'text-slate-500 hover:text-slate-700'
+          }`}>
+          <FileText size={15} />
+          Моите документи
         </button>
         <button onClick={() => setTab('eplr')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
@@ -141,6 +148,12 @@ export default function ClassTeacherTabs({
       {tab === 'docs' && (
         <div className="p-4">
           <StudentWorkDocs classId={classId} />
+        </div>
+      )}
+      {/* ТАБ: Моите документи — личната папка в Drive */}
+      {tab === 'mine' && (
+        <div className="p-4">
+          <StudentWorkDocs staff />
         </div>
       )}
       {/* ТАБ 2: ЕПЛР екипи */}

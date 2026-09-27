@@ -5,6 +5,7 @@ import { getFullName, formatDate, getDaysUntil } from '@/lib/utils'
 import { DocumentType } from '@/types'
 import SharedFiles from './SharedFiles'
 import SpecialistTabs from './SpecialistTabs'
+import ClassTeacherSide from './ClassTeacherSide'
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
   'iup', 'iu_program', 'support_plan', 'parent_program'
@@ -132,52 +133,12 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
         <div className="lg:col-span-2">
           <SpecialistTabs therapyRows={therapyRows} eplrRows={eplrRows} />
         </div>
-        <div className="space-y-6">
-          {deadlines && deadlines.length > 0 && (
-            <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100/80">
-                <Calendar size={18} className="text-slate-400" />
-                <h2 className="font-semibold text-slate-800 text-sm">Предстоящи срокове</h2>
-              </div>
-              <div className="space-y-3">
-                {deadlines.map((d: any) => {
-                  const days = getDaysUntil(d.deadline_date)
-                  return (
-                    <div key={d.id} className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium text-slate-700 truncate">{d.title}</div>
-                        <div className="text-xs text-slate-400 font-medium">{formatDate(d.deadline_date)}</div>
-                      </div>
-                      <span className={`inline-flex items-center text-[10px] font-bold px-2 py-1 rounded-md border ${
-                        days === 0 ? 'bg-rose-50 text-rose-700 border-rose-100' :
-                        days <= 7 ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                        'bg-emerald-50 text-emerald-700 border-emerald-100'
-                      }`}>
-                        {days === 0 ? 'Днес!' : `${days} дни`}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-          {announcements && announcements.length > 0 && (
-            <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100/80">
-                <Bell size={18} className="text-indigo-400" />
-                <h2 className="font-semibold text-slate-800 text-sm">Съобщения</h2>
-              </div>
-              <div className="space-y-4">
-                {announcements.map((ann: any) => (
-                  <div key={ann.id} className="relative pl-3 before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:bg-indigo-300 before:rounded-full">
-                    <div className="text-sm font-semibold text-slate-700">{ann.title}</div>
-                    <div className="text-xs text-slate-500 mt-1 leading-relaxed line-clamp-3">{ann.body}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <SharedFiles />
+        <div>
+          <ClassTeacherSide
+            deadlines={deadlines || []}
+            announcements={announcements || []}
+            files={<SharedFiles bare />}
+          />
         </div>
       </div>
     </div>

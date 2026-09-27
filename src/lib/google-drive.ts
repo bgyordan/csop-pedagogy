@@ -205,6 +205,58 @@ export async function countStudentFiles(studentIds: string[], yearName: string):
   return out
 }
 
+// ── Лични документи на служителите: Служители / Иван Иванов (без година) ──
+
+export async function ensureStaffFolder(staffId: string, staffName: string) {
+  const rProps = { kind: 'staff-root' }
+  const rootId = (await findFolder(rProps))?.id ?? (await createFolder('Служители', driveId(), rProps))
+  const f = await findFolder({ kind: 'staff', staffId })
+  if (f) return f.id
+  return createFolder(staffName || 'Служител', rootId, { kind: 'staff', staffId })
+}
+
+export async function findStaffFolder(staffId: string) {
+  return (await findFolder({ kind: 'staff', staffId }))?.id ?? null
+}
+
+// Отбелязва файла като споделен / несподелен с колегите
+export async function setFileShared(fileId: string, shared: boolean) {
+  await drive(`/files/${fileId}?supportsAllDrives=true`, {
+    method: 'PATCH',
+    body: JSON.stringify({ appProperties: { shared: shared ? 'true' : null } }),
+  })
+}
+
+export type SharedItem = DriveItem & { staffId: string; owner: string }
+
+// Всички споделени лични файлове (от папките на служителите), най-новите първо
+export async function listSharedStaffFiles(): Promise<SharedItem[]> {
+  // папките на служителите → staffId + име
+  const fq = `mimeType='${FOLDER}' and trashed=false and appProperties has { key='kind' and value='staff' }`
+  const fr = await drive(
+    `/files?q=${encodeURIComponent(fq)}&corpora=drive&driveId=${driveId()}&includeItemsFromAllDrives=true&supportsAllDrives=true` +
+    `&pageSize=1000&fields=${encodeURIComponent('files(id,name,appProperties)')}`
+  )
+  const folders: Record<string, { staffId: string; owner: string }> = {}
+  for (const f of fr.files ?? []) folders[f.id] = { staffId: f.appProperties?.staffId || '', owner: f.name }
+  const q = `trashed=false and appProperties has { key='shared' and value='true' }`
+  const r = await drive(
+    `/files?q=${encodeURIComponent(q)}&corpora=drive&driveId=${driveId()}&includeItemsFromAllDrives=true&supportsAllDrives=true` +
+    `&orderBy=${encodeURIComponent('modifiedTime desc')}&pageSize=500` +
+    `&fields=${encodeURIComponent('files(id,name,mimeType,modifiedTime,webViewLink,parents,appProperties,lastModifyingUser(displayName,emailAddress))')}`
+  )
+  return (r.files ?? [])
+    .map((f: any) => {
+      const own = folders[(f.parents ?? []).find((p: string) => folders[p]) || '']
+      if (!own) return null
+      return {
+        id: f.id, name: f.name, mimeType: f.mimeType, modifiedTime: f.modifiedTime,
+        modifiedBy: whoModified(f), url: f.webViewLink, shared: true, staffId: own.staffId, owner: own.owner,
+      }
+    })
+    .filter(Boolean) as SharedItem[]
+}
+
 export type DriveItem = {
   id: string
   name: string
@@ -212,6 +264,7 @@ export type DriveItem = {
   modifiedTime: string
   modifiedBy: string
   url: string
+  shared?: boolean   // споделен с всички колеги (Моите документи)
 }
 
 // EIS качва файловете от името на eis@ → показваме истинския колега, записан при качването
@@ -236,6 +289,7 @@ export async function listFolder(folderId: string): Promise<DriveItem[]> {
     modifiedTime: f.modifiedTime,
     modifiedBy: whoModified(f),
     url: f.webViewLink,
+    shared: f.appProperties?.shared === 'true',
   }))
 }
 

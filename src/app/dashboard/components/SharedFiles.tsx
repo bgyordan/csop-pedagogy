@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import { listSharedStaffDocs } from '@/app/my-files/staff-drive-actions'
 import { Share2, Download, ArrowRight, File, FileText, FileSpreadsheet, FileImage } from 'lucide-react'
 
 type Row = {
@@ -16,33 +16,30 @@ type Row = {
 function icon(name: string, mime: string | null) {
   const m = (mime || '').toLowerCase(); const n = name.toLowerCase()
   if (m.includes('pdf') || n.endsWith('.pdf')) return <FileText size={16} style={{ color: '#dc2626' }} />
-  if (m.includes('word') || n.endsWith('.doc') || n.endsWith('.docx')) return <FileText size={16} style={{ color: '#2563eb' }} />
+  if (m.includes('word') || m.includes('document') || n.endsWith('.doc') || n.endsWith('.docx')) return <FileText size={16} style={{ color: '#2563eb' }} />
   if (m.includes('sheet') || m.includes('excel') || n.endsWith('.xls') || n.endsWith('.xlsx') || n.endsWith('.csv')) return <FileSpreadsheet size={16} style={{ color: '#16a34a' }} />
   if (m.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/.test(n)) return <FileImage size={16} style={{ color: '#9333ea' }} />
   return <File size={16} style={{ color: '#64748b' }} />
 }
 
 export default function SharedFiles({ bare = false }: { bare?: boolean } = {}) {
-  const supabase = createClient()
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('staff_files')
-        .select('id, name, path, mime_type, created_at, owner:staff_profiles!staff_files_staff_id_fkey(first_name, last_name)')
-        .eq('is_shared', true)
-        .order('created_at', { ascending: false })
-        .limit(5)
-      setRows((data as any) || [])
+      // споделените лични документи на колегите — от Drive
+      const r = await listSharedStaffDocs().catch(() => ({ files: [] as any[] }))
+      setRows((r.files || []).slice(0, 5).map((f: any) => ({
+        id: f.id, name: f.name, path: '', mime_type: f.mimeType, created_at: f.modifiedTime,
+        owner: { first_name: f.owner, last_name: '' },
+      })))
       setLoading(false)
     })()
-  }, [supabase])
+  }, [])
 
-  async function download(r: Row) {
-    const { data } = await supabase.storage.from('staff-files').createSignedUrl(r.path, 60)
-    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+  function download(r: Row) {
+    window.location.href = `/api/staff-docs/download?fileId=${r.id}&as=office`
   }
 
   return (
@@ -66,7 +63,7 @@ export default function SharedFiles({ bare = false }: { bare?: boolean } = {}) {
             <div key={r.id} className="flex items-center gap-3 py-2 group">
               {icon(r.name, r.mime_type)}
               <span className="text-sm font-medium text-slate-700 truncate flex-1">{r.name}</span>
-              <span className="text-[11px] text-slate-400 shrink-0 hidden sm:block">{r.owner ? `${r.owner.first_name} ${r.owner.last_name}` : '—'}</span>
+              <span className="text-[11px] text-slate-400 shrink-0 hidden sm:block">{r.owner ? `${r.owner.first_name} ${r.owner.last_name}`.trim() : '—'}</span>
               <button onClick={() => download(r)} title="Изтегли" className="p-1 rounded hover:bg-slate-200 text-slate-400 shrink-0"><Download size={15} /></button>
             </div>
           ))}
