@@ -5,7 +5,7 @@ import { School, FileText, Download, ChevronDown, ChevronUp, Paperclip } from 'l
 
 type Group = { name: string; files: { id: string; name: string; path: string }[] }
 
-export default function SchoolFilesCardClient({ groups }: { groups: Group[] }) {
+export default function SchoolFilesCardClient({ groups, bare = false }: { groups: Group[]; bare?: boolean }) {
   const supabase = createClient()
   const [openIdx, setOpenIdx] = useState<number | null>(null)
 
@@ -18,10 +18,10 @@ export default function SchoolFilesCardClient({ groups }: { groups: Group[] }) {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-      <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
-        <School size={18} className="text-blue-500" />
-        <h2 className="font-semibold text-slate-800 text-sm">Училищни учебни планове</h2>
+    <div className={bare ? '' : 'bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm'}>
+      <div className={`flex items-center gap-2 ${bare ? 'mb-2' : 'mb-4 pb-3 border-b border-slate-100'}`}>
+        <School size={bare ? 14 : 18} className="text-blue-500" />
+        <h2 className={bare ? 'text-xs font-medium text-slate-500' : 'font-semibold text-slate-800 text-sm'}>Училищни учебни планове</h2>
       </div>
       <div className="space-y-1.5">
         {groups.map((g, i) => {

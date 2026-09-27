@@ -22,7 +22,7 @@ function icon(name: string, mime: string | null) {
   return <File size={16} style={{ color: '#64748b' }} />
 }
 
-export default function SharedFiles() {
+export default function SharedFiles({ bare = false }: { bare?: boolean } = {}) {
   const supabase = createClient()
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
@@ -46,11 +46,11 @@ export default function SharedFiles() {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/70 p-6 shadow-sm">
-      <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+    <div className={bare ? '' : 'bg-white rounded-2xl border border-slate-200/70 p-6 shadow-sm'}>
+      <div className={`flex items-center justify-between ${bare ? 'mb-2' : 'mb-4 pb-3 border-b border-slate-100'}`}>
         <div className="flex items-center gap-2">
-          <Share2 size={18} className="text-slate-400" />
-          <h2 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Споделено от колеги</h2>
+          <Share2 size={bare ? 14 : 18} className="text-slate-400" />
+          <h2 className={bare ? 'text-xs font-medium text-slate-500' : 'font-bold text-slate-800 text-sm uppercase tracking-wider'}>Споделено от колеги</h2>
         </div>
         <Link href="/shared" className="text-[10px] font-bold text-blue-600 uppercase tracking-wider hover:text-blue-800 flex items-center gap-1">
           Виж всички <ArrowRight size={12} />

@@ -3,7 +3,7 @@ import { School } from 'lucide-react'
 import SchoolFilesCardClient from './SchoolFilesCardClient'
 
 // Сървърен: взема училищата (с файлове) на децата от паралелките на класния
-export default async function SchoolFilesCard({ profileId, currentYearId }: { profileId: string; currentYearId: string }) {
+export default async function SchoolFilesCard({ profileId, currentYearId, bare = false }: { profileId: string; currentYearId: string; bare?: boolean }) {
   const supabase = await createClient()
 
   // моите паралелки
@@ -39,5 +39,5 @@ export default async function SchoolFilesCard({ profileId, currentYearId }: { pr
   })
   const groups = Object.values(bySchool).sort((a, b) => a.name.localeCompare(b.name, 'bg'))
 
-  return <SchoolFilesCardClient groups={groups} />
+  return <SchoolFilesCardClient groups={groups} bare={bare} />
 }

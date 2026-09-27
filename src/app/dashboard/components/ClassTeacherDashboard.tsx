@@ -6,6 +6,7 @@ import { getFullName, getMonthName, formatDate } from '@/lib/utils'
 import SharedFiles from './SharedFiles'
 import ClassTeacherTabs from './ClassTeacherTabs'
 import ExpiringDocsCard from './ExpiringDocsCard'
+import ClassTeacherSide from './ClassTeacherSide'
 // "01" → "I паралелка"; нечислови имена остават както са
 function paralelkaTitle(name: string) {
   const m = (name || '').trim().match(/^0*(\d+)$/)
@@ -249,43 +250,15 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
         <div className="lg:col-span-2">
          <ClassTeacherTabs paralelkaRows={paralelkaRows} eplrRows={eplrRows} therapyRows={therapyRows} className={myClasses[0].name} classId={myClasses[0].id} />
         </div>
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100/80">
-              <Calendar size={18} className="text-slate-400" />
-              <h2 className="font-semibold text-slate-800 text-sm">Предстоящи срокове</h2>
-            </div>
-            {!deadlines?.length ? (
-              <p className="text-sm text-slate-400">Няма предстоящи срокове</p>
-            ) : (
-              <div className="space-y-3">
-                {deadlines.map((d: any) => (
-                  <div key={d.id} className="flex justify-between items-center gap-2">
-                    <div className="text-sm font-medium text-slate-700 truncate">{d.title}</div>
-                    <span className="text-[10px] font-bold bg-slate-100 px-2 py-1 rounded flex-shrink-0">{formatDate(d.deadline_date)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          {announcements && announcements.length > 0 && (
-            <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100/80">
-                <Bell size={18} className="text-indigo-400" />
-                <h2 className="font-semibold text-slate-800 text-sm">Съобщения</h2>
-              </div>
-              <div className="space-y-4">
-                {announcements.map((a: any) => (
-                  <div key={a.id} className="relative pl-3 before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:bg-indigo-300 before:rounded-full">
-                    <div className="text-sm font-semibold text-slate-700">{a.title}</div>
-                    <p className="text-xs text-slate-500 mt-1 line-clamp-3">{a.body}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <SchoolFilesCard profileId={profile.id} currentYearId={currentYearId} />
-          <SharedFiles />
+        <div>
+          <ClassTeacherSide
+            deadlines={deadlines || []}
+            announcements={announcements || []}
+            files={<>
+              <SchoolFilesCard profileId={profile.id} currentYearId={currentYearId} bare />
+              <SharedFiles bare />
+            </>}
+          />
         </div>
       </div>
     </div>
