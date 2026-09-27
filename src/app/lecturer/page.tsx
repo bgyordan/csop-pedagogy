@@ -27,7 +27,7 @@ export default async function LecturerPage() {
   // вече маркирани лекторски слотове (за списъка долу)
   const { data: existing } = await supabase
     .from('lecturer_slots')
-    .select(`id, staff_id, day, period, holder_label, date_from, date_to, order_number,
+    .select(`id, staff_id, day, period, holder_label, date_from, date_to, order_number, term,
       subject:subjects(name), staff:staff_profiles!lecturer_slots_staff_id_fkey(first_name, last_name)`)
     .eq('academic_year_id', currentYear?.id)
     .order('created_at', { ascending: false })
@@ -37,6 +37,7 @@ export default async function LecturerPage() {
     day: r.day, period: r.period, subject: r.subject?.name || '',
     holderLabel: r.holder_label || '', dateFrom: r.date_from, dateTo: r.date_to,
     orderNumber: r.order_number || '',
+    term: r.term === 2 ? 2 : 1,
   }))
 
   return (

@@ -6,14 +6,18 @@ import { getTeacherSchedule, saveLecturerSlots, clearLecturerSlots, schoolWeeks,
 import { generateLecturerFrameworkOrder } from '@/lib/docx-substitution'
 
 type Teacher = { id: string; name: string }
-type Marked = { id: string; staffId: string; staffName: string; day: number; period: number; subject: string; holderLabel: string; dateFrom: string; dateTo: string; orderNumber: string }
+type Marked = { id: string; staffId: string; staffName: string; day: number; period: number; subject: string; holderLabel: string; dateFrom: string; dateTo: string; orderNumber: string; term: number }
 type SchedSlot = { day: number; period: number; subjectId: string | null; subject: string; holderType: string; holderLabel: string }
 
 const DAYS = [{ n: 1, l: 'Пон' }, { n: 2, l: 'Вт' }, { n: 3, l: 'Ср' }, { n: 4, l: 'Чет' }, { n: 5, l: 'Пет' }]
 const PERIODS = [1, 2, 3, 4, 5, 6, 7]
 function fmt(d: string) { return d ? d.split('-').reverse().join('.') : '' }
 // начало на лекторските часове: 15.09 на текущата учебна година
-const yearStart = () => { const d = new Date(); const y = d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1; return `${y}-09-15` }
+const startYear = () => { const d = new Date(); return d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1 }
+const yearStart = () => `${startYear()}-09-15`
+// граници на сроковете (МОН): I срок до 30.01, II срок от 03.02
+const TERM_START: Record<number, () => string> = { 1: yearStart, 2: () => `${startYear() + 1}-02-03` }
+const TERM1_END = () => `${startYear() + 1}-01-30`
 function weeksBetween(from: string, to: string): number {
   if (!from || !to) return 0
   const a = new Date(from + 'T00:00'), b = new Date(to + 'T00:00')
@@ -41,14 +45,28 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
   const [from, setFrom] = useState(yearStart())
   const [to, setTo] = useState('')
   const [saving, setSaving] = useState(false)
+  const [term, setTerm] = useState(1)
 
   const teacherName = teachers.find(t => t.id === teacherId)?.name || ''
   const filtered = teachers.filter(t => t.name.toLowerCase().includes(tSearch.toLowerCase())).slice(0, 40)
 
-  async function selectTeacher(id: string) {
-    setTeacherId(id); setTOpen(false); setTSearch(''); setFrom(yearStart()); setTo('')
+  async function loadSchedule(id: string, t: number) {
     setLoadingSched(true); setSchedule([]); setPicked(new Set())
-    const res: any = await getTeacherSchedule(id)
+    setFrom(TERM_START[t]()); setTo('')
+    const res: any = await getTeacherSchedule(id, t)
+    setSchedule(res.slots || [])
+    setLoadingSched(false)
+  }
+  function switchTerm(t: number) {
+    if (t === term) return
+    setTerm(t)
+    if (teacherId) loadSchedule(teacherId, t)
+  }
+
+  async function selectTeacher(id: string) {
+    setTeacherId(id); setTOpen(false); setTSearch(''); setFrom(TERM_START[term]()); setTo('')
+    setLoadingSched(true); setSchedule([]); setPicked(new Set())
+    const res: any = await getTeacherSchedule(id, term)
     setSchedule(res.slots || [])
     // НЕ зареждаме записаните в picked — те се показват отделно с периодите си; picked е за нова група
     setLoadingSched(false)
@@ -56,7 +74,7 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
 
   const slotAt = (day: number, period: number) => schedule.find(s => s.day === day && s.period === period)
   // вече записан лекторски слот (с период) за текущия учител
-  const savedAt = (day: number, period: number) => marked.find(m => m.staffId === teacherId && m.day === day && m.period === period)
+  const savedAt = (day: number, period: number) => marked.find(m => m.staffId === teacherId && m.day === day && m.period === period && m.term === term)
   function togglePick(day: number, period: number) {
     const key = `${day}-${period}`
     if (!slotAt(day, period)) return // само реални часове
@@ -76,14 +94,14 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
       const sl = slotAt(day, period)!
       return { day, period, subjectId: sl.subjectId, holderType: sl.holderType, holderLabel: sl.holderLabel }
     })
-    const res: any = await saveLecturerSlots(teacherId, from, to, slots)
+    const res: any = await saveLecturerSlots(teacherId, from, to, slots, term)
     if (res.error) { toast(res.error, 'error'); setSaving(false); return }
     // добавяме новите към marked (махаме само същите day/period, ако се презаписват)
     const keys = new Set(slots.map(s => `${s.day}-${s.period}`))
-    const kept = marked.filter(m => !(m.staffId === teacherId && keys.has(`${m.day}-${m.period}`)))
+    const kept = marked.filter(m => !(m.staffId === teacherId && m.term === term && keys.has(`${m.day}-${m.period}`)))
     const mine: Marked[] = slots.map((s, i) => ({
       id: `tmp-${Date.now()}-${i}`, staffId: teacherId, staffName: teacherName, day: s.day, period: s.period,
-      subject: slotAt(s.day, s.period)?.subject || '', holderLabel: s.holderLabel, dateFrom: from, dateTo: to, orderNumber: '',
+      subject: slotAt(s.day, s.period)?.subject || '', holderLabel: s.holderLabel, dateFrom: from, dateTo: to, orderNumber: '', term,
     }))
     setMarked([...mine, ...kept])
     setPicked(new Set())  // чистим за следваща група
@@ -150,17 +168,19 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
   ]
   const myGroups = useMemo(() => {
     const g: { key: string; from: string; to: string; count: number }[] = []
-    marked.filter(m => m.staffId === teacherId).forEach(m => {
+    marked.filter(m => m.staffId === teacherId && m.term === term).forEach(m => {
       const key = `${m.dateFrom}|${m.dateTo}`
       const ex = g.find(x => x.key === key)
       if (ex) ex.count++; else g.push({ key, from: m.dateFrom, to: m.dateTo, count: 1 })
     })
     return g.sort((x, y) => x.to.localeCompare(y.to))
-  }, [marked, teacherId])
+  }, [marked, teacherId, term])
+  // часове от I срок с период след края на срока — те вече покриват и II срок (риск от двойно броене)
+  const spillover = useMemo(() => marked.filter(m => m.staffId === teacherId && m.term === 1 && m.dateTo > TERM1_END()).length, [marked, teacherId])
   const colorOf = (from: string, to: string) => PERIOD_COLORS[Math.max(0, myGroups.findIndex(g => g.key === `${from}|${to}`)) % PERIOD_COLORS.length]
   const selectedInfo = byTeacher.find(t => t.id === teacherId)
 
-  function closeTeacher() { setTeacherId(''); setSchedule([]); setPicked(new Set()); setFrom(yearStart()); setTo('') }
+  function closeTeacher() { setTeacherId(''); setSchedule([]); setPicked(new Set()); setFrom(TERM_START[term]()); setTo('') }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
@@ -234,6 +254,15 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
                 <div className="text-lg font-semibold text-slate-800 truncate">{teacherName}</div>
                 {selectedInfo && <div className="text-xs text-slate-500">{selectedInfo.count} ч./седм. · общо {selectedInfo.total} ч.</div>}
               </div>
+              {/* срок — по чие разписание маркираме */}
+              <div className="inline-flex p-0.5 rounded-xl bg-slate-100 border border-slate-200 shrink-0 ml-auto">
+                {[1, 2].map(t => (
+                  <button key={t} type="button" onClick={() => switchTerm(t)}
+                    className={`px-3 py-1.5 rounded-lg text-xs transition-all ${term === t ? 'bg-white shadow text-[#0f2240] font-medium' : 'text-slate-500 hover:text-slate-700'}`}>
+                    {t === 1 ? 'I срок' : 'II срок'}
+                  </button>
+                ))}
+              </div>
               <button type="button" onClick={closeTeacher}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 shrink-0">
                 <Check size={14} /> Готово
@@ -243,9 +272,15 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
             {loadingSched ? (
               <div className="py-12 text-center text-slate-400"><Loader2 size={20} className="animate-spin inline" /></div>
             ) : schedule.length === 0 ? (
-              <div className="py-10 text-center text-sm text-slate-400">Този учител няма въведено разписание.</div>
+              <div className="py-10 text-center text-sm text-slate-400">Този учител няма въведено разписание за {term === 1 ? 'I' : 'II'} срок.</div>
             ) : (
               <div className="p-4 space-y-3">
+                {term === 2 && spillover > 0 && (
+                  <div className="text-[12px] px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-800">
+                    {spillover} ч./седм., маркирани в I срок, са с период след {fmt(TERM1_END())} — те вече се броят и през II срок.
+                    Ако маркираш тук часове по новото разписание, съкрати онези до {fmt(TERM1_END())}, за да не се броят два пъти.
+                  </div>
+                )}
                 {/* легенда на записаните периоди */}
                 <div className="flex flex-wrap items-center gap-2 text-[11px]">
                   {myGroups.map(g => (
@@ -281,8 +316,8 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
                                       <div className="text-[11px] truncate">{sl.subject}</div>
                                       <div className="text-[9px] opacity-80">{fmt(saved.dateFrom)}–{fmt(saved.dateTo)}</div>
                                       <button onClick={async () => {
-                                        await removeLecturerSlot(teacherId, d.n, period)
-                                        setMarked(prev => prev.filter(m => !(m.staffId === teacherId && m.day === d.n && m.period === period)))
+                                        await removeLecturerSlot(teacherId, d.n, period, term)
+                                        setMarked(prev => prev.filter(m => !(m.staffId === teacherId && m.day === d.n && m.period === period && m.term === term)))
                                       }} className="absolute top-0.5 right-0.5 opacity-50 hover:opacity-100 hover:text-rose-600" title="Премахни"><X size={11} /></button>
                                     </div>
                                   ) : (
@@ -314,9 +349,12 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
                     <div className="flex items-center gap-1.5">
                       <input type="date" value={to} min={from || undefined} onChange={e => setTo(e.target.value)}
                         className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400" />
-                      <button type="button" onClick={() => setTo('2027-05-31')} className="px-2 py-1.5 rounded-lg text-[11px] bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">31.05</button>
-                      <button type="button" onClick={() => setTo('2027-06-15')} className="px-2 py-1.5 rounded-lg text-[11px] bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">15.06</button>
-                      <button type="button" onClick={() => setTo('2027-06-30')} className="px-2 py-1.5 rounded-lg text-[11px] bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">30.06</button>
+                      {(term === 1
+                        ? [[TERM1_END(), fmt(TERM1_END()).slice(0, 5)], [`${startYear() + 1}-06-30`, 'цяла год. 30.06']]
+                        : [[`${startYear() + 1}-05-31`, '31.05'], [`${startYear() + 1}-06-15`, '15.06'], [`${startYear() + 1}-06-30`, '30.06']]
+                      ).map(([v, l]) => (
+                        <button key={v} type="button" onClick={() => setTo(v)} className="px-2 py-1.5 rounded-lg text-[11px] bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">{l}</button>
+                      ))}
                     </div>
                   </div>
                   <button onClick={save} disabled={saving || pickedCount === 0 || !from || !to}

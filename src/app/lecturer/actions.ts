@@ -2,8 +2,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-// Разписанието на избран учител (за да маркираме слотове) — I срок
-export async function getTeacherSchedule(staffId: string) {
+// Разписанието на избран учител (за да маркираме слотове) — за избрания срок
+export async function getTeacherSchedule(staffId: string, term: number = 1) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { slots: [] }
@@ -11,7 +11,7 @@ export async function getTeacherSchedule(staffId: string) {
 
   const { data: scheds } = await supabase
     .from('class_schedules').select('id, class:classes(name)')
-    .eq('academic_year_id', cy?.id).eq('term', 1)
+    .eq('academic_year_id', cy?.id).eq('term', term)
   const schedName: Record<string, string> = {}
   ;(scheds || []).forEach((s: any) => { schedName[s.id] = s.class?.name || '' })
   const schedIds = (scheds || []).map((s: any) => s.id)
@@ -28,7 +28,7 @@ export async function getTeacherSchedule(staffId: string) {
   }
   const { data: ifo } = await supabase
     .from('teacher_ifo_slots').select('day, period, subject_id, subject:subjects(name), student:students(first_name, last_name)')
-    .eq('teacher_id', staffId).eq('academic_year_id', cy?.id).eq('term', 1)
+    .eq('teacher_id', staffId).eq('academic_year_id', cy?.id).eq('term', term)
   ;(ifo || []).forEach((sl: any) => out.push({
     day: sl.day, period: sl.period, subjectId: sl.subject_id, subject: sl.subject?.name || '',
     holderType: 'ifo', holderLabel: sl.student ? `ИФО ${sl.student.first_name} ${sl.student.last_name}` : 'ИФО',
@@ -40,7 +40,8 @@ export async function getTeacherSchedule(staffId: string) {
 // Заменя предишните за същия учител/година (пренареждане).
 export async function saveLecturerSlots(
   staffId: string, dateFrom: string, dateTo: string,
-  slots: { day: number; period: number; subjectId: string | null; holderType: string; holderLabel: string }[]
+  slots: { day: number; period: number; subjectId: string | null; holderType: string; holderLabel: string }[],
+  term: number = 1
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -54,12 +55,12 @@ export async function saveLecturerSlots(
   if (slots.length > 0) {
     for (const s of slots) {
       await supabase.from('lecturer_slots').delete()
-        .eq('staff_id', staffId).eq('academic_year_id', cy?.id).eq('day', s.day).eq('period', s.period)
+        .eq('staff_id', staffId).eq('academic_year_id', cy?.id).eq('day', s.day).eq('period', s.period).eq('term', term)
     }
     const ins = slots.map(s => ({
       staff_id: staffId, day: s.day, period: s.period, subject_id: s.subjectId,
       holder_type: s.holderType, holder_label: s.holderLabel,
-      date_from: dateFrom, date_to: dateTo,
+      date_from: dateFrom, date_to: dateTo, term,
       academic_year_id: cy?.id, created_by: me?.id,
     }))
     const { error } = await supabase.from('lecturer_slots').insert(ins)
@@ -89,13 +90,13 @@ export async function schoolWeeks(from: string, to: string): Promise<number> {
 }
 
 // Премахва един лекторски слот (day/period) на учител
-export async function removeLecturerSlot(staffId: string, day: number, period: number) {
+export async function removeLecturerSlot(staffId: string, day: number, period: number, term: number = 1) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли' }
   const { data: cy } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
   await supabase.from('lecturer_slots').delete()
-    .eq('staff_id', staffId).eq('academic_year_id', cy?.id).eq('day', day).eq('period', period)
+    .eq('staff_id', staffId).eq('academic_year_id', cy?.id).eq('day', day).eq('period', period).eq('term', term)
   revalidatePath('/lecturer')
   return { success: true }
 }
