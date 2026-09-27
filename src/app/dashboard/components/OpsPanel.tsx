@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { iupPeriod } from '@/lib/iup-period'
 import { createClient } from '@/lib/supabase/server'
-import { UserX, ClipboardList, HeartPulse, ArrowRight } from 'lucide-react'
+import { UserX, ClipboardList, HeartPulse, ArrowRight, CalendarClock } from 'lucide-react'
 import { getFullName, getMonthName } from '@/lib/utils'
 import NoDocsCount from './NoDocsCount'
 
@@ -74,8 +74,46 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
   const head = 'flex items-center gap-2 mb-3'
   const more = 'mt-auto pt-3 text-[11px] text-slate-400 hover:text-[#0f2240] inline-flex items-center gap-1'
 
+  // РАЗПИСАНИЯ — кой още не е въвел своето за текущия срок
+  const { data: calDay } = await supabase.from('academic_calendar_days').select('term').eq('date', new Date().toISOString().slice(0, 10)).maybeSingle()
+  const mo = new Date().getMonth() + 1
+  const term = calDay?.term ?? (mo >= 2 && mo <= 8 ? 2 : 1)
+  const [{ data: staffAll }, { data: scheds }, { data: ifoT }, { data: therT }] = await Promise.all([
+    supabase.from('staff_profiles').select('id, first_name, last_name, role, is_active')
+      .in('role', ['class_teacher', 'teacher', 'psychologist', 'speech_therapist', 'rehabilitator']),
+    supabase.from('class_schedules').select('id').eq('academic_year_id', currentYearId).eq('term', term),
+    supabase.from('teacher_ifo_slots').select('teacher_id').eq('academic_year_id', currentYearId).eq('term', term),
+    supabase.from('therapist_slots').select('schedule:therapist_schedules!inner(staff_id, term, academic_year_id)')
+      .eq('schedule.term', term).eq('schedule.academic_year_id', currentYearId),
+  ])
+  const schedIds = (scheds || []).map((x: any) => x.id)
+  const { data: classT } = schedIds.length
+    ? await supabase.from('schedule_slots').select('staff_id').in('schedule_id', schedIds)
+    : { data: [] as any[] }
+  const hasTeach = new Set([...(classT || []).map((x: any) => x.staff_id), ...(ifoT || []).map((x: any) => x.teacher_id)])
+  const hasTher = new Set((therT || []).map((x: any) => x.schedule?.staff_id))
+  const active = (staffAll || []).filter((p: any) => p.is_active !== false)
+  const noTeach = active.filter((p: any) => ['class_teacher', 'teacher'].includes(p.role) && !hasTeach.has(p.id))
+    .map((p: any) => `${p.first_name} ${p.last_name}`).sort((a: string, b: string) => a.localeCompare(b, 'bg'))
+  const noTher = active.filter((p: any) => ['psychologist', 'speech_therapist', 'rehabilitator'].includes(p.role) && !hasTher.has(p.id))
+    .map((p: any) => `${p.first_name} ${p.last_name}`).sort((a: string, b: string) => a.localeCompare(b, 'bg'))
+  const missingRow = (label: string, names: string[], href: string) => names.length === 0 ? (
+    <Link href={href} className="flex items-center justify-between gap-2 text-sm text-slate-700 hover:text-[#0f2240]">
+      <span>{label}</span><span className="px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-700">✓</span>
+    </Link>
+  ) : (
+    <details className="group">
+      <summary className="flex items-center justify-between gap-2 text-sm text-slate-700 cursor-pointer list-none">
+        <span>{label}</span><span className="px-2 py-0.5 rounded-full text-xs bg-amber-50 text-amber-700">{names.length}</span>
+      </summary>
+      <div className="mt-2 flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1">
+        {names.map(n => <span key={n} className="px-2 py-0.5 rounded-md bg-slate-50 border border-slate-100 text-[11px] text-slate-600">{n}</span>)}
+      </div>
+    </details>
+  )
+
   return (
-    <div className="grid gap-4 md:grid-cols-3 items-start mb-6">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 items-start mb-6">
       {/* ДНЕС */}
       <div className={card}>
         <div className={head}>
@@ -147,6 +185,19 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
           </Link>
           <NoDocsCount students={kids} />
         </div>
+      </div>
+      {/* РАЗПИСАНИЯ */}
+      <div className={card}>
+        <div className={head}>
+          <CalendarClock size={16} className="text-sky-500" />
+          <h2 className="text-sm font-medium text-slate-800">Разписания</h2>
+          <span className="ml-auto text-xs text-slate-400">{term === 2 ? 'II' : 'I'} срок</span>
+        </div>
+        <div className="space-y-2.5">
+          {missingRow('Учители без разписание', noTeach, '/schedules')}
+          {missingRow('Специалисти без график', noTher, '/admin/therapists')}
+        </div>
+        <Link href="/schedules" className={more}>Разписания <ArrowRight size={11} /></Link>
       </div>
     </div>
   )
