@@ -33,6 +33,8 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
     const v = !details; setDetails(v)
     try { localStorage.setItem('eis_tiles_details', v ? '1' : '0') } catch { /* няма достъп */ }
   }
+  const [q, setQ] = useState('')
+  const [onlyNoDocs, setOnlyNoDocs] = useState(false)
   const shortName = (full: string) => { const p = full.trim().split(/\s+/); return p.length > 2 ? `${p[0]} ${p[p.length - 1]}` : full }
   // брой документи на всяко дете (от Drive) — зарежда се след показването
   const [counts, setCounts] = useState<Record<string, number> | null>(null)
@@ -93,23 +95,50 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
             <Link href="/my-activities" className="text-teal-600 hover:underline text-xs">Добави от „Моите дейности" →</Link>
           </div>
         ) : !details ? (
-          /* ПЛОЧКИ — име и фамилия на един ред, с инициали */
-          <div className="grid gap-2.5 p-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {therapyRows.map(r => {
-              const nm = shortName(r.name)
-              const ini = nm.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+          /* ЛЕНТИ ПО ПАРАЛЕЛКИ — всяка паралелка е ред, децата са „хапчета“ с цялото име */
+          <div className="p-4">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <input value={q} onChange={e => setQ(e.target.value)} placeholder="Търси дете…"
+                className="w-full sm:w-56 px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200" />
+              {counts && therapyRows.some(r => !counts[r.id]) && (
+                <button onClick={() => setOnlyNoDocs(v => !v)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border transition ${onlyNoDocs ? 'bg-amber-400 text-white border-amber-400' : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50'}`}>
+                  <span className={`w-2 h-2 rounded-full ${onlyNoDocs ? 'bg-white' : 'bg-amber-400'}`} />
+                  без документи · {therapyRows.filter(r => !counts[r.id]).length}
+                </button>
+              )}
+            </div>
+            {(() => {
+              const needle = q.trim().toLowerCase()
+              const shown = therapyRows.filter(r =>
+                (!needle || r.name.toLowerCase().includes(needle)) && (!onlyNoDocs || (counts && !counts[r.id])))
+              const romanVal = (x: string) => { const v: Record<string, number> = { I: 1, V: 5, X: 10, L: 50 }; let n = 0; for (let i = 0; i < x.length; i++) { const c = v[x[i]] || 0, d = v[x[i + 1]] || 0; n += c < d ? -c : c } return n || 999 }
+              const groups = new Map<string, TherapyRow[]>()
+              shown.forEach(r => { const k = r.className || '—'; groups.set(k, [...(groups.get(k) || []), r]) })
+              const keys = [...groups.keys()].sort((x, y) => romanVal(x) - romanVal(y))
+              if (!keys.length) return <div className="py-6 text-center text-sm text-slate-400">Няма такова дете</div>
               return (
-                <Link key={r.id} href={`/students/${r.id}`} title={r.name}
-                  className="group flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-200/80 bg-white shadow-sm hover:border-teal-300 hover:shadow-md hover:-translate-y-0.5 transition">
-                  <span className="relative shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-teal-50 to-sky-100 text-teal-700 text-xs font-semibold flex items-center justify-center group-hover:from-teal-100 group-hover:to-sky-200 transition">
-                    {ini}
-                    {counts && !counts[r.id] && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-white" title="Няма документи" />}
-                  </span>
-                  <span className="min-w-0 truncate whitespace-nowrap text-sm font-medium text-slate-700 group-hover:text-[#0f2240]">{nm}</span>
-                  {r.className && <span className="ml-auto shrink-0 text-[11px] font-medium text-slate-400 bg-slate-50 border border-slate-100 rounded-md px-1.5 py-px" title={`Паралелка ${r.className}`}>{r.className}</span>}
-                </Link>
+                <div className="divide-y divide-slate-100">
+                  {keys.map(k => (
+                    <div key={k} className="flex items-start gap-3 py-2">
+                      <div className="w-12 shrink-0 pt-1 text-right">
+                        <span className="text-xs font-semibold text-teal-700" title={k === '—' ? 'Без паралелка' : `Паралелка ${k}`}>{k}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 min-w-0">
+                        {groups.get(k)!.map(r => (
+                          <Link key={r.id} href={`/students/${r.id}`} title={r.name}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-slate-200 bg-white text-sm text-slate-700 whitespace-nowrap hover:border-teal-400 hover:bg-teal-50 hover:text-[#0f2240] transition">
+                            {counts && !counts[r.id] && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Няма документи" />}
+                            {shortName(r.name)}
+                            {r.outreach && <OutreachBadge location={r.outreach} size="xs" />}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )
-            })}
+            })()}
           </div>
         ) : (
           <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
