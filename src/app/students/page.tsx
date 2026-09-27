@@ -93,7 +93,7 @@ export default async function StudentsPage({
     .from('coud_enrollments').select('student_id').eq('academic_year_id', currentYear?.id)
   const coudEnrolledIds = new Set((coudEnrRows || []).map((c: any) => c.student_id))
 
-  type Row = { key: string; student: any; className: string | null; unassigned: boolean; educationForm: string | null; coudEnrolled: boolean }
+  type Row = { key: string; student: any; className: string | null; outreach?: string | null; unassigned: boolean; educationForm: string | null; coudEnrolled: boolean }
   let unassignedRows: Row[] = []
   if (canSeeUnassigned) {
     // ВСИЧКИ записани за годината (без филтъра по паралелка) — иначе филтърът лъже кой е "неразпределен"
@@ -126,6 +126,7 @@ export default async function StudentsPage({
       key: e.id,
       student: e.student,
       className: (e.class as any)?.name || null,
+      outreach: (e.class as any)?.outreach_location || null,
       unassigned: false,
       educationForm: e.education_form || 'daily',
       coudEnrolled: coudEnrolledIds.has(e.student?.id),

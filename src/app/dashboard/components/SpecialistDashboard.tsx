@@ -54,12 +54,16 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
   const activeIds = (allActive || []).map((s: any) => s.id)
   const { data: enrollments } = activeIds.length > 0
     ? await supabase.from('student_enrollments')
-        .select('student_id, class:classes(name)')
+        .select('student_id, class:classes(name, outreach_location)')
         .eq('academic_year_id', currentYearId)
         .in('student_id', activeIds)
     : { data: [] }
   const classByStudent: Record<string, string> = {}
-  ;(enrollments || []).forEach((e: any) => { classByStudent[e.student_id] = roman(e.class?.name || '') })
+  const outreachByStudent: Record<string, string> = {}
+  ;(enrollments || []).forEach((e: any) => {
+    classByStudent[e.student_id] = roman(e.class?.name || '')
+    if (e.class?.outreach_location) outreachByStudent[e.student_id] = e.class.outreach_location
+  })
   // ── ТАБ 2: моят ЕПЛР състав ──
   const { data: eplrTeams } = eplrField
     ? await supabase.from('eplr_teams')
@@ -88,6 +92,7 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
       id: s.id,
       name: getFullName(s),
       className: classByStudent[s.id] || '',
+      outreach: outreachByStudent[s.id] || '',
       intensity: s.intensity || '',
       sendingSchool: (s.sending_school as any)?.name || '',
       others,
@@ -101,6 +106,7 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
       id: e.student_id,
       name: st ? getFullName(st) : '—',
       className: classByStudent[e.student_id] || '',
+      outreach: outreachByStudent[e.student_id] || '',
       classTeacher: e.class_teacher ? `${e.class_teacher.first_name} ${e.class_teacher.last_name}` : '',
       docsCompleted: docCount[e.student_id] || 0,
       docsTotal: ALL_DOC_TYPES.length,

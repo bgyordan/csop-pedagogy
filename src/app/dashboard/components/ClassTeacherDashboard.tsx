@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { iupPeriod } from '@/lib/iup-period'
+import OutreachBadge from '@/components/OutreachBadge'
 import Link from 'next/link'
 import SchoolFilesCard from './SchoolFilesCard'
 import { Users, Calendar, Bell, CalendarClock, ClipboardList } from 'lucide-react'
@@ -232,6 +233,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
         <div className="flex items-center gap-2.5 mr-auto">
           <Users size={18} className="text-sky-500" />
           <span className="text-base font-medium text-[#0f2240]">{myClasses.map((c: any) => paralelkaTitle(c.name)).join(', ')}</span>
+          {myClasses.map((c: any) => c.outreach_location && <OutreachBadge key={c.id} location={c.outreach_location} />)}
           <span className="text-sm text-slate-400 font-light">· {activeEnrollments.length} деца</span>
         </div>
         <Link href={`/classes/${myClasses[0].id}/schedule-view`}
