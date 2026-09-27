@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import StaffSearch from './StaffSearch'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ROLE_LABELS, StaffProfile } from '@/types'
@@ -76,16 +77,7 @@ export default async function StaffPage({
         <p className="text-slate-500 text-sm mt-1">{total} активни служители</p>
       </div>
 
-      <form className="mb-4">
-        <input
-          name="q"
-          defaultValue={q}
-          placeholder="Търси по име или имейл..."
-          className="input w-full md:max-w-sm"
-        />
-        <input type="hidden" name="sort" value={sort} />
-        <input type="hidden" name="dir" value={dir} />
-      </form>
+      <StaffSearch q={q} sort={sort} dir={dir} />
 
       {/* ДЕСКТОП */}
       <div className="hidden md:block bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
