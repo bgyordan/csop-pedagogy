@@ -185,7 +185,7 @@ export async function docCountsForStudents(studentIds: string[]): Promise<Record
   if (!me) return {}
   const { data: year } = await supabase.from('academic_years').select('name').eq('is_current', true).single()
   try {
-    return await countStudentFiles(studentIds.slice(0, 300), year?.name || '')
+    return await countStudentFiles(studentIds.slice(0, 600), year?.name || '')
   } catch {
     return {}
   }
