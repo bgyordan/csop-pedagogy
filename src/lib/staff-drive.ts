@@ -3,11 +3,10 @@
 
 import { createClient } from '@/lib/supabase/server'
 import {
-  ensureStaffFolder, findStaffFolder, folderUrl, listFolder, uploadFile, createGoogleDoc, shareWriter, accountEmails,
-  getFileMeta, downloadFile, renameFile, trashFile, setFileShared, listSharedStaffFiles, type DriveItem, type SharedItem,
+  ensureStaffFolder, findStaffFolder, folderUrl, uploadFile, createGoogleDoc, shareWriter, accountEmails,
+  downloadFile, renameFile, trashFile, setFileShared, listSharedStaffFiles, createSubfolder, moveFile, type DriveItem, type SharedItem,
 } from '@/lib/google-drive'
-
-const FOLDER = 'application/vnd.google-apps.folder'
+import { listTree, inTree, isSubfolder, type FolderGroup } from '@/lib/drive-tree'
 
 type StaffCtx = { staffId: string; name: string; email: string; accounts: string[] }
 
@@ -32,31 +31,34 @@ async function folderFor(ctx: StaffCtx) {
   return id
 }
 
+// Файлът/подпапката е в моята папка (или в нейна подпапка)
 async function ownFile(ctx: StaffCtx, fileId: string) {
   const folderId = await findStaffFolder(ctx.staffId)
   if (!folderId) return false
-  const meta = await getFileMeta(fileId)
-  return !!meta.parents?.includes(folderId)
+  return inTree(folderId, fileId)
 }
 
-export async function listMyDocs(): Promise<{ files?: DriveItem[]; folderUrl?: string; canEdit?: boolean; myEmail?: string; error?: string }> {
+export async function listMyDocs(): Promise<{ files?: DriveItem[]; folders?: FolderGroup[]; folderUrl?: string; canEdit?: boolean; myEmail?: string; error?: string }> {
   const ctx = await me()
   if ('error' in ctx) return { error: ctx.error }
   try {
     const folderId = await findStaffFolder(ctx.staffId)
-    if (!folderId) return { files: [], canEdit: true, myEmail: ctx.email }
-    const files = (await listFolder(folderId)).filter(f => f.mimeType !== FOLDER)
-    return { files, folderUrl: folderUrl(folderId), canEdit: true, myEmail: ctx.email }
+    if (!folderId) return { files: [], folders: [], canEdit: true, myEmail: ctx.email }
+    const { files, folders } = await listTree(folderId)
+    return { files, folders, folderUrl: folderUrl(folderId), canEdit: true, myEmail: ctx.email }
   } catch (e: any) {
     return { error: e?.message || 'Грешка при връзката с Drive' }
   }
 }
 
-export async function uploadMyDoc(name: string, mime: string, data: Buffer) {
+// folderId = подпапка (по избор); без него — в корена на „Моите документи“
+export async function uploadMyDoc(name: string, mime: string, data: Buffer, folderId?: string) {
   const ctx = await me()
   if ('error' in ctx) return { error: ctx.error }
   try {
-    const doc = await uploadFile(name, await folderFor(ctx), data, mime, { uploadedBy: ctx.name })
+    const root = await folderFor(ctx)
+    const target = folderId && folderId !== root && (await isSubfolder(root, folderId)) ? folderId : root
+    const doc = await uploadFile(name, target, data, mime, { uploadedBy: ctx.name })
     return { url: doc.url }
   } catch (e: any) {
     return { error: e?.message || 'Грешка при качването' }
@@ -99,6 +101,38 @@ export async function trashMyDocs(fileIds: string[]) {
     return { ok: true }
   } catch (e: any) {
     return { error: e?.message || 'Грешка при изтриването' }
+  }
+}
+
+// Нова подпапка (едно ниво). Ако вече има такава — връща нея.
+export async function createMyFolder(name: string) {
+  const ctx = await me()
+  if ('error' in ctx) return { error: ctx.error }
+  const n = name.trim()
+  if (!n) return { error: 'Въведете име на папката.' }
+  try {
+    const root = await folderFor(ctx)
+    const existing = (await listTree(root)).folders.find(f => f.name === n)
+    if (existing) return { id: existing.id }
+    return { id: await createSubfolder(n, root) }
+  } catch (e: any) {
+    return { error: e?.message || 'Грешка при създаването на папката' }
+  }
+}
+
+// Мести файл в подпапка (или обратно в корена, ако toFolderId е празно)
+export async function moveMyDoc(fileId: string, toFolderId?: string) {
+  const ctx = await me()
+  if ('error' in ctx) return { error: ctx.error }
+  try {
+    const root = await folderFor(ctx)
+    const target = toFolderId || root
+    if (!(await ownFile(ctx, fileId))) return { error: 'Файлът не е ваш' }
+    if (!(await isSubfolder(root, target))) return { error: 'Няма такава папка' }
+    await moveFile(fileId, target)
+    return { ok: true }
+  } catch (e: any) {
+    return { error: e?.message || 'Грешка при преместването' }
   }
 }
 

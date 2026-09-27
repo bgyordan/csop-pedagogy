@@ -1,8 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { HeartPulse, Users, FileText } from 'lucide-react'
 import StudentWorkDocs from '@/app/students/[id]/StudentWorkDocs'
+import { studentDocCounts } from './class-drive-actions'
 interface TherapyRow {
   id: string
   name: string
@@ -22,6 +23,13 @@ interface EplrRow {
 }
 export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows: TherapyRow[]; eplrRows: EplrRow[] }) {
   const [tab, setTab] = useState<'therapy' | 'eplr' | 'mine'>('therapy')
+  // брой документи на всяко дете (от Drive) — зарежда се след показването
+  const [counts, setCounts] = useState<Record<string, number> | null>(null)
+  useEffect(() => {
+    if (!therapyRows.length) return
+    studentDocCounts(therapyRows.map(r => r.id)).then(setCounts).catch(() => setCounts({}))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   return (
     <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
       {/* Табове */}
@@ -60,36 +68,48 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
           <StudentWorkDocs staff />
         </div>
       )}
-      {/* ТАБ 1: За терапия — интензитет · паралелка · училище */}
+      {/* ТАБ 1: Децата за терапия като карти — кликът отваря досието в „Документи“ */}
       {tab === 'therapy' && (
-        <div className="divide-y divide-slate-50">
-          {therapyRows.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 text-sm">
-              Още нямате зачислени деца за терапия.<br />
-              <Link href="/my-activities" className="text-teal-600 hover:underline text-xs">Добави от „Моите дейности" →</Link>
-            </div>
-          ) : (
-            therapyRows.map((r, idx) => (
-              <div key={r.id} className={`px-4 py-2 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'} hover:bg-blue-50/40`}>
-                <div className="flex items-center justify-between gap-3">
-                  <Link href={`/students/${r.id}`} className="text-sm font-medium text-slate-800 hover:text-teal-700 hover:underline">
-                    {r.name}
-                  </Link>
-                  {r.intensity && (
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 flex-shrink-0">
-                      {r.intensity}{/^\d+$/.test(r.intensity) ? ' ч.' : ''}
-                    </span>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
-                  {r.className && <span className="text-[11px] text-slate-500">Паралелка {r.className}</span>}
-                  {r.sendingSchool && <span className="text-[11px] text-slate-400">· {r.sendingSchool}</span>}
-                  {r.others.length > 0 && <span className="text-[11px] text-slate-400">· също: {r.others.join(' · ')}</span>}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        therapyRows.length === 0 ? (
+          <div className="p-8 text-center text-slate-400 text-sm">
+            Още нямате зачислени деца за терапия.<br />
+            <Link href="/my-activities" className="text-teal-600 hover:underline text-xs">Добави от „Моите дейности" →</Link>
+          </div>
+        ) : (
+          <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+            {therapyRows.map(r => {
+              const n = counts?.[r.id]
+              return (
+                <Link key={r.id} href={`/students/${r.id}`}
+                  className="group flex flex-col gap-2 p-4 rounded-xl border border-slate-200/80 bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-teal-200 transition">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm font-medium text-slate-800 group-hover:text-[#0f2240] leading-snug">{r.name}</span>
+                    {counts === null ? (
+                      <span className="shrink-0 w-10 h-5 rounded-full bg-slate-100 animate-pulse" />
+                    ) : n ? (
+                      <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 text-[11px]" title="Документи в Drive">
+                        <FileText size={11} /> {n}
+                      </span>
+                    ) : (
+                      <span className="shrink-0 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[11px]">няма док.</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-500 font-light truncate" title={r.sendingSchool}>
+                    {[r.className && `паралелка ${r.className}`, r.sendingSchool].filter(Boolean).join(' · ')}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-auto text-[11px] text-slate-500">
+                    {r.intensity && (
+                      <span className="px-2 py-0.5 rounded-full bg-teal-50 text-teal-700">
+                        {r.intensity}{/^\d+$/.test(r.intensity) ? ' ч./седм.' : ''}
+                      </span>
+                    )}
+                    {r.others.length > 0 && <span className="text-slate-400 truncate" title={r.others.join(' · ')}>също: {r.others.join(' · ')}</span>}
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        )
       )}
       {/* ТАБ 2: ЕПЛР състав — паралелка · класен */}
       {tab === 'eplr' && (

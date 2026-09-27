@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `„${file.name}" е над 10 MB` }, { status: 400 })
   }
   const data = Buffer.from(await file.arrayBuffer())
-  const r = await uploadForClass(classId, file.name, file.type, data)
+  const folderId = String(form?.get('folderId') || '') || undefined
+  const r = await uploadForClass(classId, file.name, file.type, data, folderId)
   return NextResponse.json(r, { status: r.error ? 400 : 200 })
 }

@@ -9,6 +9,7 @@ export async function POST(req: NextRequest) {
   const file = form?.get('file')
   if (!(file instanceof File)) return NextResponse.json({ error: 'Липсва файл' }, { status: 400 })
   if (file.size > MAX) return NextResponse.json({ error: `„${file.name}" е над 10 MB` }, { status: 400 })
-  const r = await uploadMyDoc(file.name, file.type, Buffer.from(await file.arrayBuffer()))
+  const folderId = String(form?.get('folderId') || '') || undefined
+  const r = await uploadMyDoc(file.name, file.type, Buffer.from(await file.arrayBuffer()), folderId)
   return NextResponse.json(r, { status: r.error ? 400 : 200 })
 }

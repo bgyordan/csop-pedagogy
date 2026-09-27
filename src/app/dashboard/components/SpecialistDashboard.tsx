@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Calendar, Bell, CalendarClock, ChevronRight, HeartPulse } from 'lucide-react'
-import { getFullName, formatDate, getDaysUntil } from '@/lib/utils'
+import { CalendarClock, HeartPulse } from 'lucide-react'
+import { getFullName } from '@/lib/utils'
 import { DocumentType } from '@/types'
 import SharedFiles from './SharedFiles'
 import SpecialistTabs from './SpecialistTabs'
@@ -20,6 +20,20 @@ const ROLE_EPLR_FIELD: Record<string, string> = {
   speech_therapist: 'speech_therapist_id',
   rehabilitator: 'rehabilitator_id',
 }
+// "01" → "I"; нечислови имена остават
+function roman(name: string) {
+  const m = (name || '').trim().match(/^0*(\d+)$/)
+  if (!m) return name || ''
+  let n = parseInt(m[1]), r = ''
+  for (const [v, t] of [[10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']] as [number, string][]) while (n >= v) { r += t; n -= v }
+  return r
+}
+const DAY_NAMES = ['Неделя', 'Понеделник', 'Вторник', 'Сряда', 'Четвъртък', 'Петък', 'Събота']
+const PERIOD_START: Record<number, string> = {
+  1: '8:30', 2: '9:15', 0: '9:50', 3: '10:20', 4: '11:05', 5: '11:50', 6: '12:35', 7: '13:15', 8: '13:50',
+}
+const PERIOD_ORDER = [1, 2, 0, 3, 4, 5, 6, 7, 8]
+
 export default async function SpecialistDashboard({ profile, currentYearId }: any) {
   const supabase = await createClient()
   const studentField = ROLE_STUDENT_FIELD[profile.role]
@@ -45,7 +59,7 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
         .in('student_id', activeIds)
     : { data: [] }
   const classByStudent: Record<string, string> = {}
-  ;(enrollments || []).forEach((e: any) => { classByStudent[e.student_id] = e.class?.name || '' })
+  ;(enrollments || []).forEach((e: any) => { classByStudent[e.student_id] = roman(e.class?.name || '') })
   // ── ТАБ 2: моят ЕПЛР състав ──
   const { data: eplrTeams } = eplrField
     ? await supabase.from('eplr_teams')
@@ -103,31 +117,63 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
       .gte('deadline_date', new Date().toISOString().split('T')[0])
       .order('deadline_date').limit(5),
   ])
+  // ── ДНЕС: часовете от седмичния ми график за днешния ден ──
+  const nowBg = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Sofia' }))
+  const todayIso = `${nowBg.getFullYear()}-${String(nowBg.getMonth() + 1).padStart(2, '0')}-${String(nowBg.getDate()).padStart(2, '0')}`
+  const dow = nowBg.getDay()
+  const { data: calDay } = await supabase.from('academic_calendar_days')
+    .select('term, is_school_day').eq('date', todayIso).maybeSingle()
+  const mo = nowBg.getMonth() + 1
+  const term = calDay?.term ?? (mo >= 2 && mo <= 8 ? 2 : 1)
+  const schoolDay = calDay ? !!calDay.is_school_day : dow >= 1 && dow <= 5
+  const { data: todaySlots } = schoolDay && dow >= 1 && dow <= 5
+    ? await supabase.from('therapist_slots')
+        .select('period, student_id, schedule:therapist_schedules!inner(staff_id, term, academic_year_id)')
+        .eq('day', dow)
+        .eq('schedule.staff_id', profile.id).eq('schedule.term', term).eq('schedule.academic_year_id', currentYearId)
+    : { data: [] as any[] }
+  const nameOf: Record<string, any> = {}
+  ;(allActive || []).forEach((st: any) => { nameOf[st.id] = st })
+  const byPeriod: Record<number, string[]> = {}
+  ;(todaySlots || []).forEach((sl: any) => {
+    const st = nameOf[sl.student_id]
+    if (!st) return
+    const cls = classByStudent[sl.student_id]
+    ;(byPeriod[sl.period] = byPeriod[sl.period] || []).push(`${st.first_name} ${st.last_name.charAt(0)}.${cls ? ` (${cls})` : ''}`)
+  })
+  const today = PERIOD_ORDER.filter(p => byPeriod[p]?.length).map(p => ({ time: PERIOD_START[p], kids: byPeriod[p] }))
+
   return (
     <div className="animate-in fade-in duration-300">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-        <Link href="/my-activities"
-          className="flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl border border-teal-200 bg-teal-50/50 hover:bg-teal-50 transition-colors group">
-          <div className="flex items-center gap-2.5">
-            <HeartPulse size={18} className="text-teal-600" />
-            <div>
-              <div className="text-sm font-semibold text-slate-800">Списък за терапия</div>
-              <div className="text-xs text-slate-500">Зачисли и управлявай децата</div>
-            </div>
-          </div>
-          <ChevronRight size={16} className="text-teal-400 group-hover:text-teal-600" />
-        </Link>
-        <Link href="/my-activities/schedule"
-          className="flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl border border-teal-200 bg-teal-50/50 hover:bg-teal-50 transition-colors group">
-          <div className="flex items-center gap-2.5">
-            <CalendarClock size={18} className="text-teal-600" />
-            <div>
-              <div className="text-sm font-semibold text-slate-800">Седмичен график</div>
-              <div className="text-xs text-slate-500">Създай и изтегли график</div>
-            </div>
-          </div>
-          <ChevronRight size={16} className="text-teal-400 group-hover:text-teal-600" />
-        </Link>
+      {/* Лента „Днес“: часовете ми за деня + бутоните към списъка и графика */}
+      <div className="flex flex-wrap items-center gap-3 mb-6 px-5 py-3.5 rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+        <div className="flex items-center gap-2 shrink-0">
+          <CalendarClock size={18} className="text-teal-600" />
+          <span className="text-base font-medium text-[#0f2240]">Днес</span>
+          <span className="text-sm text-slate-400 font-light">· {DAY_NAMES[dow]}</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+          {!schoolDay || dow === 0 || dow === 6 ? (
+            <span className="text-sm text-slate-400 font-light">неучебен ден</span>
+          ) : today.length === 0 ? (
+            <span className="text-sm text-slate-400 font-light">няма часове в графика за днес</span>
+          ) : today.map((t, i) => (
+            <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-50/60 border border-teal-100 text-xs text-slate-700">
+              <span className="font-medium text-teal-700">{t.time}</span>
+              {t.kids.join(', ')}
+            </span>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 ml-auto">
+          <Link href="/my-activities"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs text-slate-700 hover:bg-slate-50 hover:shadow-sm transition">
+            <HeartPulse size={14} className="text-teal-600" /> Списък за терапия
+          </Link>
+          <Link href="/my-activities/schedule"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs text-slate-700 hover:bg-slate-50 hover:shadow-sm transition">
+            <CalendarClock size={14} className="text-teal-600" /> Седмичен график
+          </Link>
+        </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">

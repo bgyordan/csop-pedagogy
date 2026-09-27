@@ -3,12 +3,12 @@
 
 import { createClient } from '@/lib/supabase/server'
 import {
-  ensureClassFolder, findClassFolder, folderUrl, listFolder, uploadFile, createGoogleDoc,
-  shareWriter, accountEmails, getFileMeta, downloadFile, renameFile, trashFile, countStudentFiles, type DriveItem,
+  ensureClassFolder, findClassFolder, folderUrl, uploadFile, createGoogleDoc, createSubfolder, moveFile,
+  shareWriter, accountEmails, downloadFile, renameFile, trashFile, countStudentFiles, type DriveItem,
 } from '@/lib/google-drive'
+import { listTree, inTree, isSubfolder, type FolderGroup } from '@/lib/drive-tree'
 
 const MANAGERS = ['admin', 'director', 'zdud']
-const FOLDER = 'application/vnd.google-apps.folder'
 
 type ClassCtx = {
   userEmail: string
@@ -55,29 +55,30 @@ async function folderFor(ctx: ClassCtx) {
 async function ownFile(ctx: ClassCtx, fileId: string) {
   const folderId = await findClassFolder(ctx.yearName, ctx.className)
   if (!folderId) return false
-  const meta = await getFileMeta(fileId)
-  return !!meta.parents?.includes(folderId)
+  return inTree(folderId, fileId)   // папките на децата са системни → не се пипат оттук
 }
 
-// Само файловете на паралелката — папките на децата не се показват тук
-export async function listForClass(classId: string): Promise<{ files?: DriveItem[]; folderUrl?: string; canEdit?: boolean; myEmail?: string; error?: string }> {
+// Само файловете на паралелката (+ нейните подпапки) — папките на децата не се показват тук
+export async function listForClass(classId: string): Promise<{ files?: DriveItem[]; folders?: FolderGroup[]; folderUrl?: string; canEdit?: boolean; myEmail?: string; error?: string }> {
   const ctx = await classContext(classId)
   if ('error' in ctx) return { error: ctx.error }
   try {
     const folderId = await findClassFolder(ctx.yearName, ctx.className)
-    if (!folderId) return { files: [], canEdit: true, myEmail: ctx.userEmail }
-    const files = (await listFolder(folderId)).filter(f => f.mimeType !== FOLDER)
-    return { files, folderUrl: folderUrl(folderId), canEdit: true, myEmail: ctx.userEmail }
+    if (!folderId) return { files: [], folders: [], canEdit: true, myEmail: ctx.userEmail }
+    const { files, folders } = await listTree(folderId)
+    return { files, folders, folderUrl: folderUrl(folderId), canEdit: true, myEmail: ctx.userEmail }
   } catch (e: any) {
     return { error: e?.message || 'Грешка при връзката с Drive' }
   }
 }
 
-export async function uploadForClass(classId: string, name: string, mime: string, data: Buffer) {
+export async function uploadForClass(classId: string, name: string, mime: string, data: Buffer, folderId?: string) {
   const ctx = await classContext(classId)
   if ('error' in ctx) return { error: ctx.error }
   try {
-    const doc = await uploadFile(name, await folderFor(ctx), data, mime, { uploadedBy: ctx.myName })
+    const root = await folderFor(ctx)
+    const target = folderId && folderId !== root && (await isSubfolder(root, folderId)) ? folderId : root
+    const doc = await uploadFile(name, target, data, mime, { uploadedBy: ctx.myName })
     return { url: doc.url }
   } catch (e: any) {
     return { error: e?.message || 'Грешка при качването' }
@@ -134,12 +135,57 @@ export async function trashForClass(classId: string, fileIds: string[]) {
   }
 }
 
+export async function createFolderForClass(classId: string, name: string) {
+  const ctx = await classContext(classId)
+  if ('error' in ctx) return { error: ctx.error }
+  const n = name.trim()
+  if (!n) return { error: 'Въведете име на папката.' }
+  try {
+    const root = await folderFor(ctx)
+    const existing = (await listTree(root)).folders.find(f => f.name === n)
+    if (existing) return { id: existing.id }
+    return { id: await createSubfolder(n, root) }
+  } catch (e: any) {
+    return { error: e?.message || 'Грешка при създаването на папката' }
+  }
+}
+
+export async function moveForClass(classId: string, fileId: string, toFolderId?: string) {
+  const ctx = await classContext(classId)
+  if ('error' in ctx) return { error: ctx.error }
+  try {
+    const root = await folderFor(ctx)
+    const target = toFolderId || root
+    if (!(await ownFile(ctx, fileId))) return { error: 'Файлът не е на тази паралелка' }
+    if (!(await isSubfolder(root, target))) return { error: 'Няма такава папка' }
+    await moveFile(fileId, target)
+    return { ok: true }
+  } catch (e: any) {
+    return { error: e?.message || 'Грешка при преместването' }
+  }
+}
+
 // Брой документи на всяко дете от паралелката (за картите в таблото)
 export async function docCountsForClass(classId: string, studentIds: string[]): Promise<Record<string, number>> {
   const ctx = await classContext(classId)
   if ('error' in ctx) return {}
   try {
     return await countStudentFiles(studentIds, ctx.yearName)
+  } catch {
+    return {}
+  }
+}
+
+// Брой документи за произволни деца (таблото на специалистите) — само за влезли служители
+export async function docCountsForStudents(studentIds: string[]): Promise<Record<string, number>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return {}
+  const { data: me } = await supabase.from('staff_profiles').select('id').eq('user_id', user.id).maybeSingle()
+  if (!me) return {}
+  const { data: year } = await supabase.from('academic_years').select('name').eq('is_current', true).single()
+  try {
+    return await countStudentFiles(studentIds.slice(0, 300), year?.name || '')
   } catch {
     return {}
   }

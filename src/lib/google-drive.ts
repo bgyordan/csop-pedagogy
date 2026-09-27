@@ -227,6 +227,22 @@ export async function setFileShared(fileId: string, shared: boolean) {
   })
 }
 
+// ── Потребителски подпапки (едно ниво) в „Моите документи“ и в папката на паралелката ──
+
+export async function createSubfolder(name: string, parentId: string) {
+  return createFolder(name, parentId, { sub: '1' })
+}
+
+// Мести файл в друга папка (махаме старите родители)
+export async function moveFile(fileId: string, toFolderId: string) {
+  const meta = await getFileMeta(fileId)
+  const from = (meta.parents ?? []).join(',')
+  await drive(
+    `/files/${fileId}?supportsAllDrives=true&addParents=${toFolderId}${from ? `&removeParents=${from}` : ''}`,
+    { method: 'PATCH', body: JSON.stringify({}) }
+  )
+}
+
 export type SharedItem = DriveItem & { staffId: string; owner: string }
 
 // Всички споделени лични файлове (от папките на служителите), най-новите първо
@@ -239,6 +255,20 @@ export async function listSharedStaffFiles(): Promise<SharedItem[]> {
   )
   const folders: Record<string, { staffId: string; owner: string }> = {}
   for (const f of fr.files ?? []) folders[f.id] = { staffId: f.appProperties?.staffId || '', owner: f.name }
+  // подпапките в личните папки (едно ниво) → същият собственик
+  const roots = Object.keys(folders)
+  for (let i = 0; i < roots.length; i += 40) {
+    const chunk = roots.slice(i, i + 40)
+    const sq = `mimeType='${FOLDER}' and trashed=false and (${chunk.map(id => `'${id}' in parents`).join(' or ')})`
+    const sr = await drive(
+      `/files?q=${encodeURIComponent(sq)}&corpora=drive&driveId=${driveId()}&includeItemsFromAllDrives=true&supportsAllDrives=true` +
+      `&pageSize=1000&fields=${encodeURIComponent('files(id,parents)')}`
+    )
+    for (const f of sr.files ?? []) {
+      const parent = (f.parents ?? []).find((p: string) => folders[p])
+      if (parent) folders[f.id] = folders[parent]
+    }
+  }
   const q = `trashed=false and appProperties has { key='shared' and value='true' }`
   const r = await drive(
     `/files?q=${encodeURIComponent(q)}&corpora=drive&driveId=${driveId()}&includeItemsFromAllDrives=true&supportsAllDrives=true` +
@@ -265,6 +295,7 @@ export type DriveItem = {
   modifiedBy: string
   url: string
   shared?: boolean   // споделен с всички колеги (Моите документи)
+  system?: boolean   // системна папка на EIS (папка на дете и т.н.), не е потребителска
 }
 
 // EIS качва файловете от името на eis@ → показваме истинския колега, записан при качването
@@ -290,6 +321,7 @@ export async function listFolder(folderId: string): Promise<DriveItem[]> {
     modifiedBy: whoModified(f),
     url: f.webViewLink,
     shared: f.appProperties?.shared === 'true',
+    system: !!(f.appProperties?.studentId || f.appProperties?.kind),
   }))
 }
 
@@ -334,8 +366,8 @@ export async function replaceMarkers(docId: string, values: Record<string, strin
 // ── Един файл: данни, сваляне, преименуване, изтриване ─────────────────
 
 export async function getFileMeta(fileId: string) {
-  return drive(`/files/${fileId}?supportsAllDrives=true&fields=id,name,mimeType,parents`) as Promise<
-    { id: string; name: string; mimeType: string; parents?: string[] }
+  return drive(`/files/${fileId}?supportsAllDrives=true&fields=id,name,mimeType,parents,appProperties`) as Promise<
+    { id: string; name: string; mimeType: string; parents?: string[]; appProperties?: Record<string, string> }
   >
 }
 
