@@ -84,7 +84,7 @@ export async function saveMySchedule(
   }))
   if (toInsert.length > 0) {
     const { error: iErr } = await supabase.from('schedule_slots').insert(toInsert)
-    if (iErr) return { error: iErr.message }
+    if (iErr) return { error: /duplicate|unique/i.test(iErr.message) ? 'Някой от часовете в паралелката вече е зает от друг учител' : iErr.message }
   }
 
   // Отбелязвам пипнатите разписания като обновени
