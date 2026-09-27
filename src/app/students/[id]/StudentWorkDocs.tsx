@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Upload, FilePlus2, Loader2, X, ExternalLink, FolderOpen, Download, FileDown, Pencil, Trash2, Check, FileText, Share2,
-  Folder, FolderPlus, ChevronRight, ChevronDown,
+  Folder, FolderPlus, ChevronRight, ChevronDown, Copy,
 } from 'lucide-react'
-import { listStudentDocs, createBlankDoc, renameDoc, trashDocs, listDocTemplates, createFromTemplate, listDocYears } from './drive-actions'
+import { listStudentDocs, createBlankDoc, renameDoc, trashDocs, listDocTemplates, createFromTemplate, listDocYears, copyFromYear } from './drive-actions'
 import { listClassDocs, createBlankClassDoc, renameClassDoc, trashClassDocs, createClassFolder, moveClassDoc } from '@/app/dashboard/components/class-drive-actions'
 import { listStaffDocs, createBlankStaffDoc, renameStaffDoc, trashStaffDocs, shareStaffDoc, createStaffFolder, moveStaffDoc } from '@/app/my-files/staff-drive-actions'
 
@@ -93,6 +93,9 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
   const [years, setYears] = useState<{ years: string[]; current: string } | null>(null)
   const yr = kind === 'student' && year ? year : undefined
   const noTpl = noTplKind || !!yr          // …и само за текущата година
+  // предходната учебна година (за „Копирай от …“)
+  const prevYear = years ? years.years[years.years.indexOf(years.current) + 1] : undefined
+  const [confirmCopy, setConfirmCopy] = useState(false)
   const [folders, setFolders] = useState<Group[]>([])
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [dropOn, setDropOn] = useState<string | null>(null)
@@ -218,6 +221,19 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
     const r = await (api.rename as any)(ownerId, id, name, yr)
     setBusy('')
     if (r.error) setError(r.error)
+    await load()
+  }
+
+  // ── копиране на документите от предходната година в текущата ──
+  async function doCopyPrev() {
+    if (!prevYear) return
+    setConfirmCopy(false)
+    setBusy(`Копиране от ${prevYear}…`)
+    setError('')
+    const r: any = await copyFromYear(ownerId, prevYear)
+    setBusy('')
+    if (r.error) setError(r.error)
+    else if (r.skipped) setError(`Копирани ${r.copied}; ${r.skipped} вече ги имаше (същото име) — прескочени.`)
     await load()
   }
 
@@ -417,6 +433,21 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
         )}
         {canEdit && (
           <div className="ml-auto flex items-center gap-2">
+            {kind === 'student' && !yr && prevYear && (
+              confirmCopy ? (
+                <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
+                  Копирай всичко от {prevYear} тук?
+                  <button type="button" onClick={doCopyPrev} className="px-2 py-1 rounded-md border border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100">Да</button>
+                  <button type="button" onClick={() => setConfirmCopy(false)} className="px-2 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50">Не</button>
+                </span>
+              ) : (
+                <button type="button" onClick={() => setConfirmCopy(true)} disabled={!!busy}
+                  title={`Копира документите на детето от ${prevYear} в текущата година (оригиналите остават)`}
+                  className={`${softBtn} border-slate-200 hover:bg-slate-50`}>
+                  <Copy size={14} /> Копирай от {prevYear}
+                </button>
+              )
+            )}
             <button type="button" onClick={() => inputRef.current?.click()} disabled={!!busy}
               className={`${softBtn} border-slate-200 hover:bg-slate-50`}>
               <Upload size={14} /> Качи файлове

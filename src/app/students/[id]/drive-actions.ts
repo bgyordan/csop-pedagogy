@@ -1,7 +1,7 @@
 'use server'
 
 import { ensureStudentFolder, createGoogleDoc, uploadDocxAsGoogleDoc } from '@/lib/google-drive'
-import { studentContext, shareTeam, listForStudent, createBlankForStudent, renameForStudent, trashForStudent, listTemplates, createFromTemplateForStudent, yearsForStudent } from '@/lib/student-drive'
+import { studentContext, shareTeam, listForStudent, createBlankForStudent, renameForStudent, trashForStudent, listTemplates, createFromTemplateForStudent, yearsForStudent, copyFromYearForStudent } from '@/lib/student-drive'
 
 type DriveResult = { url?: string; error?: string; shared?: string[]; failed?: string[]; existed?: boolean }
 
@@ -10,6 +10,11 @@ type DriveResult = { url?: string; error?: string; shared?: string[]; failed?: s
 // Файловете на детето за текущата година (направо от Drive)
 export async function listStudentDocs(studentId: string, year?: string) {
   return listForStudent(studentId, year)
+}
+
+// Копира документите на детето от минала година в текущата
+export async function copyFromYear(studentId: string, fromYear: string) {
+  return copyFromYearForStudent(studentId, fromYear)
 }
 
 // Годините за избора горе вдясно

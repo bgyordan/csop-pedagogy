@@ -321,3 +321,30 @@ export async function yearsForStudent(): Promise<{ years: string[]; current: str
   const years = (data || []).map((y: any) => y.name as string).filter(n => !current || n <= current)
   return { years, current }
 }
+
+// „Копирай от минала година“: всички файлове на детето от fromYear → в текущата година.
+// Копия (оригиналите остават); файл със същото име в текущата година се прескача.
+export async function copyFromYearForStudent(studentId: string, fromYear: string) {
+  const ctx = await studentContext(studentId)
+  if ('error' in ctx) return { error: ctx.error }
+  if (!ctx.canEdit) return { error: 'Само ЕПЛР екипът на детето може да копира документи.' }
+  if (!fromYear || fromYear === ctx.yearName) return { error: 'Изберете минала година.' }
+  try {
+    const src = await findStudentFolder(studentId, fromYear)
+    const files = src ? (await listFolder(src)).filter(f => f.mimeType !== 'application/vnd.google-apps.folder') : []
+    if (!files.length) return { error: `Няма документи за ${fromYear}.` }
+    const dest = await folderFor(ctx, studentId)
+    const have = new Set((await listFolder(dest)).map(f => f.name))
+    let copied = 0, skipped = 0
+    for (const f of files) {
+      const toGdoc = f.mimeType.includes('word') || f.mimeType === 'application/vnd.oasis.opendocument.text'
+      const name = toGdoc ? f.name.replace(/\.(docx?|odt)$/i, '') : f.name
+      if (have.has(name)) { skipped++; continue }
+      await copyFile(f.id, name, dest, f.mimeType)
+      have.add(name); copied++
+    }
+    return { copied, skipped }
+  } catch (e: any) {
+    return { error: e?.message || 'Грешка при копирането' }
+  }
+}
