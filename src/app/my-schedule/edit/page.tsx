@@ -1,9 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { BackButton } from '@/components/ui/BackButton'
 import { CalendarDays } from 'lucide-react'
 import { getFullName } from '@/lib/utils'
 import MyScheduleEditor from './MyScheduleEditor'
+import ScheduleTabs from '../ScheduleTabs'
 export const dynamic = 'force-dynamic'
 
 export default async function MyScheduleEditPage({
@@ -39,6 +39,7 @@ export default async function MyScheduleEditPage({
     .from('class_teacher_assignments').select('class_id')
     .eq('staff_id', targetId).eq('academic_year_id', currentYear?.id)
   const myClassTeacherIds = (myCta || []).map((a: any) => a.class_id)
+  const myClassesTabs = (allClasses || []).filter((c: any) => myClassTeacherIds.includes(c.id)) as { id: string; name: string }[]
 
   // само ИФО ученици (education_form='ifo' за текущата година)
   const { data: ifoEnroll } = await supabase
@@ -97,16 +98,17 @@ export default async function MyScheduleEditPage({
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto animate-in fade-in duration-500">
-      <BackButton />
-      <div className="mb-6 flex items-center gap-3 mt-2">
+      <div className="mb-5 flex items-center gap-3">
         <div className="p-2.5 rounded-xl" style={{ backgroundColor: '#0f2240' }}>
           <CalendarDays size={20} className="text-white" />
         </div>
         <div>
-          <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Въвеждане на разписание</h1>
+          <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Разписание · редакция</h1>
           <p className="text-slate-500 text-sm mt-0.5">{target.first_name} {target.last_name} · {currentYear?.name}{viewingOther ? " · (от името на служителя)" : ""}</p>
         </div>
       </div>
+      <ScheduleTabs current="mine" classes={myClassesTabs} staffId={viewingOther ? targetId : undefined} term={term}
+        doneHref={`/my-schedule${[viewingOther ? `staff=${targetId}` : '', term === 2 ? 'term=2' : ''].filter(Boolean).join('&').replace(/^./, m => '?' + m)}`} />
       <MyScheduleEditor
         academicYearId={currentYear?.id || ''}
         term={term}

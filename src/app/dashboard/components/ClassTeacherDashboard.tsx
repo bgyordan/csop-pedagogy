@@ -42,7 +42,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
       <div className="animate-in fade-in duration-500 space-y-6">
         <div className="flex flex-wrap gap-3">
           <Link href="/my-schedule" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm text-sm text-slate-700 hover:border-slate-300 transition-colors">
-            <CalendarClock size={16} className="text-slate-400" /> Моето разписание
+            <CalendarClock size={16} className="text-slate-400" /> Разписание
           </Link>
           <Link href="/students" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm text-sm text-slate-700 hover:border-slate-300 transition-colors">
             <Users size={16} className="text-slate-400" /> Моите ученици
@@ -236,7 +236,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
           {myClasses.map((c: any) => c.outreach_location && <OutreachBadge key={c.id} location={c.outreach_location} />)}
           <span className="text-sm text-slate-400 font-light">· {activeEnrollments.length} деца</span>
         </div>
-        <Link href={`/classes/${myClasses[0].id}/schedule-view`}
+        <Link href={`/my-schedule/class?c=${myClasses[0].id}`}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-teal-200 bg-teal-50/50 text-sm text-slate-700 hover:bg-teal-50 hover:shadow-sm transition">
           <CalendarClock size={15} className="text-teal-600" /> Разписание
         </Link>

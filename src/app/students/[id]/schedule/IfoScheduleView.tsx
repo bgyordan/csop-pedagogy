@@ -40,7 +40,7 @@ export function IfoScheduleView({ term, slots, fromSchedules }: Props) {
         <div className="text-center py-16 px-4 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
           <Calendar size={36} className="mx-auto mb-3 text-slate-300" />
           <p className="text-sm font-medium text-slate-600">Още няма въведени индивидуални часове</p>
-          <p className="text-xs text-slate-400 mt-1">Часовете се въвеждат от учителите в „Моето разписание“ (ИФО ученик).</p>
+          <p className="text-xs text-slate-400 mt-1">Часовете се въвеждат от учителите в „Разписание → Моите часове → Редактирай“ (ИФО ученик).</p>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">

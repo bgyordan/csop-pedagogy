@@ -4,7 +4,7 @@ import { BookOpen, CalendarDays, Clock, FileText, Loader2, User } from 'lucide-r
 import { generateClassSchedule } from '@/lib/docx-generator'
 
 interface Slot { day: number; period: number; subjectName: string; allowsPullout: boolean; teacher: string }
-interface Props { term: number; slots: Slot[]; className: string; yearName: string; maxPeriod: number; classId: string }
+interface Props { term: number; slots: Slot[]; className: string; yearName: string; maxPeriod: number; classId: string; extraQuery?: string }
 
 const DAYS = [
   { n: 1, label: 'Понеделник', short: 'Пон' }, { n: 2, label: 'Вторник', short: 'Вт' },
@@ -15,7 +15,7 @@ const TIMES: Record<number, string> = {
   5: '11:50–12:25', 6: '12:35–13:05', 7: '13:15–13:50',
 }
 
-export default function ClassScheduleView({ term, slots, className, yearName, maxPeriod, classId }: Props) {
+export default function ClassScheduleView({ term, slots, className, yearName, maxPeriod, classId, extraQuery = '' }: Props) {
   const [generating, setGenerating] = useState(false)
   const daySlots = (day: number) => slots.filter(s => s.day === day).sort((a, b) => a.period - b.period)
 
@@ -37,8 +37,8 @@ export default function ClassScheduleView({ term, slots, className, yearName, ma
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl">
-          <a href={`?term=1`} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${term === 1 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`} style={term === 1 ? { backgroundColor: '#0f2240' } : {}}>I срок</a>
-          <a href={`?term=2`} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${term === 2 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`} style={term === 2 ? { backgroundColor: '#0f2240' } : {}}>II срок</a>
+          <a href={`?term=1${extraQuery}`} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${term === 1 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`} style={term === 1 ? { backgroundColor: '#0f2240' } : {}}>I срок</a>
+          <a href={`?term=2${extraQuery}`} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${term === 2 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`} style={term === 2 ? { backgroundColor: '#0f2240' } : {}}>II срок</a>
         </div>
         {slots.length > 0 && (
           <button onClick={handleWord} disabled={generating}
@@ -52,7 +52,7 @@ export default function ClassScheduleView({ term, slots, className, yearName, ma
         <div className="text-center py-16 px-4 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
           <CalendarDays size={36} className="mx-auto mb-3 text-slate-300" />
           <p className="text-sm font-medium text-slate-600">Още няма въведено разписание за този срок</p>
-          <p className="text-xs text-slate-400 mt-1">Учителите въвеждат своите часове в „Въвеждане на разписание".</p>
+          <p className="text-xs text-slate-400 mt-1">Учителите въвеждат своите часове в „Разписание → Моите часове → Редактирай“.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">

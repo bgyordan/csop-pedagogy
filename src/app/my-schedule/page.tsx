@@ -5,6 +5,7 @@ import { ArrowLeft, CalendarDays, Eye } from 'lucide-react'
 import { getFullName } from '@/lib/utils'
 import { MyScheduleView } from './MyScheduleView'
 import EducatorScheduleView from './EducatorScheduleView'
+import ScheduleTabs from './ScheduleTabs'
 export const dynamic = 'force-dynamic'
 
 export default async function MySchedulePage({
@@ -72,6 +73,15 @@ export default async function MySchedulePage({
 
   const hasClasses = classSlots.length > 0
 
+  // паралелките, на които е класен (табове „Паралелка X“)
+  const { data: cta } = await supabase.from('class_teacher_assignments')
+    .select('class:classes(id, name)').eq('staff_id', target.id).eq('academic_year_id', currentYear?.id)
+  const myClasses = (cta || []).map((a: any) => a.class).filter(Boolean)
+    .sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg')) as { id: string; name: string }[]
+  // „Редактирай“: собственото разписание (учител/класен) или от името на друг (админ/ЗДУД)
+  const canEdit = viewingOther ? ['admin', 'zdud'].includes(me.role) : ['class_teacher', 'teacher'].includes(me.role)
+  const editHref = `/my-schedule/edit${[viewingOther ? `staff=${target.id}` : '', term === 2 ? 'term=2' : ''].filter(Boolean).join('&').replace(/^./, m => '?' + m)}`
+
   const isEducator = target.role === 'educator'
   let educatorView: { day: number; period: number; activity: string }[] = []
   if (isEducator) {
@@ -96,10 +106,13 @@ export default async function MySchedulePage({
           <CalendarDays size={20} className="text-white" />
         </div>
         <div>
-          <h1 className="text-xl md:text-2xl font-semibold text-slate-800">{viewingOther ? 'Разписание' : 'Моето разписание'}</h1>
+          <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Разписание</h1>
           <p className="text-slate-500 text-sm mt-0.5">{target.first_name} {target.last_name} · {currentYear?.name}</p>
         </div>
       </div>
+      {!isEducator && (
+        <ScheduleTabs current="mine" classes={myClasses} staffId={viewingOther ? target.id : undefined} term={term} editHref={canEdit ? editHref : undefined} />
+      )}
       {isEducator ? (
         <EducatorScheduleView term={term} slots={educatorView} staffId={viewingOther ? target.id : undefined} staffName={`${target.first_name} ${target.last_name}`} yearName={currentYear?.name} />
       ) : (
