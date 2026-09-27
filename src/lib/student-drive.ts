@@ -218,6 +218,14 @@ function ageOn(birth: string | null | undefined) {
   if (n.getMonth() < b.getMonth() || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) a--
   return String(a)
 }
+// "01" → "I паралелка"; нечислови имена (напр. "ПГ 3") остават както са
+function paralelka(className: string) {
+  const m = (className || '').trim().match(/^0*(\d+)$/)
+  if (!m) return className || ''
+  let n = parseInt(m[1]), r = ''
+  for (const [v, s] of [[10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']] as [number, string][]) while (n >= v) { r += s; n -= v }
+  return `${r} паралелка`
+}
 const bgDate = (d: string | Date | null | undefined) =>
   d ? new Date(d).toLocaleDateString('bg-BG', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
 
@@ -253,6 +261,7 @@ async function markerValues(ctx: StudentCtx, studentId: string): Promise<Record<
     'ДАТА_РАЖДАНЕ': bgDate(st?.birth_date),
     'ВЪЗРАСТ': ageOn(st?.birth_date),
     'КЛАС': ctx.className,
+    'ПАРАЛЕЛКА': paralelka(ctx.className),
     'КЛАС_УЧИЛИЩЕ': ((st as any)?.external_class || '').toString(),
     'УЧИЛИЩЕ': school ? [school.name, school.city].filter(Boolean).join(', ') : '',
     'ГОДИНА': ctx.yearName,
