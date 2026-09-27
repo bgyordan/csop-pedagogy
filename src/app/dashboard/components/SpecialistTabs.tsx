@@ -26,6 +26,14 @@ interface EplrRow {
 }
 export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows: TherapyRow[]; eplrRows: EplrRow[] }) {
   const [tab, setTab] = useState<'therapy' | 'eplr' | 'mine'>('therapy')
+  // Плочки (само име) или подробни карти — изборът се помни в браузъра
+  const [details, setDetails] = useState(false)
+  useEffect(() => { try { setDetails(localStorage.getItem('eis_tiles_details') === '1') } catch { /* няма достъп */ } }, [])
+  const toggleDetails = () => {
+    const v = !details; setDetails(v)
+    try { localStorage.setItem('eis_tiles_details', v ? '1' : '0') } catch { /* няма достъп */ }
+  }
+  const shortName = (full: string) => { const p = full.trim().split(/\s+/); return p.length > 2 ? `${p[0]} ${p[p.length - 1]}` : full }
   // брой документи на всяко дете (от Drive) — зарежда се след показването
   const [counts, setCounts] = useState<Record<string, number> | null>(null)
   useEffect(() => {
@@ -64,6 +72,12 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
           <FileText size={15} />
           Моите документи
         </button>
+        {tab === 'therapy' && therapyRows.length > 0 && (
+          <label className="ml-auto flex items-center gap-2 px-3 text-xs text-slate-500 cursor-pointer select-none">
+            <input type="checkbox" checked={details} onChange={toggleDetails} className="accent-teal-600" />
+            Детайли
+          </label>
+        )}
       </div>
       {/* ТАБ 3: Моите документи — личната папка в Drive */}
       {tab === 'mine' && (
@@ -77,6 +91,17 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
           <div className="p-8 text-center text-slate-400 text-sm">
             Още нямате зачислени деца за терапия.<br />
             <Link href="/my-activities" className="text-teal-600 hover:underline text-xs">Добави от „Моите дейности" →</Link>
+          </div>
+        ) : !details ? (
+          /* ПЛОЧКИ — само име и фамилия */
+          <div className="grid gap-2 p-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {therapyRows.map(r => (
+              <Link key={r.id} href={`/students/${r.id}`} title={r.name}
+                className="relative flex items-center justify-center text-center min-h-[56px] px-3 py-2 rounded-xl border border-slate-200/80 bg-white text-sm font-medium text-slate-700 shadow-sm hover:border-teal-300 hover:bg-teal-50/40 hover:text-[#0f2240] transition">
+                {shortName(r.name)}
+                {counts && !counts[r.id] && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-400" title="Няма документи" />}
+              </Link>
+            ))}
           </div>
         ) : (
           <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
