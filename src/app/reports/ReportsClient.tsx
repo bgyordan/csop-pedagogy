@@ -28,9 +28,12 @@ interface Props {
   specialists: { id: string; name: string; role: string }[]
   yearName: string
   limitedView?: boolean
+  initialTab?: ReportTab
 }
-export default function ReportsClient({ schedules = [], slotsBySchedule = {}, allRows, workloadRows, intensityRows = [], delayedRows = [], schools, specialists, yearName, limitedView = false }: Props) {
-  const [activeTab, setActiveTab] = useState<ReportTab>(limitedView ? 'intensity' : 'distribution')
+export default function ReportsClient({ schedules = [], slotsBySchedule = {}, allRows, workloadRows, intensityRows = [], delayedRows = [], schools, specialists, yearName, limitedView = false, initialTab }: Props) {
+  // терапевтите виждат „Разпределение“ и „Терапии по деца“ (бившата страница „Справки“ + „Натовареност“)
+  const allowed: ReportTab[] = limitedView ? ['distribution', 'intensity'] : ['distribution', 'school', 'workload', 'intensity']
+  const [activeTab, setActiveTab] = useState<ReportTab>(initialTab && allowed.includes(initialTab) ? initialTab : (limitedView ? 'intensity' : 'distribution'))
   const [distClass, setDistClass] = useState('')
   const [distSpecialist, setDistSpecialist] = useState('')
   const [distNewOnly, setDistNewOnly] = useState(false)
@@ -158,7 +161,7 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
       </div>
       {/* Меню с табове */}
       <div className="inline-flex p-1 bg-slate-100/80 backdrop-blur-sm rounded-xl mb-6 print:hidden overflow-x-auto max-w-full border border-slate-200/50 shadow-inner">
-        {(limitedView ? tabs.filter(t => t.id === 'intensity') : tabs).map(tab => (
+        {tabs.filter(t => allowed.includes(t.id)).map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
               activeTab === tab.id

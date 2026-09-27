@@ -13,7 +13,7 @@ export default async function CoudReportPage() {
 
   const { data: profile } = await supabase
     .from('staff_profiles').select('role, is_coordinator').eq('user_id', user.id).single()
-  const canAccess = ['admin', 'zdud', 'director', 'class_teacher'].includes(profile?.role || '') || profile?.is_coordinator === true
+  const canAccess = ['admin', 'zdud', 'director', 'secretary', 'class_teacher'].includes(profile?.role || '') || profile?.is_coordinator === true
   if (!canAccess) redirect('/dashboard')
 
   const { data: currentYear } = await supabase
