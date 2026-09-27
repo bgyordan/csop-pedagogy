@@ -437,3 +437,43 @@ export async function getMonExport(first: string, last: string, rate: number) {
   if (rows.length === 0) return { error: 'Няма часове за отчет в този период' }
   return { success: true, data: { rows, yearName: cy?.name || '', first, last } }
 }
+
+// ── ЧАСОВЕ ПО ЗАМЕСТВАНЕ по служител за период (за месечния преглед) ──
+// np = часове по НП; budget = платени от бюджета (без вътрешните „в рамките на нормата“)
+export async function getSubstitutionHoursByStaff(first: string, last: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+  const { data: cy } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
+
+  const { data: subs } = await supabase
+    .from('substitutions')
+    .select('id, absent_staff_id, substitute_staff_id, date_from, date_to, bsch_eligible, kt_article, over_norm')
+    .lte('date_from', last).gte('date_to', first)
+  const out: Record<string, { np: number; budget: number }> = {}
+  if (!subs || subs.length === 0) return { data: out }
+
+  const assignMap = await assignmentsBySub(supabase, subs.map((x: any) => x.id))
+  const slotCache: Record<string, Record<number, Slot[]>> = {}
+  for (const sub of subs as any[]) {
+    if (!slotCache[sub.absent_staff_id]) slotCache[sub.absent_staff_id] = await slotsByTerm(supabase, sub.absent_staff_id, cy?.id)
+    const byTerm = slotCache[sub.absent_staff_id]
+    const lo = sub.date_from > first ? sub.date_from : first
+    const hi = sub.date_to < last ? sub.date_to : last
+    const wds = await workdays(supabase, lo, hi)
+    const npSet = await npDays(supabase, sub)
+    const cov = coverageOf(sub, assignMap[sub.id])
+    for (const [staffId, ranges] of Object.entries(cov)) {
+      for (const w of wds) {
+        if (!inRanges(w.iso, ranges)) continue
+        const h = byTerm[w.term].filter(x => x.day === w.dow).length
+        if (h === 0) continue
+        const isNp = npSet === null ? true : npSet.has(w.iso)
+        if (!isNp && sub.over_norm === false) continue   // вътрешно — не се плаща
+        const o = (out[staffId] = out[staffId] || { np: 0, budget: 0 })
+        if (isNp) o.np += h; else o.budget += h
+      }
+    }
+  }
+  return { data: out }
+}
