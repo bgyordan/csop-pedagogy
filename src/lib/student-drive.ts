@@ -20,6 +20,7 @@ export type StudentCtx = {
   className: string
   people: string[][]   // всеки член на екипа → [csop-varna.bg, edu.mon.bg]
   canEdit: boolean
+  canView: boolean     // виждане/сваляне: + учителите, които преподават на детето, + координаторите
 }
 
 // year = учебна година на документите (напр. „2025/2026“); без нея — текущата
@@ -28,10 +29,10 @@ export async function studentContext(studentId: string, year?: string): Promise<
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли в системата' }
 
-  const { data: me } = await supabase.from('staff_profiles').select('id, role, first_name, last_name').eq('user_id', user.id).maybeSingle()
+  const { data: me } = await supabase.from('staff_profiles').select('id, role, first_name, last_name, is_coordinator').eq('user_id', user.id).maybeSingle()
 
   const { data: student } = await supabase
-    .from('students').select('first_name, last_name').eq('id', studentId).single()
+    .from('students').select('first_name, last_name, therapist_psychologist_id, therapist_speech_id, therapist_rehab_id').eq('id', studentId).single()
   if (!student) return { error: 'Няма такова дете' }
 
   const { data: current } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
@@ -63,6 +64,36 @@ export async function studentContext(studentId: string, year?: string): Promise<
 
   const canEdit = !!me && (MANAGERS.includes(me.role) || members.some(m => m.id === me.id))
 
+  // Виждане и сваляне: ЕПЛР екипът и управата + координаторите + учителите, които преподават на детето
+  // (разписание на паралелката му, ИФО часове, ЦОУД група) — без да могат да качват/трият
+  const s_: any = student
+  let canView = canEdit || !!me?.is_coordinator
+    || (!!me && [s_.therapist_psychologist_id, s_.therapist_speech_id, s_.therapist_rehab_id].includes(me.id))   // терапевт на детето
+  if (!canView && me && year_?.id) {
+    const { data: enr } = await supabase.from('student_enrollments').select('class_id')
+      .eq('student_id', studentId).eq('academic_year_id', year_.id).maybeSingle()
+    if (enr?.class_id) {
+      const { data: scheds } = await supabase.from('class_schedules').select('id')
+        .eq('class_id', enr.class_id).eq('academic_year_id', year_.id)
+      const ids = (scheds || []).map((x: any) => x.id)
+      if (ids.length) {
+        const { count } = await supabase.from('schedule_slots').select('*', { count: 'exact', head: true })
+          .in('schedule_id', ids).eq('staff_id', me.id)
+        canView = (count || 0) > 0
+      }
+    }
+    if (!canView) {
+      const { count } = await supabase.from('teacher_ifo_slots').select('*', { count: 'exact', head: true })
+        .eq('teacher_id', me.id).eq('student_id', studentId).eq('academic_year_id', year_.id)
+      canView = (count || 0) > 0
+    }
+    if (!canView) {
+      const { data: coud } = await supabase.from('coud_enrollments').select('coud_group:coud_groups(teacher_id)')
+        .eq('student_id', studentId).eq('academic_year_id', year_.id)
+      canView = (coud || []).some((c: any) => c.coud_group?.teacher_id === me.id)
+    }
+  }
+
   return {
     supabase,
     userEmail: user.email || '',
@@ -73,6 +104,7 @@ export async function studentContext(studentId: string, year?: string): Promise<
     className,
     people,
     canEdit,
+    canView,
   }
 }
 
@@ -102,6 +134,7 @@ export async function listForStudent(studentId: string, year?: string): Promise<
 }> {
   const ctx = await studentContext(studentId, year)
   if ('error' in ctx) return { error: ctx.error }
+  if (!ctx.canView) return { error: 'Нямате достъп до документите на това дете.' }
   try {
     const folderId = await findStudentFolder(studentId, ctx.yearName)
     if (!folderId) return { files: [], canEdit: ctx.canEdit, myEmail: ctx.userEmail }
@@ -163,6 +196,7 @@ async function ownFile(ctx: StudentCtx, studentId: string, fileId: string) {
 export async function downloadForStudent(studentId: string, fileId: string, as: 'office' | 'pdf', year?: string) {
   const ctx = await studentContext(studentId, year)
   if ('error' in ctx) return { error: ctx.error }
+  if (!ctx.canView) return { error: 'Нямате достъп до документите на това дете.' }
   try {
     if (!(await ownFile(ctx, studentId, fileId))) return { error: 'Файлът не е на това дете' }
     return await downloadFile(fileId, as)
