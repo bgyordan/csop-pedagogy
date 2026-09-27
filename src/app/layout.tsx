@@ -5,6 +5,7 @@ import '@fontsource/montserrat/400.css'
 import '@fontsource/montserrat/500.css'
 import '@fontsource/montserrat/600.css'
 import '@fontsource/montserrat/700.css'
+import '@fontsource/comfortaa/latin-700.css'   // само за надписа JORDAN
 import './globals.css'
 import { ToastProvider } from '@/components/ui/Toast'
 

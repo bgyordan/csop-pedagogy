@@ -1,17 +1,22 @@
 // Малкото лого на системата + версията (вход, табло)
+// JORDAN е с кръгъл шрифт (Comfortaa) в цветовете на емблемата; при посочване буквите „подскачат“.
 import { APP_VERSION } from '@/lib/version'
 
-export default function JordanBadge({ subtitle = true }: { subtitle?: boolean }) {
+const LETTERS = [
+  ['J', '#4a7fb0'], ['O', '#5a93b8'], ['R', '#6aa9b0'], ['D', '#7fbf9e'], ['A', '#a3c77c'], ['N', '#e2b04e'],
+]
+
+export default function JordanBadge() {
   return (
-    <div className="flex items-center justify-center gap-3 select-none">
-      <img src="/jordan-emblem.png" alt="" className="w-11 h-11 rounded-full shadow-sm transition-transform duration-500 hover:rotate-[360deg]" />
-      <div className="text-left leading-tight">
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm font-bold tracking-[0.18em] text-[#4a7fb0]">JORDAN</span>
-          <span className="text-[10px] font-semibold px-1.5 py-px rounded-full bg-amber-100 text-amber-700">v{APP_VERSION}</span>
-        </div>
-        {subtitle && <div className="text-[11px] text-slate-400">система за образователна подкрепа</div>}
-      </div>
+    <div className="group flex items-center justify-center gap-2.5 select-none">
+      <img src="/jordan-emblem.png" alt="" className="w-10 h-10 rounded-full shadow-sm transition-transform duration-700 group-hover:rotate-[360deg]" />
+      <span className="flex items-baseline" style={{ fontFamily: 'Comfortaa, sans-serif' }} aria-label="JORDAN">
+        {LETTERS.map(([ch, color], i) => (
+          <span key={i} className="text-[19px] font-bold tracking-[0.08em] transition-transform duration-300 group-hover:-translate-y-1"
+            style={{ color, transitionDelay: `${i * 45}ms` }}>{ch}</span>
+        ))}
+        <sup className="ml-1 text-[10px] font-bold text-slate-400">v{APP_VERSION}</sup>
+      </span>
     </div>
   )
 }
