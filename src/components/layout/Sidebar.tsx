@@ -111,6 +111,7 @@ const navItems: NavItem[] = [
     children: [
       { href: '/admin/coordinating-team', label: 'Заседания и документи', icon: <ClipboardList size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
       { href: '/admin/eplr-assignment', label: 'Разпределение ЕПЛР', icon: <GitBranch size={14} />, roles: ['admin', 'zdud'], coordinatorOnly: true },
+      { href: '/admin/therapists', label: 'Терапевти', icon: <HeartPulse size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
       { href: '/reports/hub', label: 'Справки и писма', icon: <BarChart3 size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
             { href: '/surveys', label: 'Анкети на новите деца', icon: <ClipboardList size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
      { href: '/admin/eplr-schedule', label: 'График ЕПЛР', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
@@ -174,7 +175,9 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
     router.push('/auth/login')
   }
   const isSecretary = userRole === 'secretary'
-  const effectiveRoles: UserRole[] = isCoordinator ? [userRole, 'zdud' as UserRole] : [userRole]
+  // Координаторът вижда СВОЕТО меню (по основната си роля) + групата „Координиращ екип“.
+  // По-рано тук се добавяше и ролята 'zdud' → координаторът виждаше цялото меню на ЗДУД.
+  const effectiveRoles: UserRole[] = [userRole]
     function canSee(item: NavItem): boolean {
     if (item.href === '/dashboard') return true
     if (isSecretary) return item.section === 'delo' || item.section === 'settings'
