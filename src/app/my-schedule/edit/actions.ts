@@ -109,6 +109,41 @@ export async function saveMySchedule(
   return { success: true }
 }
 
+// Копира МОЕТО разписание от I срок във II срок (паралелки + ИФО).
+// Заменя само моите слотове във II срок — чуждите не се пипат (както при запазване).
+export async function copyMyScheduleFromTerm1(academicYearId: string, targetStaffId?: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+  const { data: me } = await supabase
+    .from('staff_profiles').select('id, role').eq('user_id', user.id).single()
+  if (!me) return { error: 'Няма профил' }
+  const isManager = ['admin', 'zdud'].includes(me.role || '')
+  const myId = (targetStaffId && isManager) ? targetStaffId : me.id
+
+  const { data: t1 } = await supabase
+    .from('class_schedules').select('id, class_id').eq('academic_year_id', academicYearId).eq('term', 1)
+  const classOf: Record<string, string> = {}
+  ;(t1 || []).forEach((s: any) => { classOf[s.id] = s.class_id })
+  const ids = Object.keys(classOf)
+  const { data: slots } = ids.length
+    ? await supabase.from('schedule_slots').select('schedule_id, day, period, subject_id').in('schedule_id', ids).eq('staff_id', myId)
+    : { data: [] as any[] }
+  const { data: ifo } = await supabase
+    .from('teacher_ifo_slots').select('student_id, day, period, subject_id')
+    .eq('teacher_id', myId).eq('academic_year_id', academicYearId).eq('term', 1)
+
+  const cells: MyCell[] = [
+    ...(slots || []).map((s: any) => ({ day: s.day, period: s.period, holderType: 'class' as const, holderId: classOf[s.schedule_id], subjectId: s.subject_id })),
+    ...(ifo || []).map((s: any) => ({ day: s.day, period: s.period, holderType: 'ifo' as const, holderId: s.student_id, subjectId: s.subject_id })),
+  ].filter(c => c.holderId && c.subjectId)
+  if (cells.length === 0) return { error: 'I срок е празен — няма какво да се копира' }
+
+  const res = await saveMySchedule(academicYearId, 2, cells, targetStaffId)
+  if ('error' in res) return res
+  return { success: true, count: cells.length }
+}
+
 // Проверка за колизия на ПАРАЛЕЛКА-ниво: в дадена паралелка, ден, час —
 // има ли вече зает слот (от друг учител)? Връща името на предмета/учителя ако да.
 export async function checkClassCollision(

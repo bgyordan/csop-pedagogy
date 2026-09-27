@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Loader2, Check, Plus, X, Save, AlertTriangle, Copy, Lock, Unlock } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { saveMySchedule, checkClassCollision, addSubjectQuick, releaseClassSlot, type MyCell } from './actions'
+import { saveMySchedule, checkClassCollision, addSubjectQuick, releaseClassSlot, copyMyScheduleFromTerm1, type MyCell } from './actions'
 
 type Cls = { id: string; name: string }
 type Stud = { id: string; name: string }
@@ -167,6 +167,19 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
   const fmt = (x: number) => r1(x).toLocaleString('bg-BG', { maximumFractionDigits: 1 })
   const cellsAll = Object.entries(grid)
   const totalCount = cellsAll.length
+  // II срок: копиране на моето разписание от I срок
+  const staffQ = targetStaffId ? `&staff=${targetStaffId}` : ''
+  const [confirmCopy, setConfirmCopy] = useState(false)
+  const [copying, setCopying] = useState(false)
+  async function copyTerm1() {
+    setCopying(true)
+    const res: any = await copyMyScheduleFromTerm1(academicYearId, targetStaffId)
+    setCopying(false)
+    setConfirmCopy(false)
+    if (res?.error) { toast(res.error, 'error'); return }
+    toast(`Копирани ${res.count} часа от I срок`, 'success')
+    setTimeout(() => window.location.reload(), 900)
+  }
   const pulloutCount = cellsAll.filter(([, v]) => weightOf(v.subjectId) < 1).length
   const weighted = r1(cellsAll.reduce((a, [, v]) => a + weightOf(v.subjectId), 0))
   const normOk = weighted >= NORM
@@ -176,9 +189,27 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
       {/* Срок */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl">
-          <a href="?term=1" className={`px-3 py-1.5 rounded-lg text-xs font-medium ${term === 1 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`} style={term === 1 ? { backgroundColor: '#0f2240' } : {}}>I срок</a>
-          <a href="?term=2" className={`px-3 py-1.5 rounded-lg text-xs font-medium ${term === 2 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`} style={term === 2 ? { backgroundColor: '#0f2240' } : {}}>II срок</a>
+          <a href={`?term=1${staffQ}`} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${term === 1 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`} style={term === 1 ? { backgroundColor: '#0f2240' } : {}}>I срок</a>
+          <a href={`?term=2${staffQ}`} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${term === 2 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`} style={term === 2 ? { backgroundColor: '#0f2240' } : {}}>II срок</a>
         </div>
+        {term === 2 && (
+          confirmCopy ? (
+            <span className="inline-flex items-center gap-2 text-xs text-slate-600">
+              Разписанието за II срок ще се замени с това от I срок. Продължаваме?
+              <button onClick={copyTerm1} disabled={copying}
+                className="px-2.5 py-1 rounded-lg border border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100 disabled:opacity-50">
+                {copying ? <Loader2 size={12} className="animate-spin" /> : 'Да'}
+              </button>
+              <button onClick={() => setConfirmCopy(false)} disabled={copying}
+                className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">Не</button>
+            </span>
+          ) : (
+            <button onClick={() => setConfirmCopy(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-[#0f2240] hover:bg-slate-50 hover:shadow-sm transition">
+              <Copy size={13} /> Копирай от I срок
+            </button>
+          )
+        )}
       </div>
       {/* Моите паралелки / ученици */}
       <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
