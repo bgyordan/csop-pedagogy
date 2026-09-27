@@ -26,7 +26,7 @@ export default async function DirectorDashboard({ profile, currentYearId }: any)
     supabase.from('student_enrollments')
       .select('student:students!inner(status)', { count: 'exact', head: true })
       .eq('academic_year_id', currentYearId).eq('student.status', 'active'),
-    supabase.from('classes').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
+    supabase.from('classes').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId).not('name', 'ilike', '%служебна%'),
     supabase.from('staff_profiles').select('*', { count: 'exact', head: true }).eq('is_active', true),
     supabase.from('eplr_teams').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
     upcomingTasks(supabase, 5).then(data => ({ data })),   // от „График срокове“

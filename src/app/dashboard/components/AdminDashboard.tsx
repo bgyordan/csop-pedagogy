@@ -33,9 +33,10 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
     { data: attachments },
     { data: dataCheck },
     { count: coudCount },
+    { count: coudGroups },
   ] = await Promise.all([
     supabase.from('student_enrollments').select('student:students!inner(status)', { count: 'exact', head: true }).eq('academic_year_id', currentYearId).eq('student.status', 'active'),
-    supabase.from('classes').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
+    supabase.from('classes').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId).not('name', 'ilike', '%служебна%'),
     upcomingTasks(supabase, 6).then(data => ({ data })),   // от „График срокове“
     supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
     supabase.from('student_enrollments').select('education_form, student:students!inner(status)').eq('academic_year_id', currentYearId).eq('student.status', 'active'),
@@ -45,6 +46,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
       .select('student:students(id, status, external_class, sending_school_id, sending_school_other)')
       .eq('academic_year_id', currentYearId),
     supabase.from('coud_enrollments').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
+    supabase.from('coud_groups').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
   ])
   const dailyCount = formStats?.filter(e => (e.education_form || 'daily') === 'daily').length || 0
   const ifoCount = formStats?.filter(e => e.education_form === 'ifo').length || 0
@@ -143,7 +145,8 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
             <Coffee size={15} className="text-slate-400" />
             <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ЦОУД</div>
           </div>
-          <div className="text-2xl font-semibold text-slate-800">{coudCount || 0}</div>
+          <div className="text-2xl font-semibold text-slate-800">{coudGroups || 0} <span className="text-sm font-normal text-slate-500">групи</span></div>
+          <div className="text-xs text-slate-500 mt-0.5">{coudCount || 0} ученика</div>
         </Link>
         <Link href="/students?ores=1" className={`bg-white p-4 rounded-2xl border shadow-sm hover:border-slate-300 transition-all ${oresCount > 0 ? 'border-amber-200' : 'border-slate-200/70'}`}>
           <div className="flex items-center gap-2 mb-2">
