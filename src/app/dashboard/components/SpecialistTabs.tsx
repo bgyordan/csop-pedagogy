@@ -93,15 +93,22 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
             <Link href="/my-activities" className="text-teal-600 hover:underline text-xs">Добави от „Моите дейности" →</Link>
           </div>
         ) : !details ? (
-          /* ПЛОЧКИ — само име и фамилия */
-          <div className="grid gap-2 p-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {therapyRows.map(r => (
-              <Link key={r.id} href={`/students/${r.id}`} title={r.name}
-                className="relative flex items-center justify-center text-center min-h-[56px] px-3 py-2 rounded-xl border border-slate-200/80 bg-white text-sm font-medium text-slate-700 shadow-sm hover:border-teal-300 hover:bg-teal-50/40 hover:text-[#0f2240] transition">
-                {shortName(r.name)}
-                {counts && !counts[r.id] && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-400" title="Няма документи" />}
-              </Link>
-            ))}
+          /* ПЛОЧКИ — име и фамилия на един ред, с инициали */
+          <div className="grid gap-2.5 p-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {therapyRows.map(r => {
+              const nm = shortName(r.name)
+              const ini = nm.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+              return (
+                <Link key={r.id} href={`/students/${r.id}`} title={r.name}
+                  className="group flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-200/80 bg-white shadow-sm hover:border-teal-300 hover:shadow-md hover:-translate-y-0.5 transition">
+                  <span className="relative shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-teal-50 to-sky-100 text-teal-700 text-xs font-semibold flex items-center justify-center group-hover:from-teal-100 group-hover:to-sky-200 transition">
+                    {ini}
+                    {counts && !counts[r.id] && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-white" title="Няма документи" />}
+                  </span>
+                  <span className="min-w-0 truncate whitespace-nowrap text-sm font-medium text-slate-700 group-hover:text-[#0f2240]">{nm}</span>
+                </Link>
+              )
+            })}
           </div>
         ) : (
           <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
