@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Settings, Bell, School, Users, Star, BookOpen, Coffee, CalendarPlus, LayoutGrid, HeartPulse, GraduationCap } from 'lucide-react'
+import { Settings, Bell, School, Users, Star, BookOpen, Coffee, CalendarPlus, LayoutGrid, HeartPulse, GraduationCap, Shield } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 export default async function AdminPage() {
@@ -40,6 +40,7 @@ export default async function AdminPage() {
       items: [
         { href: '/admin/staff', label: 'Служители', desc: 'Потребители и достъп', icon: Settings, color: 'purple' },
         { href: '/admin/coordinating-team', label: 'Координиращ екип', desc: `${teamCount || 0} члена`, icon: Star, color: 'indigo' },
+        { href: '/bullying-council', label: 'Координационен съвет', desc: 'Съвет по тормоза — протоколи и документи', icon: Shield, color: 'red' },
       ],
     },
     {

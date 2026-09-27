@@ -201,7 +201,8 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
      if (item.hideFromCoordinator && isCoordinator) return false
     if (item.requiresClass && !hasClass) return false
     if (item.coordinatorOnly && isCoordinator) return true
-    if (item.councilOnly) return isCouncil || ['admin', 'zdud', 'director'].includes(userRole)
+    // К. съвет: за админ/ЗДУД е в „Администрация“; в менюто остава за членовете на съвета и директора
+    if (item.councilOnly) return (isCouncil || userRole === 'director') && !['admin', 'zdud'].includes(userRole)
     if (!item.roles) return true
     return item.roles.some(r => effectiveRoles.includes(r))
   }
