@@ -19,6 +19,8 @@ export interface SubRow {
   manualDate: string | null
   noOrder: boolean
   overNorm: boolean
+  // няколко заместника — периоди по заместник (празно = един заместник)
+  assigns: { staffId: string; name: string; from: string; to: string }[]
 }
 export default async function SubstitutionsPage() {
   const supabase = await createClient()
@@ -36,6 +38,20 @@ export default async function SubstitutionsPage() {
       sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name)`)
     .order('date_from', { ascending: false })
 
+  // разпределение при няколко заместника — зарежда се заедно със списъка (без да се отваря редакция)
+  const { data: asg } = await supabase
+    .from('substitution_assignments')
+    .select('substitution_id, substitute_staff_id, date_from, date_to, sub:staff_profiles!substitution_assignments_substitute_staff_id_fkey(first_name, last_name)')
+    .order('date_from')
+  const assignsBy: Record<string, SubRow['assigns']> = {}
+  ;(asg || []).forEach((a: any) => {
+    ;(assignsBy[a.substitution_id] ||= []).push({
+      staffId: a.substitute_staff_id,
+      name: a.sub ? `${a.sub.first_name} ${a.sub.last_name}` : '—',
+      from: a.date_from, to: a.date_to,
+    })
+  })
+
   const rows: SubRow[] = (data || []).map((r: any) => ({
     id: r.id,
     absentName: r.absent ? `${r.absent.first_name} ${r.absent.last_name}` : '—',
@@ -51,6 +67,7 @@ export default async function SubstitutionsPage() {
     manualDate: r.manual_order_date || null,
     noOrder: r.no_order_needed === true,
     overNorm: r.over_norm !== false,
+    assigns: assignsBy[r.id] || [],
   }))
 
   const { data: staff } = await supabase
