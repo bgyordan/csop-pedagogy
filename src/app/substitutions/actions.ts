@@ -4,6 +4,12 @@ import { revalidatePath } from 'next/cache'
 import { isPedagogical } from '@/lib/pedagogues'
 import { coudPeriod, periodsOverlap, PERIOD_LABEL, PERIOD_TIMES } from '@/lib/periods'
 
+// Днешна дата по българско време (сървърът е в UTC — след полунощ даваше вчерашна дата)
+function sofiaToday() {
+  const n = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Sofia' }))
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
+}
+
 // Работни дни (пон-пет) между две дати, като { date: ISO, dow: 1..5, term: 1|2 }
 async function workdays(supabase: any, from: string, to: string): Promise<{ iso: string; dow: number; term: number }[]> {
   const { data } = await supabase
@@ -100,7 +106,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   // 1. Заместването
   const { data: sub } = await supabase
     .from('substitutions')
-    .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, reason, leave_order_number, leave_order_date, bsch_eligible, kt_article,
+    .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, reason, leave_order_number, leave_order_date, bsch_eligible, kt_article, substitution_order_id,
        absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, position),
       sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name, position)`)
     .eq('id', substitutionId).single()
@@ -129,31 +135,44 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
     ? { npFrom: wds[0].iso, npTo: wds[1].iso, budgetFrom: wds[2].iso, budgetTo: sub.date_to }
     : null
 
-    // 4. Номер от общия брояч — max seq +1 САМО в текущата деловодна година (15.09–14.09)
-  const orderDate = new Date().toISOString().split('T')[0]
-  const _p = orderDate.split('-').map(Number)
-  const _startYear = (_p[1] > 9 || (_p[1] === 9 && _p[2] >= 15)) ? _p[0] : _p[0] - 1
-  const dStart = `${_startYear}-09-15`, dEnd = `${_startYear + 1}-09-14`
-  const { data: maxRow } = await supabase
-    .from('orders').select('seq').gte('date', dStart).lte('date', dEnd)
-    .order('seq', { ascending: false, nullsFirst: false }).limit(1).maybeSingle()
-  const nextSeq = ((maxRow?.seq as number) || 0) + 1
-  const orderNumber = `${String(nextSeq).padStart(3, '0')}/${orderDate.split('-').reverse().join('.')}г.`
   const absentName = sub.absent ? `${(sub.absent as any).first_name} ${(sub.absent as any).last_name}` : ''
   const subName = sub.sub ? `${(sub.sub as any).first_name} ${(sub.sub as any).last_name}` : ''
+  const totalHours = days.reduce((a, x) => a + x.items.length, 0)
 
-    // 5. Създаваме заповедта в orders (РД-08) — само ако е избрано „Регистрирай"
-  if (register) {
-    const { data: order, error: oErr } = await supabase.from('orders').insert({
-      number: orderNumber, date: orderDate,
-      title: `Заповед за заместване на ${absentName}`,
-      nomenclature_item: 'РД-08',
-      description: `Заместник: ${subName}, период ${sub.date_from.split('-').reverse().join('.')}–${sub.date_to.split('-').reverse().join('.')}`,
-      created_by: me?.id || null, seq: nextSeq,
-    }).select('id').single()
-    if (oErr) return { error: 'Грешка при създаване на заповедта: ' + oErr.message }
-    // 6. Връзваме заповедта към заместването
-    await supabase.from('substitutions').update({ substitution_order_id: order.id }).eq('id', substitutionId)
+  let orderNumber = '', orderDate = ''
+  if (sub.substitution_order_id) {
+    // Заповедта вече е издадена → само я изтегляме пак, със СЪЩИЯ номер и дата (нов номер не се взима)
+    const { data: o } = await supabase.from('orders').select('number, date').eq('id', sub.substitution_order_id).single()
+    orderNumber = o?.number || '…………'
+    orderDate = o?.date || sofiaToday()
+  } else {
+    // Без часове заповедта излиза празна — най-често отсъстващият няма въведено разписание
+    if (totalHours === 0) return { error: `${absentName || 'Отсъстващият'} няма часове в разписанието за тези дни. Първо се въвежда разписанието, иначе заповедта излиза без часове.` }
+
+    // 4. Номер от общия брояч — max seq +1 САМО в текущата деловодна година (15.09–14.09)
+    orderDate = sofiaToday()
+    const _p = orderDate.split('-').map(Number)
+    const _startYear = (_p[1] > 9 || (_p[1] === 9 && _p[2] >= 15)) ? _p[0] : _p[0] - 1
+    const dStart = `${_startYear}-09-15`, dEnd = `${_startYear + 1}-09-14`
+    const { data: maxRow } = await supabase
+      .from('orders').select('seq').gte('date', dStart).lte('date', dEnd)
+      .order('seq', { ascending: false, nullsFirst: false }).limit(1).maybeSingle()
+    const nextSeq = ((maxRow?.seq as number) || 0) + 1
+    orderNumber = `${String(nextSeq).padStart(3, '0')}/${orderDate.split('-').reverse().join('.')}г.`
+
+    // 5. Създаваме заповедта в orders (РД-08)
+    if (register) {
+      const { data: order, error: oErr } = await supabase.from('orders').insert({
+        number: orderNumber, date: orderDate,
+        title: `Заповед за заместване на ${absentName}`,
+        nomenclature_item: 'РД-08',
+        description: `Заместник: ${subName}, период ${sub.date_from.split('-').reverse().join('.')}–${sub.date_to.split('-').reverse().join('.')}`,
+        created_by: me?.id || null, seq: nextSeq,
+      }).select('id').single()
+      if (oErr) return { error: 'Грешка при създаване на заповедта: ' + oErr.message }
+      // 6. Връзваме заповедта към заместването
+      await supabase.from('substitutions').update({ substitution_order_id: order.id }).eq('id', substitutionId)
+    }
   }
 
     // Няколко заместника (ако има разпределение)
@@ -164,7 +183,8 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   const substitutes = (assigns || []).map((a: any) => ({
     name: a.sub ? `${a.sub.first_name} ${a.sub.last_name}` : '',
     position: a.sub?.position || 'учител',
-    from: a.date_from, to: a.date_to, overNorm: a.over_norm !== false,
+    // лекторски/вътрешно е избор за ЦЯЛОТО заместване (иначе т.1 и т.3 си противоречат)
+    from: a.date_from, to: a.date_to, overNorm: sub.bsch_eligible === true ? true : overNorm,
   }))
   // ЗДУД за контрол
   const { data: zdud } = await supabase.from('staff_profiles').select('first_name, last_name').eq('role', 'zdud').eq('is_active', true).limit(1).maybeSingle()
@@ -182,7 +202,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
       className: bySlot.length ? Array.from(new Set(bySlot.map(s => s.cls).filter(Boolean))).join(', ') : '—',
       holderType: bySlot.some(s => (s.cls || '').startsWith('ИФО')) && !bySlot.some(s => !(s.cls || '').startsWith('ИФО')) ? 'ifo' : 'class',
       reason: sub.reason || 'vacation',
-      overNorm,
+      overNorm: sub.bsch_eligible === true ? true : overNorm,
       leaveRef: sub.leave_order_number ? `Заповед за отпуск № ${sub.leave_order_number}` : (sub.reason === 'sick' ? 'Болничен лист' : 'заявление'),
       dateFrom: sub.date_from, dateTo: sub.date_to,
       zdudName: zdud ? `${zdud.first_name} ${zdud.last_name}` : '',

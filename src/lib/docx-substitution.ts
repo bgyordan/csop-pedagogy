@@ -182,10 +182,10 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
   // Матрица (при няколко заместника — по една на всеки с неговия под-период)
   if (multi) {
     d.substitutes!.forEach(sb => {
+      // сравняваме като ISO текст — с Date() първият ден на всеки заместник изпадаше (UTC срещу местно време)
       const sbDays = d.days.filter(day => {
-        const [dd, mm, yy] = day.date.split('.').map(Number)
-        const t = new Date(yy, mm - 1, dd).getTime()
-        return t >= new Date(sb.from).getTime() && t <= new Date(sb.to).getTime()
+        const iso = day.date.split('.').reverse().join('-')
+        return iso >= sb.from && iso <= sb.to
       })
       children.push(new Paragraph({ spacing: { before: 80, after: 40 }, children: [bold(`${sb.name} (${formatDate(sb.from)} – ${formatDate(sb.to)}):`, 20)] }))
       children.push(...scheduleMatrix(sbDays))

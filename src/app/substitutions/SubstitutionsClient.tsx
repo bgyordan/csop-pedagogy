@@ -1,7 +1,7 @@
 'use client'
 import { useState, useMemo, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Pencil, Trash2, ChevronDown } from 'lucide-react'
+import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Pencil, Trash2, ChevronDown, Download } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { generateSubstitution, getAssignments, saveAssignments, checkSubstituteOverlap } from './actions'
 import { generateSubstitutionOrder } from '@/lib/docx-substitution'
@@ -279,8 +279,9 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     const res: any = await generateSubstitution(id, overNorm, register)
     if (res.error) { toast(res.error, 'error'); setGenId(null); return }
     try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ }
+    const wasIssued = !!row?.hasOrder
     setRows(prev => prev.map(r => r.id === id ? { ...r, hasOrder: true } : r))
-    toast('Заповедта е създадена и изтеглена')
+    toast(wasIssued ? 'Заповедта е изтеглена отново (същият номер)' : 'Заповедта е създадена и изтеглена')
     setGenId(null)
   }
 
@@ -564,10 +565,15 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               <div className="flex items-center justify-end gap-1.5 flex-nowrap" onClick={e => e.stopPropagation()}>
                 {(r as any).bsch && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0" title="По национална програма">НП</span>}
                 {!r.bsch && overNormMap[r.id] === false && (r.hasOrder || (r as any).manualNumber || (r as any).noOrder) && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 shrink-0" title="В рамките на нормата — без заплащане">вътр.</span>}
-                {(r.hasOrder || (r as any).manualNumber) ? (
+                {(r as any).manualNumber ? (
                   <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                    <Check size={12} /> {(r as any).manualNumber ? `Заповед № ${(r as any).manualNumber}` : 'Заповед издадена'}
+                    <Check size={12} /> {`Заповед № ${(r as any).manualNumber}`}
                   </span>
+                ) : r.hasOrder ? (
+                  <button onClick={() => genOrder(r.id)} disabled={genId === r.id} title="Изтегли заповедта пак (същият номер)"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0 hover:bg-emerald-100 transition-colors disabled:opacity-50">
+                    {genId === r.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Заповед издадена <Download size={12} className="opacity-60" />
+                  </button>
                 ) : (r as any).noOrder ? (
                   <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 shrink-0">Без заповед</span>
                 ) : r.substituteId ? (
