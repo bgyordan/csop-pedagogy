@@ -212,6 +212,9 @@ export default function NewCorrespondenceForm({
   }
   // отсъстващият може ли да бъде заместван (учител / възпитател)
   const absentCanBeSubstituted = canSubstitute(staff.find(x => x.id === staffId)?.role)
+  // всеки отпуск (без помощния персонал) влиза в регистъра „Замествания“ → вижда се в „Днес отсъстват“
+  const absentRole = staff.find(x => x.id === staffId)?.role
+  const absentInRegister = !!staffId && absentRole !== 'support'
   function handleStaffSelect(id: string) {
     setStaffId(id)
     const s = staff.find(x => x.id === id)
@@ -263,6 +266,7 @@ export default function NewCorrespondenceForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!subject) { alert('Моля попълнете темата.'); return }
+    if (isVacation && absentInRegister && (!subFrom || !subTo)) { alert('Моля попълнете периода на отпуска (от – до).'); return }
     setSaving(true)
     const { start: dStart, end: dEnd } = deloYearBounds(new Date(docDate))
     const seq = await nextSeqCorr(supabase, direction, dStart, dEnd)
@@ -325,17 +329,18 @@ export default function NewCorrespondenceForm({
       } catch (_) { /* заповедта не бива да блокира деловодството */ }
     }
 
-// Заместване (сценарий vacation, ако е избран заместник) — само за учители и възпитатели
-    if (((isVacation && substituteId && subFrom && subTo) || isNp) && absentCanBeSubstituted) {
+// Отпуск → регистър „Замествания“: ВИНАГИ (с или без заместник), за да се вижда кой отсъства.
+    // Специалистите се водят „не се замества“; НП — само за учители и възпитатели.
+    if ((isVacation && absentInRegister && subFrom && subTo) || (isNp && absentCanBeSubstituted)) {
       try {
         await supabase.from('substitutions').insert({
           absent_staff_id: staffId || null,
           kt_article: ktArticle,
-          substitute_staff_id: substituteId || null,
+          substitute_staff_id: absentCanBeSubstituted ? (substituteId || null) : null,
          date_from: subFrom || docDate,
           date_to: subTo || docDate,
           reason: 'vacation',
-          bsch_eligible: isNp,
+          bsch_eligible: isNp && absentCanBeSubstituted,
           leave_order_date: docDate,
           created_by: currentUserId,
         })
@@ -460,32 +465,33 @@ export default function NewCorrespondenceForm({
                     </span>
                   </label>
                 )}
-                {/* Заместване (опционално) — само за учители и възпитатели */}
-                {isVacation && staffId && !absentCanBeSubstituted && (
-                  <div className="pt-2 mt-1 border-t border-slate-200 text-[11px] text-slate-500">
-                    Без заместване — заместват се само учители и възпитатели.
+                {/* Период на отпуска — винаги (от него зависи „Днес отсъстват“) */}
+                {isVacation && absentInRegister && (
+                  <div className="pt-2 mt-1 border-t border-slate-200 space-y-2">
+                    <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Период на отпуска *</div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <label className="block text-[10px] text-slate-400 mb-0.5">От</label>
+                        <input type="date" value={subFrom} min={new Date(Date.now() - 7 * 864e5).toISOString().split('T')[0]} onChange={e => { setSubFrom(e.target.value); if (subTo && e.target.value > subTo) setSubTo('') }} className="input w-full text-xs" />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-[10px] text-slate-400 mb-0.5">До</label>
+                        <input type="date" value={subTo} min={subFrom || new Date(Date.now() - 7 * 864e5).toISOString().split('T')[0]} onChange={e => setSubTo(e.target.value)} className="input w-full text-xs" />
+                      </div>
+                    </div>
+                    {!absentCanBeSubstituted && (
+                      <div className="text-[11px] text-slate-500">Не се замества — колегите ще го видят в „Днес отсъстват“.</div>
+                    )}
                   </div>
                 )}
+                {/* Заместник (по избор) — само за учители и възпитатели */}
                 {isVacation && absentCanBeSubstituted && (
-                  <div className="pt-2 mt-1 border-t border-slate-200 space-y-2">
-                    <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Заместване (по избор)</div>
-                    {/* Комбо заместник */}
+                  <div className="space-y-1">
+                    <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Заместник (по избор)</div>
                     <PersonCombo people={staff.filter(s => canSubstitute(s.role))} value={substituteId} excludeId={staffId}
-                      onChange={(id) => { setSubstituteId(id); if (!id) { setSubFrom(''); setSubTo('') } }}
+                      onChange={(id) => setSubstituteId(id)}
                       placeholder="Заместник — търси по име…" />
-                    {/* Срок — само ако има избран заместник */}
-                    {substituteId && (
-                      <div className="reveal-panel flex items-center gap-2">
-                        <div className="flex-1">
-                          <label className="block text-[10px] text-slate-400 mb-0.5">От</label>
-                          <input type="date" value={subFrom} min={new Date(Date.now() - 7 * 864e5).toISOString().split('T')[0]} onChange={e => { setSubFrom(e.target.value); if (subTo && e.target.value > subTo) setSubTo('') }} className="input w-full text-xs" />
-                        </div>
-                        <div className="flex-1">
-                          <label className="block text-[10px] text-slate-400 mb-0.5">До</label>
-                          <input type="date" value={subTo} min={subFrom || new Date(Date.now() - 7 * 864e5).toISOString().split('T')[0]} onChange={e => setSubTo(e.target.value)} className="input w-full text-xs" />
-                        </div>
-                      </div>
-                    )}
+                    <div className="text-[10px] text-slate-400">Ако още няма — остави празно, после се задава в „Замествания“.</div>
                   </div>
                 )}
               </div>

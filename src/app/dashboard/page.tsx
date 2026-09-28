@@ -13,6 +13,7 @@ import { getFullName } from '@/lib/utils'
 import ViewAsPicker from './view-as/ViewAsPicker'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { loginTime } from '@/lib/login-time'
+import TodayAbsentStrip from './components/TodayAbsentStrip'
 export const dynamic = 'force-dynamic'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -107,6 +108,9 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Днес отсъстват — за всички колеги (управата го има в оперативния панел) */}
+      {!isAdmin && !isDirector && <TodayAbsentStrip />}
 
       {/* Dashboard по роля */}
       <div className="transition-all duration-500">
