@@ -5,7 +5,7 @@ import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Penc
 import { useToast } from '@/components/ui/Toast'
 import { generateSubstitution, getAssignments, saveAssignments, checkSubstituteOverlap } from './actions'
 import { generateSubstitutionOrder } from '@/lib/docx-substitution'
-import SubstituteDayCanvas from './SubstituteDayCanvas'
+import SubstituteDayCanvas, { PALETTE } from './SubstituteDayCanvas'
 import type { SubRow } from './page'
 import { canSubstitute } from '@/lib/pedagogues'
 
@@ -51,6 +51,18 @@ function mapToRows(map: Record<string, string>, days: string[]) {
   }
   flush()
   return rows
+}
+
+// „Мария Иванова" → „Мария И." (за етикетите в реда)
+function shortName(n: string) {
+  const [f, l] = n.trim().split(/\s+/)
+  return l ? `${f} ${l[0]}.` : f
+}
+// Уникалните заместници по реда на първото им появяване (същият ред на цветовете като в календара)
+function uniqueSubs(a: SubRow['assigns']) {
+  const seen: string[] = []; const out: { staffId: string; name: string }[] = []
+  a.forEach(x => { if (!seen.includes(x.staffId)) { seen.push(x.staffId); out.push({ staffId: x.staffId, name: x.name }) } })
+  return out
 }
 
 // Лекторски (над норматив, платено) / Вътрешно (в рамките на нормата, без заплащане)
@@ -134,6 +146,26 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [genId, setGenId] = useState<string | null>(null)
   const [overNormMap, setOverNormMap] = useState<Record<string, boolean>>(() => Object.fromEntries(initial.map(r => [r.id, r.overNorm !== false])))
   const [registerMap, setRegisterMap] = useState<Record<string, boolean>>({})
+
+  // Разгънат ред — преглед на разпределението по дни (без редакция)
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [openDays, setOpenDays] = useState<string[]>([])
+  const [openLoading, setOpenLoading] = useState(false)
+  async function toggleOpen(r: SubRow) {
+    if (openId === r.id) { setOpenId(null); return }
+    setOpenId(r.id); setOpenDays([]); setOpenLoading(true)
+    const { data } = await supabase.from('academic_calendar_days')
+      .select('date').gte('date', r.dateFrom).lte('date', r.dateTo).eq('is_school_day', true).order('date')
+    setOpenDays((data || []).map((x: any) => x.date)); setOpenLoading(false)
+  }
+  function viewMap(r: SubRow, days: string[]) {
+    const m: Record<string, string> = {}
+    r.assigns.forEach(a => days.forEach(d => { if (d >= a.from && d <= a.to) m[d] = a.staffId }))
+    return m
+  }
+  const nameById = (id: string) => { const p = staff.find(x => x.id === id); return p ? `${p.first_name} ${p.last_name}` : '—' }
+  const toAssigns = (rs: { substitute_staff_id: string; date_from: string; date_to: string }[]): SubRow['assigns'] =>
+    rs.map(x => ({ staffId: x.substitute_staff_id, name: nameById(x.substitute_staff_id), from: x.date_from, to: x.date_to }))
 
   // Създаване
   const [showNew, setShowNew] = useState(false)
@@ -272,6 +304,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
            reason: r.reason, hasOrder: !!r.substitution_order_id, bsch: r.bsch_eligible === true, ktArticle: r.kt_article,
       manualNumber: r.manual_order_number || null, manualDate: r.manual_order_date || null, noOrder: r.no_order_needed === true,
       overNorm: r.over_norm !== false,
+      assigns: [],
     } as SubRow
   }
   const selectCols = `id, date_from, date_to, reason, substitute_staff_id, substitution_order_id, manual_order_number, manual_order_date, no_order_needed, bsch_eligible, kt_article, over_norm,
@@ -297,6 +330,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       await saveAssignments(data.id, mapToRows(dayMap, schoolDays))
     }
     let newRow: any = mapRow(data)
+    if (multiOpen) newRow.assigns = toAssigns(mapToRows(dayMap, schoolDays))
     // „Създай заповед" при запис: генерира Word + завежда номер (само ако има заместник)
     if (orderMode === 'create' && primary) {
       const overNorm = bsch ? true : nOverNorm
@@ -348,7 +382,9 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     }).eq('id', editId).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setESaving(false); return }
     const mapped: any = mapRow(data); mapped.absentStaffId = eAbsent
-    await saveAssignments(editId, multiOpen ? mapToRows(dayMap, schoolDays) : [])
+    const eRanges = multiOpen ? mapToRows(dayMap, schoolDays) : []
+    await saveAssignments(editId, eRanges)
+    mapped.assigns = toAssigns(eRanges)
     setRows(prev => prev.map(x => x.id === editId ? mapped : x))
     setOverNormMap(p => ({ ...p, [editId]: mapped.overNorm }))
     toast('Записът е обновен')
@@ -497,18 +533,32 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
             <p className="text-sm text-slate-400">Няма замествания</p>
           </div>
         ) : filtered.map((r, idx) => {
-          const st = statusOf(r)
+          const multi = r.assigns.length > 0
+          const subs = multi ? uniqueSubs(r.assigns) : []
+          const isOpen = openId === r.id
           return (
-            <div key={r.id}
-              className={`bg-white border border-slate-200 rounded-2xl px-4 py-2 grid grid-cols-1 md:grid-cols-[24px_minmax(0,1.3fr)_minmax(0,1.3fr)_66px_66px_262px] gap-2 md:gap-3 md:items-center transition-all group hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] shadow-[0_1px_4px_rgba(15,34,64,0.06)] ${idx % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
+            <div key={r.id} className={`bg-white border rounded-2xl transition-all group shadow-[0_1px_4px_rgba(15,34,64,0.06)] ${isOpen ? 'border-slate-400 shadow-[0_2px_8px_rgba(15,34,64,0.10)]' : 'border-slate-200 hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)]'} ${idx % 2 === 1 && !isOpen ? 'bg-slate-50/40' : ''}`}>
+            <div onClick={multi ? () => toggleOpen(r) : undefined}
+              title={multi ? 'Покажи кой кои дни замества' : undefined}
+              className={`px-4 py-2 grid grid-cols-1 md:grid-cols-[24px_minmax(0,1.3fr)_minmax(0,1.3fr)_66px_66px_262px] gap-2 md:gap-3 md:items-center ${multi ? 'cursor-pointer' : ''}`}>
               <span className="text-xs text-slate-400">{idx + 1}</span>
               <span className="text-sm text-slate-800 bg-rose-50/50 rounded-md px-2 py-1">{r.absentName}</span>
+              {multi ? (
+                <span className="flex items-center gap-1 flex-wrap min-w-0">
+                  {subs.map((x, i) => { const c = PALETTE[i % PALETTE.length]; return (
+                    <span key={x.staffId} title={x.name} className="text-[12px] px-2 py-0.5 rounded-full border whitespace-nowrap"
+                      style={{ background: c.bg, borderColor: c.bd, color: c.tx }}>{shortName(x.name)}</span>
+                  )})}
+                  <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                </span>
+              ) : (
               <span className={`text-sm text-slate-600 rounded-md px-2 py-1 ${r.substituteName ? 'bg-emerald-50/60' : ''}`}>
                 {r.substituteName || <span className="inline-flex items-center gap-1 text-amber-500 text-xs"><UserX size={13} /> няма</span>}
               </span>
+              )}
               <span className="text-xs text-slate-500">{fmt(r.dateFrom)}</span>
               <span className="text-xs text-slate-500">{fmt(r.dateTo)}</span>
-              <div className="flex items-center justify-end gap-1.5 flex-nowrap">
+              <div className="flex items-center justify-end gap-1.5 flex-nowrap" onClick={e => e.stopPropagation()}>
                 {(r as any).bsch && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0" title="По национална програма">НП</span>}
                 {!r.bsch && overNormMap[r.id] === false && (r.hasOrder || (r as any).manualNumber || (r as any).noOrder) && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 shrink-0" title="В рамките на нормата — без заплащане">вътр.</span>}
                 {(r.hasOrder || (r as any).manualNumber) ? (
@@ -540,6 +590,18 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                 ) : null}
                 <button onClick={() => startEdit(r)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all" title="Редактирай"><Pencil size={14} /></button>
               </div>
+            </div>
+            {isOpen && (
+              <div className="px-4 pb-4 pt-3 border-t border-slate-100">
+                {openLoading
+                  ? <div className="flex items-center gap-2 text-sm text-slate-400"><Loader2 size={14} className="animate-spin" /> Зареждане…</div>
+                  : openDays.length === 0
+                    ? <p className="text-sm text-slate-400">Няма учебни дни в този период.</p>
+                    : <SubstituteDayCanvas readOnly schoolDays={openDays}
+                        staff={subs.map(x => { const [f, ...l] = x.name.split(' '); return { id: x.staffId, first_name: f, last_name: l.join(' ') } })}
+                        value={viewMap(r, openDays)} />}
+              </div>
+            )}
             </div>
           )
         })}

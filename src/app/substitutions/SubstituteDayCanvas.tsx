@@ -11,11 +11,12 @@ interface Props {
   schoolDays: string[]                    // само учебни дни от периода, сортирани
   staff: Staff[]                          // кандидат-заместници (без отсъстващия)
   value: Record<string, string>           // iso → id на заместник
-  onChange: (next: Record<string, string>) => void
+  onChange?: (next: Record<string, string>) => void
+  readOnly?: boolean                      // само преглед (в списъка) — без избор и цъкане
 }
 
 // Меки фонове + четлив тъмен текст (без плътни тъмни запълвания)
-const PALETTE = [
+export const PALETTE = [
   { bg: '#e0edff', bd: '#93b4f5', tx: '#1e3a8a' },
   { bg: '#dcfce7', bd: '#86d5a3', tx: '#166534' },
   { bg: '#fef3c7', bd: '#e6c260', tx: '#92400e' },
@@ -36,7 +37,7 @@ function mondayIso(iso: string): string {
 const dNum = (iso: string) => new Date(iso + 'T00:00').getDate()
 const mNum = (iso: string) => new Date(iso + 'T00:00').getMonth() + 1
 
-export default function SubstituteDayCanvas({ schoolDays, staff, value, onChange }: Props) {
+export default function SubstituteDayCanvas({ schoolDays, staff, value, onChange = () => {}, readOnly = false }: Props) {
   const [activeId, setActiveId] = useState('')
 
   const nameOf = useMemo(() => {
@@ -80,7 +81,7 @@ export default function SubstituteDayCanvas({ schoolDays, staff, value, onChange
   )
 
   function paint(iso: string) {
-    if (!activeId) return
+    if (readOnly || !activeId) return
     const next = { ...value }
     if (next[iso] === activeId) delete next[iso]
     else next[iso] = activeId
@@ -97,7 +98,7 @@ export default function SubstituteDayCanvas({ schoolDays, staff, value, onChange
   return (
     <div className="space-y-3.5">
       {/* Избор на активен заместник */}
-      <div className="flex items-center gap-2.5 flex-wrap">
+      {!readOnly && <div className="flex items-center gap-2.5 flex-wrap">
         <span className="text-sm text-slate-600">Активен заместник</span>
         <select value={activeId} onChange={e => setActiveId(e.target.value)}
           className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 min-w-[220px]">
@@ -119,9 +120,9 @@ export default function SubstituteDayCanvas({ schoolDays, staff, value, onChange
           className="px-3 py-1.5 rounded-lg text-xs border border-slate-200 text-slate-500 bg-white hover:shadow-sm">
           Изчисти
         </button>
-      </div>
+      </div>}
 
-      {!activeId && <p className="text-xs text-slate-500">Първо избери заместник, после цъкай дните, които той покрива.</p>}
+      {!readOnly && !activeId && <p className="text-xs text-slate-500">Първо избери заместник, после цъкай дните, които той покрива.</p>}
 
       {/* Календар */}
       <div className="space-y-1.5">
@@ -136,9 +137,9 @@ export default function SubstituteDayCanvas({ schoolDays, staff, value, onChange
               const id = value[iso]
               const c = id ? colorOf[id] : null
               return (
-                <button type="button" key={dow} onClick={() => paint(iso)}
+                <button type="button" key={dow} onClick={() => paint(iso)} disabled={readOnly}
                   title={iso.split('-').reverse().join('.')}
-                  className="min-h-[62px] rounded-xl border flex flex-col items-center justify-center gap-0.5 py-1.5 transition-all hover:-translate-y-0.5 hover:shadow-[0_3px_10px_rgba(15,34,64,0.10)]"
+                  className={`${readOnly ? 'min-h-[52px] cursor-default' : 'min-h-[62px] transition-all hover:-translate-y-0.5 hover:shadow-[0_3px_10px_rgba(15,34,64,0.10)]'} rounded-xl border flex flex-col items-center justify-center gap-0.5 py-1.5`}
                   style={c ? { background: c.bg, borderColor: c.bd, color: c.tx } : { background: '#fff', borderColor: '#e2e8f0', color: '#334155' }}>
                   <span className="text-[11px] opacity-70">{WD[new Date(iso + 'T00:00').getDay()]}</span>
                   <span className="text-[15px] font-light">{dNum(iso)}.{String(mNum(iso)).padStart(2, '0')}</span>
@@ -153,8 +154,8 @@ export default function SubstituteDayCanvas({ schoolDays, staff, value, onChange
       {/* Легенда */}
       <div className="flex flex-wrap gap-2 items-center">
         {usedIds.map(id => (
-          <button type="button" key={id} onClick={() => setActiveId(id)}
-            className={'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ' + (activeId === id ? 'ring-2 ring-[#0f2240]' : '')}
+          <button type="button" key={id} onClick={() => { if (!readOnly) setActiveId(id) }} disabled={readOnly}
+            className={'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ' + (readOnly ? 'cursor-default ' : '') + (activeId === id ? 'ring-2 ring-[#0f2240]' : '')}
             style={{ background: colorOf[id]?.bg, borderColor: colorOf[id]?.bd, color: colorOf[id]?.tx }}>
             <span className="w-3 h-3 rounded" style={{ background: colorOf[id]?.bd }} />
             {nameOf[id] || '—'} · {counts[id]} дни
