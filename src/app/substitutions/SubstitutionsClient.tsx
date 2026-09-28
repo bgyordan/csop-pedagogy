@@ -299,6 +299,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     return {
       id: r.id, absentName: r.absent ? `${r.absent.first_name} ${r.absent.last_name}` : '—',
       absentStaffId: r.absent_staff_id,
+      absentRole: r.absent?.role || null,
       substituteName: r.sub ? `${r.sub.first_name} ${r.sub.last_name}` : null,
       substituteId: r.substitute_staff_id, dateFrom: r.date_from, dateTo: r.date_to,
            reason: r.reason, hasOrder: !!r.substitution_order_id, bsch: r.bsch_eligible === true, ktArticle: r.kt_article,
@@ -308,7 +309,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     } as SubRow
   }
   const selectCols = `id, date_from, date_to, reason, substitute_staff_id, substitution_order_id, manual_order_number, manual_order_date, no_order_needed, bsch_eligible, kt_article, over_norm,
-    absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name),
+    absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, role),
     sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name)`
 
   function resetMulti() { setMultiOpen(false); setDayMap({}); setSchoolDays([]); setPendingRanges(null) }
@@ -553,7 +554,9 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                 </span>
               ) : (
               <span className={`text-sm text-slate-600 rounded-md px-2 py-1 ${r.substituteName ? 'bg-emerald-50/60' : ''}`}>
-                {r.substituteName || <span className="inline-flex items-center gap-1 text-amber-500 text-xs"><UserX size={13} /> няма</span>}
+                {r.substituteName || (canSubstitute(r.absentRole)
+                  ? <span className="inline-flex items-center gap-1 text-amber-500 text-xs"><UserX size={13} /> няма</span>
+                  : <span className="text-xs text-slate-400">не се замества</span>)}
               </span>
               )}
               <span className="text-xs text-slate-500">{fmt(r.dateFrom)}</span>

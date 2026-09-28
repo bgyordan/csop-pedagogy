@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { countWaiting } from '@/lib/today-absences'
 import Link from 'next/link'
 import { ArrowRight, AlertTriangle, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 import ReserveNumberCard from './ReserveNumberCard'
@@ -26,7 +27,7 @@ export default async function SecretaryDashboard({ profile }: any) {
     { data: expiringContracts },
     { data: enrollments },
     { data: couds },
-    { count: subsWaiting },
+    subsWaiting,
     { count: subsTotal },
   ] = await Promise.all([
     supabase.from('correspondence').select('number, date, subject').eq('direction', 'incoming').order('created_at', { ascending: false }).limit(1),
@@ -40,7 +41,7 @@ export default async function SecretaryDashboard({ profile }: any) {
     supabase.from('contracts').select('number, subject, counterparty, end_date').gte('end_date', today).lte('end_date', in30days).order('end_date'),
        supabase.from('student_attachments').select('student_id').eq('doc_type', 'enrollment_application'),
     supabase.from('student_attachments').select('student_id').eq('doc_type', 'coud_application'),
-    supabase.from('substitutions').select('*', { count: 'exact', head: true }).is('substitute_staff_id', null),
+    countWaiting(supabase),
     supabase.from('substitutions').select('*', { count: 'exact', head: true }),
   ])
 

@@ -1,0 +1,58 @@
+import { canSubstitute } from '@/lib/pedagogues'
+
+// Кой отсъства ДНЕС и кой го замества — общо за картата на управата (OpsPanel)
+// и за лентата „Днес отсъстват“ при всички останали колеги.
+// Източник: регистърът „Замествания“ (substitutions + substitution_assignments).
+// Специалистите (логопед, психолог, рехабилитатор) и др. не се заместват —
+// те пак се показват, за да знаят колегите, че не са на работа.
+
+export type TodayAbsence = {
+  id: string
+  absent: string          // „Мария Иванова“
+  position: string        // длъжност (за неподлежащите на заместване)
+  substitutable: boolean  // учител / възпитател
+  by: string              // заместник(ци) за днес, „“ ако няма
+  np: boolean
+  to: string              // ISO — до кога отсъства
+}
+
+const full = (p: any) => (p ? `${p.first_name} ${p.last_name}` : '')
+
+export function sofiaToday() {
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Sofia' }))
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+export async function getTodayAbsences(supabase: any): Promise<TodayAbsence[]> {
+  const today = sofiaToday()
+  const [{ data: subs }, { data: assigns }] = await Promise.all([
+    supabase.from('substitutions')
+      .select('id, date_to, bsch_eligible, absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, role, position), sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name)')
+      .lte('date_from', today).gte('date_to', today),
+    supabase.from('substitution_assignments')
+      .select('substitution_id, sub:staff_profiles!substitution_assignments_substitute_staff_id_fkey(first_name, last_name)')
+      .lte('date_from', today).gte('date_to', today),
+  ])
+  const extra: Record<string, string[]> = {}
+  ;(assigns || []).forEach((a: any) => { (extra[a.substitution_id] ||= []).push(full(a.sub)) })
+  return (subs || [])
+    .filter((s: any) => s.absent)
+    .map((s: any) => ({
+      id: s.id,
+      absent: full(s.absent),
+      position: s.absent?.position || '',
+      substitutable: canSubstitute(s.absent?.role),
+      by: extra[s.id]?.length ? extra[s.id].join(', ') : full(s.sub),
+      np: !!s.bsch_eligible,
+      to: s.date_to,
+    }))
+    .sort((a: TodayAbsence, b: TodayAbsence) => a.absent.localeCompare(b.absent, 'bg'))
+}
+
+// „Чакат заместник“ — само учители/възпитатели без заместник (специалистите не се заместват)
+export async function countWaiting(supabase: any): Promise<number> {
+  const { data } = await supabase.from('substitutions')
+    .select('id, absent:staff_profiles!substitutions_absent_staff_id_fkey(role)')
+    .is('substitute_staff_id', null).gte('date_to', sofiaToday())
+  return (data || []).filter((s: any) => canSubstitute(s.absent?.role)).length
+}
