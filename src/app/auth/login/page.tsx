@@ -92,6 +92,10 @@ function LoginForm() {
               <button type="button" onClick={() => setShowPassword(true)} className="hover:text-slate-600 transition">
                 Имейл и парола
               </button>
+              <span className="text-slate-300">·</span>
+              <button type="button" onClick={() => handleGoogleLogin('csop-varna.bg')} disabled={loading} className="hover:text-slate-600 transition disabled:opacity-50">
+                Акаунт csop-varna.bg
+              </button>
             </div>
           ) : (
             <form onSubmit={handleEmailLogin} className="space-y-3 mt-5 pt-5 border-t border-slate-100">
