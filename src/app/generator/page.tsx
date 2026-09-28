@@ -60,6 +60,10 @@ export default async function GeneratorPage() {
         </div>
       </header>
 
+      <div className="mb-5 px-4 py-3 rounded-xl bg-sky-50 border border-sky-100 text-sm text-sky-800">
+        <span className="font-medium">Нова версия:</span> в досието на детето → раздел <span className="font-medium">„Документи“</span> → бутон <span className="font-medium">„Нов документ“</span> (бланките в Drive). Старият генератор остава временно.
+      </div>
+
       {students.length === 0 ? (
         <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-14 text-center">
           <Users size={32} className="mx-auto mb-2 text-slate-300" />
