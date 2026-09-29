@@ -13,8 +13,9 @@ export default async function GymSchedulePage() {
 
   const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
 
-  // Предмети с „ФВС" в името (ФВС, музика/ФВС и сродни)
-  const { data: subs } = await supabase.from('subjects').select('id').ilike('name', '%ФВС%')
+  // Предмети за салона: „ФВС“, „Физическо възпитание…“, „…спорт…“ — както и да ги е кръстил колегата
+  const { data: subs } = await supabase.from('subjects').select('id')
+    .or('name.ilike.%ФВС%,name.ilike.%физическ%,name.ilike.%спорт%')
   const subjIds = (subs || []).map((s: any) => s.id)
 
   const cells: Record<string, Occupant[]> = {}
