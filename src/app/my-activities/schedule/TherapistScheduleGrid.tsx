@@ -3,6 +3,7 @@ import { useState, useTransition, useMemo } from 'react'
 import { Save, Loader2, Info, Download, Copy, X, Search } from 'lucide-react'
 import { saveTherapistSchedule, copyTherapistFromTerm1 } from './actions'
 import { generateTherapistSchedule } from '@/lib/docx-generator'
+import { createClient } from '@/lib/supabase/client'
 interface Student {
   id: string
   name: string
@@ -130,7 +131,8 @@ export function TherapistScheduleGrid({
       const names = arr.map(id => students.find(s => s.id === id)?.name).filter(Boolean).join(', ')
       if (names) slotData[key] = { student: names, className: '' }
     })
-    const subtitle = `${term === 1 ? 'I' : 'II'} срок`
+    const { data: cy } = await createClient().from('academic_years').select('name').eq('is_current', true).single()
+    const subtitle = `${term === 1 ? 'I' : 'II'} срок · ${cy?.name || ''}`
     const maxPeriod = showAfternoon ? 8 : 6
     await generateTherapistSchedule(specialistName, roleLabel, subtitle, slotData, maxPeriod)
   }
