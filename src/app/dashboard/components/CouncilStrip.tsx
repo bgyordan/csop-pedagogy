@@ -8,11 +8,14 @@ import { sofiaToday } from '@/lib/today-absences'
 export default async function CouncilStrip({ staffId }: { staffId: string }) {
   const supabase = await createClient()
   const today = sofiaToday()
-  const { data: sets } = await supabase.from('council_sets')
-    .select('id, title, event_date').eq('is_archived', false)
+  const load = (cols: string) => supabase.from('council_sets')
+    .select(cols).eq('is_archived', false)
     .or(`event_date.is.null,event_date.gte.${today}`)
     .order('event_date', { ascending: true, nullsFirst: false })
-  if (!sets || sets.length === 0) return null
+  let res: any = await load('id, title, event_date, event_time')
+  if (res.error) res = await load('id, title, event_date')   // колоната за час още я няма
+  const sets: any[] = res.data || []
+  if (sets.length === 0) return null
   const ids = sets.map((s: any) => s.id)
   const [{ data: files }, acksRes] = await Promise.all([
     supabase.from('council_files').select('set_id, created_at').in('set_id', ids),
@@ -45,7 +48,7 @@ export default async function CouncilStrip({ staffId }: { staffId: string }) {
           <div className="text-[13px] text-slate-500 mt-0.5 space-y-0.5">
             {todo.map((s: any) => (
               <div key={s.id} className="truncate">
-                {s.title}{s.event_date ? ` · ${fmt(s.event_date)}` : ''} · {count[s.id]} {count[s.id] === 1 ? 'файл' : 'файла'}
+                {s.title}{s.event_date ? ` · ${fmt(s.event_date)}` : ''}{s.event_time ? ` · ${String(s.event_time).slice(0, 5)} ч.` : ''} · {count[s.id]} {count[s.id] === 1 ? 'файл' : 'файла'}
                 {s.event_date && <span className="text-amber-700"> · {when(s.event_date)}</span>}
                 {ackOn && acked[s.id] ? <span className="text-amber-700"> · нови файлове</span> : null}
               </div>

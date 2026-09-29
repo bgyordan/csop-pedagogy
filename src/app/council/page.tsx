@@ -14,12 +14,18 @@ export default async function CouncilPage() {
   const canManage = ['admin', 'director', 'zdud'].includes(me.role || '')
 
   // комплекти (архивните само за управляващите)
-  let setQuery = supabase.from('council_sets')
-    .select('id, title, event_date, is_archived, created_at')
-    .order('event_date', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false })
-  if (!canManage) setQuery = setQuery.eq('is_archived', false)
-  const { data: sets } = await setQuery
+  // с час на съвета (event_time); ако колоната още я няма — без него
+  const loadSets = (cols: string) => {
+    let q = supabase.from('council_sets').select(cols)
+      .order('event_date', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+    if (!canManage) q = q.eq('is_archived', false)
+    return q
+  }
+  let setsRes: any = await loadSets('id, title, event_date, event_time, is_archived, created_at')
+  const timeOn = !setsRes.error
+  if (!timeOn) setsRes = await loadSets('id, title, event_date, is_archived, created_at')
+  const sets: any[] = setsRes.data || []
 
   const setIds = (sets || []).map((s: any) => s.id)
   const filesBySet: Record<string, any[]> = {}
@@ -45,7 +51,7 @@ export default async function CouncilPage() {
     : { data: [] as any[] }
 
   const groups = (sets || []).map((s: any) => ({
-    id: s.id, title: s.title, eventDate: s.event_date, isArchived: s.is_archived,
+    id: s.id, title: s.title, eventDate: s.event_date, eventTime: s.event_time ? String(s.event_time).slice(0, 5) : null, isArchived: s.is_archived,
     files: (filesBySet[s.id] || []).map((f: any) => ({
       id: f.id, name: f.name, description: f.description, path: f.path, size: f.size, mime: f.mime_type || '', createdAt: f.created_at,
     })),
@@ -69,6 +75,7 @@ export default async function CouncilPage() {
         canManage={canManage}
         meId={me.id}
         acksOn={acksOn}
+        timeOn={timeOn}
         people={(people || []).map((p: any) => ({ id: p.id, name: `${p.first_name} ${p.last_name}` }))}
       />
     </div>

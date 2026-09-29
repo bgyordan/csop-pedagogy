@@ -8,7 +8,7 @@ import {
 
 type CFile = { id: string; name: string; description: string | null; path: string; size: number | null; mime: string; createdAt: string }
 type Ack = { staffId: string; at: string }
-type Group = { id: string; title: string; eventDate: string | null; isArchived: boolean; files: CFile[]; acks: Ack[] }
+type Group = { id: string; title: string; eventDate: string | null; eventTime: string | null; isArchived: boolean; files: CFile[]; acks: Ack[] }
 type Person = { id: string; name: string }
 
 const BUCKET = 'council-materials'
@@ -48,8 +48,8 @@ function fileKind(f: CFile): { label: string; bg: string; fg: string; preview: b
   return { label: ext.toUpperCase().slice(0, 4) || 'FILE', bg: '#eef1f5', fg: '#475569', preview: false }
 }
 
-export default function CouncilClient({ groups: initial, canManage, meId, acksOn, people }: {
-  groups: Group[]; canManage: boolean; meId: string; acksOn: boolean; people: Person[]
+export default function CouncilClient({ groups: initial, canManage, meId, acksOn, timeOn, people }: {
+  groups: Group[]; canManage: boolean; meId: string; acksOn: boolean; timeOn: boolean; people: Person[]
 }) {
   const supabase = createClient()
   const today = todayIso()
@@ -62,7 +62,13 @@ export default function CouncilClient({ groups: initial, canManage, meId, acksOn
   const [showNew, setShowNew] = useState(false)
   const [nTitle, setNTitle] = useState('Педагогически съвет')
   const [nDate, setNDate] = useState('')
+  const [nTime, setNTime] = useState('')
   const [savingSet, setSavingSet] = useState(false)
+  // редакция на комплект (заглавие, дата, час)
+  const [editSet, setEditSet] = useState<string | null>(null)
+  const [eTitle, setETitle] = useState('')
+  const [eDate, setEDate] = useState('')
+  const [eTime, setETime] = useState('')
 
   // качване
   const [uploadingTo, setUploadingTo] = useState<string | null>(null)
@@ -84,13 +90,24 @@ export default function CouncilClient({ groups: initial, canManage, meId, acksOn
   async function createSet() {
     if (!nTitle.trim()) return
     setSavingSet(true)
-    const { data, error } = await supabase.from('council_sets')
-      .insert({ title: nTitle.trim(), event_date: nDate || null, created_by: meId })
-      .select('id, title, event_date, is_archived').single()
+    const row: any = { title: nTitle.trim(), event_date: nDate || null, created_by: meId }
+    if (timeOn) row.event_time = nTime || null
+    const { data, error } = await supabase.from('council_sets').insert(row).select('id, title, event_date, is_archived').single()
     setSavingSet(false)
     if (error || !data) { alert('Грешка при създаване'); return }
-    const g: Group = { id: data.id, title: data.title, eventDate: data.event_date, isArchived: false, files: [], acks: [] }
-    setGroups(prev => [g, ...prev]); setOpenId(g.id); setShowNew(false); setNTitle('Педагогически съвет'); setNDate('')
+    const g: Group = { id: data.id, title: data.title, eventDate: data.event_date, eventTime: timeOn ? (nTime || null) : null, isArchived: false, files: [], acks: [] }
+    setGroups(prev => [g, ...prev]); setOpenId(g.id); setShowNew(false); setNTitle('Педагогически съвет'); setNDate(''); setNTime('')
+  }
+
+  function startEditSet(g: Group) { setEditSet(g.id); setETitle(g.title); setEDate(g.eventDate || ''); setETime(g.eventTime || '') }
+  async function saveSet(g: Group) {
+    if (!eTitle.trim()) return
+    const row: any = { title: eTitle.trim(), event_date: eDate || null }
+    if (timeOn) row.event_time = eTime || null
+    const { error } = await supabase.from('council_sets').update(row).eq('id', g.id)
+    if (error) { alert('Грешка при запис'); return }
+    setGroups(prev => prev.map(x => x.id === g.id ? { ...x, title: eTitle.trim(), eventDate: eDate || null, eventTime: timeOn ? (eTime || null) : x.eventTime } : x))
+    setEditSet(null)
   }
 
   function triggerUpload(setId: string) { pendingSet.current = setId; fileRef.current?.click() }
@@ -178,6 +195,8 @@ export default function CouncilClient({ groups: initial, canManage, meId, acksOn
                   className="flex-1 px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400" />
                 <input type="date" value={nDate} onChange={e => setNDate(e.target.value)} title="Дата на съвета"
                   className="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400" />
+                {timeOn && <input type="time" value={nTime} onChange={e => setNTime(e.target.value)} title="Час на съвета"
+                  className="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400" />}
                 <button onClick={createSet} disabled={savingSet || !nTitle.trim()}
                   className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-white text-sm font-medium disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
                   {savingSet ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Създай
@@ -215,7 +234,7 @@ export default function CouncilClient({ groups: initial, canManage, meId, acksOn
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[15px] font-medium text-slate-800">{g.title}</span>
-                  {g.eventDate && <span className="text-sm text-slate-500">{fmtDate(g.eventDate)}</span>}
+                  {g.eventDate && <span className="text-sm text-slate-500">{fmtDate(g.eventDate)}{g.eventTime ? ` · ${g.eventTime} ч.` : ''}</span>}
                   {badge && <span className={`text-[11px] px-2 py-0.5 rounded-full border ${badge.cls}`}>{badge.text}</span>}
                   {g.isArchived && <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">архивиран</span>}
                 </div>
@@ -232,6 +251,20 @@ export default function CouncilClient({ groups: initial, canManage, meId, acksOn
 
             {open && (
               <div className="px-4 pb-4 border-t border-slate-100 pt-3 space-y-2">
+                {canManage && editSet === g.id && (
+                  <div className="flex flex-col sm:flex-row gap-2 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                    <input value={eTitle} onChange={e => setETitle(e.target.value)} placeholder="Заглавие"
+                      className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400" />
+                    <input type="date" value={eDate} onChange={e => setEDate(e.target.value)}
+                      className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400" />
+                    {timeOn && <input type="time" value={eTime} onChange={e => setETime(e.target.value)}
+                      className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400" />}
+                    <div className="flex gap-1.5">
+                      <button onClick={() => saveSet(g)} className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-sm text-white hover:opacity-90" style={{ backgroundColor: '#0f2240' }}><Check size={14} /> Запази</button>
+                      <button onClick={() => setEditSet(null)} className="px-3 py-2 rounded-xl text-sm text-slate-500 hover:bg-white">Отказ</button>
+                    </div>
+                  </div>
+                )}
                 {g.files.length === 0 ? (
                   <p className="text-sm text-slate-400 py-2">Няма качени файлове.</p>
                 ) : g.files.map(f => {
@@ -339,6 +372,7 @@ export default function CouncilClient({ groups: initial, canManage, meId, acksOn
                       {uploadingTo === g.id ? 'Качване…' : 'Качи файл(ове)'}
                     </button>
                     <div className="ml-auto flex items-center gap-1.5">
+                      <button onClick={() => startEditSet(g)} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs text-slate-500 hover:bg-slate-100"><Pencil size={13} /> Дата и час</button>
                       <button onClick={() => toggleArchive(g)} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs text-slate-500 hover:bg-slate-100">
                         {g.isArchived ? <><ArchiveRestore size={13} /> Възстанови</> : <><Archive size={13} /> Архивирай</>}
                       </button>
