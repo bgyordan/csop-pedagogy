@@ -434,3 +434,19 @@ export function accountEmails(email?: string | null) {
   if (!school) return []
   return [school, school.replace('@csop-varna.bg', '@edu.mon.bg')]
 }
+
+// Маха прякото право на тези имейли върху файл/папка (наследените от горната папка не се пипат).
+// Ползва се при преместване на дете: старият класен губи достъп до папката му.
+export async function unshareEmails(fileId: string, emails: string[]) {
+  const want = new Set(emails.map(e => e.toLowerCase()))
+  if (want.size === 0) return 0
+  const r = await drive(`/files/${fileId}/permissions?supportsAllDrives=true&fields=permissions(id,emailAddress,permissionDetails)`)
+  let removed = 0
+  for (const p of (r.permissions || []) as any[]) {
+    if (!p.emailAddress || !want.has(String(p.emailAddress).toLowerCase())) continue
+    const inherited = (p.permissionDetails || []).length > 0 && (p.permissionDetails || []).every((d: any) => d.inherited)
+    if (inherited) continue
+    try { await drive(`/files/${fileId}/permissions/${p.id}?supportsAllDrives=true`, { method: 'DELETE' }); removed++ } catch { /* нищо */ }
+  }
+  return removed
+}
