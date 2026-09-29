@@ -280,7 +280,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     if (res.error) { toast(res.error, 'error'); setGenId(null); return }
     try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ }
     const wasIssued = !!row?.hasOrder
-    setRows(prev => prev.map(r => r.id === id ? { ...r, hasOrder: true } : r))
+    setRows(prev => prev.map(r => r.id === id ? { ...r, hasOrder: true, noHours: !!res.data?.noHours } : r))
     const tail = res.data?.noHours ? ` — БЕЗ часове: разписанието на отсъстващия е ${String(res.data.weekHours).replace('.', ',')} от 21 ч. (изтегли я пак, когато е пълно)` : ''
     toast((wasIssued ? 'Заповедта е изтеглена отново (същият номер)' : 'Заповедта е създадена и изтеглена') + tail)
     setGenId(null)
@@ -339,7 +339,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       const overNorm = bsch ? true : nOverNorm
       const res: any = await generateSubstitution(data.id, overNorm, true)
       if (res.error) { toast(res.error, 'error') }
-      else { try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ } newRow = { ...newRow, hasOrder: true } }
+      else { try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ } newRow = { ...newRow, hasOrder: true, noHours: !!res.data?.noHours } }
     }
     setRows(prev => [newRow, ...prev])
     setOverNormMap(p => ({ ...p, [newRow.id]: newRow.overNorm }))
@@ -570,6 +570,11 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                   <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
                     <Check size={12} /> {`Заповед № ${(r as any).manualNumber}`}
                   </span>
+                ) : r.hasOrder && r.noHours ? (
+                  <button onClick={() => genOrder(r.id)} disabled={genId === r.id} title="Издадена без часове — разписанието на отсъстващия беше непълно. Когато е готово, натисни: същият номер, вече с часовете."
+                    className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 shrink-0 hover:bg-violet-100 transition-colors disabled:opacity-50">
+                    {genId === r.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Без часове <Download size={12} className="opacity-60" />
+                  </button>
                 ) : r.hasOrder ? (
                   <button onClick={() => genOrder(r.id)} disabled={genId === r.id} title="Изтегли заповедта пак (същият номер)"
                     className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0 hover:bg-emerald-100 transition-colors disabled:opacity-50">
