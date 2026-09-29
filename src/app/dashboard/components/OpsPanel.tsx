@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { UserX, ClipboardList, HeartPulse, ArrowRight, CalendarClock } from 'lucide-react'
 import { getFullName, getMonthName } from '@/lib/utils'
 import NoDocsCount from './NoDocsCount'
-import { getTodayAbsences, countWaiting } from '@/lib/today-absences'
+import { getTodayAbsences, countWaiting, getReturningSoon } from '@/lib/today-absences'
 
 // "01" → "I"
 function roman(name: string) {
@@ -25,9 +25,10 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
   const reportMonth = P.month
   const reportYear = P.year
 
-  const [todayRows, waiting, { data: cta }, { data: iup }, { data: enr }, { data: teams }, { data: newKids }] = await Promise.all([
+  const [todayRows, waiting, returning, { data: cta }, { data: iup }, { data: enr }, { data: teams }, { data: newKids }] = await Promise.all([
     getTodayAbsences(supabase),
     countWaiting(supabase),
+    getReturningSoon(supabase),
     supabase.from('class_teacher_assignments')
       .select('class_id, class:classes(name), staff:staff_profiles(first_name, last_name)').eq('academic_year_id', currentYearId),
     isSummer ? Promise.resolve({ data: [] as any[] })
@@ -123,6 +124,18 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
           </div>
         )}
         {!!waiting && <div className="mt-2 text-xs text-amber-700">{waiting} замествания чакат заместник</div>}
+        {returning.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-slate-100 space-y-1">
+            {returning.map(p => (
+              <Link key={p.id} href="/admin/staff" className="flex items-center justify-between gap-2 text-xs hover:text-[#0f2240]">
+                <span className="text-slate-700 truncate">Връща се: {p.name}</span>
+                <span className={`shrink-0 ${p.overdue ? 'text-rose-600' : 'text-sky-700'}`}>
+                  {p.until.split('-').reverse().slice(0, 2).join('.')}{p.overdue ? ' · активирай' : ''}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
         <Link href="/substitutions" className={more}>Замествания <ArrowRight size={11} /></Link>
       </div>
 
