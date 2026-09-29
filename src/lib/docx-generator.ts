@@ -2211,7 +2211,8 @@ const SURVEY_DOC_SECTIONS: SurveySectionDef[] = [
   ]},
 ]
 
-export async function generateSurveyDocument(studentName: string, data: Record<string, any>) {
+// opts.preparedBy — „Изготвил анкетата“ (име, длъжност); opts.asBase64 — връща файла (за Drive) вместо да го сваля
+export async function generateSurveyDocument(studentName: string, data: Record<string, any>, opts: { preparedBy?: string; asBase64?: boolean } = {}): Promise<string | void> {
   const children: any[] = []
 
   // Хедър
@@ -2282,10 +2283,16 @@ export async function generateSurveyDocument(studentName: string, data: Record<s
   })
 
   children.push(
-    new Paragraph({ spacing: { before: 300 }, children: [new TextRun({ text: 'Дата: ..............................', size: 18 })] }),
+    new Paragraph({ spacing: { before: 360, after: 60 }, children: [
+      new TextRun({ text: 'Изготвил анкетата: ', bold: true, size: 20 }),
+      new TextRun({ text: opts.preparedBy || '..................................................', size: 20 }),
+      new TextRun({ text: '          подпис: ..............................', size: 20 }),
+    ] }),
+    new Paragraph({ spacing: { before: 120 }, children: [new TextRun({ text: 'Дата: ..............................', size: 18 })] }),
   )
 
   const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
+  if (opts.asBase64) return Packer.toBase64String(doc)
   const blob = await Packer.toBlob(doc)
   const safe = studentName.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_')
   saveAs(blob, `анкета_${safe}.docx`)

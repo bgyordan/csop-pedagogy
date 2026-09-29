@@ -20,7 +20,7 @@ export default async function SurveyPage({ params }: { params: Promise<{ id: str
     .from('students').select('id, first_name, middle_name, last_name, birth_date').eq('id', id).single()
   if (!student) notFound()
   const { data: profile } = await supabase
-    .from('staff_profiles').select('role, is_coordinator').eq('user_id', user.id).single()
+    .from('staff_profiles').select('role, is_coordinator, first_name, last_name, position').eq('user_id', user.id).single()
   const canEdit = ['admin', 'zdud'].includes(profile?.role || '')
     || profile?.is_coordinator === true
     || ['psychologist', 'speech_therapist', 'rehabilitator'].includes(profile?.role || '')
@@ -32,7 +32,13 @@ export default async function SurveyPage({ params }: { params: Promise<{ id: str
   const { data: guardians } = await supabase
     .from('student_guardians').select('*').eq('student_id', id).order('relation')
   const { data: survey } = await supabase
-    .from('student_surveys').select('data, status').eq('student_id', id).maybeSingle()
+    .from('student_surveys').select('data, status, filled_by').eq('student_id', id).maybeSingle()
+  // „Изготвил анкетата“ — последният, който я е записал; иначе текущият потребител
+  const { data: filler } = survey?.filled_by
+    ? await supabase.from('staff_profiles').select('first_name, last_name, position').eq('id', survey.filled_by).maybeSingle()
+    : { data: null }
+  const who: any = filler || profile
+  const preparedBy = who ? `${who.first_name} ${who.last_name}${who.position ? ', ' + who.position.toLowerCase() : ''}` : ''
   // Автопопълване на "Данни за детето" от досието (само ако анкетата още е празна за тях)
   const g = (guardians || [])[0] as any
   const prefill = {
@@ -55,6 +61,7 @@ export default async function SurveyPage({ params }: { params: Promise<{ id: str
       initialData={mergedData}
       canEdit={canEdit}
       initialStatus={survey?.status || 'empty'}
+      preparedBy={preparedBy}
     />
   )
 }

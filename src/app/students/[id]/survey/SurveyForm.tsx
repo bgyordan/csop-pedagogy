@@ -4,7 +4,9 @@ import { useState, useRef, useLayoutEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Save, Loader2, Check, ChevronDown, FileText, Download } from 'lucide-react'
+import { ArrowLeft, Save, Loader2, Check, ChevronDown, FileText, Download, FolderUp } from 'lucide-react'
+import { useToast } from '@/components/ui/Toast'
+import { saveSurveyToDrive } from './actions'
 import { generateSurveyDocument } from '@/lib/docx-generator'
 import { SURVEY_SECTIONS } from './survey-schema'
 
@@ -43,9 +45,12 @@ interface Props {
   initialData: Record<string, any>
   canEdit: boolean
   initialStatus?: string
+  preparedBy?: string
 }
 
-export default function SurveyForm({ studentId, studentName, initialData, canEdit, initialStatus = 'empty' }: Props) {
+export default function SurveyForm({ studentId, studentName, initialData, canEdit, initialStatus = 'empty', preparedBy = '' }: Props) {
+  const { toast } = useToast()
+  const [toDrive, setToDrive] = useState(false)
   const supabase = createClient()
   const router = useRouter()
   const [data, setData] = useState<Record<string, any>>(initialData || {})
@@ -106,12 +111,26 @@ export default function SurveyForm({ studentId, studentName, initialData, canEdi
     setStatus(newStatus)
     setSaving(false)
     setSaved(true)
+    // при „Маркирай завършена“ анкетата отива и в „Документи“ на детето (Drive)
+    if (markCompleted) await sendToDrive()
     router.refresh()
     setTimeout(() => setSaved(false), 3000)
   }
 
   async function downloadWord() {
-    await generateSurveyDocument(studentName, data)
+    await generateSurveyDocument(studentName, data, { preparedBy })
+  }
+
+  // Записва анкетата (Word → Google документ) в „Документи“ на детето; старата се подменя
+  async function sendToDrive() {
+    setToDrive(true)
+    try {
+      const b64 = await generateSurveyDocument(studentName, data, { preparedBy, asBase64: true })
+      const res = await saveSurveyToDrive(studentId, b64 as string)
+      if (res.error) toast('Drive: ' + res.error, 'error')
+      else toast(res.replaced ? 'Анкетата е обновена в Документи' : 'Анкетата е записана в Документи')
+    } catch { toast('Грешка при записа в Drive', 'error') }
+    setToDrive(false)
   }
 
   // Колко полета са попълнени в секция (за индикатор)
@@ -143,6 +162,12 @@ export default function SurveyForm({ studentId, studentName, initialData, canEdi
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
             <Download size={14} /> Word
           </button>
+          {canEdit && (
+            <button onClick={sendToDrive} disabled={toDrive} title="Записва анкетата в „Документи“ на детето (Drive); старата се подменя"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50">
+              {toDrive ? <Loader2 size={14} className="animate-spin" /> : <FolderUp size={14} />} В Документи
+            </button>
+          )}
         </div>
       </div>
 
