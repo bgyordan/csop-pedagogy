@@ -15,7 +15,7 @@ const ROLE_FIELD: Record<string, string> = {
 const THERAPIST_PERIOD_RANGE: Record<number, [number, number]> = {
   1: [8 * 60 + 30, 9 * 60 + 5], 2: [9 * 60 + 15, 9 * 60 + 50], 0: [9 * 60 + 50, 10 * 60 + 20],
   3: [10 * 60 + 20, 10 * 60 + 55], 4: [11 * 60 + 5, 11 * 60 + 40], 5: [11 * 60 + 50, 12 * 60 + 25],
-  6: [12 * 60 + 35, 13 * 60 + 5], 7: [13 * 60 + 15, 13 * 60 + 50], 8: [13 * 60 + 50, 14 * 60],
+  6: [12 * 60 + 35, 13 * 60 + 5], 7: [13 * 60 + 15, 13 * 60 + 50], 8: [13 * 60 + 50, 14 * 60 + 25],
 }
 // ИФО часовете по ЕДИННАТА номерация (1–7 сутрин, 8–12 следобед) — вж. @/lib/periods
 const IFO_PERIOD_RANGE: Record<number, [number, number]> = Object.fromEntries(PERIOD_DEFS.map(p => [p.n, [p.start, p.end]]))
