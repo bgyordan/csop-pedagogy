@@ -1,7 +1,7 @@
 import {
   Document, Packer, Paragraph, TextRun, Table as DocxTable, TableRow, TableCell,
   WidthType, HeadingLevel, AlignmentType, BorderStyle, ShadingType,
-  convertInchesToTwip, PageOrientation, ImageRun,
+  convertInchesToTwip, PageOrientation, ImageRun, Tab, TabStopType,
 } from 'docx'
 import type { ITableOptions } from 'docx'
 
@@ -1850,6 +1850,73 @@ const WEEKDAYS = [
   { n: 5, full: 'ПЕТЪК' },
 ]
 
+// ── Общ вид на седмичните разписания/графици (като „Списък за терапия“) ─────
+// Меки цветове: светлосиньо-сиви ленти с тъмносин текст (без плътни тъмни запълвания).
+const SCH_NAVY = '0f2240'
+const SCH_SLATE = '4A5568'
+const SCH_DAY_FILL = 'E6EDF5'    // лента на деня
+const SCH_HEAD_FILL = 'F3F6FA'   // ред със заглавията на колоните
+const SCH_BORDER = 'C9D2DD'
+
+// „I срок · 2026/2027“ → { term: 1, year: '2026/2027' }
+function parseTermYear(subtitle: string, yearName?: string) {
+  const term = /^\s*II\b/.test(subtitle) ? 2 : 1
+  const m = subtitle.match(/(\d{4}\s*[\/-]\s*\d{4})/)
+  const year = (yearName || (m ? m[1] : '')).replace(/\s/g, '').replace('-', '/')
+  return { term, year }
+}
+
+// Шапка: лого + адрес, „УТВЪРДИЛ: Директор“, заглавие и текст „на … считано от … за … срок на учебната … г.“
+function scheduleHeader(heading: string, who: string, subtitle: string, yearName?: string): any[] {
+  const NONE = {
+    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  }
+  const { term, year } = parseTermYear(subtitle, yearName)
+  const termWord = term === 2 ? 'втори' : 'първи'
+  return [
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [new TableRow({ children: [
+        new TableCell({
+          width: { size: 14, type: WidthType.PERCENTAGE }, borders: NONE,
+          margins: { top: 0, bottom: 0, left: 0, right: 80 },
+          children: [new Paragraph({ alignment: AlignmentType.LEFT, children: [
+            new ImageRun({ data: Buffer.from(CSOP_LOGO_B64, 'base64'), transformation: { width: 56, height: 56 }, type: 'jpg' }),
+          ]})],
+        }),
+        new TableCell({
+          width: { size: 86, type: WidthType.PERCENTAGE }, borders: NONE,
+          verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
+          children: [
+            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22, color: SCH_NAVY })] }),
+            new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456', size: 16, color: SCH_SLATE })] }),
+          ],
+        }),
+      ]})],
+    }),
+    new Paragraph({ spacing: { before: 60, after: 120 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: SCH_NAVY } }, children: [] }),
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 20 }, children: [new TextRun({ text: 'УТВЪРДИЛ:', bold: true, size: 18, color: SCH_NAVY })] }),
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 160 }, children: [new TextRun({ text: 'Директор: ..............................', size: 18, color: SCH_SLATE })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 60 }, children: [new TextRun({ text: heading, bold: true, size: 26, color: SCH_NAVY })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 20 }, children: [new TextRun({ text: `на ${who},`, size: 19, color: SCH_SLATE })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [
+      new TextRun({ text: `считано от ......................... за ${termWord} срок на учебната ${year || '20…/20…'} г.`, size: 19, color: SCH_SLATE }),
+    ]}),
+  ]
+}
+
+// Долу: общо часове (по избор) + „Изготвил“
+function scheduleFooter(preparedBy: string, total?: string): any[] {
+  return [
+    new Paragraph({ spacing: { before: 280 }, tabStops: [{ type: TabStopType.RIGHT, position: 10000 }], children: [
+      new TextRun({ text: total || '', size: 18, color: SCH_SLATE }),
+      new TextRun({ children: [new Tab()] }),
+      new TextRun({ text: `Изготвил: ${preparedBy || '..............................'}`, size: 18, color: SCH_SLATE }),
+    ]}),
+  ]
+}
+
 // ── РАЗПИСАНИЕ НА ПАРАЛЕЛКА / ИФО УЧЕНИК ────────────────────────────────────
 export async function generateClassSchedule(
   title: string,          // "Паралелка 05" или името на ИФО ученик
@@ -1860,7 +1927,7 @@ export async function generateClassSchedule(
   maxPeriod: number,      // до кой час се показва (6 или 7)
   teachers?: Record<string, string>, // по избор: { "ден-час": "име на учител" } → добавя колона „Учител"
 ) {
-  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const B = { style: BorderStyle.SINGLE, size: 4, color: SCH_BORDER }
   const CELLS = { top: B, bottom: B, left: B, right: B }
   const NONE = {
     top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -1877,37 +1944,7 @@ export async function generateClassSchedule(
   const children: any[] = []
 
   // Хедър с лого
-  children.push(
-    new Table({
-      width: { size: 100, type: WidthType.PERCENTAGE },
-      rows: [new TableRow({ children: [
-        new TableCell({
-          width: { size: 20, type: WidthType.PERCENTAGE }, borders: NONE,
-          margins: { top: 0, bottom: 0, left: 0, right: 80 },
-          children: [new Paragraph({ alignment: AlignmentType.LEFT, children: [
-            new ImageRun({ data: Buffer.from(CSOP_LOGO_B64, 'base64'), transformation: { width: 60, height: 60 }, type: 'jpg' }),
-          ]})],
-        }),
-        new TableCell({
-          width: { size: 80, type: WidthType.PERCENTAGE }, borders: NONE,
-          verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
-          children: [
-            new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
-            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456', size: 17, italics: true, color: '555555' })] }),
-          ],
-        }),
-      ]})],
-    }),
-    new Paragraph({ spacing: { before: 40, after: 40 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
-    // Утвърдил + заглавие компактно
-    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 0 }, children: [new TextRun({ text: 'Утвърдил: ........................  Директор ЦСОП-Варна', size: 18 })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120, after: 20 }, children: [new TextRun({ text: 'СЕДМИЧНО РАЗПИСАНИЕ', bold: true, size: 26 })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 160 }, children: [
-      new TextRun({ text: title, bold: true, size: 22 }),
-      new TextRun({ text: `   ·   ${subtitle}`, size: 18, italics: true, color: '555555' }),
-      ...(yearName ? [new TextRun({ text: `   ·   уч. ${yearName} г.`, size: 18, italics: true, color: '555555' })] : []),
-    ] }),
-  )
+  children.push(...scheduleHeader('СЕДМИЧНО РАЗПИСАНИЕ', /^Паралелка/i.test(title) ? title.replace(/^Паралелка/, 'паралелка') : title, subtitle, yearName))
 
   // За всеки ден — блок с часовете му
   WEEKDAYS.forEach(day => {
@@ -1918,9 +1955,9 @@ export async function generateClassSchedule(
       cantSplit: true,
       children: [new TableCell({
         columnSpan: hasTeachers ? 4 : 3, borders: CELLS,
-        shading: { type: ShadingType.CLEAR, fill: '0f2240' },
+        shading: { type: ShadingType.CLEAR, fill: SCH_DAY_FILL },
         margins: { top: 60, bottom: 60, left: 100, right: 100 },
-        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: day.full, bold: true, size: 20, color: 'FFFFFF' })] })],
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: day.full, bold: true, size: 19, color: SCH_NAVY })] })],
       })],
     }))
 
@@ -1941,9 +1978,9 @@ export async function generateClassSchedule(
       cantSplit: true,
       children: cols.map(c => new TableCell({
         width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
-        shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
+        shading: { type: ShadingType.CLEAR, fill: SCH_HEAD_FILL },
         margins: { top: 40, bottom: 40, left: 80, right: 80 },
-        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 17 })] })],
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 17, color: SCH_NAVY })] })],
       })),
     }))
 
@@ -1990,8 +2027,11 @@ export async function generateClassSchedule(
     children.push(
       new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }),
     )
+    children.push(new Paragraph({ spacing: { after: 120 }, children: [] }))
   })
 
+  const weekTotal = Object.values(slots).filter(v => (v || '').trim()).length
+  children.push(...scheduleFooter('', `Общо: ${weekTotal} часа седмично`))
   const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
   const blob = await Packer.toBlob(doc)
   const safe = title.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_')
@@ -2007,7 +2047,7 @@ export async function generateTherapistSchedule(
   slots: Record<string, { student: string; className: string }>,
   maxPeriod: number,      // до 6, 7 или 8
 ) {
-  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const B = { style: BorderStyle.SINGLE, size: 4, color: SCH_BORDER }
   const CELLS = { top: B, bottom: B, left: B, right: B }
   const NONE = {
     top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -2031,35 +2071,7 @@ export async function generateTherapistSchedule(
 
   const children: any[] = []
 
-  children.push(
-    new Table({
-      width: { size: 100, type: WidthType.PERCENTAGE },
-      rows: [new TableRow({ children: [
-        new TableCell({
-          width: { size: 20, type: WidthType.PERCENTAGE }, borders: NONE,
-          margins: { top: 0, bottom: 0, left: 0, right: 80 },
-          children: [new Paragraph({ alignment: AlignmentType.LEFT, children: [
-            new ImageRun({ data: Buffer.from(CSOP_LOGO_B64, 'base64'), transformation: { width: 60, height: 60 }, type: 'jpg' }),
-          ]})],
-        }),
-        new TableCell({
-          width: { size: 80, type: WidthType.PERCENTAGE }, borders: NONE,
-          verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
-          children: [
-            new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
-            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456', size: 17, italics: true, color: '555555' })] }),
-          ],
-        }),
-      ]})],
-    }),
-    new Paragraph({ spacing: { before: 40, after: 40 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
-    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 0 }, children: [new TextRun({ text: 'Утвърдил: ........................  Директор ЦСОП-Варна', size: 18 })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120, after: 20 }, children: [new TextRun({ text: 'СЕДМИЧЕН ГРАФИК', bold: true, size: 26 })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 160 }, children: [
-      new TextRun({ text: specialistName, bold: true, size: 22 }),
-      new TextRun({ text: ` — ${role}   ·   ${subtitle}`, size: 18, italics: true, color: '555555' }),
-    ]}),
-  )
+  children.push(...scheduleHeader('СЕДМИЧЕН ГРАФИК', `${specialistName} – ${role.toLowerCase()}`, subtitle))
 
   WEEKDAYS.forEach(day => {
     // Само часовете, в които има дете (празните се пропускат)
@@ -2071,9 +2083,9 @@ export async function generateTherapistSchedule(
       cantSplit: true,
       children: [new TableCell({
         columnSpan: 3, borders: CELLS,
-        shading: { type: ShadingType.CLEAR, fill: '0f2240' },
+        shading: { type: ShadingType.CLEAR, fill: SCH_DAY_FILL },
         margins: { top: 50, bottom: 50, left: 100, right: 100 },
-        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: day.full, bold: true, size: 20, color: 'FFFFFF' })] })],
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: day.full, bold: true, size: 19, color: SCH_NAVY })] })],
       })],
     }))
     rows.push(new TableRow({
@@ -2084,9 +2096,9 @@ export async function generateTherapistSchedule(
         { t: 'Ученик', w: 65 },
       ].map(c => new TableCell({
         width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
-        shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
+        shading: { type: ShadingType.CLEAR, fill: SCH_HEAD_FILL },
         margins: { top: 30, bottom: 30, left: 80, right: 80 },
-        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 17 })] })],
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 17, color: SCH_NAVY })] })],
       })),
     }))
     filled.forEach(p => {
@@ -2107,8 +2119,10 @@ export async function generateTherapistSchedule(
     children.push(
       new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }),
     )
+    children.push(new Paragraph({ spacing: { after: 120 }, children: [] }))
   })
 
+  children.push(...scheduleFooter(specialistName, `Общо: ${Object.keys(slots).length} часа седмично`))
   const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
   const blob = await Packer.toBlob(doc)
   const safe = specialistName.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_')
@@ -2319,7 +2333,7 @@ export async function generateStaffSchedule(
     const [h, m] = t.split('–')[0].trim().split(':').map(Number)
     return h * 60 + m
   }
-  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const B = { style: BorderStyle.SINGLE, size: 4, color: SCH_BORDER }
   const CELLS = { top: B, bottom: B, left: B, right: B }
   const NONE = {
     top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -2329,35 +2343,7 @@ export async function generateStaffSchedule(
   }
   const all = [...classSlots, ...ifoSlots]
   const children: any[] = []
-  children.push(
-    new Table({
-      width: { size: 100, type: WidthType.PERCENTAGE },
-      rows: [new TableRow({ children: [
-        new TableCell({
-          width: { size: 20, type: WidthType.PERCENTAGE }, borders: NONE,
-          margins: { top: 0, bottom: 0, left: 0, right: 80 },
-          children: [new Paragraph({ alignment: AlignmentType.LEFT, children: [
-            new ImageRun({ data: Buffer.from(CSOP_LOGO_B64, 'base64'), transformation: { width: 60, height: 60 }, type: 'jpg' }),
-          ]})],
-        }),
-        new TableCell({
-          width: { size: 80, type: WidthType.PERCENTAGE }, borders: NONE,
-          verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
-          children: [
-            new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
-            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456', size: 17, italics: true, color: '555555' })] }),
-          ],
-        }),
-      ]})],
-    }),
-    new Paragraph({ spacing: { before: 40, after: 40 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
-    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 0 }, children: [new TextRun({ text: 'Утвърдил: ........................  Директор ЦСОП-Варна', size: 18 })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120, after: 20 }, children: [new TextRun({ text: 'СЕДМИЧНО РАЗПИСАНИЕ', bold: true, size: 26 })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 160 }, children: [
-      new TextRun({ text: staffName, bold: true, size: 22 }),
-      new TextRun({ text: `   ·   ${subtitle}`, size: 18, italics: true, color: '555555' }),
-    ]}),
-  )
+  children.push(...scheduleHeader('СЕДМИЧНО РАЗПИСАНИЕ', staffName, subtitle))
   WEEKDAYS.forEach(day => {
     const filled = all
       .filter(s => s.day === day.n)
@@ -2368,9 +2354,9 @@ export async function generateStaffSchedule(
       cantSplit: true,
       children: [new TableCell({
         columnSpan: 4, borders: CELLS,
-        shading: { type: ShadingType.CLEAR, fill: '0f2240' },
+        shading: { type: ShadingType.CLEAR, fill: SCH_DAY_FILL },
         margins: { top: 50, bottom: 50, left: 100, right: 100 },
-        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: day.full, bold: true, size: 20, color: 'FFFFFF' })] })],
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: day.full, bold: true, size: 19, color: SCH_NAVY })] })],
       })],
     }))
     rows.push(new TableRow({
@@ -2382,9 +2368,9 @@ export async function generateStaffSchedule(
         { t: 'Източник', w: 25 },
       ].map(c => new TableCell({
         width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
-        shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
+        shading: { type: ShadingType.CLEAR, fill: SCH_HEAD_FILL },
         margins: { top: 30, bottom: 30, left: 80, right: 80 },
-        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 17 })] })],
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 17, color: SCH_NAVY })] })],
       })),
     }))
     filled.forEach(s => {
@@ -2407,6 +2393,7 @@ export async function generateStaffSchedule(
     children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }))
     children.push(new Paragraph({ spacing: { after: 120 }, children: [] }))
   })
+  children.push(...scheduleFooter(staffName, `Общо: ${all.length} часа седмично`))
   const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
   const blob = await Packer.toBlob(doc)
   const safe = staffName.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_')
