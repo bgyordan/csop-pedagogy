@@ -53,6 +53,7 @@ export interface SubstOrderData {
   days: { date: string; items: { period: number; subject: string; cls: string }[] }[]
   substitutes?: { name: string; position: string; from: string; to: string; overNorm: boolean }[]
   npSplit?: { npFrom: string; npTo: string; budgetFrom: string; budgetTo: string } | null
+  noHours?: boolean   // разписанието на отсъстващия още не е пълно → заповед без часове и таблица
 }
 
 // Матрица на седмичното разписание: дни (Пн-Пт) колони, часове редове.
@@ -147,7 +148,9 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
   const isEducator = /възпитател/i.test(d.absentPosition || '')
   const holderWord = d.holderType === 'coud' || isEducator ? 'група ЦОУД' : 'паралелка'
   const normPhraseFor = (on: boolean) => on ? 'извън времето на задължителната норма преподавателска заетост' : 'в рамките на задължителната норма преподавателска заетост'
-  const holderTail = d.holderType === 'ifo'
+  const holderTail = d.noHours
+    ? (isEducator ? 'да замества отсъстващия титуляр в група ЦОУД' : 'да замества отсъстващия титуляр в неговите часове')
+    : d.holderType === 'ifo'
     ? `да замества отсъстващия титуляр в часовете с ${d.className || '…………'} по утвърдено седмично разписание`
     : /ЦОУД|група|паралелка/i.test(d.className || '')
       ? `да замества отсъстващия титуляр в ${d.className}`
@@ -172,15 +175,26 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
     ] }))
   }
 
+  if (d.noHours) {
+    // Разписанието още не е пълно → без брой часове и без таблица
+    children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
+      normal('2. Заместването да се извърши за периода от ', 22),
+      bold(df, 22), normal(' до ', 22), bold(dt, 22),
+      normal(' включително, съгласно седмичното разписание на отсъстващия титуляр.', 22),
+    ] }))
+  } else {
   children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
     normal('2. Заместването да се извърши за периода от ', 22),
     bold(df, 22), normal(' до ', 22), bold(dt, 22),
     normal(' включително, общо ', 22), bold(`${d.days.reduce((a, x) => a + x.items.length, 0)} учебни часа`, 22),
     normal(', съгласно утвърденото седмично разписание на отсъстващия титуляр:', 22),
   ] }))
+  }
 
   // Матрица (при няколко заместника — по една на всеки с неговия под-период)
-  if (multi) {
+  if (d.noHours) {
+    // без таблица
+  } else if (multi) {
     d.substitutes!.forEach(sb => {
       // сравняваме като ISO текст — с Date() първият ден на всеки заместник изпадаше (UTC срещу местно време)
       const sbDays = d.days.filter(day => {
