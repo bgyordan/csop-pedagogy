@@ -42,7 +42,7 @@ export async function middleware(request: NextRequest) {
   if (!request.cookies.get('eis_ok')) {
     const { data: prof } = await supabase.from('staff_profiles').select('is_active').eq('user_id', user.id).maybeSingle()
     if (prof && prof.is_active === false) {
-      await supabase.auth.signOut()
+      try { await supabase.auth.signOut() } catch { /* бисквитките се трият и без това */ }
       const res = NextResponse.redirect(new URL('/auth/login?error=inactive', request.url))
       request.cookies.getAll().filter(c => c.name.startsWith('sb-')).forEach(c => res.cookies.delete(c.name))
       return res
