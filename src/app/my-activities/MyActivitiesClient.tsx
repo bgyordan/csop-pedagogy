@@ -86,6 +86,7 @@ export default function MyActivitiesClient({ rows, roleLabel, yearName = '', ter
     })
   }
   function doRemove(r: Row) {
+    if (!confirm(`Да махна ли ${r.name} от вашия списък за терапия?\n\nЧасовете му в графика ви също се махат. ЕПЛР екипът НЕ се променя — ако и там трябва смяна, кажете на ЗДУД.`)) return
     setBusy(r.id)
     startTransition(async () => {
       const res = await removeFromMe(r.id)
