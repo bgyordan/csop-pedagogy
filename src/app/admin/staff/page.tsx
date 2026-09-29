@@ -11,6 +11,18 @@ import { Modal } from '@/components/ui/Modal'
 import { getFullName } from '@/lib/utils'
 import { StaffProfile, UserRole, ROLE_LABELS } from '@/types'
 
+// Защо служителят е неактивен (колоните идват от миграция 2026-09-29_staff_status.sql)
+const INACTIVE_REASONS: { v: string; l: string }[] = [
+  { v: 'long_leave', l: 'Дълъг отпуск (майчинство, дълъг болничен…)' },
+  { v: 'left', l: 'Напуснал' },
+  { v: 'retired', l: 'Пенсиониран' },
+]
+const fmtD = (d?: string | null) => d ? d.split('-').reverse().join('.') : ''
+// „Мария  Петрова“ → „мария петрова“ (за сравнение при дубликати)
+const norm = (v?: string | null) => (v || '').trim().toLowerCase().replace(/\s+/g, ' ')
+const nameKey = (x: any) => `${norm(x.first_name)}|${norm(x.last_name)}`
+const mailKey = (e?: string | null) => norm(e).split('@')[0]
+
 const EMPTY_FORM = {
   first_name: '', middle_name: '', last_name: '',
   role: 'class_teacher' as UserRole,
@@ -30,6 +42,12 @@ export default function AdminStaffPage() {
   const [search, setSearch] = useState('')
   const [sortCol, setSortCol] = useState<'name' | 'role'>('name')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [show, setShow] = useState<'all' | 'active' | 'inactive'>('all')
+  // Деактивиране: причина, до кога, кой замества
+  const [deact, setDeact] = useState<StaffProfile | null>(null)
+  const [dReason, setDReason] = useState('long_leave')
+  const [dUntil, setDUntil] = useState('')
+  const [dReplacedBy, setDReplacedBy] = useState('')
 
   useEffect(() => { load() }, [])
 
@@ -96,6 +114,16 @@ export default function AdminStaffPage() {
     if (!form.first_name || !form.last_name || !form.email) {
       toast('Попълни задължителните полета', 'error'); return
     }
+    // Предупреждение за дублиран служител (същите име+фамилия или същият имейл преди @)
+    const selfId = editing ? (editing as any).id : null
+    const dups = staff.filter((x: any) => x.id !== selfId && (
+      (!editing && nameKey(x) === nameKey(form)) ||
+      (!!form.email && mailKey(x.email) === mailKey(form.email))
+    ))
+    if (dups.length > 0) {
+      const list = dups.map((x: any) => `• ${getFullName(x)} (${ROLE_LABELS[x.role as UserRole] || x.role}${x.is_active ? '' : ', неактивен'}) – ${x.email || 'без имейл'}`).join('\n')
+      if (!confirm(`Вече има подобен служител:\n${list}\n\nСъщият човек ли е? Натисни „Отказ“, за да не се дублира, или „OK“, ако е друг човек.`)) return
+    }
     setSaving(true)
 
     const payload = {
@@ -124,12 +152,58 @@ export default function AdminStaffPage() {
   }
 
   async function toggleActive(s: StaffProfile) {
-    await supabase.from('staff_profiles').update({ is_active: !s.is_active }).eq('id', s.id)
-    toast(s.is_active ? 'Деактивиран' : 'Активиран')
+    if (s.is_active) {
+      // деактивиране → питаме защо (отделен прозорец)
+      setDeact(s); setDReason('long_leave'); setDUntil(''); setDReplacedBy('')
+      return
+    }
+    // активиране → чистим причината
+    let { error } = await supabase.from('staff_profiles')
+      .update({ is_active: true, inactive_reason: null, inactive_until: null, replaced_by: null }).eq('id', s.id)
+    if (error) ({ error } = await supabase.from('staff_profiles').update({ is_active: true }).eq('id', s.id))   // колоните още ги няма
+    if (error) { toast('Грешка при запис', 'error'); return }
+    toast('Активиран')
     load()
   }
 
+  async function confirmDeactivate() {
+    if (!deact) return
+    const long = dReason === 'long_leave'
+    let { error } = await supabase.from('staff_profiles').update({
+      is_active: false,
+      inactive_reason: dReason,
+      inactive_until: long ? (dUntil || null) : null,
+      replaced_by: long ? (dReplacedBy || null) : null,
+    }).eq('id', deact.id)
+    if (error) {
+      // миграцията още не е пусната → само неактивен
+      ({ error } = await supabase.from('staff_profiles').update({ is_active: false }).eq('id', deact.id))
+      if (!error) toast('Деактивиран (причината ще се пази след обновяване на базата)')
+    } else toast('Деактивиран')
+    if (error) { toast('Грешка при запис', 'error'); return }
+    setDeact(null)
+    load()
+  }
+
+  // Етикет на статуса: „Активен“ / „В отпуск до 15.03 · зам. Мария И.“ / „Напуснал“ / „Пенсиониран“
+  function statusText(s: any): string {
+    if (s.is_active) return 'Активен'
+    if (s.inactive_reason === 'long_leave') {
+      const rep = s.replaced_by ? staff.find((x: any) => x.id === s.replaced_by) : null
+      return ['В отпуск' + (s.inactive_until ? ` до ${fmtD(s.inactive_until)}` : ''), rep ? `зам. ${rep.first_name} ${rep.last_name[0]}.` : ''].filter(Boolean).join(' · ')
+    }
+    if (s.inactive_reason === 'left') return 'Напуснал'
+    if (s.inactive_reason === 'retired') return 'Пенсиониран'
+    return 'Неактивен'
+  }
+
+  // Възможни дубликати (едни и същи име + фамилия)
+  const dupGroups = Object.values(staff.reduce((m: Record<string, any[]>, x: any) => {
+    const k = nameKey(x); (m[k] ||= []).push(x); return m
+  }, {})).filter(g => g.length > 1)
+
   const filtered = staff
+    .filter(s => show === 'all' || (show === 'active' ? s.is_active : !s.is_active))
     .filter(s => !search || getFullName(s).toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
       const valA = sortCol === 'name' ? getFullName(a) : ROLE_LABELS[a.role]
@@ -170,12 +244,28 @@ export default function AdminStaffPage() {
         </button>
       </div>
 
-      <input
-        className="input max-w-sm mb-4"
-        placeholder="Търси по име..."
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-      />
+      {dupGroups.length > 0 && (
+        <div className="mb-4 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
+          <span className="font-medium">Възможни дубликати:</span>{' '}
+          {dupGroups.map((g: any[]) => `${g[0].first_name} ${g[0].last_name} (${g.length})`).join(', ')}
+          <span className="text-amber-700/80"> — ако е един и същ човек, остави един активен, а другия деактивирай.</span>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <input
+          className="input max-w-sm"
+          placeholder="Търси по име..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        {([['all', 'Всички'], ['active', 'Активни'], ['inactive', 'Неактивни']] as const).map(([v, l]) => (
+          <button key={v} type="button" onClick={() => setShow(v)}
+            className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${show === v ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+            {l}
+          </button>
+        ))}
+      </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
@@ -219,8 +309,8 @@ export default function AdminStaffPage() {
                     </td>
                     <td className="px-4 py-2 text-slate-600 font-mono text-xs">{s.email}</td>
                     <td className="px-4 py-2">
-                      <span className={s.is_active ? 'badge-completed' : 'badge-empty'}>
-                        {s.is_active ? 'Активен' : 'Неактивен'}
+                      <span className={`${s.is_active ? 'badge-completed' : 'badge-empty'} whitespace-nowrap`}>
+                        {statusText(s)}
                       </span>
                     </td>
                     <td className="px-4 py-2 text-xs text-slate-500 whitespace-nowrap">
@@ -253,6 +343,41 @@ export default function AdminStaffPage() {
       <p className="text-xs text-slate-400 mt-3">
         Паралелките се назначават от страницата на служителя или от самата паралелка.
       </p>
+
+      <Modal open={!!deact} onClose={() => setDeact(null)} title={deact ? `Деактивиране: ${getFullName(deact)}` : ''}>
+        <div className="space-y-3">
+          <p className="text-xs text-slate-500">Неактивният служител изчезва от списъците и не може да влиза в системата. Старите му данни (заповеди, документи) остават.</p>
+          <div className="space-y-1.5">
+            {INACTIVE_REASONS.map(o => (
+              <label key={o.v} className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm cursor-pointer transition-colors ${dReason === o.v ? 'border-[#0f2240] bg-slate-50 text-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                <input type="radio" name="dreason" checked={dReason === o.v} onChange={() => setDReason(o.v)} className="accent-[#0f2240]" />
+                {o.l}
+              </label>
+            ))}
+          </div>
+          {dReason === 'long_leave' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="label">Очаквано завръщане</label>
+                <input type="date" className="input" value={dUntil} onChange={e => setDUntil(e.target.value)} />
+              </div>
+              <div>
+                <label className="label">Заместван от</label>
+                <select className="input" value={dReplacedBy} onChange={e => setDReplacedBy(e.target.value)}>
+                  <option value="">— няма / не е ясно —</option>
+                  {staff.filter((x: any) => x.is_active && x.id !== deact?.id).sort((a, b) => getFullName(a).localeCompare(getFullName(b), 'bg'))
+                    .map((x: any) => <option key={x.id} value={x.id}>{getFullName(x)}</option>)}
+                </select>
+              </div>
+              <p className="sm:col-span-2 text-[11px] text-slate-400">Седмица преди датата на таблото ще излезе напомняне, че се връща.</p>
+            </div>
+          )}
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={confirmDeactivate} className="btn-primary" style={{ backgroundColor: '#0f2240' }}>Деактивирай</button>
+            <button type="button" onClick={() => setDeact(null)} className="btn-secondary">Отказ</button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal open={open} onClose={() => setOpen(false)} title={editing ? 'Редактирай служител' : 'Нов служител'}>
         <form onSubmit={handleSave} className="space-y-3">

@@ -56,3 +56,17 @@ export async function countWaiting(supabase: any): Promise<number> {
     .is('substitute_staff_id', null).gte('date_to', sofiaToday())
   return (data || []).filter((s: any) => canSubstitute(s.absent?.role)).length
 }
+
+// В дълъг отпуск, с дата на завръщане до 7 дни напред (или вече минала) → напомняне да се активира.
+// Ако миграцията 2026-09-29_staff_status.sql още не е пусната — връща празно.
+export async function getReturningSoon(supabase: any): Promise<{ id: string; name: string; until: string; overdue: boolean }[]> {
+  const today = sofiaToday()
+  const d = new Date(today + 'T00:00'); d.setDate(d.getDate() + 7)
+  const week = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const { data, error } = await supabase.from('staff_profiles')
+    .select('id, first_name, last_name, inactive_until')
+    .eq('is_active', false).eq('inactive_reason', 'long_leave').lte('inactive_until', week)
+    .order('inactive_until')
+  if (error) return []
+  return (data || []).map((p: any) => ({ id: p.id, name: full(p), until: p.inactive_until, overdue: p.inactive_until < today }))
+}

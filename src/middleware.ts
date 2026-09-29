@@ -37,6 +37,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
+  // Неактивен служител (напуснал, пенсиониран, в дълъг отпуск) не влиза в системата.
+  // Проверява се най-много веднъж на 5 минути (бисквитка eis_ok).
+  if (!request.cookies.get('eis_ok')) {
+    const { data: prof } = await supabase.from('staff_profiles').select('is_active').eq('user_id', user.id).maybeSingle()
+    if (prof && prof.is_active === false) {
+      try { await supabase.auth.signOut() } catch { /* бисквитките се трият и без това */ }
+      const res = NextResponse.redirect(new URL('/auth/login?error=inactive', request.url))
+      request.cookies.getAll().filter(c => c.name.startsWith('sb-')).forEach(c => res.cookies.delete(c.name))
+      return res
+    }
+    supabaseResponse.cookies.set('eis_ok', '1', { maxAge: 300, path: '/', httpOnly: true, sameSite: 'lax' })
+  }
+
   // „На линия сега“: отбелязваме активност най-много веднъж на 5 минути на потребител
   if (!request.cookies.get('eis_seen') && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     try {

@@ -65,6 +65,8 @@ function LoginForm() {
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
               {urlError === 'unauthorized'
                 ? 'Този акаунт няма достъп до системата.'
+                : urlError === 'inactive'
+                ? 'Акаунтът е деактивиран. Обърнете се към администратора.'
                 : (error || 'Входът не успя. Опитайте отново.')}
             </div>
           )}
