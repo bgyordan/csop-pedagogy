@@ -166,6 +166,14 @@ export default function AdminStaffPage() {
     load()
   }
 
+  // За вече неактивен: само сменяме причината / датата / заместника (без да го активираме)
+  function editReason(s: any) {
+    setDeact(s)
+    setDReason(s.inactive_reason || 'long_leave')
+    setDUntil(s.inactive_until || '')
+    setDReplacedBy(s.replaced_by || '')
+  }
+
   async function confirmDeactivate() {
     if (!deact) return
     const long = dReason === 'long_leave'
@@ -179,7 +187,7 @@ export default function AdminStaffPage() {
       // миграцията още не е пусната → само неактивен
       ({ error } = await supabase.from('staff_profiles').update({ is_active: false }).eq('id', deact.id))
       if (!error) toast('Деактивиран (причината ще се пази след обновяване на базата)')
-    } else toast('Деактивиран')
+    } else toast(deact.is_active ? 'Деактивиран' : 'Запазено')
     if (error) { toast('Грешка при запис', 'error'); return }
     setDeact(null)
     load()
@@ -187,7 +195,11 @@ export default function AdminStaffPage() {
 
   // Етикет на статуса: „Активен“ / „В отпуск до 15.03 · зам. Мария И.“ / „Напуснал“ / „Пенсиониран“
   function statusText(s: any): string {
-    if (s.is_active) return 'Активен'
+    if (s.is_active) {
+      // заместник по договор → кого замества
+      const whom = staff.filter((x: any) => !x.is_active && x.replaced_by === s.id)
+      return whom.length ? `Активен · замества ${whom.map((x: any) => `${x.first_name} ${x.last_name[0]}.`).join(', ')}` : 'Активен'
+    }
     if (s.inactive_reason === 'long_leave') {
       const rep = s.replaced_by ? staff.find((x: any) => x.id === s.replaced_by) : null
       return ['В отпуск' + (s.inactive_until ? ` до ${fmtD(s.inactive_until)}` : ''), rep ? `зам. ${rep.first_name} ${rep.last_name[0]}.` : ''].filter(Boolean).join(' · ')
@@ -327,6 +339,11 @@ export default function AdminStaffPage() {
                             Създай достъп
                           </button>
                         )}
+                        {!s.is_active && (
+                          <button onClick={() => editReason(s)} className="text-xs font-medium px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors whitespace-nowrap">
+                            Причина
+                          </button>
+                        )}
                         <button onClick={() => toggleActive(s)} className="text-xs text-slate-400 hover:text-slate-700 whitespace-nowrap">
                           {s.is_active ? 'Деактивирай' : 'Активирай'}
                         </button>
@@ -344,7 +361,7 @@ export default function AdminStaffPage() {
         Паралелките се назначават от страницата на служителя или от самата паралелка.
       </p>
 
-      <Modal open={!!deact} onClose={() => setDeact(null)} title={deact ? `Деактивиране: ${getFullName(deact)}` : ''}>
+      <Modal open={!!deact} onClose={() => setDeact(null)} title={deact ? `${deact.is_active ? 'Деактивиране' : 'Причина за неактивен'}: ${getFullName(deact)}` : ''}>
         <div className="space-y-3">
           <p className="text-xs text-slate-500">Неактивният служител изчезва от списъците и не може да влиза в системата. Старите му данни (заповеди, документи) остават.</p>
           <div className="space-y-1.5">
@@ -373,7 +390,7 @@ export default function AdminStaffPage() {
             </div>
           )}
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={confirmDeactivate} className="btn-primary" style={{ backgroundColor: '#0f2240' }}>Деактивирай</button>
+            <button type="button" onClick={confirmDeactivate} className="btn-primary" style={{ backgroundColor: '#0f2240' }}>{deact?.is_active ? 'Деактивирай' : 'Запази'}</button>
             <button type="button" onClick={() => setDeact(null)} className="btn-secondary">Отказ</button>
           </div>
         </div>
