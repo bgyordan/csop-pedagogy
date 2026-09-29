@@ -34,7 +34,7 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
     isSummer ? Promise.resolve({ data: [] as any[] })
       : supabase.from('monthly_absences').select('class_id').eq('month', reportMonth).eq('year', reportYear),
     supabase.from('student_enrollments')
-      .select('student:students!inner(id, first_name, middle_name, last_name, status)').eq('academic_year_id', currentYearId).eq('student.status', 'active'),
+      .select('class:classes(outreach_location), student:students!inner(id, first_name, middle_name, last_name, status)').eq('academic_year_id', currentYearId).eq('student.status', 'active'),
     supabase.from('eplr_teams').select('student_id').eq('academic_year_id', currentYearId),
     supabase.from('students').select('id').eq('is_new', true).eq('status', 'active'),
   ])
@@ -55,7 +55,9 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
     ? await supabase.from('student_surveys').select('student_id').in('student_id', newIds).eq('status', 'completed')
     : { data: [] as any[] }
   const noSurvey = newIds.length - new Set((doneSurveys || []).map((d: any) => d.student_id)).size
-  const kids = students.map((s: any) => ({ id: s.id, name: getFullName(s) })).sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
+  // изнесените групи (Виница/Тополи) са на специален режим — не ги броим в „Ученици без документи“
+  const kids = (enr || []).filter((e: any) => e.student && !e.class?.outreach_location).map((e: any) => e.student)
+    .map((s: any) => ({ id: s.id, name: getFullName(s) })).sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
 
   const card = 'bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 flex flex-col'
   const head = 'flex items-center gap-2 mb-3'
@@ -65,14 +67,18 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
   const { data: calDay } = await supabase.from('academic_calendar_days').select('term').eq('date', new Date().toISOString().slice(0, 10)).maybeSingle()
   const mo = new Date().getMonth() + 1
   const term = calDay?.term ?? (mo >= 2 && mo <= 8 ? 2 : 1)
-  const [{ data: staffAll }, { data: scheds }, { data: ifoT }, { data: therT }] = await Promise.all([
+  const [{ data: staffAll }, { data: scheds }, { data: ifoT }, { data: therT }, { data: outreachCta }] = await Promise.all([
     supabase.from('staff_profiles').select('id, first_name, last_name, role, is_active')
       .in('role', ['class_teacher', 'teacher', 'psychologist', 'speech_therapist', 'rehabilitator']),
     supabase.from('class_schedules').select('id').eq('academic_year_id', currentYearId).eq('term', term),
     supabase.from('teacher_ifo_slots').select('teacher_id').eq('academic_year_id', currentYearId).eq('term', term),
     supabase.from('therapist_slots').select('schedule:therapist_schedules!inner(staff_id, term, academic_year_id)')
       .eq('schedule.term', term).eq('schedule.academic_year_id', currentYearId),
+    // класни на изнесени паралелки — специален режим, не ги броим в „Учители без разписание“
+    supabase.from('class_teacher_assignments').select('staff_id, class:classes!inner(outreach_location)')
+      .eq('academic_year_id', currentYearId).not('class.outreach_location', 'is', null),
   ])
+  const outreachTeachers = new Set((outreachCta || []).filter((x: any) => x.class?.outreach_location).map((x: any) => x.staff_id))
   const schedIds = (scheds || []).map((x: any) => x.id)
   const { data: classT } = schedIds.length
     ? await supabase.from('schedule_slots').select('staff_id').in('schedule_id', schedIds)
@@ -80,7 +86,7 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
   const hasTeach = new Set([...(classT || []).map((x: any) => x.staff_id), ...(ifoT || []).map((x: any) => x.teacher_id)])
   const hasTher = new Set((therT || []).map((x: any) => x.schedule?.staff_id))
   const active = (staffAll || []).filter((p: any) => p.is_active !== false)
-  const noTeach = active.filter((p: any) => ['class_teacher', 'teacher'].includes(p.role) && !hasTeach.has(p.id))
+  const noTeach = active.filter((p: any) => ['class_teacher', 'teacher'].includes(p.role) && !hasTeach.has(p.id) && !outreachTeachers.has(p.id))
     .map((p: any) => `${p.first_name} ${p.last_name}`).sort((a: string, b: string) => a.localeCompare(b, 'bg'))
   const noTher = active.filter((p: any) => ['psychologist', 'speech_therapist', 'rehabilitator'].includes(p.role) && !hasTher.has(p.id))
     .map((p: any) => `${p.first_name} ${p.last_name}`).sort((a: string, b: string) => a.localeCompare(b, 'bg'))
