@@ -14,6 +14,7 @@ import { GraduationCap, Home, Wifi } from 'lucide-react'
 import { EplrDocumentsSection } from './EplrDocumentsSection'
 import MarkProcessedButton from './MarkProcessedButton'
 import IntakeCard from './IntakeCard'
+import TherapistHistory from './TherapistHistory'
 import StudentDocuments from './StudentDocuments'
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
@@ -444,6 +445,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                 ))}
               </dl>
             </div>
+            <TherapistHistory studentId={id} />
           </div>
         </div>
 
