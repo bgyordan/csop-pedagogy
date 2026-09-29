@@ -60,7 +60,10 @@ async function coudLabel(supabase: any, staffId: string): Promise<string> {
   // името вече може да съдържа „ЦОУД“ (напр. „ЦОУД №1“) — не го повтаряме
   return /ЦОУД/i.test(data.name) ? `група ${data.name}` : `група ЦОУД ${data.name}`
 }
-type Slot = { day: number; period: number; subject: string; cls: string }
+type Slot = { day: number; period: number; subject: string; cls: string; w?: number }
+// Тежест за седмичната норма (като в редактора на разписанието): обикновен час = 1, „позволява вземане“ = 0,7, „Час на класа“ винаги 1
+const slotWeight = (name: string, pullout: boolean) => (!pullout || (name || '').toLowerCase().includes('час на класа')) ? 1 : 0.7
+const WEEK_NORM = 21
 // Всички часове на служител ПО СРОКОВЕ: паралелки (schedule_slots) + ИФО (teacher_ifo_slots)
 // + ЦОУД (educator_slots). Ако за II срок още няма въведено разписание — ползва I срок.
 async function slotsByTerm(supabase: any, staffId: string, yearId: string | undefined): Promise<Record<number, Slot[]>> {
@@ -72,18 +75,18 @@ async function slotsByTerm(supabase: any, staffId: string, yearId: string | unde
   const ids = Object.keys(info)
   if (ids.length > 0) {
     const { data: slots } = await supabase
-      .from('schedule_slots').select('schedule_id, day, period, subject:subjects(name)')
+      .from('schedule_slots').select('schedule_id, day, period, subject:subjects(name, allows_pullout)')
       .in('schedule_id', ids).eq('staff_id', staffId)
     ;(slots || []).forEach((sl: any) => {
       const i = info[sl.schedule_id]
-      if (i) out[i.term].push({ day: sl.day, period: sl.period, subject: sl.subject?.name || '', cls: i.name })
+      if (i) out[i.term].push({ day: sl.day, period: sl.period, subject: sl.subject?.name || '', cls: i.name, w: slotWeight(sl.subject?.name || '', !!sl.subject?.allows_pullout) })
     })
   }
   const { data: ifo } = await supabase
-    .from('teacher_ifo_slots').select('day, period, term, subject:subjects(name), student:students(first_name, last_name)')
+    .from('teacher_ifo_slots').select('day, period, term, subject:subjects(name, allows_pullout), student:students(first_name, last_name)')
     .eq('teacher_id', staffId).eq('academic_year_id', yearId)
   ;(ifo || []).forEach((sl: any) => out[sl.term === 2 ? 2 : 1].push({
-    day: sl.day, period: sl.period, subject: sl.subject?.name || '',
+    day: sl.day, period: sl.period, subject: sl.subject?.name || '', w: slotWeight(sl.subject?.name || '', !!sl.subject?.allows_pullout),
     cls: sl.student ? `ИФО ${sl.student.first_name} ${sl.student.last_name}` : 'ИФО',
   }))
   const { data: edu } = await supabase.from('educator_slots')
@@ -137,7 +140,11 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
 
   const absentName = sub.absent ? `${(sub.absent as any).first_name} ${(sub.absent as any).last_name}` : ''
   const subName = sub.sub ? `${(sub.sub as any).first_name} ${(sub.sub as any).last_name}` : ''
-  const totalHours = days.reduce((a, x) => a + x.items.length, 0)
+  // Разписанието се смята за ПЪЛНО, когато седмичните часове (с тежест 0,7 за „вземане“) са поне нормата 21.
+  // Непълно (в началото на годината, докато чакат УУП/ИУП) → заповед БЕЗ часове; декларациите после четат готовото разписание.
+  const normTerm = wds.length ? wds[0].term : 1
+  const weekHours = Math.round(byTerm[normTerm].reduce((a, s) => a + (s.w ?? 1), 0) * 10) / 10
+  const noHours = weekHours < WEEK_NORM
 
   let orderNumber = '', orderDate = ''
   if (sub.substitution_order_id) {
@@ -145,10 +152,9 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
     const { data: o } = await supabase.from('orders').select('number, date').eq('id', sub.substitution_order_id).single()
     orderNumber = o?.number || '…………'
     orderDate = o?.date || sofiaToday()
+    // Разписанието вече е пълно → заповедта излиза с часове, махаме отличаването в регистъра
+    if (!noHours) await supabase.from('orders').update({ without_hours: false }).eq('id', sub.substitution_order_id)
   } else {
-    // Без часове заповедта излиза празна — най-често отсъстващият няма въведено разписание
-    if (totalHours === 0) return { error: `${absentName || 'Отсъстващият'} няма часове в разписанието за тези дни. Първо се въвежда разписанието, иначе заповедта излиза без часове.` }
-
     // 4. Номер от общия брояч — max seq +1 САМО в текущата деловодна година (15.09–14.09)
     orderDate = sofiaToday()
     const _p = orderDate.split('-').map(Number)
@@ -168,6 +174,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
         nomenclature_item: 'РД-08',
         description: `Заместник: ${subName}, период ${sub.date_from.split('-').reverse().join('.')}–${sub.date_to.split('-').reverse().join('.')}`,
         created_by: me?.id || null, seq: nextSeq,
+        without_hours: noHours,
       }).select('id').single()
       if (oErr) return { error: 'Грешка при създаване на заповедта: ' + oErr.message }
       // 6. Връзваме заповедта към заместването
@@ -199,7 +206,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
       absentName, substituteName: subName,
             substitutePosition: (sub.sub as any)?.position || 'учител',
       absentPosition: (sub.absent as any)?.position || 'учител',
-      className: bySlot.length ? Array.from(new Set(bySlot.map(s => s.cls).filter(Boolean))).join(', ') : '—',
+      className: noHours ? '' : bySlot.length ? Array.from(new Set(bySlot.map(s => s.cls).filter(Boolean))).join(', ') : '—',
       holderType: bySlot.some(s => (s.cls || '').startsWith('ИФО')) && !bySlot.some(s => !(s.cls || '').startsWith('ИФО')) ? 'ifo' : 'class',
       reason: sub.reason || 'vacation',
       overNorm: sub.bsch_eligible === true ? true : overNorm,
@@ -209,7 +216,8 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
             yearName: cy?.name || '',
       isBsch: sub.bsch_eligible === true,
       npSplit,
-      days,
+      noHours, weekHours,
+      days: noHours ? [] : days,
       substitutes,
     },
   }
