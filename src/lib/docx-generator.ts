@@ -2066,7 +2066,7 @@ export async function generateTherapistSchedule(
     { period: 5, time: '11:50 – 12:25' },
     { period: 6, time: '12:35 – 13:05' },
     { period: 7, time: '13:15 – 13:50' },
-    { period: 8, time: '13:50 – 14:00' },
+    { period: 8, time: '13:50 – 14:25' },
   ].filter(p => p.period === 0 || p.period <= maxPeriod)
 
   const children: any[] = []
