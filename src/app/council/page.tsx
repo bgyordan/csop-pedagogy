@@ -22,17 +22,34 @@ export default async function CouncilPage() {
   const { data: sets } = await setQuery
 
   const setIds = (sets || []).map((s: any) => s.id)
-  let filesBySet: Record<string, any[]> = {}
+  const filesBySet: Record<string, any[]> = {}
+  const acksBySet: Record<string, { staffId: string; at: string }[]> = {}
+  let acksOn = false
   if (setIds.length > 0) {
-    const { data: files } = await supabase.from('council_files')
-      .select('id, set_id, name, description, path, size, created_at')
-      .in('set_id', setIds).order('created_at', { ascending: true })
-    ;(files || []).forEach((f: any) => { (filesBySet[f.set_id] = filesBySet[f.set_id] || []).push(f) })
+    const [{ data: files }, acksRes] = await Promise.all([
+      supabase.from('council_files')
+        .select('id, set_id, name, description, path, size, mime_type, created_at')
+        .in('set_id', setIds).order('created_at', { ascending: true }),
+      supabase.from('council_acks').select('set_id, staff_id, acked_at').in('set_id', setIds),
+    ])
+    ;(files || []).forEach((f: any) => { (filesBySet[f.set_id] ||= []).push(f) })
+    // ако таблицата council_acks още я няма — „Запознах се“ просто не се показва
+    acksOn = !acksRes.error
+    ;(acksRes.data || []).forEach((a: any) => { (acksBySet[a.set_id] ||= []).push({ staffId: a.staff_id, at: a.acked_at }) })
   }
+
+  // за управата: кой трябва да се запознае (активните служители с достъп, без помощния персонал)
+  const { data: people } = canManage
+    ? await supabase.from('staff_profiles').select('id, first_name, last_name, role')
+        .eq('is_active', true).not('user_id', 'is', null).neq('role', 'support').order('first_name')
+    : { data: [] as any[] }
 
   const groups = (sets || []).map((s: any) => ({
     id: s.id, title: s.title, eventDate: s.event_date, isArchived: s.is_archived,
-    files: (filesBySet[s.id] || []).map((f: any) => ({ id: f.id, name: f.name, description: f.description, path: f.path, size: f.size })),
+    files: (filesBySet[s.id] || []).map((f: any) => ({
+      id: f.id, name: f.name, description: f.description, path: f.path, size: f.size, mime: f.mime_type || '', createdAt: f.created_at,
+    })),
+    acks: acksBySet[s.id] || [],
   }))
 
   return (
@@ -44,10 +61,16 @@ export default async function CouncilPage() {
         </div>
         <div>
           <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">Материали за съгласуване</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Документи за преглед преди педагогически съвет</p>
+          <p className="text-sm text-slate-500 mt-0.5">Документи за преглед преди педагогически съвет — прочетете ги и натиснете „Запознах се“</p>
         </div>
       </header>
-      <CouncilClient groups={groups} canManage={canManage} />
+      <CouncilClient
+        groups={groups}
+        canManage={canManage}
+        meId={me.id}
+        acksOn={acksOn}
+        people={(people || []).map((p: any) => ({ id: p.id, name: `${p.first_name} ${p.last_name}` }))}
+      />
     </div>
   )
 }
