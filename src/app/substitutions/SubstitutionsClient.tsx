@@ -281,7 +281,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ }
     const wasIssued = !!row?.hasOrder
     setRows(prev => prev.map(r => r.id === id ? { ...r, hasOrder: true, noHours: !!res.data?.noHours } : r))
-    const tail = res.data?.noHours ? ` — БЕЗ часове: разписанието на отсъстващия е ${String(res.data.weekHours).replace('.', ',')} от 21 ч. (изтегли я пак, когато е пълно)` : ''
+    const tail = res.data?.noHours ? ` — БЕЗ часове: разписанието на отсъстващия е ${String(res.data.weekHours).replace('.', ',')} от 20 ч. (изтегли я пак, когато е пълно)` : ''
     toast((wasIssued ? 'Заповедта е изтеглена отново (същият номер)' : 'Заповедта е създадена и изтеглена') + tail)
     setGenId(null)
   }
