@@ -42,14 +42,16 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
   const { data: allActive } = await supabase
     .from('students')
     .select(`id, first_name, middle_name, last_name, intensity, external_class,
-      therapist_psychologist_id, therapist_speech_id, therapist_rehab_id,
+      therapist_psychologist_id, therapist_speech_id, therapist_rehab_id, therapist_rehab2_id,
       sending_school:sending_schools(name),
       psy:staff_profiles!students_therapist_psychologist_id_fkey(first_name, last_name),
       spe:staff_profiles!students_therapist_speech_id_fkey(first_name, last_name),
-      reh:staff_profiles!students_therapist_rehab_id_fkey(first_name, last_name)`)
+      reh:staff_profiles!students_therapist_rehab_id_fkey(first_name, last_name),
+      reh2:staff_profiles!students_therapist_rehab2_id_fkey(first_name, last_name)`)
     .eq('status', 'active')
   const myTherapyStudents = studentField
-    ? (allActive || []).filter((s: any) => s[studentField] === profile.id)
+    ? (allActive || []).filter((s: any) => s[studentField] === profile.id
+        || (studentField === 'therapist_rehab_id' && s.therapist_rehab2_id === profile.id))
     : []
   const activeIds = (allActive || []).map((s: any) => s.id)
   const { data: enrollments } = activeIds.length > 0
@@ -68,7 +70,7 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
   const { data: eplrTeams } = eplrField
     ? await supabase.from('eplr_teams')
         .select(`student_id,
-          student:students(id, first_name, middle_name, last_name, therapist_psychologist_id, therapist_speech_id, therapist_rehab_id),
+          student:students(id, first_name, middle_name, last_name, therapist_psychologist_id, therapist_speech_id, therapist_rehab_id, therapist_rehab2_id),
           class_teacher:staff_profiles!eplr_teams_class_teacher_id_fkey(first_name, last_name)`)
         .eq(eplrField, profile.id)
         .eq('academic_year_id', currentYearId)
@@ -87,7 +89,9 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
     const others: string[] = []
     if (profile.role !== 'psychologist' && s.psy) others.push(`психолог ${s.psy.first_name} ${s.psy.last_name}`)
     if (profile.role !== 'speech_therapist' && s.spe) others.push(`логопед ${s.spe.first_name} ${s.spe.last_name}`)
-    if (profile.role !== 'rehabilitator' && s.reh) others.push(`рехаб. ${s.reh.first_name} ${s.reh.last_name}`)
+    // рехабилитатори — показва колегата(ите) на другото място (не мен)
+    if (s.reh && s.therapist_rehab_id !== profile.id) others.push(`рехаб. ${s.reh.first_name} ${s.reh.last_name}`)
+    if (s.reh2 && s.therapist_rehab2_id !== profile.id) others.push(`рехаб. ${s.reh2.first_name} ${s.reh2.last_name}`)
     return {
       id: s.id,
       name: getFullName(s),
@@ -101,7 +105,8 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
   const studentField2 = studentField
   const eplrRows = (eplrTeams || []).map((e: any) => {
     const st = e.student as any
-    const isReal = st && studentField2 && st[studentField2] === profile.id
+    const isReal = st && studentField2 && (st[studentField2] === profile.id
+      || (studentField2 === 'therapist_rehab_id' && st.therapist_rehab2_id === profile.id))
     return {
       id: e.student_id,
       name: st ? getFullName(st) : '—',

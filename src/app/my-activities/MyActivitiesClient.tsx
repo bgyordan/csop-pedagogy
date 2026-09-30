@@ -12,6 +12,7 @@ interface Row {
   externalClass: string
   mine: boolean
   takenBy: string | null
+  coHolder?: string | null   // втори рехабилитатор при детето (само за инфо)
 }
 type Tab = 'mine' | 'free' | 'taken'
 
@@ -189,6 +190,11 @@ export default function MyActivitiesClient({ rows, roleLabel, yearName = '', ter
                         f.type === 'error' ? 'text-red-600' : f.type === 'removed' ? 'text-slate-500' : 'text-teal-600'
                       }`}>
                         {f.text}
+                      </span>
+                    )}
+                    {r.coHolder && !r.takenBy && (
+                      <span className="hidden sm:inline text-[11px] text-slate-400" title="Детето е и при този колега">
+                        и при {r.coHolder}
                       </span>
                     )}
                     {r.mine ? (

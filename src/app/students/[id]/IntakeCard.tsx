@@ -16,7 +16,7 @@ export default async function IntakeCard({ student, enrollment, guardiansCount, 
   const className = enrollment?.class?.name || ''
   const inSluzhebna = !className || /служебна/i.test(className)
   const hasTeam = !!(eplr && (eplr.psychologist_id || eplr.speech_therapist_id || eplr.rehabilitator_id || eplr.class_teacher_id))
-  const hasTherapist = !!(student.therapist_psychologist_id || student.therapist_speech_id || student.therapist_rehab_id)
+  const hasTherapist = !!(student.therapist_psychologist_id || student.therapist_speech_id || student.therapist_rehab_id || student.therapist_rehab2_id)
 
   type Step = { done: boolean; label: string; hint: string; href?: string; info?: boolean }
   const steps: Step[] = [

@@ -103,7 +103,7 @@ export default async function SchedulesPage({
       .in('role', ['psychologist', 'speech_therapist', 'rehabilitator']).order('first_name')
     const activeStaff = (staff || []).filter((s: any) => s.is_active !== false)
     const { data: allStud } = await supabase
-      .from('students').select('therapist_psychologist_id, therapist_speech_id, therapist_rehab_id, status').eq('status', 'active')
+      .from('students').select('therapist_psychologist_id, therapist_speech_id, therapist_rehab_id, therapist_rehab2_id, status').eq('status', 'active')
     const roleField: Record<string, string> = { psychologist: 'therapist_psychologist_id', speech_therapist: 'therapist_speech_id', rehabilitator: 'therapist_rehab_id' }
     const { data: scheds } = await supabase
       .from('therapist_schedules').select('id, staff_id, term').eq('academic_year_id', currentYear?.id).eq('term', 1)
@@ -117,7 +117,8 @@ export default async function SchedulesPage({
     ;(slotCounts || []).forEach((s: any) => { countBySched[s.schedule_id] = (countBySched[s.schedule_id] || 0) + 1 })
     therapists = activeStaff.map((t: any) => {
       const field = roleField[t.role]
-      const kids = (allStud || []).filter((s: any) => s[field] === t.id).length
+      const kids = (allStud || []).filter((s: any) =>
+        s[field] === t.id || (field === 'therapist_rehab_id' && s.therapist_rehab2_id === t.id)).length
       const schedId = schedByStaff[t.id]
       const hours = schedId ? (countBySched[schedId] || 0) : 0
       return { id: t.id, name: getFullName(t), role: t.role, kids, hours }

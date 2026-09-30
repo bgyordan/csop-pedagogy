@@ -22,6 +22,21 @@ export async function assignToMe(studentId: string) {
   const { supabase, profile } = r
   const field = ROLE_FIELD[profile.role]
   if (!field) return { error: 'Само психолог, логопед или рехабилитатор може да зачислява деца.' }
+  // Рехабилитаторите имат ДВЕ места при детето (ерго/кинези/рехаб. са с една роля)
+  if (profile.role === 'rehabilitator') {
+    const { data: st } = await supabase
+      .from('students').select('id, therapist_rehab_id, therapist_rehab2_id').eq('id', studentId).single()
+    const s1 = (st as any)?.therapist_rehab_id as string | null
+    const s2 = (st as any)?.therapist_rehab2_id as string | null
+    if (s1 === profile.id || s2 === profile.id) return { success: true }
+    const target = !s1 ? 'therapist_rehab_id' : !s2 ? 'therapist_rehab2_id' : null
+    if (!target) return { error: 'Детето вече е при двама рехабилитатори.' }
+    const { error } = await supabase
+      .from('students').update({ [target]: profile.id }).eq('id', studentId)
+    if (error) return { error: error.message }
+    revalidatePath('/my-activities')
+    return { success: true }
+  }
   // Проверка дали полето вече е заето
   const { data: student } = await supabase
     .from('students').select(`id, ${field}`).eq('id', studentId).single()
@@ -41,14 +56,16 @@ export async function removeFromMe(studentId: string) {
   const { supabase, profile } = r
   const field = ROLE_FIELD[profile.role]
   if (!field) return { error: 'Невалидна роля.' }
-  // Маха само ако наистина е зачислено при мен
+  // Маха само ако наистина е зачислено при мен (рехабилитатор — от което от двете места е)
+  const fields = profile.role === 'rehabilitator' ? ['therapist_rehab_id', 'therapist_rehab2_id'] : [field]
   const { data: student } = await supabase
-    .from('students').select(`id, ${field}`).eq('id', studentId).single()
-  if ((student as any)?.[field] !== profile.id) {
+    .from('students').select(`id, ${fields.join(', ')}`).eq('id', studentId).single()
+  const myField = fields.find(f => (student as any)?.[f] === profile.id)
+  if (!myField) {
     return { error: 'Това дете не е зачислено при вас.' }
   }
   const { error } = await supabase
-    .from('students').update({ [field]: null }).eq('id', studentId)
+    .from('students').update({ [myField]: null }).eq('id', studentId)
   if (error) return { error: error.message }
   // Чистене на слотовете на това дете от графика на терапевта
   const { data: mySchedules } = await supabase
