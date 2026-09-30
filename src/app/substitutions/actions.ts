@@ -110,7 +110,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   // 1. Заместването
   const { data: sub } = await supabase
     .from('substitutions')
-    .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, reason, leave_order_number, leave_order_date, bsch_eligible, kt_article, substitution_order_id,
+    .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, reason, leave_order_number, leave_order_date, bsch_eligible, kt_article, substitution_order_id, manual_order_number, manual_order_date,
        absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, position),
       sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name, position)`)
     .eq('id', substitutionId).single()
@@ -155,6 +155,10 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
     orderDate = o?.date || sofiaToday()
     // Разписанието вече е пълно → заповедта излиза с часове, махаме отличаването в регистъра
     if (!noHours) await supabase.from('orders').update({ without_hours: false }).eq('id', sub.substitution_order_id)
+  } else if ((sub as any).manual_order_number) {
+    // Заповедта е с РЪЧЕН номер (въведен от деловодството) → само генерираме Word с него, нищо ново в регистъра
+    orderNumber = (sub as any).manual_order_number
+    orderDate = (sub as any).manual_order_date || sofiaToday()
   } else {
     // 4. Номер от общия брояч — max seq +1 САМО в текущата деловодна година (15.09–14.09)
     orderDate = sofiaToday()
