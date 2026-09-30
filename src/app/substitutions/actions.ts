@@ -63,7 +63,8 @@ async function coudLabel(supabase: any, staffId: string): Promise<string> {
 type Slot = { day: number; period: number; subject: string; cls: string; w?: number }
 // Тежест за седмичната норма (като в редактора на разписанието): обикновен час = 1, „позволява вземане“ = 0,7, „Час на класа“ винаги 1
 const slotWeight = (name: string, pullout: boolean) => (!pullout || (name || '').toLowerCase().includes('час на класа')) ? 1 : 0.7
-const WEEK_NORM = 21
+// Праг за контрол „пълно разписание“ (норма 21, но съвместни часове/терапии свалят тежестта) — от 20 нагоре = пълно
+const WEEK_NORM = 20
 // Всички часове на служител ПО СРОКОВЕ: паралелки (schedule_slots) + ИФО (teacher_ifo_slots)
 // + ЦОУД (educator_slots). Ако за II срок още няма въведено разписание — ползва I срок.
 async function slotsByTerm(supabase: any, staffId: string, yearId: string | undefined): Promise<Record<number, Slot[]>> {
@@ -140,7 +141,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
 
   const absentName = sub.absent ? `${(sub.absent as any).first_name} ${(sub.absent as any).last_name}` : ''
   const subName = sub.sub ? `${(sub.sub as any).first_name} ${(sub.sub as any).last_name}` : ''
-  // Разписанието се смята за ПЪЛНО, когато седмичните часове (с тежест 0,7 за „вземане“) са поне нормата 21.
+  // Разписанието се смята за ПЪЛНО, когато седмичните часове (с тежест 0,7 за „вземане“) са поне 20.
   // Непълно (в началото на годината, докато чакат УУП/ИУП) → заповед БЕЗ часове; декларациите после четат готовото разписание.
   const normTerm = wds.length ? wds[0].term : 1
   const weekHours = Math.round(byTerm[normTerm].reduce((a, s) => a + (s.w ?? 1), 0) * 10) / 10
