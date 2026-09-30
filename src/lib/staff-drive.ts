@@ -3,7 +3,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import {
-  ensureStaffFolder, findStaffFolder, folderUrl, uploadFile, createGoogleDoc, shareWriter, accountEmails,
+  ensureStaffFolder, findStaffFolder, folderUrl, uploadFile, createGoogleDoc, shareWriter, accountEmails, openAsEmail,
   downloadFile, renameFile, trashFile, setFileShared, listSharedStaffFiles, createSubfolder, moveFile, type DriveItem, type SharedItem,
 } from '@/lib/google-drive'
 import { listTree, inTree, isSubfolder, type FolderGroup } from '@/lib/drive-tree'
@@ -19,7 +19,7 @@ async function me(): Promise<StaffCtx | { error: string }> {
   return {
     staffId: p.id,
     name: `${p.first_name} ${p.last_name}`,
-    email: user.email || '',
+    email: openAsEmail(p.email, user.email),   // за отваряне на файловете в Drive
     accounts: accountEmails(p.email || user.email),
   }
 }

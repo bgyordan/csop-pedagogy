@@ -1,5 +1,6 @@
 'use server'
 
+import { googleOpenUrl } from '@/lib/drive-link'
 import { ensureStudentFolder, createGoogleDoc, uploadDocxAsGoogleDoc } from '@/lib/google-drive'
 import { studentContext, shareTeam, listForStudent, createBlankForStudent, renameForStudent, trashForStudent, listTemplates, createFromTemplateForStudent, yearsForStudent, copyFromYearForStudent } from '@/lib/student-drive'
 
@@ -62,8 +63,10 @@ export async function openGeneratedInDrive(studentId: string, title: string, dri
     .from('student_drive_files').select('url')
     .eq('student_id', studentId).eq('title', title)
     .order('created_at', { ascending: false }).limit(1).maybeSingle()
-  if (existing?.url) return { url: existing.url, existed: true }
-  return makeDriveDoc(studentId, title, driveName, docxBase64)
+  if (existing?.url) return { url: googleOpenUrl(existing.url, ctx.openEmail), existed: true }
+  const r = await makeDriveDoc(studentId, title, driveName, docxBase64)
+  if (r.url) r.url = googleOpenUrl(r.url, ctx.openEmail)   // отваря с училищния акаунт
+  return r
 }
 
 // Създава документа в папката на детето, дава права на ЕПЛР екипа и го записва в досието

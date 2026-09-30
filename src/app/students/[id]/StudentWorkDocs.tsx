@@ -1,4 +1,5 @@
 'use client'
+import { googleOpenUrl } from '@/lib/drive-link'
 
 import { useEffect, useRef, useState } from 'react'
 import {
@@ -40,11 +41,8 @@ function when(iso: string) {
     : d.toLocaleDateString('bg-BG', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-// линкът се отваря с акаунта, с който колегата е влязъл в EIS (ако в браузъра има няколко)
-function withAccount(url: string, email?: string) {
-  if (!email) return url
-  return url + (url.includes('?') ? '&' : '?') + 'authuser=' + encodeURIComponent(email)
-}
+// отваря с училищния акаунт (виж lib/drive-link)
+const withAccount = (url: string, email?: string) => googleOpenUrl(url, email)
 
 // Табът се отваря ВЕДНАГА при натискането (иначе браузърът го блокира като изскачащ прозорец),
 // а адресът се зарежда в него, когато сървърът е готов
@@ -429,6 +427,11 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
              className="text-xs text-slate-400 hover:text-slate-600 inline-flex items-center gap-1 ml-1">
             папката в Drive <ExternalLink size={11} />
           </a>
+        )}
+        {myEmail && (
+          <span className="text-[11px] text-slate-400" title="Ако Google покаже „Нямате достъп“ — изберете този акаунт">
+            · отваря се с {myEmail}
+          </span>
         )}
         {canEdit && (
           <div className="ml-auto flex items-center gap-2">

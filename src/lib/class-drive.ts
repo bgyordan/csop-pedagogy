@@ -4,7 +4,7 @@
 import { createClient } from '@/lib/supabase/server'
 import {
   ensureClassFolder, findClassFolder, folderUrl, uploadFile, createGoogleDoc, createSubfolder, moveFile,
-  shareWriter, accountEmails, downloadFile, renameFile, trashFile, countStudentFiles, type DriveItem,
+  shareWriter, accountEmails, openAsEmail, downloadFile, renameFile, trashFile, countStudentFiles, type DriveItem,
 } from '@/lib/google-drive'
 import { listTree, inTree, isSubfolder, type FolderGroup } from '@/lib/drive-tree'
 
@@ -12,6 +12,7 @@ const MANAGERS = ['admin', 'director', 'zdud']
 
 type ClassCtx = {
   userEmail: string
+  openEmail: string
   myName: string
   yearName: string
   className: string
@@ -23,7 +24,7 @@ async function classContext(classId: string): Promise<ClassCtx | { error: string
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли в системата' }
 
-  const { data: me } = await supabase.from('staff_profiles').select('id, role, first_name, last_name').eq('user_id', user.id).maybeSingle()
+  const { data: me } = await supabase.from('staff_profiles').select('id, role, first_name, last_name, email').eq('user_id', user.id).maybeSingle()
   const { data: cls } = await supabase.from('classes').select('name').eq('id', classId).maybeSingle()
   if (!cls) return { error: 'Няма такава паралелка' }
   const { data: year } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
@@ -37,6 +38,7 @@ async function classContext(classId: string): Promise<ClassCtx | { error: string
 
   return {
     userEmail: user.email || '',
+    openEmail: openAsEmail(me.email, user.email),
     myName: `${me.first_name} ${me.last_name}`,
     yearName: year?.name || '',
     className: cls.name || '',
@@ -64,9 +66,9 @@ export async function listForClass(classId: string): Promise<{ files?: DriveItem
   if ('error' in ctx) return { error: ctx.error }
   try {
     const folderId = await findClassFolder(ctx.yearName, ctx.className)
-    if (!folderId) return { files: [], folders: [], canEdit: true, myEmail: ctx.userEmail }
+    if (!folderId) return { files: [], folders: [], canEdit: true, myEmail: ctx.openEmail }
     const { files, folders } = await listTree(folderId)
-    return { files, folders, folderUrl: folderUrl(folderId), canEdit: true, myEmail: ctx.userEmail }
+    return { files, folders, folderUrl: folderUrl(folderId), canEdit: true, myEmail: ctx.openEmail }
   } catch (e: any) {
     return { error: e?.message || 'Грешка при връзката с Drive' }
   }
