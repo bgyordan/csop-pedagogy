@@ -32,7 +32,7 @@ export async function studentContext(studentId: string, year?: string): Promise<
   const { data: me } = await supabase.from('staff_profiles').select('id, role, first_name, last_name, is_coordinator').eq('user_id', user.id).maybeSingle()
 
   const { data: student } = await supabase
-    .from('students').select('first_name, last_name, therapist_psychologist_id, therapist_speech_id, therapist_rehab_id').eq('id', studentId).single()
+    .from('students').select('first_name, last_name, therapist_psychologist_id, therapist_speech_id, therapist_rehab_id, therapist_rehab2_id').eq('id', studentId).single()
   if (!student) return { error: 'Няма такова дете' }
 
   const { data: current } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
@@ -68,7 +68,7 @@ export async function studentContext(studentId: string, year?: string): Promise<
   // (разписание на паралелката му, ИФО часове, ЦОУД група) — без да могат да качват/трият
   const s_: any = student
   let canView = canEdit || !!me?.is_coordinator
-    || (!!me && [s_.therapist_psychologist_id, s_.therapist_speech_id, s_.therapist_rehab_id].includes(me.id))   // терапевт на детето
+    || (!!me && [s_.therapist_psychologist_id, s_.therapist_speech_id, s_.therapist_rehab_id, s_.therapist_rehab2_id].includes(me.id))   // терапевт на детето
   if (!canView && me && year_?.id) {
     const { data: enr } = await supabase.from('student_enrollments').select('class_id')
       .eq('student_id', studentId).eq('academic_year_id', year_.id).maybeSingle()

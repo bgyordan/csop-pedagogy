@@ -161,10 +161,10 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
                       {student.external_class && <div className="text-slate-600">{student.external_class}{student.external_class_letter ? ` ${student.external_class_letter}` : ''} клас</div>}
                     </td>
                     <td className="px-4 py-2.5 text-xs text-slate-600 leading-relaxed">
-                      {([['Псих.', student.therapist_psychologist_id], ['Лог.', student.therapist_speech_id], ['Рех.', student.therapist_rehab_id]] as [string, string | null][])
+                      {([['Псих.', student.therapist_psychologist_id], ['Лог.', student.therapist_speech_id], ['Рех.', student.therapist_rehab_id], ['Рех. 2', student.therapist_rehab2_id]] as [string, string | null][])
                         .filter(([, sid]) => sid && staffName.get(sid))
                         .map(([l, sid]) => <div key={l}><span className="text-slate-400">{l}</span> {staffName.get(sid!)}</div>)}
-                      {!student.therapist_psychologist_id && !student.therapist_speech_id && !student.therapist_rehab_id && <span className="text-slate-300">—</span>}
+                      {!student.therapist_psychologist_id && !student.therapist_speech_id && !student.therapist_rehab_id && !student.therapist_rehab2_id && <span className="text-slate-300">—</span>}
                     </td>
                     <td className="px-4 py-2.5 text-xs">
                       {coud ? (

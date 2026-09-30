@@ -59,9 +59,11 @@ export default async function TherapistSchedulePage({
 
   const { data: allActive } = await supabase
     .from('students')
-    .select('id, first_name, middle_name, last_name, external_class, therapist_psychologist_id, therapist_speech_id, therapist_rehab_id')
+    .select('id, first_name, middle_name, last_name, external_class, therapist_psychologist_id, therapist_speech_id, therapist_rehab_id, therapist_rehab2_id')
     .eq('status', 'active').order('first_name')
-  const myStudents = (allActive || []).filter((s: any) => s[field] === target.id)
+  // рехабилитатор: детето може да е на първото или второто място
+  const myStudents = (allActive || []).filter((s: any) =>
+    s[field] === target.id || (field === 'therapist_rehab_id' && s.therapist_rehab2_id === target.id))
   const studentIds = (myStudents || []).map(s => s.id)
 
   const { data: enrollments } = studentIds.length > 0

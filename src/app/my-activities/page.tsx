@@ -46,7 +46,8 @@ export default async function MyActivitiesPage() {
     .select(`id, first_name, middle_name, last_name, external_class,
       psych:staff_profiles!students_therapist_psychologist_id_fkey(id, first_name, last_name),
       speech:staff_profiles!students_therapist_speech_id_fkey(id, first_name, last_name),
-      rehab:staff_profiles!students_therapist_rehab_id_fkey(id, first_name, last_name)`)
+      rehab:staff_profiles!students_therapist_rehab_id_fkey(id, first_name, last_name),
+      rehab2:staff_profiles!students_therapist_rehab2_id_fkey(id, first_name, last_name)`)
     .eq('status', 'active')
     .order('first_name')
 
@@ -65,15 +66,32 @@ export default async function MyActivitiesPage() {
   const myKey = profile.role === 'psychologist' ? 'psych'
     : profile.role === 'speech_therapist' ? 'speech' : 'rehab'
 
+  const nameOf = (p: any) => `${p.first_name} ${p.last_name}`
   const rows = (students || []).map((s: any) => {
-    const holder = s[myKey]
-    return {
+    const base = {
       id: s.id,
       name: [s.first_name, s.middle_name, s.last_name].filter(Boolean).join(' '),
       className: classByStudent[s.id] || '',
       externalClass: s.external_class || '',
+    }
+    // Рехабилитатор: две места — детето е „заето“ само ако и двете са при колеги
+    if (myKey === 'rehab') {
+      const holders = [s.rehab, s.rehab2].filter(Boolean)
+      const mine = holders.some((h: any) => h.id === profile.id)
+      const others = holders.filter((h: any) => h.id !== profile.id).map(nameOf)
+      return {
+        ...base,
+        mine,
+        takenBy: !mine && others.length >= 2 ? others.join(', ') : null,
+        coHolder: others.length === 1 ? others[0] : null,
+      }
+    }
+    const holder = s[myKey]
+    return {
+      ...base,
       mine: holder?.id === profile.id,
-      takenBy: holder && holder.id !== profile.id ? `${holder.first_name} ${holder.last_name}` : null,
+      takenBy: holder && holder.id !== profile.id ? nameOf(holder) : null,
+      coHolder: null,
     }
   })
 

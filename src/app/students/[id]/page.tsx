@@ -59,7 +59,8 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       sending_school:sending_schools(name, city),
       therapist_psychologist:staff_profiles!students_therapist_psychologist_id_fkey(id, first_name, middle_name, last_name),
       therapist_speech:staff_profiles!students_therapist_speech_id_fkey(id, first_name, middle_name, last_name),
-      therapist_rehab:staff_profiles!students_therapist_rehab_id_fkey(id, first_name, middle_name, last_name)
+      therapist_rehab:staff_profiles!students_therapist_rehab_id_fkey(id, first_name, middle_name, last_name),
+      therapist_rehab2:staff_profiles!students_therapist_rehab2_id_fkey(id, first_name, middle_name, last_name)
     `)
     .eq('id', id).single()
 
@@ -404,7 +405,8 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
               <EplrTeam externals={externalMembers || []} eplr={eplr} id={id} canManage={canManage}
                 realPsy={(student as any).therapist_psychologist_id}
                 realSpe={(student as any).therapist_speech_id}
-                realReh={(student as any).therapist_rehab_id} />
+                realReh={(student as any).therapist_rehab_id}
+                realReh2={(student as any).therapist_rehab2_id} />
             </div>
             <div className={`${cardCls} lg:col-span-2`}>
               <div className={cardHead}>
@@ -435,6 +437,8 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                   { label: 'Психолог', member: (student as any).therapist_psychologist },
                   { label: 'Логопед', member: (student as any).therapist_speech },
                   { label: 'Рехабилитатор', member: (student as any).therapist_rehab },
+                  // второ място — показва се само ако е попълнено
+                  ...((student as any).therapist_rehab2 ? [{ label: 'Рехабилитатор (2)', member: (student as any).therapist_rehab2 }] : []),
                 ].map(({ label, member }) => (
                   <div key={label}>
                     <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</dt>
@@ -473,7 +477,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   )
 }
 
-function EplrTeam({ eplr, id, canManage, externals = [], realPsy, realSpe, realReh }: { eplr: any, id: string, canManage: boolean, externals?: any[], realPsy?: string, realSpe?: string, realReh?: string }) {
+function EplrTeam({ eplr, id, canManage, externals = [], realPsy, realSpe, realReh, realReh2 }: { eplr: any, id: string, canManage: boolean, externals?: any[], realPsy?: string, realSpe?: string, realReh?: string, realReh2?: string }) {
   if (!eplr) return (
     <div>
       <p className="text-sm text-slate-400 mb-3">Няма назначен екип</p>
@@ -487,7 +491,7 @@ function EplrTeam({ eplr, id, canManage, externals = [], realPsy, realSpe, realR
       {[
         { label: 'Психолог', member: eplr.psychologist, isReal: eplr.psychologist && realPsy === eplr.psychologist.id },
         { label: 'Логопед', member: eplr.speech_therapist, isReal: eplr.speech_therapist && realSpe === eplr.speech_therapist.id },
-        { label: 'Рехабилитатор', member: eplr.rehabilitator, isReal: eplr.rehabilitator && realReh === eplr.rehabilitator.id },
+        { label: 'Рехабилитатор', member: eplr.rehabilitator, isReal: eplr.rehabilitator && (realReh === eplr.rehabilitator.id || realReh2 === eplr.rehabilitator.id) },
         { label: 'Класен р-л', member: eplr.class_teacher, isReal: false },
       ].map(({ label, member, isReal }) => (
         <div key={label}>
