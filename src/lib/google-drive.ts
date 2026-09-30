@@ -427,6 +427,13 @@ export function schoolEmail(email?: string | null) {
   return null
 }
 
+// С кой акаунт да се отварят файловете в Drive: училищният edu.mon.bg (правата са дадени на него),
+// дори ако колегата е влязъл в EIS с друг имейл. Ако няма училищен — имейлът за вход.
+export function openAsEmail(profileEmail?: string | null, loginEmail?: string | null) {
+  const acc = accountEmails(profileEmail).length ? accountEmails(profileEmail) : accountEmails(loginEmail)
+  return acc[1] || loginEmail || ''
+}
+
 // ivan.ivanov@... -> [ivan.ivanov@csop-varna.bg, ivan.ivanov@edu.mon.bg]
 // Колегата отваря документа с който от двата акаунта е влязъл в браузъра
 export function accountEmails(email?: string | null) {

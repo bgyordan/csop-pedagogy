@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import {
   ensureStudentFolder, findStudentFolder, listFolder, uploadFile, createGoogleDoc,
-  shareWriter, accountEmails, getFileMeta, downloadFile, renameFile, trashFile, type DriveItem,
+  shareWriter, accountEmails, openAsEmail, getFileMeta, downloadFile, renameFile, trashFile, type DriveItem,
   findTemplatesFolder, copyFile, replaceMarkers,
 } from '@/lib/google-drive'
 
@@ -13,6 +13,7 @@ const MANAGERS = ['admin', 'zdud', 'director', 'secretary']
 export type StudentCtx = {
   supabase: Awaited<ReturnType<typeof createClient>>
   userEmail: string
+  openEmail: string   // с този акаунт се отварят файловете в Drive
   meId: string | null
   myName: string
   studentName: string
@@ -29,7 +30,7 @@ export async function studentContext(studentId: string, year?: string): Promise<
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли в системата' }
 
-  const { data: me } = await supabase.from('staff_profiles').select('id, role, first_name, last_name, is_coordinator').eq('user_id', user.id).maybeSingle()
+  const { data: me } = await supabase.from('staff_profiles').select('id, role, first_name, last_name, email, is_coordinator').eq('user_id', user.id).maybeSingle()
 
   const { data: student } = await supabase
     .from('students').select('first_name, last_name, therapist_psychologist_id, therapist_speech_id, therapist_rehab_id, therapist_rehab2_id').eq('id', studentId).single()
@@ -97,6 +98,7 @@ export async function studentContext(studentId: string, year?: string): Promise<
   return {
     supabase,
     userEmail: user.email || '',
+    openEmail: openAsEmail(me?.email, user.email),
     meId: me?.id ?? null,
     myName: me ? `${me.first_name} ${me.last_name}` : (user.email || ''),
     studentName: `${student.first_name} ${student.last_name}`,
@@ -137,13 +139,13 @@ export async function listForStudent(studentId: string, year?: string): Promise<
   if (!ctx.canView) return { error: 'Нямате достъп до документите на това дете.' }
   try {
     const folderId = await findStudentFolder(studentId, ctx.yearName)
-    if (!folderId) return { files: [], canEdit: ctx.canEdit, myEmail: ctx.userEmail }
+    if (!folderId) return { files: [], canEdit: ctx.canEdit, myEmail: ctx.openEmail }
     const files = await listFolder(folderId)
     return {
       files,
       folderUrl: `https://drive.google.com/drive/folders/${folderId}`,
       canEdit: ctx.canEdit,
-      myEmail: ctx.userEmail,
+      myEmail: ctx.openEmail,
     }
   } catch (e: any) {
     return { error: e?.message || 'Грешка при връзката с Drive' }
