@@ -1,6 +1,6 @@
 'use client'
 import { createClient } from '@/lib/supabase/client'
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import JordanBadge from '@/components/JordanBadge'
 
@@ -21,6 +21,13 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const urlError = searchParams.get('error')
   const supabase = createClient()
+
+  // „Назад“ от Google връща страницата от кеша на браузъра с изключен бутон → активираме го пак
+  useEffect(() => {
+    const onShow = () => setLoading(false)
+    window.addEventListener('pageshow', onShow)
+    return () => window.removeEventListener('pageshow', onShow)
+  }, [])
 
   // domain → Google показва само акаунтите от този домейн
   async function handleGoogleLogin(domain: string) {
