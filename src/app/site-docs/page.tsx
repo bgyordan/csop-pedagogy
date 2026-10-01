@@ -38,6 +38,11 @@ export default async function SiteDocsPage() {
   const { data: subscribers } = await supabase.from('job_subscribers')
     .select('id, email, created_at').order('created_at', { ascending: false })
 
+  // Екип на сайта: активните служители + настройките им за сайта (site_team)
+  const { data: staff } = await supabase.from('staff_profiles')
+    .select('id, first_name, last_name, role, position').neq('is_active', false).order('last_name')
+  const { data: team, error: teamErr } = await supabase.from('site_team').select('staff_id, show, title')
+
   const { data: cy } = await supabase.from('academic_years').select('name').eq('is_current', true).single()
 
   return (
@@ -46,6 +51,7 @@ export default async function SiteDocsPage() {
       news={news || []} authorId={me.id}
       events={events || []} albums={albums || []} photos={photos || []} heroPhotos={heroPhotos} pagePhotos={pagePhotos}
       jobs={jobs || []} subscribers={subscribers || []}
+      staff={staff || []} team={team || []} teamReady={!teamErr}
     />
   )
 }
