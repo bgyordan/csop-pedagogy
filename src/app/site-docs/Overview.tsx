@@ -11,7 +11,7 @@ import type { Doc, News, Ev, Album, Photo, Job } from './shared'
 export type Go =
   | { tab: 'news'; openId?: string; createNew?: boolean }
   | { tab: 'docs'; section?: string }
-  | { tab: 'events' | 'gallery' | 'hero' | 'jobs' | 'site-images' }
+  | { tab: 'events' | 'gallery' | 'hero' | 'jobs' | 'site-images' | 'team' }
 
 const isScheduled = (n: News) => n.status === 'published' && !!n.published_at && new Date(n.published_at) > new Date()
 const isLive = (n: News) => n.status === 'published' && !isScheduled(n)

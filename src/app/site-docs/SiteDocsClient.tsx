@@ -1,12 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { FileText, Newspaper, CalendarDays, Images, ImagePlus, LayoutTemplate, Briefcase, LayoutDashboard } from 'lucide-react'
+import { FileText, Newspaper, CalendarDays, Images, ImagePlus, LayoutTemplate, Briefcase, LayoutDashboard, Users } from 'lucide-react'
 import { ACCENT, SITE_URL } from './shared'
 import type { Doc, News, Ev, Album, Photo, Job, Subscriber } from './shared'
 import Overview, { type Go } from './Overview'
 import NewsManager from './NewsManager'
 import DocumentsManager from './DocumentsManager'
+import TeamManager, { type StaffRow, type TeamSetting } from './TeamManager'
 import { EventsManager, GalleryManager, JobsManager, HeroManager, SiteImagesManager } from './legacy'
 
 const TABS = [
@@ -17,17 +18,18 @@ const TABS = [
   { id: 'gallery', label: 'Галерия', icon: Images },
   { id: 'hero', label: 'Начална страница', icon: LayoutTemplate },
   { id: 'site-images', label: 'Снимки за сайта', icon: ImagePlus },
+  { id: 'team', label: 'Екип', icon: Users },
   { id: 'jobs', label: 'Кариери', icon: Briefcase },
 ] as const
 type TabId = (typeof TABS)[number]['id']
 
 /* ═══════════════ обвивка ═══════════════ */
 export default function SiteDocsClient({
-  docs = [], defaultYear, news = [], authorId, events = [], albums = [], photos = [], heroPhotos = [], pagePhotos = {}, jobs = [], subscribers = [],
+  docs = [], defaultYear, news = [], authorId, events = [], albums = [], photos = [], heroPhotos = [], pagePhotos = {}, jobs = [], subscribers = [], staff = [], team = [], teamReady = false,
 }: {
   docs: Doc[]; defaultYear: string; news?: News[]; authorId: string | null
   events?: Ev[]; albums?: Album[]; photos?: Photo[]; heroPhotos?: string[]; pagePhotos?: Record<string, string[]>
-  jobs?: Job[]; subscribers?: Subscriber[]
+  jobs?: Job[]; subscribers?: Subscriber[]; staff?: StaffRow[]; team?: TeamSetting[]; teamReady?: boolean
 }) {
   const [tab, setTab] = useState<TabId>('overview')
   // „скок“ от таблото: коя новина да се отвори / нова новина / кой раздел документи
@@ -95,6 +97,7 @@ export default function SiteDocsClient({
       {tab === 'gallery' && <GalleryManager initialAlbums={albums} initialPhotos={photos} />}
       {tab === 'hero' && <HeroManager photos={photos} albums={albums} initialSelected={heroPhotos} />}
       {tab === 'site-images' && <SiteImagesManager />}
+      {tab === 'team' && <TeamManager staff={staff} initial={team} ready={teamReady} />}
       {tab === 'jobs' && <JobsManager initial={jobs} authorId={authorId} subscribers={subscribers} />}
     </div>
   )
