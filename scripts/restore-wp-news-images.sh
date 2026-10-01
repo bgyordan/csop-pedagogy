@@ -19,8 +19,12 @@ while IFS=$'\t' read -r id url; do
   old=${url/:\/\/csop-varna.bg/://old.csop-varna.bg}; oldfull=${full/:\/\/csop-varna.bg/://old.csop-varna.bg}
   f="$TMP/$name"; ct=
   for src in "$oldfull" "$old" "https://web.archive.org/web/2026id_/$url" "https://web.archive.org/web/2026id_/$full"; do
-    ct=$(curl -sfL --max-time 90 -o "$f" -w '%{content_type}' "$src") && [ -s "$f" ] && [[ "$ct" == image/* ]] && break
-    ct=
+    # -k: сертификатът на old. поддомейна не е валиден — за сваляне на снимки е без значение
+    ct=$(curl -skfL --max-time 90 -o "$f" -w '%{content_type}' "$src") && [ -s "$f" ] || { ct=; continue; }
+    case "${name,,}" in *.png) ext=image/png;; *.webp) ext=image/webp;; *.gif) ext=image/gif;; *) ext=image/jpeg;; esac
+    [[ "$ct" == image/* ]] || ct=$ext
+    head -c 16 "$f" | grep -qiE 'html|<!doc' && { ct=; continue; }   # страница за грешка, не снимка
+    break
   done
   if [ -z "$ct" ]; then echo "НЕ Е НАМЕРЕНА: $url"; continue; fi
   path="news/wp-$(date +%s%3N)-$name"
