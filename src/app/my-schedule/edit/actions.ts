@@ -11,6 +11,7 @@ export interface MyCell {
   holderType: 'class' | 'ifo'
   holderId: string        // class_id или student_id
   subjectId: string
+  group?: boolean         // час на група — паралелката е разделена, в същия час има и друг учител
 }
 
 // Запазва РАЗПИСАНИЕТО НА ТЕКУЩИЯ УЧИТЕЛ (per-учител).
@@ -64,10 +65,11 @@ export async function saveMySchedule(
     if (mine.length === 0) continue
     const { data: others } = await supabase
       .from('schedule_slots')
-      .select('day, period, subject:subjects(name), staff:staff_profiles(first_name, last_name)')
+      .select('day, period, is_group, subject:subjects(name), staff:staff_profiles(first_name, last_name)')
       .eq('schedule_id', schedId).neq('staff_id', myId)
     ;(others || []).forEach((o: any) => {
-      if (mine.some(c => c.day === o.day && c.period === o.period)) {
+      // група: моят или чуждият час е отбелязан като група → позволено
+      if (mine.some(c => c.day === o.day && c.period === o.period && !c.group && !o.is_group)) {
         clashes.push(`${DAYS_BG[o.day]} ${o.period}. час — ${o.subject?.name || ''} (${o.staff ? `${o.staff.first_name} ${o.staff.last_name}` : 'друг учител'})`)
       }
     })
@@ -102,6 +104,7 @@ export async function saveMySchedule(
   // Вмъквам новите си слотове
   const toInsert = classCells.map(c => ({
     schedule_id: schedByClass[c.holderId], day: c.day, period: c.period, subject_id: c.subjectId, staff_id: myId,
+    is_group: !!c.group,
   }))
   if (toInsert.length > 0) {
     const { error: iErr } = await supabase.from('schedule_slots').insert(toInsert)
@@ -149,14 +152,14 @@ export async function copyMyScheduleFromTerm1(academicYearId: string, targetStaf
   ;(t1 || []).forEach((s: any) => { classOf[s.id] = s.class_id })
   const ids = Object.keys(classOf)
   const { data: slots } = ids.length
-    ? await supabase.from('schedule_slots').select('schedule_id, day, period, subject_id').in('schedule_id', ids).eq('staff_id', myId)
+    ? await supabase.from('schedule_slots').select('schedule_id, day, period, subject_id, is_group').in('schedule_id', ids).eq('staff_id', myId)
     : { data: [] as any[] }
   const { data: ifo } = await supabase
     .from('teacher_ifo_slots').select('student_id, day, period, subject_id')
     .eq('teacher_id', myId).eq('academic_year_id', academicYearId).eq('term', 1)
 
   const cells: MyCell[] = [
-    ...(slots || []).map((s: any) => ({ day: s.day, period: s.period, holderType: 'class' as const, holderId: classOf[s.schedule_id], subjectId: s.subject_id })),
+    ...(slots || []).map((s: any) => ({ day: s.day, period: s.period, holderType: 'class' as const, holderId: classOf[s.schedule_id], subjectId: s.subject_id, group: !!s.is_group })),
     ...(ifo || []).map((s: any) => ({ day: s.day, period: s.period, holderType: 'ifo' as const, holderId: s.student_id, subjectId: s.subject_id })),
   ].filter(c => c.holderId && c.subjectId)
   if (cells.length === 0) return { error: 'I срок е празен — няма какво да се копира' }
@@ -184,7 +187,7 @@ export async function checkClassCollision(
     .select('staff_id, subject:subjects(name), staff:staff_profiles(first_name, last_name)')
     .eq('schedule_id', sched.id).eq('day', day).eq('period', period)
     .neq('staff_id', me?.id || '')
-    .maybeSingle()
+    .limit(1).maybeSingle()
   if (!slot) return { busy: false }
   const s: any = slot
   return {

@@ -26,8 +26,10 @@ export default function ClassScheduleView({ term, slots, className, yearName, ma
       const map: Record<string, string> = {}
       const teachers: Record<string, string> = {}
       slots.forEach(s => {
-        map[`${s.day}-${s.period}`] = s.subjectName
-        if (s.teacher) teachers[`${s.day}-${s.period}`] = s.teacher
+        // група: няколко учители в един час → „Математика / БЕЛ“
+        const k = `${s.day}-${s.period}`
+        map[k] = map[k] ? `${map[k]} / ${s.subjectName}` : s.subjectName
+        if (s.teacher) teachers[k] = teachers[k] ? `${teachers[k]} / ${s.teacher}` : s.teacher
       })
       await generateClassSchedule(`Паралелка ${className}`, `${term === 1 ? 'I' : 'II'} срок · ${yearName}`, yearName, map, maxPeriod, teachers)
     } finally { setGenerating(false) }
@@ -83,6 +85,7 @@ export default function ClassScheduleView({ term, slots, className, yearName, ma
                         ) : cell.map((s, i) => (
                           <div key={i} className="min-h-[44px] rounded-lg border border-slate-200 bg-white px-2 py-1.5 hover:border-slate-300 transition-colors">
                             <div title={s.subjectName} className={`text-xs leading-snug line-clamp-2 break-words ${s.allowsPullout ? 'text-teal-700' : 'text-slate-800'}`}>
+                              {cell.length > 1 && <span className="mr-1 text-[9px] px-1 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 align-middle">гр.</span>}
                               {s.allowsPullout ? '◆ ' : ''}{s.subjectName}
                             </div>
                             {s.teacher && <div className="text-[10px] text-slate-400 mt-0.5 truncate inline-flex items-center gap-1 max-w-full" title={s.teacher}><User size={9} className="shrink-0" /> {s.teacher}</div>}
