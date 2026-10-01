@@ -1012,8 +1012,29 @@ async function shrinkImage(file: File): Promise<Blob> {
   return await new Promise<Blob>((res) => c.toBlob((b) => res(b || file), png ? 'image/png' : 'image/jpeg', 0.85))
 }
 
+// Страници от сайта, на които може да се покаже снимка (ключът е в site_settings.page_photos)
+const SITE_PAGES: { key: string; label: string }[] = [
+  { key: 'za-nas', label: 'За нас' },
+  { key: 'istoriya', label: 'История' },
+  { key: 'ekip', label: 'Екип' },
+  { key: 'materialna-baza', label: 'Материална база (горе)' },
+  { key: 'baza-kabineti', label: 'Материална база: учебни кабинети' },
+  { key: 'baza-terapiya', label: 'Материална база: терапевтични зали' },
+  { key: 'baza-kuhnya', label: 'Материална база: кулинарен кабинет' },
+  { key: 'baza-dvor', label: 'Материална база: двор' },
+  { key: 'proekti', label: 'Проекти' },
+  { key: 'karieri', label: 'Кариери' },
+  { key: 'za-roditeli', label: 'За родители' },
+  { key: 'dneven-rezhim', label: 'Дневен режим' },
+  { key: 'nastoyatelstvo', label: 'Училищно настоятелство' },
+  { key: 'priem', label: 'Как се записва дете' },
+  { key: 'poseshtenie', label: 'Елате на посещение' },
+  { key: 'daritelstvo', label: 'Дарителство' },
+]
+
 function SiteImagesManager() {
   const supabase = createClient()
+  const [pages, setPages] = useState<Record<string, string[]>>({})
   const [items, setItems] = useState<{ name: string; size: number; url: string }[] | null>(null)
   const [busy, setBusy] = useState(false); const [q, setQ] = useState('')
   const [notice, setNotice] = useState<{ msg: string; err?: boolean } | null>(null)
@@ -1025,7 +1046,22 @@ function SiteImagesManager() {
     if (error) { flash(error.message, true); setItems([]); return }
     setItems((data || []).filter((f) => f.name && !f.name.startsWith('.')).map((f) => ({ name: f.name, size: (f.metadata as any)?.size || 0, url: urlOf(f.name) })))
   }
-  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  async function loadPages() {
+    const { data } = await supabase.from('site_settings').select('value').eq('key', 'page_photos').maybeSingle()
+    setPages(data?.value && typeof data.value === 'object' ? (data.value as Record<string, string[]>) : {})
+  }
+  useEffect(() => { load(); loadPages() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pageOf = (url: string) => Object.keys(pages).find((k) => (pages[k] || []).includes(url)) || ''
+  async function assign(url: string, page: string) {
+    const next: Record<string, string[]> = {}
+    for (const [k, v] of Object.entries(pages)) { const list = (v || []).filter((u) => u !== url); if (list.length) next[k] = list }
+    if (page) next[page] = [...(next[page] || []), url]
+    setPages(next)
+    const { error } = await supabase.from('site_settings').update({ value: next, updated_at: new Date().toISOString() }).eq('key', 'page_photos')
+    if (error) { flash(error.message, true); loadPages(); return }
+    flash(page ? `Показва се на „${SITE_PAGES.find((x) => x.key === page)?.label}“.` : 'Махната от страницата.')
+  }
 
   async function upload(files: FileList) {
     setBusy(true)
@@ -1047,6 +1083,7 @@ function SiteImagesManager() {
     if (!confirm(`Изтриване на „${name}"? Ако е сложена на страница от сайта, там ще изчезне.`)) return
     const { error } = await supabase.storage.from('public-media').remove([`${SITE_IMG_DIR}/${name}`])
     if (error) { flash(error.message, true); return }
+    if (pageOf(urlOf(name))) await assign(urlOf(name), '')
     setItems((p) => (p || []).filter((i) => i.name !== name)); flash('Изтрито.')
   }
   async function copy(text: string, what: string) { try { await navigator.clipboard.writeText(text); flash(`Копирано: ${what}`) } catch { flash('Не можах да копирам.', true) } }
@@ -1058,7 +1095,7 @@ function SiteImagesManager() {
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <div>
           <div className="text-slate-800 font-semibold text-[15px]">Снимки за сайта</div>
-          <div className="text-slate-500 text-[12.5px] mt-0.5">Склад за снимки, които се слагат по страниците. Не се показват като галерия. {items ? `${items.length} снимки` : ''}</div>
+          <div className="text-slate-500 text-[12.5px] mt-0.5">Качете снимка и под нея изберете на коя страница от сайта да се покаже. {items ? `${items.length} снимки` : ''}</div>
         </div>
         <div className="flex-1" />
         <div className="relative">
@@ -1087,6 +1124,11 @@ function SiteImagesManager() {
               </a>
               <div className="px-3 py-2.5">
                 <div className="text-[13px] text-slate-800 truncate" title={i.name}>{i.name}</div>
+                <select value={pageOf(i.url)} onChange={(e) => assign(i.url, e.target.value)} aria-label={`Страница за ${i.name}`}
+                  className={`mt-2 w-full px-2 py-1.5 rounded-lg border text-[12.5px] focus:outline-none ${pageOf(i.url) ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-white text-slate-600'}`}>
+                  <option value="">Не е на страница</option>
+                  {SITE_PAGES.map((pg) => <option key={pg.key} value={pg.key}>{pg.label}</option>)}
+                </select>
                 <div className="flex items-center gap-1 mt-1.5">
                   <span className="text-[11px] text-slate-400">{i.size ? `${Math.round(i.size / 1024)} KB` : ''}</span>
                   <div className="flex-1" />
