@@ -74,17 +74,17 @@ function LoginForm() {
             Вход с НЕИСПУО
           </button>
 
-          {/* ВТОРО: акаунтът от ЦСОП (csop-varna.bg) */}
-          <button
-            type="button"
-            onClick={() => handleGoogleLogin('csop-varna.bg')}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 py-3 mt-3 rounded-xl border border-slate-200 bg-white text-sm font-medium hover:bg-slate-50 hover:shadow-sm transition disabled:opacity-50"
-            style={{ color: '#0f2240' }}
-          >
-            <GoogleIcon />
-            Вход с акаунт csop-varna.bg
-          </button>
+          {/* дискретно: служебният акаунт csop-varna.bg (за малцината, които го ползват) */}
+          <div className="mt-5 text-center">
+            <button
+              type="button"
+              onClick={() => handleGoogleLogin('csop-varna.bg')}
+              disabled={loading}
+              className="text-xs text-slate-400 hover:text-slate-600 transition disabled:opacity-50"
+            >
+              служебен акаунт csop-varna.bg
+            </button>
+          </div>
         </div>
 
         <div className="mt-8 flex justify-center"><JordanBadge height={44} /></div>
