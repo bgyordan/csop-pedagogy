@@ -8,7 +8,7 @@ import { PERIOD_TIMES, PERIOD_LABEL, periodsOverlap } from '@/lib/periods'
 type Cls = { id: string; name: string }
 type Stud = { id: string; name: string }
 type Subj = { id: string; name: string; allows_pullout?: boolean }
-type Slot = { day: number; period: number; holderType: 'class' | 'ifo'; holderId: string; subjectId: string }
+type Slot = { day: number; period: number; holderType: 'class' | 'ifo'; holderId: string; subjectId: string; group?: boolean }
 
 const DAYS = [
   { n: 1, label: 'Понеделник' }, { n: 2, label: 'Вторник' }, { n: 3, label: 'Сряда' },
@@ -46,12 +46,14 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
     if (myClassTeacherIds.length > 0) return `class:${myClassTeacherIds[0]}`
     return ''
   })
-  const [grid, setGrid] = useState<Record<string, { holderType: 'class' | 'ifo'; holderId: string; subjectId: string }>>(() => {
+  const [grid, setGrid] = useState<Record<string, { holderType: 'class' | 'ifo'; holderId: string; subjectId: string; group?: boolean }>>(() => {
     const g: Record<string, any> = {}
-    initialSlots.forEach(s => { g[`${s.day}-${s.period}`] = { holderType: s.holderType, holderId: s.holderId, subjectId: s.subjectId } })
+    initialSlots.forEach(s => { g[`${s.day}-${s.period}`] = { holderType: s.holderType, holderId: s.holderId, subjectId: s.subjectId, group: !!s.group } })
     return g
   })
   const [editCell, setEditCell] = useState<string | null>(null)
+  // „+ група“ върху зает час: паралелката е разделена, влизам в същия час със своята група
+  const [groupCell, setGroupCell] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [collisions, setCollisions] = useState<Record<string, string>>({})
 
@@ -87,16 +89,20 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
   // бърз режим: клик на клетка → ако има активен носител, отваряме само избор на предмет
   async function onCellClick(day: number, period: number) {
     const key = `${day}-${period}`
+    setGroupCell(null)
     setEditCell(editCell === key ? null : key)
   }
 
-  async function setSubjectForCell(day: number, period: number, subjectId: string, holderOverride?: string) {
+  async function setSubjectForCell(day: number, period: number, subjectId: string, holderOverride?: string, group?: boolean) {
     const key = `${day}-${period}`
     const holderVal = holderOverride || active
     if (!subjectId || !holderVal) return
     const [ht, hid] = holderVal.split(':')
-    setGrid(prev => ({ ...prev, [key]: { holderType: ht as 'class' | 'ifo', holderId: hid, subjectId } }))
+    const isGroup = group ?? (grid[key]?.group || false)
+    setGrid(prev => ({ ...prev, [key]: { holderType: ht as 'class' | 'ifo', holderId: hid, subjectId, group: isGroup } }))
     setEditCell(null)
+    setGroupCell(null)
+    if (isGroup) { setCollisions(prev => { const n = { ...prev }; delete n[key]; return n }); return }
     await checkCollisionFor(day, period, ht as 'class' | 'ifo', hid)
   }
 
@@ -113,7 +119,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
     setSaving(true)
     const cells: MyCell[] = Object.entries(grid).map(([key, v]) => {
       const [day, period] = key.split('-').map(Number)
-      return { day, period, holderType: v.holderType, holderId: v.holderId, subjectId: v.subjectId }
+      return { day, period, holderType: v.holderType, holderId: v.holderId, subjectId: v.subjectId, group: !!v.group }
     })
     const res: any = await saveMySchedule(academicYearId, term, cells, targetStaffId)
     if (res.error) { toast('Грешка: ' + res.error, 'error'); setSaving(false); return }
@@ -360,6 +366,22 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
                           <div className="text-[11px] font-medium text-slate-700 truncate">{busy.by}</div>
                           {busy.subject && <div className="text-[11px] text-slate-500 line-clamp-2 break-words" title={busy.subject}>{busy.subject}</div>}
                         </div>
+                        <button onClick={e => { e.stopPropagation(); setBusyOpen(null); setGroupCell(key); setEditCell(key) }}
+                          title="Паралелката е разделена на групи — влизам в същия час със своята група"
+                          className="absolute bottom-2.5 right-2.5 text-[10px] px-1.5 py-0.5 rounded-md border border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50">
+                          + група
+                        </button>
+                        {editCell === key && groupCell === key && (
+                          <CellPicker
+                            holders={holders.filter(h => h.val === active)}
+                            subjects={subjectList}
+                            active={active}
+                            title="Предмет за моята група"
+                            onSet={(subjId) => setSubjectForCell(d.n, period, subjId, active, true)}
+                            onClear={() => {}}
+                            onClose={() => { setEditCell(null); setGroupCell(null) }}
+                          />
+                        )}
                         {isBoss && busyOpen === key && (
                           <div className="absolute z-40 mt-1 left-1.5 w-60 bg-white border border-slate-200 rounded-xl shadow-xl p-3 space-y-2">
                             <div className="flex items-center justify-between">
@@ -393,12 +415,18 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
                                 <div className="text-xs text-slate-700 leading-snug line-clamp-2 break-words min-w-0" title={subjName(cell.subjectId)}>{subjName(cell.subjectId)}</div>
                                 {weightOf(cell.subjectId) < 1 && <span className="shrink-0 text-[9px] px-1 rounded bg-teal-50 text-teal-700 border border-teal-100">0,7</span>}
                               </div>
+                              {(cell.group || (cell.holderType === 'class' && cell.holderId === activeClassId && !!takenHere[key])) && (
+                                <div className="text-[10px] text-indigo-700 truncate" title={takenHere[key] ? `Група · заедно с ${takenHere[key].by}` : 'Група'}>
+                                  <span className="px-1 rounded bg-indigo-50 border border-indigo-100 mr-1">гр.</span>
+                                  {takenHere[key] && cell.holderId === activeClassId ? takenHere[key].by : ''}
+                                </div>
+                              )}
                             </>
                           ) : (
                             <div className="text-sm text-slate-300 pt-1.5 text-center">+</div>
                           )}
                         </button>
-                        {editCell === key && (
+                        {editCell === key && !groupCell && (
                           <CellPicker
                             holders={holders}
                             subjects={subjectList}
@@ -461,7 +489,8 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
   )
 }
 
-function CellPicker({ holders, subjects, active, current, onSet, onClear, onClose }: {
+function CellPicker({ holders, subjects, active, current, onSet, onClear, onClose, title = 'Предмет' }: {
+  title?: string
   holders: { val: string; label: string; kind: 'class' | 'ifo' }[]
   subjects: Subj[]
   active: string
@@ -478,7 +507,7 @@ function CellPicker({ holders, subjects, active, current, onSet, onClear, onClos
   return (
     <div className="absolute z-40 mt-1 left-1.5 w-60 bg-white border border-slate-200 rounded-xl shadow-xl p-3 space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold text-slate-500 uppercase">Предмет</span>
+        <span className="text-[11px] font-semibold text-slate-500 uppercase">{title}</span>
         <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
       </div>
       {/* носител — по подразбиране активният, но може да се смени за този час */}

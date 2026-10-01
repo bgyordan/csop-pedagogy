@@ -63,10 +63,10 @@ export default async function MyScheduleEditPage({
   let myClassSlots: any[] = []
   if (schedIds.length > 0) {
     const { data: slots } = await supabase
-      .from('schedule_slots').select('schedule_id, day, period, subject_id, staff_id')
+      .from('schedule_slots').select('schedule_id, day, period, subject_id, staff_id, is_group')
       .in('schedule_id', schedIds).eq('staff_id', targetId)
     myClassSlots = (slots || []).map((s: any) => ({
-      day: s.day, period: s.period, holderType: 'class', holderId: schedClassById[s.schedule_id], subjectId: s.subject_id,
+      day: s.day, period: s.period, holderType: 'class', holderId: schedClassById[s.schedule_id], subjectId: s.subject_id, group: !!s.is_group,
     }))
   }
 
@@ -81,10 +81,13 @@ export default async function MyScheduleEditPage({
       const cls = schedClassById[o.schedule_id]
       if (!cls) continue
       taken[cls] = taken[cls] || {}
-      taken[cls][`${o.day}-${o.period}`] = {
-        by: o.staff ? `${o.staff.first_name} ${o.staff.last_name}` : 'друг учител',
-        subject: o.subject?.name || '',
-      }
+      const k = `${o.day}-${o.period}`
+      const by = o.staff ? `${o.staff.first_name} ${o.staff.last_name}` : 'друг учител'
+      const prev = taken[cls][k]
+      // при група в един час може да има няколко учители
+      taken[cls][k] = prev
+        ? { by: `${prev.by} / ${by}`, subject: [prev.subject, o.subject?.name].filter(Boolean).join(' / ') }
+        : { by, subject: o.subject?.name || '' }
     }
   }
 
