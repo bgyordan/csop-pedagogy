@@ -26,7 +26,7 @@ export const SECTIONS: { id: string; label: string; note: string; internalOnly?:
   { id: 'privacy', label: 'Лични данни', note: 'Прозрачност → Лични данни', path: '/za-nas/zashtita-na-lichnite-danni' },
   { id: 'signali', label: 'Сигнали', note: 'Прозрачност → Подаване на сигнали', path: '/podavane-na-signali' },
   { id: 'roditeli', label: 'Формуляри за родители', note: 'Родители → За родители', path: '/za-roditeli' },
-  { id: 'eis', label: 'Само за деловодство', note: 'Не се показва на сайта', internalOnly: true },
+  { id: 'eis', label: 'Само в ЕИС', note: 'Не излиза на сайта — виждат го колегите в ЕИС → Нормативни документи', internalOnly: true },
 ]
 export const RUBRICS = [
   { key: 'strategy', title: 'Стратегия и планове', color: '#7c3aed' },

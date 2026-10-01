@@ -54,6 +54,7 @@ const navItems: NavItem[] = [
     icon: <FileText size={16} />,
     children: [
       { href: '/templates', label: 'Образци', icon: <FileText size={14} /> },
+      { href: '/normative-docs', label: 'Нормативни документи', icon: <ScrollText size={14} /> },
       { href: '/council', label: 'За съгласуване', icon: <ClipboardCheck size={14} /> },
     ],
   },
