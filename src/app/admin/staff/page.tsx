@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react'
 import { loginTime } from '@/lib/login-time'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { createStaffAccount } from './actions'
-import { Plus, Pencil, ExternalLink } from 'lucide-react'
+import { createStaffAccount, syncDriveAccess, removeDriveAccess } from './actions'
+import { Plus, Pencil, ExternalLink, FolderSync } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { getFullName } from '@/lib/utils'
@@ -189,8 +189,24 @@ export default function AdminStaffPage() {
       if (!error) toast('Деактивиран (причината ще се пази след обновяване на базата)')
     } else toast(deact.is_active ? 'Деактивиран' : 'Запазено')
     if (error) { toast('Грешка при запис', 'error'); return }
+    const wasActive = deact.is_active
+    const id = deact.id
     setDeact(null)
     load()
+    // маха правата му в Drive (тече на заден план — може да отнеме минута)
+    if (wasActive) removeDriveAccess(id).then(r => {
+      if ('error' in r && r.error) toast('Drive: ' + r.error, 'error')
+      else toast('Правата му в Drive са премахнати')
+    })
+  }
+
+  const [syncing, setSyncing] = useState(false)
+  async function syncDrive() {
+    setSyncing(true)
+    const r: any = await syncDriveAccess()
+    setSyncing(false)
+    if (r.error) toast('Drive: ' + r.error, 'error')
+    else toast(`Drive ${r.year}: ${r.people} психолози/логопеди с права над всички деца` + (r.removed ? `, премахнати ${r.removed}` : ''))
   }
 
   // Етикет на статуса: „Активен“ / „В отпуск до 15.03 · зам. Мария И.“ / „Напуснал“ / „Пенсиониран“
@@ -250,10 +266,17 @@ export default function AdminStaffPage() {
           <h1 className="text-2xl font-semibold text-slate-800">Управление на служители</h1>
           <p className="text-slate-500 text-sm mt-1">{filtered.length} служители</p>
         </div>
-        <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#0f2240' }}>
-          <Plus size={16} />
-          Нов служител
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={syncDrive} disabled={syncing} title="Психолозите и логопедите получават права над всички деца в Drive"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+            <FolderSync size={16} />
+            {syncing ? 'Обновявам…' : 'Права в Drive'}
+          </button>
+          <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#0f2240' }}>
+            <Plus size={16} />
+            Нов служител
+          </button>
+        </div>
       </div>
 
       {dupGroups.length > 0 && (

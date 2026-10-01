@@ -4,8 +4,9 @@ import { createClient } from '@/lib/supabase/server'
 import {
   ensureStudentFolder, findStudentFolder, listFolder, uploadFile, createGoogleDoc,
   shareWriter, accountEmails, openAsEmail, getFileMeta, downloadFile, renameFile, trashFile, type DriveItem,
-  findTemplatesFolder, copyFile, replaceMarkers,
+  findTemplatesFolder, copyFile, replaceMarkers, ensureYearFolder,
 } from '@/lib/google-drive'
+import { seesAllKids, ensureWriters } from '@/lib/drive-access'
 
 // Тези роли могат да качват/създават документи за всяко дете; останалите — само ако са в ЕПЛР екипа му
 const MANAGERS = ['admin', 'zdud', 'director', 'secretary']
@@ -19,7 +20,10 @@ export type StudentCtx = {
   studentName: string
   yearName: string
   className: string
-  people: string[][]   // всеки член на екипа → [csop-varna.bg, edu.mon.bg]
+  people: string[][]   // всеки член на екипа и терапевт по картон → [csop-varna.bg, edu.mon.bg]
+  myAccounts: string[] // моите два акаунта
+  isMember: boolean    // в ЕПЛР екипа или терапевт на детето по картон
+  allKids: boolean     // психолог/логопед — редактира всички деца (право на папката на годината)
   canEdit: boolean
   canView: boolean     // виждане/сваляне: + учителите, които преподават на детето, + координаторите
 }
@@ -30,7 +34,7 @@ export async function studentContext(studentId: string, year?: string): Promise<
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли в системата' }
 
-  const { data: me } = await supabase.from('staff_profiles').select('id, role, first_name, last_name, email, is_coordinator').eq('user_id', user.id).maybeSingle()
+  const { data: me } = await supabase.from('staff_profiles').select('id, role, therapy_role, first_name, last_name, email, is_coordinator').eq('user_id', user.id).maybeSingle()
 
   const { data: student } = await supabase
     .from('students').select('first_name, last_name, therapist_psychologist_id, therapist_speech_id, therapist_rehab_id, therapist_rehab2_id').eq('id', studentId).single()
@@ -58,18 +62,29 @@ export async function studentContext(studentId: string, year?: string): Promise<
       class_teacher:staff_profiles!eplr_teams_class_teacher_id_fkey(id, email)
     `).eq('student_id', studentId).eq('academic_year_id', year_?.id).maybeSingle()
 
-  const members = [team?.psychologist, team?.speech_therapist, team?.rehabilitator, team?.class_teacher]
-    .filter(Boolean) as any[]
+  // Терапевтите по картон (псих., лог., рех., рех. 2) редактират като ЕПЛР екипа —
+  // така смяна на екип или преместване не оставя терапевта без права
+  const st: any = student
+  const therapistIds = [st.therapist_psychologist_id, st.therapist_speech_id, st.therapist_rehab_id, st.therapist_rehab2_id]
+    .filter(Boolean) as string[]
+  const { data: therapists } = therapistIds.length
+    ? await supabase.from('staff_profiles').select('id, email').in('id', therapistIds)
+    : { data: [] as any[] }
+
+  const byId = new Map<string, any>()
+  for (const m of [team?.psychologist, team?.speech_therapist, team?.rehabilitator, team?.class_teacher, ...(therapists || [])])
+    if (m) byId.set((m as any).id, m)
+  const members = Array.from(byId.values())
   const emails = Array.from(new Set(members.map(m => m.email as string).filter(Boolean)))
   const people = emails.map(accountEmails).filter(a => a.length)
 
-  const canEdit = !!me && (MANAGERS.includes(me.role) || members.some(m => m.id === me.id))
+  const isMember = !!me && byId.has(me.id)
+  const allKids = seesAllKids(me)
+  const canEdit = !!me && (MANAGERS.includes(me.role) || isMember || allKids)
 
   // Виждане и сваляне: ЕПЛР екипът и управата + координаторите + учителите, които преподават на детето
   // (разписание на паралелката му, ИФО часове, ЦОУД група) — без да могат да качват/трият
-  const s_: any = student
   let canView = canEdit || !!me?.is_coordinator
-    || (!!me && [s_.therapist_psychologist_id, s_.therapist_speech_id, s_.therapist_rehab_id, s_.therapist_rehab2_id].includes(me.id))   // терапевт на детето
   if (!canView && me && year_?.id) {
     const { data: enr } = await supabase.from('student_enrollments').select('class_id')
       .eq('student_id', studentId).eq('academic_year_id', year_.id).maybeSingle()
@@ -105,6 +120,9 @@ export async function studentContext(studentId: string, year?: string): Promise<
     yearName: docYear?.name || '',
     className,
     people,
+    myAccounts: accountEmails(me?.email),
+    isMember,
+    allKids,
     canEdit,
     canView,
   }
@@ -138,8 +156,11 @@ export async function listForStudent(studentId: string, year?: string): Promise<
   if ('error' in ctx) return { error: ctx.error }
   if (!ctx.canView) return { error: 'Нямате достъп до документите на това дете.' }
   try {
+    // Права в Drive се дават при отваряне на таба — не чакаме някой да качи файл
+    if (ctx.allKids) await ensureWriters(await ensureYearFolder(ctx.yearName), ctx.myAccounts)
     const folderId = await findStudentFolder(studentId, ctx.yearName)
     if (!folderId) return { files: [], canEdit: ctx.canEdit, myEmail: ctx.openEmail }
+    if (ctx.isMember) await ensureWriters(folderId, ctx.myAccounts)
     const files = await listFolder(folderId)
     return {
       files,

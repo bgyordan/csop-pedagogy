@@ -1,6 +1,7 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { syncYearFolderAccess, removeStaffAccess } from '@/lib/drive-access'
 
 function genPassword(): string {
   const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -32,4 +33,31 @@ export async function createStaffAccount(staffId: string) {
   if (linkErr) return { error: 'Акаунтът е създаден, но връзката не мина: ' + linkErr.message }
 
   return { success: true, email: target.email, password }
+}
+
+// ── Права в Drive („ЕПЛР документи“) ──────────────────────────────────
+
+async function isAdmin() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return false
+  const { data: me } = await supabase.from('staff_profiles').select('role').eq('user_id', user.id).single()
+  return !!me && ['admin', 'zdud', 'director'].includes(me.role)
+}
+
+// Бутон „Права в Drive“: психолози и логопеди — всички деца; останалите — махнати от папката на годината
+export async function syncDriveAccess() {
+  if (!(await isAdmin())) return { error: 'Нямате права' }
+  try { return await syncYearFolderAccess() }
+  catch (e: any) { return { error: e?.message || 'Грешка при връзката с Drive' } }
+}
+
+// При деактивиране: маха правата на служителя в Drive за текущата година
+export async function removeDriveAccess(staffId: string) {
+  if (!(await isAdmin())) return { error: 'Нямате права' }
+  try {
+    const r = await removeStaffAccess(staffId)
+    await syncYearFolderAccess()
+    return r
+  } catch (e: any) { return { error: e?.message || 'Грешка при връзката с Drive' } }
 }

@@ -146,6 +146,29 @@ export async function uploadDocxAsGoogleDoc(title: string, folderId: string, bas
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
 }
 
+// Папката на годината (2026-2027) — правото на нея се наследява от всички деца отдолу
+export async function ensureYearFolder(yearName: string) {
+  const year = yearName || 'Без година'
+  const yProps = { kind: 'year', year }
+  return (await findFolder(yProps))?.id ?? (await createFolder(year.replace(/\//g, '-'), driveId(), yProps))
+}
+
+// Всички папки от дадена година (паралелки + деца) — за махане на права при неактивен служител
+export async function listYearFolders(yearName: string): Promise<string[]> {
+  const year = yearName || 'Без година'
+  const q = `mimeType='${FOLDER}' and trashed=false and appProperties has { key='year' and value='${esc(year)}' }`
+  const ids: string[] = []
+  let page = ''
+  do {
+    const r = await drive(
+      `/files?q=${encodeURIComponent(q)}&corpora=drive&driveId=${driveId()}&includeItemsFromAllDrives=true&supportsAllDrives=true&pageSize=1000&fields=nextPageToken,files(id)${page ? `&pageToken=${page}` : ''}`
+    )
+    for (const f of (r.files || []) as any[]) ids.push(f.id)
+    page = r.nextPageToken || ''
+  } while (page)
+  return ids
+}
+
 // Папката на детето за годината, БЕЗ да я създава (null ако още няма)
 export async function findStudentFolder(studentId: string, yearName: string) {
   const f = await findFolder({ studentId, year: yearName || 'Без година' })
