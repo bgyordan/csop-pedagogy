@@ -11,7 +11,7 @@ export default async function SiteDocsPage() {
   if (!me || !['admin', 'zdud', 'director', 'secretary'].includes(me.role)) redirect('/dashboard')
 
   const { data: docs } = await supabase.from('site_documents')
-    .select('id, name, file_url, academic_year, section, category, on_site, sort_order')
+    .select('*')
     .order('sort_order', { ascending: true })
 
   const { data: news } = await supabase.from('site_news')
@@ -29,6 +29,8 @@ export default async function SiteDocsPage() {
 
   const { data: heroRow } = await supabase.from('site_settings').select('value').eq('key', 'hero_photos').maybeSingle()
   const heroPhotos = Array.isArray(heroRow?.value) ? (heroRow!.value as string[]) : []
+  const { data: ppRow } = await supabase.from('site_settings').select('value').eq('key', 'page_photos').maybeSingle()
+  const pagePhotos = ppRow?.value && typeof ppRow.value === 'object' && !Array.isArray(ppRow.value) ? (ppRow.value as Record<string, string[]>) : {}
 
   const { data: jobs } = await supabase.from('site_jobs')
     .select('id, title, employment, description, requirements, location, status, sort_order')
@@ -42,7 +44,7 @@ export default async function SiteDocsPage() {
     <SiteDocsClient
       docs={docs || []} defaultYear={cy?.name || ''}
       news={news || []} authorId={me.id}
-      events={events || []} albums={albums || []} photos={photos || []} heroPhotos={heroPhotos}
+      events={events || []} albums={albums || []} photos={photos || []} heroPhotos={heroPhotos} pagePhotos={pagePhotos}
       jobs={jobs || []} subscribers={subscribers || []}
     />
   )
