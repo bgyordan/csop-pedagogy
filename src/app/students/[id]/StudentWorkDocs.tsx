@@ -324,7 +324,7 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
     })()
   }
 
-  const iconBtn = 'p-1.5 rounded-md text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition'
+  const iconBtn = 'p-1.5 rounded-md text-slate-900 hover:text-[#0f2240] hover:bg-slate-100 transition'
   const softBtn = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs text-[#0f2240] hover:shadow-sm transition disabled:opacity-50'
 
   // един ред файл (nested = вътре в папка)
@@ -359,7 +359,7 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
                   </a>
                 )}
 
-                <span className="hidden sm:block text-xs text-slate-400 font-light truncate" title={f.modifiedBy}>
+                <span className="hidden sm:block text-xs text-slate-900 truncate" title={f.modifiedBy}>
                   {when(f.modifiedTime)}{f.modifiedBy ? ` · ${f.modifiedBy}` : ''}
                 </span>
 
@@ -372,7 +372,7 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
                       <button type="button" onClick={() => setConfirmDel(null)} className="px-1.5 py-0.5 rounded border border-slate-200 hover:bg-slate-50 text-slate-600">Не</button>
                     </span>
                   ) : !isFolder(f) && (
-                    <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition">
+                    <div className="flex items-center gap-0.5">
                       <button type="button" onClick={() => download([f.id], 'office')} className={iconBtn} title="Изтегли (Word)">
                         <Download size={15} />
                       </button>
