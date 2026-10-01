@@ -452,7 +452,10 @@ export function schoolEmail(email?: string | null) {
 
 // С кой акаунт да се отварят файловете в Drive: училищният edu.mon.bg (правата са дадени на него),
 // дори ако колегата е влязъл в EIS с друг имейл. Ако няма училищен — имейлът за вход.
+// Изключение: записан в ЕИС с @csop-varna.bg (няма Google в edu.mon.bg, напр. Ванина) → отваря с него.
 export function openAsEmail(profileEmail?: string | null, loginEmail?: string | null) {
+  const p = (profileEmail || '').trim().toLowerCase()
+  if (p.endsWith('@csop-varna.bg')) return p
   const acc = accountEmails(profileEmail).length ? accountEmails(profileEmail) : accountEmails(loginEmail)
   return acc[1] || loginEmail || ''
 }
