@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { CalendarClock, BookOpen, GraduationCap, HeartPulse, Home, ArrowRight, Check } from 'lucide-react'
+import { CalendarClock, BookOpen, GraduationCap, HeartPulse, Home, ArrowRight, Check, AlertTriangle, CircleSlash } from 'lucide-react'
 import { getFullName } from '@/lib/utils'
 import { ROLE_LABELS } from '@/types'
 export const dynamic = 'force-dynamic'
@@ -16,7 +16,7 @@ const TABS = [
 export default async function SchedulesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>
+  searchParams: Promise<{ tab?: string; f?: string }>
 }) {
   const params = await searchParams
   const tab = TABS.some(t => t.id === params.tab) ? params.tab! : 'classes'
@@ -28,6 +28,11 @@ export default async function SchedulesPage({
   if (!profile || !['admin', 'zdud', 'director'].includes(profile.role)) redirect('/dashboard')
   const { data: currentYear } = await supabase
     .from('academic_years').select('id, name').eq('is_current', true).single()
+  // текущ срок: II срок от 3 февруари до лятото
+  const now = new Date(); const md = (now.getMonth() + 1) * 100 + now.getDate()
+  const term = md >= 203 && md < 901 ? 2 : 1
+  const NORM = 21
+  const filter = ['none', 'under', 'ok'].includes(params.f || '') ? params.f! : 'all'
 
   // ── Паралелки ──
   let classes: any[] = []
@@ -83,17 +88,36 @@ export default async function SchedulesPage({
       if (sl.schedule?.academic_year_id !== currentYear?.id) return
       if (map[sl.staff_id] && sl.schedule?.class?.name) map[sl.staff_id].classes.add(sl.schedule.class.name)
     })
-    // ИФО часове (I срок)
+    // ИФО часове (текущия срок)
     const { data: ifoT } = await supabase
       .from('teacher_ifo_slots')
-      .select('teacher_id, term')
+      .select('teacher_id, term, day, period, subject:subjects(name, allows_pullout)')
       .eq('academic_year_id', currentYear?.id)
     ;(ifoT || []).forEach((s: any) => {
-      if (map[s.teacher_id] && s.term === 1) map[s.teacher_id].ifo1++
+      if (map[s.teacher_id] && s.term === term) map[s.teacher_id].ifo1++
     })
-    teachers = Object.values(map).map(t => ({
-      id: t.id, name: t.name, classes: [...t.classes], ifoHours: t.ifo1,
-    })).sort((a, b) => a.name.localeCompare(b.name, 'bg'))
+    // Норма: обикновен час = 1, час с „позволява вземане“ (терапии) = 0,7, „Час на класа“ винаги 1
+    // (същото като брояча в „Моето разписание“). Един час в една клетка ден·час се брои веднъж.
+    const weightOf = (sub: any) => (!sub?.allows_pullout ? 1 : String(sub.name || '').toLowerCase().includes('час на класа') ? 1 : 0.7)
+    const cells: Record<string, Record<string, number>> = {}
+    const put = (staffId: string, day: number, period: number, sub: any) => {
+      if (!map[staffId]) return
+      const k = `${day}-${period}`; (cells[staffId] ||= {})[k] = Math.max(cells[staffId][k] || 0, weightOf(sub))
+    }
+    const { data: normSlots } = await supabase
+      .from('schedule_slots')
+      .select('staff_id, day, period, subject:subjects(name, allows_pullout), schedule:class_schedules!inner(academic_year_id, term)')
+      .not('staff_id', 'is', null)
+      .eq('schedule.academic_year_id', currentYear?.id).eq('schedule.term', term)
+      .limit(5000)
+    ;(normSlots || []).forEach((sl: any) => {
+      if (sl.schedule?.academic_year_id === currentYear?.id && sl.schedule?.term === term) put(sl.staff_id, sl.day, sl.period, sl.subject)
+    })
+    ;(ifoT || []).forEach((sl: any) => { if (sl.term === term) put(sl.teacher_id, sl.day, sl.period, sl.subject) })
+    teachers = Object.values(map).map(t => {
+      const hours = Math.round(Object.values(cells[t.id] || {}).reduce((a, b) => a + b, 0) * 10) / 10
+      return { id: t.id, name: t.name, classes: [...t.classes], ifoHours: t.ifo1, hours, status: hours === 0 ? 'none' : hours < NORM ? 'under' : 'ok' }
+    }).sort((a, b) => a.name.localeCompare(b.name, 'bg'))
   }
   // ── Терапевти ──
   let therapists: any[] = []
@@ -206,34 +230,61 @@ export default async function SchedulesPage({
       )}
 
       {/* ── Класни/учители ── */}
-      {tab === 'teachers' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-left [&>th]:px-4 [&>th]:py-2.5 [&>th]:font-semibold [&>th]:text-slate-500 [&>th]:text-xs [&>th]:uppercase [&>th]:tracking-wider">
-                <th>Учител</th><th>Паралелка(и)</th><th className="text-center">ИФО часове</th><th className="text-right">Разписание</th>
-              </tr>
-            </thead>
-            <tbody className="[&>tr]:border-b [&>tr]:border-slate-100 [&>tr:last-child]:border-0 [&>tr>td]:border-r [&>tr>td]:border-slate-100 [&>tr>td:last-child]:border-0">
-              {teachers.map((t, i) => (
-                <tr key={t.id} className={`hover:bg-blue-50/40 transition-colors ${i % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}`}>
-                  <td className="px-4 py-2.5 font-semibold text-slate-800">{t.name}</td>
-                  <td className="px-4 py-2.5 text-slate-600">{t.classes.length > 0 ? t.classes.join(', ') : <span className="text-slate-300">без клас</span>}</td>
-                  <td className="px-4 py-2.5 text-center">
-                    {t.ifoHours > 0
-                      ? <span className="inline-flex items-center gap-1 text-teal-600 text-xs font-semibold"><GraduationCap size={13} /> {t.ifoHours}</span>
-                      : <span className="text-slate-300 text-xs">—</span>}
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
-                    <Link href={`/my-schedule/edit?staff=${t.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">Отвори <ArrowRight size={13} /></Link>
-                  </td>
+      {tab === 'teachers' && (() => {
+        const cnt = { none: teachers.filter(t => t.status === 'none').length, under: teachers.filter(t => t.status === 'under').length, ok: teachers.filter(t => t.status === 'ok').length }
+        const shown = filter === 'all' ? teachers : teachers.filter(t => t.status === filter)
+        const fmt = (x: number) => x.toLocaleString('bg-BG', { maximumFractionDigits: 1 })
+        const CHIPS = [
+          { id: 'all', label: 'Всички', n: teachers.length, cls: 'border-slate-200 text-slate-600', on: 'bg-[#0f2240] text-white border-transparent' },
+          { id: 'none', label: 'Без разписание', n: cnt.none, cls: 'border-rose-200 text-rose-700 bg-rose-50', on: 'bg-rose-600 text-white border-transparent' },
+          { id: 'under', label: `Под ${NORM} часа`, n: cnt.under, cls: 'border-amber-200 text-amber-800 bg-amber-50', on: 'bg-amber-500 text-white border-transparent' },
+          { id: 'ok', label: 'С пълна норма', n: cnt.ok, cls: 'border-emerald-200 text-emerald-700 bg-emerald-50', on: 'bg-emerald-600 text-white border-transparent' },
+        ]
+        return (<>
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            {CHIPS.map(c => (
+              <Link key={c.id} href={`/schedules?tab=teachers${c.id === 'all' ? '' : `&f=${c.id}`}`}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[13px] font-medium transition ${filter === c.id ? c.on : c.cls + ' hover:shadow-sm'}`}>
+                {c.label} <span className="tabular-nums opacity-80">{c.n}</span>
+              </Link>
+            ))}
+            <span className="text-xs text-slate-400 ml-auto">{term === 1 ? 'I' : 'II'} срок · терапии и „вземане“ се броят 0,7</span>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left [&>th]:px-4 [&>th]:py-2.5 [&>th]:font-semibold [&>th]:text-slate-500 [&>th]:text-xs [&>th]:uppercase [&>th]:tracking-wider">
+                  <th>Учител</th><th>Паралелка(и)</th><th className="text-center">Часове / {NORM}</th><th className="text-center">ИФО</th><th className="text-right">Разписание</th>
                 </tr>
-              ))}
-              {teachers.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Няма учители с разписание</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody className="[&>tr]:border-b [&>tr]:border-slate-100 [&>tr:last-child]:border-0 [&>tr>td]:border-r [&>tr>td]:border-slate-100 [&>tr>td:last-child]:border-0">
+                {shown.map((t, i) => (
+                  <tr key={t.id} className={`hover:bg-blue-50/40 transition-colors ${t.status === 'none' ? 'bg-rose-50/40' : t.status === 'under' ? 'bg-amber-50/40' : i % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}`}>
+                    <td className="px-4 py-2.5 font-semibold text-slate-800">{t.name}</td>
+                    <td className="px-4 py-2.5 text-slate-600">{t.classes.length > 0 ? t.classes.join(', ') : <span className="text-slate-300">без клас</span>}</td>
+                    <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                      {t.status === 'none'
+                        ? <span className="inline-flex items-center gap-1 text-rose-600 text-xs font-semibold"><CircleSlash size={13} /> няма</span>
+                        : t.status === 'under'
+                          ? <span className="inline-flex items-center gap-1 text-amber-700 text-xs font-semibold" title={`Липсват ${fmt(Math.round((NORM - t.hours) * 10) / 10)} ч.`}><AlertTriangle size={13} /> {fmt(t.hours)}</span>
+                          : <span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-semibold"><Check size={13} /> {fmt(t.hours)}</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      {t.ifoHours > 0
+                        ? <span className="inline-flex items-center gap-1 text-teal-600 text-xs font-semibold"><GraduationCap size={13} /> {t.ifoHours}</span>
+                        : <span className="text-slate-300 text-xs">—</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <Link href={`/my-schedule/edit?staff=${t.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">Отвори <ArrowRight size={13} /></Link>
+                    </td>
+                  </tr>
+                ))}
+                {shown.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">{filter === 'all' ? 'Няма учители' : 'Няма учители в тази група'}</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </>)
+      })()}
 
       {/* ── Терапевти ── */}
       {tab === 'therapists' && (
