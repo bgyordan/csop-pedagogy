@@ -27,7 +27,7 @@ export function Hl({ text, q }: { text?: string | null; q?: string }) {
 /** Заглавие на колона; ако има key — става сортируемо. */
 export function SortHeader({ label, sortKey, sort, onSort, align = 'left' }: {
   label: string
-  sortKey?: 'num' | 'date'
+  sortKey?: string
   sort: string
   onSort: (s: string) => void
   align?: 'left' | 'right'
@@ -119,6 +119,65 @@ export function FilterChips({ value, onChange, counts }: {
             <span className={`text-[10px] tabular-nums px-1.5 py-0.5 rounded-full ${
               active ? (c.warn ? 'bg-amber-200 text-amber-900' : 'bg-white text-[#0f2240]') : (c.warn && c.n > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-500')
             }`}>{c.n}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Празен екран с подходящ бутон: изчисти търсенето / покажи всички / нов запис. */
+export function EmptyState({ icon, search, filter, newLabel, onClearSearch, onShowAll, onNew, nofileText }: {
+  icon: React.ReactNode
+  search: string
+  filter: string
+  newLabel: string
+  nofileText: string
+  onClearSearch: () => void
+  onShowAll: () => void
+  onNew?: () => void
+}) {
+  const btn = 'inline-flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl border transition-colors'
+  let text: React.ReactNode, action: React.ReactNode = null
+  if (search) {
+    text = <>Няма резултати за „<span className="text-slate-700">{search}</span>“.</>
+    action = <button type="button" onClick={onClearSearch} className={`${btn} border-slate-300 text-slate-700 hover:bg-slate-50`}>Изчисти търсенето</button>
+  } else if (filter === 'nofile') {
+    text = <span className="text-emerald-700">✓ {nofileText}</span>
+    action = <button type="button" onClick={onShowAll} className={`${btn} border-slate-300 text-slate-700 hover:bg-slate-50`}>Покажи всички</button>
+  } else {
+    text = 'Още няма записи за тази деловодна година.'
+    if (onNew) action = <button type="button" onClick={onNew} className={`${btn} border-[#0f2240] text-[#0f2240] hover:bg-[#0f2240] hover:text-white`}>+ {newLabel}</button>
+  }
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl px-6 py-14 text-center shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
+      <div className="mx-auto mb-3 w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">{icon}</div>
+      <p className="text-sm text-slate-500">{text}</p>
+      {action && <div className="mt-4">{action}</div>}
+    </div>
+  )
+}
+
+/** Група филтър-бутони с брой (общ вид за всички регистри). tone: warn = жълто, danger = червено. */
+export function ChipGroup({ items, value, onChange }: {
+  items: { v: string; l: string; n: number; tone?: 'warn' | 'danger' }[]
+  value: string
+  onChange: (v: string) => void
+}) {
+  const toneActive = { warn: 'bg-amber-100 border-amber-300 text-amber-900', danger: 'bg-rose-50 border-rose-300 text-rose-800' }
+  const toneCount = { warn: 'bg-amber-100 text-amber-800', danger: 'bg-rose-100 text-rose-700' }
+  return (
+    <div className="flex items-center gap-1 flex-wrap">
+      {items.map(c => {
+        const active = value === c.v
+        return (
+          <button key={c.v || 'all'} type="button" onClick={() => onChange(c.v)}
+            className={`inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border transition-colors whitespace-nowrap ${
+              active ? (c.tone ? toneActive[c.tone] : 'bg-slate-100 border-slate-400 text-[#0f2240] font-medium')
+                     : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+            {c.l}
+            <span className={`text-[10px] tabular-nums px-1.5 py-0.5 rounded-full ${
+              active ? 'bg-white text-[#0f2240]' : (c.tone && c.n > 0 ? toneCount[c.tone] : 'bg-slate-100 text-slate-500')}`}>{c.n}</span>
           </button>
         )
       })}

@@ -38,11 +38,16 @@ export default async function ContractsPage({
   return (
     <div className="p-4 md:p-8">
       <BackButton />
-      <div className="mb-6">
-  <div className="w-full flex items-center px-6 py-3 rounded-2xl bg-white border border-slate-200 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
-    <span className="text-sm font-medium text-slate-700 tracking-wide">РЕГИСТЪР ДОГОВОРИ</span>
-  </div>
-</div>
+      <div className="mb-5 flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <div className="text-[11px] text-slate-500 uppercase tracking-widest">Деловодство</div>
+          <h1 className="text-2xl font-light text-[#0f2240] leading-tight mt-0.5">Договори</h1>
+        </div>
+        <div className="text-sm text-slate-500 tabular-nums">
+          {count || 0} записа
+          {q && <span className="text-slate-400"> · търсене „{q}“</span>}
+        </div>
+      </div>
       <ContractsClient
         contracts={contracts || []}
         totalCount={count || 0}

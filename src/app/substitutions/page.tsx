@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
-import { CalendarClock } from 'lucide-react'
 import SubstitutionsClient from './SubstitutionsClient'
 export const dynamic = 'force-dynamic'
 export interface SubRow {
@@ -84,13 +83,13 @@ export default async function SubstitutionsPage() {
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto animate-in fade-in duration-500">
       <BackButton />
-      <header className="flex items-center gap-4 mt-2 mb-7 pb-5 border-b border-slate-100">
-        <div className="flex items-center justify-center shrink-0 w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 shadow-sm text-blue-600">
-          <CalendarClock size={22} strokeWidth={2} />
-        </div>
+      <header className="mb-5 flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">Замествания</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Отсъстващи, заместници и заповеди за заместване</p>
+          <div className="text-[11px] text-slate-500 uppercase tracking-widest">Лекторски</div>
+          <h1 className="text-2xl font-light text-[#0f2240] leading-tight mt-0.5">Замествания</h1>
+        </div>
+        <div className="text-sm text-slate-500 tabular-nums">
+          {rows.length} записа
         </div>
       </header>
       <SubstitutionsClient rows={rows} staff={staff || []} />

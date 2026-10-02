@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Plus, Search, ChevronLeft, ChevronRight, ClipboardList, X } from 'lucide-react'
 import ViewOrderModal from './ViewOrderModal'
 import EditOrderModal from './EditOrderModal'
-import { Hl, SortHeader, FileAndActions, FilterChips } from '@/components/registry/RegistryParts'
+import { Hl, SortHeader, FileAndActions, FilterChips, EmptyState } from '@/components/registry/RegistryParts'
 import { PANEL_WIDTH_CLS } from '@/components/registry/SidePanel'
 
 interface NomenclatureItem {
@@ -172,12 +172,11 @@ export default function OrdersClient({
 
         <div className="space-y-1.5 pt-2">
           {orders.length === 0 ? (
-            <div className="bg-white border border-slate-200 rounded-2xl p-16 text-center shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
-              <ClipboardList size={28} className="mx-auto mb-2 text-slate-300" />
-              <p className="text-slate-400 text-sm italic">
-                {filterValue === 'nofile' ? 'Всички заповеди имат прикачен файл.' : 'Няма намерени заповеди.'}
-              </p>
-            </div>
+            <EmptyState icon={<ClipboardList size={20} />} search={searchValue} filter={filterValue}
+              newLabel="Нова заповед" nofileText="Всички заповеди имат прикачен файл."
+              onClearSearch={() => { setSearch(''); router.push(buildUrl({ q: '', page: 1 })) }}
+              onShowAll={() => router.push(buildUrl({ f: '', page: 1 }))}
+              onNew={canEdit ? () => setShowForm(true) : undefined} />
           ) : orders.map((item) => (
             <div key={item.id}
               data-row-id={item.id}

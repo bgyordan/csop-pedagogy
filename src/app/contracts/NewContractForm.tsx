@@ -1,25 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { X, Upload, FileText, Loader2 } from 'lucide-react'
-
-const CONTRACT_TYPES = [
-  { value: 'delivery', label: 'Доставка' },
-  { value: 'service', label: 'Услуга' },
-  { value: 'rent', label: 'Наем' },
-  { value: 'labor', label: 'Трудов' },
-  { value: 'civil', label: 'Граждански' },
-  { value: 'other', label: 'Друг' },
-]
-
-const INTERNAL_OWNERS = [
-  'Светлана Иванова (Директор)',
-  'Йордан Йорданов (ЗДАСД)',
-  'Силвия Кьошкерян (ЗДУД)',
-  'Радка Георгиева (Счетоводство)',
-]
+import { X, Loader2 } from 'lucide-react'
+import { FormSection, FileDrop, useFormKeys, KeysHint } from '@/components/registry/FormParts'
 
 function calcEndDate(start: string, months: string): string {
   if (!start || !months) return ''
@@ -40,14 +25,13 @@ export default function NewContractForm({ currentUserId, onClose, onSaved }: Pro
 
   const [saving, setSaving] = useState(false)
   const [saveAction, setSaveAction] = useState<'save_close' | 'save_new'>('save_close')
-  const [contractType, setContractType] = useState('service')
+  const rootRef = useRef<HTMLDivElement>(null)
+  useFormKeys(rootRef, onClose)
   const [counterparty, setCounterparty] = useState('')
   const [subject, setSubject] = useState('')
   const [contractDate, setContractDate] = useState(new Date().toISOString().split('T')[0])
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
   const [durationMonths, setDurationMonths] = useState('')
-  const [contractValue, setContractValue] = useState('')
-  const [internalOwner, setInternalOwner] = useState('')
   const [description, setDescription] = useState('')
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
 
@@ -57,14 +41,11 @@ export default function NewContractForm({ currentUserId, onClose, onSaved }: Pro
   const daysLeft = endDate ? Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null
 
   function resetForm() {
-    setContractType('service')
     setCounterparty('')
     setSubject('')
     setContractDate(new Date().toISOString().split('T')[0])
     setStartDate(new Date().toISOString().split('T')[0])
     setDurationMonths('')
-    setContractValue('')
-    setInternalOwner('')
     setDescription('')
     setUploadedFile(null)
   }
@@ -101,133 +82,93 @@ export default function NewContractForm({ currentUserId, onClose, onSaved }: Pro
     else onSaved()
   }
 
+  const LBL = 'block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5'
+
   return (
     <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl border border-slate-200/80 max-w-xl w-full shadow-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+      <div ref={rootRef} className="bg-white rounded-3xl border border-slate-200/80 max-w-4xl w-full shadow-2xl flex flex-col" style={{ maxHeight: '92vh' }}>
 
-        {/* Хедър */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white rounded-t-3xl z-10">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
           <div>
-            <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Нов договор</h3>
-            <p className="text-[11px] font-mono text-purple-600 font-bold mt-0.5">
-              ДГ-???/{currentYear}
-            </p>
+            <h3 className="text-[11px] text-slate-500 uppercase tracking-widest">Нов договор</h3>
+            <p className="text-lg font-medium text-[#0f2240] tabular-nums leading-tight mt-1.5">ДГ-???/{currentYear}</p>
           </div>
           <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors">
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto px-6 py-5">
+            <div className="grid md:grid-cols-[1.2fr_1fr] gap-6">
+              <FormSection title="Данни">
+                <div>
+                  <label className={LBL}>Дата *</label>
+                  <input type="date" value={contractDate} onChange={e => setContractDate(e.target.value)} required className="input w-44" />
+                </div>
+                <div>
+                  <label className={LBL}>Контрагент *</label>
+                  <input autoFocus type="text" required value={counterparty} onChange={e => setCounterparty(e.target.value)}
+                    placeholder="фирма или лице" className="input w-full" />
+                </div>
+                <div>
+                  <label className={LBL}>Предмет *</label>
+                  <input type="text" required value={subject} onChange={e => setSubject(e.target.value)}
+                    placeholder="предмет на договора" className="input w-full" />
+                </div>
+                <div className="grid grid-cols-[1.25fr_1fr_1fr] gap-3">
+                  <div>
+                    <label className={LBL}>Начало *</label>
+                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required className="input w-full" />
+                  </div>
+                  <div>
+                    <label className={LBL}>Срок (мес.) *</label>
+                    <input type="number" min="1" max="999" placeholder="напр. 12" value={durationMonths}
+                      onChange={e => setDurationMonths(e.target.value)} required className="input w-full" />
+                  </div>
+                  <div>
+                    <label className={LBL}>Край</label>
+                    <input readOnly value={endDate ? new Date(endDate).toLocaleDateString('bg-BG') : '—'}
+                      className="input w-full !bg-slate-100 cursor-not-allowed text-slate-600 tabular-nums" />
+                  </div>
+                </div>
+                {daysLeft !== null && daysLeft < 30 && (
+                  <div className={`text-sm px-4 py-2.5 rounded-xl border ${daysLeft < 0 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-800 border-amber-200'}`}>
+                    {daysLeft < 0 ? `Изтекъл преди ${Math.abs(daysLeft)} дни` : `Изтича след ${daysLeft} дни`}
+                  </div>
+                )}
+              </FormSection>
 
-          {/* Вид + Дата */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Вид договор *</label>
-              <div className="flex flex-wrap gap-1.5">
-                {CONTRACT_TYPES.map(t => (
-                  <button key={t.value} type="button" onClick={() => setContractType(t.value)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
-                      contractType === t.value
-                        ? 'bg-[#0f2240] text-white border-[#0f2240]'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}>
-                    {t.label}
-                  </button>
-                ))}
+              <div className="space-y-6 md:border-l md:border-slate-200 md:pl-6">
+                <FormSection title="Бележки">
+                  <textarea rows={3} value={description} onChange={e => setDescription(e.target.value)}
+                    placeholder="по желание" className="input w-full resize-none" />
+                </FormSection>
+                <FormSection title="Сканиран договор">
+                  <FileDrop file={uploadedFile} onFile={setUploadedFile} />
+                </FormSection>
               </div>
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Дата *</label>
-              <input type="date" value={contractDate} onChange={e => setContractDate(e.target.value)} required className="input w-full" />
             </div>
           </div>
 
-          {/* Контрагент */}
-          <input type="text" required value={counterparty} onChange={e => setCounterparty(e.target.value)}
-            placeholder="Контрагент (фирма / лице) *" className="input w-full" />
-
-          {/* Предмет */}
-          <input type="text" required value={subject} onChange={e => setSubject(e.target.value)}
-            placeholder="Предмет на договора *" className="input w-full" />
-
-          {/* Начална дата + Срок + Крайна дата */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Начало *</label>
-              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required className="input w-full" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Срок (месеци) *</label>
-              <input type="number" min="1" max="999" placeholder="напр. 12" value={durationMonths}
-                onChange={e => setDurationMonths(e.target.value)} required className="input w-full" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Крайна дата</label>
-              <input readOnly value={endDate ? new Date(endDate).toLocaleDateString('bg-BG') : '—'}
-                className="input w-full bg-slate-50 cursor-not-allowed text-slate-500" />
-            </div>
-          </div>
-
-          {/* Предупреждение за скоро изтичащ */}
-          {daysLeft !== null && daysLeft < 30 && (
-            <div className={`text-xs font-bold px-3 py-2 rounded-xl ${daysLeft < 0 ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-              {daysLeft < 0 ? `⚠ Изтекъл преди ${Math.abs(daysLeft)} дни!` : `⚠ Изтича след ${daysLeft} дни`}
-            </div>
-          )}
-
-          {/* Стойност + Титуляр */}
-          <div className="grid grid-cols-2 gap-3">
-            <input type="number" min="0" step="0.01" placeholder="Стойност (EUR) — незадължително"
-              value={contractValue} onChange={e => setContractValue(e.target.value)} className="input w-full" />
-            <select value={internalOwner} onChange={e => setInternalOwner(e.target.value)} className="input w-full">
-              <option value="">Вътрешен титуляр</option>
-              {INTERNAL_OWNERS.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </div>
-
-          {/* Бележки */}
-          <textarea rows={1} value={description} onChange={e => setDescription(e.target.value)}
-            placeholder="Бележки (незадължително)..." className="input w-full resize-none" />
-
-          {/* Файл */}
-          {uploadedFile ? (
-            <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-              <FileText size={16} className="text-emerald-600 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-bold text-slate-800 truncate">{uploadedFile.name}</div>
-                <div className="text-[10px] text-slate-400">{(uploadedFile.size / 1024).toFixed(0)} KB</div>
-              </div>
-              <button type="button" onClick={() => setUploadedFile(null)} className="text-slate-400 hover:text-red-500 p-1"><X size={14} /></button>
-            </div>
-          ) : (
-            <label className="flex items-center justify-center w-full h-10 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-[#0f2240] hover:bg-slate-50 transition-all">
-              <div className="flex items-center gap-2 text-slate-400">
-                <Upload size={15} /><span className="text-xs font-semibold">Прикачи файл (PDF/Word)</span>
-              </div>
-              <input type="file" className="hidden" accept=".pdf,.doc,.docx"
-                onChange={e => { const f = e.target.files?.[0]; if (f) setUploadedFile(f) }} />
-            </label>
-          )}
-
-          {/* Бутони */}
-          <div className="flex gap-3 justify-end pt-3 border-t border-slate-100">
+          <div className="flex gap-2 justify-end items-center px-6 py-4 border-t border-slate-100 flex-shrink-0 bg-white rounded-b-3xl">
+            <KeysHint submitLabel="регистрира" />
             <button type="button" onClick={onClose}
-              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors">
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium transition-colors">
               Отказ
             </button>
             <button type="submit" disabled={saving}
               onClick={() => setSaveAction('save_new')}
-              className="px-4 py-2.5 border border-[#0f2240] text-[#0f2240] rounded-xl text-xs font-bold flex items-center gap-2 disabled:opacity-60 hover:bg-slate-50 transition-colors">
-              {saving && saveAction === 'save_new' && <Loader2 size={13} className="animate-spin" />}
-              Запази и нов
+              className="px-4 py-2 border border-[#0f2240] text-[#0f2240] rounded-xl text-xs font-medium flex items-center gap-1.5 whitespace-nowrap disabled:opacity-60 hover:bg-slate-50 transition-colors">
+              {saving && saveAction === 'save_new' && <Loader2 size={12} className="animate-spin" />}
+              Регистрирай и нов
             </button>
-            <button type="submit" disabled={saving}
+            <button type="submit" disabled={saving} data-primary
               onClick={() => setSaveAction('save_close')}
-              className="px-5 py-2.5 text-white rounded-xl text-xs font-bold flex items-center gap-2 disabled:opacity-60 shadow-md hover:opacity-90 transition-opacity"
+              className="px-5 py-2 text-white rounded-xl text-xs font-medium flex items-center gap-1.5 whitespace-nowrap disabled:opacity-60 shadow-sm hover:opacity-90 transition-opacity"
               style={{ backgroundColor: '#0f2240' }}>
-              {saving && saveAction === 'save_close' && <Loader2 size={13} className="animate-spin" />}
-              {saving ? 'Записване...' : 'Запази и затвори'}
+              {saving && saveAction === 'save_close' && <Loader2 size={12} className="animate-spin" />}
+              {saving ? 'Записване…' : 'Регистрирай договор'}
             </button>
           </div>
         </form>
