@@ -177,7 +177,7 @@ export default function EditOrderModal({ item, nomenclature = [], onClose }: Pro
             Отказ
           </button>
           <button type="button" data-primary onClick={handleSave} disabled={saving || !title}
-            className="px-5 py-2 text-white rounded-xl text-xs font-medium flex items-center gap-2 disabled:opacity-60 shadow-sm hover:opacity-90"
+            className="px-5 py-2 text-white rounded-xl text-xs font-medium flex items-center gap-2 whitespace-nowrap disabled:opacity-60 shadow-sm hover:opacity-90"
             style={{ backgroundColor: '#0f2240' }}>
             {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
             {saving ? 'Запазване…' : 'Запази промените'}

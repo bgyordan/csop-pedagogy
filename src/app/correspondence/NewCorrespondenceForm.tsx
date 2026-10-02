@@ -742,12 +742,12 @@ export default function NewCorrespondenceForm({
               Отказ
             </button>
             <button type="submit" disabled={saving} onClick={() => setSaveAction('save_new')}
-              className="px-4 py-2 border border-[#0f2240] text-[#0f2240] rounded-xl text-xs font-medium flex items-center gap-1.5 disabled:opacity-60 hover:bg-slate-50 transition-colors">
+              className="px-4 py-2 border border-[#0f2240] text-[#0f2240] rounded-xl text-xs font-medium flex items-center gap-1.5 whitespace-nowrap disabled:opacity-60 hover:bg-slate-50 transition-colors">
               {saving && saveAction === 'save_new' && <Loader2 size={12} className="animate-spin" />}
               Регистрирай и нов
             </button>
             <button type="submit" disabled={saving} data-primary onClick={() => setSaveAction('save_close')}
-              className="px-5 py-2 text-white rounded-xl text-xs font-medium flex items-center gap-1.5 disabled:opacity-60 shadow-sm hover:opacity-90 transition-opacity"
+              className="px-5 py-2 text-white rounded-xl text-xs font-medium flex items-center gap-1.5 whitespace-nowrap disabled:opacity-60 shadow-sm hover:opacity-90 transition-opacity"
               style={{ backgroundColor: '#0f2240' }}>
               {saving && saveAction === 'save_close' && <Loader2 size={12} className="animate-spin" />}
               {saving ? 'Записване…' : direction === 'incoming' ? 'Регистрирай входящ' : 'Регистрирай изходящ'}

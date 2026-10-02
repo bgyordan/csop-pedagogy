@@ -405,28 +405,38 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Търсене по име…"
-            className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-full text-sm focus:outline-none focus:border-slate-400" />
+      {/* Лента с контроли — като в деловодството */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-2 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
+        <div className="flex items-center gap-2 flex-wrap">
+          {!showNew && (
+            <button onClick={() => { setShowNew(true); resetMulti() }}
+              className="flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl border-2 border-[#0f2240] text-[#0f2240] bg-white hover:bg-[#0f2240] hover:text-white transition-all whitespace-nowrap flex-shrink-0">
+              <Plus size={14} /> Ново заместване
+            </button>
+          )}
+          <select value={periodIdx} onChange={e => setPeriodIdx(Number(e.target.value))}
+            className="text-xs font-medium border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-[#0f2240] focus:outline-none focus:border-slate-400 flex-shrink-0 cursor-pointer">
+            <option value={-1}>Всички периоди</option>
+            {SCHOOL_MONTHS_FILTER.map((m, i) => <option key={i} value={i}>{m.label}</option>)}
+          </select>
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Търсене по име…"
+              className="pl-8 pr-8 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-400 w-full bg-white" />
+            {search && (
+              <button type="button" onClick={() => setSearch('')} title="Изчисти"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-400 hover:text-slate-700">
+                <X size={13} />
+              </button>
+            )}
+          </div>
+          <button onClick={() => setNpOnly(v => !v)}
+            className={`inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border transition-colors whitespace-nowrap flex-shrink-0 ${
+              npOnly ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-medium' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}>
+            само НП
+          </button>
         </div>
-        <button onClick={() => setNpOnly(v => !v)}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium shrink-0 transition-colors ${
-            npOnly ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-          }`}>
-          само НП
-        </button>
-        <select value={periodIdx} onChange={e => setPeriodIdx(Number(e.target.value))}
-          className="px-3 py-2 rounded-full text-sm bg-white border border-slate-200 text-slate-600 focus:outline-none focus:border-slate-400 shrink-0 cursor-pointer">
-          <option value={-1}>Всички периоди</option>
-          {SCHOOL_MONTHS_FILTER.map((m, i) => <option key={i} value={i}>{m.label}</option>)}
-        </select>
-        {!showNew && (
-          <button onClick={() => { setShowNew(true); resetMulti() }}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-white text-sm font-medium hover:opacity-90 shrink-0"
-            style={{ backgroundColor: '#0f2240' }}><Plus size={16} /> Ново заместване</button>
-        )}
       </div>
 
       {showNew && (
@@ -522,18 +532,26 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       )}
 
       {/* Заглавен ред */}
-      <div className="hidden md:grid grid-cols-[24px_minmax(0,1.3fr)_minmax(0,1.3fr)_66px_66px_262px] gap-3 px-4 py-2">
+      <div className="hidden md:grid grid-cols-[24px_minmax(0,1.3fr)_minmax(0,1.3fr)_66px_66px_262px] gap-3 px-4 py-2.5 rounded-xl bg-slate-100 border-b border-slate-200">
         {['№', 'Отсъстващ', 'Заместник', 'От', 'До', ''].map((h, i) => (
-          <span key={i} className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{h}</span>
+          <span key={i} className="text-[11px] font-medium uppercase tracking-wider text-slate-500">{h}</span>
         ))}
       </div>
 
       {/* Редове като карти */}
       <div className="space-y-1.5">
         {filtered.length === 0 ? (
-          <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-14 text-center">
-            <CalendarClock size={32} className="mx-auto mb-2 text-slate-300" />
-            <p className="text-sm text-slate-400">Няма замествания</p>
+          <div className="bg-white border border-slate-200 rounded-2xl px-6 py-14 text-center shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
+            <div className="mx-auto mb-3 w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400"><CalendarClock size={20} /></div>
+            <p className="text-sm text-slate-500">
+              {search ? <>Няма резултати за „<span className="text-slate-700">{search}</span>“.</> : npOnly || periodIdx >= 0 ? 'Няма замествания по този филтър.' : 'Още няма замествания.'}
+            </p>
+            {(search || npOnly || periodIdx >= 0) && (
+              <button type="button" onClick={() => { setSearch(''); setNpOnly(false); setPeriodIdx(-1) }}
+                className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50">
+                Изчисти филтрите
+              </button>
+            )}
           </div>
         ) : filtered.map((r, idx) => {
           const multi = r.assigns.length > 0

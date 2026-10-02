@@ -7,7 +7,7 @@ import { Plus, Search, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight, I
 import NewCorrespondenceForm from './NewCorrespondenceForm'
 import ViewCorrespondenceModal from './ViewCorrespondenceModal'
 import EditCorrespondenceModal from './EditCorrespondenceModal'
-import { Hl, SortHeader, FileAndActions, FilterChips } from '@/components/registry/RegistryParts'
+import { Hl, SortHeader, FileAndActions, FilterChips, EmptyState } from '@/components/registry/RegistryParts'
 import { PANEL_WIDTH_CLS } from '@/components/registry/SidePanel'
 
 interface NomenclatureItem {
@@ -191,12 +191,11 @@ export default function CorrespondenceClient({
 
         <div className="space-y-1.5 pt-2">
           {correspondence.length === 0 ? (
-            <div className="bg-white border border-slate-200 rounded-2xl p-16 text-center shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
-              <Inbox size={28} className="mx-auto mb-2 text-slate-300" />
-              <p className="text-slate-400 text-sm italic">
-                {filterValue === 'nofile' ? 'Всички записи имат прикачен файл.' : 'Няма намерени документи.'}
-              </p>
-            </div>
+            <EmptyState icon={<Inbox size={20} />} search={searchValue} filter={filterValue}
+              newLabel={activeDir === 'incoming' ? 'Нов входящ' : 'Нов изходящ'} nofileText="Всички записи имат прикачен файл."
+              onClearSearch={() => { setSearch(''); router.push(buildUrl({ q: '', page: 1 })) }}
+              onShowAll={() => router.push(buildUrl({ f: '', page: 1 }))}
+              onNew={canEdit ? () => setShowForm(true) : undefined} />
           ) : correspondence.map((item) => {
             const personLabel = activeDir === 'incoming' ? item.from_whom : item.to_whom
             return (

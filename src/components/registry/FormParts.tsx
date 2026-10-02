@@ -117,7 +117,7 @@ export function useFormKeys(rootRef: React.RefObject<HTMLElement | null>, onClos
 /** Подсказка за клавишите в долния край на прозореца. */
 export function KeysHint({ submitLabel = 'запис' }: { submitLabel?: string }) {
   return (
-    <span className="hidden md:inline-flex items-center gap-1.5 text-[11px] text-slate-400 mr-auto">
+    <span className="hidden lg:inline-flex items-center gap-1.5 text-[11px] text-slate-400 mr-auto whitespace-nowrap">
       <kbd className="px-1.5 py-0.5 rounded border border-slate-300 bg-slate-50 text-[10px] text-slate-500">Esc</kbd> затваря
       <span className="mx-1">·</span>
       <kbd className="px-1.5 py-0.5 rounded border border-slate-300 bg-slate-50 text-[10px] text-slate-500">Ctrl</kbd>+<kbd className="px-1.5 py-0.5 rounded border border-slate-300 bg-slate-50 text-[10px] text-slate-500">Enter</kbd> {submitLabel}
