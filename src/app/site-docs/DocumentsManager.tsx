@@ -176,7 +176,7 @@ export default function DocumentsManager({ initial, defaultYear, startSection }:
             <div className="min-w-0">
               <h2 className="text-[17px] font-semibold tracking-tight" style={{ color: ACCENT }}>{cur.label}</h2>
               <div className="text-slate-500 text-[12.5px] mt-0.5 flex items-center gap-2 flex-wrap">
-                {cur.internalOnly ? cur.note : <>На сайта: {cur.note}{section === 'internal' && ' · виждат се и в ЕИС → Нормативни документи'}
+                {cur.internalOnly ? cur.note : <>На сайта: {cur.note}{section === 'internal' && ' · виждат се и в ЕИС → Документи в ЦСОП'}
                   {cur.path && <a href={SITE_URL + cur.path} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sky-700 hover:underline">виж страницата <ExternalLink size={12} /></a>}</>}
               </div>
             </div>

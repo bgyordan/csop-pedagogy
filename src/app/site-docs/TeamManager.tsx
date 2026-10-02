@@ -18,13 +18,13 @@ const GROUPS = [
   { key: 'assistants', label: 'Помощник на учителя' },
   { key: 'other', label: 'Помощен персонал' },
 ]
-const isAssistant = (p: StaffRow) => p.role === 'support' && (p.position || '').toLowerCase().includes('помощник')
-function groupOf(p: StaffRow) {
+const isAssistant = (p: StaffRow, title?: string | null) => p.role === 'support' && `${p.position || ''} ${title || ''}`.toLowerCase().includes('помощник')
+function groupOf(p: StaffRow, title?: string | null) {
   if (['director', 'zdud', 'admin', 'secretary'].includes(p.role)) return 'admin'
   if (['psychologist', 'speech_therapist', 'rehabilitator'].includes(p.role)) return 'therapy'
   if (['class_teacher', 'teacher', 'coordinator'].includes(p.role)) return 'teachers'
   if (p.role === 'educator') return 'educators'
-  return isAssistant(p) ? 'assistants' : 'other'
+  return isAssistant(p, title) ? 'assistants' : 'other'
 }
 function autoTitle(p: StaffRow) {
   const pos = (p.position || '').trim()
@@ -60,7 +60,7 @@ export default function TeamManager({ staff, initial, ready }: { staff: StaffRow
     return GROUPS.map((g) => ({
       ...g,
       people: staff
-        .filter((p) => groupOf(p) === g.key)
+        .filter((p) => groupOf(p, settings[p.id]?.title) === g.key)
         .filter((p) => (vis === 'all' ? true : vis === 'on' ? shownOnSite(p) : !shownOnSite(p)))
         .filter((p) => !query || `${p.first_name} ${p.last_name} ${titleOf(p)}`.toLowerCase().includes(query))
         .sort((a, b) => (ROLE_SORT[a.role] || 9) - (ROLE_SORT[b.role] || 9) || a.last_name.localeCompare(b.last_name, 'bg')),
@@ -145,7 +145,7 @@ export default function TeamManager({ staff, initial, ready }: { staff: StaffRow
                         </div>
                       ) : (
                         <button onClick={() => startEdit(p)} className="group/t flex items-center gap-1 max-w-full text-left" title="Смени надписа под името">
-                          <span className={`text-[12px] truncate ${custom ? 'text-slate-600' : 'text-slate-400'}`}>{titleOf(p)}</span>
+                          <span className={`text-[12px] truncate ${custom ? 'text-slate-700' : 'text-slate-500'}`}>{titleOf(p)}</span>
                           <Pencil size={11} className="shrink-0 text-slate-300 opacity-0 group-hover/t:opacity-100" />
                         </button>
                       )}

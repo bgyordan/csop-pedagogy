@@ -30,7 +30,7 @@ export default async function NormativeDocsPage() {
           <ScrollText size={22} strokeWidth={2} />
         </div>
         <div>
-          <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">Нормативни документи</h1>
+          <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">Документи в ЦСОП</h1>
           <p className="text-sm text-slate-500 mt-0.5">Правилници, стратегии и планове на центъра</p>
         </div>
       </header>
