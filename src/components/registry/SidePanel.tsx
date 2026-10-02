@@ -3,7 +3,9 @@
 // Страничен панел отдясно за преглед на запис — списъкът остава видим отляво.
 // Клик на друг ред сменя съдържанието; ↑/↓ минават към съседния запис (управлява се от списъка).
 
+import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 export const PANEL_WIDTH_CLS = 'xl:pr-[460px]' // отстъп за списъка, докато панелът е отворен
 
@@ -54,6 +56,39 @@ export function PanelField({ label, children, strong = false }: { label: string;
     <div>
       <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1">{label}</div>
       <div className={strong ? 'text-[15px] text-slate-900 leading-snug' : 'text-sm text-slate-700 leading-snug'}>{children}</div>
+    </div>
+  )
+}
+
+/** Преглед на прикачения файл направо в панела (PDF и снимки). Word файлове само се отварят. */
+export function FilePreview({ path, name }: { path?: string | null; name?: string | null }) {
+  const [url, setUrl] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
+  const lower = (name || path || '').toLowerCase()
+  const kind = lower.endsWith('.pdf') ? 'pdf' : /\.(png|jpe?g|gif|webp)$/.test(lower) ? 'img' : null
+
+  useEffect(() => {
+    let off = false
+    setUrl(null); setFailed(false)
+    if (!path || !kind) return
+    createClient().storage.from('documents').createSignedUrl(path, 600).then(({ data }) => {
+      if (off) return
+      if (data?.signedUrl) setUrl(data.signedUrl); else setFailed(true)
+    })
+    return () => { off = true }
+  }, [path])
+
+  if (!path || !kind || failed) return null
+  return (
+    <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-100">
+      {!url ? (
+        <div className="h-[55vh] flex items-center justify-center text-xs text-slate-400">Зареждане на прегледа…</div>
+      ) : kind === 'pdf' ? (
+        <iframe src={`${url}#view=FitH&toolbar=0`} title={name || 'Преглед'} className="w-full h-[55vh] bg-white" />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={url} alt={name || 'Преглед'} className="w-full h-auto bg-white" />
+      )}
     </div>
   )
 }

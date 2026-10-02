@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { AlertTriangle, ExternalLink, Paperclip, Pencil } from 'lucide-react'
-import { SidePanel, PanelField } from '@/components/registry/SidePanel'
+import { SidePanel, PanelField, FilePreview } from '@/components/registry/SidePanel'
 
 interface Props {
   item: any
@@ -61,14 +61,15 @@ export default function ViewContractModal({ item, onClose, onPrev, onNext, canEd
 
       <div>
         <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">Файл</div>
-        {item.file_url ? (
+        {item.file_url ? (<>
           <button type="button" onClick={handleOpen}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-300 hover:border-[#0f2240] hover:bg-slate-50 transition-colors text-left">
             <Paperclip size={16} className="text-[#0f2240] flex-shrink-0" />
             <span className="text-sm text-slate-800 truncate flex-1">{item.file_name || 'Прикачен файл'}</span>
             <ExternalLink size={14} className="text-slate-400 flex-shrink-0" />
           </button>
-        ) : (
+          <div className="mt-2"><FilePreview path={item.file_url} name={item.file_name} /></div>
+        </>) : (
           <button type="button" onClick={canEdit && onEdit ? onEdit : undefined} disabled={!canEdit || !onEdit}
             className="w-full flex items-center gap-2 px-4 py-3 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-sm text-left enabled:hover:bg-amber-100 transition-colors">
             <Paperclip size={15} /> Няма прикачен файл{canEdit && onEdit ? ' — натисни, за да го качиш' : ''}
