@@ -19,14 +19,14 @@ export interface Job { id: string; title: string; employment: string | null; des
 export interface Subscriber { id: string; email: string; created_at: string }
 
 export const SECTIONS: { id: string; label: string; note: string; internalOnly?: boolean; path?: string }[] = [
-  { id: 'internal', label: 'Вътрешни документи', note: 'Прозрачност → Вътрешни документи', path: '/za-nas/vatreshni-dokumenti' },
+  { id: 'internal', label: 'Документи в ЦСОП', note: 'Прозрачност → Документи в ЦСОП', path: '/za-nas/dokumenti-v-tsop' },
   { id: 'budget', label: 'Бюджет и финанси', note: 'Прозрачност → Бюджет и финанси', path: '/za-nas/byudzhet-i-finansi' },
   { id: 'admission', label: 'Бланки за прием', note: 'Родители → Как се записва дете', path: '/priem/proczedura' },
   { id: 'zdoi', label: 'Достъп до информация', note: 'Прозрачност → Достъп до информация', path: '/za-nas/dostap-do-obshtestvena-informatsiya' },
   { id: 'privacy', label: 'Лични данни', note: 'Прозрачност → Лични данни', path: '/za-nas/zashtita-na-lichnite-danni' },
   { id: 'signali', label: 'Сигнали', note: 'Прозрачност → Подаване на сигнали', path: '/podavane-na-signali' },
   { id: 'roditeli', label: 'Формуляри за родители', note: 'Родители → За родители', path: '/za-roditeli' },
-  { id: 'eis', label: 'Само в ЕИС', note: 'Не излиза на сайта — виждат го колегите в ЕИС → Нормативни документи', internalOnly: true },
+  { id: 'eis', label: 'Само в ЕИС', note: 'Не излиза на сайта — виждат го колегите в ЕИС → Документи в ЦСОП', internalOnly: true },
 ]
 export const RUBRICS = [
   { key: 'strategy', title: 'Стратегия и планове', color: '#7c3aed' },
