@@ -139,3 +139,21 @@
 /* Страничен панел за преглед на запис (деловодство) */
 @keyframes panelIn { from { transform: translateX(24px); opacity: 0 } to { transform: none; opacity: 1 } }
 .panel-in { animation: panelIn .18s ease-out }
+
+/* ───────────────────────────────────────────────────────────────
+   ПО-ОТЧЕТЛИВ ВИД В ЦЯЛАТА СИСТЕМА (по-малко „сиво“)
+   Тънките рамки на карти, форми и полета стават тъмносини линийки,
+   а бледосивият текст — една степен по-тъмен. Вътрешните разделители
+   (border-slate-100) остават светли, за да не стане претрупано.
+   ─────────────────────────────────────────────────────────────── */
+.border-slate-200,
+.border-slate-200\/50,
+.border-slate-200\/60,
+.border-slate-200\/70,
+.border-slate-200\/80 { border-color: rgb(15 34 64 / 0.30); }
+.border-slate-300 { border-color: rgb(15 34 64 / 0.42); }
+.input { border-color: rgb(15 34 64 / 0.40); }
+.input:hover { border-color: rgb(15 34 64 / 0.60); }
+.input:focus { border-color: #0f2240; }
+.text-slate-400 { color: #64748b; }
+.text-slate-500 { color: #475569; }
