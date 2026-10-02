@@ -31,7 +31,7 @@ export default function FullReportClient() {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
         <p className="text-sm text-slate-600">
           Един файл с по един ред на ученик: лични данни, паралелка и училище, класен и ЕПЛР екип, родители и телефони,
-          и документите (РЦПППО, ТЕЛК, алергии) с номер, дати, срок, вид подкрепа и диагноза. Горният ред е замразен и
+          и документите (РЦПППО, ТЕЛК, алергии) с номер, дати, срок, интензивност и диагноза. Горният ред е замразен и
           с включен автофилтър.
         </p>
         <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
