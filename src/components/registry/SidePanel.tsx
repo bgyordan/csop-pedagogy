@@ -4,7 +4,7 @@
 // Клик на друг ред сменя съдържанието; ↑/↓ минават към съседния запис (управлява се от списъка).
 
 import { useEffect, useState } from 'react'
-import { ChevronDown, ChevronUp, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, X, Maximize2, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 export const PANEL_WIDTH_CLS = 'xl:pr-[460px]' // отстъп за списъка, докато панелът е отворен
@@ -78,17 +78,62 @@ export function FilePreview({ path, name }: { path?: string | null; name?: strin
     return () => { off = true }
   }, [path])
 
+  const [full, setFull] = useState(false)
+  // Esc затваря само цялия екран (не и страничния панел отдолу)
+  useEffect(() => {
+    if (!full) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); e.preventDefault(); setFull(false) } }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [full])
+
   if (!path || !kind || failed) return null
+  const viewer = (cls: string) => kind === 'pdf'
+    ? <iframe src={`${url}#view=FitH`} title={name || 'Преглед'} className={`${cls} bg-white`} />
+    // eslint-disable-next-line @next/next/no-img-element
+    : <img src={url!} alt={name || 'Преглед'} className={`${cls} object-contain bg-white`} />
+
   return (
-    <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-100">
-      {!url ? (
-        <div className="h-[55vh] flex items-center justify-center text-xs text-slate-400">Зареждане на прегледа…</div>
-      ) : kind === 'pdf' ? (
-        <iframe src={`${url}#view=FitH&toolbar=0`} title={name || 'Преглед'} className="w-full h-[55vh] bg-white" />
-      ) : (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt={name || 'Преглед'} className="w-full h-auto bg-white" />
+    <>
+      {/* Малкият преглед — целият е бутон за цял екран */}
+      <button type="button" onClick={() => url && setFull(true)} disabled={!url} title="Отвори на цял екран"
+        className="group relative block w-full rounded-xl border border-slate-200 overflow-hidden bg-slate-100 cursor-zoom-in text-left">
+        {!url ? (
+          <div className="h-[55vh] flex items-center justify-center text-xs text-slate-400">Зареждане на прегледа…</div>
+        ) : (
+          <>
+            <div className="pointer-events-none">
+              {kind === 'pdf'
+                ? <iframe src={`${url}#view=FitH&toolbar=0`} title={name || 'Преглед'} tabIndex={-1} className="w-full h-[55vh] bg-white" />
+                // eslint-disable-next-line @next/next/no-img-element
+                : <img src={url} alt={name || 'Преглед'} className="w-full h-auto bg-white" />}
+            </div>
+            <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1.5 py-2 text-xs text-white bg-[#0f2240]/80 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Maximize2 size={13} /> Цял екран
+            </span>
+          </>
+        )}
+      </button>
+
+      {/* Цял екран */}
+      {full && url && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/70 backdrop-blur-sm flex flex-col p-3 md:p-6" onClick={() => setFull(false)}>
+          <div className="flex items-center gap-2 mb-2 text-white" onClick={e => e.stopPropagation()}>
+            <span className="text-sm truncate flex-1">{name || 'Преглед'}</span>
+            <a href={url} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25">
+              <ExternalLink size={13} /> Нов таб
+            </a>
+            <button type="button" onClick={() => setFull(false)} title="Затвори (Esc)"
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25">
+              <X size={14} /> Затвори
+            </button>
+          </div>
+          <div className="flex-1 min-h-0 rounded-xl overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            {viewer('w-full h-full')}
+          </div>
+        </div>
       )}
-    </div>
+    </>
   )
 }
