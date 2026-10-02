@@ -4,14 +4,10 @@ import { useState, useEffect, useRef } from 'react'
 import NewOrderForm from './NewOrderForm'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, ChevronLeft, ChevronRight, ClipboardList, Paperclip, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Search, ChevronLeft, ChevronRight, ClipboardList, X } from 'lucide-react'
 import ViewOrderModal from './ViewOrderModal'
 import EditOrderModal from './EditOrderModal'
-
-function getSchoolYear(): number {
-  const now = new Date()
-  return now >= new Date(now.getFullYear(), 8, 15) ? now.getFullYear() : now.getFullYear() - 1
-}
+import { Hl, SortHeader, FileAndActions, FilterChips } from '@/components/registry/RegistryParts'
 
 interface NomenclatureItem {
   id: string; section_code: string; item_code: string; name: string; retention_years: string
@@ -24,9 +20,12 @@ interface Props {
   pageSize: number
   searchValue: string
   filterIndex: string
+  filterValue: string
+  sortValue: string
+  counts: { all: number; nofile: number }
   dyearValue: string
   dyearOptions: { value: string; label: string }[]
-   canEdit: boolean
+  canEdit: boolean
   canDelete: boolean
   currentUserId: string
   students: { id: string; first_name: string; last_name: string }[]
@@ -34,20 +33,31 @@ interface Props {
   nomenclature: NomenclatureItem[]
 }
 
+// № · Дата · Заглавие · Забележка · Индекс · Файл/действия
+const GRID = 'md:grid-cols-[minmax(130px,170px)_92px_minmax(0,1.6fr)_minmax(0,1fr)_76px_170px]'
+
 export default function OrdersClient({
   orders, totalCount, page, pageSize,
-  searchValue, filterIndex, dyearValue, dyearOptions, canEdit, canDelete, currentUserId, students, staff, nomenclature
+  searchValue, filterIndex, filterValue, sortValue, counts, dyearValue, dyearOptions,
+  canEdit, canDelete, currentUserId, students, staff, nomenclature
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
-    async function handleDelete(id: string, e: React.MouseEvent) {
+
+  async function handleDelete(id: string, e: React.MouseEvent) {
     e.stopPropagation()
     if (!confirm('Изтрий тази заповед? Действието е необратимо.')) return
     const { error } = await supabase.from('orders').delete().eq('id', id)
     if (error) { alert('Грешка при изтриване'); return }
     router.refresh()
   }
-  const schoolYear = getSchoolYear()
+
+  async function openFile(path: string) {
+    const win = window.open('', '_blank')
+    const { data } = await supabase.storage.from('documents').createSignedUrl(path, 120)
+    if (data?.signedUrl && win) win.location.href = data.signedUrl
+    else if (win) win.close()
+  }
 
   const [search, setSearch] = useState(searchValue)
   const [showForm, setShowForm] = useState(false)
@@ -56,171 +66,145 @@ export default function OrdersClient({
 
   const totalPages = Math.ceil(totalCount / pageSize)
 
-  function buildUrl(opts: { q?: string; idx?: string; page?: number; dyear?: string }) {
+  function buildUrl(opts: { q?: string; idx?: string; page?: number; dyear?: string; f?: string; sort?: string }) {
     const params = new URLSearchParams()
     const q = opts.q !== undefined ? opts.q : searchValue
     const idx = opts.idx !== undefined ? opts.idx : filterIndex
     const dy = opts.dyear !== undefined ? opts.dyear : dyearValue
+    const f = opts.f !== undefined ? opts.f : filterValue
+    const sort = opts.sort !== undefined ? opts.sort : sortValue
     if (q) params.set('q', q)
     if (idx) params.set('idx', idx)
     if (dy) params.set('dyear', dy)
+    if (f) params.set('f', f)
+    if (sort) params.set('sort', sort)
     params.set('page', String(opts.page || 1))
     return `/orders?${params.toString()}`
   }
-  function handleYearChange(y: string) { router.push(buildUrl({ dyear: y, page: 1 })) }
 
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault()
-    router.push(buildUrl({ q: search, page: 1 }))
-  }
   const firstSearch = useRef(true)
   useEffect(() => {
     if (firstSearch.current) { firstSearch.current = false; return }
-    const t = setTimeout(() => { router.push(buildUrl({ q: search, page: 1 })) }, 300)
+    const t = setTimeout(() => { router.push(buildUrl({ q: search.trim(), page: 1 })) }, 300)
     return () => clearTimeout(t)
   }, [search])
-
-  function handleIndexChange(idx: string) {
-    router.push(buildUrl({ idx, page: 1 }))
-  }
-
-  function handlePageChange(newPage: number) {
-    router.push(buildUrl({ page: newPage }))
-  }
 
   return (
     <div className="space-y-4">
 
-      {/* Лента с контроли */}
+      {/* Лента с контроли — всичко на едно място */}
       <div className="bg-white border border-slate-200 rounded-2xl p-2 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
         <div className="flex items-center gap-2 flex-wrap">
           {canEdit && (
-            <button onClick={() => setShowForm(v => !v)}
-              className={`flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl border-2 transition-all whitespace-nowrap flex-shrink-0 ${
-                showForm
-                  ? 'bg-slate-100 text-slate-600 border-slate-300'
-                  : 'border-[#0f2240] text-[#0f2240] bg-white animate-pulse hover:bg-[#0f2240] hover:text-white hover:[animation:none]'
-              }`}>
-              <Plus size={14} className={`transition-transform duration-200 ${showForm ? 'rotate-45' : ''}`} />
-              {showForm ? 'Затвори' : 'Нова заповед'}
+            <button onClick={() => setShowForm(true)}
+              className="flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl border-2 border-[#0f2240] text-[#0f2240] bg-white hover:bg-[#0f2240] hover:text-white transition-all whitespace-nowrap flex-shrink-0">
+              <Plus size={14} /> Нова заповед
             </button>
           )}
 
-          <select value={dyearValue} onChange={e => handleYearChange(e.target.value)}
-            className="text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-[#0f2240] focus:outline-none focus:border-slate-400 flex-shrink-0 cursor-pointer"
+          <select value={dyearValue} onChange={e => router.push(buildUrl({ dyear: e.target.value, page: 1 }))}
+            className="text-xs font-medium border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-[#0f2240] focus:outline-none focus:border-slate-400 flex-shrink-0 cursor-pointer"
             title="Деловодна година">
             {dyearOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
 
-          <div className="relative flex-1 min-w-[160px]">
+          <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <input type="text" placeholder="Търсене по №, заглавие..." value={search}
+            <input type="text" placeholder="Търсене по №, заглавие, забележка…" value={search}
               onChange={e => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-400 w-full bg-white" />
+              className="pl-8 pr-8 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-400 w-full bg-white" />
+            {search && (
+              <button type="button" onClick={() => setSearch('')} title="Изчисти"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-400 hover:text-slate-700">
+                <X size={13} />
+              </button>
+            )}
           </div>
 
-          <select value={filterIndex} onChange={e => handleIndexChange(e.target.value)}
-            className="text-xs border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-slate-400 max-w-[200px] flex-shrink-0"
-            style={{ color: filterIndex ? '#0f2240' : '#94a3b8' }}>
+          <select value={filterIndex} onChange={e => router.push(buildUrl({ idx: e.target.value, page: 1 }))}
+            className="text-xs border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-slate-400 max-w-[200px] flex-shrink-0 cursor-pointer"
+            style={{ color: filterIndex ? '#0f2240' : '#64748b' }}>
             <option value="">Всички индекси</option>
             {nomenclature.map(n => (
               <option key={n.id} value={n.item_code}>{n.item_code} — {n.name}</option>
             ))}
           </select>
 
-
+          <FilterChips value={filterValue} counts={counts} onChange={v => router.push(buildUrl({ f: v, page: 1 }))} />
         </div>
       </div>
 
-      {/* Заглавен ред */}
-           <div className="hidden md:grid grid-cols-[150px_85px_75px_1fr_1fr_150px] gap-3 px-4 py-2">
-        {['№', 'Дата', 'Арх. индекс', 'Заглавие', 'Забележка', 'Файл'].map(h => (
-          <span key={h} className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{h}</span>
-        ))}
-      </div>
+      {/* Таблица: замразен заглавен ред + скролващи редове */}
+      <div className="max-h-[calc(100vh-260px)] overflow-y-auto rounded-xl">
+        <div className={`hidden md:grid ${GRID} gap-4 px-4 py-2.5 sticky top-0 z-10 bg-slate-100/95 backdrop-blur border-b border-slate-200`}>
+          <SortHeader label="№" sortKey="num" sort={sortValue} onSort={s => router.push(buildUrl({ sort: s, page: 1 }))} />
+          <SortHeader label="Дата" sortKey="date" sort={sortValue} onSort={s => router.push(buildUrl({ sort: s, page: 1 }))} />
+          <SortHeader label="Заглавие" sort={sortValue} onSort={() => {}} />
+          <SortHeader label="Забележка" sort={sortValue} onSort={() => {}} />
+          <SortHeader label="Индекс" sort={sortValue} onSort={() => {}} />
+          <SortHeader label="Файл" sort={sortValue} onSort={() => {}} align="right" />
+        </div>
 
-      {/* Редове */}
-      <div className="space-y-2">
-        {orders.length === 0 ? (
-          <div className="bg-white border border-slate-200 rounded-2xl p-16 text-center shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
-            <ClipboardList size={28} className="mx-auto mb-2 text-slate-300" />
-            <p className="text-slate-400 text-sm italic">Няма регистрирани заповеди</p>
-          </div>
-        ) : orders.map((item) => (
-          <div key={item.id}
-            onClick={() => setViewItem(item)}
-            className={`border rounded-2xl px-4 py-3 cursor-pointer transition-all group grid grid-cols-[150px_85px_75px_1fr_1fr_150px] gap-3 items-center shadow-[0_1px_4px_rgba(15,34,64,0.06)] hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] ${item.is_reserved ? 'bg-amber-50 border-amber-200 hover:border-amber-300' : item.without_hours ? 'bg-violet-50 border-violet-200 hover:border-violet-300' : 'bg-white even:bg-slate-50/60 hover:bg-slate-100/50 border-slate-200 hover:border-slate-400'}`}>
-
-            <span className="font-medium text-slate-800 text-xs whitespace-nowrap truncate flex items-center gap-1">{item.number}{item.is_reserved && <span className="text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 shrink-0">резерв.</span>}{item.without_hours && <span title="Издадена без часове — генерирай я пак от Замествания, когато разписанието е пълно, и смени файла" className="text-[9px] px-1 py-0.5 rounded bg-violet-100 text-violet-700 shrink-0">без часове</span>}</span>
-
-            <span className="text-xs text-slate-800 whitespace-nowrap">
-              {item.date ? new Date(item.date).toLocaleDateString('bg-BG') : '—'}
-            </span>
-
-            <span className="text-xs text-slate-500 truncate">{item.nomenclature_item || '—'}</span>
-
-             <span className="text-xs text-slate-800 truncate">{item.title || '—'}</span>
-            <span className="text-xs text-slate-500 truncate" title={item.description || ''}>{item.description || '—'}</span>
-
-            <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-              {item.file_url ? (
-                <button type="button" title="Отвори файл"
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition-colors"
-                  onClick={async () => {
-                    const win = window.open('', '_blank')
-                    const { data } = await supabase.storage.from('documents').createSignedUrl(item.file_url, 120)
-                    if (data?.signedUrl && win) win.location.href = data.signedUrl
-                    else if (win) win.close()
-                  }}>
-                  <Paperclip size={14} />
-                </button>
-              ) : item.is_reserved ? (
-                <span className="text-slate-200 text-[10px]">—</span>
-              ) : canEdit ? (
-                <button type="button" onClick={() => setEditItem(item)} title="Няма прикачен файл — натисни, за да го качиш"
-                  className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 transition-colors whitespace-nowrap">
-                  <Paperclip size={11} /> няма файл
-                </button>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 whitespace-nowrap"><Paperclip size={11} /> няма файл</span>
-              )}
-                            {canEdit && (
-                <button type="button" onClick={() => setEditItem(item)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition-colors opacity-0 group-hover:opacity-100"
-                  title="Редакция">
-                  <Pencil size={13} />
-                </button>
-              )}
-              {canDelete && (
-                <button type="button" onClick={(e) => handleDelete(item.id, e)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors opacity-0 group-hover:opacity-100"
-                  title="Изтрий">
-                  <Trash2 size={13} />
-                </button>
-              )}
+        <div className="space-y-1.5 pt-2">
+          {orders.length === 0 ? (
+            <div className="bg-white border border-slate-200 rounded-2xl p-16 text-center shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
+              <ClipboardList size={28} className="mx-auto mb-2 text-slate-300" />
+              <p className="text-slate-400 text-sm italic">
+                {filterValue === 'nofile' ? 'Всички заповеди имат прикачен файл.' : 'Няма намерени заповеди.'}
+              </p>
             </div>
-          </div>
-        ))}
+          ) : orders.map((item) => (
+            <div key={item.id}
+              onClick={() => setViewItem(item)}
+              className={`border rounded-xl px-4 py-2.5 min-h-[46px] cursor-pointer transition-all group grid grid-cols-1 ${GRID} gap-x-4 gap-y-1 items-center hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] ${
+                item.is_reserved ? 'bg-amber-50 border-amber-200 hover:border-amber-300'
+                : item.without_hours ? 'bg-violet-50 border-violet-200 hover:border-violet-300'
+                : 'bg-white border-slate-200 hover:border-slate-400'}`}>
+
+              <span className="text-[13px] font-medium text-[#0f2240] tabular-nums whitespace-nowrap truncate flex items-center gap-1.5">
+                <Hl text={item.number} q={searchValue} />
+                {item.is_reserved && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0 font-normal">резерв.</span>}
+                {item.without_hours && <span title="Издадена без часове — генерирай я пак от Замествания, когато разписанието е пълно, и смени файла" className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 shrink-0 font-normal">без часове</span>}
+              </span>
+
+              <span className="text-[13px] text-slate-600 tabular-nums whitespace-nowrap">
+                {item.date ? new Date(item.date).toLocaleDateString('bg-BG') : '—'}
+              </span>
+
+              <span className="text-sm text-slate-900 truncate" title={item.title || ''}><Hl text={item.title} q={searchValue} /></span>
+
+              <span className="text-xs text-slate-500 truncate" title={item.description || ''}><Hl text={item.description} q={searchValue} /></span>
+
+              <span className="text-xs text-slate-500 truncate" title={item.nomenclature_item || ''}>{item.nomenclature_item || '—'}</span>
+
+              <FileAndActions item={item} canEdit={canEdit} canDelete={canDelete}
+                onOpenFile={() => openFile(item.file_url)}
+                onEdit={() => setEditItem(item)}
+                onDelete={(e) => handleDelete(item.id, e)} />
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Пагинация */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-2 py-2">
-          <span className="text-[11px] text-slate-400">
-            {((page-1)*pageSize)+1}–{Math.min(page*pageSize, totalCount)} от {totalCount} записа
-          </span>
-          <div className="flex gap-1.5">
-            <button disabled={page <= 1} onClick={() => handlePageChange(page-1)}
+      <div className="flex items-center justify-between px-2">
+        <span className="text-[11px] text-slate-500 tabular-nums">
+          {totalCount === 0 ? '0 записа' : `${((page-1)*pageSize)+1}–${Math.min(page*pageSize, totalCount)} от ${totalCount} записа`}
+        </span>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-slate-500 mr-1 tabular-nums">стр. {page} / {totalPages}</span>
+            <button disabled={page <= 1} onClick={() => router.push(buildUrl({ page: page - 1 }))}
               className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition-colors">
               <ChevronLeft size={14} />
             </button>
-            <button disabled={page >= totalPages} onClick={() => handlePageChange(page+1)}
+            <button disabled={page >= totalPages} onClick={() => router.push(buildUrl({ page: page + 1 }))}
               className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition-colors">
               <ChevronRight size={14} />
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {viewItem && <ViewOrderModal item={viewItem} onClose={() => setViewItem(null)} />}
       {editItem && <EditOrderModal item={editItem} nomenclature={nomenclature} onClose={() => setEditItem(null)} />}
