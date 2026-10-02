@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { X, Loader2, Save, ChevronDown } from 'lucide-react'
-import { FormSection, FileDrop } from '@/components/registry/FormParts'
+import { FormSection, FileDrop, useFormKeys, KeysHint } from '@/components/registry/FormParts'
 
 const TITLE_SUGGESTIONS = [
   'Заповед за назначаване', 'Заповед за освобождаване',
@@ -24,6 +24,8 @@ export default function EditOrderModal({ item, nomenclature = [], onClose }: Pro
   const supabase = createClient()
 
   const [saving, setSaving] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  useFormKeys(rootRef, onClose)
   const [date, setDate] = useState(item.date || '')
   const [title, setTitle] = useState(item.title || '')
   const [description, setDescription] = useState(item.description || '')
@@ -78,7 +80,7 @@ export default function EditOrderModal({ item, nomenclature = [], onClose }: Pro
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl border border-slate-200/80 max-w-3xl w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200 flex flex-col" style={{ maxHeight: '92vh' }}>
+      <div ref={rootRef} className="bg-white rounded-3xl border border-slate-200/80 max-w-3xl w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200 flex flex-col" style={{ maxHeight: '92vh' }}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
           <div>
             <div className="text-[11px] text-slate-500 uppercase tracking-widest">Редакция на заповед</div>
@@ -168,12 +170,13 @@ export default function EditOrderModal({ item, nomenclature = [], onClose }: Pro
           </div>
         </div>
 
-        <div className="flex gap-2 justify-end px-6 py-4 border-t border-slate-100 flex-shrink-0">
+        <div className="flex gap-2 justify-end items-center px-6 py-4 border-t border-slate-100 flex-shrink-0">
+          <KeysHint submitLabel="записва" />
           <button type="button" onClick={onClose}
             className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium">
             Отказ
           </button>
-          <button type="button" onClick={handleSave} disabled={saving || !title}
+          <button type="button" data-primary onClick={handleSave} disabled={saving || !title}
             className="px-5 py-2 text-white rounded-xl text-xs font-medium flex items-center gap-2 disabled:opacity-60 shadow-sm hover:opacity-90"
             style={{ backgroundColor: '#0f2240' }}>
             {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { FileDrop } from '@/components/registry/FormParts'
+import { FileDrop, useFormKeys, KeysHint } from '@/components/registry/FormParts'
 import { X, Loader2, ChevronDown, Zap, User } from 'lucide-react'
 
 const TITLE_SUGGESTIONS = [
@@ -74,6 +74,8 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
 
   const [saving, setSaving] = useState(false)
   const [saveAction, setSaveAction] = useState<'save_close' | 'save_new'>('save_close')
+  const rootRef = useRef<HTMLDivElement>(null)
+  useFormKeys(rootRef, onClose)
   const [scenario, setScenario] = useState<string | null>(null)
   const [orderTypeCode, setOrderTypeCode] = useState('')
   const [showAllItems, setShowAllItems] = useState(false)
@@ -192,7 +194,7 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl border border-slate-200/80 max-w-4xl w-full shadow-2xl flex flex-col" style={{ maxHeight: '92vh' }}>
+      <div ref={rootRef} className="bg-white rounded-3xl border border-slate-200/80 max-w-4xl w-full shadow-2xl flex flex-col" style={{ maxHeight: '92vh' }}>
 
         {/* Хедър */}
         <div className="flex items-start justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
@@ -255,7 +257,7 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
             {/* Относно */}
             <div>
               <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">Относно / Заглавие *</label>
-              <input type="text" list="title-list" required value={title}
+              <input autoFocus type="text" list="title-list" required value={title}
                 onChange={e => setTitle(e.target.value)}
                 placeholder="напр. Заповед за отпуск на Мария Иванова"
                 className="input w-full" />
@@ -353,7 +355,8 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
           </div>
 
           {/* Бутони */}
-          <div className="flex gap-2 justify-end px-5 py-4 border-t border-slate-100 flex-shrink-0 bg-white rounded-b-3xl">
+          <div className="flex gap-2 justify-end items-center px-6 py-4 border-t border-slate-100 flex-shrink-0 bg-white rounded-b-3xl">
+            <KeysHint submitLabel="регистрира" />
             <button type="button" onClick={onClose}
               className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium transition-colors">
               Отказ
@@ -365,7 +368,7 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
               Регистрирай и нов
             </button>
             <button type="submit" disabled={saving}
-              onClick={() => setSaveAction('save_close')}
+              data-primary onClick={() => setSaveAction('save_close')}
               className="px-5 py-2 text-white rounded-xl text-xs font-medium flex items-center gap-1.5 disabled:opacity-60 shadow-sm hover:opacity-90 transition-opacity"
               style={{ backgroundColor: '#0f2240' }}>
               {saving && saveAction === 'save_close' && <Loader2 size={12} className="animate-spin" />}

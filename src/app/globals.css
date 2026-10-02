@@ -135,3 +135,7 @@
   animation: reveal-pulse 1.3s ease-out 2;
 }
 .reveal-panel input, .reveal-panel select, .reveal-panel textarea { border-color: #94a3b8 !important; }
+
+/* Страничен панел за преглед на запис (деловодство) */
+@keyframes panelIn { from { transform: translateX(24px); opacity: 0 } to { transform: none; opacity: 1 } }
+.panel-in { animation: panelIn .18s ease-out }
