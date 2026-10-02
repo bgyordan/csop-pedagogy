@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, ChevronLeft, ChevronRight, Paperclip, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
+import { Plus, Search, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight, Inbox, X } from 'lucide-react'
 import NewCorrespondenceForm from './NewCorrespondenceForm'
 import ViewCorrespondenceModal from './ViewCorrespondenceModal'
 import EditCorrespondenceModal from './EditCorrespondenceModal'
+import { Hl, SortHeader, FileAndActions, FilterChips } from '@/components/registry/RegistryParts'
 
 interface NomenclatureItem {
   id: string; section_code: string; item_code: string; name: string; retention_years: string
@@ -19,6 +20,9 @@ interface Props {
   pageSize: number
   searchValue: string
   directionValue: string
+  filterValue: string
+  sortValue: string
+  counts: { all: number; nofile: number }
   dyearValue: string
   dyearOptions: { value: string; label: string }[]
   canEdit: boolean
@@ -29,18 +33,30 @@ interface Props {
   nomenclature: NomenclatureItem[]
 }
 
+// № · Дата · От/До кого · Относно · Забележка · Индекс · Файл/действия
+const GRID = 'md:grid-cols-[minmax(130px,175px)_92px_minmax(0,1fr)_minmax(0,1.6fr)_minmax(0,1fr)_76px_170px]'
+
 export default function CorrespondenceClient({
   correspondence, totalCount, page, pageSize,
-  searchValue, directionValue, dyearValue, dyearOptions, canEdit, canDelete, currentUserId, students, staff, nomenclature
+  searchValue, directionValue, filterValue, sortValue, counts, dyearValue, dyearOptions,
+  canEdit, canDelete, currentUserId, students, staff, nomenclature
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
+
   async function handleDelete(id: string, e: React.MouseEvent) {
     e.stopPropagation()
     if (!confirm('Изтрий този запис? Действието е необратимо.')) return
     const { error } = await supabase.from('correspondence').delete().eq('id', id)
     if (error) { alert('Грешка при изтриване'); return }
     router.refresh()
+  }
+
+  async function openFile(path: string) {
+    const win = window.open('', '_blank')
+    const { data } = await supabase.storage.from('documents').createSignedUrl(path, 120)
+    if (data?.signedUrl && win) win.location.href = data.signedUrl
+    else if (win) win.close()
   }
 
   const [search, setSearch] = useState(searchValue || '')
@@ -51,96 +67,75 @@ export default function CorrespondenceClient({
   const totalPages = Math.ceil(totalCount / pageSize)
   const activeDir = directionValue || 'incoming'
 
+  function buildUrl(opts: { q?: string; direction?: string; dyear?: string; f?: string; sort?: string; page?: number }) {
+    const params = new URLSearchParams()
+    const q = opts.q !== undefined ? opts.q : searchValue
+    const f = opts.f !== undefined ? opts.f : filterValue
+    const sort = opts.sort !== undefined ? opts.sort : sortValue
+    if (q) params.set('q', q)
+    params.set('direction', opts.direction || activeDir)
+    params.set('dyear', opts.dyear || dyearValue)
+    if (f) params.set('f', f)
+    if (sort) params.set('sort', sort)
+    params.set('page', String(opts.page || 1))
+    return `/correspondence?${params.toString()}`
+  }
+
   const firstSearch = useRef(true)
   useEffect(() => {
     if (firstSearch.current) { firstSearch.current = false; return }
-    const t = setTimeout(() => {
-      const params = new URLSearchParams()
-      if (search.trim()) params.set('q', search.trim())
-      params.set('direction', activeDir)
-      params.set('dyear', dyearValue)
-      params.set('page', '1')
-      router.push(`/correspondence?${params.toString()}`)
-    }, 300)
+    const t = setTimeout(() => { router.push(buildUrl({ q: search.trim(), page: 1 })) }, 300)
     return () => clearTimeout(t)
   }, [search])
 
-  function handleTabChange(d: string) {
-    const params = new URLSearchParams()
-    params.set('direction', d)
-    params.set('dyear', dyearValue)
-    params.set('page', '1')
-    router.push(`/correspondence?${params.toString()}`)
-  }
-
-  function handlePageChange(newPage: number) {
-    const params = new URLSearchParams()
-    if (search) params.set('q', search)
-    params.set('direction', activeDir)
-    params.set('dyear', dyearValue)
-    params.set('page', String(newPage))
-    router.push(`/correspondence?${params.toString()}`)
-  }
-
-  function handleYearChange(y: string) {
-    const params = new URLSearchParams()
-    if (search.trim()) params.set('q', search.trim())
-    params.set('direction', activeDir)
-    params.set('dyear', y)
-    params.set('page', '1')
-    router.push(`/correspondence?${params.toString()}`)
-  }
+  const dirBtn = (d: 'incoming' | 'outgoing', label: string, Icon: typeof ArrowDownLeft) => (
+    <button type="button" onClick={() => { setSearch(''); router.push(buildUrl({ direction: d, q: '', f: '', page: 1 })) }}
+      className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
+        activeDir === d ? 'bg-white text-[#0f2240] shadow-sm' : 'text-slate-500 hover:text-slate-800'
+      }`}>
+      <Icon size={13} /> {label}
+    </button>
+  )
 
   return (
     <div className="space-y-4">
 
-      {/* Табове */}
-      <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-2xl shadow-[0_1px_6px_rgba(15,34,64,0.08)] w-fit">
-        <button onClick={() => handleTabChange('incoming')}
-          className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-medium transition-all ${
-            activeDir === 'incoming' ? 'bg-[#0f2240] text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
-          }`}>
-          <ArrowDownLeft size={14} /> Входящи
-        </button>
-        <button onClick={() => handleTabChange('outgoing')}
-          className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-medium transition-all ${
-            activeDir === 'outgoing' ? 'bg-[#0f2240] text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
-          }`}>
-          <ArrowUpRight size={14} /> Изходящи
-        </button>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-slate-400">Деловодна година:</span>
-        <select value={dyearValue} onChange={e => handleYearChange(e.target.value)}
-          className="text-sm rounded-lg border border-slate-200 px-2.5 py-1.5 bg-white cursor-pointer">
-          {dyearOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-      </div>
-
-      {/* Лента с контроли */}
+      {/* Лента с контроли — всичко на едно място */}
       <div className="bg-white border border-slate-200 rounded-2xl p-2 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {canEdit && (
-            <button onClick={() => setShowForm(v => !v)}
-              className={`flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl border-2 transition-all whitespace-nowrap flex-shrink-0 ${
-                showForm
-                  ? 'bg-slate-100 text-slate-600 border-slate-300'
-                  : 'border-[#0f2240] text-[#0f2240] bg-white animate-pulse hover:bg-[#0f2240] hover:text-white hover:[animation:none]'
-              }`}>
-              <Plus size={14} className={`transition-transform duration-200 ${showForm ? 'rotate-45' : ''}`} />
-              {showForm ? 'Затвори' : activeDir === 'incoming' ? 'Нов входящ' : 'Нов изходящ'}
+            <button onClick={() => setShowForm(true)}
+              className="flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl border-2 border-[#0f2240] text-[#0f2240] bg-white hover:bg-[#0f2240] hover:text-white transition-all whitespace-nowrap flex-shrink-0">
+              <Plus size={14} /> {activeDir === 'incoming' ? 'Нов входящ' : 'Нов изходящ'}
             </button>
           )}
 
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <input type="text" placeholder="Търсене..." value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-400 w-full bg-white" />
+          {/* Входящи / Изходящи */}
+          <div className="flex gap-0.5 p-0.5 bg-slate-100 rounded-xl flex-shrink-0">
+            {dirBtn('incoming', 'Входящи', ArrowDownLeft)}
+            {dirBtn('outgoing', 'Изходящи', ArrowUpRight)}
           </div>
 
-          <span className="text-xs text-slate-400 px-3 py-2 whitespace-nowrap">{totalCount} записа</span>
+          <select value={dyearValue} onChange={e => router.push(buildUrl({ dyear: e.target.value, page: 1 }))}
+            className="text-xs font-medium border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-[#0f2240] focus:outline-none focus:border-slate-400 flex-shrink-0 cursor-pointer"
+            title="Деловодна година">
+            {dyearOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <input type="text" placeholder="Търсене по №, лице, относно, забележка…" value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-8 pr-8 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-400 w-full bg-white" />
+            {search && (
+              <button type="button" onClick={() => setSearch('')} title="Изчисти"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-400 hover:text-slate-700">
+                <X size={13} />
+              </button>
+            )}
+          </div>
+
+          <FilterChips value={filterValue} counts={counts} onChange={v => router.push(buildUrl({ f: v, page: 1 }))} />
         </div>
       </div>
 
@@ -157,99 +152,77 @@ export default function CorrespondenceClient({
         />
       )}
 
-      {/* Скролваема таблица: замразен заглавен ред + скролващи редове */}
-      <div className="max-h-[calc(100vh-320px)] overflow-y-auto rounded-lg">
-      {/* Заглавен ред */}
-      <div className="hidden md:grid grid-cols-[130px_80px_70px_1fr_1.5fr_1.5fr_150px] gap-3 px-4 py-2 sticky top-0 z-10 bg-slate-100">
-        {['№', 'Дата', 'Арх. индекс', activeDir === 'incoming' ? 'От кого' : 'До кого', 'Относно', 'Забележка', 'Файл'].map(h => (
-          <span key={h} className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{h}</span>
-        ))}
-      </div>
-      {/* Редове */}
-      <div className="space-y-2 pt-2">
-        {correspondence.length === 0 ? (
-          <div className="bg-white border border-slate-200 rounded-2xl p-16 text-center text-slate-400 italic text-sm shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
-            Няма намерени документи.
-          </div>
-        ) : correspondence.map((item) => {
-          const personLabel = activeDir === 'incoming' ? item.from_whom : item.to_whom
+      {/* Таблица: замразен заглавен ред + скролващи редове */}
+      <div className="max-h-[calc(100vh-260px)] overflow-y-auto rounded-xl">
+        <div className={`hidden md:grid ${GRID} gap-4 px-4 py-2.5 sticky top-0 z-10 bg-slate-100/95 backdrop-blur border-b border-slate-200`}>
+          <SortHeader label="№" sortKey="num" sort={sortValue} onSort={s => router.push(buildUrl({ sort: s, page: 1 }))} />
+          <SortHeader label="Дата" sortKey="date" sort={sortValue} onSort={s => router.push(buildUrl({ sort: s, page: 1 }))} />
+          <SortHeader label={activeDir === 'incoming' ? 'От кого' : 'До кого'} sort={sortValue} onSort={() => {}} />
+          <SortHeader label="Относно" sort={sortValue} onSort={() => {}} />
+          <SortHeader label="Забележка" sort={sortValue} onSort={() => {}} />
+          <SortHeader label="Индекс" sort={sortValue} onSort={() => {}} />
+          <SortHeader label="Файл" sort={sortValue} onSort={() => {}} align="right" />
+        </div>
 
-          return (
-            <div key={item.id}
-              onClick={() => setViewItem(item)}
-              className={`border rounded-2xl px-3 py-1.5 cursor-pointer transition-all group grid grid-cols-[130px_80px_70px_1fr_1.5fr_1.5fr_150px] gap-3 items-center shadow-[0_1px_4px_rgba(15,34,64,0.06)] hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] ${item.is_reserved ? 'bg-amber-50 border-amber-200 hover:border-amber-300' : 'bg-white even:bg-slate-50/60 hover:bg-slate-100/50 border-slate-200 hover:border-slate-400'}`}>
-
-              <span className="font-medium text-slate-800 text-xs whitespace-nowrap truncate flex items-center gap-1">{item.number}{item.is_reserved && <span className="text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 shrink-0">резерв.</span>}</span>
-
-              <span className="text-xs text-slate-800 whitespace-nowrap">
-                {item.date ? new Date(item.date).toLocaleDateString('bg-BG') : '—'}
-              </span>
-
-              <span className="text-xs text-slate-500 truncate" title={item.nomenclature_item || ''}>{item.nomenclature_item || '—'}</span>
-              <span className="text-xs text-slate-800 truncate" title={personLabel || ''}>{personLabel || '—'}</span>
-              <span className="text-xs text-slate-800 truncate" title={item.subject || ''}>{item.subject || '—'}</span>
-              <span className="text-xs text-slate-800 truncate" title={item.description || ''}>{item.description || '—'}</span>
-
-              <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-                {item.file_url ? (
-                  <button type="button" title="Отвори файл"
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-200 transition-colors"
-                    onClick={async () => {
-                      const win = window.open('', '_blank')
-                      const { data } = await supabase.storage.from('documents').createSignedUrl(item.file_url, 120)
-                      if (data?.signedUrl && win) win.location.href = data.signedUrl
-                      else if (win) win.close()
-                    }}>
-                    <Paperclip size={14} />
-                  </button>
-                ) : item.is_reserved ? (
-                  <span className="text-slate-200 text-[10px]">—</span>
-                ) : canEdit ? (
-                  <button type="button" onClick={() => setEditItem(item)} title="Няма прикачен файл — натисни, за да го качиш"
-                  className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 transition-colors whitespace-nowrap">
-                  <Paperclip size={11} /> няма файл
-                </button>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 whitespace-nowrap"><Paperclip size={11} /> няма файл</span>
-                )}
-                {canEdit && (
-                  <button type="button" onClick={() => setEditItem(item)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-200 transition-colors opacity-0 group-hover:opacity-100"
-                    title="Редакция">
-                    ✏️
-                  </button>
-                )}
-                {canDelete && (
-                  <button type="button" onClick={(e) => handleDelete(item.id, e)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-100 transition-colors opacity-0 group-hover:opacity-100"
-                    title="Изтрий">
-                    🗑️
-                  </button>
-                )}
-              </div>
+        <div className="space-y-1.5 pt-2">
+          {correspondence.length === 0 ? (
+            <div className="bg-white border border-slate-200 rounded-2xl p-16 text-center shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
+              <Inbox size={28} className="mx-auto mb-2 text-slate-300" />
+              <p className="text-slate-400 text-sm italic">
+                {filterValue === 'nofile' ? 'Всички записи имат прикачен файл.' : 'Няма намерени документи.'}
+              </p>
             </div>
-          )
-        })}
+          ) : correspondence.map((item) => {
+            const personLabel = activeDir === 'incoming' ? item.from_whom : item.to_whom
+            return (
+              <div key={item.id}
+                onClick={() => setViewItem(item)}
+                className={`border rounded-xl px-4 py-2.5 min-h-[46px] cursor-pointer transition-all group grid grid-cols-1 ${GRID} gap-x-4 gap-y-1 items-center hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] ${
+                  item.is_reserved ? 'bg-amber-50 border-amber-200 hover:border-amber-300' : 'bg-white border-slate-200 hover:border-slate-400'}`}>
+
+                <span className="text-[13px] font-medium text-[#0f2240] tabular-nums whitespace-nowrap truncate flex items-center gap-1.5">
+                  <Hl text={item.number} q={searchValue} />
+                  {item.is_reserved && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0 font-normal">резерв.</span>}
+                </span>
+
+                <span className="text-[13px] text-slate-600 tabular-nums whitespace-nowrap">
+                  {item.date ? new Date(item.date).toLocaleDateString('bg-BG') : '—'}
+                </span>
+
+                <span className="text-sm text-slate-800 truncate" title={personLabel || ''}><Hl text={personLabel} q={searchValue} /></span>
+                <span className="text-sm text-slate-900 truncate" title={item.subject || ''}><Hl text={item.subject} q={searchValue} /></span>
+                <span className="text-xs text-slate-500 truncate" title={item.description || ''}><Hl text={item.description} q={searchValue} /></span>
+                <span className="text-xs text-slate-500 truncate" title={item.nomenclature_item || ''}>{item.nomenclature_item || '—'}</span>
+
+                <FileAndActions item={item} canEdit={canEdit} canDelete={canDelete}
+                  onOpenFile={() => openFile(item.file_url)}
+                  onEdit={() => setEditItem(item)}
+                  onDelete={(e) => handleDelete(item.id, e)} />
+              </div>
+            )
+          })}
+        </div>
       </div>
-      </div>
+
       {/* Пагинация */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-2 py-2">
-          <span className="text-[11px] text-slate-400">
-            {((page-1)*pageSize)+1}–{Math.min(page*pageSize, totalCount)} от {totalCount} записа
-          </span>
-          <div className="flex gap-1.5">
-            <button disabled={page <= 1} onClick={() => handlePageChange(page-1)}
+      <div className="flex items-center justify-between px-2">
+        <span className="text-[11px] text-slate-500 tabular-nums">
+          {totalCount === 0 ? '0 записа' : `${((page-1)*pageSize)+1}–${Math.min(page*pageSize, totalCount)} от ${totalCount} записа`}
+        </span>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-slate-500 mr-1 tabular-nums">стр. {page} / {totalPages}</span>
+            <button disabled={page <= 1} onClick={() => router.push(buildUrl({ page: page - 1 }))}
               className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition-colors">
               <ChevronLeft size={14} />
             </button>
-            <button disabled={page >= totalPages} onClick={() => handlePageChange(page+1)}
+            <button disabled={page >= totalPages} onClick={() => router.push(buildUrl({ page: page + 1 }))}
               className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition-colors">
               <ChevronRight size={14} />
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {editItem && <EditCorrespondenceModal item={editItem} onClose={() => setEditItem(null)} />}
       {viewItem && <ViewCorrespondenceModal item={viewItem} students={students} staff={staff} onClose={() => setViewItem(null)} />}

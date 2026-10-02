@@ -2,12 +2,13 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
 import OrdersClient from './OrdersClient'
+import { applyRegistrySort } from '@/lib/registry'
 export const dynamic = 'force-dynamic'
 const PAGE_SIZE = 20
 export default async function OrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string; idx?: string; dyear?: string }>
+  searchParams: Promise<{ q?: string; page?: string; idx?: string; dyear?: string; f?: string; sort?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
@@ -22,6 +23,8 @@ export default async function OrdersPage({
   const page = Math.max(1, parseInt(params.page || '1'))
   const q = params.q || ''
   const idx = params.idx || ''
+  const f = params.f === 'nofile' ? 'nofile' : ''
+  const sort = params.sort || ''
   const curDelo = (() => { const d = new Date(); const y = d.getFullYear(), m = d.getMonth() + 1, day = d.getDate(); return (m > 9 || (m === 9 && day >= 15)) ? y : y - 1 })()
   const dyear = params.dyear ? parseInt(params.dyear) : curDelo
   const dyStart = `${dyear}-09-15`, dyEnd = `${dyear + 1}-09-14`
@@ -29,15 +32,22 @@ export default async function OrdersPage({
   for (let y = curDelo; y >= 2025; y--) dyearOptions.push({ value: String(y), label: `${y}/${y + 1}` })
   const from = (page - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
-  let query = supabase
-    .from('orders')
-    .select('*, student:students(first_name, last_name)', { count: 'exact' })
-    .order('created_at', { ascending: false })
-    .range(from, to)
-  if (q) query = query.or(`number.ilike.%${q}%,title.ilike.%${q}%`)
-  if (idx) query = query.eq('nomenclature_item', idx)
-  query = query.gte('date', dyStart).lte('date', dyEnd)
-  const { data: orders, count } = await query
+  // Общите филтри (година, търсене, индекс) — еднакви за списъка и за броячите на бутоните
+  const base = (qb: any) => {
+    let r = qb.gte('date', dyStart).lte('date', dyEnd)
+    if (q) r = r.or(`number.ilike.%${q}%,title.ilike.%${q}%,description.ilike.%${q}%`)
+    if (idx) r = r.eq('nomenclature_item', idx)
+    return r
+  }
+  const noFile = (qb: any) => qb.is('file_url', null).not('is_reserved', 'is', true)
+  let query = base(supabase.from('orders').select('*, student:students(first_name, last_name)', { count: 'exact' }))
+  if (f === 'nofile') query = noFile(query)
+  query = applyRegistrySort(query, sort).range(from, to)
+  const [{ data: orders, count }, { count: allCount }, { count: noFileCount }] = await Promise.all([
+    query,
+    base(supabase.from('orders').select('id', { count: 'exact', head: true })),
+    noFile(base(supabase.from('orders').select('id', { count: 'exact', head: true }))),
+  ])
   const [{ data: students }, { data: staff }, { data: nomenclature }] = await Promise.all([
     supabase.from('students').select('id, first_name, last_name').eq('status', 'active').order('last_name'),
     supabase.from('staff_profiles').select('id, first_name, last_name').eq('is_active', true).order('last_name'),
@@ -58,6 +68,9 @@ export default async function OrdersPage({
         pageSize={PAGE_SIZE}
         searchValue={q}
         filterIndex={idx}
+        filterValue={f}
+        sortValue={sort}
+        counts={{ all: allCount || 0, nofile: noFileCount || 0 }}
         dyearValue={String(dyear)}
         dyearOptions={dyearOptions}
              canEdit={canEdit}
