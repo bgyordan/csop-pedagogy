@@ -8,7 +8,10 @@ import Overview, { type Go } from './Overview'
 import NewsManager from './NewsManager'
 import DocumentsManager from './DocumentsManager'
 import TeamManager, { type StaffRow, type TeamSetting } from './TeamManager'
-import { EventsManager, GalleryManager, JobsManager, HeroManager, SiteImagesManager } from './legacy'
+import { EventsManager, JobsManager } from './legacy'
+import GalleryManager from './GalleryManager'
+import HomeManager from './HomeManager'
+import PagePhotosManager from './PagePhotosManager'
 
 const TABS = [
   { id: 'overview', label: 'Табло', icon: LayoutDashboard },
@@ -16,8 +19,8 @@ const TABS = [
   { id: 'docs', label: 'Документи', icon: FileText },
   { id: 'events', label: 'Събития', icon: CalendarDays },
   { id: 'gallery', label: 'Галерия', icon: Images },
-  { id: 'hero', label: 'Начална страница', icon: LayoutTemplate },
-  { id: 'site-images', label: 'Снимки за сайта', icon: ImagePlus },
+  { id: 'hero', label: 'Начална', icon: LayoutTemplate },
+  { id: 'site-images', label: 'Снимки по страници', icon: ImagePlus },
   { id: 'team', label: 'Екип', icon: Users },
   { id: 'jobs', label: 'Кариери', icon: Briefcase },
 ] as const
@@ -33,7 +36,7 @@ export default function SiteDocsClient({
 }) {
   const [tab, setTab] = useState<TabId>('overview')
   // „скок“ от таблото: коя новина да се отвори / нова новина / кой раздел документи
-  const [jump, setJump] = useState<{ newsId?: string; newNews?: number; section?: string; n: number }>({ n: 0 })
+  const [jump, setJump] = useState<{ newsId?: string; newNews?: number; section?: string; page?: string; n: number }>({ n: 0 })
 
   // разделът се помни в адреса (#news), за да оцелее при презареждане
   useEffect(() => {
@@ -52,6 +55,7 @@ export default function SiteDocsClient({
       newsId: g.tab === 'news' ? g.openId : undefined,
       newNews: g.tab === 'news' && g.createNew ? Date.now() : undefined,
       section: g.tab === 'docs' ? g.section : undefined,
+      page: g.tab === 'site-images' ? g.page : undefined,
     }))
     show(g.tab)
   }, [show])
@@ -95,8 +99,8 @@ export default function SiteDocsClient({
       {tab === 'docs' && <DocumentsManager key={jump.n} initial={docs} defaultYear={defaultYear} startSection={jump.section} />}
       {tab === 'events' && <EventsManager initial={events} />}
       {tab === 'gallery' && <GalleryManager initialAlbums={albums} initialPhotos={photos} />}
-      {tab === 'hero' && <HeroManager photos={photos} albums={albums} initialSelected={heroPhotos} />}
-      {tab === 'site-images' && <SiteImagesManager />}
+      {tab === 'hero' && <HomeManager photos={photos} albums={albums} initialSelected={heroPhotos} />}
+      {tab === 'site-images' && <PagePhotosManager key={jump.n} albums={albums} photos={photos} initialPages={pagePhotos} startPage={jump.page} />}
       {tab === 'team' && <TeamManager staff={staff} initial={team} ready={teamReady} />}
       {tab === 'jobs' && <JobsManager initial={jobs} authorId={authorId} subscribers={subscribers} />}
     </div>

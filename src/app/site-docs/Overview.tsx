@@ -5,13 +5,14 @@ import {
   Newspaper, FileText, CalendarDays, Images, Briefcase, Plus, Upload, ExternalLink, AlertCircle, CheckCircle2,
   ImagePlus, LayoutTemplate, EyeOff, PenLine, CalendarClock, ChevronRight, Clock,
 } from 'lucide-react'
-import { ACCENT, SITE_URL, SECTIONS, SITE_PAGES, MONTHS_SHORT, fmtDate } from './shared'
+import { ACCENT, SITE_URL, SECTIONS, SITE_PAGES, MONTHS_SHORT, fmtDate, pageLabel } from './shared'
 import type { Doc, News, Ev, Album, Photo, Job } from './shared'
 
 export type Go =
   | { tab: 'news'; openId?: string; createNew?: boolean }
   | { tab: 'docs'; section?: string }
-  | { tab: 'events' | 'gallery' | 'hero' | 'jobs' | 'site-images' | 'team' }
+  | { tab: 'site-images'; page?: string }
+  | { tab: 'events' | 'gallery' | 'hero' | 'jobs' | 'team' }
 
 const isScheduled = (n: News) => n.status === 'published' && !!n.published_at && new Date(n.published_at) > new Date()
 const isLive = (n: News) => n.status === 'published' && !isScheduled(n)
@@ -54,8 +55,9 @@ export default function Overview({
   s.drafts.slice(0, 4).forEach((n) => todo.push({ key: 'd' + n.id, icon: PenLine, tone: 'amber', text: `Чернова: „${n.title || 'без заглавие'}“`, hint: 'Не се вижда на сайта', action: () => go({ tab: 'news', openId: n.id }) }))
   if (s.drafts.length > 4) todo.push({ key: 'dmore', icon: PenLine, tone: 'amber', text: `Още ${s.drafts.length - 4} чернови`, action: () => go({ tab: 'news' }) })
   s.noCover.slice(0, 3).forEach((n) => todo.push({ key: 'c' + n.id, icon: ImagePlus, tone: 'sky', text: `Новина без снимка: „${n.title}“`, hint: 'На сайта ще излезе само с текст', action: () => go({ tab: 'news', openId: n.id }) }))
-  if (heroPhotos.length < 3) todo.push({ key: 'hero', icon: LayoutTemplate, tone: 'sky', text: heroPhotos.length ? `Началната страница има ${heroPhotos.length} от 3 снимки` : 'Началната страница няма избрани снимки', action: () => go({ tab: 'hero' }) })
-  if (s.emptyPages.length) todo.push({ key: 'pages', icon: Images, tone: 'slate', text: s.emptyPages.length === 1 ? '1 страница е без снимки' : `${s.emptyPages.length} страници са без снимки`, hint: s.emptyPages.slice(0, 4).map((p) => p.label.replace(/^Материална база: /, '')).join(', ') + (s.emptyPages.length > 4 ? '…' : ''), action: () => go({ tab: 'site-images' }) })
+  const heroN = heroPhotos.slice(0, 3).filter(Boolean).length
+  if (heroN < 3) todo.push({ key: 'hero', icon: LayoutTemplate, tone: 'sky', text: heroN ? `Началната страница има ${heroN} от 3 снимки` : 'Началната страница няма избрани снимки', action: () => go({ tab: 'hero' }) })
+  if (s.emptyPages.length) todo.push({ key: 'pages', icon: Images, tone: 'slate', text: s.emptyPages.length === 1 ? '1 страница е без снимки' : `${s.emptyPages.length} страници са без снимки`, hint: s.emptyPages.slice(0, 4).map((p) => pageLabel(p.key)).join(', ') + (s.emptyPages.length > 4 ? '…' : ''), action: () => go({ tab: 'site-images', page: s.emptyPages[0]?.key }) })
   const hiddenBySection = SECTIONS.filter((x) => !x.internalOnly).map((x) => ({ x, n: s.docsOff.filter((d) => d.section === x.id).length })).filter((r) => r.n)
   hiddenBySection.forEach(({ x, n }) => todo.push({ key: 'h' + x.id, icon: EyeOff, tone: 'slate', text: `${n} ${n === 1 ? 'скрит документ' : 'скрити документа'} в „${x.label}“`, hint: 'Качени са, но не се показват', action: () => go({ tab: 'docs', section: x.id }) }))
   if (!s.upcoming.length) todo.push({ key: 'ev', icon: CalendarDays, tone: 'slate', text: 'Няма предстоящи събития в календара', action: () => go({ tab: 'events' }) })
