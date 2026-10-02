@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { GraduationCap, User, ClipboardList, Loader2, Paperclip, ExternalLink, Pencil } from 'lucide-react'
-import { SidePanel, PanelField } from '@/components/registry/SidePanel'
+import { SidePanel, PanelField, FilePreview } from '@/components/registry/SidePanel'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -157,14 +157,15 @@ const orderNumber = `${nextNum}/${formattedDate}г.`
 
       <div>
         <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">Файл</div>
-        {item.file_url ? (
+        {item.file_url ? (<>
           <button type="button" onClick={handleDownload}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-300 hover:border-[#0f2240] hover:bg-slate-50 transition-colors text-left">
             <Paperclip size={16} className="text-[#0f2240] flex-shrink-0" />
             <span className="text-sm text-slate-800 truncate flex-1">{item.file_name || 'Прикачен файл'}</span>
             <ExternalLink size={14} className="text-slate-400 flex-shrink-0" />
           </button>
-        ) : item.is_reserved ? (
+          <div className="mt-2"><FilePreview path={item.file_url} name={item.file_name} /></div>
+        </>) : item.is_reserved ? (
           <div className="text-sm text-slate-400">—</div>
         ) : (
           <button type="button" onClick={canEdit && onEdit ? onEdit : undefined} disabled={!canEdit || !onEdit}

@@ -152,8 +152,18 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   const router = useRouter()
   const supabase = createClient()
    const [mobileOpen, setMobileOpen] = useState(false)
-   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [deloOpen, setDeloOpen] = useState(true)
+  // Акордеон: отворена е само една група/секция наведнъж ('#…' група, 'delo' или 'more')
+  const [openKey, setOpenKey] = useState<string | null>(null)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const settingsOpen = openKey === 'more'
+  const deloOpen = openKey === 'delo'
+  function toggleKey(key: string) {
+    setOpenKey(k => {
+      const next = k === key ? null : key
+      if (next) requestAnimationFrame(() => document.getElementById(`nav-${next}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
+      return next
+    })
+  }
   const [isCouncil, setIsCouncil] = useState(false)
   useEffect(() => {
     let active = true
@@ -204,12 +214,12 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   function NavGroup({ item }: { item: NavItem }) {
     const kids = item.children || []
     const hasActiveChild = kids.some(k => pathname === k.href || pathname.startsWith(k.href + '/'))
-    const [open, setOpen] = useState(hasActiveChild || !!item.defaultOpen)
+    const open = openKey === item.href
     return (
-      <div>
+      <div id={`nav-${item.href}`}>
         <button
           type="button"
-          onClick={() => setOpen(o => !o)}
+          onClick={() => toggleKey(item.href)}
           className="w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-full transition-colors"
           style={{
             color: hasActiveChild ? TEXT_PRIMARY : TEXT_SECONDARY,
@@ -265,6 +275,16 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   const deloItems = visibleItems.filter(item => item.section === 'delo')
   const settingsItems = visibleItems.filter(item => item.section === 'settings')
   const settingsActive = settingsItems.some(i => pathname === i.href || pathname.startsWith(i.href + '/'))
+  const isActive = (h: string) => pathname === h || pathname.startsWith(h + '/')
+  // При смяна на страницата — отвори групата/секцията, в която е тя (останалите се свиват)
+  useEffect(() => {
+    const grp = mainItems.find(i => i.children?.some(k => isActive(k.href)))
+    if (grp) setOpenKey(grp.href)
+    else if (deloItems.some(i => isActive(i.href))) setOpenKey('delo')
+    else if (settingsActive) setOpenKey('more')
+    else setOpenKey(k => k ?? (mainItems.find(i => i.defaultOpen && i.children)?.href ?? (deloItems.length > 0 && !isSecretary ? 'delo' : null)))
+    setUserMenuOpen(false)
+  }, [pathname])
   function NavLink({ item }: { item: NavItem }) {
     const active = pathname === item.href || pathname.startsWith(item.href + '/')
     return (
@@ -330,7 +350,8 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
             ) : (
               <button
                 type="button"
-                onClick={() => setDeloOpen(o => !o)}
+                id="nav-delo"
+                onClick={() => toggleKey('delo')}
                 className="w-full flex items-center gap-1.5 px-3 mb-2"
               >
                 <span className="text-[10px] font-bold uppercase tracking-widest flex-1 text-left" style={{ color: TEXT_MUTED }}>
@@ -349,13 +370,13 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
         {settingsItems.length > 0 && (
           <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(15,34,64,0.08)' }}>
             {/* „Още“ — свито; отваря се само, ако сме на някоя от тези страници */}
-            <button type="button" onClick={() => setSettingsOpen(o => !o)} className="w-full flex items-center gap-1.5 px-3 mb-2">
+            <button type="button" id="nav-more" onClick={() => toggleKey('more')} className="w-full flex items-center gap-1.5 px-3 mb-2">
               <span className="text-[10px] font-bold uppercase tracking-widest flex-1 text-left" style={{ color: TEXT_MUTED }}>
                 Още
               </span>
-              <ChevronDown size={13} style={{ color: TEXT_MUTED, transform: (settingsOpen || settingsActive) ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', opacity: 0.6 }} />
+              <ChevronDown size={13} style={{ color: TEXT_MUTED, transform: settingsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', opacity: 0.6 }} />
             </button>
-            {(settingsOpen || settingsActive) && (
+            {settingsOpen && (
               <div className="space-y-0.5">
                 {settingsItems.map(item => <NavLink key={item.href} item={item} />)}
               </div>
@@ -363,56 +384,43 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
           </div>
         )}
       </nav>
-      <div className="p-4" style={{ borderTop: '1px solid rgba(15,34,64,0.12)' }}>
-        <Link href="/profile" onClick={() => setMobileOpen(false)}
-          className="flex items-center gap-2.5 mb-1.5 rounded-xl p-1.5 -m-1.5 transition-colors hover:bg-[rgba(15,34,64,0.04)]">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold"
+      <div className="relative px-3 py-2.5" style={{ borderTop: '1px solid rgba(15,34,64,0.12)' }}>
+        {/* Меню на профила — отваря се нагоре при клик */}
+        {userMenuOpen && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setUserMenuOpen(false)} />
+            <div className="absolute left-2 right-2 bottom-full mb-1 z-20 rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,34,64,0.14)] p-1.5">
+              <div className="px-3 py-2 border-b border-slate-100 mb-1">
+                <div className="text-xs font-semibold truncate" style={{ color: TEXT_PRIMARY }}>{userName}</div>
+                <div className="text-[11px] truncate" style={{ color: TEXT_MUTED }}>
+                  {userPosition || ROLE_LABELS[userRole]}
+                  {isCoordinator && <span style={{ color: '#2563a8' }}> · Координатор</span>}
+                </div>
+              </div>
+              <Link href="/my-files" onClick={() => { setUserMenuOpen(false); setMobileOpen(false) }}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs hover:bg-slate-50" style={{ color: TEXT_SECONDARY }}>
+                <FolderOpen size={14} /> Моите документи
+              </Link>
+              <Link href="/profile" onClick={() => { setUserMenuOpen(false); setMobileOpen(false) }}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs hover:bg-slate-50" style={{ color: TEXT_SECONDARY }}>
+                <Settings size={14} /> Профил и парола
+              </Link>
+              <button onClick={handleLogout}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs hover:bg-rose-50 hover:text-rose-700" style={{ color: TEXT_SECONDARY }}>
+                <LogOut size={14} /> Изход
+              </button>
+            </div>
+          </>
+        )}
+        <button type="button" onClick={() => setUserMenuOpen(o => !o)}
+          className="w-full flex items-center gap-2.5 rounded-xl px-1.5 py-1.5 transition-colors hover:bg-[rgba(15,34,64,0.05)]"
+          title="Профил, документи, изход">
+          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0"
             style={{ backgroundColor: 'rgba(15,34,64,0.12)', color: TEXT_PRIMARY }}>
             {userName.charAt(0)}
           </div>
-          <div className="overflow-hidden">
-            <div className="text-xs font-semibold truncate" style={{ color: TEXT_PRIMARY }}>{userName}</div>
-            <div className="text-xs" style={{ color: TEXT_MUTED }}>
-              {userPosition || ROLE_LABELS[userRole]}
-              {isCoordinator && <span className="ml-1" style={{ color: '#2563a8' }}>· Координатор</span>}
-            </div>
-          </div>
-        </Link>
-                <Link href="/my-files" onClick={() => setMobileOpen(false)}
-          className="flex items-center gap-2 px-3 py-1.5 mb-1 rounded-full transition-all text-[11px]"
-          style={{ color: TEXT_MUTED }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER; (e.currentTarget as HTMLElement).style.color = TEXT_SECONDARY }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; (e.currentTarget as HTMLElement).style.color = TEXT_MUTED }}
-        >
-          <FolderOpen size={13} />
-          Моите документи
-        </Link>
-        <Link href="/profile" onClick={() => setMobileOpen(false)}
-          className="flex items-center gap-2 px-3 py-1.5 mb-1 rounded-full transition-all text-[11px]"
-          style={{ color: TEXT_MUTED }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER; (e.currentTarget as HTMLElement).style.color = TEXT_SECONDARY }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; (e.currentTarget as HTMLElement).style.color = TEXT_MUTED }}
-        >
-          <Settings size={13} />
-          Профил и парола
-        </Link>
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-full transition-all text-xs"
-          style={{ color: TEXT_MUTED, border: '1.5px solid transparent' }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER
-            ;(e.currentTarget as HTMLElement).style.border = '1.5px solid rgba(15,34,64,0.10)'
-            ;(e.currentTarget as HTMLElement).style.color = TEXT_PRIMARY
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'
-            ;(e.currentTarget as HTMLElement).style.border = '1.5px solid transparent'
-            ;(e.currentTarget as HTMLElement).style.color = TEXT_MUTED
-          }}
-        >
-          <LogOut size={14} />
-          Изход
+          <span className="flex-1 min-w-0 text-left text-xs font-medium truncate" style={{ color: TEXT_PRIMARY }}>{userName}</span>
+          <ChevronDown size={13} style={{ color: TEXT_MUTED, transform: userMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
         </button>
       </div>
     </aside>
