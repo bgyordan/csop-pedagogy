@@ -59,7 +59,7 @@ export async function getFullReport(): Promise<{ error: string } | { headers: st
     'Изпращащо училище', 'Град', 'Клас',
     'Класен ръководител', 'Психолог', 'Логопед', 'Рехабилитатор', 'ЦОУД група', 'ЦОУД възпитател',
     'Родители', 'Телефони',
-    'РЦПППО', 'РЦПППО №', 'РЦПППО дата', 'РЦПППО валиден до', 'РЦПППО вид подкрепа',
+    'РЦПППО', 'РЦПППО №', 'РЦПППО дата', 'РЦПППО валиден до', 'РЦПППО интензивност',
     'ТЕЛК', 'ТЕЛК №', 'ТЕЛК дата', 'ТЕЛК валиден до', 'Диагноза',
     'Алергии', 'Алергии валиден до', 'Алергии бележка',
   ]
@@ -85,7 +85,7 @@ export async function getFullReport(): Promise<{ error: string } | { headers: st
       nm(ep.psychologist), nm(ep.speech_therapist), nm(ep.rehabilitator),
       cg?.name || '', cg?.teacher ? nm(cg.teacher) : '',
       g.names.join('; '), g.phones.join('; '),
-      rc ? 'Да' : 'Не', rc?.doc_number || '', rc?.issued_on || '', rc?.valid_until || '', SUPPORT_LABEL[rc?.support_type] || '',
+      rc ? 'Да' : 'Не', rc?.doc_number || '', rc?.issued_on || '', rc?.valid_until || '', (rc?.support_type ? (SUPPORT_LABEL[rc.support_type] || rc.support_type) : ''),
       tk ? 'Да' : 'Не', tk?.doc_number || '', tk?.issued_on || '', tk?.valid_until || '', tk?.diagnosis || '',
       al ? 'Да' : 'Не', al?.valid_until || '', al?.note || '',
     ]

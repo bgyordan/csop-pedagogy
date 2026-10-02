@@ -14,18 +14,19 @@ interface DocRow {
 }
 interface Props { studentId: string; canManage: boolean }
 
-// hasSupport = поле „вид подкрепа" (само РЦПППО); hasDiagnosis = „Диагноза" (само ТЕЛК).
+// hasSupport = поле „интензивност" (само РЦПППО); hasDiagnosis = „Диагноза" (само ТЕЛК).
 const DOC_TYPES: { key: string; label: string; icon: any; notePlaceholder?: string; hasSupport?: boolean; hasDiagnosis?: boolean }[] = [
   { key: 'telk',    label: 'ТЕЛК / решение на МЕ',                     icon: Stethoscope, hasDiagnosis: true },
   { key: 'rcpppo',  label: 'Заповед за насочване (РЦПППО)',            icon: ShieldCheck, hasSupport: true },
   { key: 'allergy', label: 'Документ за алергии / специално хранене',  icon: Utensils, notePlaceholder: 'напр. без глутен и млечни продукти' },
 ]
 
-const SUPPORT_OPTIONS: { v: string; l: string }[] = [
-  { v: 'short', l: 'краткосрочна' },
-  { v: 'long',  l: 'дългосрочна' },
-]
-const supportLabel = (v?: string | null) => SUPPORT_OPTIONS.find(o => o.v === v)?.l || ''
+// Интензивност на подкрепата (от заповедта/становището на РЦПППО). Пази се като текст;
+// бутоните са бързи стойности, а полето позволява и свободен текст.
+const INTENSITY_OPTIONS = ['висока', 'средна', 'ниска']
+// Стари записи (short/long) се показват с предишния си текст.
+const LEGACY_SUPPORT: Record<string, string> = { short: 'краткосрочна', long: 'дългосрочна' }
+const supportLabel = (v?: string | null) => (v ? (LEGACY_SUPPORT[v] || v) : '')
 
 function fmtDate(d: string) { return new Date(d).toLocaleDateString('bg-BG') }
 
@@ -139,7 +140,7 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
     const parts: string[] = []
     if (row.doc_number) parts.push(`№ ${row.doc_number}`)
     if (row.issued_on) parts.push(`изд. ${fmtDate(row.issued_on)}`)
-    if (t.hasSupport && row.support_type) parts.push(`подкрепа: ${supportLabel(row.support_type)}`)
+    if (t.hasSupport && row.support_type) parts.push(`интензивност: ${supportLabel(row.support_type)}`)
     if (t.hasDiagnosis && row.diagnosis) parts.push(`диагноза: ${row.diagnosis}`)
     if (row.note) parts.push(row.note)
     return parts.join(' · ')
@@ -199,11 +200,19 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
                   </div>
                   {t.hasSupport && (
                     <div>
-                      <label className={labelCls}>Вид подкрепа</label>
-                      <select value={dSupport} onChange={e => setDSupport(e.target.value)} className={inputCls + ' cursor-pointer'}>
-                        <option value="">—</option>
-                        {SUPPORT_OPTIONS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-                      </select>
+                      <label className={labelCls}>Интензивност</label>
+                      <div className="flex flex-wrap gap-1.5 mb-1.5">
+                        {INTENSITY_OPTIONS.map(o => (
+                          <button key={o} type="button" onClick={() => setDSupport(dSupport === o ? '' : o)}
+                            className={`px-3 py-1 rounded-full text-xs border transition-colors ${
+                              dSupport === o ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                            }`}>
+                            {o}
+                          </button>
+                        ))}
+                      </div>
+                      <input type="text" value={supportLabel(dSupport)} onChange={e => setDSupport(e.target.value)}
+                        placeholder="или напиши друго" className={inputCls} />
                     </div>
                   )}
                   {t.hasDiagnosis && (
