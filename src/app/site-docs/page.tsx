@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import SiteDocsClient from './SiteDocsClient'
+import { normalizeInfo } from './siteinfo'
 export const dynamic = 'force-dynamic'
 
 export default async function SiteDocsPage() {
@@ -43,6 +44,10 @@ export default async function SiteDocsPage() {
     .select('id, first_name, last_name, role, position').neq('is_active', false).order('last_name')
   const { data: team, error: teamErr } = await supabase.from('site_team').select('staff_id, show, title')
 
+  // Настройки на сайта + история на промените (част В)
+  const { data: infoRow } = await supabase.from('site_settings').select('value').eq('key', 'site_info').maybeSingle()
+  const { data: audit } = await supabase.from('site_audit').select('id, at, staff_name, tbl, op, title, ref_id').order('at', { ascending: false }).limit(200)
+
   const { data: cy } = await supabase.from('academic_years').select('name').eq('is_current', true).single()
 
   return (
@@ -52,6 +57,7 @@ export default async function SiteDocsPage() {
       events={events || []} albums={albums || []} photos={photos || []} heroPhotos={heroPhotos} pagePhotos={pagePhotos}
       jobs={jobs || []} subscribers={subscribers || []}
       staff={staff || []} team={team || []} teamReady={!teamErr}
+      info={normalizeInfo(infoRow?.value)} infoReady={!!infoRow} audit={audit || []}
     />
   )
 }
