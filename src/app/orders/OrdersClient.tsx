@@ -21,6 +21,7 @@ interface Props {
   pageSize: number
   searchValue: string
   filterIndex: string
+  openNew?: boolean
   filterValue: string
   sortValue: string
   counts: { all: number; nofile: number }
@@ -39,7 +40,7 @@ const GRID = 'md:grid-cols-[minmax(130px,170px)_92px_minmax(0,1.6fr)_minmax(0,1f
 
 export default function OrdersClient({
   orders, totalCount, page, pageSize,
-  searchValue, filterIndex, filterValue, sortValue, counts, dyearValue, dyearOptions,
+  searchValue, filterIndex, openNew = false, filterValue, sortValue, counts, dyearValue, dyearOptions,
   canEdit, canDelete, currentUserId, students, staff, nomenclature
 }: Props) {
   const router = useRouter()
@@ -61,7 +62,9 @@ export default function OrdersClient({
   }
 
   const [search, setSearch] = useState(searchValue)
-  const [showForm, setShowForm] = useState(false)
+  const [showForm, setShowForm] = useState(openNew)
+  // Дошли от бърз бутон на таблото (?new=1) — махни го от адреса, за да не се отваря пак при презареждане
+  useEffect(() => { if (openNew) router.replace(buildUrl({ page }), { scroll: false }) }, [])
   const [viewItem, setViewItem] = useState<any | null>(null)
   const [editItem, setEditItem] = useState<any | null>(null)
 

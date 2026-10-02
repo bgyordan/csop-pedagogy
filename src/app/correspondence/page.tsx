@@ -8,7 +8,7 @@ const PAGE_SIZE = 20
 export default async function CorrespondencePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string; direction?: string; dyear?: string; f?: string; sort?: string }>
+  searchParams: Promise<{ q?: string; page?: string; direction?: string; dyear?: string; f?: string; sort?: string; new?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
@@ -75,6 +75,7 @@ export default async function CorrespondencePage({
         pageSize={PAGE_SIZE}
         searchValue={q}
         directionValue={direction}
+        openNew={params.new === '1'}
         filterValue={f}
         sortValue={sort}
         counts={{ all: allCount || 0, nofile: noFileCount || 0 }}

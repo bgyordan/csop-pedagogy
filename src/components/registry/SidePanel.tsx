@@ -67,15 +67,20 @@ export function FilePreview({ path, name }: { path?: string | null; name?: strin
   const lower = (name || path || '').toLowerCase()
   const kind = lower.endsWith('.pdf') ? 'pdf' : /\.(png|jpe?g|gif|webp)$/.test(lower) ? 'img' : null
 
+  // Файлът се сваля и се показва от паметта на браузъра (blob) — така PDF-ът
+  // никога не „отваря“ страницата на сървъра и не изхвърля от системата.
   useEffect(() => {
-    let off = false
+    let off = false, objUrl: string | null = null
     setUrl(null); setFailed(false)
     if (!path || !kind) return
-    createClient().storage.from('documents').createSignedUrl(path, 600).then(({ data }) => {
+    createClient().storage.from('documents').download(path).then(({ data, error }) => {
       if (off) return
-      if (data?.signedUrl) setUrl(data.signedUrl); else setFailed(true)
+      if (error || !data) { setFailed(true); return }
+      const typed = kind === 'pdf' ? new Blob([data], { type: 'application/pdf' }) : data
+      objUrl = URL.createObjectURL(typed)
+      setUrl(objUrl)
     })
-    return () => { off = true }
+    return () => { off = true; if (objUrl) URL.revokeObjectURL(objUrl) }
   }, [path])
 
   const [full, setFull] = useState(false)
