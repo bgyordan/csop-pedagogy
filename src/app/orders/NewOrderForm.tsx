@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { X, Upload, FileText, Loader2, ChevronDown, Zap, User } from 'lucide-react'
+import { FileDrop } from '@/components/registry/FormParts'
+import { X, Loader2, ChevronDown, Zap, User } from 'lucide-react'
 
 const TITLE_SUGGESTIONS = [
   'Заповед за отпуск',
@@ -196,8 +197,8 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
         {/* Хедър */}
         <div className="flex items-start justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
           <div>
-            <h3 className="font-medium text-slate-800 text-sm uppercase tracking-widest">Регистриране на заповед</h3>
-            <p className="text-[11px] text-[#0f2240] font-bold mt-1">{previewNumber}</p>
+            <h3 className="text-[11px] text-slate-500 uppercase tracking-widest">Регистриране на заповед</h3>
+            <p className="text-lg font-medium text-[#0f2240] tabular-nums leading-tight mt-1.5">{previewNumber}</p>
           </div>
           <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors">
             <X size={18} />
@@ -211,9 +212,7 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
 
             {/* Бързо регистриране */}
             <div>
-              <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                <Zap size={11} /> Бързо регистриране
-              </label>
+              <h4 className="text-[11px] font-semibold text-[#0f2240] uppercase tracking-widest flex items-center gap-2 mb-2.5"><Zap size={12} /><span>Бързо регистриране</span><span className="flex-1 h-px bg-slate-200" /></h4>
               <div className="flex flex-wrap gap-1.5">
                 {Object.entries(QUICK_SCENARIOS).map(([key, s]) => (
                   <button key={key} type="button" onClick={() => selectScenario(key)}
@@ -229,6 +228,7 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
               </div>
             </div>
 
+            <h4 className="text-[11px] font-semibold text-[#0f2240] uppercase tracking-widest flex items-center gap-2"><span>Данни</span><span className="flex-1 h-px bg-slate-200" /></h4>
             {/* Дата */}
             <div>
               <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">Дата на издаване *</label>
@@ -267,16 +267,14 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
           </div>
           <div className="space-y-4 min-w-0 md:border-l md:border-slate-200 md:pl-6">
             {/* Бележки */}
-            <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">Бележка</label>
+            <h4 className="text-[11px] font-semibold text-[#0f2240] uppercase tracking-widest flex items-center gap-2"><span>Бележка</span><span className="flex-1 h-px bg-slate-200" /></h4>
             <textarea ref={descRef} rows={1} value={description} onChange={e => setDescription(e.target.value)}
-              placeholder="Допълнителна информация..."
+              placeholder="по желание"
               className="input w-full resize-none overflow-hidden min-h-[72px]" />
 
             {/* Архивен индекс */}
             <div>
-              <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">
-                Архивен индекс {activeScenario && <span className="text-slate-300 normal-case">(зададен автоматично)</span>}
-              </label>
+              <h4 className="text-[11px] font-semibold text-[#0f2240] uppercase tracking-widest flex items-center gap-2 mb-2.5"><span>Архивен индекс</span>{activeScenario && <span className="normal-case tracking-normal font-normal text-slate-400">зададен автоматично</span>}<span className="flex-1 h-px bg-slate-200" /></h4>
 
               {activeScenario ? (
                 selectedItem && (
@@ -346,25 +344,10 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
               )}
             </div>
 
-            {/* Файл */}
-            {uploadedFile ? (
-              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <FileText size={16} className="text-slate-500 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-slate-800 truncate">{uploadedFile.name}</div>
-                  <div className="text-[10px] text-slate-400">{(uploadedFile.size / 1024).toFixed(0)} KB</div>
-                </div>
-                <button type="button" onClick={() => setUploadedFile(null)} className="text-slate-400 hover:text-red-500 p-1"><X size={14} /></button>
-              </div>
-            ) : (
-              <label className="flex items-center justify-center w-full h-14 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-[#0f2240] hover:bg-slate-50 transition-all">
-                <div className="flex items-center gap-2 text-slate-400">
-                  <Upload size={14} /><span className="text-xs font-medium">Прикачи файл (PDF/Word, макс. 10MB)</span>
-                </div>
-                <input type="file" className="hidden" accept=".pdf,.doc,.docx"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) setUploadedFile(f) }} />
-              </label>
-            )}
+            <div>
+              <h4 className="text-[11px] font-semibold text-[#0f2240] uppercase tracking-widest flex items-center gap-2"><span>Файл</span><span className="flex-1 h-px bg-slate-200" /></h4>
+              <div className="mt-3"><FileDrop file={uploadedFile} onFile={setUploadedFile} /></div>
+            </div>
           </div>
           </div>
           </div>
@@ -379,7 +362,7 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
               onClick={() => setSaveAction('save_new')}
               className="px-4 py-2 border border-[#0f2240] text-[#0f2240] rounded-xl text-xs font-medium flex items-center gap-1.5 disabled:opacity-60 hover:bg-slate-50 transition-colors">
               {saving && saveAction === 'save_new' && <Loader2 size={12} className="animate-spin" />}
-              Запази и нов
+              Регистрирай и нов
             </button>
             <button type="submit" disabled={saving}
               onClick={() => setSaveAction('save_close')}

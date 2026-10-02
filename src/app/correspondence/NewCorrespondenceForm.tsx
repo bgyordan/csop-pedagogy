@@ -4,7 +4,8 @@ import { canSubstitute } from '@/lib/pedagogues'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { generateNpLeaveOrder } from '@/lib/docx-substitution'
-import { X, Upload, FileText, Loader2, User, GraduationCap, ChevronDown, ArrowDownLeft, ArrowUpRight, Zap, ClipboardList } from 'lucide-react'
+import { FileDrop } from '@/components/registry/FormParts'
+import { X, Loader2, User, GraduationCap, ChevronDown, ArrowDownLeft, ArrowUpRight, Zap, ClipboardList } from 'lucide-react'
 // Деловодна година: 15.09 – 14.09 следващата
 function deloYearBounds(ref: Date): { start: string; end: string } {
   const y = ref.getFullYear()
@@ -411,9 +412,9 @@ export default function NewCorrespondenceForm({
               <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 border border-slate-200 px-2.5 py-1 rounded-lg bg-slate-50">
                 {dirIcon}{dirLabel}
               </span>
-              <h3 className="font-medium text-slate-800 text-sm">Деловодно вписване</h3>
+              <h3 className="text-[11px] text-slate-500 uppercase tracking-widest">Деловодно вписване</h3>
             </div>
-            <p className="text-[11px] text-[#0f2240] font-bold mt-1">{nextNumPreview}</p>
+            <p className="text-lg font-medium text-[#0f2240] tabular-nums leading-tight mt-1.5">{nextNumPreview}</p>
           </div>
           <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors">
             <X size={18} />
@@ -426,9 +427,7 @@ export default function NewCorrespondenceForm({
             {/* Бързо регистриране */}
             {availableScenarios.length > 0 && (
               <div>
-                <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                  <Zap size={11} /> Бързо регистриране
-                </label>
+                <h4 className="text-[11px] font-semibold text-[#0f2240] uppercase tracking-widest flex items-center gap-2 mb-2.5"><Zap size={12} /><span>Бързо регистриране</span><span className="flex-1 h-px bg-slate-200" /></h4>
                 <div className="flex flex-wrap gap-1">
                   {availableScenarios.map(([key, s]) => (
                     <button key={key} type="button" onClick={() => selectScenario(key)}
@@ -444,6 +443,7 @@ export default function NewCorrespondenceForm({
                 </div>
               </div>
             )}
+            <h4 className="text-[11px] font-semibold text-[#0f2240] uppercase tracking-widest flex items-center gap-2"><span>Данни</span><span className="flex-1 h-px bg-slate-200" /></h4>
             {/* Дата */}
             <div>
               <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">Дата *</label>
@@ -586,8 +586,9 @@ export default function NewCorrespondenceForm({
                 )}
                 {studentId && (
                   <>
+                    <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5 pt-1">От кого (родител/настойник) *</label>
                     <input type="text" list="guardian-list" value={fromWhom} onChange={e => setFromWhom(e.target.value)} required
-                      placeholder="От кого (родител/настойник) *" className="input w-full" />
+                      className="input w-full" />
                     <datalist id="guardian-list">
                       {guardians.map((g, i) => (
                         <option key={i} value={g.full_name}>{g.relation}</option>
@@ -625,43 +626,44 @@ export default function NewCorrespondenceForm({
             {!activeScenario && (
               <div className="space-y-3">
                 {direction === 'incoming' ? (
-                  <>
+                  <div>
                     <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">От кого *</label>
                     <input type="text" list="from-list" value={fromWhom} onChange={e => setFromWhom(e.target.value)}
-                      required placeholder="От кого *" className="input w-full" />
+                      required placeholder="институция или лице" className="input w-full" />
                     <datalist id="from-list">{EXTERNAL_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
-                  </>
+                  </div>
                 ) : (
-                  <>
+                  <div>
                     <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">До кого *</label>
                     <input type="text" list="to-list" value={toWhom} onChange={e => setToWhom(e.target.value)}
-                      required placeholder="До кого *" className="input w-full" />
+                      required placeholder="институция или лице" className="input w-full" />
                     <datalist id="to-list">{EXTERNAL_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
-                  </>
+                  </div>
                 )}
                 <div>
                   <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">Относно *</label>
                   <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
-                    required placeholder="Тема / Относно" className="input w-full" />
+                    required placeholder="кратко съдържание" className="input w-full" />
                 </div>
               </div>
             )}
             {activeScenario && !subject && (
-              <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
-                required placeholder="Тема / Относно *" className="input w-full" />
+              <div>
+                <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">Относно *</label>
+                <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
+                  required className="input w-full" />
+              </div>
             )}
           </div>
           <div className="space-y-4 min-w-0 md:border-l md:border-slate-200 md:pl-6">
             {/* Бележки */}
-            <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">Бележка</label>
+            <h4 className="text-[11px] font-semibold text-[#0f2240] uppercase tracking-widest flex items-center gap-2"><span>Бележка</span><span className="flex-1 h-px bg-slate-200" /></h4>
             <textarea ref={descRef} rows={1} value={description} onChange={e => setDescription(e.target.value)}
-              placeholder="Допълнителна информация..."
+              placeholder="по желание"
               className="input w-full resize-none overflow-hidden min-h-[72px]" />
             {/* Архивен индекс */}
             <div>
-              <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">
-                Архивен индекс {activeScenario && <span className="text-slate-300 normal-case">(зададен автоматично)</span>}
-              </label>
+              <h4 className="text-[11px] font-semibold text-[#0f2240] uppercase tracking-widest flex items-center gap-2 mb-2.5"><span>Архивен индекс</span>{activeScenario && <span className="normal-case tracking-normal font-normal text-slate-400">зададен автоматично</span>}<span className="flex-1 h-px bg-slate-200" /></h4>
               {activeScenario ? (
                 selectedNomItem && (
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs w-fit">
@@ -723,25 +725,10 @@ export default function NewCorrespondenceForm({
                 </>
               )}
             </div>
-            {/* Файл */}
-            {uploadedFile ? (
-              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <FileText size={16} className="text-slate-500 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-slate-800 truncate">{uploadedFile.name}</div>
-                  <div className="text-[10px] text-slate-400">{(uploadedFile.size / 1024).toFixed(0)} KB</div>
-                </div>
-                <button type="button" onClick={() => setUploadedFile(null)} className="text-slate-400 hover:text-red-500 p-1"><X size={14} /></button>
-              </div>
-            ) : (
-              <label className="flex items-center justify-center w-full h-14 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-[#0f2240] hover:bg-slate-50 transition-all">
-                <div className="flex items-center gap-2 text-slate-400">
-                  <Upload size={14} /><span className="text-xs font-medium">Прикачи файл (PDF/Word, макс. 10MB)</span>
-                </div>
-                <input type="file" className="hidden" accept=".pdf,.doc,.docx"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) setUploadedFile(f) }} />
-              </label>
-            )}
+            <div>
+              <h4 className="text-[11px] font-semibold text-[#0f2240] uppercase tracking-widest flex items-center gap-2"><span>Файл</span><span className="flex-1 h-px bg-slate-200" /></h4>
+              <div className="mt-3"><FileDrop file={uploadedFile} onFile={setUploadedFile} /></div>
+            </div>
           </div>
           </div>
           </div>
@@ -754,13 +741,13 @@ export default function NewCorrespondenceForm({
             <button type="submit" disabled={saving} onClick={() => setSaveAction('save_new')}
               className="px-4 py-2 border border-[#0f2240] text-[#0f2240] rounded-xl text-xs font-medium flex items-center gap-1.5 disabled:opacity-60 hover:bg-slate-50 transition-colors">
               {saving && saveAction === 'save_new' && <Loader2 size={12} className="animate-spin" />}
-              Запази и нов
+              Регистрирай и нов
             </button>
             <button type="submit" disabled={saving} onClick={() => setSaveAction('save_close')}
               className="px-5 py-2 text-white rounded-xl text-xs font-medium flex items-center gap-1.5 disabled:opacity-60 shadow-sm hover:opacity-90 transition-opacity"
               style={{ backgroundColor: '#0f2240' }}>
               {saving && saveAction === 'save_close' && <Loader2 size={12} className="animate-spin" />}
-              {saving ? 'Записване...' : 'Запази и затвори'}
+              {saving ? 'Записване…' : direction === 'incoming' ? 'Регистрирай входящ' : 'Регистрирай изходящ'}
             </button>
           </div>
         </form>
