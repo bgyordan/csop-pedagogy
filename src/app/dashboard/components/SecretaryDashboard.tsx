@@ -123,7 +123,7 @@ export default async function SecretaryDashboard({ profile }: any) {
       {/* Споделено от колеги (голяма карта) · вдясно: замествания, заявления, резерв, изтичащи договори */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
         <div className="lg:col-span-2">
-          <SharedFiles limit={8} />
+          <SharedFiles limit={5} />
         </div>
 
         <div className="space-y-4">

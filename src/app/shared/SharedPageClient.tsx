@@ -2,7 +2,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { listSharedStaffDocs } from '@/app/my-files/staff-drive-actions'
 import { formatDate } from '@/lib/utils'
-import { Share2, Download, File, FileText, FileSpreadsheet, FileImage, Search, Users } from 'lucide-react'
+import { Share2, Download, File, FileText, FileSpreadsheet, FileImage, Search, Users, Eye } from 'lucide-react'
+import { DocViewer } from '@/components/registry/DocViewer'
 
 type Row = {
   id: string
@@ -66,6 +67,8 @@ export default function SharedPageClient() {
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1], 'bg'))
   }, [rows])
 
+  const [viewing, setViewing] = useState<{ id: string; name: string } | null>(null)
+
   function download(r: Row) {
     window.location.href = `/api/staff-docs/download?fileId=${r.id}&as=office`
   }
@@ -109,17 +112,19 @@ export default function SharedPageClient() {
       ) : (
         <div className="bg-white rounded-xl border overflow-hidden" style={{ borderColor: '#e2e8f0' }}>
           {shown.map((r, i) => (
-            <div key={r.id} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-slate-100" style={{ backgroundColor: i % 2 === 1 ? '#f8fafc' : '#fff' }}>
+            <div key={r.id} onClick={() => setViewing({ id: r.id, name: r.name })} title="Преглед" className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-slate-100 cursor-pointer" style={{ backgroundColor: i % 2 === 1 ? '#f8fafc' : '#fff' }}>
               <FileIcon k={kindOf(r.name, r.mime_type)} />
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium text-slate-700 truncate">{r.name}</div>
                 <div className="text-[11px] text-slate-400 mt-0.5">{r.owner ? `${r.owner.first_name} ${r.owner.last_name}`.trim() : '—'} · {formatDate(r.created_at)}</div>
               </div>
-              <button onClick={() => download(r)} title="Изтегли" className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 shrink-0"><Download size={17} /></button>
+              <button onClick={e => { e.stopPropagation(); setViewing({ id: r.id, name: r.name }) }} title="Преглед" className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 shrink-0"><Eye size={17} /></button>
+              <button onClick={e => { e.stopPropagation(); download(r) }} title="Изтегли" className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 shrink-0"><Download size={17} /></button>
             </div>
           ))}
         </div>
       )}
+      <DocViewer file={viewing} onClose={() => setViewing(null)} />
     </div>
   )
 }
