@@ -133,7 +133,7 @@ export default function OrdersClient({
       </div>
 
       {/* Заглавен ред */}
-           <div className="hidden md:grid grid-cols-[150px_85px_75px_1fr_1fr_56px] gap-3 px-4 py-2">
+           <div className="hidden md:grid grid-cols-[150px_85px_75px_1fr_1fr_150px] gap-3 px-4 py-2">
         {['№', 'Дата', 'Арх. индекс', 'Заглавие', 'Забележка', 'Файл'].map(h => (
           <span key={h} className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{h}</span>
         ))}
@@ -149,9 +149,9 @@ export default function OrdersClient({
         ) : orders.map((item) => (
           <div key={item.id}
             onClick={() => setViewItem(item)}
-            className={`border rounded-2xl px-4 py-3 cursor-pointer transition-all group grid grid-cols-[150px_85px_75px_1fr_1fr_56px] gap-3 items-center shadow-[0_1px_4px_rgba(15,34,64,0.06)] hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] ${item.is_reserved ? 'bg-amber-50 border-amber-200 hover:border-amber-300' : item.without_hours ? 'bg-violet-50 border-violet-200 hover:border-violet-300' : 'bg-white even:bg-slate-50/60 hover:bg-slate-100/50 border-slate-200 hover:border-slate-400'}`}>
+            className={`border rounded-2xl px-4 py-3 cursor-pointer transition-all group grid grid-cols-[150px_85px_75px_1fr_1fr_150px] gap-3 items-center shadow-[0_1px_4px_rgba(15,34,64,0.06)] hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] ${item.is_reserved ? 'bg-amber-50 border-amber-200 hover:border-amber-300' : item.without_hours ? 'bg-violet-50 border-violet-200 hover:border-violet-300' : 'bg-white even:bg-slate-50/60 hover:bg-slate-100/50 border-slate-200 hover:border-slate-400'}`}>
 
-            <span className="font-medium text-slate-800 text-xs whitespace-nowrap truncate flex items-center gap-1">{item.number}{item.is_reserved && <span className="text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 shrink-0">резерв.</span>}{item.without_hours && <span title="Издадена без часове — генерирай я пак от Замествания, когато разписанието е пълно, и смени файла" className="text-[9px] px-1 py-0.5 rounded bg-violet-100 text-violet-700 shrink-0">без часове</span>}{item.nomenclature_item === 'РД-08' && !item.file_url && <span className="text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 shrink-0">качи файл</span>}</span>
+            <span className="font-medium text-slate-800 text-xs whitespace-nowrap truncate flex items-center gap-1">{item.number}{item.is_reserved && <span className="text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 shrink-0">резерв.</span>}{item.without_hours && <span title="Издадена без часове — генерирай я пак от Замествания, когато разписанието е пълно, и смени файла" className="text-[9px] px-1 py-0.5 rounded bg-violet-100 text-violet-700 shrink-0">без часове</span>}</span>
 
             <span className="text-xs text-slate-800 whitespace-nowrap">
               {item.date ? new Date(item.date).toLocaleDateString('bg-BG') : '—'}
@@ -174,8 +174,15 @@ export default function OrdersClient({
                   }}>
                   <Paperclip size={14} />
                 </button>
-              ) : (
+              ) : item.is_reserved ? (
                 <span className="text-slate-200 text-[10px]">—</span>
+              ) : canEdit ? (
+                <button type="button" onClick={() => setEditItem(item)} title="Няма прикачен файл — натисни, за да го качиш"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 transition-colors whitespace-nowrap">
+                  <Paperclip size={11} /> няма файл
+                </button>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 whitespace-nowrap"><Paperclip size={11} /> няма файл</span>
               )}
                             {canEdit && (
                 <button type="button" onClick={() => setEditItem(item)}
