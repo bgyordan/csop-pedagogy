@@ -145,7 +145,7 @@ export default function TeamManager({ staff, initial, ready }: { staff: StaffRow
                         </div>
                       ) : (
                         <button onClick={() => startEdit(p)} className="group/t flex items-center gap-1 max-w-full text-left" title="Смени надписа под името">
-                          <span className={`text-[12px] truncate ${custom ? 'text-slate-600' : 'text-slate-400'}`}>{titleOf(p)}</span>
+                          <span className={`text-[12px] truncate ${custom ? 'text-slate-700' : 'text-slate-500'}`}>{titleOf(p)}</span>
                           <Pencil size={11} className="shrink-0 text-slate-300 opacity-0 group-hover/t:opacity-100" />
                         </button>
                       )}
