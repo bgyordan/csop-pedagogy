@@ -1,9 +1,9 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Newspaper, FileText, CalendarDays, Images, Briefcase, Plus, Upload, ExternalLink, AlertCircle, CheckCircle2,
-  ImagePlus, LayoutTemplate, EyeOff, PenLine, CalendarClock, ChevronRight, Clock,
+  ImagePlus, LayoutTemplate, EyeOff, PenLine, CalendarClock, ChevronRight, Clock, Settings2,
 } from 'lucide-react'
 import { ACCENT, SITE_URL, SECTIONS, SITE_PAGES, MONTHS_SHORT, fmtDate, pageLabel } from './shared'
 import type { Doc, News, Ev, Album, Photo, Job } from './shared'
@@ -12,7 +12,7 @@ export type Go =
   | { tab: 'news'; openId?: string; createNew?: boolean }
   | { tab: 'docs'; section?: string }
   | { tab: 'site-images'; page?: string }
-  | { tab: 'events' | 'gallery' | 'hero' | 'jobs' | 'team' }
+  | { tab: 'events' | 'gallery' | 'hero' | 'jobs' | 'team' | 'settings' }
 
 const isScheduled = (n: News) => n.status === 'published' && !!n.published_at && new Date(n.published_at) > new Date()
 const isLive = (n: News) => n.status === 'published' && !isScheduled(n)
@@ -27,12 +27,46 @@ function ago(iso: string) {
 }
 
 /* ═══════════════ ТАБЛО ═══════════════ */
+export interface AuditRow { id: number; at: string; staff_name: string | null; tbl: string; op: string; title: string | null; ref_id: string | null }
+
+// Как звучи една промяна от историята (site_audit) — по таблица и действие
+const VERB: Record<string, string> = { insert: 'добави', update: 'промени', delete: 'изтри' }
+const WHAT: Record<string, [string, string]> = { // [единствено, множествено]
+  site_news: ['новина', 'новини'], site_documents: ['документ', 'документа'], site_events: ['събитие', 'събития'],
+  gallery_albums: ['албум', 'албума'], gallery_photos: ['снимка в галерията', 'снимки в галерията'], site_jobs: ['обява за работа', 'обяви за работа'],
+  site_team: ['екипа', 'екипа'],
+}
+const SETTING: Record<string, string> = { hero_photos: 'снимките на началната', page_photos: 'снимките по страниците', site_info: 'настройките на сайта' }
+const TBL_TAB: Record<string, Go['tab']> = { site_news: 'news', site_documents: 'docs', site_events: 'events', gallery_albums: 'gallery', gallery_photos: 'gallery', site_jobs: 'jobs', site_team: 'team' }
+const TBL_ICON: Record<string, React.ElementType> = { site_news: Newspaper, site_documents: FileText, site_events: CalendarDays, gallery_albums: Images, gallery_photos: Images, site_jobs: Briefcase, site_team: Briefcase }
+
+function groupAudit(rows: AuditRow[]) {
+  const out: { key: string; at: string; who: string; tbl: string; op: string; titles: string[]; n: number }[] = []
+  for (const r of rows) {
+    const last = out[out.length - 1]
+    // едно и също действие на един човек в рамките на 15 минути = един ред („качи 12 снимки“)
+    if (last && last.who === (r.staff_name || '') && last.tbl === r.tbl && last.op === r.op && (r.tbl !== 'site_settings' || last.titles[0] === r.title)
+      && new Date(last.at).getTime() - new Date(r.at).getTime() < 15 * 60_000) { last.n++; if (r.title && !last.titles.includes(r.title)) last.titles.push(r.title); continue }
+    out.push({ key: String(r.id), at: r.at, who: r.staff_name || '', tbl: r.tbl, op: r.op, titles: r.title ? [r.title] : [], n: 1 })
+  }
+  return out
+}
+function auditText(g: ReturnType<typeof groupAudit>[number]) {
+  if (g.tbl === 'site_settings') return `смени ${SETTING[g.titles[0]] || 'настройка'}`
+  const [one, many] = WHAT[g.tbl] || ['запис', 'записа']
+  if (g.tbl === 'site_team') return `промени ${one}${g.titles[0] ? ` (${g.titles.slice(0, 2).join(', ')}${g.titles.length > 2 ? '…' : ''})` : ''}`
+  if (g.tbl === 'gallery_photos') return g.op === 'insert' ? (g.n === 1 ? 'качи снимка в галерията' : `качи ${g.n} снимки в галерията`) : `${VERB[g.op]} ${g.n === 1 ? one : `${g.n} ${many}`}`
+  return `${VERB[g.op] || g.op} ${g.n === 1 ? one : `${g.n} ${many}`}`
+}
+
 export default function Overview({
-  news, docs, events, albums, photos, heroPhotos, pagePhotos, jobs, go,
+  news, docs, events, albums, photos, heroPhotos, pagePhotos, jobs, audit = [], go,
 }: {
   news: News[]; docs: Doc[]; events: Ev[]; albums: Album[]; photos: Photo[]; heroPhotos: string[]
-  pagePhotos: Record<string, string[]>; jobs: Job[]; go: (g: Go) => void
+  pagePhotos: Record<string, string[]>; jobs: Job[]; audit?: AuditRow[]; go: (g: Go) => void
 }) {
+  const [more, setMore] = useState(false)
+  const history = useMemo(() => groupAudit(audit), [audit])
   const today = new Date().toISOString().slice(0, 10)
 
   const s = useMemo(() => {
@@ -187,9 +221,31 @@ export default function Overview({
           {/* последни промени */}
           <section className="bg-white border border-slate-200 rounded-2xl">
             <h2 className="px-5 pt-4 pb-3 text-[15px] font-semibold flex items-center gap-2" style={{ color: ACCENT }}>
-              <Clock size={17} /> Последно добавено
+              <Clock size={17} /> {history.length ? 'Последни промени' : 'Последно добавено'}
             </h2>
-            {recent.length === 0 ? (
+            {history.length ? (
+              <>
+                <ul className="pb-2">
+                  {history.slice(0, more ? 40 : 8).map((g) => {
+                    const Icon = g.tbl === 'site_settings' ? Settings2 : TBL_ICON[g.tbl] || Clock
+                    const tab = g.tbl === 'site_settings' ? (g.titles[0] === 'hero_photos' ? 'hero' : g.titles[0] === 'page_photos' ? 'site-images' : 'settings') : TBL_TAB[g.tbl]
+                    return (
+                      <li key={g.key}>
+                        <button onClick={() => tab && go({ tab } as Go)} className="w-full flex items-center gap-3 px-5 py-2 text-left hover:bg-slate-50 transition">
+                          <Icon size={15} className={`shrink-0 ${g.op === 'delete' ? 'text-rose-400' : 'text-slate-400'}`} />
+                          <span className="flex-1 min-w-0">
+                            <span className="block text-[13px] text-slate-700 truncate"><b className="font-medium">{g.who.split(' ')[0] || 'Някой'}</b> {auditText(g)}</span>
+                            {g.tbl !== 'site_settings' && g.tbl !== 'site_team' && g.titles[0] && <span className="block text-[11.5px] text-slate-400 truncate">{g.titles.slice(0, 3).join(' · ')}{g.titles.length > 3 ? ' …' : ''}</span>}
+                          </span>
+                          <span className="text-[11.5px] text-slate-400 shrink-0">{ago(g.at)}</span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+                {history.length > 8 && <button onClick={() => setMore((m) => !m)} className="w-full text-[12.5px] text-slate-500 hover:text-slate-800 border-t border-slate-100 py-2.5">{more ? 'По-малко' : 'Покажи още'}</button>}
+              </>
+            ) : recent.length === 0 ? (
               <p className="px-5 pb-5 text-[13px] text-slate-400">Още няма нищо.</p>
             ) : (
               <ul className="pb-2">

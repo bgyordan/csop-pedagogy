@@ -1,10 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { FileText, Newspaper, CalendarDays, Images, ImagePlus, LayoutTemplate, Briefcase, LayoutDashboard, Users } from 'lucide-react'
+import { FileText, Newspaper, CalendarDays, Images, ImagePlus, LayoutTemplate, Briefcase, LayoutDashboard, Users, Settings2 } from 'lucide-react'
 import { ACCENT, SITE_URL } from './shared'
 import type { Doc, News, Ev, Album, Photo, Job, Subscriber } from './shared'
-import Overview, { type Go } from './Overview'
+import Overview, { type Go, type AuditRow } from './Overview'
+import SettingsManager from './SettingsManager'
+import type { SiteInfo } from './siteinfo'
 import NewsManager from './NewsManager'
 import DocumentsManager from './DocumentsManager'
 import TeamManager, { type StaffRow, type TeamSetting } from './TeamManager'
@@ -20,19 +22,21 @@ const TABS = [
   { id: 'events', label: 'Събития', icon: CalendarDays },
   { id: 'gallery', label: 'Галерия', icon: Images },
   { id: 'hero', label: 'Начална', icon: LayoutTemplate },
-  { id: 'site-images', label: 'Снимки по страници', icon: ImagePlus },
+  { id: 'site-images', label: 'Снимки', icon: ImagePlus },
   { id: 'team', label: 'Екип', icon: Users },
   { id: 'jobs', label: 'Кариери', icon: Briefcase },
+  { id: 'settings', label: 'Настройки', icon: Settings2 },
 ] as const
 type TabId = (typeof TABS)[number]['id']
 
 /* ═══════════════ обвивка ═══════════════ */
 export default function SiteDocsClient({
-  docs = [], defaultYear, news = [], authorId, events = [], albums = [], photos = [], heroPhotos = [], pagePhotos = {}, jobs = [], subscribers = [], staff = [], team = [], teamReady = false,
+  docs = [], defaultYear, news = [], authorId, events = [], albums = [], photos = [], heroPhotos = [], pagePhotos = {}, jobs = [], subscribers = [], staff = [], team = [], teamReady = false, info, infoReady = false, audit = [],
 }: {
   docs: Doc[]; defaultYear: string; news?: News[]; authorId: string | null
   events?: Ev[]; albums?: Album[]; photos?: Photo[]; heroPhotos?: string[]; pagePhotos?: Record<string, string[]>
   jobs?: Job[]; subscribers?: Subscriber[]; staff?: StaffRow[]; team?: TeamSetting[]; teamReady?: boolean
+  info: SiteInfo; infoReady?: boolean; audit?: AuditRow[]
 }) {
   const [tab, setTab] = useState<TabId>('overview')
   // „скок“ от таблото: коя новина да се отвори / нова новина / кой раздел документи
@@ -93,7 +97,7 @@ export default function SiteDocsClient({
 
       {tab === 'overview' && (
         <Overview news={news} docs={docs} events={events} albums={albums} photos={photos}
-          heroPhotos={heroPhotos} pagePhotos={pagePhotos} jobs={jobs} go={go} />
+          heroPhotos={heroPhotos} pagePhotos={pagePhotos} jobs={jobs} audit={audit} go={go} />
       )}
       {tab === 'news' && <NewsManager key={jump.n} initial={news} authorId={authorId} openId={jump.newsId} openNewSignal={jump.newNews} />}
       {tab === 'docs' && <DocumentsManager key={jump.n} initial={docs} defaultYear={defaultYear} startSection={jump.section} />}
@@ -102,6 +106,7 @@ export default function SiteDocsClient({
       {tab === 'hero' && <HomeManager photos={photos} albums={albums} initialSelected={heroPhotos} />}
       {tab === 'site-images' && <PagePhotosManager key={jump.n} albums={albums} photos={photos} initialPages={pagePhotos} startPage={jump.page} />}
       {tab === 'team' && <TeamManager staff={staff} initial={team} ready={teamReady} />}
+      {tab === 'settings' && <SettingsManager initial={info} ready={infoReady} />}
       {tab === 'jobs' && <JobsManager initial={jobs} authorId={authorId} subscribers={subscribers} />}
     </div>
   )
