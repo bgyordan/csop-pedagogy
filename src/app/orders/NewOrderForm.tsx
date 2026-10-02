@@ -191,7 +191,7 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl border border-slate-200/80 max-w-xl w-full shadow-2xl flex flex-col" style={{ height: '85vh' }}>
+      <div className="bg-white rounded-3xl border border-slate-200/80 max-w-4xl w-full shadow-2xl flex flex-col" style={{ maxHeight: '92vh' }}>
 
         {/* Хедър */}
         <div className="flex items-start justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
@@ -205,11 +205,13 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          <div className="flex-1 overflow-y-auto px-6 py-5">
+          <div className="grid md:grid-cols-[1.2fr_1fr] gap-6">
+          <div className="space-y-4 min-w-0">
 
             {/* Бързо регистриране */}
             <div>
-              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+              <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
                 <Zap size={11} /> Бързо регистриране
               </label>
               <div className="flex flex-wrap gap-1.5">
@@ -229,7 +231,7 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
 
             {/* Дата */}
             <div>
-              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">Дата на издаване *</label>
+              <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">Дата на издаване *</label>
               <input type="date" value={orderDate} onChange={e => setOrderDate(e.target.value)}
                 required className="input w-44 text-xs" />
             </div>
@@ -237,7 +239,7 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
             {/* Избор на служител при сценарий */}
             {activeScenario?.needsStaff && (
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider flex items-center gap-1">
                   <User size={11} /> Служител *
                 </label>
                 <select value={staffId} onChange={e => handleStaffSelect(e.target.value)} required className="input w-full">
@@ -252,7 +254,7 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
 
             {/* Относно */}
             <div>
-              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">Относно / Заглавие *</label>
+              <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">Относно / Заглавие *</label>
               <input type="text" list="title-list" required value={title}
                 onChange={e => setTitle(e.target.value)}
                 placeholder="напр. Заповед за отпуск на Мария Иванова"
@@ -262,14 +264,17 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
               </datalist>
             </div>
 
+          </div>
+          <div className="space-y-4 min-w-0 md:border-l md:border-slate-200 md:pl-6">
             {/* Бележки */}
+            <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">Бележка</label>
             <textarea ref={descRef} rows={1} value={description} onChange={e => setDescription(e.target.value)}
               placeholder="Допълнителна информация..."
-              className="input w-full resize-none overflow-hidden" />
+              className="input w-full resize-none overflow-hidden min-h-[72px]" />
 
-            {/* Архивен индекс — долу */}
-            <div className="pt-2 border-t border-slate-100">
-              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">
+            {/* Архивен индекс */}
+            <div>
+              <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">
                 Архивен индекс {activeScenario && <span className="text-slate-300 normal-case">(зададен автоматично)</span>}
               </label>
 
@@ -352,7 +357,7 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
                 <button type="button" onClick={() => setUploadedFile(null)} className="text-slate-400 hover:text-red-500 p-1"><X size={14} /></button>
               </div>
             ) : (
-              <label className="flex items-center justify-center w-full h-10 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-[#0f2240] hover:bg-slate-50 transition-all">
+              <label className="flex items-center justify-center w-full h-14 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-[#0f2240] hover:bg-slate-50 transition-all">
                 <div className="flex items-center gap-2 text-slate-400">
                   <Upload size={14} /><span className="text-xs font-medium">Прикачи файл (PDF/Word, макс. 10MB)</span>
                 </div>
@@ -360,6 +365,8 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
                   onChange={e => { const f = e.target.files?.[0]; if (f) setUploadedFile(f) }} />
               </label>
             )}
+          </div>
+          </div>
           </div>
 
           {/* Бутони */}

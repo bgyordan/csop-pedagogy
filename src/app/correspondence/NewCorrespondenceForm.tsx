@@ -403,7 +403,7 @@ export default function NewCorrespondenceForm({
   }
   return (
     <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-           <div className="bg-white rounded-3xl border border-slate-200/80 max-w-2xl w-full shadow-2xl flex flex-col" style={{ maxHeight: '92vh' }}>
+           <div className="bg-white rounded-3xl border border-slate-200/80 max-w-4xl w-full shadow-2xl flex flex-col" style={{ maxHeight: '92vh' }}>
         {/* Хедър */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
           <div>
@@ -420,11 +420,13 @@ export default function NewCorrespondenceForm({
           </button>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          <div className="flex-1 overflow-y-auto px-6 py-5">
+          <div className="grid md:grid-cols-[1.2fr_1fr] gap-6">
+          <div className="space-y-4 min-w-0">
             {/* Бързо регистриране */}
             {availableScenarios.length > 0 && (
               <div>
-                <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
                   <Zap size={11} /> Бързо регистриране
                 </label>
                 <div className="flex flex-wrap gap-1.5">
@@ -444,13 +446,13 @@ export default function NewCorrespondenceForm({
             )}
             {/* Дата */}
             <div>
-              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">Дата *</label>
+              <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">Дата *</label>
               <input type="date" value={docDate} onChange={e => setDocDate(e.target.value)} required className="input w-44 text-xs" />
             </div>
             {/* Сценарий: служител */}
             {activeScenario?.icon === 'staff' && (
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider flex items-center gap-1">
                   <User size={11} /> Служител *
                 </label>
                 <PersonCombo people={staff} value={staffId} onChange={handleStaffSelect} placeholder="Служител — търси по име…" />
@@ -460,7 +462,7 @@ export default function NewCorrespondenceForm({
                   <div className="pt-1">
                     <label className="block text-[11px] text-slate-500 mb-1">Вид отпуск / член от КТ</label>
                     <select value={ktArticle} onChange={e => setKtArticle(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-400 cursor-pointer">
+                      className="input text-xs cursor-pointer">
                       <option value="155">чл. 155 и чл. 156 – платен годишен отпуск</option>
                       <option value="157">чл. 157 – отпуск при събития (брак, кръводаряване и др.)</option>
                       <option value="159">чл. 159 – отпуск за обучение</option>
@@ -487,7 +489,7 @@ export default function NewCorrespondenceForm({
                 {isVacation && absentInRegister && (
                   <div className="pt-2 mt-1 border-t border-slate-200 space-y-2">
                     <div className="flex items-center justify-between">
-                      <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">{separateDays ? 'Дни на отпуска *' : 'Период на отпуска *'}</div>
+                      <div className="text-[11px] font-medium text-slate-600 uppercase tracking-wider">{separateDays ? 'Дни на отпуска *' : 'Период на отпуска *'}</div>
                       <div className="flex rounded-full bg-slate-100 p-0.5 text-[10px]">
                         <button type="button" onClick={() => setSeparateDays(false)}
                           className={`px-2 py-0.5 rounded-full transition ${!separateDays ? 'bg-white shadow-sm text-[#0f2240]' : 'text-slate-500'}`}>Период</button>
@@ -534,7 +536,7 @@ export default function NewCorrespondenceForm({
                 {/* Заместник (по избор) — само за учители и възпитатели */}
                 {isVacation && absentCanBeSubstituted && (
                   <div className="space-y-1">
-                    <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Заместник (по избор)</div>
+                    <div className="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Заместник (по избор)</div>
                     <PersonCombo people={staff.filter(s => canSubstitute(s.role))} value={substituteId} excludeId={staffId}
                       onChange={(id) => setSubstituteId(id)}
                       placeholder="Заместник — търси по име…" />
@@ -546,7 +548,7 @@ export default function NewCorrespondenceForm({
             {/* Сценарий: ученик */}
             {activeScenario?.icon === 'student' && (
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider flex items-center gap-1">
                   <GraduationCap size={11} /> Ученик *
                 </label>
                 <PersonCombo people={allStudents} value={studentId} onChange={(id) => id ? handleStudentSelect(id) : setStudentId('')} placeholder="Ученик — търси по име…" />
@@ -624,32 +626,40 @@ export default function NewCorrespondenceForm({
               <div className="space-y-3">
                 {direction === 'incoming' ? (
                   <>
+                    <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">От кого *</label>
                     <input type="text" list="from-list" value={fromWhom} onChange={e => setFromWhom(e.target.value)}
                       required placeholder="От кого *" className="input w-full" />
                     <datalist id="from-list">{EXTERNAL_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
                   </>
                 ) : (
                   <>
+                    <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">До кого *</label>
                     <input type="text" list="to-list" value={toWhom} onChange={e => setToWhom(e.target.value)}
                       required placeholder="До кого *" className="input w-full" />
                     <datalist id="to-list">{EXTERNAL_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
                   </>
                 )}
-                <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
-                  required placeholder="Тема / Относно *" className="input w-full" />
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">Относно *</label>
+                  <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
+                    required placeholder="Тема / Относно" className="input w-full" />
+                </div>
               </div>
             )}
             {activeScenario && !subject && (
               <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
                 required placeholder="Тема / Относно *" className="input w-full" />
             )}
+          </div>
+          <div className="space-y-4 min-w-0 md:border-l md:border-slate-200 md:pl-6">
             {/* Бележки */}
+            <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">Бележка</label>
             <textarea ref={descRef} rows={1} value={description} onChange={e => setDescription(e.target.value)}
               placeholder="Допълнителна информация..."
-              className="input w-full resize-none overflow-hidden" />
-            {/* Архивен индекс — в дъното */}
-            <div className="pt-2 border-t border-slate-100">
-              <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">
+              className="input w-full resize-none overflow-hidden min-h-[72px]" />
+            {/* Архивен индекс */}
+            <div>
+              <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">
                 Архивен индекс {activeScenario && <span className="text-slate-300 normal-case">(зададен автоматично)</span>}
               </label>
               {activeScenario ? (
@@ -724,7 +734,7 @@ export default function NewCorrespondenceForm({
                 <button type="button" onClick={() => setUploadedFile(null)} className="text-slate-400 hover:text-red-500 p-1"><X size={14} /></button>
               </div>
             ) : (
-              <label className="flex items-center justify-center w-full h-10 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-[#0f2240] hover:bg-slate-50 transition-all">
+              <label className="flex items-center justify-center w-full h-14 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-[#0f2240] hover:bg-slate-50 transition-all">
                 <div className="flex items-center gap-2 text-slate-400">
                   <Upload size={14} /><span className="text-xs font-medium">Прикачи файл (PDF/Word, макс. 10MB)</span>
                 </div>
@@ -732,6 +742,8 @@ export default function NewCorrespondenceForm({
                   onChange={e => { const f = e.target.files?.[0]; if (f) setUploadedFile(f) }} />
               </label>
             )}
+          </div>
+          </div>
           </div>
           {/* Бутони */}
           <div className="flex gap-2 justify-end px-5 py-4 border-t border-slate-100 flex-shrink-0 bg-white rounded-b-3xl">

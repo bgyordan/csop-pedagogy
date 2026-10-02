@@ -160,7 +160,7 @@ export default function CorrespondenceClient({
       {/* Скролваема таблица: замразен заглавен ред + скролващи редове */}
       <div className="max-h-[calc(100vh-320px)] overflow-y-auto rounded-lg">
       {/* Заглавен ред */}
-      <div className="hidden md:grid grid-cols-[130px_80px_70px_1fr_1.5fr_1.5fr_56px] gap-3 px-4 py-2 sticky top-0 z-10 bg-slate-100">
+      <div className="hidden md:grid grid-cols-[130px_80px_70px_1fr_1.5fr_1.5fr_150px] gap-3 px-4 py-2 sticky top-0 z-10 bg-slate-100">
         {['№', 'Дата', 'Арх. индекс', activeDir === 'incoming' ? 'От кого' : 'До кого', 'Относно', 'Забележка', 'Файл'].map(h => (
           <span key={h} className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{h}</span>
         ))}
@@ -177,7 +177,7 @@ export default function CorrespondenceClient({
           return (
             <div key={item.id}
               onClick={() => setViewItem(item)}
-              className={`border rounded-2xl px-3 py-1.5 cursor-pointer transition-all group grid grid-cols-[130px_80px_70px_1fr_1.5fr_1.5fr_56px] gap-3 items-center shadow-[0_1px_4px_rgba(15,34,64,0.06)] hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] ${item.is_reserved ? 'bg-amber-50 border-amber-200 hover:border-amber-300' : 'bg-white even:bg-slate-50/60 hover:bg-slate-100/50 border-slate-200 hover:border-slate-400'}`}>
+              className={`border rounded-2xl px-3 py-1.5 cursor-pointer transition-all group grid grid-cols-[130px_80px_70px_1fr_1.5fr_1.5fr_150px] gap-3 items-center shadow-[0_1px_4px_rgba(15,34,64,0.06)] hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] ${item.is_reserved ? 'bg-amber-50 border-amber-200 hover:border-amber-300' : 'bg-white even:bg-slate-50/60 hover:bg-slate-100/50 border-slate-200 hover:border-slate-400'}`}>
 
               <span className="font-medium text-slate-800 text-xs whitespace-nowrap truncate flex items-center gap-1">{item.number}{item.is_reserved && <span className="text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 shrink-0">резерв.</span>}</span>
 
@@ -202,8 +202,15 @@ export default function CorrespondenceClient({
                     }}>
                     <Paperclip size={14} />
                   </button>
-                ) : (
+                ) : item.is_reserved ? (
                   <span className="text-slate-200 text-[10px]">—</span>
+                ) : canEdit ? (
+                  <button type="button" onClick={() => setEditItem(item)} title="Няма прикачен файл — натисни, за да го качиш"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 transition-colors whitespace-nowrap">
+                  <Paperclip size={11} /> няма файл
+                </button>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 whitespace-nowrap"><Paperclip size={11} /> няма файл</span>
                 )}
                 {canEdit && (
                   <button type="button" onClick={() => setEditItem(item)}
