@@ -1,70 +1,69 @@
 'use client'
 
-import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { X, ClipboardList, Download, FileText, Calendar } from 'lucide-react'
+import { ExternalLink, Paperclip, Pencil } from 'lucide-react'
+import { SidePanel, PanelField } from '@/components/registry/SidePanel'
 
 interface Props {
   item: any
   onClose: () => void
+  onPrev?: (() => void) | null
+  onNext?: (() => void) | null
+  canEdit?: boolean
+  onEdit?: () => void
 }
 
-export default function ViewOrderModal({ item, onClose }: Props) {
+// Преглед на заповед — страничен панел (списъкът остава видим)
+export default function ViewOrderModal({ item, onClose, onPrev, onNext, canEdit = false, onEdit }: Props) {
   const supabase = createClient()
 
-  async function handleDownload() {
+  async function handleOpen() {
     const win = window.open('', '_blank')
     const { data } = await supabase.storage.from('documents').createSignedUrl(item.file_url, 120)
     if (data?.signedUrl && win) win.location.href = data.signedUrl
-    else { if (win) win.close(); alert('Грешка при изтегляне') }
+    else { if (win) win.close(); alert('Грешка при отваряне на файла') }
   }
 
+  const badge = item.is_reserved
+    ? <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">резерв.</span>
+    : item.without_hours
+      ? <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700">без часове</span>
+      : null
+
   return (
-    <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl border max-w-lg w-full p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
-        <button onClick={onClose} className="absolute right-4 top-4 p-1.5 hover:bg-slate-100 rounded-lg text-slate-400">
-          <X size={18} />
+    <SidePanel kind="Заповед" number={item.number} date={item.date} badge={badge}
+      onClose={onClose} onPrev={onPrev} onNext={onNext}
+      footer={canEdit && onEdit ? (
+        <button type="button" onClick={onEdit}
+          className="ml-auto inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors">
+          <Pencil size={13} /> Редактирай
         </button>
+      ) : undefined}>
 
-        <div className="flex items-center gap-3 mb-5 pb-4 border-b border-slate-100">
-          <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
-            <ClipboardList size={18} className="text-orange-600" />
-          </div>
-          <div>
-            <div className="font-mono font-bold text-orange-700 text-lg">{item.number}</div>
-            <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-              <Calendar size={11} />
-              {item.date ? new Date(item.date).toLocaleDateString('bg-BG', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}
-            </div>
-          </div>
-        </div>
+      <PanelField label="Заглавие" strong>{item.title || '—'}</PanelField>
 
-        <div className="space-y-4">
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-            <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Заглавие</div>
-            <div className="text-sm font-bold text-slate-800">{item.title}</div>
-          </div>
+      {item.description && <PanelField label="Забележка">{item.description}</PanelField>}
 
-          {item.description && (
-            <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Бележки</div>
-              <div className="text-xs text-slate-600">{item.description}</div>
-            </div>
-          )}
+      <PanelField label="Архивен индекс">{item.nomenclature_item || '—'}</PanelField>
 
-          {item.file_url ? (
-            <button type="button" onClick={handleDownload}
-              className="w-full flex items-center justify-center gap-2 text-white font-bold py-3 rounded-xl shadow-md hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: '#0f2240' }}>
-              <Download size={16} /> Изтегли / Отвори файла
-            </button>
-          ) : (
-            <div className="w-full flex items-center justify-center gap-2 bg-slate-100 text-slate-400 font-bold py-3 rounded-xl border text-sm">
-              <FileText size={16} /> Няма прикачен файл
-            </div>
-          )}
-        </div>
+      <div>
+        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">Файл</div>
+        {item.file_url ? (
+          <button type="button" onClick={handleOpen}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-300 hover:border-[#0f2240] hover:bg-slate-50 transition-colors text-left">
+            <Paperclip size={16} className="text-[#0f2240] flex-shrink-0" />
+            <span className="text-sm text-slate-800 truncate flex-1">{item.file_name || 'Прикачен файл'}</span>
+            <ExternalLink size={14} className="text-slate-400 flex-shrink-0" />
+          </button>
+        ) : item.is_reserved ? (
+          <div className="text-sm text-slate-400">—</div>
+        ) : (
+          <button type="button" onClick={canEdit && onEdit ? onEdit : undefined} disabled={!canEdit || !onEdit}
+            className="w-full flex items-center gap-2 px-4 py-3 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-sm text-left enabled:hover:bg-amber-100 transition-colors">
+            <Paperclip size={15} /> Няма прикачен файл{canEdit && onEdit ? ' — натисни, за да го качиш' : ''}
+          </button>
+        )}
       </div>
-    </div>
+    </SidePanel>
   )
 }

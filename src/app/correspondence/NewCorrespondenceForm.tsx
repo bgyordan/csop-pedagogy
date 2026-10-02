@@ -4,7 +4,7 @@ import { canSubstitute } from '@/lib/pedagogues'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { generateNpLeaveOrder } from '@/lib/docx-substitution'
-import { FileDrop } from '@/components/registry/FormParts'
+import { FileDrop, useFormKeys, KeysHint } from '@/components/registry/FormParts'
 import { X, Loader2, User, GraduationCap, ChevronDown, ArrowDownLeft, ArrowUpRight, Zap, ClipboardList } from 'lucide-react'
 // Деловодна година: 15.09 – 14.09 следващата
 function deloYearBounds(ref: Date): { start: string; end: string } {
@@ -126,6 +126,8 @@ export default function NewCorrespondenceForm({
   const descRef = useRef<HTMLTextAreaElement>(null)
   const [saving, setSaving] = useState(false)
   const [saveAction, setSaveAction] = useState<'save_close' | 'save_new'>('save_close')
+  const rootRef = useRef<HTMLDivElement>(null)
+  useFormKeys(rootRef, onClose)
   const [scenario, setScenario] = useState<string | null>(null)
   const [folderIndex, setFolderIndex] = useState('')
   const [docDate, setDocDate] = useState(new Date().toISOString().split('T')[0])
@@ -404,7 +406,7 @@ export default function NewCorrespondenceForm({
   }
   return (
     <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-           <div className="bg-white rounded-3xl border border-slate-200/80 max-w-4xl w-full shadow-2xl flex flex-col" style={{ maxHeight: '92vh' }}>
+           <div ref={rootRef} className="bg-white rounded-3xl border border-slate-200/80 max-w-4xl w-full shadow-2xl flex flex-col" style={{ maxHeight: '92vh' }}>
         {/* Хедър */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
           <div>
@@ -628,14 +630,14 @@ export default function NewCorrespondenceForm({
                 {direction === 'incoming' ? (
                   <div>
                     <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">От кого *</label>
-                    <input type="text" list="from-list" value={fromWhom} onChange={e => setFromWhom(e.target.value)}
+                    <input autoFocus type="text" list="from-list" value={fromWhom} onChange={e => setFromWhom(e.target.value)}
                       required placeholder="институция или лице" className="input w-full" />
                     <datalist id="from-list">{EXTERNAL_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
                   </div>
                 ) : (
                   <div>
                     <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">До кого *</label>
-                    <input type="text" list="to-list" value={toWhom} onChange={e => setToWhom(e.target.value)}
+                    <input autoFocus type="text" list="to-list" value={toWhom} onChange={e => setToWhom(e.target.value)}
                       required placeholder="институция или лице" className="input w-full" />
                     <datalist id="to-list">{EXTERNAL_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
                   </div>
@@ -733,7 +735,8 @@ export default function NewCorrespondenceForm({
           </div>
           </div>
           {/* Бутони */}
-          <div className="flex gap-2 justify-end px-5 py-4 border-t border-slate-100 flex-shrink-0 bg-white rounded-b-3xl">
+          <div className="flex gap-2 justify-end items-center px-6 py-4 border-t border-slate-100 flex-shrink-0 bg-white rounded-b-3xl">
+            <KeysHint submitLabel="регистрира" />
             <button type="button" onClick={onClose}
               className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium transition-colors">
               Отказ
@@ -743,7 +746,7 @@ export default function NewCorrespondenceForm({
               {saving && saveAction === 'save_new' && <Loader2 size={12} className="animate-spin" />}
               Регистрирай и нов
             </button>
-            <button type="submit" disabled={saving} onClick={() => setSaveAction('save_close')}
+            <button type="submit" disabled={saving} data-primary onClick={() => setSaveAction('save_close')}
               className="px-5 py-2 text-white rounded-xl text-xs font-medium flex items-center gap-1.5 disabled:opacity-60 shadow-sm hover:opacity-90 transition-opacity"
               style={{ backgroundColor: '#0f2240' }}>
               {saving && saveAction === 'save_close' && <Loader2 size={12} className="animate-spin" />}

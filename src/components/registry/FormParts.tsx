@@ -3,7 +3,7 @@
 // Общи елементи за формите в деловодството (нов/редакция на входящ, изходящ, заповед):
 // еднакъв надпис над поле, секция със заглавие и голямо поле за файл (клик или пускане с мишката).
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FileText, Paperclip, Upload, X } from 'lucide-react'
 
 export const LABEL_CLS = 'block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5'
@@ -81,5 +81,46 @@ export function FileDrop({ file, onFile, currentName, missing = false, accept = 
         </label>
       )}
     </div>
+  )
+}
+
+/**
+ * Клавиши за прозорците-форми:
+ *  Esc — затваря (пита, ако вече е писано нещо), Ctrl+Enter — натиска главния бутон
+ *  (бутонът трябва да има атрибут data-primary).
+ */
+export function useFormKeys(rootRef: React.RefObject<HTMLElement | null>, onClose: () => void, opts?: { confirmDirty?: boolean }) {
+  useEffect(() => {
+    function isDirty() {
+      const root = rootRef.current
+      if (!root) return false
+      const fields = root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input[type="text"], input:not([type]), textarea')
+      return Array.from(fields).some(f => f.value.trim() !== '' && f.defaultValue.trim() !== f.value.trim())
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        // Ако е отворен падащ списък/търсачка вътре — Esc първо затваря него
+        if (e.defaultPrevented) return
+        e.preventDefault()
+        if (opts?.confirmDirty !== false && isDirty() && !confirm('Затвори без да записваш?')) return
+        onClose()
+      } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        const btn = rootRef.current?.querySelector<HTMLButtonElement>('[data-primary]')
+        if (btn && !btn.disabled) { e.preventDefault(); btn.click() }
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+}
+
+/** Подсказка за клавишите в долния край на прозореца. */
+export function KeysHint({ submitLabel = 'запис' }: { submitLabel?: string }) {
+  return (
+    <span className="hidden md:inline-flex items-center gap-1.5 text-[11px] text-slate-400 mr-auto">
+      <kbd className="px-1.5 py-0.5 rounded border border-slate-300 bg-slate-50 text-[10px] text-slate-500">Esc</kbd> затваря
+      <span className="mx-1">·</span>
+      <kbd className="px-1.5 py-0.5 rounded border border-slate-300 bg-slate-50 text-[10px] text-slate-500">Ctrl</kbd>+<kbd className="px-1.5 py-0.5 rounded border border-slate-300 bg-slate-50 text-[10px] text-slate-500">Enter</kbd> {submitLabel}
+    </span>
   )
 }

@@ -8,6 +8,7 @@ import { Plus, Search, ChevronLeft, ChevronRight, ClipboardList, X } from 'lucid
 import ViewOrderModal from './ViewOrderModal'
 import EditOrderModal from './EditOrderModal'
 import { Hl, SortHeader, FileAndActions, FilterChips } from '@/components/registry/RegistryParts'
+import { PANEL_WIDTH_CLS } from '@/components/registry/SidePanel'
 
 interface NomenclatureItem {
   id: string; section_code: string; item_code: string; name: string; retention_years: string
@@ -64,6 +65,30 @@ export default function OrdersClient({
   const [viewItem, setViewItem] = useState<any | null>(null)
   const [editItem, setEditItem] = useState<any | null>(null)
 
+  // Страничен панел: предишен/следващ запис, ↑/↓ и Esc, свежи данни след редакция
+  const viewIdx = viewItem ? orders.findIndex(o => o.id === viewItem.id) : -1
+  const goPrev = viewIdx > 0 ? () => setViewItem(orders[viewIdx - 1]) : null
+  const goNext = viewIdx >= 0 && viewIdx < orders.length - 1 ? () => setViewItem(orders[viewIdx + 1]) : null
+  useEffect(() => {
+    if (!viewItem) return
+    const fresh = orders.find(o => o.id === viewItem.id)
+    if (fresh && fresh !== viewItem) setViewItem(fresh)
+  }, [orders])
+  useEffect(() => {
+    if (!viewItem) return
+    document.querySelector(`[data-row-id="${viewItem.id}"]`)?.scrollIntoView({ block: 'nearest' })
+    if (editItem || showForm) return
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return
+      if (e.key === 'Escape') setViewItem(null)
+      else if (e.key === 'ArrowDown' && goNext) { e.preventDefault(); goNext() }
+      else if (e.key === 'ArrowUp' && goPrev) { e.preventDefault(); goPrev() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [viewItem, editItem, showForm, orders])
+
   const totalPages = Math.ceil(totalCount / pageSize)
 
   function buildUrl(opts: { q?: string; idx?: string; page?: number; dyear?: string; f?: string; sort?: string }) {
@@ -90,7 +115,7 @@ export default function OrdersClient({
   }, [search])
 
   return (
-    <div className="space-y-4">
+    <div className={`space-y-4 transition-[padding] duration-200 ${viewItem ? PANEL_WIDTH_CLS : ''}`}>
 
       {/* Лента с контроли — всичко на едно място */}
       <div className="bg-white border border-slate-200 rounded-2xl p-2 shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
@@ -155,8 +180,9 @@ export default function OrdersClient({
             </div>
           ) : orders.map((item) => (
             <div key={item.id}
+              data-row-id={item.id}
               onClick={() => setViewItem(item)}
-              className={`border rounded-xl px-4 py-2.5 min-h-[46px] cursor-pointer transition-all group grid grid-cols-1 ${GRID} gap-x-4 gap-y-1 items-center hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] ${
+              className={`border rounded-xl px-4 py-2.5 min-h-[46px] cursor-pointer transition-all group grid grid-cols-1 ${GRID} ${viewItem?.id === item.id ? 'ring-2 ring-[#0f2240]/25 !border-[#0f2240]' : ''} gap-x-4 gap-y-1 items-center hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)] ${
                 item.is_reserved ? 'bg-amber-50 border-amber-200 hover:border-amber-300'
                 : item.without_hours ? 'bg-violet-50 border-violet-200 hover:border-violet-300'
                 : 'bg-white border-slate-200 hover:border-slate-400'}`}>
@@ -206,7 +232,7 @@ export default function OrdersClient({
         )}
       </div>
 
-      {viewItem && <ViewOrderModal item={viewItem} onClose={() => setViewItem(null)} />}
+      {viewItem && <ViewOrderModal item={viewItem} onClose={() => setViewItem(null)} onPrev={goPrev} onNext={goNext} canEdit={canEdit} onEdit={() => setEditItem(viewItem)} />}
       {editItem && <EditOrderModal item={editItem} nomenclature={nomenclature} onClose={() => setEditItem(null)} />}
 
       {showForm && (
