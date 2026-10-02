@@ -18,13 +18,13 @@ const GROUPS = [
   { key: 'assistants', label: 'Помощник на учителя' },
   { key: 'other', label: 'Помощен персонал' },
 ]
-const isAssistant = (p: StaffRow) => p.role === 'support' && (p.position || '').toLowerCase().includes('помощник')
-function groupOf(p: StaffRow) {
+const isAssistant = (p: StaffRow, title?: string | null) => p.role === 'support' && `${p.position || ''} ${title || ''}`.toLowerCase().includes('помощник')
+function groupOf(p: StaffRow, title?: string | null) {
   if (['director', 'zdud', 'admin', 'secretary'].includes(p.role)) return 'admin'
   if (['psychologist', 'speech_therapist', 'rehabilitator'].includes(p.role)) return 'therapy'
   if (['class_teacher', 'teacher', 'coordinator'].includes(p.role)) return 'teachers'
   if (p.role === 'educator') return 'educators'
-  return isAssistant(p) ? 'assistants' : 'other'
+  return isAssistant(p, title) ? 'assistants' : 'other'
 }
 function autoTitle(p: StaffRow) {
   const pos = (p.position || '').trim()
@@ -60,7 +60,7 @@ export default function TeamManager({ staff, initial, ready }: { staff: StaffRow
     return GROUPS.map((g) => ({
       ...g,
       people: staff
-        .filter((p) => groupOf(p) === g.key)
+        .filter((p) => groupOf(p, settings[p.id]?.title) === g.key)
         .filter((p) => (vis === 'all' ? true : vis === 'on' ? shownOnSite(p) : !shownOnSite(p)))
         .filter((p) => !query || `${p.first_name} ${p.last_name} ${titleOf(p)}`.toLowerCase().includes(query))
         .sort((a, b) => (ROLE_SORT[a.role] || 9) - (ROLE_SORT[b.role] || 9) || a.last_name.localeCompare(b.last_name, 'bg')),
