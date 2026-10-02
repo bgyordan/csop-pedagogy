@@ -50,25 +50,36 @@ export const BUDGET_RUBRICS = [
 ]
 export const rubricSet = (section: string) => (section === 'internal' ? RUBRICS : section === 'zdoi' ? ZDOI_RUBRICS : section === 'budget' ? BUDGET_RUBRICS : null)
 export const rubricOf = (section: string, k: string | null) => { const s = rubricSet(section) || RUBRICS; return s.find((r) => r.key === k) || s[s.length - 1] }
-// Страници на сайта, на които може да се сложат снимки (ключ = site_settings.page_photos)
-export const SITE_PAGES: { key: string; label: string }[] = [
-  { key: 'za-nas', label: 'За нас' },
-  { key: 'istoriya', label: 'История' },
-  { key: 'ekip', label: 'Екип' },
-  { key: 'materialna-baza', label: 'Материална база (горе)' },
-  { key: 'baza-kabineti', label: 'Материална база: учебни кабинети' },
-  { key: 'baza-terapiya', label: 'Материална база: терапевтични зали' },
-  { key: 'baza-kuhnya', label: 'Материална база: кулинарен кабинет' },
-  { key: 'baza-dvor', label: 'Материална база: двор' },
-  { key: 'proekti', label: 'Проекти' },
-  { key: 'karieri', label: 'Кариери' },
-  { key: 'za-roditeli', label: 'За родители' },
-  { key: 'dneven-rezhim', label: 'Дневен режим' },
-  { key: 'nastoyatelstvo', label: 'Училищно настоятелство' },
-  { key: 'priem', label: 'Как се записва дете' },
-  { key: 'poseshtenie', label: 'Елате на посещение' },
-  { key: 'daritelstvo', label: 'Дарителство' },
+// Страници на сайта, на които може да се сложат снимки (ключ = site_settings.page_photos).
+// mode: both = първата е заглавна + всички в лента отдолу; hero = само заглавна; band = само лента (раздел от страница)
+export type PageMode = 'both' | 'hero' | 'band'
+export const SITE_PAGES: { key: string; label: string; group: string; path: string; mode: PageMode }[] = [
+  { key: 'za-nas', label: 'За нас', group: 'За нас', path: '/za-nas', mode: 'both' },
+  { key: 'istoriya', label: 'История', group: 'За нас', path: '/za-nas/istoriya', mode: 'both' },
+  { key: 'ekip', label: 'Екип', group: 'За нас', path: '/za-nas/ekip', mode: 'hero' },
+  { key: 'proekti', label: 'Проекти', group: 'За нас', path: '/za-nas/proekti', mode: 'both' },
+  { key: 'karieri', label: 'Кариери', group: 'За нас', path: '/za-nas/karieri', mode: 'hero' },
+  { key: 'materialna-baza', label: 'Материална база', group: 'Материална база', path: '/za-nas/materialna-baza', mode: 'hero' },
+  { key: 'baza-kabineti', label: 'Учебни кабинети', group: 'Материална база', path: '/za-nas/materialna-baza', mode: 'band' },
+  { key: 'baza-terapiya', label: 'Терапевтични зали', group: 'Материална база', path: '/za-nas/materialna-baza', mode: 'band' },
+  { key: 'baza-kuhnya', label: 'Кулинарен кабинет', group: 'Материална база', path: '/za-nas/materialna-baza', mode: 'band' },
+  { key: 'baza-dvor', label: 'Училищен двор', group: 'Материална база', path: '/za-nas/materialna-baza', mode: 'band' },
+  { key: 'za-roditeli', label: 'За родители', group: 'Родители', path: '/za-roditeli', mode: 'both' },
+  { key: 'dneven-rezhim', label: 'Дневен режим', group: 'Родители', path: '/za-roditeli/dneven-rezhim', mode: 'both' },
+  { key: 'nastoyatelstvo', label: 'Училищно настоятелство', group: 'Родители', path: '/za-roditeli/nastoyatelstvo', mode: 'both' },
+  { key: 'priem', label: 'Как се записва дете', group: 'Прием', path: '/priem/proczedura', mode: 'hero' },
+  { key: 'poseshtenie', label: 'Елате на посещение', group: 'Прием', path: '/priem/poseshtenie', mode: 'both' },
+  { key: 'daritelstvo', label: 'Дарителство', group: 'Подкрепа', path: '/daritelstvo', mode: 'both' },
 ]
+export const pageLabel = (k: string) => { const p = SITE_PAGES.find((x) => x.key === k); return p ? (p.group === 'Материална база' && p.key !== 'materialna-baza' ? `Материална база · ${p.label}` : p.label) : k }
+
+// Път в хранилището (public-media) от публичния адрес на файл
+export const mediaPath = (url: string) => { const p = url.split('/public-media/')[1]?.split('?')[0]; return p ? decodeURIComponent(p) : null }
+const TR: Record<string, string> = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sht', ъ: 'a', ь: 'y', ю: 'yu', я: 'ya' }
+export function slugName(name: string) {
+  const base = name.replace(/\.[^.]+$/, '').toLowerCase().split('').map((c) => TR[c] ?? c).join('')
+  return base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'snimka'
+}
 export const NEWS_CATS = ['Новини', 'Събития', 'Публикации', 'Моменти']
 
 
