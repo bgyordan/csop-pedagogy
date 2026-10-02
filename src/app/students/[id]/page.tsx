@@ -55,13 +55,13 @@ const EPLR_LABELS: Record<string, string> = {
   iu_program_school: 'ИУ Програма (училище)', characteristic: 'Характеристика', other: 'Други',
 }
 
-const TABS = ['overview', 'docs', 'data', 'eplr', 'therapy', 'files'] as const
+const TABS = ['docs', 'overview', 'data', 'eplr', 'therapy', 'files'] as const
 type Tab = typeof TABS[number]
 
 export default async function StudentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const { id } = await params
   const sp = await searchParams
-  const tab: Tab = (TABS as readonly string[]).includes(sp.tab || '') ? (sp.tab as Tab) : 'overview'
+  const tab: Tab = (TABS as readonly string[]).includes(sp.tab || '') ? (sp.tab as Tab) : 'docs'
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
@@ -182,14 +182,14 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
   if (student.status === 'active' && !eplr) alerts.push({ level: 'amber', icon: Users, tab: 'eplr', text: 'Няма назначен ЕПЛР екип' })
   if (activeOres) alerts.push({ level: 'info', icon: Sparkles, tab: 'data', text: `ОРЕС от ${formatDate(activeOres.from_date)}${activeOres.to_date ? ` до ${formatDate(activeOres.to_date)}` : ''}` })
 
-  const tabHref = (t: Tab) => t === 'overview' ? `/students/${id}` : `/students/${id}?tab=${t}`
+  const tabHref = (t: Tab) => t === 'docs' ? `/students/${id}` : `/students/${id}?tab=${t}`
 
   const cardCls = "bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm h-full"
   const cardHead = "flex items-center gap-2 mb-3 pb-2.5 border-b border-slate-100"
 
   const TAB_DEFS: { key: Tab; label: string; icon: any }[] = [
-    { key: 'overview', label: 'Обзор', icon: LayoutGrid },
     { key: 'docs', label: 'Документи', icon: FolderOpen },
+    { key: 'overview', label: 'Обзор', icon: LayoutGrid },
     { key: 'data', label: 'Данни', icon: ClipboardList },
     { key: 'eplr', label: 'ЕПЛР екип', icon: Users },
     { key: 'therapy', label: 'Терапия', icon: Heart },
@@ -316,13 +316,17 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
       )}
 
       <div className="mt-4">
+        {/* Нов ученик — картата за прием стои над всеки таб, както преди */}
+        {(student as any).is_new && student.status === 'active' && (
+          <div className="mb-4">
+            <IntakeCard student={student} enrollment={enrollment} guardiansCount={(guardians || []).length}
+              eplr={eplr} coudEnrolled={coudEnrolled} canManage={canManage} />
+          </div>
+        )}
+
         {/* ОБЗОР — бърз поглед; всяка карта води към своя таб */}
         {tab === 'overview' && (
           <div className="animate-in fade-in duration-300 space-y-4">
-            {(student as any).is_new && student.status === 'active' && (
-              <IntakeCard student={student} enrollment={enrollment} guardiansCount={(guardians || []).length}
-                eplr={eplr} coudEnrolled={coudEnrolled} canManage={canManage} />
-            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
               {overviewCard('Обучение', GraduationCap, 'data', <div>
                 {row('Паралелка', className || '—')}
