@@ -151,6 +151,19 @@ export default function NewCorrespondenceForm({
   const [substituteId, setSubstituteId] = useState('')
   const [subFrom, setSubFrom] = useState('')
   const [subTo, setSubTo] = useState('')
+  // Отпуск в отделни дни (напр. три понеделника) — един ред в „Замествания“ за всеки ден
+  const [separateDays, setSeparateDays] = useState(false)
+  const [leaveDays, setLeaveDays] = useState<string[]>([])
+  const [dayPick, setDayPick] = useState('')
+  const leavePeriods: { from: string; to: string }[] = separateDays
+    ? [...leaveDays].sort().map(d => ({ from: d, to: d }))
+    : (subFrom && subTo ? [{ from: subFrom, to: subTo }] : [])
+  const leaveFirst = leavePeriods[0]?.from || ''
+  const leaveLast = leavePeriods[leavePeriods.length - 1]?.to || ''
+  const fmtD = (d: string) => d.split('-').reverse().join('.')
+  const leaveLabel = separateDays
+    ? leavePeriods.map(p => fmtD(p.from)).join(', ')
+    : (subFrom && subTo ? `${fmtD(subFrom)}–${fmtD(subTo)}` : '')
   const currentYear = new Date().getFullYear()
   const activeScenario = scenario ? QUICK_SCENARIOS[scenario] : null
     const isVacation = scenario === 'vacation' || scenario === 'vacation_np'
@@ -266,7 +279,7 @@ export default function NewCorrespondenceForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!subject) { alert('Моля попълнете темата.'); return }
-    if (isVacation && absentInRegister && (!subFrom || !subTo)) { alert('Моля попълнете периода на отпуска (от – до).'); return }
+    if (isVacation && absentInRegister && leavePeriods.length === 0) { alert(separateDays ? 'Моля добавете поне един ден на отпуска.' : 'Моля попълнете периода на отпуска (от – до).'); return }
     setSaving(true)
     const { start: dStart, end: dEnd } = deloYearBounds(new Date(docDate))
     const seq = await nextSeqCorr(supabase, direction, dStart, dEnd)
@@ -287,9 +300,11 @@ export default function NewCorrespondenceForm({
       from_whom: fromWhom || null,
       to_whom: toWhom || null,
       subject,
-      description: (isVacation && substituteId && subFrom && subTo)
-        ? `Заместник: ${(staff.find(x => x.id === substituteId)?.first_name || '')} ${(staff.find(x => x.id === substituteId)?.last_name || '')}, ${subFrom.split('-').reverse().join('.')}–${subTo.split('-').reverse().join('.')}${description ? ' · ' + description : ''}`.trim()
-        : (description || null),
+      description: (isVacation && substituteId && leaveLabel)
+        ? `Заместник: ${(staff.find(x => x.id === substituteId)?.first_name || '')} ${(staff.find(x => x.id === substituteId)?.last_name || '')}, ${leaveLabel}${description ? ' · ' + description : ''}`.trim()
+        : (isVacation && separateDays && leaveLabel)
+          ? `Отпуск в дни: ${leaveLabel}${description ? ' · ' + description : ''}`
+          : (description || null),
       file_url: fileUrl || null,
       file_name: fileName || null,
       student_id: studentId || null,
@@ -321,7 +336,7 @@ export default function NewCorrespondenceForm({
           try {
             await generateNpLeaveOrder({
               orderNumber, absentName: fromWhom || '', absentPosition: '',
-                            ktArticle, dateFrom: subFrom || docDate, dateTo: subTo || docDate, workDays: 0,
+                            ktArticle, dateFrom: leaveFirst || docDate, dateTo: leaveLast || docDate, workDays: 0,
               leaveRef: `Заявление вх. № ${docNumber}`, zdudName: 'Силвия Кьошкерян',
             })
           } catch (_) {}
@@ -331,19 +346,21 @@ export default function NewCorrespondenceForm({
 
 // Отпуск → регистър „Замествания“: ВИНАГИ (с или без заместник), за да се вижда кой отсъства.
     // Специалистите се водят „не се замества“; НП — само за учители и възпитатели.
-    if ((isVacation && absentInRegister && subFrom && subTo) || (isNp && absentCanBeSubstituted)) {
+    if ((isVacation && absentInRegister && leavePeriods.length > 0) || (isNp && absentCanBeSubstituted)) {
       try {
-        await supabase.from('substitutions').insert({
+        // отделни дни → по един ред за всеки ден; иначе един ред за периода
+        const periods = leavePeriods.length > 0 ? leavePeriods : [{ from: docDate, to: docDate }]
+        await supabase.from('substitutions').insert(periods.map(p => ({
           absent_staff_id: staffId || null,
           kt_article: ktArticle,
           substitute_staff_id: absentCanBeSubstituted ? (substituteId || null) : null,
-         date_from: subFrom || docDate,
-          date_to: subTo || docDate,
+          date_from: p.from,
+          date_to: p.to,
           reason: 'vacation',
           bsch_eligible: isNp && absentCanBeSubstituted,
           leave_order_date: docDate,
           created_by: currentUserId,
-        })
+        })))
       } catch (_) { /* заместването не бива да блокира деловодството */ }
     }
 
@@ -372,6 +389,7 @@ export default function NewCorrespondenceForm({
     router.refresh()
     if (saveAction === 'save_new') {
       setScenario(null); setFolderIndex('')
+      setSeparateDays(false); setLeaveDays([]); setDayPick('')
       setDocDate(new Date().toISOString().split('T')[0])
       setFromWhom(''); setToWhom(''); setSubject(''); setDescription('')
       setStudentId(''); setStaffId(''); setUploadedFile(null)
@@ -468,7 +486,35 @@ export default function NewCorrespondenceForm({
                 {/* Период на отпуска — винаги (от него зависи „Днес отсъстват“) */}
                 {isVacation && absentInRegister && (
                   <div className="pt-2 mt-1 border-t border-slate-200 space-y-2">
-                    <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Период на отпуска *</div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">{separateDays ? 'Дни на отпуска *' : 'Период на отпуска *'}</div>
+                      <div className="flex rounded-full bg-slate-100 p-0.5 text-[10px]">
+                        <button type="button" onClick={() => setSeparateDays(false)}
+                          className={`px-2 py-0.5 rounded-full transition ${!separateDays ? 'bg-white shadow-sm text-[#0f2240]' : 'text-slate-500'}`}>Период</button>
+                        <button type="button" onClick={() => setSeparateDays(true)}
+                          className={`px-2 py-0.5 rounded-full transition ${separateDays ? 'bg-white shadow-sm text-[#0f2240]' : 'text-slate-500'}`}>Отделни дни</button>
+                      </div>
+                    </div>
+                    {separateDays ? (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <input type="date" value={dayPick} min={new Date(Date.now() - 7 * 864e5).toISOString().split('T')[0]} onChange={e => setDayPick(e.target.value)} className="input flex-1 text-xs" />
+                          <button type="button" disabled={!dayPick}
+                            onClick={() => { if (dayPick && !leaveDays.includes(dayPick)) setLeaveDays(prev => [...prev, dayPick].sort()); setDayPick('') }}
+                            className="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 text-[#0f2240] hover:bg-slate-50 disabled:opacity-40">+ Добави</button>
+                        </div>
+                        {leaveDays.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {[...leaveDays].sort().map(d => (
+                              <span key={d} className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                                {fmtD(d)}
+                                <button type="button" onClick={() => setLeaveDays(prev => prev.filter(x => x !== d))} className="text-slate-400 hover:text-red-500">×</button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
                         <label className="block text-[10px] text-slate-400 mb-0.5">От</label>
@@ -479,6 +525,7 @@ export default function NewCorrespondenceForm({
                         <input type="date" value={subTo} min={subFrom || new Date(Date.now() - 7 * 864e5).toISOString().split('T')[0]} onChange={e => setSubTo(e.target.value)} className="input w-full text-xs" />
                       </div>
                     </div>
+                    )}
                     {!absentCanBeSubstituted && (
                       <div className="text-[11px] text-slate-500">Не се замества — колегите ще го видят в „Днес отсъстват“.</div>
                     )}
