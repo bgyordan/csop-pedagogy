@@ -42,7 +42,7 @@ const QUICK_SCENARIOS: Record<string, {
 }> = {
   vacation: { label: 'Отпуск', icon: 'staff', index: 'ЛС-02', template: 'Заявление за отпуск', directions: ['incoming'] },
   vacation_np: { label: 'НП отпуск', icon: 'staff', index: 'ЛС-02', template: 'НП „Без свободен час" – заявление за отпуск', directions: ['incoming'] },
-  enrollment: { label: 'Прием на ученик', icon: 'student', index: 'УВД-09', template: 'Заявление за прием на {name}', directions: ['incoming'], dossierDocType: 'enrollment_application' },
+  enrollment: { label: 'Прием', icon: 'student', index: 'УВД-09', template: 'Заявление за прием на {name}', directions: ['incoming'], dossierDocType: 'enrollment_application' },
   coud: { label: 'ЦОУД', icon: 'student', index: 'УВД-12', template: 'Молба за ЦОУД на {name}', directions: ['incoming'], dossierDocType: 'coud_application' },
 }
 const EXTERNAL_SUGGESTIONS = [
@@ -429,15 +429,15 @@ export default function NewCorrespondenceForm({
                 <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
                   <Zap size={11} /> Бързо регистриране
                 </label>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1">
                   {availableScenarios.map(([key, s]) => (
                     <button key={key} type="button" onClick={() => selectScenario(key)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium border whitespace-nowrap transition-all ${
                         scenario === key
                           ? 'bg-[#0f2240] text-white border-[#0f2240]'
                           : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                       }`}>
-                      {s.icon === 'staff' ? <User size={12} /> : <GraduationCap size={12} />}
+                      {s.icon === 'staff' ? <User size={11} /> : <GraduationCap size={11} />}
                       {s.label}
                     </button>
                   ))}
