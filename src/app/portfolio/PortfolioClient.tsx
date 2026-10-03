@@ -8,7 +8,8 @@ import PostReader from './PostReader'
 import PostEditor from './PostEditor'
 import SharedFilesTab, { SharedFilesStrip, loadSharedFiles } from './SharedFilesTab'
 import type { FileRow } from './SharedFilesTab'
-import { KINDS, MANAGERS, isImage } from './lib'
+import { KINDS, MANAGERS, isImage, isDraft } from './lib'
+import { createClient } from '@/lib/supabase/client'
 import type { Post, Person, Cls, Kind } from './lib'
 
 type Tab = 'wall' | 'mine' | 'files' | 'site'
@@ -52,14 +53,15 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
   const me = personBy[meId]
 
   const mine = posts.filter(p => p.author_id === meId)
-  const siteQueue = posts.filter(p => p.site_status === 'requested')
-  const base = tab === 'mine' ? mine : tab === 'site' ? siteQueue : posts
+  const wall = posts.filter(p => !isDraft(p))
+  const siteQueue = posts.filter(p => p.site_status === 'requested' && !isDraft(p))
+  const base = tab === 'mine' ? mine : tab === 'site' ? siteQueue : wall
 
   const countBy = (k: Kind) => base.filter(p => p.kind === k).length
   const authors = useMemo(() => {
-    const ids = new Set(posts.map(p => p.author_id).filter(Boolean) as string[])
+    const ids = new Set(wall.map(p => p.author_id).filter(Boolean) as string[])
     return people.filter(p => ids.has(p.id)).sort((a, b) => a.short.localeCompare(b.short, 'bg'))
-  }, [posts, people])
+  }, [wall, people])
 
   const needle = q.trim().toLowerCase()
   const shown = base
@@ -74,6 +76,16 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
   function flash(m: string) { setToast(m); setTimeout(() => setToast(''), 3500) }
   function refresh(msg: string) { flash(msg); router.refresh() }
 
+  // „Сподели“ / „Само за мен“ — като при файловете
+  async function toggleShare(p: Post) {
+    const share = isDraft(p)
+    const patch: Record<string, unknown> = { is_shared: share }
+    if (!share && p.site_status === 'requested') patch.site_status = 'none'
+    const { error } = await createClient().from('portfolio_posts').update(patch).eq('id', p.id)
+    if (error) { flash(error.message); return }
+    refresh(share ? 'Споделено с колегите.' : 'Вече го виждаш само ти.')
+  }
+
   async function exportWord() {
     setExporting(true)
     try {
@@ -83,7 +95,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
   }
 
   const tabs: { key: Tab; label: string; icon: typeof LayoutGrid; count: number | null; show: boolean }[] = [
-    { key: 'wall', label: 'Портфолио на ЦСОП', icon: LayoutGrid, count: posts.length, show: true },
+    { key: 'wall', label: 'Портфолио на ЦСОП', icon: LayoutGrid, count: wall.length, show: true },
     { key: 'mine', label: 'Моето портфолио', icon: UserRound, count: mine.length, show: canPost },
     { key: 'files', label: 'Споделени файлове', icon: Share2, count: files ? files.length : null, show: true },
     { key: 'site', label: 'За сайта', icon: Globe, count: siteQueue.length, show: siteDesk },
@@ -186,7 +198,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
       {tab === 'wall' && kind === 'all' && !author && !needle && files && <SharedFilesStrip rows={files} onAll={() => setTab('files')} />}
 
       {/* Покана за публикуване */}
-      {canPost && tab !== 'site' && (tab === 'mine' ? mine.length === 0 : posts.length < 4) && !needle && (
+      {canPost && tab !== 'site' && (tab === 'mine' ? mine.length === 0 : wall.length < 4) && !needle && (
         <div className="rounded-3xl border-2 border-dashed border-slate-300 bg-white p-6 md:p-8 mb-6">
           <div className="flex items-center gap-2 text-slate-900 font-semibold"><Sparkles size={18} className="text-amber-500" /> {tab === 'mine' ? 'Твоето портфолио още е празно' : 'Сподели с колегите'}</div>
           <p className="text-sm text-slate-500 mt-1 mb-4">Няколко снимки и няколко изречения стигат. Избери с какво да започнеш:</p>
@@ -216,7 +228,8 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {shown.slice(0, limit).map(p => (
-            <PostCard key={p.id} post={p} author={personBy[p.author_id || '']} thumbs={thumbs} classNames={classNames} onOpen={() => setOpenId(p.id)} />
+            <PostCard key={p.id} post={p} author={personBy[p.author_id || '']} thumbs={thumbs} classNames={classNames} onOpen={() => setOpenId(p.id)}
+              onToggleShare={tab === 'mine' && p.author_id === meId ? () => toggleShare(p) : undefined} />
           ))}
         </div>
       )}

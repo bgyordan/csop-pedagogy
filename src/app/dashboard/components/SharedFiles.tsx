@@ -49,8 +49,8 @@ async function loadPosts(): Promise<PostRow[]> {
   const supabase = createClient()
   const cols = 'id, title, kind, author_id, created_at, site_status, cover_path'
   const [{ data: recent }, { data: queue }] = await Promise.all([
-    supabase.from('portfolio_posts').select(cols).order('created_at', { ascending: false }).limit(6),
-    supabase.from('portfolio_posts').select(cols).eq('site_status', 'requested').order('site_requested_at', { ascending: true }).limit(6),
+    supabase.from('portfolio_posts').select(cols).eq('is_shared', true).order('created_at', { ascending: false }).limit(6),
+    supabase.from('portfolio_posts').select(cols).eq('is_shared', true).eq('site_status', 'requested').order('site_requested_at', { ascending: true }).limit(6),
   ])
   const all = [...(queue || []), ...(recent || [])].filter((p: any, i, a) => a.findIndex((x: any) => x.id === p.id) === i)
   if (!all.length) return []

@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
-  X, ImagePlus, Star, Trash2, Loader2, Bold, Heading2, List, Globe, ShieldCheck, Paperclip, Upload, Send, Eye, PenLine,
+  X, ImagePlus, Star, Lock, Users, Trash2, Loader2, Bold, Heading2, List, Globe, ShieldCheck, Paperclip, Upload, Send, Eye, PenLine,
 } from 'lucide-react'
 import { renderRich, slugName } from '@/app/site-docs/shared'
 import { KINDS, kindMeta, isImage, resizeImage, uid, STATUS } from './lib'
@@ -53,7 +53,11 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
   })))
   const [coverKey, setCoverKey] = useState<string | null>(() => post?.media.find(m => m.path === post.cover_path)?.id || null)
   const wasRequested = post?.site_status === 'requested' || post?.site_status === 'published'
-  const [siteWant, setSiteWant] = useState(wasRequested)
+  // Кой го вижда: само аз → колегите → колегите + сайта (като „аудиторията“ при публикация в социалните мрежи)
+  type Aud = 'me' | 'team' | 'site'
+  const [aud, setAud] = useState<Aud>(post?.is_shared === false ? 'me' : wasRequested ? 'site' : 'team')
+  const shared = aud !== 'me', siteWant = aud === 'site'
+  const onSite = post?.site_status === 'published'
   const [consent, setConsent] = useState(post?.site_consent || false)
   const [siteNote, setSiteNote] = useState(post?.site_note || '')
   const [view, setView] = useState<'edit' | 'preview'>('edit')
@@ -118,11 +122,13 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
     requestAnimationFrame(() => { el.focus(); el.setSelectionRange(caret, caret) })
   }
 
+  const wasDraft = post ? post.is_shared === false : false
   async function save() {
+    const share = shared
     if (busy) return
     setErr('')
     if (!title.trim()) { setErr('Дай заглавие на публикацията.'); return }
-    if (siteWant && !consent) { setErr('За сайта отбележи потвърждението за снимките на децата.'); return }
+    if (share && siteWant && !consent) { setErr('За сайта отбележи потвърждението за снимките на децата.'); return }
     setBusy('Записване…')
     try {
       const base: Record<string, unknown> = {
@@ -135,12 +141,13 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
         period_to: kind === 'project' && to ? lastDay(to) : null,
         status: kind === 'project' ? status : null,
         updated_at: new Date().toISOString(),
+        is_shared: share,
       }
-      // За сайта
-      if (siteWant) {
+      // За сайта (само за публикуваните)
+      if (share && siteWant) {
         if (!post || post.site_status === 'none' || post.site_status === 'declined') Object.assign(base, { site_status: 'requested', site_requested_at: new Date().toISOString(), site_reply: null })
         Object.assign(base, { site_consent: consent, site_note: siteNote.trim() || null })
-      } else if (post?.site_status === 'requested') Object.assign(base, { site_status: 'none', site_consent: false })
+      } else if (post?.site_status === 'requested' || (!share && post?.site_status === 'declined')) Object.assign(base, { site_status: 'none', site_consent: false })
 
       let id = post?.id
       if (!id) {
@@ -211,7 +218,7 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
       if (add.length) await supabase.from('portfolio_post_classes').insert(add.map(c => ({ post_id: id, class_id: c })))
 
       dirty.current = false
-      onSaved(id, post ? 'Промените са записани.' : siteWant ? 'Публикувано и предложено за сайта.' : 'Публикувано в портфолиото.')
+      onSaved(id, !share ? 'Записано — вижда го само ти.' : post && !wasDraft ? 'Промените са записани.' : siteWant ? 'Публикувано и предложено за сайта.' : 'Публикувано в портфолиото.')
     } catch (e: any) {
       setErr(e?.message || 'Грешка при запис.')
     } finally { setBusy(null) }
@@ -244,9 +251,9 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
           <div className="ml-auto flex items-center gap-2">
             {busy && <span className="text-[12px] text-slate-500 hidden sm:inline">{busy}</span>}
             <button type="button" onClick={tryClose} className="px-3 py-2 rounded-xl text-sm text-slate-600 hover:bg-slate-100">Откажи</button>
-            <button type="button" onClick={save} disabled={!!busy}
+<button type="button" onClick={save} disabled={!!busy}
               className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-sm font-medium bg-[#0f2240] text-white hover:bg-[#1a3560] disabled:opacity-60 shadow-sm">
-              {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} {post ? 'Запиши' : 'Публикувай'}
+              {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} {!shared || (post && !wasDraft) ? 'Запиши' : 'Сподели'}
             </button>
           </div>
         </div>
@@ -358,6 +365,37 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
             {/* ДЯСНО — снимки, файлове, сайт */}
             <aside className="bg-slate-50/80 border-t lg:border-t-0 lg:border-l border-slate-200 px-5 md:px-6 py-7 space-y-6">
               <div>
+                <div className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-2.5">Кой го вижда</div>
+                <div className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-white border border-slate-200">
+                  {([['me', 'Само аз', Lock], ['team', 'Колегите', Users], ['site', '+ Сайтът', Globe]] as const).map(([k, l, I]) => {
+                    const on = aud === k
+                    const disabled = onSite && k !== 'site'
+                    return (
+                      <button key={k} type="button" disabled={disabled} onClick={() => setAud(k)}
+                        className={`flex flex-col items-center gap-1 py-2.5 rounded-xl text-[12.5px] transition-colors disabled:opacity-40 ${on ? (k === 'site' ? 'bg-sky-600 text-white' : k === 'team' ? 'bg-[#0f2240] text-white' : 'bg-slate-700 text-white') : 'text-slate-600 hover:bg-slate-50'}`}>
+                        <I size={17} /> {l}
+                      </button>
+                    )
+                  })}
+                </div>
+                {onSite && <div className="mt-2 flex items-center gap-1.5 text-[12.5px] text-emerald-800"><Globe size={13} /> Вече е на сайта.</div>}
+                {!onSite && post?.site_status === 'declined' && post.site_reply && aud === 'site' && <p className="mt-2 text-[12px] text-slate-600">Отговор: {post.site_reply}</p>}
+                {siteWant && !onSite && (
+                  <div className="mt-3 space-y-2.5">
+                    <label className={`flex items-start gap-2.5 p-3 rounded-xl cursor-pointer border ${consent ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-amber-300'}`}>
+                      <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} className="mt-0.5 w-4 h-4 accent-emerald-600" />
+                      <span className="text-[12.5px] text-slate-800 leading-snug">
+                        <ShieldCheck size={13} className="inline -mt-0.5 mr-1 text-emerald-700" />
+                        На снимките <b>няма разпознаваеми деца</b> или <b>има писмено съгласие</b> от родителите им.
+                      </span>
+                    </label>
+                    <textarea value={siteNote} onChange={e => setSiteNote(e.target.value)} rows={2} placeholder="Бележка (по желание)"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-[13px] focus:outline-none focus:border-[#0f2240] resize-none" />
+                  </div>
+                )}
+              </div>
+
+              <div>
                 <div className="flex items-center justify-between mb-2.5">
                   <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">Снимки {images.length > 0 && `· ${images.length}`}</span>
                   {images.length > 1 && <span className="text-[11px] text-slate-400 inline-flex items-center gap-1"><Star size={11} /> = корица</span>}
@@ -406,35 +444,6 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
                 <input ref={fileRef} type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.odt,.txt" className="hidden" onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = '' }} />
               </div>
 
-              <div className={`rounded-2xl border-2 p-4 transition-colors ${siteWant ? 'border-sky-400 bg-sky-50' : 'border-slate-200 bg-white'}`}>
-                {post?.site_status === 'published' ? (
-                  <div className="flex items-center gap-2 text-sm text-emerald-800"><Globe size={16} /> Публикацията вече е на сайта.</div>
-                ) : (<>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <span className={`relative inline-flex w-10 h-6 rounded-full shrink-0 transition-colors ${siteWant ? 'bg-sky-600' : 'bg-slate-300'}`}>
-                      <input type="checkbox" checked={siteWant} onChange={e => setSiteWant(e.target.checked)} className="sr-only" />
-                      <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${siteWant ? 'left-[18px]' : 'left-0.5'}`} />
-                    </span>
-                    <span>
-                      <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-900"><Globe size={15} className="text-sky-700" /> Предложи за сайта</span>
-                    </span>
-                  </label>
-                  {post?.site_status === 'declined' && post.site_reply && <p className="mt-2 text-[12px] text-slate-600">Отговор: {post.site_reply}</p>}
-                  {siteWant && (
-                    <div className="mt-4 space-y-3">
-                      <label className={`flex items-start gap-2.5 p-3 rounded-xl cursor-pointer border ${consent ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-amber-300'}`}>
-                        <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} className="mt-0.5 w-4 h-4 accent-emerald-600" />
-                        <span className="text-[12.5px] text-slate-800 leading-snug">
-                          <ShieldCheck size={13} className="inline -mt-0.5 mr-1 text-emerald-700" />
-                          Потвърждавам, че на снимките <b>няма разпознаваеми деца</b> или <b>има писмено съгласие</b> от родителите им.
-                        </span>
-                      </label>
-                      <textarea value={siteNote} onChange={e => setSiteNote(e.target.value)} rows={2} placeholder="Бележка (по желание)"
-                        className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-[13px] focus:outline-none focus:border-[#0f2240] resize-none" />
-                    </div>
-                  )}
-                </>)}
-              </div>
               <p className="text-[11px] text-slate-400">Ctrl+Enter — запис · Esc — затваряне</p>
             </aside>
           </div>

@@ -14,6 +14,7 @@ export interface Post {
   cover_path: string | null; event_date: string | null
   ideas: string | null; activities: string | null; goals: string | null
   period_from: string | null; period_to: string | null; status: string | null
+  is_shared?: boolean
   site_status: SiteStatus; site_consent: boolean; site_note: string | null; site_reply: string | null
   site_news_id: string | null; site_requested_at: string | null
   created_at: string; updated_at: string
@@ -42,6 +43,9 @@ export const SITE: Record<SiteStatus, { label: string; cls: string } | null> = {
   published: { label: 'На сайта', cls: 'bg-emerald-600 text-white' },
   declined: { label: 'Не е за сайта', cls: 'bg-slate-600 text-white' },
 }
+
+/** Чернова = още не е споделена с колегите */
+export const isDraft = (p: { is_shared?: boolean }) => p.is_shared === false
 
 export const MANAGERS = ['admin', 'zdud', 'director']
 export const isImage = (m: { mime: string | null; name: string | null }) =>
