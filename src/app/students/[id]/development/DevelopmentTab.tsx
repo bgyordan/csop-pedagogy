@@ -13,10 +13,11 @@ import { sortAssessments } from './lib'
 import type { Skill, Assessment, Score, Target, AreaKey, Gas, Profile } from './lib'
 
 const MANAGERS = ['admin', 'zdud', 'director']
-const ASSESSORS = ['psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'coordinator', ...MANAGERS]
+// Оценява психологът (и координиращият екип, и управата); останалите от екипа само разглеждат
+const ASSESSORS = ['psychologist', ...MANAGERS]
 
-export default function DevelopmentTab({ studentId, studentName, className, academicYearId, meId, role }: {
-  studentId: string; studentName: string; className: string; academicYearId: string | null; meId: string; role: string
+export default function DevelopmentTab({ studentId, studentName, className, academicYearId, meId, role, isCoordinator = false }: {
+  studentId: string; studentName: string; className: string; academicYearId: string | null; meId: string; role: string; isCoordinator?: boolean
 }) {
   const supabase = createClient()
   const [data, setData] = useState<{ skills: Skill[]; assessments: Assessment[]; scores: Score[]; targets: Target[]; gas: Gas[]; profile: Profile | null; years: Record<string, string>; names: Record<string, string> } | null>(null)
@@ -24,7 +25,7 @@ export default function DevelopmentTab({ studentId, studentName, className, acad
   const [editor, setEditor] = useState<{ a: Assessment | null } | null>(null)
   const [exporting, setExporting] = useState(false)
   const isManager = MANAGERS.includes(role)
-  const canAssess = ASSESSORS.includes(role)
+  const canAssess = ASSESSORS.includes(role) || isCoordinator
 
   const load = useCallback(async () => {
     const [sk, as, tg, pr, yr] = await Promise.all([
