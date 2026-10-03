@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { nextContractNumber } from '@/lib/delo-seq'
 import { X, Loader2 } from 'lucide-react'
 import { FormSection, FileDrop, useFormKeys, KeysHint } from '@/components/registry/FormParts'
 
@@ -55,9 +56,7 @@ export default function NewContractForm({ currentUserId, onClose, onSaved }: Pro
     if (!counterparty || !subject) return
     setSaving(true)
 
-    const { count } = await supabase.from('contracts').select('id', { count: 'exact', head: true }).like('number', `%/${currentYear}`)
-    const nextNum = String((count || 0) + 1).padStart(3, '0')
-    const docNumber = `ДГ-${nextNum}/${currentYear}`
+    const docNumber = await nextContractNumber(supabase, currentYear)
 
     let fileUrl = '', fileName = ''
     if (uploadedFile) {

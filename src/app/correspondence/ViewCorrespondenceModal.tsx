@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { GraduationCap, User, ClipboardList, Loader2, Paperclip, ExternalLink, Pencil } from 'lucide-react'
 import { SidePanel, PanelField, FilePreview } from '@/components/registry/SidePanel'
 import { createClient } from '@/lib/supabase/client'
+import { nextOrderSeq } from '@/lib/delo-seq'
 import { useRouter } from 'next/navigation'
 
 const DIRECTION_CONFIG = {
@@ -86,20 +87,18 @@ export default function ViewCorrespondenceModal({ item, students, staff, onClose
   async function handleIssueOrder() {
     setIssuingOrder(true)
     const today = new Date().toISOString().split('T')[0]
-    const currentYear = new Date().getFullYear()
-const { count } = await supabase.from('orders').select('id', { count: 'exact', head: true })
-  .gte('date', `${currentYear}-01-01`).lte('date', `${currentYear}-12-31`)
-const nextNum = String((count || 0) + 1).padStart(3, '0')
-const formattedDate = today.split('-').reverse().join('.')
-const orderNumber = `${nextNum}/${formattedDate}г.`
+    // Поредността е деловодна (15.09–14.09), като в „Нова заповед“ — без повтарящи се номера
+    const seq = await nextOrderSeq(supabase, today)
+    const orderNumber = `${String(seq).padStart(3, '0')}/${today.split('-').reverse().join('.')}г.`
     const orderTitle = `Заповед за отпуск на ${item.from_whom || ''}`
     const { data: profile } = await supabase.from('staff_profiles').select('id').eq('user_id', (await supabase.auth.getUser()).data.user?.id!).single()
     const { error } = await supabase.from('orders').insert({
-      number: orderNumber, date: today, title: orderTitle, nomenclature_item: 'РД-08',
+      number: orderNumber, date: today, title: orderTitle, nomenclature_item: 'РД-10',
       description: `Издадена въз основа на Вх. ${item.number}`,
       file_url: item.file_url || null,
       file_name: item.file_name || null,
       created_by: profile?.id,
+      seq,
     })
     if (error) { alert(`Грешка: ${error.message}`); setIssuingOrder(false); return }
     setOrderIssued(orderNumber)
@@ -190,7 +189,7 @@ const orderNumber = `${nextNum}/${formattedDate}г.`
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-xs font-medium text-orange-800">Необходима е заповед за отпуск</div>
-                <div className="text-[11px] text-orange-700 mt-0.5">Ще се регистрира РД-08 автоматично</div>
+                <div className="text-[11px] text-orange-700 mt-0.5">Ще се регистрира РД-10 автоматично</div>
               </div>
               <button type="button" onClick={handleIssueOrder} disabled={issuingOrder}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium text-white shadow-sm disabled:opacity-60 whitespace-nowrap"

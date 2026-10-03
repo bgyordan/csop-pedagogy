@@ -21,11 +21,11 @@ export default async function ContractsPage({
   const q = params.q || ''
   const from = (page - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
+  // Всички договори (десетки са) — филтрите и броячите са върху целия регистър, страниците се правят в браузъра
   let query = supabase
     .from('contracts')
     .select('*, student:students(first_name, last_name)', { count: 'exact' })
     .order('created_at', { ascending: false })
-    .range(from, to)
   if (q) {
     query = query.or(`number.ilike.%${q}%,subject.ilike.%${q}%,counterparty.ilike.%${q}%`)
   }
