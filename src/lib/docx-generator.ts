@@ -57,7 +57,7 @@ function header(yearName: string): Paragraph[] {
     }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: 'ул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 052 619 456', size: 18, italics: true })],
+      children: [new TextRun({ text: 'ул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 052 619 456', size: 20, italics: true })],
     }),
     new Paragraph({ text: '' }),
   ]
@@ -593,7 +593,7 @@ export async function generateCommitteeProtocol(
                     }),
                     new Paragraph({
                       spacing: { after: 0 },
-                      children: [new TextRun({ text: 'бул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 0888 490 771', size: 17, italics: true, color: '555555' })],
+                      children: [new TextRun({ text: 'бул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 0888 490 771', size: 20, italics: true, color: '262626' })],
                     }),
                   ],
                 }),
@@ -735,7 +735,7 @@ export async function generateEplrSchedule(
     rows: { name: string; externalClass: string; date: string; time: string }[]
   }[],
 ) {
-  const BORDER_CELL = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const BORDER_CELL = { style: BorderStyle.SINGLE, size: 4, color: '595959' }
   const CELL_BORDERS = { top: BORDER_CELL, bottom: BORDER_CELL, left: BORDER_CELL, right: BORDER_CELL }
   const BORDER_NONE_CELL = {
     top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -788,7 +788,7 @@ export async function generateEplrSchedule(
                 }),
                 new Paragraph({
                   spacing: { after: 0 },
-                  children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456, 0888 490 771', size: 17, italics: true, color: '555555' })],
+                  children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456, 0888 490 771', size: 20, italics: true, color: '262626' })],
                 }),
               ],
             }),
@@ -832,7 +832,7 @@ export async function generateEplrSchedule(
     new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { after: 280 },
-      children: [new TextRun({ text: scheduleName, size: 20, italics: true, color: '555555' })],
+      children: [new TextRun({ text: scheduleName, size: 20, italics: true, color: '262626' })],
     }),
   )
 
@@ -876,7 +876,7 @@ export async function generateEplrSchedule(
         children: c.t.map(line => new Paragraph({
           keepNext: true,
           alignment: AlignmentType.CENTER,
-          children: [new TextRun({ text: line, bold: true, size: 18 })],
+          children: [new TextRun({ text: line, bold: true, size: 20 })],
         })),
       })),
     }))
@@ -900,7 +900,7 @@ export async function generateEplrSchedule(
           children: [new Paragraph({
             keepNext: notLastRow,
             alignment: c.align,
-            children: [new TextRun({ text: c.t, size: 18 })],
+            children: [new TextRun({ text: c.t, size: 20 })],
           })],
         })),
       }))
@@ -929,7 +929,7 @@ export async function generateScheduleBySpecialist(
     rows: { date: string; time: string; student: string; studentClass: string; className: string; colleagues: string }[]
   }[],
 ) {
-  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '595959' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
   const NONE = {
     top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -957,7 +957,7 @@ export async function generateScheduleBySpecialist(
           verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
           children: [
             new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
-            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456', size: 17, italics: true, color: '555555' })] }),
+            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456', size: 20, italics: true, color: '262626' })] }),
           ],
         }),
       ]})],
@@ -967,7 +967,7 @@ export async function generateScheduleBySpecialist(
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 60 },
       children: [new TextRun({ text: 'ГРАФИК ПО СПЕЦИАЛИСТИ', bold: true, size: 28 })] }),
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 240 },
-      children: [new TextRun({ text: `Заседания на ЕПЛР · ${scheduleName} · ${yearName}`, size: 20, italics: true, color: '555555' })] }),
+      children: [new TextRun({ text: `Заседания на ЕПЛР · ${scheduleName} · ${yearName}`, size: 20, italics: true, color: '262626' })] }),
   )
 
   data.forEach(sp => {
@@ -979,7 +979,7 @@ export async function generateScheduleBySpecialist(
       margins: { top: 60, bottom: 60, left: 100, right: 100 },
       children: [new Paragraph({ children: [
         new TextRun({ text: sp.specialistName, bold: true, size: 20 }),
-        new TextRun({ text: `  —  ${sp.role}  ·  ${sp.rows.length} заседания`, size: 17, color: '555555' }),
+        new TextRun({ text: `  —  ${sp.role}  ·  ${sp.rows.length} заседания`, size: 20, color: '262626' }),
       ]})],
     })]}))
 
@@ -990,7 +990,7 @@ export async function generateScheduleBySpecialist(
       width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
       shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
       margins: { top: 40, bottom: 40, left: 80, right: 80 },
-      children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 17 })] })],
+      children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 20 })] })],
     }))}))
 
     sp.rows.forEach(r => {
@@ -1003,7 +1003,7 @@ export async function generateScheduleBySpecialist(
         { t: r.colleagues, a: AlignmentType.LEFT },
       ].map(c => new TableCell({
         borders: CELLS, margins: { top: 40, bottom: 40, left: 80, right: 80 },
-        children: [new Paragraph({ alignment: c.a, children: [new TextRun({ text: c.t, size: 17 })] })],
+        children: [new Paragraph({ alignment: c.a, children: [new TextRun({ text: c.t, size: 20 })] })],
       }))}))
     })
 
@@ -1029,7 +1029,7 @@ export async function generateScheduleByDay(
     rows: { time: string; student: string; studentClass: string; className: string; classTeacher: string; psy: string; log: string; reh: string; conflict: boolean }[]
   }[],
 ) {
-  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '595959' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
   const NONE = {
     top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -1057,7 +1057,7 @@ export async function generateScheduleByDay(
           verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
           children: [
             new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
-            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456', size: 17, italics: true, color: '555555' })] }),
+            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456', size: 20, italics: true, color: '262626' })] }),
           ],
         }),
       ]})],
@@ -1067,7 +1067,7 @@ export async function generateScheduleByDay(
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 60 },
       children: [new TextRun({ text: 'ГРАФИК ПО ДНИ', bold: true, size: 28 })] }),
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 240 },
-      children: [new TextRun({ text: `Заседания на ЕПЛР · ${scheduleName} · ${yearName}`, size: 20, italics: true, color: '555555' })] }),
+      children: [new TextRun({ text: `Заседания на ЕПЛР · ${scheduleName} · ${yearName}`, size: 20, italics: true, color: '262626' })] }),
   )
 
   data.forEach(day => {
@@ -1079,7 +1079,7 @@ export async function generateScheduleByDay(
       margins: { top: 60, bottom: 60, left: 100, right: 100 },
       children: [new Paragraph({ children: [
         new TextRun({ text: fmt(day.date), bold: true, size: 20 }),
-        new TextRun({ text: `  ${day.weekday}  ·  ${day.rows.length} заседания`, size: 17, color: '555555' }),
+        new TextRun({ text: `  ${day.weekday}  ·  ${day.rows.length} заседания`, size: 20, color: '262626' }),
       ]})],
     })]}))
 
@@ -1090,7 +1090,7 @@ export async function generateScheduleByDay(
       width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
       shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
       margins: { top: 40, bottom: 40, left: 60, right: 60 },
-      children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 16 })] })],
+      children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 20 })] })],
     }))}))
 
     day.rows.forEach(r => {
@@ -1106,7 +1106,7 @@ export async function generateScheduleByDay(
       ].map(c => new TableCell({
         borders: CELLS, margins: { top: 40, bottom: 40, left: 60, right: 60 },
         ...(r.conflict ? { shading: { type: ShadingType.CLEAR, fill: 'FDECEC' } } : {}),
-        children: [new Paragraph({ alignment: c.a, children: [new TextRun({ text: c.t, size: 16 })] })],
+        children: [new Paragraph({ alignment: c.a, children: [new TextRun({ text: c.t, size: 20 })] })],
       }))}))
     })
 
@@ -1132,7 +1132,7 @@ export async function generateRuoClassesLetter(
   }[],
   opts?: { addressee?: string; position?: string; institution?: string; directorName?: string; subject?: string; intro?: string },
 ) {
-  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '595959' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
   const NONE = {
     top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -1169,7 +1169,7 @@ export async function generateRuoClassesLetter(
           verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
           children: [
             new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
-            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456, 0888 490 771', size: 17, italics: true, color: '555555' })] }),
+            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456, 0888 490 771', size: 20, italics: true, color: '262626' })] }),
           ],
         }),
       ]})],
@@ -1229,7 +1229,7 @@ export async function generateRuoClassesLetter(
       width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
       shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
       margins: { top: 40, bottom: 40, left: 80, right: 80 },
-      children: [new Paragraph({ keepNext: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 18 })] })],
+      children: [new Paragraph({ keepNext: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 20 })] })],
     }))}))
 
     cls.students.forEach((st, i) => {
@@ -1242,7 +1242,7 @@ export async function generateRuoClassesLetter(
         { t: num !== null ? toRoman(num) : (st.externalClass || ''), a: AlignmentType.CENTER },
       ].map(c => new TableCell({
         borders: CELLS, margins: { top: 40, bottom: 40, left: 80, right: 80 },
-        children: [new Paragraph({ keepNext: notLast, alignment: c.a, children: [new TextRun({ text: c.t, size: 18 })] })],
+        children: [new Paragraph({ keepNext: notLast, alignment: c.a, children: [new TextRun({ text: c.t, size: 20 })] })],
       }))}))
     })
 
@@ -1267,7 +1267,7 @@ export async function generateOutreachGroupsLetter(
   groups: { location: string; items: { className: string; students: { name: string; school: string; externalClass: string }[] }[] }[],
   opts?: { addressee?: string; position?: string; institution?: string; directorName?: string },
 ) {
-  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '595959' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
   const NONE = {
     top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -1306,7 +1306,7 @@ export async function generateOutreachGroupsLetter(
           verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
           children: [
             new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
-            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456, 0878 521 823', size: 17, italics: true, color: '555555' })] }),
+            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456, 0878 521 823', size: 20, italics: true, color: '262626' })] }),
           ],
         }),
       ]})],
@@ -1357,7 +1357,7 @@ export async function generateOutreachGroupsLetter(
         width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
         shading: { type: ShadingType.CLEAR, fill: 'F5F7FA' },
         margins: { top: 40, bottom: 40, left: 80, right: 80 },
-        children: [new Paragraph({ keepNext: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 18 })] })],
+        children: [new Paragraph({ keepNext: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 20 })] })],
       }))}))
       cls.students.forEach((st, i) => {
         const cnum = classNumber(st.externalClass)
@@ -1369,7 +1369,7 @@ export async function generateOutreachGroupsLetter(
           { t: cnum !== null ? toRoman(cnum) : (st.externalClass || ''), a: AlignmentType.CENTER },
         ].map(c => new TableCell({
           borders: CELLS, margins: { top: 40, bottom: 40, left: 80, right: 80 },
-          children: [new Paragraph({ keepNext: notLast, alignment: c.a, children: [new TextRun({ text: c.t, size: 18 })] })],
+          children: [new Paragraph({ keepNext: notLast, alignment: c.a, children: [new TextRun({ text: c.t, size: 20 })] })],
         }))}))
       })
       children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }))
@@ -1425,7 +1425,7 @@ export async function generateCoudOrder(
           verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
           children: [
             new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
-            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456, 0878 521 823', size: 17, italics: true, color: '555555' })] }),
+            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456, 0878 521 823', size: 20, italics: true, color: '262626' })] }),
           ],
         }),
       ]})],
@@ -1495,7 +1495,7 @@ export async function generateSchoolScheduleLetter(
   }[],
   directorName?: string,
 ) {
-  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '595959' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
   const NONE = {
     top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -1523,7 +1523,7 @@ export async function generateSchoolScheduleLetter(
           verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
           children: [
             new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
-            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456, 0888 490 771', size: 17, italics: true, color: '555555' })] }),
+            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456, 0888 490 771', size: 20, italics: true, color: '262626' })] }),
           ],
         }),
       ]})],
@@ -1564,7 +1564,7 @@ export async function generateSchoolScheduleLetter(
     width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
     shading: { type: ShadingType.CLEAR, fill: 'E8EEF5' },
     margins: { top: 50, bottom: 50, left: 70, right: 70 },
-    children: [new Paragraph({ keepNext: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 17 })] })],
+    children: [new Paragraph({ keepNext: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 20 })] })],
   }))}))
 
   sorted.forEach((r, i) => {
@@ -1580,7 +1580,7 @@ export async function generateSchoolScheduleLetter(
       { t: r.time || '—', a: AlignmentType.CENTER },
     ].map(c => new TableCell({
       borders: CELLS, margins: { top: 50, bottom: 50, left: 70, right: 70 },
-      children: [new Paragraph({ keepNext: notLast, alignment: c.a, children: [new TextRun({ text: c.t, size: 17 })] })],
+      children: [new Paragraph({ keepNext: notLast, alignment: c.a, children: [new TextRun({ text: c.t, size: 20 })] })],
     }))}))
   })
 
@@ -1647,7 +1647,7 @@ export async function generateSchoolLetter(
   }[],
   yearName: string
 ) {
-  const BORDER_LIGHT = { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' }
+  const BORDER_LIGHT = { style: BorderStyle.SINGLE, size: 4, color: '8C8C8C' }
   const BORDER_TOP = { style: BorderStyle.SINGLE, size: 8, color: '0f2240' }
 
   const children: any[] = []
@@ -1695,7 +1695,7 @@ export async function generateSchoolLetter(
                 }),
                 new Paragraph({
                   spacing: { after: 0 },
-                  children: [new TextRun({ text: 'бул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 0888 490 771', size: 17, italics: true, color: '555555' })],
+                  children: [new TextRun({ text: 'бул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 0888 490 771', size: 20, italics: true, color: '262626' })],
                 }),
               ],
             }),
@@ -1755,8 +1755,8 @@ children.push(
             children: [new Paragraph({
               children: [
                 new TextRun({ text: `${idx + 1}.  ${row.name}`, bold: true, size: 22 }),
-                new TextRun({ text: `   |   Паралелка ЦСОП: ${row.className}`, size: 22, color: '555555' }),
-                ...(row.externalClass ? [new TextRun({ text: `   |   Клас: ${row.externalClass}`, size: 20, color: '555555' })] : []),
+                new TextRun({ text: `   |   Паралелка ЦСОП: ${row.className}`, size: 22, color: '262626' }),
+                ...(row.externalClass ? [new TextRun({ text: `   |   Клас: ${row.externalClass}`, size: 20, color: '262626' })] : []),
               ],
             })],
           }),
@@ -1785,7 +1785,7 @@ children.push(
                 right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
               },
               margins: { top: 60, bottom: 60, left: 200, right: 80 },
-              children: [new Paragraph({ children: [new TextRun({ text: m.role, size: 22, color: '666666' })] })],
+              children: [new Paragraph({ children: [new TextRun({ text: m.role, size: 22, color: '333333' })] })],
             }),
             new TableCell({
               width: { size: 60, type: WidthType.PERCENTAGE },
@@ -1890,18 +1890,18 @@ function scheduleHeader(heading: string, who: string, subtitle: string, yearName
           verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
           children: [
             new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22, color: SCH_NAVY })] }),
-            new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456', size: 16, color: SCH_SLATE })] }),
+            new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456', size: 20, color: SCH_SLATE })] }),
           ],
         }),
       ]})],
     }),
     new Paragraph({ spacing: { before: 60, after: 120 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: SCH_NAVY } }, children: [] }),
-    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 20 }, children: [new TextRun({ text: 'УТВЪРДИЛ:', bold: true, size: 18, color: SCH_NAVY })] }),
-    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 160 }, children: [new TextRun({ text: 'Директор: ..............................', size: 18, color: SCH_SLATE })] }),
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 20 }, children: [new TextRun({ text: 'УТВЪРДИЛ:', bold: true, size: 20, color: SCH_NAVY })] }),
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 160 }, children: [new TextRun({ text: 'Директор: ..............................', size: 20, color: SCH_SLATE })] }),
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 60 }, children: [new TextRun({ text: heading, bold: true, size: 26, color: SCH_NAVY })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 20 }, children: [new TextRun({ text: `на ${who},`, size: 19, color: SCH_SLATE })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 20 }, children: [new TextRun({ text: `на ${who},`, size: 20, color: SCH_SLATE })] }),
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [
-      new TextRun({ text: `считано от ......................... за ${termWord} срок на учебната ${year || '20…/20…'} г.`, size: 19, color: SCH_SLATE }),
+      new TextRun({ text: `считано от ......................... за ${termWord} срок на учебната ${year || '20…/20…'} г.`, size: 20, color: SCH_SLATE }),
     ]}),
   ]
 }
@@ -1910,9 +1910,9 @@ function scheduleHeader(heading: string, who: string, subtitle: string, yearName
 function scheduleFooter(preparedBy: string, total?: string): any[] {
   return [
     new Paragraph({ spacing: { before: 280 }, tabStops: [{ type: TabStopType.RIGHT, position: 10000 }], children: [
-      new TextRun({ text: total || '', size: 18, color: SCH_SLATE }),
+      new TextRun({ text: total || '', size: 20, color: SCH_SLATE }),
       new TextRun({ children: [new Tab()] }),
-      new TextRun({ text: `Изготвил: ${preparedBy || '..............................'}`, size: 18, color: SCH_SLATE }),
+      new TextRun({ text: `Изготвил: ${preparedBy || '..............................'}`, size: 20, color: SCH_SLATE }),
     ]}),
   ]
 }
@@ -1957,7 +1957,7 @@ export async function generateClassSchedule(
         columnSpan: hasTeachers ? 4 : 3, borders: CELLS,
         shading: { type: ShadingType.CLEAR, fill: SCH_DAY_FILL },
         margins: { top: 60, bottom: 60, left: 100, right: 100 },
-        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: day.full, bold: true, size: 19, color: SCH_NAVY })] })],
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: day.full, bold: true, size: 20, color: SCH_NAVY })] })],
       })],
     }))
 
@@ -1980,7 +1980,7 @@ export async function generateClassSchedule(
         width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
         shading: { type: ShadingType.CLEAR, fill: SCH_HEAD_FILL },
         margins: { top: 40, bottom: 40, left: 80, right: 80 },
-        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 17, color: SCH_NAVY })] })],
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 20, color: SCH_NAVY })] })],
       })),
     }))
 
@@ -2001,23 +2001,23 @@ export async function generateClassSchedule(
           new TableCell({
             borders: CELLS, margins: { top: 40, bottom: 40, left: 60, right: 60 },
             ...(isGm ? { shading: { type: ShadingType.CLEAR, fill: 'EEEEEE' } } : {}),
-            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: isGm ? 'ГМ' : String(p.period), bold: isGm, size: 17, color: isGm ? '888888' : '000000' })] })],
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: isGm ? 'ГМ' : String(p.period), bold: isGm, size: 20, color: isGm ? '888888' : '000000' })] })],
           }),
           new TableCell({
             borders: CELLS, margins: { top: 40, bottom: 40, left: 60, right: 60 },
             ...(isGm ? { shading: { type: ShadingType.CLEAR, fill: 'EEEEEE' } } : {}),
-            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: p.time, size: 17, color: isGm ? '888888' : '000000' })] })],
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: p.time, size: 20, color: isGm ? '888888' : '000000' })] })],
           }),
           new TableCell({
             borders: CELLS, margins: { top: 40, bottom: 40, left: 80, right: 80 },
             ...(isGm ? { shading: { type: ShadingType.CLEAR, fill: 'EEEEEE' } } : {}),
-            children: [new Paragraph({ children: [new TextRun({ text: isGm ? 'Голямо междучасие' : subject, size: 17, italics: isGm, color: isGm ? '888888' : '000000' })] })],
+            children: [new Paragraph({ children: [new TextRun({ text: isGm ? 'Голямо междучасие' : subject, size: 20, italics: isGm, color: isGm ? '888888' : '000000' })] })],
           }),
           ...(hasTeachers ? [
             new TableCell({
               borders: CELLS, margins: { top: 40, bottom: 40, left: 80, right: 80 },
               ...(isGm ? { shading: { type: ShadingType.CLEAR, fill: 'EEEEEE' } } : {}),
-              children: [new Paragraph({ children: [new TextRun({ text: teacher, size: 17, color: isGm ? '888888' : '000000' })] })],
+              children: [new Paragraph({ children: [new TextRun({ text: teacher, size: 20, color: isGm ? '888888' : '000000' })] })],
             }),
           ] : []),
         ],
@@ -2085,7 +2085,7 @@ export async function generateTherapistSchedule(
         columnSpan: 3, borders: CELLS,
         shading: { type: ShadingType.CLEAR, fill: SCH_DAY_FILL },
         margins: { top: 50, bottom: 50, left: 100, right: 100 },
-        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: day.full, bold: true, size: 19, color: SCH_NAVY })] })],
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: day.full, bold: true, size: 20, color: SCH_NAVY })] })],
       })],
     }))
     rows.push(new TableRow({
@@ -2098,7 +2098,7 @@ export async function generateTherapistSchedule(
         width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
         shading: { type: ShadingType.CLEAR, fill: SCH_HEAD_FILL },
         margins: { top: 30, bottom: 30, left: 80, right: 80 },
-        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 17, color: SCH_NAVY })] })],
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 20, color: SCH_NAVY })] })],
       })),
     }))
     filled.forEach(p => {
@@ -2108,11 +2108,11 @@ export async function generateTherapistSchedule(
         cantSplit: true,
         children: [
           new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 60, right: 60 },
-            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: p.period === 0 ? 'ГМ' : String(p.period), size: 17 })] })] }),
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: p.period === 0 ? 'ГМ' : String(p.period), size: 20 })] })] }),
           new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 60, right: 60 },
-            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: p.time, size: 17 })] })] }),
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: p.time, size: 20 })] })] }),
           new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 80, right: 80 },
-            children: [new Paragraph({ children: [new TextRun({ text: label, size: 17 })] })] }),
+            children: [new Paragraph({ children: [new TextRun({ text: label, size: 20 })] })] }),
         ],
       }))
     })
@@ -2240,10 +2240,10 @@ export async function generateSurveyDocument(studentName: string, data: Record<s
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 20 }, children: [new TextRun({ text: 'ЦСОП - Варна', bold: true, size: 22 })] }),
     new Paragraph({ spacing: { before: 40, after: 80 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 20 }, children: [new TextRun({ text: 'КАРТА ЗА ОЦЕНКА НА ИНДИВИДУАЛНИТЕ ПОТРЕБНОСТИ НА ДЕТЕТО', bold: true, size: 24 })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: studentName, size: 22, italics: true, color: '555555' })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: studentName, size: 22, italics: true, color: '262626' })] }),
   )
 
-  const CELL_BORDER = { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' }
+  const CELL_BORDER = { style: BorderStyle.SINGLE, size: 4, color: '8C8C8C' }
   const CELLS = { top: CELL_BORDER, bottom: CELL_BORDER, left: CELL_BORDER, right: CELL_BORDER }
 
   SURVEY_DOC_SECTIONS.forEach(section => {
@@ -2264,20 +2264,20 @@ export async function generateSurveyDocument(studentName: string, data: Record<s
           width: { size: section.ageColumn ? 45 : 50, type: WidthType.PERCENTAGE }, borders: CELLS,
           shading: { type: ShadingType.CLEAR, fill: 'F7F9FC' },
           margins: { top: 40, bottom: 40, left: 100, right: 100 },
-          children: [new Paragraph({ children: [new TextRun({ text: f.label, size: 18 })] })],
+          children: [new Paragraph({ children: [new TextRun({ text: f.label, size: 20 })] })],
         }),
       ]
       if (section.ageColumn) {
         cells.push(new TableCell({
           width: { size: 15, type: WidthType.PERCENTAGE }, borders: CELLS,
           margins: { top: 40, bottom: 40, left: 100, right: 100 },
-          children: [new Paragraph({ children: [new TextRun({ text: sec[`${f.key}__age`] || '', size: 18 })] })],
+          children: [new Paragraph({ children: [new TextRun({ text: sec[`${f.key}__age`] || '', size: 20 })] })],
         }))
       }
       cells.push(new TableCell({
         width: { size: section.ageColumn ? 40 : 50, type: WidthType.PERCENTAGE }, borders: CELLS,
         margins: { top: 40, bottom: 40, left: 100, right: 100 },
-        children: [new Paragraph({ children: [new TextRun({ text: String(val), size: 18 })] })],
+        children: [new Paragraph({ children: [new TextRun({ text: String(val), size: 20 })] })],
       }))
       rows.push(new TableRow({ children: cells }))
     })
@@ -2289,8 +2289,8 @@ export async function generateSurveyDocument(studentName: string, data: Record<s
       children.push(new Paragraph({
         spacing: { before: 80, after: 40 },
         children: [
-          new TextRun({ text: 'Бележки: ', bold: true, size: 18 }),
-          new TextRun({ text: String(sec.__notes), size: 18 }),
+          new TextRun({ text: 'Бележки: ', bold: true, size: 20 }),
+          new TextRun({ text: String(sec.__notes), size: 20 }),
         ],
       }))
     }
@@ -2302,7 +2302,7 @@ export async function generateSurveyDocument(studentName: string, data: Record<s
       new TextRun({ text: opts.preparedBy || '..................................................', size: 20 }),
       new TextRun({ text: '          подпис: ..............................', size: 20 }),
     ] }),
-    new Paragraph({ spacing: { before: 120 }, children: [new TextRun({ text: 'Дата: ..............................', size: 18 })] }),
+    new Paragraph({ spacing: { before: 120 }, children: [new TextRun({ text: 'Дата: ..............................', size: 20 })] }),
   )
 
   const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
@@ -2363,7 +2363,7 @@ export async function generateStaffSchedule(
         columnSpan: 4, borders: CELLS,
         shading: { type: ShadingType.CLEAR, fill: SCH_DAY_FILL },
         margins: { top: 50, bottom: 50, left: 100, right: 100 },
-        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: day.full, bold: true, size: 19, color: SCH_NAVY })] })],
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: day.full, bold: true, size: 20, color: SCH_NAVY })] })],
       })],
     }))
     rows.push(new TableRow({
@@ -2377,7 +2377,7 @@ export async function generateStaffSchedule(
         width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
         shading: { type: ShadingType.CLEAR, fill: SCH_HEAD_FILL },
         margins: { top: 30, bottom: 30, left: 80, right: 80 },
-        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 17, color: SCH_NAVY })] })],
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 20, color: SCH_NAVY })] })],
       })),
     }))
     filled.forEach(s => {
@@ -2387,13 +2387,13 @@ export async function generateStaffSchedule(
         cantSplit: true,
         children: [
           new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 60, right: 60 },
-            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(s.period), size: 17 })] })] }),
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(s.period), size: 20 })] })] }),
           new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 60, right: 60 },
-            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: time || '', size: 17 })] })] }),
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: time || '', size: 20 })] })] }),
           new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 80, right: 80 },
-            children: [new Paragraph({ children: [new TextRun({ text: s.subjectName, size: 17 })] })] }),
+            children: [new Paragraph({ children: [new TextRun({ text: s.subjectName, size: 20 })] })] }),
           new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 80, right: 80 },
-            children: [new Paragraph({ children: [new TextRun({ text: src, size: 16, color: s.source === 'ifo' ? '0F6E56' : '555555' })] })] }),
+            children: [new Paragraph({ children: [new TextRun({ text: src, size: 20, color: s.source === 'ifo' ? '0F6E56' : '555555' })] })] }),
         ],
       }))
     })
@@ -2416,7 +2416,7 @@ export async function generateDutyRoster(
   subtitle: string,     // "2026/2027 учебна година"
   rows: DutyRow[],
 ) {
-  const B = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const B = { style: BorderStyle.SINGLE, size: 4, color: '595959' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
   const NONE = {
     top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -2442,15 +2442,15 @@ export async function generateDutyRoster(
           verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
           children: [
             new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 22 })] }),
-            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456', size: 17, italics: true, color: '555555' })] }),
+            new Paragraph({ children: [new TextRun({ text: 'ул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 052 619 456', size: 20, italics: true, color: '262626' })] }),
           ],
         }),
       ]})],
     }),
     new Paragraph({ spacing: { before: 40, after: 40 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '0f2240' } }, children: [] }),
-    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 0 }, children: [new TextRun({ text: 'Утвърдил: ........................  Директор ЦСОП-Варна', size: 18 })] }),
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 0 }, children: [new TextRun({ text: 'Утвърдил: ........................  Директор ЦСОП-Варна', size: 20 })] }),
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120, after: 20 }, children: [new TextRun({ text: 'ДНЕВНИК НА ДЕЖУРСТВАТА', bold: true, size: 26 })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: subtitle, size: 18, italics: true, color: '555555' })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: subtitle, size: 20, italics: true, color: '262626' })] }),
   )
   // Таблица
   const tableRows: TableRow[] = []
@@ -2467,7 +2467,7 @@ export async function generateDutyRoster(
       width: { size: c.w, type: WidthType.PERCENTAGE }, borders: CELLS,
       shading: { type: ShadingType.CLEAR, fill: '0f2240' },
       margins: { top: 50, bottom: 50, left: 80, right: 80 },
-      children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 18, color: 'FFFFFF' })] })],
+      children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: c.t, bold: true, size: 20, color: 'FFFFFF' })] })],
     })),
   }))
   // Редове със зебра
@@ -2477,17 +2477,17 @@ export async function generateDutyRoster(
       cantSplit: true,
       children: [
         new TableCell({ borders: CELLS, shading: { type: ShadingType.CLEAR, fill: zebra }, margins: { top: 40, bottom: 40, left: 60, right: 60 },
-          children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(i + 1), size: 17 })] })] }),
+          children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(i + 1), size: 20 })] })] }),
         new TableCell({ borders: CELLS, shading: { type: ShadingType.CLEAR, fill: zebra }, margins: { top: 40, bottom: 40, left: 80, right: 80 },
-          children: [new Paragraph({ children: [new TextRun({ text: r.name, size: 17, bold: true })] })] }),
+          children: [new Paragraph({ children: [new TextRun({ text: r.name, size: 20, bold: true })] })] }),
         new TableCell({ borders: CELLS, shading: { type: ShadingType.CLEAR, fill: zebra }, margins: { top: 40, bottom: 40, left: 80, right: 80 },
-          children: [new Paragraph({ children: [new TextRun({ text: r.roleLabel, size: 16, color: '555555' })] })] }),
+          children: [new Paragraph({ children: [new TextRun({ text: r.roleLabel, size: 20, color: '262626' })] })] }),
         new TableCell({ borders: CELLS, shading: { type: ShadingType.CLEAR, fill: zebra }, margins: { top: 40, bottom: 40, left: 80, right: 80 },
           children: r.weeks.length
-            ? r.weeks.map(w => new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: '• ' + w, size: 16 })] }))
-            : [new Paragraph({ children: [new TextRun({ text: '—', size: 16, color: '999999' })] })] }),
+            ? r.weeks.map(w => new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: '• ' + w, size: 20 })] }))
+            : [new Paragraph({ children: [new TextRun({ text: '—', size: 20, color: '404040' })] })] }),
         new TableCell({ borders: CELLS, shading: { type: ShadingType.CLEAR, fill: zebra }, margins: { top: 40, bottom: 40, left: 80, right: 80 },
-          children: [new Paragraph({ children: [new TextRun({ text: '', size: 17 })] })] }),
+          children: [new Paragraph({ children: [new TextRun({ text: '', size: 20 })] })] }),
       ],
     }))
   })
@@ -2523,7 +2523,7 @@ export async function generateBullyingProtocol(
         new TableCell({ width: { size: 80, type: WidthType.PERCENTAGE }, borders: NONE, verticalAlign: 'center' as any, margins: { top: 0, bottom: 0, left: 80, right: 0 },
           children: [
             new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', bold: true, size: 24 })] }),
-            new Paragraph({ children: [new TextRun({ text: 'бул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 0888 490 771', size: 17, italics: true, color: '555555' })] }),
+            new Paragraph({ children: [new TextRun({ text: 'бул. „Петко Стайнов" №7  |  info-400052@edu.mon.bg  |  тел. 0888 490 771', size: 20, italics: true, color: '262626' })] }),
           ] }),
       ]})],
     }),
