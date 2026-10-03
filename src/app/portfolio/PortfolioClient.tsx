@@ -6,7 +6,8 @@ import { Plus, Search, LayoutGrid, UserRound, Globe, Share2, FileDown, Loader2, 
 import PostCard, { Avatar } from './PostCard'
 import PostReader from './PostReader'
 import PostEditor from './PostEditor'
-import SharedFilesTab from './SharedFilesTab'
+import SharedFilesTab, { SharedFilesStrip, loadSharedFiles } from './SharedFilesTab'
+import type { FileRow } from './SharedFilesTab'
 import { KINDS, MANAGERS, isImage } from './lib'
 import type { Post, Person, Cls, Kind } from './lib'
 
@@ -31,6 +32,9 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
   const [editor, setEditor] = useState<{ post: Post | null; kind?: Kind } | null>(null)
   const [toast, setToast] = useState('')
   const [exporting, setExporting] = useState(false)
+  const [files, setFiles] = useState<FileRow[] | null>(null)
+  const [filesErr, setFilesErr] = useState('')
+  useEffect(() => { loadSharedFiles().then(r => { setFiles(r.rows); setFilesErr(r.err) }) }, [])
 
   // ?kind=project · ?tab=site · ?open=<id> · ?new=1
   useEffect(() => {
@@ -81,7 +85,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
   const tabs: { key: Tab; label: string; icon: typeof LayoutGrid; count: number | null; show: boolean }[] = [
     { key: 'wall', label: 'Портфолио на ЦСОП', icon: LayoutGrid, count: posts.length, show: true },
     { key: 'mine', label: 'Моето портфолио', icon: UserRound, count: mine.length, show: canPost },
-    { key: 'files', label: 'Споделени файлове', icon: Share2, count: null, show: true },
+    { key: 'files', label: 'Споделени файлове', icon: Share2, count: files ? files.length : null, show: true },
     { key: 'site', label: 'За сайта', icon: Globe, count: siteQueue.length, show: siteDesk },
   ]
 
@@ -144,7 +148,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
       )}
 
 
-      {tab === 'files' && <SharedFilesTab canShare={canPost} />}
+      {tab === 'files' && <SharedFilesTab canShare={canPost} rows={files} err={filesErr} />}
 
       {tab !== 'files' && (<>
       {/* Филтри */}
@@ -178,6 +182,8 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
           </div>
         </div>
       </div>
+
+      {tab === 'wall' && kind === 'all' && !author && !needle && files && <SharedFilesStrip rows={files} onAll={() => setTab('files')} />}
 
       {/* Покана за публикуване */}
       {canPost && tab !== 'site' && (tab === 'mine' ? mine.length === 0 : posts.length < 4) && !needle && (

@@ -15,7 +15,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { loginTime } from '@/lib/login-time'
 import TodayAbsentStrip from './components/TodayAbsentStrip'
 import CouncilStrip from './components/CouncilStrip'
-import PortfolioStrip from './components/PortfolioStrip'
 export const dynamic = 'force-dynamic'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -116,10 +115,6 @@ export default async function DashboardPage() {
 
       {/* Днес отсъстват — за всички колеги (управата го има в оперативния панел) */}
       {!isAdmin && !isDirector && <TodayAbsentStrip />}
-
-      {/* Портфолио: управата — новите публикации; деловодителят — предложените за сайта */}
-      {(isAdmin || isDirector) && <PortfolioStrip mode="manager" />}
-      {isSecretary && <PortfolioStrip mode="secretary" />}
 
       {/* Dashboard по роля */}
       <div className="transition-all duration-500">
