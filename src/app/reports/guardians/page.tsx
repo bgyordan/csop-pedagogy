@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
 import GuardiansClient from './GuardiansClient'
 export const dynamic = 'force-dynamic'
-interface GuardianInfo { name: string; relation: string; phone: string }
+interface GuardianInfo { name: string; relation: string; phone: string; email: string }
 interface ReportRow {
   id: string
   name: string
@@ -34,11 +34,11 @@ export default async function GuardiansReportPage() {
   })
   const { data: guardians } = await supabase
     .from('student_guardians')
-    .select('student_id, full_name, relation, phone')
+    .select('*')
   const guardiansByStudent: Record<string, GuardianInfo[]> = {}
   ;(guardians || []).forEach((g: any) => {
     if (!guardiansByStudent[g.student_id]) guardiansByStudent[g.student_id] = []
-    guardiansByStudent[g.student_id].push({ name: g.full_name || '', relation: g.relation || '', phone: g.phone || '' })
+    guardiansByStudent[g.student_id].push({ name: g.full_name || '', relation: g.relation || '', phone: g.phone || '', email: g.email || '' })
   })
   const rows: ReportRow[] = (students || []).map((s: any) => ({
     id: s.id,
@@ -51,7 +51,7 @@ export default async function GuardiansReportPage() {
       <BackButton />
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-slate-800">Родители и контакти</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Ученик, паралелка, родител(и) и телефон</p>
+        <p className="text-slate-500 text-sm mt-0.5">Ученик, паралелка, родител(и), телефон и имейл</p>
       </div>
       <GuardiansClient rows={rows} />
     </div>

@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import OutreachBadge from '@/components/OutreachBadge'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Heart, CalendarClock, ClipboardList, Sparkles, FolderOpen, LayoutGrid, AlertTriangle, Phone, ChevronDown, ChevronRight, Bus, Utensils, Sprout } from 'lucide-react'
+import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Heart, CalendarClock, ClipboardList, Sparkles, FolderOpen, LayoutGrid, AlertTriangle, Phone, ChevronDown, ChevronRight, Bus, Utensils, Sprout, Mail } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
 import { DOCUMENT_TYPE_LABELS, DocumentType, STATUS_LABELS, DocumentStatus } from '@/types'
 import { AttachmentsSection } from './AttachmentsSection'
@@ -263,6 +263,18 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
                 {sendingSchool && <>{metaSep}<span className="inline-flex items-center gap-1 min-w-0"><School size={12} className="flex-shrink-0 text-slate-400" /><span className="truncate max-w-[260px]">{sendingSchool.name}{student.external_class ? `, ${student.external_class}${(student as any).external_class_letter ? ` ${(student as any).external_class_letter}` : ''} клас` : ''}</span></span></>}
                 {student.is_traveling && <>{metaSep}<span className="inline-flex items-center gap-1 text-amber-700"><Bus size={12} /> пътуващ</span></>}
               </div>
+              {/* Връзка с родителите — винаги пред очите */}
+              {(guardians || []).some((g: any) => g.phone || g.email) && (
+                <div className="flex items-center gap-x-4 gap-y-1 flex-wrap text-[13px] mt-1.5">
+                  {(guardians || []).filter((g: any) => g.phone || g.email).map((g: any) => (
+                    <span key={g.id} className="inline-flex items-center gap-1.5">
+                      <span className="text-slate-500">{g.relation ? g.relation.charAt(0).toUpperCase() + g.relation.slice(1) : 'Родител'}:</span>
+                      {g.phone && <a href={`tel:${String(g.phone).replace(/\s/g, '')}`} className="inline-flex items-center gap-1 text-[#0f2240] font-medium tabular-nums hover:underline"><Phone size={12} />{g.phone}</a>}
+                      {g.email && <a href={`mailto:${g.email}`} title={g.email} className="inline-flex items-center gap-1 text-sky-700 hover:underline"><Mail size={12} /><span className="hidden md:inline">{g.email}</span></a>}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Действия: Редактирай + Още ▾ */}
@@ -345,7 +357,10 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
                 : <div>{(guardians || []).map((g: any) => (
                     <div key={g.id} className="flex items-baseline justify-between gap-3 py-1.5 border-b border-slate-100 last:border-0">
                       <span className="text-sm text-slate-800 truncate">{g.full_name} <span className="text-xs text-slate-400">{g.relation}</span></span>
-                      {g.phone ? <a href={`tel:${String(g.phone).replace(/\s/g, '')}`} className="text-sm text-[#0f2240] tabular-nums whitespace-nowrap hover:underline">{g.phone}</a> : <span className="text-xs text-slate-300">—</span>}
+                      <span className="flex flex-col items-end">
+                        {g.phone ? <a href={`tel:${String(g.phone).replace(/\s/g, '')}`} className="text-sm text-[#0f2240] tabular-nums whitespace-nowrap hover:underline">{g.phone}</a> : <span className="text-xs text-slate-300">—</span>}
+                        {g.email && <a href={`mailto:${g.email}`} className="text-xs text-sky-700 hover:underline truncate max-w-[200px]">{g.email}</a>}
+                      </span>
                     </div>
                   ))}</div>)}
 

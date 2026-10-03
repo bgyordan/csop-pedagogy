@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react'
 import { Search, Printer, Phone, AlertTriangle } from 'lucide-react'
 
-interface GuardianInfo { name: string; relation: string; phone: string }
+interface GuardianInfo { name: string; relation: string; phone: string; email: string }
 interface ReportRow { id: string; name: string; csopClass: string; guardians: GuardianInfo[] }
 
 export default function GuardiansClient({ rows }: { rows: ReportRow[] }) {
@@ -14,7 +14,7 @@ export default function GuardiansClient({ rows }: { rows: ReportRow[] }) {
     return rows.filter(r =>
       r.name.toLowerCase().includes(q) ||
       r.csopClass.toLowerCase().includes(q) ||
-      r.guardians.some(g => g.name.toLowerCase().includes(q) || g.phone.toLowerCase().includes(q))
+      r.guardians.some(g => g.name.toLowerCase().includes(q) || g.phone.toLowerCase().includes(q) || g.email.toLowerCase().includes(q))
     )
   }, [rows, search])
 
@@ -77,6 +77,7 @@ export default function GuardiansClient({ rows }: { rows: ReportRow[] }) {
                               <Phone size={12} className="text-slate-400 print:hidden" /> {g.phone}
                             </span>
                           )}
+                          {g.email && <span className="text-slate-600">· {g.email}</span>}
                         </div>
                       ))}
                     </div>
