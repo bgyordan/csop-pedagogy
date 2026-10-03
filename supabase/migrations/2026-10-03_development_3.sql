@@ -1,8 +1,8 @@
--- РАЗВИТИЕ 3: оценките, профила, целите и GAS ги записват само психолозите, координиращият екип и управата.
--- Останалите от екипа (логопед, рехабилитатор, класен…) само разглеждат. Безопасно за повторно пускане.
+-- РАЗВИТИЕ 3: оценките, профила, целите и GAS ги записват само психолозите, логопедите, координиращият екип и управата.
+-- Останалите от екипа (рехабилитатор, класен…) само разглеждат. Безопасно за повторно пускане.
 create or replace function public.dev_can_assess() returns boolean
 language sql stable as $$
-  select get_my_role()::text in ('psychologist', 'admin', 'zdud', 'director')
+  select get_my_role()::text in ('psychologist', 'speech_therapist', 'admin', 'zdud', 'director')
       or exists (select 1 from staff_profiles where id = get_my_staff_id() and is_coordinator)
 $$;
 

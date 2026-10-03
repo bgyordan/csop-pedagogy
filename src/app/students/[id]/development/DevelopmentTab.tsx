@@ -13,8 +13,8 @@ import { sortAssessments } from './lib'
 import type { Skill, Assessment, Score, Target, AreaKey, Gas, Profile } from './lib'
 
 const MANAGERS = ['admin', 'zdud', 'director']
-// Оценява психологът (и координиращият екип, и управата); останалите от екипа само разглеждат
-const ASSESSORS = ['psychologist', ...MANAGERS]
+// Оценяват психолозите и логопедите (и координиращият екип, и управата); останалите само разглеждат
+const ASSESSORS = ['psychologist', 'speech_therapist', ...MANAGERS]
 
 export default function DevelopmentTab({ studentId, studentName, className, academicYearId, meId, role, isCoordinator = false }: {
   studentId: string; studentName: string; className: string; academicYearId: string | null; meId: string; role: string; isCoordinator?: boolean
