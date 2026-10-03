@@ -7,7 +7,17 @@
 import { useEffect, useState } from 'react'
 import { Download, Loader2, X } from 'lucide-react'
 
-export function DocViewer({ file, onClose }: { file: { id: string; name: string } | null; onClose: () => void }) {
+export function DocViewer({ file, onClose, urlFor, load, onDownload }: {
+  file: { id: string; name: string } | null
+  onClose: () => void
+  /** Адрес за сваляне на файла (по подразбиране — споделените лични документи) */
+  urlFor?: (id: string, as: 'pdf' | 'office') => string
+  /** Вместо адрес: собствено зареждане (напр. от хранилището на системата) */
+  load?: (id: string) => Promise<Blob>
+  /** Собствено изтегляне */
+  onDownload?: (id: string) => void
+}) {
+  const href = urlFor || ((id: string, as: 'pdf' | 'office') => `/api/staff-docs/download?fileId=${encodeURIComponent(id)}&as=${as}`)
   const [url, setUrl] = useState<string | null>(null)
   const [kind, setKind] = useState<'pdf' | 'img' | 'none' | null>(null)
   const [err, setErr] = useState('')
@@ -16,11 +26,16 @@ export function DocViewer({ file, onClose }: { file: { id: string; name: string 
     if (!file) return
     let off = false, objUrl: string | null = null
     setUrl(null); setKind(null); setErr('')
-    fetch(`/api/staff-docs/download?fileId=${encodeURIComponent(file.id)}&as=pdf`)
-      .then(async res => {
-        if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || 'Файлът не може да се отвори') }
-        const type = (res.headers.get('Content-Type') || '').toLowerCase()
-        const blob = await res.blob()
+    const name = file.name.toLowerCase()
+    const guess = name.endsWith('.pdf') ? 'application/pdf' : /\.(png|jpe?g|gif|webp)$/.test(name) ? 'image/*' : ''
+    const get: Promise<{ type: string; blob: Blob }> = load
+      ? load(file.id).then(b => ({ blob: b, type: (b.type && b.type !== 'application/octet-stream' ? b.type : guess).toLowerCase() }))
+      : fetch(href(file.id, 'pdf')).then(async res => {
+          if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || 'Файлът не може да се отвори') }
+          return { type: (res.headers.get('Content-Type') || '').toLowerCase(), blob: await res.blob() }
+        })
+    get
+      .then(({ type, blob }) => {
         if (off) return
         const k = type.includes('pdf') ? 'pdf' : type.startsWith('image/') ? 'img' : 'none'
         setKind(k)
@@ -38,7 +53,7 @@ export function DocViewer({ file, onClose }: { file: { id: string; name: string 
   }, [file, onClose])
 
   if (!file) return null
-  const download = () => { window.location.href = `/api/staff-docs/download?fileId=${encodeURIComponent(file.id)}&as=office` }
+  const download = () => { if (onDownload) onDownload(file.id); else window.location.href = href(file.id, 'office') }
 
   return (
     <div className="fixed inset-0 z-[60] bg-slate-900/70 backdrop-blur-sm flex flex-col p-3 md:p-6" onClick={onClose}>

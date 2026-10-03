@@ -1,7 +1,8 @@
 'use client'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Upload, Download, Trash2, FileText, Loader2, Check } from 'lucide-react'
+import { Upload, Download, Trash2, FileText, Loader2, Check, Eye } from 'lucide-react'
+import { DocViewer } from '@/components/registry/DocViewer'
 import { useToast } from '@/components/ui/Toast'
 
 interface EplrDoc {
@@ -89,6 +90,14 @@ export function EplrDocumentsSection({ studentId, academicYearId, documents: ini
     e.target.value = ''
   }
 
+  // Преглед на цял екран в системата (без отваряне на нов таб)
+  const [viewing, setViewing] = useState<{ id: string; name: string } | null>(null)
+  const loadFile = async (path: string) => {
+    const { data, error } = await supabase.storage.from('student-dossiers').download(path)
+    if (error || !data) throw new Error('Файлът не може да се отвори')
+    return data
+  }
+
   async function handleDownload(doc: EplrDoc) {
     setDownloading(doc.id)
     const { data, error } = await supabase.storage
@@ -149,6 +158,8 @@ export function EplrDocumentsSection({ studentId, academicYearId, documents: ini
                 </div>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
+                <button type="button" onClick={() => setViewing({ id: doc.file_path, name: doc.file_name })} title="Преглед"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition-colors"><Eye size={14} /></button>
                 <button onClick={() => handleDownload(doc)} disabled={downloading === doc.id}
                   className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Изтегли">
                   {downloading === doc.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
@@ -164,6 +175,8 @@ export function EplrDocumentsSection({ studentId, academicYearId, documents: ini
           ))}
         </div>
       )}
+      <DocViewer file={viewing} onClose={() => setViewing(null)} load={loadFile}
+        onDownload={() => { const x = ((documents) as any[]).find((d: any) => d.file_path === viewing?.id); if (x) handleDownload(x) }} />
     </div>
   )
 }
