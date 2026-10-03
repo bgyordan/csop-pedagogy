@@ -410,14 +410,13 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
                 {post?.site_status === 'published' ? (
                   <div className="flex items-center gap-2 text-sm text-emerald-800"><Globe size={16} /> Публикацията вече е на сайта.</div>
                 ) : (<>
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <span className={`mt-0.5 relative inline-flex w-10 h-6 rounded-full shrink-0 transition-colors ${siteWant ? 'bg-sky-600' : 'bg-slate-300'}`}>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <span className={`relative inline-flex w-10 h-6 rounded-full shrink-0 transition-colors ${siteWant ? 'bg-sky-600' : 'bg-slate-300'}`}>
                       <input type="checkbox" checked={siteWant} onChange={e => setSiteWant(e.target.checked)} className="sr-only" />
                       <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${siteWant ? 'left-[18px]' : 'left-0.5'}`} />
                     </span>
                     <span>
                       <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-900"><Globe size={15} className="text-sky-700" /> Предложи за сайта</span>
-                      <span className="block text-[12px] text-slate-500 mt-0.5">Деловодителят ще я получи на таблото си и ще я подготви за сайта на ЦСОП.</span>
                     </span>
                   </label>
                   {post?.site_status === 'declined' && post.site_reply && <p className="mt-2 text-[12px] text-slate-600">Отговор: {post.site_reply}</p>}
@@ -430,7 +429,7 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
                           Потвърждавам, че на снимките <b>няма разпознаваеми деца</b> или <b>има писмено съгласие</b> от родителите им.
                         </span>
                       </label>
-                      <textarea value={siteNote} onChange={e => setSiteNote(e.target.value)} rows={2} placeholder="Бележка към деловодителя (по желание)"
+                      <textarea value={siteNote} onChange={e => setSiteNote(e.target.value)} rows={2} placeholder="Бележка (по желание)"
                         className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-[13px] focus:outline-none focus:border-[#0f2240] resize-none" />
                     </div>
                   )}
