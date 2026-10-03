@@ -173,7 +173,7 @@ export default function OrdersClient({
           <SortHeader label="Файл" sort={sortValue} onSort={() => {}} align="right" />
         </div>
 
-        <div className="space-y-1.5 pt-2">
+        <div className="space-y-1.5 pt-2 zebra">
           {orders.length === 0 ? (
             <EmptyState icon={<ClipboardList size={20} />} search={searchValue} filter={filterValue}
               newLabel="Нова заповед" nofileText="Всички заповеди имат прикачен файл."

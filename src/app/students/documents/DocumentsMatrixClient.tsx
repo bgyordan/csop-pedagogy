@@ -141,7 +141,7 @@ export default function DocumentsMatrixClient({ classes: initialClasses, docType
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50">
+                  <tbody className="divide-y divide-slate-50 zebra">
                     {cls.students.map(student => (
                       <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-5 py-2 max-w-[200px]">

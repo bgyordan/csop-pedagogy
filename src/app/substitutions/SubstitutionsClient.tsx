@@ -539,7 +539,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       </div>
 
       {/* Редове като карти */}
-      <div className="space-y-1.5">
+      <div className="space-y-1.5 zebra">
         {filtered.length === 0 ? (
           <div className="bg-white border border-slate-200 rounded-2xl px-6 py-14 text-center shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
             <div className="mx-auto mb-3 w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400"><CalendarClock size={20} /></div>

@@ -192,7 +192,7 @@ export default function CorrespondenceClient({
           <SortHeader label="Файл" sort={sortValue} onSort={() => {}} align="right" />
         </div>
 
-        <div className="space-y-1.5 pt-2">
+        <div className="space-y-1.5 pt-2 zebra">
           {correspondence.length === 0 ? (
             <EmptyState icon={<Inbox size={20} />} search={searchValue} filter={filterValue}
               newLabel={activeDir === 'incoming' ? 'Нов входящ' : 'Нов изходящ'} nofileText="Всички записи имат прикачен файл."
