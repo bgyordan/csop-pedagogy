@@ -44,8 +44,10 @@ export default function SiteDocsClient({
 
   // разделът се помни в адреса (#news), за да оцелее при презареждане
   useEffect(() => {
-    const h = window.location.hash.slice(1)
+    const [h, id] = window.location.hash.slice(1).split(':')
     if (TABS.some((t) => t.id === h)) setTab(h as TabId)
+    // от „Портфолио → Направи чернова“: #news:<id> отваря самата новина
+    if (h === 'news' && id) { setJump((p) => ({ n: p.n + 1, newsId: id })); window.history.replaceState(null, '', '#news') }
   }, [])
   const show = useCallback((t: TabId) => {
     setTab(t)
