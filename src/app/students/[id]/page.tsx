@@ -491,7 +491,7 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
         {tab === 'dev' && showDev && (
           <div className="animate-in fade-in duration-300">
             <DevelopmentTab studentId={id} studentName={getFullName(student as any)} className={(enrollment as any)?.class?.name || ''}
-              academicYearId={currentYear?.id || null} meId={profile?.id || ''} role={profile?.role || ''} />
+              academicYearId={currentYear?.id || null} meId={profile?.id || ''} role={profile?.role || ''} isCoordinator={isCoordinator} />
           </div>
         )}
 
