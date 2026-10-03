@@ -3,11 +3,13 @@
 import { useMemo, useState } from 'react'
 import { Plus, FileDown, Star, CheckCircle2, TrendingUp, TrendingDown, Minus, Sprout, ChevronDown, Loader2 } from 'lucide-react'
 import Radar, { Spark } from './Radar'
-import { AREAS, SCALE, KINDS, fmtD, profileUpTo, areaPct } from './lib'
-import type { Skill, Assessment, Score, Target } from './lib'
+import { AREAS, SCALE, KINDS, fmtD, profileUpTo, areaPct, scaleOf, NA } from './lib'
+import type { Skill, Assessment, Score, Target, Gas } from './lib'
+import TargetsPanel from './TargetsPanel'
 
-export default function DevelopmentView({ skills, assessments, scores, targets, staffNames, canAssess, canEditAssessment, onNew, onOpen, onToggleTarget, onExport, exporting }: {
-  skills: Skill[]; assessments: Assessment[]; scores: Score[]; targets: Target[]; staffNames: Record<string, string>
+export default function DevelopmentView({ skills, assessments, scores, targets, gas, years, staffNames, canAssess, canEditAssessment, onNew, onOpen, onToggleTarget, onExport, exporting, onExpected, onRate }: {
+  skills: Skill[]; assessments: Assessment[]; scores: Score[]; targets: Target[]; gas: Gas[]; years: Record<string, string>; staffNames: Record<string, string>
+  onExpected: (targetId: string, text: string) => Promise<void>; onRate: (targetId: string, assessmentId: string, v: number | null) => Promise<void>
   canAssess: boolean; canEditAssessment: (a: Assessment) => boolean
   onNew: () => void; onOpen: (a: Assessment) => void; onToggleTarget: (skillId: string) => void
   onExport: (fromIdx: number, toIdx: number) => void; exporting?: boolean
@@ -100,7 +102,7 @@ export default function DevelopmentView({ skills, assessments, scores, targets, 
               const delta = n > 1 && b !== null && v !== null ? v - b : null
               const series = assessments.map((_, k) => areaPct(profiles[k], activeSkills, a.key))
               return (
-                <div key={a.key} className="grid grid-cols-[210px_1fr_44px_56px_70px] items-center gap-3">
+                <div key={a.key} className="grid grid-cols-[230px_1fr_44px_56px_70px] items-center gap-3">
                   <span className="text-[13px] text-slate-800 truncate flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: a.color }} />{a.label}</span>
                   <div className="relative h-2.5 rounded-full bg-slate-100">
                     {v !== null && <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${v}%`, background: a.color }} />}
@@ -120,27 +122,8 @@ export default function DevelopmentView({ skills, assessments, scores, targets, 
           </div>
           {/* Цели */}
           <div className="mt-6 pt-4 border-t border-slate-100">
-            <div className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-2.5 flex items-center gap-1.5"><Star size={12} className="text-amber-500" /> Цели {targets.length > 0 && `· ${targets.length}`}</div>
-            {targets.length === 0 ? (
-              <p className="text-[13px] text-slate-400">Отбележи със звездичка умение в таблицата по-долу, за да стане цел.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {targets.map(t => {
-                  const sk = skills.find(s => s.id === t.skill_id); if (!sk) return null
-                  const cur = profiles[n - 1][sk.id]
-                  const done = cur !== undefined && cur >= 3
-                  const sc = cur !== undefined ? SCALE[cur] : null
-                  return (
-                    <span key={t.id} className={`inline-flex items-center gap-2 pl-2.5 pr-1.5 py-1.5 rounded-xl border text-[12.5px] ${done ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
-                      <span className="w-2 h-2 rounded-full" style={{ background: AREAS.find(a => a.key === sk.area)?.color }} />
-                      <span className="text-slate-800">{sk.label}</span>
-                      {done ? <span className="inline-flex items-center gap-1 text-emerald-700 font-medium"><CheckCircle2 size={13} /> постигната</span>
-                        : sc && <span className="px-1.5 py-0.5 rounded-md text-[11px]" style={{ background: sc.bg, color: sc.fg }}>{sc.short}</span>}
-                    </span>
-                  )
-                })}
-              </div>
-            )}
+            <TargetsPanel targets={targets} skills={skills} assessments={assessments} gas={gas} current={profiles[n - 1]}
+              canEdit={canAssess} onExpected={onExpected} onRate={onRate} />
           </div>
         </div>
       </div>
@@ -158,6 +141,17 @@ export default function DevelopmentView({ skills, assessments, scores, targets, 
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
             <thead>
+              {(() => {
+                const groups: { y: string; n: number }[] = []
+                assessments.forEach(a => { const y = a.academic_year_id || ''; const g = groups[groups.length - 1]; if (g && g.y === y) g.n++; else groups.push({ y, n: 1 }) })
+                if (groups.length < 2 && !years[groups[0]?.y]) return null
+                return (
+                  <tr className="bg-slate-50">
+                    <th colSpan={2} />
+                    {groups.map((g, i) => <th key={i} colSpan={g.n} className="px-1 pt-2 text-[11px] font-semibold text-slate-600 border-l border-slate-200">{years[g.y] || '—'}</th>)}
+                  </tr>
+                )
+              })()}
               <tr className="bg-slate-50">
                 <th className="w-8" />
                 <th className="text-left font-medium text-slate-500 px-2 py-2 min-w-[240px] w-full">Умение</th>
@@ -200,12 +194,12 @@ export default function DevelopmentView({ skills, assessments, scores, targets, 
                         <td className="px-2 py-1.5 text-slate-800">{sk.label}</td>
                         {assessments.map(a => {
                           const v = scoreAt[a.id]?.[sk.id]
-                          const s = v !== undefined ? SCALE[v] : null
+                          const s = v !== undefined ? scaleOf(v) : null
                           return (
                             <td key={a.id} className="px-1 py-1">
                               <div className="h-7 rounded-md flex items-center justify-center text-[11px] font-semibold"
                                 style={s ? { background: s.bg, color: s.fg } : undefined} title={s ? s.label : 'не е оценено'}>
-                                {s ? v : <span className="text-slate-200">·</span>}
+                                {s ? (v === NA ? 'н/п' : v) : <span className="text-slate-200">·</span>}
                               </div>
                             </td>
                           )
