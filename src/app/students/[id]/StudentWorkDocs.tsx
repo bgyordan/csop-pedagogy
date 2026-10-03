@@ -2,10 +2,10 @@
 import { googleOpenUrl } from '@/lib/drive-link'
 
 import { useEffect, useRef, useState } from 'react'
+import { DocViewer } from '@/components/registry/DocViewer'
 import {
   Upload, FilePlus2, Loader2, X, ExternalLink, FolderOpen, Download, FileDown, Pencil, Trash2, Check, FileText, Share2,
-  Folder, FolderPlus, ChevronRight, ChevronDown, Copy,
-} from 'lucide-react'
+  Folder, FolderPlus, ChevronRight, ChevronDown, Copy, Eye } from 'lucide-react'
 import { listStudentDocs, createBlankDoc, renameDoc, trashDocs, listDocTemplates, createFromTemplate, listDocYears, copyFromYear } from './drive-actions'
 import { listClassDocs, createBlankClassDoc, renameClassDoc, trashClassDocs, createClassFolder, moveClassDoc } from '@/app/dashboard/components/class-drive-actions'
 import { listStaffDocs, createBlankStaffDoc, renameStaffDoc, trashStaffDocs, shareStaffDoc, createStaffFolder, moveStaffDoc } from '@/app/my-files/staff-drive-actions'
@@ -100,6 +100,9 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
   const [folderUrl, setFolderUrl] = useState<string>()
   const [myEmail, setMyEmail] = useState<string>()
   const [canEdit, setCanEdit] = useState(false)
+  // Преглед „само за четене“ в системата (без нужда от права в Drive)
+  const [viewing, setViewing] = useState<{ id: string; name: string } | null>(null)
+  const viewUrl = (id: string, as: 'pdf' | 'office') => `${api.base}/download?${api.key}=${ownerId}&fileId=${id}&as=${as}${yr ? `&year=${encodeURIComponent(yr)}` : ''}`
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
@@ -335,7 +338,7 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
               <div key={f.id}
                 draggable={withFolders && canEdit && renaming !== f.id}
                 onDragStart={e => { e.dataTransfer.setData(MOVE_TYPE, f.id); e.dataTransfer.effectAllowed = 'move' }}
-                className={`group ${kind === 'staff' ? 'grid-cols-[28px_minmax(0,1fr)_170px_164px]' : 'grid-cols-[28px_minmax(0,1fr)_170px_132px]'} grid items-center gap-2 px-3 py-2 text-sm transition
+                className={`group ${kind === 'staff' ? 'grid-cols-[28px_minmax(0,1fr)_170px_196px]' : 'grid-cols-[28px_minmax(0,1fr)_170px_164px]'} grid items-center gap-2 px-3 py-2 text-sm transition
                   ${checked ? 'bg-sky-50/70' : i % 2 ? 'bg-slate-50/40' : 'bg-white'} hover:bg-sky-50/50`}>
                 {isFolder(f)
                   ? <span />
@@ -353,6 +356,8 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
                   </div>
                 ) : (
                   <a href={withAccount(f.url, myEmail)} target="_blank" rel="noreferrer"
+                     onClick={e => { if (!canEdit && !isFolder(f)) { e.preventDefault(); setViewing({ id: f.id, name: f.name }) } }}
+                     title={!canEdit && !isFolder(f) ? 'Преглед' : 'Отвори за редакция'}
                      className={`flex items-center gap-2.5 min-w-0 hover:text-[#0f2240] ${nested ? 'pl-7' : ''}`}>
                     <Badge mime={f.mimeType} />
                     <span className="truncate text-slate-700 group-hover:text-[#0f2240]" title={f.name}>{f.name}</span>
@@ -373,6 +378,9 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
                     </span>
                   ) : !isFolder(f) && (
                     <div className="flex items-center gap-0.5">
+                      <button type="button" onClick={() => setViewing({ id: f.id, name: f.name })} className={iconBtn} title="Преглед (само за четене)">
+                        <Eye size={15} />
+                      </button>
                       <button type="button" onClick={() => download([f.id], 'office')} className={iconBtn} title="Изтегли (Word)">
                         <Download size={15} />
                       </button>
@@ -567,7 +575,7 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
       ) : (
         <div className="rounded-xl border border-slate-100 overflow-hidden">
           {/* заглавен ред */}
-          <div className={`${kind === 'staff' ? 'grid-cols-[28px_minmax(0,1fr)_170px_164px]' : 'grid-cols-[28px_minmax(0,1fr)_170px_132px]'} grid items-center gap-2 px-3 py-2 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-400`}>
+          <div className={`${kind === 'staff' ? 'grid-cols-[28px_minmax(0,1fr)_170px_196px]' : 'grid-cols-[28px_minmax(0,1fr)_170px_164px]'} grid items-center gap-2 px-3 py-2 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-400`}>
             <input type="checkbox" checked={allSelected} aria-label="Избери всички"
               onChange={() => setSelected(allSelected ? new Set() : new Set(selectable.map(f => f.id)))}
               className="accent-[#0f2240]" />
@@ -651,6 +659,7 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
           {withFolders ? 'Провлачете файлове или цели папки от компютъра, за да ги качите; файл от списъка — върху папка, за да го преместите.' : 'Провлачете файлове върху картата, за да ги качите.'} Промените в документите се пазят автоматично. Изтритите остават 30 дни в кошчето на Drive.
         </p>
       )}
+      <DocViewer file={viewing} onClose={() => setViewing(null)} urlFor={viewUrl} />
     </div>
   )
 }

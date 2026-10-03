@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Upload, Download, Trash2, FileText, Loader2, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react'
+import { Upload, Download, Trash2, FileText, Loader2, ShieldCheck, ShieldAlert, ShieldX, Eye } from 'lucide-react'
+import { DocViewer } from '@/components/registry/DocViewer'
 import { useToast } from '@/components/ui/Toast'
 
 interface Attachment {
@@ -120,6 +121,14 @@ export function AttachmentsSection({ studentId, attachments: initial, canManage,
     setAttachments(prev => [newAttachment, ...prev])
     setUploading(false)
     e.target.value = ''
+  }
+
+  // Преглед на цял екран в системата (без отваряне на нов таб)
+  const [viewing, setViewing] = useState<{ id: string; name: string } | null>(null)
+  const loadFile = async (path: string) => {
+    const { data, error } = await supabase.storage.from('student-dossiers').download(path)
+    if (error || !data) throw new Error('Файлът не може да се отвори')
+    return data
   }
 
   async function handleDownload(attachment: Attachment) {
@@ -254,6 +263,8 @@ export function AttachmentsSection({ studentId, attachments: initial, canManage,
                       ))}
                     </select>
                   )}
+                  <button type="button" onClick={() => setViewing({ id: att.file_path, name: att.file_name })} title="Преглед"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-100 transition-colors"><Eye size={14} /></button>
                   <button
                     onClick={() => handleDownload(att)}
                     disabled={downloading === att.id}
@@ -279,6 +290,8 @@ export function AttachmentsSection({ studentId, attachments: initial, canManage,
           })}
         </div>
       )}
+      <DocViewer file={viewing} onClose={() => setViewing(null)} load={loadFile}
+        onDownload={() => { const x = ((attachments) as any[]).find((d: any) => d.file_path === viewing?.id); if (x) handleDownload(x) }} />
     </div>
   )
 }
