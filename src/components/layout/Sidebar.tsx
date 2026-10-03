@@ -152,11 +152,15 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   const router = useRouter()
   const supabase = createClient()
    const [mobileOpen, setMobileOpen] = useState(false)
-  // Акордеон: отворена е само една група/секция наведнъж ('#…' група, 'delo' или 'more')
+  // Акордеон: отворена е само една група наведнъж
   const [openKey, setOpenKey] = useState<string | null>(null)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const settingsOpen = openKey === 'more'
-  const deloOpen = openKey === 'delo'
+  // Свит сайдбар (само иконки) — помни се в браузъра
+  const [mini, setMini] = useState(false)
+  useEffect(() => { try { setMini(localStorage.getItem('sb-mini') === '1') } catch {} }, [])
+  // На телефон менюто винаги е пълно
+  const isMini = mini && !mobileOpen
+  function toggleMini() { setMini(m => { try { localStorage.setItem('sb-mini', m ? '0' : '1') } catch {}; return !m }) }
   function toggleKey(key: string) {
     setOpenKey(k => {
       const next = k === key ? null : key
@@ -211,57 +215,40 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
       ? { ...item, children: item.children.filter(canSee) }
       : item)
     .filter(item => item.children ? item.children.length > 0 : canSee(item))
+  // Общ вид на пункт: активният е с лек тъмносин фон и черта отляво; посочване — само лек фон
+  const itemCls = (active: boolean, size: 'main' | 'sub' = 'main') => cn(
+    'relative flex items-center gap-2.5 rounded-lg transition-colors',
+    size === 'main' ? 'px-2.5 py-[7px] text-[13.5px]' : 'px-2.5 py-1.5 text-[13px]',
+    isMini && size === 'main' && 'justify-center px-0',
+    active
+      ? 'bg-[rgba(15,34,64,0.08)] text-[#0f2240] font-medium before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-full before:bg-[#0f2240]'
+      : 'text-[#33507a] hover:bg-[rgba(15,34,64,0.05)] hover:text-[#0f2240]'
+  )
+  const iconCls = (active: boolean) => cn('sb-ico flex-shrink-0', active ? 'text-[#0f2240]' : 'text-[#6b8db0]')
+
   function NavGroup({ item }: { item: NavItem }) {
     const kids = item.children || []
     const hasActiveChild = kids.some(k => pathname === k.href || pathname.startsWith(k.href + '/'))
-    const open = openKey === item.href
+    const open = openKey === item.href && !isMini
     return (
       <div id={`nav-${item.href}`}>
         <button
           type="button"
-          onClick={() => toggleKey(item.href)}
-          className="w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-full transition-colors"
-          style={{
-            color: hasActiveChild ? TEXT_PRIMARY : TEXT_SECONDARY,
-            fontWeight: hasActiveChild ? 600 : 500,
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
+          title={isMini ? item.label : undefined}
+          onClick={() => { if (isMini) { toggleMini(); setOpenKey(item.href) } else toggleKey(item.href) }}
+          className={cn(itemCls(hasActiveChild && !open), 'w-full text-left')}
         >
-          {item.icon}
-          <span className="flex-1 text-left">{item.label}</span>
-          <ChevronDown size={14} style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', opacity: 0.45 }} />
+          <span className={iconCls(hasActiveChild)}>{item.icon}</span>
+          {!isMini && <span className="flex-1">{item.label}</span>}
+          {!isMini && <ChevronDown size={14} className="text-[#6b8db0] transition-transform" style={{ transform: open ? 'rotate(180deg)' : 'none' }} />}
         </button>
         {open && (
-          <div className="pl-4 pt-0.5 space-y-0.5">
+          <div className="ml-[19px] pl-2 my-0.5 border-l border-[rgba(15,34,64,0.14)] space-y-0.5">
             {kids.map(kid => {
               const active = pathname === kid.href || pathname.startsWith(kid.href + '/')
               return (
-                <Link
-                  key={kid.href}
-                  href={kid.href}
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-2 px-3 py-1.5 text-[13px] transition-all rounded-full"
-                  style={{
-                    backgroundColor: 'transparent',
-                    color: active ? TEXT_PRIMARY : TEXT_MUTED,
-                    fontWeight: active ? 600 : 400,
-                    border: active ? '1.5px solid rgba(15,34,64,0.18)' : '1.5px solid transparent',
-                  }}
-                  onMouseEnter={e => {
-                    if (!active) {
-                      (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER
-                      ;(e.currentTarget as HTMLElement).style.color = TEXT_SECONDARY
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if (!active) {
-                      (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'
-                      ;(e.currentTarget as HTMLElement).style.color = TEXT_MUTED
-                    }
-                  }}
-                >
-                  {kid.icon}
+                <Link key={kid.href} href={kid.href} onClick={() => setMobileOpen(false)} className={itemCls(active, 'sub')}>
+                  <span className={iconCls(active)}>{kid.icon}</span>
                   <span className="flex-1">{kid.label}</span>
                 </Link>
               )
@@ -280,58 +267,35 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   useEffect(() => {
     const grp = mainItems.find(i => i.children?.some(k => isActive(k.href)))
     if (grp) setOpenKey(grp.href)
-    else if (deloItems.some(i => isActive(i.href))) setOpenKey('delo')
-    else if (settingsActive) setOpenKey('more')
-    else setOpenKey(k => k ?? (mainItems.find(i => i.defaultOpen && i.children)?.href ?? (deloItems.length > 0 && !isSecretary ? 'delo' : null)))
+    else if (deloItems.some(i => isActive(i.href)) || settingsActive) setOpenKey(null)
+    else setOpenKey(k => k ?? (mainItems.find(i => i.defaultOpen && i.children)?.href ?? null))
     setUserMenuOpen(false)
   }, [pathname])
   function NavLink({ item }: { item: NavItem }) {
     const active = pathname === item.href || pathname.startsWith(item.href + '/')
     return (
-      <Link
-        key={item.href}
-        href={item.href}
-        onClick={() => setMobileOpen(false)}
-        className="flex items-center gap-2.5 px-3 py-2 text-sm transition-all rounded-full"
-        style={{
-          backgroundColor: 'transparent',
-          color: active ? TEXT_PRIMARY : TEXT_SECONDARY,
-          fontWeight: active ? 600 : 400,
-          border: active ? `1.5px solid rgba(15,34,64,0.22)` : '1.5px solid transparent',
-        }}
-        onMouseEnter={e => {
-          if (!active) {
-            (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER
-            ;(e.currentTarget as HTMLElement).style.border = '1.5px solid rgba(15,34,64,0.10)'
-          }
-        }}
-        onMouseLeave={e => {
-          if (!active) {
-            (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'
-            ;(e.currentTarget as HTMLElement).style.border = '1.5px solid transparent'
-          }
-        }}
-      >
-        {item.icon}
-        <span className="flex-1">{item.label}</span>
+      <Link href={item.href} onClick={() => setMobileOpen(false)} title={isMini ? item.label : undefined} className={itemCls(active)}>
+        <span className={iconCls(active)}>{item.icon}</span>
+        {!isMini && <span className="flex-1">{item.label}</span>}
       </Link>
     )
   }
+  const divider = <div className="my-3 mx-2.5 border-t border-[rgba(15,34,64,0.10)]" />
   const sidebarContent = (
-    <aside className="w-56 h-full flex flex-col" style={{ backgroundColor: SIDEBAR_BG }}>
+    <aside className={cn('h-full flex flex-col transition-[width] duration-200', isMini ? 'w-16' : 'w-56')} style={{ backgroundColor: SIDEBAR_BG }}>
       <AutoLogout />
-      <div className="p-5" style={{ borderBottom: '1px solid rgba(15,34,64,0.12)' }}>
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard" onClick={() => setMobileOpen(false)}>
-            <img src="/csop-varna-logo.jpg" alt="ЦСОП Варна" className="w-9 h-9 rounded-lg object-cover" />
-          </Link>
-          <div>
-            <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>ЦСОП Варна</div>
-            <div className="text-xs" style={{ color: TEXT_MUTED }}>{isSecretary ? 'Деловодство' : 'ЕПЛР'}</div>
+      <div className={cn('flex items-center gap-2.5 py-4', isMini ? 'px-3 justify-center' : 'px-4')} style={{ borderBottom: '1px solid rgba(15,34,64,0.10)' }}>
+        <Link href="/dashboard" onClick={() => setMobileOpen(false)} className="flex-shrink-0">
+          <img src="/csop-varna-logo.jpg" alt="ЦСОП Варна" className="w-8 h-8 rounded-lg object-cover" />
+        </Link>
+        {!isMini && (
+          <div className="min-w-0 flex-1">
+            <div className="text-[13.5px] font-medium leading-tight" style={{ color: TEXT_PRIMARY }}>ЦСОП Варна</div>
+            <div className="text-[11px] leading-tight" style={{ color: '#6b8db0' }}>{isSecretary ? 'Деловодство' : 'ЕПЛР'}</div>
           </div>
-        </div>
+        )}
       </div>
-      <nav className="flex-1 py-4 px-2 overflow-y-auto">
+      <nav className={cn('flex-1 py-3 overflow-y-auto', isMini ? 'px-2' : 'px-2.5')}>
         <div className="space-y-0.5">
           {mainItems.map(item =>
             item.children
@@ -339,57 +303,28 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
               : <NavLink key={item.href} item={item} />
           )}
         </div>
-                {deloItems.length > 0 && (
-          <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(15,34,64,0.08)' }}>
-            {isSecretary ? (
-              <div className="px-3 mb-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_MUTED }}>
-                  Деловодство
-                </span>
-              </div>
-            ) : (
-              <button
-                type="button"
-                id="nav-delo"
-                onClick={() => toggleKey('delo')}
-                className="w-full flex items-center gap-1.5 px-3 mb-2"
-              >
-                <span className="text-[10px] font-bold uppercase tracking-widest flex-1 text-left" style={{ color: TEXT_MUTED }}>
-                  Деловодство
-                </span>
-                <ChevronDown size={13} style={{ color: TEXT_MUTED, transform: deloOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', opacity: 0.6 }} />
-              </button>
-            )}
-            {(isSecretary || deloOpen) && (
-              <div className="space-y-0.5">
-                {deloItems.map(item => <NavLink key={item.href} item={item} />)}
-              </div>
-            )}
-          </div>
-        )}
-        {settingsItems.length > 0 && (
-          <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(15,34,64,0.08)' }}>
-            {/* „Още“ — свито; отваря се само, ако сме на някоя от тези страници */}
-            <button type="button" id="nav-more" onClick={() => toggleKey('more')} className="w-full flex items-center gap-1.5 px-3 mb-2">
-              <span className="text-[10px] font-bold uppercase tracking-widest flex-1 text-left" style={{ color: TEXT_MUTED }}>
-                Още
-              </span>
-              <ChevronDown size={13} style={{ color: TEXT_MUTED, transform: settingsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', opacity: 0.6 }} />
-            </button>
-            {settingsOpen && (
-              <div className="space-y-0.5">
-                {settingsItems.map(item => <NavLink key={item.href} item={item} />)}
-              </div>
-            )}
-          </div>
-        )}
+        {/* Деловодство и „Още“ — без надписи, само тънка черта */}
+        {deloItems.length > 0 && (<>
+          {mainItems.length > 0 && divider}
+          <div className="space-y-0.5">{deloItems.map(item => <NavLink key={item.href} item={item} />)}</div>
+        </>)}
+        {settingsItems.length > 0 && (<>
+          {divider}
+          <div className="space-y-0.5">{settingsItems.map(item => <NavLink key={item.href} item={item} />)}</div>
+        </>)}
       </nav>
+      {/* Свий / разгъни (само на компютър) */}
+      <button type="button" onClick={toggleMini} title={isMini ? 'Разгъни менюто' : 'Свий менюто до иконки'}
+        className={cn('hidden md:flex items-center gap-2 mx-2.5 mb-1 px-2.5 py-1.5 rounded-lg text-[12px] text-[#6b8db0] hover:bg-[rgba(15,34,64,0.05)] hover:text-[#0f2240] transition-colors', isMini && 'justify-center px-0')}>
+        <ChevronDown size={14} className={isMini ? '-rotate-90' : 'rotate-90'} />
+        {!isMini && 'Свий менюто'}
+      </button>
       <div className="relative px-3 py-2.5" style={{ borderTop: '1px solid rgba(15,34,64,0.12)' }}>
         {/* Меню на профила — отваря се нагоре при клик */}
         {userMenuOpen && (
           <>
             <div className="fixed inset-0 z-10" onClick={() => setUserMenuOpen(false)} />
-            <div className="absolute left-2 right-2 bottom-full mb-1 z-20 rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,34,64,0.14)] p-1.5">
+            <div className="absolute left-2 bottom-full mb-1 z-20 w-52 rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,34,64,0.14)] p-1.5">
               <div className="px-3 py-2 border-b border-slate-100 mb-1">
                 <div className="text-xs font-semibold truncate" style={{ color: TEXT_PRIMARY }}>{userName}</div>
                 <div className="text-[11px] truncate" style={{ color: TEXT_MUTED }}>
@@ -413,21 +348,21 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
           </>
         )}
         <button type="button" onClick={() => setUserMenuOpen(o => !o)}
-          className="w-full flex items-center gap-2.5 rounded-xl px-1.5 py-1.5 transition-colors hover:bg-[rgba(15,34,64,0.05)]"
-          title="Профил, документи, изход">
+          className={cn('w-full flex items-center gap-2.5 rounded-xl px-1.5 py-1.5 transition-colors hover:bg-[rgba(15,34,64,0.05)]', isMini && 'justify-center')}
+          title={isMini ? userName : 'Профил, документи, изход'}>
           <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0"
             style={{ backgroundColor: 'rgba(15,34,64,0.12)', color: TEXT_PRIMARY }}>
             {userName.charAt(0)}
           </div>
-          <span className="flex-1 min-w-0 text-left text-xs font-medium truncate" style={{ color: TEXT_PRIMARY }}>{userName}</span>
-          <ChevronDown size={13} style={{ color: TEXT_MUTED, transform: userMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+          {!isMini && <span className="flex-1 min-w-0 text-left text-xs font-medium truncate" style={{ color: TEXT_PRIMARY }}>{userName}</span>}
+          {!isMini && <ChevronDown size={13} style={{ color: TEXT_MUTED, transform: userMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />}
         </button>
       </div>
     </aside>
   )
   return (
     <>
-      <div className="hidden md:flex w-56 h-screen sticky top-0 overflow-y-auto flex-shrink-0">
+      <div className={cn('hidden md:flex h-screen sticky top-0 overflow-y-auto flex-shrink-0 transition-[width] duration-200', isMini ? 'w-16' : 'w-56')}>
         {sidebarContent}
       </div>
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 h-14"

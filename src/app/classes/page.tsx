@@ -191,7 +191,7 @@ export default async function ClassesPage({
                     <th className="text-center px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Разписание</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="zebra">
                   {classes?.map((cls, idx) => {
                     const count = countByClass.get(cls.id) || 0
                     const teachers = teachersByClass.get(cls.id) || []

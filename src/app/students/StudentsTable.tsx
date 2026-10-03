@@ -77,7 +77,7 @@ export default function StudentsTable({ rows }: { rows: Row[] }) {
       </div>
 
       {/* Редове като карти */}
-      <div className="space-y-2">
+      <div className="space-y-2 zebra">
         {sorted.map(r => {
           const isIfo = r.educationForm === 'ifo'
           return (

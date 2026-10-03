@@ -104,7 +104,7 @@ export default async function StaffPage({
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="zebra">
             {staff.map((s: StaffProfile, idx: number) => {
               const myClasses = classesByStaff[s.id] || []
               return (

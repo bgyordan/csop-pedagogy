@@ -173,7 +173,7 @@ export default function ContractsClient({
           <SortHeader label="Файл" sort={sortValue} onSort={onSort} align="right" />
         </div>
 
-        <div className="space-y-1.5 pt-2">
+        <div className="space-y-1.5 pt-2 zebra">
           {view.length === 0 ? (
             filter !== 'all' && !searchValue ? (
               <EmptyState icon={<FileSignature size={20} />} search="" filter="nofile"
