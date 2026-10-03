@@ -65,7 +65,12 @@ export function FileAndActions({ item, canEdit, canDelete, onOpenFile, onEdit, o
           <Paperclip size={13} /> файл
         </button>
       ) : item.is_reserved ? (
-        <span className="text-slate-300 text-xs px-2">—</span>
+        canEdit ? (
+          <button type="button" onClick={onEdit} title="Попълни резервирания номер (с бързите сценарии)"
+            className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-white text-amber-800 border border-amber-400 hover:bg-amber-100 transition-colors whitespace-nowrap">
+            <Pencil size={11} /> попълни
+          </button>
+        ) : <span className="text-slate-300 text-xs px-2">—</span>
       ) : canEdit ? (
         <button type="button" onClick={onEdit} title="Няма прикачен файл — натисни, за да го качиш"
           className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 transition-colors whitespace-nowrap">

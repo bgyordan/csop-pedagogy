@@ -63,11 +63,13 @@ interface Props {
   students: { id: string; first_name: string; last_name: string }[]
   staff: { id: string; first_name: string; last_name: string }[]
   nomenclature: NomenclatureItem[]
+  /** Попълване на резервиран номер — записът се обновява, номерът и датата остават */
+  reserved?: any
   onClose: () => void
   onSaved: () => void
 }
 
-export default function NewOrderForm({ currentUserId, students, staff, nomenclature, onClose, onSaved }: Props) {
+export default function NewOrderForm({ currentUserId, students, staff, nomenclature, reserved, onClose, onSaved }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const descRef = useRef<HTMLTextAreaElement>(null)
@@ -82,8 +84,8 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
   const [itemSearch, setItemSearch] = useState('')
   const [title, setTitle] = useState('')
   const [staffId, setStaffId] = useState('')
-  const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0])
-  const [description, setDescription] = useState('')
+  const [orderDate, setOrderDate] = useState(reserved?.date || new Date().toISOString().split('T')[0])
+  const [description, setDescription] = useState<string>(reserved?.description || '')
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [nextNumVal, setNextNumVal] = useState<number | null>(null)
 
@@ -160,10 +162,11 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
     setSaving(true)
 
     const { start, end } = deloYearBounds(new Date(orderDate))
-    const seq = await nextSeq(supabase, start, end)
+    // Резервиран номер: номерът и поредността остават същите, записът се обновява
+    const seq = reserved ? reserved.seq : await nextSeq(supabase, start, end)
     const num = String(seq).padStart(3, '0')
     const formattedDate = orderDate.split('-').reverse().join('.')
-    const docNumber = `${num}/${formattedDate}г.`
+    const docNumber = reserved ? reserved.number : `${num}/${formattedDate}г.`
 
     let fileUrl = '', fileName = ''
     if (uploadedFile) {
@@ -173,7 +176,7 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
       if (!uploadError) { fileUrl = filePath; fileName = uploadedFile.name }
     }
 
-    const { error } = await supabase.from('orders').insert({
+    const row = {
       number: docNumber,
       date: orderDate,
       title,
@@ -183,7 +186,10 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
       file_name: fileName || null,
       created_by: currentUserId,
       seq,
-    })
+    }
+    const { error } = reserved
+      ? await supabase.from('orders').update({ ...row, created_by: undefined, is_reserved: false }).eq('id', reserved.id)
+      : await supabase.from('orders').insert(row)
 
     if (error) { alert(`Грешка: ${error.message}`); setSaving(false); return }
     router.refresh()
@@ -200,7 +206,7 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
         <div className="flex items-start justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
           <div>
             <h3 className="text-[11px] text-slate-500 uppercase tracking-widest">Регистриране на заповед</h3>
-            <p className="text-lg font-medium text-[#0f2240] tabular-nums leading-tight mt-1.5">{previewNumber}</p>
+            <p className="text-lg font-medium text-[#0f2240] tabular-nums leading-tight mt-1.5 flex items-center gap-2">{reserved ? reserved.number : previewNumber}{reserved && <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">попълване на резервиран номер</span>}</p>
           </div>
           <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors">
             <X size={18} />
@@ -234,8 +240,8 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
             {/* Дата */}
             <div>
               <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">Дата на издаване *</label>
-              <input type="date" value={orderDate} onChange={e => setOrderDate(e.target.value)}
-                required className="input w-44 text-xs" />
+              <input type="date" value={orderDate} onChange={e => setOrderDate(e.target.value)} disabled={!!reserved}
+                title={reserved ? 'Датата е част от резервирания номер' : undefined} required className="input w-44 text-xs disabled:opacity-70" />
             </div>
 
             {/* Избор на служител при сценарий */}
@@ -361,18 +367,18 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
               className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium transition-colors">
               Отказ
             </button>
-            <button type="submit" disabled={saving}
+            {!reserved && <button type="submit" disabled={saving}
               onClick={() => setSaveAction('save_new')}
               className="px-4 py-2 border border-[#0f2240] text-[#0f2240] rounded-xl text-xs font-medium flex items-center gap-1.5 whitespace-nowrap disabled:opacity-60 hover:bg-slate-50 transition-colors">
               {saving && saveAction === 'save_new' && <Loader2 size={12} className="animate-spin" />}
               Регистрирай и нов
-            </button>
+            </button>}
             <button type="submit" disabled={saving}
               data-primary onClick={() => setSaveAction('save_close')}
               className="px-5 py-2 text-white rounded-xl text-xs font-medium flex items-center gap-1.5 whitespace-nowrap disabled:opacity-60 shadow-sm hover:opacity-90 transition-opacity"
               style={{ backgroundColor: '#0f2240' }}>
               {saving && saveAction === 'save_close' && <Loader2 size={12} className="animate-spin" />}
-              {saving ? 'Записване...' : 'Регистрирай заповед'}
+              {saving ? 'Записване…' : reserved ? 'Запиши в резервирания номер' : 'Регистрирай заповед'}
             </button>
           </div>
         </form>

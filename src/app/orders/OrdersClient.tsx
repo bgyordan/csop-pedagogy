@@ -235,7 +235,11 @@ export default function OrdersClient({
       </div>
 
       {viewItem && <ViewOrderModal item={viewItem} onClose={() => setViewItem(null)} onPrev={goPrev} onNext={goNext} canEdit={canEdit} onEdit={() => setEditItem(viewItem)} />}
-      {editItem && <EditOrderModal item={editItem} nomenclature={nomenclature} onClose={() => setEditItem(null)} />}
+      {/* Резервиран номер → пълната форма със сценариите (записът се обновява); иначе — редакция */}
+      {editItem && (editItem.is_reserved
+        ? <NewOrderForm reserved={editItem} currentUserId={currentUserId} students={students} staff={staff} nomenclature={nomenclature}
+            onClose={() => setEditItem(null)} onSaved={() => { setEditItem(null); router.refresh() }} />
+        : <EditOrderModal item={editItem} nomenclature={nomenclature} onClose={() => setEditItem(null)} />)}
 
       {showForm && (
         <NewOrderForm
