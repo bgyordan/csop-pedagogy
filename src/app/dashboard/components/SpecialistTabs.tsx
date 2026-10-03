@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import OutreachBadge from '@/components/OutreachBadge'
 import Link from 'next/link'
-import { HeartPulse, Users, FileText } from 'lucide-react'
+import { HeartPulse, Users, FileText, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
 import StudentWorkDocs from '@/app/students/[id]/StudentWorkDocs'
 import { studentDocCounts } from './class-drive-actions'
 interface TherapyRow {
@@ -26,13 +26,12 @@ interface EplrRow {
 }
 export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows: TherapyRow[]; eplrRows: EplrRow[] }) {
   const [tab, setTab] = useState<'therapy' | 'eplr' | 'mine'>('therapy')
-  // Плочки (само име) или подробни карти — изборът се помни в браузъра
-  const [details, setDetails] = useState(false)
-  useEffect(() => { try { setDetails(localStorage.getItem('eis_tiles_details') === '1') } catch { /* няма достъп */ } }, [])
-  const toggleDetails = () => {
-    const v = !details; setDetails(v)
-    try { localStorage.setItem('eis_tiles_details', v ? '1' : '0') } catch { /* няма достъп */ }
-  }
+  // Карти по 9 (3×3) със странициране; филтър по паралелка (помни се в браузъра)
+  const PER_PAGE = 9
+  const [cls, setCls] = useState<string>('')
+  const [page, setPage] = useState(1)
+  useEffect(() => { try { setCls(localStorage.getItem('eis_ther_cls') || '') } catch { /* няма достъп */ } }, [])
+  const pickCls = (k: string) => { setCls(k); setPage(1); try { localStorage.setItem('eis_ther_cls', k) } catch { /* няма достъп */ } }
   const [q, setQ] = useState('')
   const [onlyNoDocs, setOnlyNoDocs] = useState(false)
   const shortName = (full: string) => { const p = full.trim().split(/\s+/); return p.length > 2 ? `${p[0]} ${p[p.length - 1]}` : full }
@@ -74,12 +73,6 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
           <FileText size={15} />
           Моите документи
         </button>
-        {tab === 'therapy' && therapyRows.length > 0 && (
-          <label className="ml-auto flex items-center gap-2 px-3 text-xs text-slate-500 cursor-pointer select-none">
-            <input type="checkbox" checked={details} onChange={toggleDetails} className="accent-teal-600" />
-            Детайли
-          </label>
-        )}
       </div>
       {/* ТАБ 3: Моите документи — личната папка в Drive */}
       {tab === 'mine' && (
@@ -94,92 +87,111 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
             Още нямате зачислени деца за терапия.<br />
             <Link href="/my-activities" className="text-teal-600 hover:underline text-xs">Добави от „Моите дейности" →</Link>
           </div>
-        ) : !details ? (
-          /* ЛЕНТИ ПО ПАРАЛЕЛКИ — всяка паралелка е ред, децата са „хапчета“ с цялото име */
-          <div className="p-4">
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <input value={q} onChange={e => setQ(e.target.value)} placeholder="Търси дете…"
-                className="w-full sm:w-56 px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200" />
-              {counts && therapyRows.some(r => !counts[r.id]) && (
-                <button onClick={() => setOnlyNoDocs(v => !v)}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border transition ${onlyNoDocs ? 'bg-amber-400 text-white border-amber-400' : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50'}`}>
-                  <span className={`w-2 h-2 rounded-full ${onlyNoDocs ? 'bg-white' : 'bg-amber-400'}`} />
-                  без документи · {therapyRows.filter(r => !counts[r.id]).length}
+        ) : (() => {
+          const romanVal = (x: string) => { const v: Record<string, number> = { I: 1, V: 5, X: 10, L: 50 }; let n = 0; for (let i = 0; i < x.length; i++) { const c = v[x[i]] || 0, d = v[x[i + 1]] || 0; n += c < d ? -c : c } return n || 999 }
+          const sorted = [...therapyRows].sort((a, b) => (romanVal(a.className || '—') - romanVal(b.className || '—')) || a.name.localeCompare(b.name, 'bg'))
+          const classes = Array.from(new Set(sorted.map(r => r.className || '—')))
+          const curCls = classes.includes(cls) ? cls : ''
+          const needle = q.trim().toLowerCase()
+          const shown = sorted.filter(r =>
+            (!curCls || (r.className || '—') === curCls) &&
+            (!needle || r.name.toLowerCase().includes(needle)) &&
+            (!onlyNoDocs || (counts && !counts[r.id])))
+          const pages = Math.max(1, Math.ceil(shown.length / PER_PAGE))
+          const pg = Math.min(page, pages)
+          const pageRows = shown.slice((pg - 1) * PER_PAGE, pg * PER_PAGE)
+          const chip = (active: boolean) => `inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border transition-colors whitespace-nowrap ${
+            active ? 'bg-slate-100 border-slate-400 text-[#0f2240] font-medium' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`
+          const count = (k: string) => sorted.filter(r => (r.className || '—') === k).length
+          return (
+            <div className="p-4 space-y-3">
+              {/* Филтри: паралелка · търсене · без документи */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button type="button" onClick={() => pickCls('')} className={chip(!curCls)}>
+                  Всички <span className="text-[10px] tabular-nums px-1.5 py-0.5 rounded-full bg-white">{sorted.length}</span>
                 </button>
+                {classes.map(k => (
+                  <button key={k} type="button" onClick={() => pickCls(k)} className={chip(curCls === k)} title={k === '—' ? 'Без паралелка' : `Паралелка ${k}`}>
+                    {k} <span className="text-[10px] tabular-nums px-1.5 py-0.5 rounded-full bg-slate-100">{count(k)}</span>
+                  </button>
+                ))}
+                <div className="relative ml-auto w-full sm:w-52">
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input value={q} onChange={e => { setQ(e.target.value); setPage(1) }} placeholder="Търси дете…"
+                    className="w-full pl-7 pr-7 py-1.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-slate-400" />
+                  {q && <button type="button" onClick={() => setQ('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"><X size={12} /></button>}
+                </div>
+                {counts && therapyRows.some(r => !counts[r.id]) && (
+                  <button type="button" onClick={() => { setOnlyNoDocs(v => !v); setPage(1) }}
+                    className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border transition ${onlyNoDocs ? 'bg-amber-100 border-amber-300 text-amber-900' : 'bg-white border-amber-200 text-amber-800 hover:bg-amber-50'}`}>
+                    <span className="w-2 h-2 rounded-full bg-amber-400" /> без документи · {therapyRows.filter(r => !counts[r.id]).length}
+                  </button>
+                )}
+              </div>
+
+              {/* Карти 3×3 */}
+              {pageRows.length === 0 ? (
+                <div className="py-8 text-center text-sm text-slate-400">Няма деца по този филтър.</div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {pageRows.map(r => {
+                    const n = counts?.[r.id]
+                    return (
+                      <Link key={r.id} href={`/students/${r.id}`}
+                        className="group flex flex-col gap-1.5 p-4 rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-[#0f2240]/40 transition">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-[15px] text-slate-900 group-hover:text-[#0f2240] leading-snug">{r.name}</span>
+                          {counts === null ? (
+                            <span className="shrink-0 w-10 h-5 rounded-full bg-slate-100 animate-pulse" />
+                          ) : n ? (
+                            <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-100 text-[11px]" title="Документи в Drive">
+                              <FileText size={11} /> {n}
+                            </span>
+                          ) : (
+                            <span className="shrink-0 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[11px]">няма док.</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-500 truncate" title={r.sendingSchool}>
+                          {r.outreach && <span className="mr-1"><OutreachBadge location={r.outreach} size="xs" /></span>}
+                          {[r.className && `паралелка ${r.className}`, r.sendingSchool].filter(Boolean).join(' · ')}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-auto pt-1 text-[11px] text-slate-500">
+                          {r.intensity && (
+                            <span className="px-2 py-0.5 rounded-full bg-teal-50 text-teal-800 border border-teal-100">
+                              {r.intensity}{/^\d+$/.test(r.intensity) ? ' ч./седм.' : ''}
+                            </span>
+                          )}
+                          {r.others.length > 0 && <span className="truncate" title={r.others.join(' · ')}>също: {r.others.join(' · ')}</span>}
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Страници */}
+              {pages > 1 && (
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[11px] text-slate-500 tabular-nums">{(pg - 1) * PER_PAGE + 1}–{Math.min(pg * PER_PAGE, shown.length)} от {shown.length}</span>
+                  <div className="flex items-center gap-1">
+                    <button type="button" disabled={pg <= 1} onClick={() => setPage(pg - 1)}
+                      className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40"><ChevronLeft size={14} /></button>
+                    {Array.from({ length: pages }, (_, i) => i + 1).map(n => (
+                      <button key={n} type="button" onClick={() => setPage(n)}
+                        className={`w-7 h-7 rounded-lg text-xs tabular-nums ${n === pg ? 'bg-slate-100 border border-slate-400 text-[#0f2240] font-medium' : 'text-slate-500 hover:bg-slate-50'}`}>{n}</button>
+                    ))}
+                    <button type="button" disabled={pg >= pages} onClick={() => setPage(pg + 1)}
+                      className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40"><ChevronRight size={14} /></button>
+                  </div>
+                </div>
               )}
             </div>
-            {(() => {
-              const needle = q.trim().toLowerCase()
-              const shown = therapyRows.filter(r =>
-                (!needle || r.name.toLowerCase().includes(needle)) && (!onlyNoDocs || (counts && !counts[r.id])))
-              const romanVal = (x: string) => { const v: Record<string, number> = { I: 1, V: 5, X: 10, L: 50 }; let n = 0; for (let i = 0; i < x.length; i++) { const c = v[x[i]] || 0, d = v[x[i + 1]] || 0; n += c < d ? -c : c } return n || 999 }
-              const groups = new Map<string, TherapyRow[]>()
-              shown.forEach(r => { const k = r.className || '—'; groups.set(k, [...(groups.get(k) || []), r]) })
-              const keys = [...groups.keys()].sort((x, y) => romanVal(x) - romanVal(y))
-              if (!keys.length) return <div className="py-6 text-center text-sm text-slate-400">Няма такова дете</div>
-              return (
-                <div className="divide-y divide-slate-100">
-                  {keys.map(k => (
-                    <div key={k} className="flex items-start gap-3 py-2">
-                      <div className="w-12 shrink-0 pt-1 text-right">
-                        <span className="text-xs font-semibold text-teal-700" title={k === '—' ? 'Без паралелка' : `Паралелка ${k}`}>{k}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 min-w-0">
-                        {groups.get(k)!.map(r => (
-                          <Link key={r.id} href={`/students/${r.id}`} title={r.name}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-slate-200 bg-white text-sm text-slate-700 whitespace-nowrap hover:border-teal-400 hover:bg-teal-50 hover:text-[#0f2240] transition">
-                            {counts && !counts[r.id] && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Няма документи" />}
-                            {shortName(r.name)}
-                            {r.outreach && <OutreachBadge location={r.outreach} size="xs" />}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            })()}
-          </div>
-        ) : (
-          <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
-            {therapyRows.map(r => {
-              const n = counts?.[r.id]
-              return (
-                <Link key={r.id} href={`/students/${r.id}`}
-                  className="group flex flex-col gap-2 p-4 rounded-xl border border-slate-200/80 bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-teal-200 transition">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-sm font-medium text-slate-800 group-hover:text-[#0f2240] leading-snug">{r.name}</span>
-                    {counts === null ? (
-                      <span className="shrink-0 w-10 h-5 rounded-full bg-slate-100 animate-pulse" />
-                    ) : n ? (
-                      <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 text-[11px]" title="Документи в Drive">
-                        <FileText size={11} /> {n}
-                      </span>
-                    ) : (
-                      <span className="shrink-0 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[11px]">няма док.</span>
-                    )}
-                  </div>
-                  <div className="text-xs text-slate-500 font-light truncate" title={r.sendingSchool}>
-                    {r.outreach && <span className="mr-1"><OutreachBadge location={r.outreach} size="xs" /></span>}
-                    {[r.className && `паралелка ${r.className}`, r.sendingSchool].filter(Boolean).join(' · ')}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-auto text-[11px] text-slate-500">
-                    {r.intensity && (
-                      <span className="px-2 py-0.5 rounded-full bg-teal-50 text-teal-700">
-                        {r.intensity}{/^\d+$/.test(r.intensity) ? ' ч./седм.' : ''}
-                      </span>
-                    )}
-                    {r.others.length > 0 && <span className="text-slate-400 truncate" title={r.others.join(' · ')}>също: {r.others.join(' · ')}</span>}
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
-        )
+          )
+        })()
       )}
       {/* ТАБ 2: ЕПЛР състав — паралелка · класен */}
       {tab === 'eplr' && (
-        <div className="divide-y divide-slate-50">
+        <div className="divide-y divide-slate-50 zebra">
           {eplrRows.length === 0 ? (
             <div className="p-8 text-center text-slate-400 text-sm">Няма деца в моя ЕПЛР състав.</div>
           ) : (
