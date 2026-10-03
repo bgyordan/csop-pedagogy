@@ -4,12 +4,12 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   X, Pencil, Trash2, Globe, ChevronLeft, ChevronRight, Download, Eye, Paperclip, CalendarDays, Loader2,
-  Newspaper, CheckCircle2, Ban, ExternalLink, ShieldCheck, Lightbulb, ListChecks, Target,
+  Newspaper, CheckCircle2, Ban, ExternalLink, ShieldCheck, Lock, Share2, Lightbulb, ListChecks, Target,
 } from 'lucide-react'
 import { renderRich } from '@/app/site-docs/shared'
 import { DocViewer } from '@/components/registry/DocViewer'
 import { Avatar, coverThumb } from './PostCard'
-import { kindMeta, fmtDate, fmtPeriod, STATUS, SITE, isImage, plain, resizeImage } from './lib'
+import { kindMeta, fmtDate, fmtPeriod, STATUS, SITE, isImage, plain, resizeImage, isDraft } from './lib'
 import type { Post, Person, Media } from './lib'
 
 const NEWS_CAT: Record<string, string> = { event: 'Събития', project: 'Новини', cabinet: 'Публикации', material: 'Публикации' }
@@ -29,6 +29,7 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
   const [busy, setBusy] = useState<string | null>(null)
   const [declining, setDeclining] = useState(false); const [reply, setReply] = useState('')
   const site = SITE[post.site_status]
+  const draft = isDraft(post)
   const cls = post.classIds.map(id => classNames[id]).filter(Boolean)
 
   useEffect(() => {
@@ -71,6 +72,16 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
     setBusy(null)
     if (error) { alert(error.message); return }
     onDeleted()
+  }
+
+  async function toggleShare() {
+    setBusy('share')
+    const patch: Record<string, unknown> = { is_shared: draft }
+    if (!draft && post.site_status === 'requested') patch.site_status = 'none'
+    const { error } = await supabase.from('portfolio_posts').update(patch).eq('id', post.id)
+    setBusy(null)
+    if (error) { alert(error.message); return }
+    onChanged(draft ? 'Споделено с колегите.' : 'Вече го виждаш само ти.')
   }
 
   async function setSite(status: 'published' | 'declined' | 'requested', news?: string, msg?: string) {
@@ -132,7 +143,8 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
           <div className="flex flex-wrap items-center gap-2 mb-3">
             <span className={`inline-flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-full border ${k.soft}`}><Icon size={13} /> {k.label}</span>
             {post.kind === 'project' && post.status && STATUS[post.status] && <span className={`text-[12px] px-2.5 py-1 rounded-full ${STATUS[post.status].cls}`}>{STATUS[post.status].label}</span>}
-            {site && <span className={`inline-flex items-center gap-1 text-[12px] px-2.5 py-1 rounded-full ${site.cls}`}><Globe size={12} /> {site.label}</span>}
+            {draft && <span className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1 rounded-full bg-slate-700 text-white"><Lock size={12} /> Само за мен</span>}
+            {!draft && site && <span className={`inline-flex items-center gap-1 text-[12px] px-2.5 py-1 rounded-full ${site.cls}`}><Globe size={12} /> {site.label}</span>}
           </div>
           <h1 className="text-2xl md:text-[32px] font-semibold tracking-tight text-slate-900 leading-tight">{post.title}</h1>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-4 text-sm text-slate-500">
@@ -188,7 +200,7 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
           )}
 
           {/* За сайта — бележка от автора и действия за деловодителя/управата */}
-          {post.site_status !== 'none' && (
+          {post.site_status !== 'none' && !draft && (
             <div className="mt-8 rounded-2xl border border-sky-200 bg-sky-50/60 p-5">
               <div className="flex items-center gap-2 text-sm font-semibold text-sky-900"><Globe size={16} /> За сайта на ЦСОП</div>
               {post.site_consent && <div className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] text-emerald-800"><ShieldCheck size={14} /> Авторът потвърди: няма разпознаваеми деца или има съгласие на родителите.</div>}
@@ -231,6 +243,12 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
               {canEdit && (
                 <button type="button" onClick={onEdit} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium bg-[#0f2240] text-white hover:bg-[#1a3560]">
                   <Pencil size={14} /> Редактирай
+                </button>
+              )}
+              {canEdit && (
+                <button type="button" onClick={toggleShare} disabled={!!busy}
+                  className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${draft ? 'border-[#0f2240] text-[#0f2240] bg-white hover:bg-slate-50' : 'border-slate-300 text-slate-700 bg-white hover:border-[#0f2240]'}`}>
+                  {draft ? <><Share2 size={14} /> Сподели с колегите</> : <><Lock size={14} /> Само за мен</>}
                 </button>
               )}
               {canDelete && (
