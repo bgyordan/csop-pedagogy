@@ -1,6 +1,6 @@
 'use client'
 
-import { Images, Paperclip, Globe, Share2, Lock } from 'lucide-react'
+import { Images, Paperclip, Globe, Share2, Lock, Trash2 } from 'lucide-react'
 import { kindMeta, plain, fmtShort, fmtPeriod, STATUS, SITE, isImage } from './lib'
 import type { Post, Person } from './lib'
 
@@ -23,10 +23,12 @@ export function coverThumb(p: Post, thumbs: Record<string, string>) {
   return c?.thumb_path ? thumbs[c.thumb_path] : undefined
 }
 
-export default function PostCard({ post, author, thumbs, classNames, onOpen, onToggleShare }: {
+export default function PostCard({ post, author, thumbs, classNames, onOpen, onToggleShare, onDelete }: {
   post: Post; author?: Person; thumbs: Record<string, string>; classNames: Record<string, string>; onOpen: () => void
   /** „Сподели“ върху картата (в „Моето портфолио“) */
   onToggleShare?: () => void
+  /** Кошче върху картата (автор или управа) */
+  onDelete?: () => void
 }) {
   const shared = post.is_shared !== false
   const k = kindMeta(post.kind); const Icon = k.icon
@@ -79,6 +81,12 @@ export default function PostCard({ post, author, thumbs, classNames, onOpen, onT
           <span className="truncate text-slate-700">{author?.short || 'ЦСОП'}</span>
           {cls.length > 0 && <span className="truncate">· {cls.slice(0, 2).join(', ')}{cls.length > 2 ? '…' : ''}</span>}
           <span className="ml-auto shrink-0">{fmtShort(post.event_date || post.created_at)}</span>
+          {onDelete && (
+            <button type="button" title="Изтрий" onClick={e => { e.stopPropagation(); onDelete() }}
+              className="shrink-0 -mr-1 p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors">
+              <Trash2 size={14} />
+            </button>
+          )}
         </div>
         {onToggleShare && (
           <button type="button" onClick={e => { e.stopPropagation(); onToggleShare() }}

@@ -77,6 +77,17 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
   function refresh(msg: string) { flash(msg); router.refresh() }
 
   // „Сподели“ / „Само за мен“ — като при файловете
+  // Изтриване направо от картата (с потвърждение) — заедно със снимките и файловете
+  async function removePost(p: Post) {
+    if (!confirm(`Да изтрия ли „${p.title}“ заедно със снимките?`)) return
+    const supabase = createClient()
+    const paths = p.media.flatMap(m => [m.path, m.thumb_path].filter(Boolean) as string[])
+    if (paths.length) await supabase.storage.from('portfolio').remove(paths)
+    const { error } = await supabase.from('portfolio_posts').delete().eq('id', p.id)
+    if (error) { flash(error.message); return }
+    refresh('Публикацията е изтрита.')
+  }
+
   async function toggleShare(p: Post) {
     const share = isDraft(p)
     const patch: Record<string, unknown> = { is_shared: share }
@@ -229,7 +240,8 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {shown.slice(0, limit).map(p => (
             <PostCard key={p.id} post={p} author={personBy[p.author_id || '']} thumbs={thumbs} classNames={classNames} onOpen={() => setOpenId(p.id)}
-              onToggleShare={tab === 'mine' && p.author_id === meId ? () => toggleShare(p) : undefined} />
+              onToggleShare={tab === 'mine' && p.author_id === meId ? () => toggleShare(p) : undefined}
+              onDelete={canDelete(p) ? () => removePost(p) : undefined} />
           ))}
         </div>
       )}
