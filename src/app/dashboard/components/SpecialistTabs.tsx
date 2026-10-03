@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { smartMatch } from '@/lib/search'
 import OutreachBadge from '@/components/OutreachBadge'
 import Link from 'next/link'
 import { HeartPulse, Users, FileText, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
@@ -95,7 +96,7 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
           const needle = q.trim().toLowerCase()
           const shown = sorted.filter(r =>
             (!curCls || (r.className || '—') === curCls) &&
-            (!needle || r.name.toLowerCase().includes(needle)) &&
+            (!needle || smartMatch(r.name, needle)) &&
             (!onlyNoDocs || (counts && !counts[r.id])))
           const pages = Math.max(1, Math.ceil(shown.length / PER_PAGE))
           const pg = Math.min(page, pages)

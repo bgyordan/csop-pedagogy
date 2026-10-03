@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils'
 import {
@@ -111,7 +112,7 @@ export default function MyFilesClient({ staffId }: { staffId: string }) {
   let shown = files
   if (typeFilter !== 'all') shown = shown.filter(f => kindOf(f) === typeFilter)
   if (sharedOnly) shown = shown.filter(f => f.is_shared)
-  if (search.trim()) shown = shown.filter(f => f.name.toLowerCase().includes(search.trim().toLowerCase()))
+  if (search.trim()) shown = shown.filter(f => smartMatch(f.name, search))
 
   return (
     <div className="max-w-4xl mx-auto p-6">

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { smartMatch } from '@/lib/search'
 import StaffSearch from './StaffSearch'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -48,8 +49,8 @@ export default async function StaffPage({
   )
 
   const filtered = allStaff?.filter(s =>
-    !q || getFullName(s).toLowerCase().includes(q.toLowerCase()) ||
-    s.email.toLowerCase().includes(q.toLowerCase())
+    !q || smartMatch(getFullName(s), q) ||
+    smartMatch(s.email, q)
   ) || []
 
   const total = filtered.length

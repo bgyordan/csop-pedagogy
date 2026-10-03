@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useRef, useState } from 'react'
+import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import {
@@ -44,7 +45,7 @@ export default function DocumentsManager({ initial, defaultYear, startSection }:
   const shown = inSection
     .filter((d) => (vis === 'all' ? true : vis === 'on' ? d.on_site : !d.on_site))
     .filter((d) => (yearF === 'all' ? true : d.academic_year === yearF))
-    .filter((d) => (q.trim() ? d.name.toLowerCase().includes(q.trim().toLowerCase()) : true))
+    .filter((d) => (q.trim() ? smartMatch(d.name, q) : true))
 
   function pickSection(id: string) { setSection(id); setSelected(new Set()); setEditId(null); setConfirmDel(null); setYearF('all'); setCategory(rubricSet(id)?.[0].key || 'other') }
 

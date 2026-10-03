@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { smartMatch } from '@/lib/search'
 import { useRouter } from 'next/navigation'
 import { Plus, Search, LayoutGrid, UserRound, Globe, Share2, FileDown, Loader2, Sparkles, X } from 'lucide-react'
 import PostCard, { Avatar } from './PostCard'
@@ -67,7 +68,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
   const shown = base
     .filter(p => kind === 'all' || p.kind === kind)
     .filter(p => tab !== 'wall' || !author || p.author_id === author)
-    .filter(p => !needle || [p.title, p.body, p.ideas, p.activities, p.goals, personBy[p.author_id || '']?.name].join(' ').toLowerCase().includes(needle))
+    .filter(p => !needle || smartMatch([p.title, p.body, p.ideas, p.activities, p.goals, personBy[p.author_id || '']?.name].join(' '), needle))
 
   const open = posts.find(p => p.id === openId) || null
   const canEdit = (p: Post) => p.author_id === meId || isManager || (p.kind === 'project' && p.classIds.some(c => myClassIds.includes(c)))

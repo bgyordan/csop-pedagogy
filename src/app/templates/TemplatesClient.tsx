@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo, useRef } from 'react'
+import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import {
   Upload, Download, Trash2, Loader2, FolderOpen, Plus, X, Search,
@@ -100,7 +101,7 @@ export default function TemplatesClient({ templates: initial, canManage, staffId
       if (t.is_administrative !== isAdmin) return false
       if (search.trim()) {
         const q = search.toLowerCase()
-        if (!t.title.toLowerCase().includes(q) && !(t.description || '').toLowerCase().includes(q)) return false
+        if (!smartMatch(t.title, q) && !smartMatch((t.description || ''), q)) return false
       }
       if (activeCategory !== 'all' && (t.category || 'Други') !== activeCategory) return false
       if (pgOnly && !t.is_pg) return false

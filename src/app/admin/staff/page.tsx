@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { smartMatch } from '@/lib/search'
 import { loginTime } from '@/lib/login-time'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -232,7 +233,7 @@ export default function AdminStaffPage() {
 
   const filtered = staff
     .filter(s => show === 'all' || (show === 'active' ? s.is_active : !s.is_active))
-    .filter(s => !search || getFullName(s).toLowerCase().includes(search.toLowerCase()))
+    .filter(s => !search || smartMatch(getFullName(s), search))
     .sort((a, b) => {
       const valA = sortCol === 'name' ? getFullName(a) : ROLE_LABELS[a.role]
       const valB = sortCol === 'name' ? getFullName(b) : ROLE_LABELS[b.role]

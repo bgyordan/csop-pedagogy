@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { smartMatch } from '@/lib/search'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, Search, Package, Paperclip, Pencil, FileText, Trash2 } from 'lucide-react'
@@ -54,8 +55,8 @@ export default function ProcurementsClient({ procurements, canEdit, canDelete, c
 
   const filtered = procurements.filter(p =>
     !search ||
-    p.subject?.toLowerCase().includes(search.toLowerCase()) ||
-    p.number?.toLowerCase().includes(search.toLowerCase())
+    smartMatch(p.subject, search) ||
+    smartMatch(p.number, search)
   )
 
   return (

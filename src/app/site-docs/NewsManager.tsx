@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { smartMatch } from '@/lib/search'
 import {
   Newspaper, Upload, Trash2, Plus, X, Search, Pencil, EyeOff, Star, ExternalLink, ChevronLeft, ChevronRight,
   Bold, List, Link2, Heading2, CalendarClock, Send, Save, GripVertical,
@@ -41,7 +42,7 @@ export default function NewsManager({ initial, authorId, openId, openNewSignal }
   const counts = useMemo(() => { const c = { all: list.length, draft: 0, scheduled: 0, published: 0 }; list.forEach((n) => { c[statusOf(n)]++ }); return c }, [list])
   const shown = useMemo(() => list
     .filter((n) => (filter === 'all' ? true : statusOf(n) === filter))
-    .filter((n) => (q.trim() ? (n.title + ' ' + (n.excerpt || '')).toLowerCase().includes(q.trim().toLowerCase()) : true)), [list, filter, q])
+    .filter((n) => (q.trim() ? smartMatch(n.title + ' ' + (n.excerpt || ''), q) : true)), [list, filter, q])
   const pages = Math.max(1, Math.ceil(shown.length / PER)); const cur = Math.min(page, pages)
   const paged = shown.slice((cur - 1) * PER, cur * PER)
 

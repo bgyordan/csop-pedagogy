@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { ilikeVariants } from '@/lib/search'
 import { redirect } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
 import CorrespondenceClient from './CorrespondenceClient'
@@ -35,7 +36,7 @@ export default async function CorrespondencePage({
   // Общите филтри (посока, година, търсене) — еднакви за списъка и за броячите на бутоните
   const base = (qb: any) => {
     let r = qb.eq('direction', direction).gte('date', dyStart).lte('date', dyEnd)
-    if (q) r = r.or(`number.ilike.%${q}%,subject.ilike.%${q}%,from_whom.ilike.%${q}%,to_whom.ilike.%${q}%,description.ilike.%${q}%`)
+    if (q) r = r.or(ilikeVariants(q).flatMap(v => ['number', 'subject', 'from_whom', 'to_whom', 'description'].map(f => `${f}.ilike.%${v}%`)).join(','))
     return r
   }
   const noFile = (qb: any) => qb.is('file_url', null).not('is_reserved', 'is', true)

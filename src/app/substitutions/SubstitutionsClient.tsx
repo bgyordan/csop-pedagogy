@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo, useEffect } from 'react'
+import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Pencil, Trash2, ChevronDown, Download } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
@@ -86,7 +87,7 @@ function PersonCombo({ people, value, onChange, placeholder, excludeId }: {
   const [q, setQ] = useState('')
   const selected = people.find(p => p.id === value)
   const list = people.filter(p => p.id !== excludeId)
-    .filter(p => `${p.first_name} ${p.last_name}`.toLowerCase().includes(q.toLowerCase()))
+    .filter(p => smartMatch(`${p.first_name} ${p.last_name}`, q))
     .sort((a, b) => a.first_name.localeCompare(b.first_name, 'bg')).slice(0, 40)
   return (
     <div className="relative">
@@ -292,7 +293,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     return rows.filter(r => {
       if (npOnly && !r.bsch) return false
       if (per && !(r.dateFrom <= per.last && r.dateTo >= per.first)) return false
-      if (q && !(r.absentName.toLowerCase().includes(q) || (r.substituteName || '').toLowerCase().includes(q))) return false
+      if (q && !(smartMatch(r.absentName, q) || smartMatch(r.substituteName || '', q))) return false
       return true
     })
   }, [rows, search, npOnly, periodIdx])

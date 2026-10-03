@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { smartMatch } from '@/lib/search'
 import Link from 'next/link'
 import { Sprout, Search, X, CheckCircle2, TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react'
 import { GROUPS, roman, severity, fmtD } from '@/app/students/[id]/development/lib'
@@ -25,7 +26,7 @@ export default function DevOverviewClient({ rows, ready, yearName, isPsychologis
   const shown = base
     .filter(r => !cls || r.classId === cls)
     .filter(r => !missing || (missing === 'profile' ? !r.profile : !r[missing]))
-    .filter(r => !q.trim() || r.name.toLowerCase().includes(q.trim().toLowerCase()))
+    .filter(r => !q.trim() || smartMatch(r.name, q))
 
   const stat = (k: 'entry' | 'mid' | 'exit') => base.filter(r => r[k]).length
   if (!ready) return (

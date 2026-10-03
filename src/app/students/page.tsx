@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { smartMatch } from '@/lib/search'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Plus, Users, GraduationCap, Home, Coffee, Wifi, X, LayoutGrid, Sparkles, HelpCircle, Archive } from 'lucide-react'
@@ -139,7 +140,7 @@ export default async function StudentsPage({
 
   // Филтри
   allRows = allRows.filter(r => {
-    if (search && !getFullName(r.student).toLowerCase().includes(search.toLowerCase())) return false
+    if (search && !smartMatch(getFullName(r.student), search)) return false
     if (oresStudentIds && !oresStudentIds.has(r.student?.id)) return false
     if (params.new === '1' && !r.student?.is_new) return false
     if (params.unassigned === '1' && !r.unassigned) return false

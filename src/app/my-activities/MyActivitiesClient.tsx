@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo, useTransition } from 'react'
+import { smartMatch } from '@/lib/search'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Search, Plus, X, Loader2, Lock, HeartPulse, ChevronRight, CalendarClock, Check, Users, FileDown } from 'lucide-react'
@@ -67,7 +68,7 @@ export default function MyActivitiesClient({ rows, roleLabel, yearName = '', ter
     })
     if (search.trim()) {
       const q = search.toLowerCase()
-      l = l.filter(r => r.name.toLowerCase().includes(q) || r.className.toLowerCase().includes(q))
+      l = l.filter(r => smartMatch(r.name, q) || smartMatch(r.className, q))
     }
     return l.sort((a, b) => a.name.localeCompare(b.name, 'bg'))
   }, [rows, search, tab])

@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo } from 'react'
+import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { CalendarDays, Plus, X, Check, Search, Users, UserCheck, UserX, Loader2, FileText } from 'lucide-react'
 import { generateDutyRoster } from '@/lib/docx-generator'
@@ -178,8 +179,8 @@ export default function DutyRosterClient({ staff, duties: initialDuties, weeks, 
     }
   }
 
-  const filteredAssigned = assignedStaff.filter(s => !search || s.name.toLowerCase().includes(search.toLowerCase()))
-  const filteredUnassigned = unassignedStaff.filter(s => !search || s.name.toLowerCase().includes(search.toLowerCase()))
+  const filteredAssigned = assignedStaff.filter(s => !search || smartMatch(s.name, search))
+  const filteredUnassigned = unassignedStaff.filter(s => !search || smartMatch(s.name, search))
 
   function StaffRole({ s }: { s: Staff }) {
     return (
@@ -255,7 +256,7 @@ export default function DutyRosterClient({ staff, duties: initialDuties, weeks, 
               </tr>
             </thead>
             <tbody>
-              {staff.filter(s => s.name.toLowerCase().includes(search.toLowerCase())).map(s => (
+              {staff.filter(s => smartMatch(s.name, search)).map(s => (
                 <tr key={s.id} className="group">
                   <td className="sticky left-0 z-10 bg-white group-hover:bg-slate-50 border-b border-r border-slate-200 px-3 py-1.5">
                     <div className="text-sm text-slate-800 truncate max-w-[220px]">{s.name}</div>
@@ -273,7 +274,7 @@ export default function DutyRosterClient({ staff, duties: initialDuties, weeks, 
                   })}
                 </tr>
               ))}
-              {staff.filter(s => s.name.toLowerCase().includes(search.toLowerCase())).length === 0 && (
+              {staff.filter(s => smartMatch(s.name, search)).length === 0 && (
                 <tr><td className="px-3 py-6 text-sm text-slate-400" colSpan={weeks.length + 1}>Няма служители.</td></tr>
               )}
             </tbody>

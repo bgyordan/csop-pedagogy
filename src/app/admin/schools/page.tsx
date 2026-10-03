@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { BackButton } from '@/components/ui/BackButton'
 import { useToast } from '@/components/ui/Toast'
@@ -165,9 +166,8 @@ export default function SchoolsAdminPage() {
       if (cityFilter && s.city !== cityFilter) return false
       if (typeFilter && s.type !== typeFilter) return false
       if (search.trim()) {
-        const q = search.toLowerCase()
-        const hay = `${s.name} ${s.city} ${s.director_name || ''} ${s.address || ''}`.toLowerCase()
-        if (!hay.includes(q)) return false
+        const hay = `${s.name} ${s.city} ${s.director_name || ''} ${s.address || ''}`
+        if (!smartMatch(hay, search)) return false
       }
       return true
     })

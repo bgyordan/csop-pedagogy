@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { ilikeVariants } from '@/lib/search'
 import { redirect } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
 import ContractsClient from './ContractsClient'
@@ -27,7 +28,7 @@ export default async function ContractsPage({
     .select('*, student:students(first_name, last_name)', { count: 'exact' })
     .order('created_at', { ascending: false })
   if (q) {
-    query = query.or(`number.ilike.%${q}%,subject.ilike.%${q}%,counterparty.ilike.%${q}%`)
+    query = query.or(ilikeVariants(q).flatMap(v => ['number', 'subject', 'counterparty'].map(f => `${f}.ilike.%${v}%`)).join(','))
   }
   const { data: contracts, count } = await query
   const { data: students } = await supabase

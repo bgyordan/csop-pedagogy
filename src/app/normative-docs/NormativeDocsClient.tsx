@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo } from 'react'
+import { smartMatch } from '@/lib/search'
 import { Search, X, ScrollText, Download } from 'lucide-react'
 import type { NormDoc } from './page'
 
@@ -17,7 +18,7 @@ export default function NormativeDocsClient({ docs }: { docs: NormDoc[] }) {
     const query = q.trim().toLowerCase()
     return docs.filter(d => {
       const okYear = year === 'all' || d.academic_year === year
-      const okQuery = query === '' || d.name.toLowerCase().includes(query)
+      const okQuery = query === '' || smartMatch(d.name, query)
       return okYear && okQuery
     })
   }, [docs, q, year])
