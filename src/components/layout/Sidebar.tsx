@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3, FileSpreadsheet,
-  Inbox, ClipboardList, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell
+  Inbox, ClipboardList, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
@@ -72,6 +72,7 @@ const navItems: NavItem[] = [
     },
    { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={16} />, roles: ['class_teacher'] },
   { href: '/my-activities', label: 'Списък за терапия', icon: <HeartPulse size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
+  { href: '/development', label: 'Развитие', icon: <Sprout size={16} />, roles: ['psychologist'] },
     { href: '/surveys', label: 'Анкети на новите деца', icon: <ClipboardList size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
     // Старият генератор — временно обратно (колегите го търсят). Новото: досие → „Документи“ → „Нов документ“. Да се махне, щом всички минат на бланките.
   { href: '/generator', label: 'Генератор (стар)', icon: <FileText size={16} />, roles: ['class_teacher', 'teacher', 'educator', 'psychologist', 'speech_therapist', 'rehabilitator'] },
@@ -117,6 +118,7 @@ const navItems: NavItem[] = [
       { href: '/reports/hub', label: 'Справки и писма', icon: <BarChart3 size={14} />, roles: [], coordinatorOnly: true },
             { href: '/surveys', label: 'Анкети на новите деца', icon: <ClipboardList size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
      { href: '/admin/eplr-schedule', label: 'График ЕПЛР', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
+      { href: '/development', label: 'Развитие на децата', icon: <Sprout size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
     ],
   },
   // Администрация (рядко: структура, предмети, училища, съобщения, нова година…) — един ред най-долу

@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { X, Loader2, Save, Plus, MessageSquare, Trash2, Check } from 'lucide-react'
-import { AREAS, SCALE, KINDS, fmtD, profileUpTo } from './lib'
-import type { Skill, Assessment, Score, AreaKey } from './lib'
+import { AREAS, SCALE, KINDS, STAGES, LEVELS, NA, NA_STYLE, scaleOf, fmtD, profileUpTo, severity, openLevels } from './lib'
+import type { Skill, Assessment, Score, AreaKey, Profile } from './lib'
 
 export type AssessmentInput = {
   kind: string; assessed_on: string; notes: Record<string, string>
@@ -12,8 +12,9 @@ export type AssessmentInput = {
 
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })
 
-export default function AssessmentEditor({ skills, assessments, scores, assessment, role, readOnly, assessorName, onClose, onSave, onDelete, onAddSkill }: {
+export default function AssessmentEditor({ skills, assessments, scores, assessment, role, readOnly, assessorName, onClose, onSave, onDelete, onAddSkill, profile, academicYearId }: {
   skills: Skill[]; assessments: Assessment[]; scores: Score[]; assessment: Assessment | null; role: string
+  profile: Profile | null; academicYearId: string | null
   readOnly: boolean; assessorName?: string
   onClose: () => void; onSave: (v: AssessmentInput) => Promise<void>; onDelete?: () => Promise<void>
   onAddSkill: (area: AreaKey, label: string) => Promise<Skill | null>
@@ -29,7 +30,14 @@ export default function AssessmentEditor({ skills, assessments, scores, assessme
     return idx >= 0 ? profileUpTo(assessments, scores, idx) : {}
   }, [assessment, assessments, scores])
 
-  const [kind, setKind] = useState(assessment?.kind || (assessments.length ? 'current' : 'entry'))
+  // Следващият етап за годината: входна → междинна → изходна
+  const [kind, setKind] = useState(() => {
+    if (assessment) return assessment.kind
+    const done = new Set(assessments.filter(a => a.academic_year_id === academicYearId).map(a => a.kind))
+    return !done.has('entry') ? 'entry' : !done.has('mid') ? 'mid' : 'exit'
+  })
+  const stageOpts = assessment?.kind === 'current' ? KINDS : STAGES
+  const [levelsOpen, setLevelsOpen] = useState<number[]>(() => openLevels(severity(profile)))
   const [date, setDate] = useState(assessment?.assessed_on || today())
   const [vals, setVals] = useState(own)
   const [notes, setNotes] = useState<Record<string, string>>(assessment?.notes || {})
@@ -86,7 +94,7 @@ export default function AssessmentEditor({ skills, assessments, scores, assessme
           {readOnly && assessorName && <span className="text-[13px] text-slate-500">{assessorName} · {fmtD(date)}</span>}
           {!readOnly && (<>
             <div className="flex rounded-xl bg-slate-100 p-0.5 text-[13px]">
-              {Object.entries(KINDS).map(([k, l]) => (
+              {Object.entries(stageOpts).map(([k, l]) => (
                 <button key={k} type="button" onClick={() => setKind(k)}
                   className={`px-3 py-1.5 rounded-lg ${kind === k ? 'bg-white shadow-sm text-slate-900 font-medium' : 'text-slate-500'}`}>{l}</button>
               ))}
@@ -133,17 +141,29 @@ export default function AssessmentEditor({ skills, assessments, scores, assessme
             <h3 className="text-lg font-semibold mb-1" style={{ color: meta.color }}>{meta.label}</h3>
             <div className="flex flex-wrap gap-x-4 gap-y-1 mb-4 text-[11.5px] text-slate-500">
               {SCALE.map(s => <span key={s.v} className="inline-flex items-center gap-1.5"><span className="w-5 h-5 rounded-md text-[11px] font-semibold flex items-center justify-center" style={{ background: s.bg, color: s.fg }}>{s.v}</span>{s.label}</span>)}
+              <span className="inline-flex items-center gap-1.5"><span className="w-6 h-5 rounded-md text-[10px] font-semibold flex items-center justify-center border border-dashed border-slate-300" style={{ background: NA_STYLE.bg, color: '#64748b' }}>н/п</span>Неприложимо</span>
             </div>
 
+            {[1, 2, 3].map(lv => {
+              const rows = list.filter(sk => (sk.level || 2) === lv)
+              if (!rows.length) return null
+              const isOpen = levelsOpen.includes(lv) || rows.some(r => vals[r.id])
+              return (
+              <div key={lv} className="mb-4">
+                <button type="button" onClick={() => setLevelsOpen(o => o.includes(lv) ? o.filter(x => x !== lv) : [...o, lv])}
+                  className="flex items-center gap-2 mb-1.5 text-[12px] font-semibold uppercase tracking-widest text-slate-500 hover:text-slate-800">
+                  <span className={`inline-block transition-transform ${isOpen ? 'rotate-90' : ''}`}>›</span> {LEVELS[lv]} <span className="font-normal normal-case tracking-normal text-slate-400">{rows.length}</span>
+                </button>
+                {isOpen && (
             <div className="space-y-1.5">
-              {list.map(sk => {
+              {rows.map(sk => {
                 const v = vals[sk.id]?.score
                 const p = prev[sk.id]
                 return (
                   <div key={sk.id} className={`rounded-xl border px-3 py-2 ${v !== undefined ? 'border-slate-300 bg-white' : 'border-slate-200 bg-slate-50/50'}`}>
                     <div className="flex flex-wrap items-center gap-3">
                       <span className="flex-1 min-w-[200px] text-[14px] text-slate-800">{sk.label}</span>
-                      {p !== undefined && <span className="text-[11px] text-slate-400" title={`Предишно: ${SCALE[p].label}`}>преди: {p}</span>}
+                      {p !== undefined && <span className="text-[11px] text-slate-400" title={`Предишно: ${scaleOf(p).label}`}>преди: {p === NA ? 'н/п' : p}</span>}
                       <div className="flex gap-1">
                         {SCALE.map(s => {
                           const on = v === s.v
@@ -153,6 +173,9 @@ export default function AssessmentEditor({ skills, assessments, scores, assessme
                               style={{ background: s.bg, color: s.fg }}>{s.v}</button>
                           )
                         })}
+                        <button type="button" onClick={() => setScore(sk.id, NA)} title="Неприложимо за това дете — не влиза в процента" disabled={readOnly}
+                          className={`w-9 h-9 rounded-lg text-[11px] font-semibold transition-all border border-dashed border-slate-300 ${v === NA ? 'ring-2 ring-offset-1 ring-[#0f2240]' : 'opacity-60 hover:opacity-100'} disabled:cursor-default`}
+                          style={{ background: NA_STYLE.bg, color: '#64748b' }}>н/п</button>
                       </div>
                       {!readOnly && v !== undefined && (
                         <button type="button" onClick={() => setOpenNote(openNote === sk.id ? null : sk.id)} title="Бележка"
@@ -169,6 +192,10 @@ export default function AssessmentEditor({ skills, assessments, scores, assessme
                 )
               })}
             </div>
+                )}
+              </div>
+              )
+            })}
 
             {!readOnly && (
               <div className="mt-3 flex gap-2">
