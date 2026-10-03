@@ -216,13 +216,14 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
       : item)
     .filter(item => item.children ? item.children.length > 0 : canSee(item))
   // Общ вид на пункт: активният е с лек тъмносин фон и черта отляво; посочване — само лек фон
+  // Деловоден шрифт (тесен, без удебеляване), главни букви; при посочване се изчертава овал
   const itemCls = (active: boolean, size: 'main' | 'sub' = 'main') => cn(
-    'relative flex items-center gap-2.5 rounded-lg transition-colors',
-    size === 'main' ? 'px-2.5 py-[7px] text-[13.5px]' : 'px-2.5 py-1.5 text-[13px]',
+    'sb-font flex items-center gap-2.5 rounded-full border transition-colors uppercase',
+    size === 'main' ? 'px-3 py-[7px] text-[12.5px] tracking-[0.05em]' : 'px-3 py-1.5 text-[11.5px] tracking-[0.05em]',
     isMini && size === 'main' && 'justify-center px-0',
     active
-      ? 'bg-[rgba(15,34,64,0.08)] text-[#0f2240] font-medium before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-full before:bg-[#0f2240]'
-      : 'text-[#33507a] hover:bg-[rgba(15,34,64,0.05)] hover:text-[#0f2240]'
+      ? 'sb-active bg-[rgba(15,34,64,0.08)] border-[rgba(15,34,64,0.28)] text-[#0f2240]'
+      : 'border-transparent text-[#1f3d63] hover:border-[rgba(15,34,64,0.38)] hover:text-[#0f2240]'
   )
   const iconCls = (active: boolean) => cn('sb-ico flex-shrink-0', active ? 'text-[#0f2240]' : 'text-[#6b8db0]')
 
@@ -315,7 +316,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
       </nav>
       {/* Свий / разгъни (само на компютър) */}
       <button type="button" onClick={toggleMini} title={isMini ? 'Разгъни менюто' : 'Свий менюто до иконки'}
-        className={cn('hidden md:flex items-center gap-2 mx-2.5 mb-1 px-2.5 py-1.5 rounded-lg text-[12px] text-[#6b8db0] hover:bg-[rgba(15,34,64,0.05)] hover:text-[#0f2240] transition-colors', isMini && 'justify-center px-0')}>
+        className={cn('sb-font uppercase tracking-[0.05em] hidden md:flex items-center gap-2 mx-2.5 mb-1 px-3 py-1.5 rounded-full border border-transparent text-[11px] text-[#6b8db0] hover:border-[rgba(15,34,64,0.30)] hover:text-[#0f2240] transition-colors', isMini && 'justify-center px-0')}>
         <ChevronDown size={14} className={isMini ? '-rotate-90' : 'rotate-90'} />
         {!isMini && 'Свий менюто'}
       </button>
