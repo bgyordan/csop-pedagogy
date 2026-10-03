@@ -298,13 +298,14 @@ export async function listSharedStaffFiles(): Promise<SharedItem[]> {
     `&orderBy=${encodeURIComponent('modifiedTime desc')}&pageSize=500` +
     `&fields=${encodeURIComponent('files(id,name,mimeType,modifiedTime,webViewLink,parents,appProperties,lastModifyingUser(displayName,emailAddress))')}`
   )
+  const names = await staffNames()
   return (r.files ?? [])
     .map((f: any) => {
       const own = folders[(f.parents ?? []).find((p: string) => folders[p]) || '']
       if (!own) return null
       return {
         id: f.id, name: f.name, mimeType: f.mimeType, modifiedTime: f.modifiedTime,
-        modifiedBy: whoModified(f), url: f.webViewLink, shared: true, staffId: own.staffId, owner: own.owner,
+        modifiedBy: whoModified(f, names), url: f.webViewLink, shared: true, staffId: own.staffId, owner: own.owner,
       }
     })
     .filter(Boolean) as SharedItem[]
@@ -321,11 +322,40 @@ export type DriveItem = {
   system?: boolean   // системна папка на EIS (папка на дете и т.н.), не е потребителска
 }
 
-// EIS качва файловете от името на eis@ → показваме истинския колега, записан при качването
-function whoModified(f: any) {
+// Имената на колегите по имейл — Google показва колегите с edu.mon.bg само като „penka.bo…“,
+// затова свързваме имейла на последния редактирал със служителя в ЕИС (кеш 10 мин.)
+let namesCache: { at: number; byEmail: Record<string, string>; byLocal: Record<string, string> } | null = null
+async function staffNames() {
+  if (namesCache && Date.now() - namesCache.at < 10 * 60_000) return namesCache
+  const byEmail: Record<string, string> = {}, byLocal: Record<string, string> = {}
+  try {
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const { data } = await createAdminClient().from('staff_profiles').select('email, first_name, last_name')
+    for (const p of data || []) {
+      const e = String(p.email || '').toLowerCase().trim(); if (!e) continue
+      const name = `${p.first_name || ''} ${p.last_name || ''}`.trim()
+      byEmail[e] = name
+      // ivan.ivanov@edu.mon.bg ↔ ivan.ivanov@csop-varna.bg — едно и също име преди @
+      const local = e.split('@')[0]
+      if (byLocal[local] === undefined) byLocal[local] = name
+      else if (byLocal[local] !== name) byLocal[local] = ''   // двама с еднакво начало → не гадаем
+    }
+  } catch { /* без база — показваме каквото дава Google */ }
+  namesCache = { at: Date.now(), byEmail, byLocal }
+  return namesCache
+}
+
+// EIS качва файловете от името на eis@ → показваме истинския колега, записан при качването;
+// иначе — името на колегата от ЕИС по имейла му; накрая — каквото дава Google
+function whoModified(f: any, names?: { byEmail: Record<string, string>; byLocal: Record<string, string> }) {
   const u = f.lastModifyingUser
-  if (u?.emailAddress && /^eis@/i.test(u.emailAddress)) return f.appProperties?.uploadedBy || 'EIS'
-  return u?.displayName || ''
+  const email = String(u?.emailAddress || '').toLowerCase()
+  if (email && /^eis@/.test(email)) return f.appProperties?.uploadedBy || 'EIS'
+  if (email && names) {
+    const n = names.byEmail[email] || names.byLocal[email.split('@')[0]]
+    if (n) return n
+  }
+  return u?.displayName || (email ? email.split('@')[0] : '')
 }
 
 // Съдържанието на папка (без изтритите), подредено: първо папки, после по име
@@ -336,12 +366,13 @@ export async function listFolder(folderId: string): Promise<DriveItem[]> {
     `&orderBy=${encodeURIComponent('folder,name_natural')}&pageSize=200` +
     `&fields=${encodeURIComponent('files(id,name,mimeType,modifiedTime,webViewLink,appProperties,lastModifyingUser(displayName,emailAddress))')}`
   )
+  const names = await staffNames()
   return (r.files ?? []).map((f: any) => ({
     id: f.id,
     name: f.name,
     mimeType: f.mimeType,
     modifiedTime: f.modifiedTime,
-    modifiedBy: whoModified(f),
+    modifiedBy: whoModified(f, names),
     url: f.webViewLink,
     shared: f.appProperties?.shared === 'true',
     system: !!(f.appProperties?.studentId || f.appProperties?.kind),
