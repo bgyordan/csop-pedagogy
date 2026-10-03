@@ -36,7 +36,7 @@ export default function ViewOrderModal({ item, onClose, onPrev, onNext, canEdit 
       footer={canEdit && onEdit ? (
         <button type="button" onClick={onEdit}
           className="ml-auto inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors">
-          <Pencil size={13} /> Редактирай
+          <Pencil size={13} /> {item.is_reserved ? 'Попълни резервирания номер' : 'Редактирай'}
         </button>
       ) : undefined}>
 

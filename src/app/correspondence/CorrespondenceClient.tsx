@@ -252,7 +252,12 @@ export default function CorrespondenceClient({
         )}
       </div>
 
-      {editItem && <EditCorrespondenceModal item={editItem} onClose={() => setEditItem(null)} />}
+      {/* Резервиран номер → пълната форма със сценариите (отпуск, прием…); записът се обновява. Иначе — редакция */}
+      {editItem && (editItem.is_reserved
+        ? <NewCorrespondenceForm reserved={editItem} totalCount={totalCount} currentUserId={currentUserId} students={students} staff={staff}
+            nomenclature={nomenclature} direction={(editItem.direction || activeDir) as 'incoming' | 'outgoing'}
+            onClose={() => setEditItem(null)} onSaved={() => { setEditItem(null); router.refresh() }} />
+        : <EditCorrespondenceModal item={editItem} onClose={() => setEditItem(null)} />)}
       {viewItem && <ViewCorrespondenceModal item={viewItem} students={students} staff={staff} onClose={() => setViewItem(null)} onPrev={goPrev} onNext={goNext} canEdit={canEdit} onEdit={() => setEditItem(viewItem)} />}
     </div>
   )

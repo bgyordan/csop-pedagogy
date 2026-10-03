@@ -69,6 +69,8 @@ interface Props {
   staff: { id: string; first_name: string; last_name: string; role?: string | null }[]
   nomenclature: NomenclatureItem[]
   direction: Direction
+  /** Попълване на резервиран номер: същата форма със сценариите, но записът се обновява (номерът и датата остават) */
+  reserved?: any
   onClose: () => void
   onSaved: () => void
 }
@@ -119,7 +121,7 @@ function PersonCombo({ people, value, onChange, placeholder, excludeId }: {
 }
 
 export default function NewCorrespondenceForm({
-  totalCount, currentUserId, students, staff, nomenclature, direction, onClose, onSaved
+  totalCount, currentUserId, students, staff, nomenclature, direction, reserved, onClose, onSaved
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
@@ -130,11 +132,11 @@ export default function NewCorrespondenceForm({
   useFormKeys(rootRef, onClose)
   const [scenario, setScenario] = useState<string | null>(null)
   const [folderIndex, setFolderIndex] = useState('')
-  const [docDate, setDocDate] = useState(new Date().toISOString().split('T')[0])
+  const [docDate, setDocDate] = useState(reserved?.date || new Date().toISOString().split('T')[0])
   const [fromWhom, setFromWhom] = useState('')
   const [toWhom, setToWhom] = useState('')
   const [subject, setSubject] = useState('')
-  const [description, setDescription] = useState('')
+  const [description, setDescription] = useState<string>(reserved?.description || '')
   const [studentId, setStudentId] = useState('')
   // „+ Нов ученик“ при прием — детето се създава направо от деловодството
   const [extraStudents, setExtraStudents] = useState<{ id: string; first_name: string; last_name: string }[]>([])
@@ -285,9 +287,10 @@ export default function NewCorrespondenceForm({
     if (isVacation && absentInRegister && leavePeriods.length === 0) { alert(separateDays ? 'Моля добавете поне един ден на отпуска.' : 'Моля попълнете периода на отпуска (от – до).'); return }
     setSaving(true)
     const { start: dStart, end: dEnd } = deloYearBounds(new Date(docDate))
-    const seq = await nextSeqCorr(supabase, direction, dStart, dEnd)
+    // Резервиран номер: номерът и поредността остават същите, записът се обновява
+    const seq = reserved ? reserved.seq : await nextSeqCorr(supabase, direction, dStart, dEnd)
     const num = String(seq).padStart(3, '0')
-    const docNumber = `${num}/${docDate.split('-').reverse().join('.')}г.`
+    const docNumber = reserved ? reserved.number : `${num}/${docDate.split('-').reverse().join('.')}г.`
     let fileUrl = '', fileName = ''
     if (uploadedFile) {
       const ext = uploadedFile.name.split('.').pop()
@@ -295,7 +298,7 @@ export default function NewCorrespondenceForm({
       const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, uploadedFile, { upsert: true })
       if (!uploadError) { fileUrl = filePath; fileName = uploadedFile.name }
     }
-    const { error } = await supabase.from('correspondence').insert({
+    const row = {
       number: docNumber,
       date: docDate,
       direction,
@@ -315,7 +318,10 @@ export default function NewCorrespondenceForm({
       created_by: currentUserId,
       status: 'active',
       seq,
-    })
+    }
+    const { error } = reserved
+      ? await supabase.from('correspondence').update({ ...row, created_by: undefined, is_reserved: false }).eq('id', reserved.id)
+      : await supabase.from('correspondence').insert(row)
     if (error) { alert(`Грешка: ${error.message}`); setSaving(false); return }
 
     // Автоматична заповед за отпуск (сценарий vacation, отметка включена)
@@ -416,7 +422,7 @@ export default function NewCorrespondenceForm({
               </span>
               <h3 className="text-[11px] text-slate-500 uppercase tracking-widest">Деловодно вписване</h3>
             </div>
-            <p className="text-lg font-medium text-[#0f2240] tabular-nums leading-tight mt-1.5">{nextNumPreview}</p>
+            <p className="text-lg font-medium text-[#0f2240] tabular-nums leading-tight mt-1.5 flex items-center gap-2">{reserved ? reserved.number : nextNumPreview}{reserved && <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">попълване на резервиран номер</span>}</p>
           </div>
           <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors">
             <X size={18} />
@@ -449,7 +455,8 @@ export default function NewCorrespondenceForm({
             {/* Дата */}
             <div>
               <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">Дата *</label>
-              <input type="date" value={docDate} onChange={e => setDocDate(e.target.value)} required className="input w-44 text-xs" />
+              <input type="date" value={docDate} onChange={e => setDocDate(e.target.value)} required disabled={!!reserved}
+                title={reserved ? 'Датата е част от резервирания номер' : undefined} className="input w-44 text-xs disabled:opacity-70" />
             </div>
             {/* Сценарий: служител */}
             {activeScenario?.icon === 'staff' && (
@@ -741,16 +748,16 @@ export default function NewCorrespondenceForm({
               className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium transition-colors">
               Отказ
             </button>
-            <button type="submit" disabled={saving} onClick={() => setSaveAction('save_new')}
+            {!reserved && <button type="submit" disabled={saving} onClick={() => setSaveAction('save_new')}
               className="px-4 py-2 border border-[#0f2240] text-[#0f2240] rounded-xl text-xs font-medium flex items-center gap-1.5 whitespace-nowrap disabled:opacity-60 hover:bg-slate-50 transition-colors">
               {saving && saveAction === 'save_new' && <Loader2 size={12} className="animate-spin" />}
               Регистрирай и нов
-            </button>
+            </button>}
             <button type="submit" disabled={saving} data-primary onClick={() => setSaveAction('save_close')}
               className="px-5 py-2 text-white rounded-xl text-xs font-medium flex items-center gap-1.5 whitespace-nowrap disabled:opacity-60 shadow-sm hover:opacity-90 transition-opacity"
               style={{ backgroundColor: '#0f2240' }}>
               {saving && saveAction === 'save_close' && <Loader2 size={12} className="animate-spin" />}
-              {saving ? 'Записване…' : direction === 'incoming' ? 'Регистрирай входящ' : 'Регистрирай изходящ'}
+              {saving ? 'Записване…' : reserved ? 'Запиши в резервирания номер' : direction === 'incoming' ? 'Регистрирай входящ' : 'Регистрирай изходящ'}
             </button>
           </div>
         </form>
