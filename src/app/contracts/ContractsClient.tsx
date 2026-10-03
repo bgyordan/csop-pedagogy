@@ -79,7 +79,12 @@ export default function ContractsClient({
     return c
   }, [contracts])
 
-  const totalPages = Math.ceil(totalCount / pageSize)
+  // Страници в браузъра: филтърът/сортът са върху всички договори
+  const [pg, setPg] = useState(1)
+  useEffect(() => { setPg(1) }, [filter, sortKey, sortDir, searchValue])
+  const shownCount = view.length
+  const totalPages = Math.max(1, Math.ceil(shownCount / pageSize))
+  const pageRows = view.slice((pg - 1) * pageSize, pg * pageSize)
 
   function pushSearch(q: string) {
     const params = new URLSearchParams()
@@ -88,12 +93,7 @@ export default function ContractsClient({
     router.push(`/contracts?${params.toString()}`)
   }
 
-  function handlePageChange(newPage: number) {
-    const params = new URLSearchParams()
-    if (searchValue) params.set('q', searchValue)
-    params.set('page', String(newPage))
-    router.push(`/contracts?${params.toString()}`)
-  }
+  function handlePageChange(newPage: number) { setPg(newPage) }
 
   async function openFile(path: string) {
     const win = window.open('', '_blank')
@@ -186,7 +186,7 @@ export default function ContractsClient({
                 onShowAll={() => setFilter('all')}
                 onNew={canEdit ? () => setShowForm(true) : undefined} />
             )
-          ) : view.map((item) => {
+          ) : pageRows.map((item) => {
             const days = daysUntil(item.end_date)
             const isExpired = days !== null && days < 0
             const isExpiring = days !== null && days >= 0 && days < 30
@@ -234,16 +234,16 @@ export default function ContractsClient({
       {/* Пагинация */}
       <div className="flex items-center justify-between px-2">
         <span className="text-[11px] text-slate-500 tabular-nums">
-          {totalCount === 0 ? '0 записа' : `${((page-1)*pageSize)+1}–${Math.min(page*pageSize, totalCount)} от ${totalCount} записа`}
+          {shownCount === 0 ? '0 записа' : `${((pg-1)*pageSize)+1}–${Math.min(pg*pageSize, shownCount)} от ${shownCount} записа`}
         </span>
         {totalPages > 1 && (
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] text-slate-500 mr-1 tabular-nums">стр. {page} / {totalPages}</span>
-            <button disabled={page <= 1} onClick={() => handlePageChange(page-1)}
+            <span className="text-[11px] text-slate-500 mr-1 tabular-nums">стр. {pg} / {totalPages}</span>
+            <button disabled={pg <= 1} onClick={() => handlePageChange(pg-1)}
               className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition-colors">
               <ChevronLeft size={14} />
             </button>
-            <button disabled={page >= totalPages} onClick={() => handlePageChange(page+1)}
+            <button disabled={pg >= totalPages} onClick={() => handlePageChange(pg+1)}
               className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition-colors">
               <ChevronRight size={14} />
             </button>
