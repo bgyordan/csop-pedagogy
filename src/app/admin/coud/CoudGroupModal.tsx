@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { X, Search, Plus, Loader2, UserMinus, Coffee } from 'lucide-react'
 
@@ -111,7 +112,7 @@ export default function CoudGroupModal({ group, academicYearId, onClose, onChang
   }
 
   const filteredAvailable = available.filter(s =>
-    !search || s.name.toLowerCase().includes(search.toLowerCase())
+    !search || smartMatch(s.name, search)
   )
 
   return (

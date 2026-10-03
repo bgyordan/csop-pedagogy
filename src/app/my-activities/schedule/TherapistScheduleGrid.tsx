@@ -1,5 +1,6 @@
 'use client'
 import { useState, useTransition, useMemo } from 'react'
+import { smartMatch } from '@/lib/search'
 import { Save, Loader2, Info, Download, Copy, X, Search } from 'lucide-react'
 import { saveTherapistSchedule, copyTherapistFromTerm1 } from './actions'
 import { generateTherapistSchedule } from '@/lib/docx-generator'
@@ -109,7 +110,7 @@ export function TherapistScheduleGrid({
   const shownStudents = useMemo(() => {
     const q = filter.trim().toLowerCase()
     if (!q) return students
-    return students.filter(s => s.name.toLowerCase().includes(q) || s.className.toLowerCase().includes(q))
+    return students.filter(s => smartMatch(s.name, q) || smartMatch(s.className, q))
   }, [students, filter])
   const activeStudent = students.find(s => s.id === activeId)
   function handleCopyTerm1() {

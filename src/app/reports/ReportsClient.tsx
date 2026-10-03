@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { smartMatch } from '@/lib/search'
 import { FileSpreadsheet, AlertTriangle, Users, School, BarChart3, FileX, FileText, Printer, Check, ChevronDown, ChevronUp, Mail, Download, ArrowRight, CalendarClock, Sparkles } from 'lucide-react'
 import { generateSchoolLetter, generateSchoolScheduleLetter } from '@/lib/docx-generator'
 import DistributionPdfButton from './DistributionPdfButton'
@@ -106,7 +107,7 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
     if (distNewOnly && !r.isNew) return false
     if (distSearch.trim()) {
       const q = distSearch.toLowerCase()
-      if (!r.name.toLowerCase().includes(q) && !(r.sendingSchoolName || '').toLowerCase().includes(q)) return false
+      if (!smartMatch(r.name, q) && !smartMatch((r.sendingSchoolName || ''), q)) return false
     }
     return true
   }).sort((a: any, b: any) => String(a.className).localeCompare(String(b.className), 'bg', { numeric: true }) || a.name.localeCompare(b.name, 'bg'))

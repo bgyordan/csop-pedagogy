@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { ilikeVariants } from '@/lib/search'
 import { redirect } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
 import OrdersClient from './OrdersClient'
@@ -35,7 +36,7 @@ export default async function OrdersPage({
   // Общите филтри (година, търсене, индекс) — еднакви за списъка и за броячите на бутоните
   const base = (qb: any) => {
     let r = qb.gte('date', dyStart).lte('date', dyEnd)
-    if (q) r = r.or(`number.ilike.%${q}%,title.ilike.%${q}%,description.ilike.%${q}%`)
+    if (q) r = r.or(ilikeVariants(q).flatMap(v => ['number', 'title', 'description'].map(f => `${f}.ilike.%${v}%`)).join(','))
     if (idx) r = r.eq('nomenclature_item', idx)
     return r
   }

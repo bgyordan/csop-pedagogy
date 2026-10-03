@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { smartMatch } from '@/lib/search'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { FileText, Check, Search, AlertCircle, Sparkles } from 'lucide-react'
@@ -121,7 +122,7 @@ export default async function DocumentsPage({ searchParams }: PageProps) {
 
   // Прилагане на филтри и търсене
   const filteredRows = studentRows.filter(row => {
-    const matchesSearch = row.name.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesSearch = smartMatch(row.name, searchQuery)
     if (!matchesSearch) return false
 
     if (activeFilter === 'attention') return row.requiresAttention

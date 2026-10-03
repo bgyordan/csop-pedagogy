@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useLayoutEffect } from 'react'
+import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { 
@@ -24,7 +25,7 @@ interface Protocol {
 function PersonCombo({ people, value, onChange, placeholder }: { people: Staff[]; value: string; onChange: (id: string) => void; placeholder: string }) {
   const [open, setOpen] = useState(false); const [q, setQ] = useState('')
   const selected = people.find(p => p.id === value)
-  const list = people.filter(p => `${p.first_name} ${p.last_name}`.toLowerCase().includes(q.toLowerCase()))
+  const list = people.filter(p => smartMatch(`${p.first_name} ${p.last_name}`, q))
     .sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`, 'bg')).slice(0, 40)
   return (
     <div className="relative">
@@ -57,7 +58,7 @@ function PersonCombo({ people, value, onChange, placeholder }: { people: Staff[]
 function StudentCombo({ students, value, onChange }: { students: StudentOpt[]; value: string; onChange: (id: string) => void }) {
   const [open, setOpen] = useState(false); const [q, setQ] = useState('')
   const selected = students.find(s => s.id === value)
-  const list = students.filter(s => s.name.toLowerCase().includes(q.toLowerCase())).slice(0, 40)
+  const list = students.filter(s => smartMatch(s.name, q)).slice(0, 40)
   return (
     <div className="relative">
       <div className="relative">

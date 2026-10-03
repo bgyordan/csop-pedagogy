@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo } from 'react'
+import { smartMatch } from '@/lib/search'
 import { Search, Printer, Phone, AlertTriangle } from 'lucide-react'
 
 interface GuardianInfo { name: string; relation: string; phone: string; email: string }
@@ -12,9 +13,9 @@ export default function GuardiansClient({ rows }: { rows: ReportRow[] }) {
     const q = search.trim().toLowerCase()
     if (!q) return rows
     return rows.filter(r =>
-      r.name.toLowerCase().includes(q) ||
-      r.csopClass.toLowerCase().includes(q) ||
-      r.guardians.some(g => g.name.toLowerCase().includes(q) || g.phone.toLowerCase().includes(q) || g.email.toLowerCase().includes(q))
+      smartMatch(r.name, q) ||
+      smartMatch(r.csopClass, q) ||
+      r.guardians.some(g => smartMatch(g.name, q) || smartMatch(g.phone, q) || smartMatch(g.email, q))
     )
   }, [rows, search])
 

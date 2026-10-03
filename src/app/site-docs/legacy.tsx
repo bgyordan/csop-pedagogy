@@ -2,6 +2,7 @@
 
 // Раздели от „Сайт“, които още не са преработени: събития и кариери.
 import { useState, useMemo, useEffect } from 'react'
+import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Upload, Loader2, Trash2, Plus, X, Check, Search, Pencil, ChevronDown, ArrowLeft, CalendarDays, Images, ImagePlus, Star, MapPin, Clock, Briefcase, Mail, Copy } from 'lucide-react'
@@ -23,7 +24,7 @@ export function EventsManager({ initial }: { initial: Ev[] }) {
 
   const shown = useMemo(() => list
     .filter((e) => (when === 'all' ? true : when === 'upcoming' ? e.event_date >= today : e.event_date < today))
-    .filter((e) => (q.trim() ? e.title.toLowerCase().includes(q.trim().toLowerCase()) : true))
+    .filter((e) => (q.trim() ? smartMatch(e.title, q) : true))
     .sort((a, b) => b.event_date.localeCompare(a.event_date)), [list, when, q, today])
 
   function openNew() { setEditId(null); setTitle(''); setDate(''); setTime(''); setLocation(''); setDescription(''); setDrawer(true) }

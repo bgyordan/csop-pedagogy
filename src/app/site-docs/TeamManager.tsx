@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Search, ExternalLink, Pencil, Check, X, RotateCcw, Info } from 'lucide-react'
@@ -62,7 +63,7 @@ export default function TeamManager({ staff, initial, ready }: { staff: StaffRow
       people: staff
         .filter((p) => groupOf(p, settings[p.id]?.title) === g.key)
         .filter((p) => (vis === 'all' ? true : vis === 'on' ? shownOnSite(p) : !shownOnSite(p)))
-        .filter((p) => !query || `${p.first_name} ${p.last_name} ${titleOf(p)}`.toLowerCase().includes(query))
+        .filter((p) => !query || smartMatch(`${p.first_name} ${p.last_name} ${titleOf(p)}`, query))
         .sort((a, b) => (ROLE_SORT[a.role] || 9) - (ROLE_SORT[b.role] || 9) || a.last_name.localeCompare(b.last_name, 'bg')),
     })).filter((g) => g.people.length)
   }, [staff, settings, q, vis]) // eslint-disable-line react-hooks/exhaustive-deps

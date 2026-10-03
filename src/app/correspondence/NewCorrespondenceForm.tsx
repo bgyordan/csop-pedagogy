@@ -1,5 +1,6 @@
 'use client'
 import React, { useState, useRef, useEffect } from 'react'
+import { smartMatch } from '@/lib/search'
 import { canSubstitute } from '@/lib/pedagogues'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -88,7 +89,7 @@ function PersonCombo({ people, value, onChange, placeholder, excludeId }: {
   const selected = people.find(p => p.id === value)
   const list = people
     .filter(p => p.id !== excludeId)
-    .filter(p => `${p.first_name} ${p.last_name}`.toLowerCase().includes(q.toLowerCase()))
+    .filter(p => smartMatch(`${p.first_name} ${p.last_name}`, q))
     .sort((a, b) => a.first_name.localeCompare(b.first_name, 'bg'))
     .slice(0, 40)
   return (
@@ -190,7 +191,7 @@ export default function NewCorrespondenceForm({
     }
   }, [description])
   const filteredNom = nomenclature.filter(n =>
-    !nomSearch || n.item_code.toLowerCase().includes(nomSearch.toLowerCase()) || n.name.toLowerCase().includes(nomSearch.toLowerCase())
+    !nomSearch || smartMatch(n.item_code, nomSearch) || smartMatch(n.name, nomSearch)
   )
   const nomBySection = filteredNom.reduce((acc, item) => {
     if (!acc[item.section_code]) acc[item.section_code] = []

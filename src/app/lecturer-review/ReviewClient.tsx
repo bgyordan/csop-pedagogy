@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { smartMatch } from '@/lib/search'
 import { Loader2, Check, ChevronDown, ChevronUp, Undo2, Search } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { verifyDeclaration, unverifyDeclaration, getDeclarationDetail } from './actions'
@@ -21,7 +22,7 @@ export default function ReviewClient({ rows: initial }: { rows: Row[] }) {
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
 
-  const filtered = rows.filter(r => r.staffName.toLowerCase().includes(search.toLowerCase()))
+  const filtered = rows.filter(r => smartMatch(r.staffName, search))
 
   async function toggle(id: string) {
     if (openId === id) { setOpenId(null); setDetail(null); return }

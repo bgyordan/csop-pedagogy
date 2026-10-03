@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { smartMatch } from '@/lib/search'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { UserPlus, Plus, Loader2, Search, X } from 'lucide-react'
@@ -32,7 +33,7 @@ export default function AddStudentsSection({
   if (!canManage) return null
 
   const filtered = search.trim()
-    ? list.filter(u => u.name.toLowerCase().includes(search.toLowerCase()))
+    ? list.filter(u => smartMatch(u.name, search))
     : list
 
   function addToClass(u: Unassigned) {

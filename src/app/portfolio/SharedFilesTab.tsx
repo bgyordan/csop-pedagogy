@@ -4,6 +4,7 @@
 // Преди беше отделна страница /shared; сега е таб в Портфолио.
 
 import { useMemo, useState } from 'react'
+import { smartMatch } from '@/lib/search'
 import Link from 'next/link'
 import { listSharedStaffDocs } from '@/app/my-files/staff-drive-actions'
 import { Download, Eye, File, FileText, FileSpreadsheet, FileImage, Search, Share2, X, Loader2 } from 'lucide-react'
@@ -60,7 +61,7 @@ export default function SharedFilesTab({ canShare, rows, err }: { canShare: bool
   const shown = (rows || [])
     .filter(r => type === 'all' || kindOf(r.name, r.mime) === type)
     .filter(r => !person || r.staffId === person)
-    .filter(r => !needle || (r.name + ' ' + r.owner).toLowerCase().includes(needle))
+    .filter(r => !needle || smartMatch((r.name + ' ' + r.owner), needle))
 
   const download = (id: string) => { window.location.href = `/api/staff-docs/download?fileId=${encodeURIComponent(id)}&as=office` }
 

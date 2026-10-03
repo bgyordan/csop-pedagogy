@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { BackButton } from '@/components/ui/BackButton'
 import { useToast } from '@/components/ui/Toast'
@@ -55,7 +56,7 @@ const emptySession = {
 function PersonCombo({ people, value, onChange, placeholder }: { people: StaffMember[]; value: string; onChange: (id: string) => void; placeholder: string }) {
   const [open, setOpen] = useState(false); const [q, setQ] = useState('')
   const selected = people.find(p => p.id === value)
-  const list = people.filter(p => getFullName(p).toLowerCase().includes(q.toLowerCase())).slice(0, 40)
+  const list = people.filter(p => smartMatch(getFullName(p), q)).slice(0, 40)
   return (
     <div className="relative">
       <input type="text" value={selected ? getFullName(selected) : q}
