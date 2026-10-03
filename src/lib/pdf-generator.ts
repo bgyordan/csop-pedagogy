@@ -87,7 +87,7 @@ export async function generateDistributionPDF(rows: DistRow[], yearName: string)
   doc.setTextColor(...NAVY)
   doc.text('Център за специална образователна подкрепа – гр. Варна', textX, 14)
   doc.setFont(FONT, 'normal')
-  doc.setFontSize(8.5)
+  doc.setFontSize(9)
   doc.setTextColor(...SLATE)
   doc.text('бул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 0888 490 771', textX, 19.5)
 
@@ -126,12 +126,12 @@ export async function generateDistributionPDF(rows: DistRow[], yearName: string)
     startY: 44,
     margin: { left: 14, right: 14 },
     styles: {
-      font: FONT, fontSize: 7.5, cellPadding: 2, textColor: [30, 41, 59],
-      lineColor: [203, 213, 225], lineWidth: 0.1,
+      font: FONT, fontSize: 9, cellPadding: 2, textColor: [30, 41, 59],
+      lineColor: [120, 130, 145], lineWidth: 0.1,
     },
     headStyles: {
       font: FONT, fontStyle: 'bold', fillColor: [237, 242, 247], textColor: NAVY,
-      fontSize: 7.5, cellPadding: 2.2, lineColor: [203, 213, 225], lineWidth: 0.1,
+      fontSize: 9, cellPadding: 2.2, lineColor: [120, 130, 145], lineWidth: 0.1,
     },
     alternateRowStyles: { fillColor: [252, 252, 253] },
     columnStyles: {
@@ -148,7 +148,7 @@ export async function generateDistributionPDF(rows: DistRow[], yearName: string)
     didDrawPage: (data) => {
       const pageCount = doc.getNumberOfPages()
       doc.setFont(FONT, 'normal')
-      doc.setFontSize(7.5)
+      doc.setFontSize(9)
       doc.setTextColor(...SLATE)
       doc.text(`Генерирано на ${today}`, 14, pageH - 8)
       doc.text(`Общо ученици: ${rows.length}`, pageW / 2, pageH - 8, { align: 'center' })
@@ -192,7 +192,7 @@ export async function generateIntensityPDF(rows: IntensityRow[], yearName: strin
   doc.setTextColor(...NAVY)
   doc.text('Център за специална образователна подкрепа – гр. Варна', pageW / 2, 13, { align: 'center' })
   doc.setFont(FONT, 'normal')
-  doc.setFontSize(8)
+  doc.setFontSize(9)
   doc.setTextColor(...SLATE)
   doc.text('бул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 0888 490 771', pageW / 2, 18, { align: 'center' })
 
@@ -206,7 +206,7 @@ export async function generateIntensityPDF(rows: IntensityRow[], yearName: strin
   doc.setTextColor(...NAVY)
   doc.text('Терапевтична натовареност по деца', pageW / 2, 34, { align: 'center' })
   doc.setFont(FONT, 'normal')
-  doc.setFontSize(8.5)
+  doc.setFontSize(9)
   doc.setTextColor(...SLATE)
   doc.text(`Учебна ${yearName} г. · инициали × брой сесии седмично`, pageW / 2, 39, { align: 'center' })
 
@@ -216,7 +216,7 @@ export async function generateIntensityPDF(rows: IntensityRow[], yearName: strin
   rows.forEach((r) => {
     if (r.className !== lastClass) {
       lastClass = r.className
-      body.push([{ content: `Паралелка ${r.className}`, colSpan: 7, styles: { fillColor: [237, 242, 247], textColor: NAVY, fontStyle: 'bold', halign: 'left', fontSize: 8 } }])
+      body.push([{ content: `Паралелка ${r.className}`, colSpan: 7, styles: { fillColor: [237, 242, 247], textColor: NAVY, fontStyle: 'bold', halign: 'left', fontSize: 9 } }])
     }
     body.push([
       r.name,
@@ -234,8 +234,8 @@ export async function generateIntensityPDF(rows: IntensityRow[], yearName: strin
     body,
     startY: 44,
     margin: { left: 14, right: 14 },
-    styles: { font: FONT, fontSize: 7.5, cellPadding: 1.8, textColor: [30, 41, 59], lineColor: [203, 213, 225], lineWidth: 0.1 },
-    headStyles: { font: FONT, fontStyle: 'bold', fillColor: [241, 245, 249], textColor: NAVY, fontSize: 7.5, cellPadding: 2, lineColor: [203, 213, 225], lineWidth: 0.1 },
+    styles: { font: FONT, fontSize: 9, cellPadding: 1.8, textColor: [30, 41, 59], lineColor: [120, 130, 145], lineWidth: 0.1 },
+    headStyles: { font: FONT, fontStyle: 'bold', fillColor: [241, 245, 249], textColor: NAVY, fontSize: 9, cellPadding: 2, lineColor: [120, 130, 145], lineWidth: 0.1 },
     columnStyles: {
       0: { cellWidth: 42, fontStyle: 'bold' },
       1: { cellWidth: 'auto' },
@@ -248,7 +248,7 @@ export async function generateIntensityPDF(rows: IntensityRow[], yearName: strin
     didDrawPage: (data) => {
       const pageCount = doc.getNumberOfPages()
       doc.setFont(FONT, 'normal')
-      doc.setFontSize(7.5)
+      doc.setFontSize(9)
       doc.setTextColor(...SLATE)
       doc.text(`Генерирано на ${today}`, 14, pageH - 8)
       doc.text(`Страница ${data.pageNumber} от ${pageCount}`, pageW - 14, pageH - 8, { align: 'right' })
@@ -276,7 +276,7 @@ export async function generateTherapyListPDF(rows: TherapyListRow[], roleLabel: 
   if (logo) { try { doc.addImage(logo, 'JPEG', 14, 10, 16, 16) } catch {} }
   doc.setFont(FONT, 'bold'); doc.setFontSize(11); doc.setTextColor(...NAVY)
   doc.text('Център за специална образователна подкрепа – гр. Варна', pageW / 2, 15, { align: 'center' })
-  doc.setFont(FONT, 'normal'); doc.setFontSize(8); doc.setTextColor(...SLATE)
+  doc.setFont(FONT, 'normal'); doc.setFontSize(9); doc.setTextColor(...SLATE)
   doc.text('бул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 0888 490 771', pageW / 2, 20, { align: 'center' })
   doc.setDrawColor(...NAVY); doc.setLineWidth(0.4); doc.line(14, 28, pageW - 14, 28)
   // Утвърдил (под хедъра, вдясно)
@@ -296,7 +296,7 @@ export async function generateTherapyListPDF(rows: TherapyListRow[], roleLabel: 
     head: [['№', 'Име, презиме, фамилия', 'Паралелка', 'Клас']],
     body,
     startY: 69,
-    styles: { font: FONT, fontSize: 9, cellPadding: 2, textColor: SLATE, lineColor: [210, 215, 222], lineWidth: 0.1 },
+    styles: { font: FONT, fontSize: 9, cellPadding: 2, textColor: SLATE, lineColor: [120, 130, 145], lineWidth: 0.1 },
     headStyles: { font: FONT, fontStyle: 'bold', fillColor: [237, 242, 247], textColor: NAVY, fontSize: 9, halign: 'left' },
     columnStyles: { 0: { cellWidth: 12, halign: 'center' }, 2: { cellWidth: 28, halign: 'center' }, 3: { cellWidth: 24, halign: 'center' } },
     alternateRowStyles: { fillColor: [252, 252, 253] },
@@ -321,7 +321,7 @@ export async function generateStudentsBySchoolPDF(groups: BySchoolGroup[], yearN
   if (logo) { try { doc.addImage(logo, 'JPEG', 14, 8, 16, 16) } catch {} }
   doc.setFont(FONT, 'bold'); doc.setFontSize(11); doc.setTextColor(...NAVY)
   doc.text('Център за специална образователна подкрепа – гр. Варна', pageW / 2, 13, { align: 'center' })
-  doc.setFont(FONT, 'normal'); doc.setFontSize(8); doc.setTextColor(...SLATE)
+  doc.setFont(FONT, 'normal'); doc.setFontSize(9); doc.setTextColor(...SLATE)
   doc.text('бул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 0888 490 771', pageW / 2, 18, { align: 'center' })
   doc.setDrawColor(...NAVY); doc.setLineWidth(0.4); doc.line(14, 26, pageW - 14, 26)
 
@@ -333,13 +333,13 @@ export async function generateStudentsBySchoolPDF(groups: BySchoolGroup[], yearN
   const body: any[] = []
   groups.forEach(g => {
     body.push([{ content: `${g.school}  —  ${g.externalClass} клас`, colSpan: 3, styles: { fillColor: [237, 242, 247], textColor: NAVY, fontStyle: 'normal', halign: 'left', fontSize: 9 } }])
-g.students.forEach(s => body.push([{ content: s.name, styles: { textColor: [100, 100, 100] } }, s.className || '—', s.classTeacher || '—']))
+g.students.forEach(s => body.push([{ content: s.name, styles: { textColor: [50, 50, 50] } }, s.className || '—', s.classTeacher || '—']))
   })
   autoTable(doc, {
     head: [['Ученик', 'Паралелка', 'Класен ръководител']],
     body,
     startY: 47,
-    styles: { font: FONT, fontSize: 9, cellPadding: 1.8, textColor: SLATE, lineColor: [210,215,222], lineWidth: 0.1 },
+    styles: { font: FONT, fontSize: 9, cellPadding: 1.8, textColor: SLATE, lineColor: [120, 130, 145], lineWidth: 0.1 },
     headStyles: { font: FONT, fontStyle: 'bold', fillColor: [237, 242, 247], textColor: NAVY, fontSize: 9, halign: 'left' },
     columnStyles: { 1: { cellWidth: 30, halign: 'center' }, 2: { cellWidth: 55 } },
     margin: { left: 14, right: 14 },
