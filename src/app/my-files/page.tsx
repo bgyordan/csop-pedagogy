@@ -14,7 +14,7 @@ export default async function MyFilesPage() {
       <div className="mb-4">
         <h1 className="text-2xl font-medium text-[#0f2240]">Моите документи</h1>
         <p className="text-sm text-slate-500 font-light mt-1">
-          Вижда ги само вие. С бутона <span className="text-sky-700">„Сподели“</span> на файла той се появява при колегите в „Споделено от колеги“.
+          Вижда ги само вие. С бутона <span className="text-sky-700">„Сподели“</span> на файла той се появява при колегите в „Портфолио → Споделени файлове“.
         </p>
       </div>
       <StudentWorkDocs staff />
