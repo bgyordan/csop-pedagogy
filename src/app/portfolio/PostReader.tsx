@@ -216,7 +216,7 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
                   </button>
                   {declining && (
                     <div className="w-full flex gap-2 mt-1">
-                      <input value={reply} onChange={e => setReply(e.target.value)} placeholder="Кратко защо (по желание) — авторът ще го види"
+                      <input value={reply} onChange={e => setReply(e.target.value)} placeholder="Кратко защо (по желание)"
                         className="flex-1 px-3 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-[#0f2240]" />
                       <button type="button" onClick={() => setSite('declined', undefined, 'Върната на автора.')} className="px-4 py-2 rounded-xl text-sm bg-slate-700 text-white">Потвърди</button>
                     </div>

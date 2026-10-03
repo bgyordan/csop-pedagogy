@@ -2,14 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Search, LayoutGrid, UserRound, Globe, FileDown, Loader2, Sparkles, X } from 'lucide-react'
+import { Plus, Search, LayoutGrid, UserRound, Globe, Share2, FileDown, Loader2, Sparkles, X } from 'lucide-react'
 import PostCard, { Avatar } from './PostCard'
 import PostReader from './PostReader'
 import PostEditor from './PostEditor'
+import SharedFilesTab from './SharedFilesTab'
 import { KINDS, MANAGERS, isImage } from './lib'
 import type { Post, Person, Cls, Kind } from './lib'
 
-type Tab = 'wall' | 'mine' | 'site'
+type Tab = 'wall' | 'mine' | 'files' | 'site'
 const PER_PAGE = 24
 
 export default function PortfolioClient({ meId, role, posts, thumbs, people, classes, myClassIds, academicYearId }: {
@@ -37,7 +38,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
     const k = sp.get('kind') as Kind | null
     if (k && KINDS.some(x => x.key === k)) setKind(k)
     const t = sp.get('tab') as Tab | null
-    if (t === 'mine' || (t === 'site' && siteDesk) || t === 'wall') setTab(t)
+    if (t === 'mine' || t === 'files' || (t === 'site' && siteDesk) || t === 'wall') setTab(t)
     if (sp.get('open')) setOpenId(sp.get('open'))
     if (sp.get('new') && canPost) setEditor({ post: null, kind: k || undefined })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -77,9 +78,10 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
     } finally { setExporting(false) }
   }
 
-  const tabs: { key: Tab; label: string; icon: typeof LayoutGrid; count: number; show: boolean }[] = [
+  const tabs: { key: Tab; label: string; icon: typeof LayoutGrid; count: number | null; show: boolean }[] = [
     { key: 'wall', label: 'Портфолио на ЦСОП', icon: LayoutGrid, count: posts.length, show: true },
     { key: 'mine', label: 'Моето портфолио', icon: UserRound, count: mine.length, show: canPost },
+    { key: 'files', label: 'Споделени файлове', icon: Share2, count: null, show: true },
     { key: 'site', label: 'За сайта', icon: Globe, count: siteQueue.length, show: siteDesk },
   ]
 
@@ -89,7 +91,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
       <div className="flex flex-wrap items-end gap-4 mb-6">
         <div>
           <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">Портфолио</h1>
-          <p className="text-sm text-slate-500 mt-1">Кабинети, проекти, събития и материали на колегите от ЦСОП</p>
+          <p className="text-sm text-slate-500 mt-1">Кабинети, проекти, събития, материали и споделени файлове на колегите</p>
         </div>
         {canPost && (
           <button type="button" onClick={() => setEditor({ post: null, kind: kind === 'all' ? undefined : kind })}
@@ -107,7 +109,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
             <button key={t.key} type="button" onClick={() => { setTab(t.key); setLimit(PER_PAGE) }}
               className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-all ${on ? 'bg-white shadow-sm text-slate-900 font-medium' : 'text-slate-600 hover:text-slate-900'}`}>
               <I size={15} /> {t.label}
-              <span className={`text-[11px] min-w-5 px-1.5 py-0.5 rounded-full ${on ? (t.key === 'site' && t.count ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-600') : 'bg-white/70 text-slate-500'}`}>{t.count}</span>
+              {t.count !== null && <span className={`text-[11px] min-w-5 px-1.5 py-0.5 rounded-full ${on ? (t.key === 'site' && t.count ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-600') : 'bg-white/70 text-slate-500'}`}>{t.count}</span>}
             </button>
           )
         })}
@@ -141,13 +143,10 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
         </div>
       )}
 
-      {tab === 'site' && (
-        <div className="rounded-2xl border border-sky-200 bg-sky-50/60 px-5 py-3.5 mb-5 text-[13.5px] text-sky-900 flex items-center gap-2">
-          <Globe size={16} className="shrink-0" />
-          Колегите са предложили тези публикации за сайта. Отвори една → „Направи чернова на новина“ → провери я в „Сайт“ и я публикувай.
-        </div>
-      )}
 
+      {tab === 'files' && <SharedFilesTab canShare={canPost} />}
+
+      {tab !== 'files' && (<>
       {/* Филтри */}
       <div className="flex flex-wrap items-center gap-2 mb-6">
         <button type="button" onClick={() => setKind('all')}
@@ -222,6 +221,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
           </button>
         </div>
       )}
+      </>)}
 
       {open && !editor && (
         <PostReader post={open} author={personBy[open.author_id || '']} thumbs={thumbs} classNames={classNames}

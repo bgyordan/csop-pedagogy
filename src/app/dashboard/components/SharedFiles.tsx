@@ -65,7 +65,7 @@ export default function SharedFiles({ bare = false, limit = 5 }: { bare?: boolea
           <Share2 size={14} className="text-[#0f2240]" />
           <h2 className="text-[11px] font-semibold text-[#0f2240] uppercase tracking-widest flex-1">Споделено от колеги</h2>
           {fresh > 0 && <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">{fresh} нови</span>}
-          <Link href="/shared" className="text-xs text-slate-500 hover:text-[#0f2240] inline-flex items-center gap-1">Всички <ArrowRight size={13} /></Link>
+          <Link href="/portfolio?tab=files" className="text-xs text-slate-500 hover:text-[#0f2240] inline-flex items-center gap-1">Всички <ArrowRight size={13} /></Link>
         </div>
         <div className="p-1.5">
           {loading ? (
@@ -100,7 +100,7 @@ export default function SharedFiles({ bare = false, limit = 5 }: { bare?: boolea
           <Share2 size={bare ? 14 : 18} className="text-slate-400" />
           <h2 className={bare ? 'text-xs font-medium text-slate-500' : 'font-bold text-slate-800 text-sm uppercase tracking-wider'}>Споделено от колеги</h2>
         </div>
-        <Link href="/shared" className="text-[10px] font-bold text-blue-600 uppercase tracking-wider hover:text-blue-800 flex items-center gap-1">
+        <Link href="/portfolio?tab=files" className="text-[10px] font-bold text-blue-600 uppercase tracking-wider hover:text-blue-800 flex items-center gap-1">
           Виж всички <ArrowRight size={12} />
         </Link>
       </div>
