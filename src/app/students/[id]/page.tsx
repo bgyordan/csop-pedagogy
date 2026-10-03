@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import OutreachBadge from '@/components/OutreachBadge'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Heart, CalendarClock, ClipboardList, Sparkles, FolderOpen, LayoutGrid, AlertTriangle, Phone, ChevronDown, ChevronRight, Bus, Utensils } from 'lucide-react'
+import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Heart, CalendarClock, ClipboardList, Sparkles, FolderOpen, LayoutGrid, AlertTriangle, Phone, ChevronDown, ChevronRight, Bus, Utensils, Sprout } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
 import { DOCUMENT_TYPE_LABELS, DocumentType, STATUS_LABELS, DocumentStatus } from '@/types'
 import { AttachmentsSection } from './AttachmentsSection'
@@ -17,6 +17,7 @@ import IntakeCard from './IntakeCard'
 import TherapistHistory from './TherapistHistory'
 import StudentDocuments from './StudentDocuments'
 import MoreMenu from './MoreMenu'
+import DevelopmentTab from './development/DevelopmentTab'
 const ALL_DOC_TYPES: DocumentType[] = [
   'protocol_1', 'protocol_2', 'protocol_3',
   'iup', 'iu_program', 'support_plan', 'parent_program'
@@ -55,7 +56,7 @@ const EPLR_LABELS: Record<string, string> = {
   iu_program_school: 'ИУ Програма (училище)', characteristic: 'Характеристика', other: 'Други',
 }
 
-const TABS = ['docs', 'overview', 'data', 'eplr', 'therapy', 'files'] as const
+const TABS = ['docs', 'overview', 'data', 'eplr', 'dev', 'therapy', 'files'] as const
 type Tab = typeof TABS[number]
 
 export default async function StudentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
@@ -187,11 +188,14 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
   const cardCls = "bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm h-full"
   const cardHead = "flex items-center gap-2 mb-3 pb-2.5 border-b border-slate-100"
 
+  // „Развитие“ — за педагогическите роли (не за деловодител и помощен персонал)
+  const showDev = !['secretary', 'support'].includes(profile?.role || '')
   const TAB_DEFS: { key: Tab; label: string; icon: any }[] = [
     { key: 'docs', label: 'Документи', icon: FolderOpen },
     { key: 'overview', label: 'Обзор', icon: LayoutGrid },
     { key: 'data', label: 'Данни', icon: ClipboardList },
     { key: 'eplr', label: 'ЕПЛР екип', icon: Users },
+    ...(showDev ? [{ key: 'dev' as Tab, label: 'Развитие', icon: Sprout }] : []),
     { key: 'therapy', label: 'Терапия', icon: Heart },
     { key: 'files', label: 'Досие и файлове', icon: Paperclip },
   ]
@@ -480,6 +484,14 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
               />
             </div>
           </div>
+          </div>
+        )}
+
+        {/* РАЗВИТИЕ */}
+        {tab === 'dev' && showDev && (
+          <div className="animate-in fade-in duration-300">
+            <DevelopmentTab studentId={id} studentName={getFullName(student as any)} className={(enrollment as any)?.class?.name || ''}
+              academicYearId={currentYear?.id || null} meId={profile?.id || ''} role={profile?.role || ''} />
           </div>
         )}
 
