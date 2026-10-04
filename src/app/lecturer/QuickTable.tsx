@@ -45,6 +45,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
   const [busy, setBusy] = useState<Set<string>>(new Set())
   const [q, setQ] = useState('')
   const [onlyWith, setOnlyWith] = useState(false)
+  const [onlyDiff, setOnlyDiff] = useState(false)
   const [ends, setEnds] = useState<Ends>(initialEnds)
   const endsMissing = GROUPS.some(g => !ends[g.key])
 
@@ -71,7 +72,11 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
   const isDone = (r: QTRow) => !!r.distributedAt && stored(r, 1) === eff(r, 1) && stored(r, 2) === eff(r, 2) && (placed[r.id] || 0) > 0
   // записано число, което вече не съвпада с учебния план
   const drift = (r: QTRow, k: 1 | 2) => r.source === 'plan' && stored(r, k) !== null && stored(r, k) !== sugg(r, k)
-  const visible = rows.filter(r => smartMatch(`${r.name} ${r.classes.map(c => c.name).join(' ')}`, q) && (!onlyWith || wanted(r) || placed[r.id]))
+  // разписанието не съвпада с учебния план (часовете — и двете редуцирани)
+  const hasDiff = (r: QTRow) => r.up1 !== null && r.up1 !== undefined && Math.round(((r.sr || 0) - (r.up1 || 0)) * 10) !== 0
+  const diffCount = rows.filter(hasDiff).length
+  const visible = rows.filter(r => smartMatch(`${r.name} ${r.classes.map(c => c.name).join(' ')}`, q)
+    && (!onlyWith || wanted(r) || placed[r.id]) && (!onlyDiff || hasDiff(r)))
   const sum = rows.reduce((a, r) => a + (isDone(r) ? (placed[r.id] || 0) : yearEst(r)), 0)
   const sumPlaced = Object.values(placed).reduce((a, b) => a + b, 0)
   const pending = rows.filter(r => wanted(r) && !isDone(r))
@@ -155,6 +160,9 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
           </div>
           <label className="inline-flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
             <input type="checkbox" checked={onlyWith} onChange={e => setOnlyWith(e.target.checked)} className="rounded" /> само с лекторски
+          </label>
+          <label className={`inline-flex items-center gap-2 text-sm cursor-pointer ${diffCount ? 'text-amber-700' : 'text-slate-400'}`} title="Учителите, при които разписанието в EIS не съвпада с учебния план">
+            <input type="checkbox" checked={onlyDiff} onChange={e => setOnlyDiff(e.target.checked)} className="rounded" disabled={!diffCount && !onlyDiff} /> само с разлика разписание / план ({diffCount})
           </label>
           <div className="ml-auto flex items-center gap-4">
             <span className="text-sm text-slate-500">за годината ≈ <b className="text-slate-800 tabular-nums">{sum}</b> · разпределени <b className="text-slate-800 tabular-nums">{sumPlaced}</b> ч.</span>
