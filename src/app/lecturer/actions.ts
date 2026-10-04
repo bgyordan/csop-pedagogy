@@ -63,10 +63,10 @@ export async function saveLecturerSlots(
       staff_id: staffId, day: s.day, period: s.period, subject_id: s.subjectId,
       holder_type: s.holderType, holder_label: s.holderLabel,
       date_from: dateFrom, date_to: dateTo, term,
-      academic_year_id: cy?.id, created_by: me?.id,
+      academic_year_id: cy?.id, created_by: me?.id, is_manual: true,
     }))
     const { error } = await supabase.from('lecturer_slots').insert(ins)
-    if (error) return { error: error.message }
+    if (error) return { error: error.message.includes('is_manual') ? 'Пуснете SQL файла 2026-10-04_lecturer_manual.sql' : error.message }
   }
   revalidatePath('/lecturer')
   return { success: true }
@@ -249,9 +249,20 @@ export async function autoDistribute(staffId: string, total: number, perWeek: nu
   if (!sched.length) { term = 2; sched = (await getTeacherSchedule(staffId, 2)).slots }
   if (!sched.some(s => s.holderType !== 'ifo')) return { error: 'Учителят няма въведено разписание' }
 
-  const plan = planDistribution({ dates, total, perWeek: perWeek || undefined, schedule: sched, classEnd, defaultEnd })
+  // ръчно сложените часове остават; разпределя се само остатъкът
+  const { data: man, error: manErr } = await m.supabase.from('lecturer_slots').select('day, period, date_from, date_to')
+    .eq('staff_id', staffId).eq('academic_year_id', m.yearId).eq('is_manual', true)
+  if (manErr) return { error: manErr.message.includes('is_manual') ? 'Пуснете SQL файла 2026-10-04_lecturer_manual.sql' : manErr.message }
+  const manual = man || []
+  const manualHours = manual.reduce((a: number, x: any) => a + slotHours(dates, x.day, x.date_from, x.date_to), 0)
+  const restWeek = perWeek ? Math.max(0, Math.round((perWeek - manual.length) * 100) / 100) : 0
+  const restTotal = perWeek ? 0 : Math.max(0, total - manualHours)
 
-  await m.supabase.from('lecturer_slots').delete().eq('staff_id', staffId).eq('academic_year_id', m.yearId)
+  const plan = (perWeek ? restWeek : restTotal) > 0
+    ? planDistribution({ dates, total: restTotal, perWeek: restWeek || undefined, schedule: sched, classEnd, defaultEnd, taken: manual })
+    : { slots: [], placed: 0, missing: 0 }
+
+  await m.supabase.from('lecturer_slots').delete().eq('staff_id', staffId).eq('academic_year_id', m.yearId).eq('is_manual', false)
   if (plan.slots.length) {
     const { error } = await m.supabase.from('lecturer_slots').insert(plan.slots.map(s => ({
       staff_id: staffId, day: s.day, period: s.period, subject_id: s.subjectId,
@@ -261,8 +272,9 @@ export async function autoDistribute(staffId: string, total: number, perWeek: nu
     })))
     if (error) return { error: error.message }
   }
-  await m.supabase.from('lecturer_plans').update({ distributed_at: new Date().toISOString(), ...(perWeek ? { total_hours: plan.placed } : {}) })
+  const placed = plan.placed + manualHours
+  await m.supabase.from('lecturer_plans').update({ distributed_at: new Date().toISOString(), ...(perWeek ? { total_hours: placed } : {}) })
     .eq('staff_id', staffId).eq('academic_year_id', m.yearId)
   revalidatePath('/lecturer')
-  return { success: true, placed: plan.placed, missing: plan.missing, slots: plan.slots.length }
+  return { success: true, placed, missing: plan.missing, slots: plan.slots.length + manual.length, manual: manual.length }
 }

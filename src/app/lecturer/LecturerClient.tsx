@@ -1,12 +1,12 @@
 'use client'
 import { useState, useMemo, useEffect } from 'react'
-import { Loader2, Check, Save, Search, Plus, X, Trash2, UserRound } from 'lucide-react'
+import { Loader2, Check, Save, Search, Plus, X, Trash2, UserRound, Lock } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { getTeacherSchedule, saveLecturerSlots, clearLecturerSlots, removeLecturerSlot } from './actions'
 import { slotHours } from './distribute'
 
 type Teacher = { id: string; name: string }
-type Marked = { id: string; staffId: string; staffName: string; day: number; period: number; subject: string; holderLabel: string; dateFrom: string; dateTo: string; orderNumber: string; term: number }
+type Marked = { id: string; staffId: string; staffName: string; day: number; period: number; subject: string; holderLabel: string; dateFrom: string; dateTo: string; orderNumber: string; term: number; manual?: boolean }
 type SchedSlot = { day: number; period: number; subjectId: string | null; subject: string; holderType: string; holderLabel: string }
 
 const DAYS = [{ n: 1, l: 'Пон' }, { n: 2, l: 'Вт' }, { n: 3, l: 'Ср' }, { n: 4, l: 'Чет' }, { n: 5, l: 'Пет' }]
@@ -91,7 +91,7 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
     const kept = marked.filter(m => !(m.staffId === teacherId && m.term === term && keys.has(`${m.day}-${m.period}`)))
     const mine: Marked[] = slots.map((s, i) => ({
       id: `tmp-${Date.now()}-${i}`, staffId: teacherId, staffName: teacherName, day: s.day, period: s.period,
-      subject: slotAt(s.day, s.period)?.subject || '', holderLabel: s.holderLabel, dateFrom: from, dateTo: to, orderNumber: '', term,
+      subject: slotAt(s.day, s.period)?.subject || '', holderLabel: s.holderLabel, dateFrom: from, dateTo: to, orderNumber: '', term, manual: true,
     }))
     setMarked([...mine, ...kept])
     setPicked(new Set())  // чистим за следваща група
@@ -299,7 +299,9 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
                                   {sl ? (
                                     saved ? (
                                       <div className={`relative w-full min-h-[64px] rounded-xl border px-2.5 py-2 text-left ${colorOf(saved.dateFrom, saved.dateTo).cell}`}>
-                                        <div className="text-[11px] opacity-80 truncate pr-4">{sl.holderLabel}</div>
+                                        <div className="text-[11px] opacity-80 truncate pr-4 flex items-center gap-1">
+                                          {saved.manual && <span title="Сложен на ръка — остава при „Наново“"><Lock size={10} className="shrink-0" /></span>}{sl.holderLabel}
+                                        </div>
                                         <div className="text-[13px] truncate">{sl.subject}</div>
                                         <div className="text-[11px] opacity-80 mt-0.5">{fmt(saved.dateFrom).slice(0, 5)}–{fmt(saved.dateTo).slice(0, 5)}</div>
                                         <button onClick={async () => {

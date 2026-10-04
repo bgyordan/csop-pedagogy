@@ -62,8 +62,11 @@ function shuffle<T>(a: T[], rnd: () => number): T[] {
  * perWeek — N часа седмично, всеки до края на годината на паралелката си (годишният брой излиза сам);
  *           дробна част (2,5) — още един час, който върви само тази част от своите учебни дни.
  */
-export function planDistribution({ dates, total, perWeek, schedule, classEnd, defaultEnd, rnd = Math.random }: {
-  dates: string[]; total?: number; perWeek?: number; schedule: SchedSlot[]; classEnd: Record<string, string>; defaultEnd: string; rnd?: () => number
+export function planDistribution({ dates, total, perWeek, schedule, classEnd, defaultEnd, taken = [], rnd = Math.random }: {
+  dates: string[]; total?: number; perWeek?: number; schedule: SchedSlot[]; classEnd: Record<string, string>; defaultEnd: string
+  /** клетки, вече заети от ръчно сложени часове — не се пипат, а дните им се ползват последни */
+  taken?: { day: number; period: number }[]
+  rnd?: () => number
 }): { slots: PlannedSlot[]; placed: number; missing: number } {
   const from = dates[0]
   // клетките от разписанието (без ИФО; при групи в един час — една клетка), всяка със своя край
@@ -74,7 +77,8 @@ export function planDistribution({ dates, total, perWeek, schedule, classEnd, de
     cells.push({ ...s, end, occ: dates.filter(d => d <= end && dowOf(d) === s.day) })
   })
 
-  const used = new Set<string>()
+  const used = new Set<string>(taken.map(t => `${t.day}-${t.period}`))
+  const busyDays = new Set(taken.map(t => t.day))
   const out: PlannedSlot[] = []
   const weekly = !!perWeek && perWeek > 0
   const whole = weekly ? Math.floor(perWeek! + 1e-9) : 0
@@ -82,9 +86,14 @@ export function planDistribution({ dates, total, perWeek, schedule, classEnd, de
   const need = whole + (frac > 0 ? 1 : 0)
   let rem = weekly ? need : (total || 0)
   // кръгове: в първия — по един час на ден; следващите — само ако не стига
+  let round = 0
   while (rem > 0) {
     let added = false
-    for (const day of shuffle(Array.from(new Set(cells.map(c => c.day))), rnd)) {
+    const days = shuffle(Array.from(new Set(cells.map(c => c.day))), rnd)
+    // в първия кръг — първо дните без ръчен час (по един час на ден)
+    const order = round === 0 ? [...days.filter(d => !busyDays.has(d)), ...days.filter(d => busyDays.has(d))] : days
+    round++
+    for (const day of order) {
       if (rem <= 0) break
       const free = cells.filter(c => c.day === day && !used.has(`${c.day}-${c.period}`) && c.occ.length > 0)
       if (!free.length) continue

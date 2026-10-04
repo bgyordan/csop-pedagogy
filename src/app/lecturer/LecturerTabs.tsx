@@ -9,7 +9,7 @@ import type { QTRow } from './QuickTable'
 import type { Ends } from './distribute'
 import LecturerClient from './LecturerClient'
 
-type Marked = { id: string; staffId: string; staffName: string; day: number; period: number; subject: string; holderLabel: string; dateFrom: string; dateTo: string; orderNumber: string; term: number }
+type Marked = { id: string; staffId: string; staffName: string; day: number; period: number; subject: string; holderLabel: string; dateFrom: string; dateTo: string; orderNumber: string; term: number; manual?: boolean }
 
 export default function LecturerTabs({ academicYearId, teachers, marked, schoolDates, rows, ends, defaultEnd }: {
   academicYearId: string; teachers: { id: string; name: string }[]; marked: Marked[]; schoolDates: string[]; rows: QTRow[]; ends: Ends; defaultEnd: string
