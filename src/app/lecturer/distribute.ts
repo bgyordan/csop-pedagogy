@@ -57,8 +57,12 @@ function shuffle<T>(a: T[], rnd: () => number): T[] {
   return r
 }
 
-export function planDistribution({ dates, total, schedule, classEnd, defaultEnd, rnd = Math.random }: {
-  dates: string[]; total: number; schedule: SchedSlot[]; classEnd: Record<string, string>; defaultEnd: string; rnd?: () => number
+/**
+ * total — годишен брой (последният час спира на точната дата);
+ * perWeek — N часа седмично, всеки до края на годината на паралелката си (годишният брой излиза сам).
+ */
+export function planDistribution({ dates, total, perWeek, schedule, classEnd, defaultEnd, rnd = Math.random }: {
+  dates: string[]; total?: number; perWeek?: number; schedule: SchedSlot[]; classEnd: Record<string, string>; defaultEnd: string; rnd?: () => number
 }): { slots: PlannedSlot[]; placed: number; missing: number } {
   const from = dates[0]
   // клетките от разписанието (без ИФО; при групи в един час — една клетка), всяка със своя край
@@ -71,7 +75,8 @@ export function planDistribution({ dates, total, schedule, classEnd, defaultEnd,
 
   const used = new Set<string>()
   const out: PlannedSlot[] = []
-  let rem = total
+  const weekly = !!perWeek && perWeek > 0
+  let rem = weekly ? perWeek! : (total || 0)
   // кръгове: в първия — по един час на ден; следващите — само ако не стига
   while (rem > 0) {
     let added = false
@@ -84,14 +89,16 @@ export function planDistribution({ dates, total, schedule, classEnd, defaultEnd,
       const pick = shuffle(free.filter(c => c.end === best), rnd)[0]
       used.add(`${pick.day}-${pick.period}`)
       const { end, occ, ...slot } = pick
-      if (rem >= occ.length) { out.push({ ...slot, dateFrom: from, dateTo: end, hours: occ.length }); rem -= occ.length }
+      if (weekly) { out.push({ ...slot, dateFrom: from, dateTo: end, hours: occ.length }); rem -= 1 }
+      else if (rem >= occ.length) { out.push({ ...slot, dateFrom: from, dateTo: end, hours: occ.length }); rem -= occ.length }
       else { out.push({ ...slot, dateFrom: from, dateTo: occ[rem - 1], hours: rem }); rem = 0 }
       added = true
     }
     if (!added) break
   }
   const placed = out.reduce((a, s) => a + s.hours, 0)
-  return { slots: out.sort((a, b) => a.day - b.day || a.period - b.period), placed, missing: Math.max(0, total - placed) }
+  const missing = weekly ? Math.max(0, perWeek! - out.length) : Math.max(0, (total || 0) - placed)
+  return { slots: out.sort((a, b) => a.day - b.day || a.period - b.period), placed, missing }
 }
 
 /** Точен брой часове на слот: учебните дни в неговия делничен ден между двете дати */

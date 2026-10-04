@@ -207,14 +207,15 @@ async function manager() {
 }
 
 /** Записва числото, без да разпределя */
-export async function saveLecturerPlan(staffId: string, total: number) {
+export async function saveLecturerPlan(staffId: string, total: number, perWeek: number | null = null) {
   const m = await manager()
   if (!m) return { error: 'Нямате права' }
   const { error } = await m.supabase.from('lecturer_plans').upsert({
     staff_id: staffId, academic_year_id: m.yearId, total_hours: Math.max(0, Math.round(total || 0)),
+    per_week: perWeek && perWeek > 0 ? Math.round(perWeek) : null,
     updated_by: m.me.id, updated_at: new Date().toISOString(),
   }, { onConflict: 'staff_id,academic_year_id' })
-  if (error) return { error: error.message.includes('lecturer_plans') ? 'Пуснете SQL файла 2026-10-04_lecturer_plans.sql' : error.message }
+  if (error) return { error: error.message.includes('per_week') ? 'Пуснете SQL файла 2026-10-04_class_end_dates.sql' : error.message.includes('lecturer_plans') ? 'Пуснете SQL файла 2026-10-04_lecturer_plans.sql' : error.message }
   return { success: true }
 }
 
@@ -230,10 +231,10 @@ export async function saveYearEnds(ends: Ends) {
 }
 
 /** Разпределя годишния брой в разписанието на учителя (заменя досегашните му лекторски) */
-export async function autoDistribute(staffId: string, total: number) {
+export async function autoDistribute(staffId: string, total: number, perWeek: number | null = null) {
   const m = await manager()
   if (!m) return { error: 'Нямате права' }
-  const saved = await saveLecturerPlan(staffId, total)
+  const saved = await saveLecturerPlan(staffId, total, perWeek)
   if ('error' in saved) return saved
 
   const dates = (await yearSchoolDays()).map(d => d.date)
@@ -248,7 +249,7 @@ export async function autoDistribute(staffId: string, total: number) {
   if (!sched.length) { term = 2; sched = (await getTeacherSchedule(staffId, 2)).slots }
   if (!sched.some(s => s.holderType !== 'ifo')) return { error: 'Учителят няма въведено разписание' }
 
-  const plan = planDistribution({ dates, total, schedule: sched, classEnd, defaultEnd })
+  const plan = planDistribution({ dates, total, perWeek: perWeek || undefined, schedule: sched, classEnd, defaultEnd })
 
   await m.supabase.from('lecturer_slots').delete().eq('staff_id', staffId).eq('academic_year_id', m.yearId)
   if (plan.slots.length) {
@@ -260,7 +261,7 @@ export async function autoDistribute(staffId: string, total: number) {
     })))
     if (error) return { error: error.message }
   }
-  await m.supabase.from('lecturer_plans').update({ distributed_at: new Date().toISOString() })
+  await m.supabase.from('lecturer_plans').update({ distributed_at: new Date().toISOString(), ...(perWeek ? { total_hours: plan.placed } : {}) })
     .eq('staff_id', staffId).eq('academic_year_id', m.yearId)
   revalidatePath('/lecturer')
   return { success: true, placed: plan.placed, missing: plan.missing, slots: plan.slots.length }

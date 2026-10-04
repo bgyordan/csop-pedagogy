@@ -46,7 +46,7 @@ export default async function LecturerPage() {
   // ── за бързата таблица: паралелките на всеки учител (от разписанието), числата и календара ──
   const [{ data: scheds }, { data: plans }, schoolDays, { ends, classEnd }] = await Promise.all([
     supabase.from('class_schedules').select('id, term, class:classes(name)').eq('academic_year_id', currentYear?.id),
-    supabase.from('lecturer_plans').select('staff_id, total_hours, distributed_at').eq('academic_year_id', currentYear?.id),
+    supabase.from('lecturer_plans').select('*').eq('academic_year_id', currentYear?.id),
     yearSchoolDays(),
     getClassEnds(currentYear?.id),
   ])
@@ -71,6 +71,7 @@ export default async function LecturerPage() {
       id: t.id, name: t.name, position: t.position,
       classes: cls.map(c => ({ name: c, end: classEnd[c] || '' })),
       total: p ? p.total_hours : null,
+      perWeek: p?.per_week || null,
       distributedAt: p?.distributed_at || null,
     }
   })

@@ -25,3 +25,6 @@ from public.academic_years y
 cross join (values ('12', '2027-05-13'), ('1-3', '2027-06-02'), ('4-6', '2027-06-16'), ('7-11', '2027-07-02')) as v(grp, end_date)
 where y.start_date >= '2026-08-01' and y.start_date < '2027-08-01'
 on conflict (academic_year_id, grp) do nothing;
+
+-- Лекторски могат да се въведат и като часове на седмица (2, 3…) — системата смята годишния брой.
+alter table public.lecturer_plans add column if not exists per_week smallint check (per_week is null or per_week between 0 and 30);
