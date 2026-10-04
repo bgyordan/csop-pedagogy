@@ -60,7 +60,7 @@ export default function CurriculumClient({ ready, lines, classes, couds, staff, 
     setSaving(true)
     const out = preview.lines.map(l => ({
       holder: l.holder, subject: l.subject, weeksT1: l.weeksT1, hoursT1: l.hoursT1, weeksT2: l.weeksT2, hoursT2: l.hoursT2,
-      total: l.total, students: l.students, teacher: l.teacher, individual: l.individual,
+      total: l.total, students: l.students, teacher: l.teacher, individual: l.individual, norm: l.norm,
       classId: l.kind === 'class' ? (fixHolder[l.holder] || l.classId) : null,
       coudId: l.kind === 'coud' ? (fixHolder[l.holder] || l.coudId) : null,
       staffId: fixStaff[l.teacher] || l.staffId,

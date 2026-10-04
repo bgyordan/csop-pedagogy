@@ -16,8 +16,14 @@ export type QTRow = {
   id: string; name: string; position: string
   classes: { name: string; end: string }[]
   total: number | null; perWeek?: number | null; distributedAt: string | null
-  /** натоварване по разписанието (I срок, с 0,7 за часовете с „вземане“), норма и предложение = разликата */
-  load?: number; norm?: number; suggest?: number
+  /** часове към норматива (I срок; терапии = 0,7), норма и предложение = разликата */
+  load?: number; load2?: number | null; norm?: number; suggest?: number
+  /** предложение като годишен брой — когато I и II срок се различават */
+  suggestTotal?: number
+  /** откъде е предложението: учебен план (НЕИСПУО) или разписание */
+  source?: 'plan' | 'schedule'
+  /** УП — часове седмично по учебния план без ИЧ (I / II срок); СР — по разписанието без ИФО; ИЧ — индивидуални часове */
+  up1?: number | null; up2?: number | null; sr?: number; ich?: number
 }
 export type QTMarked = { staffId: string; day: number; dateFrom: string; dateTo: string }
 
@@ -56,7 +62,12 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
     if (Number(r.perWeek)) return Number(r.perWeek)
     return isSuggested(r) ? (r.suggest || 0) : 0
   }
-  const totalOf = (r: QTRow) => { const v = draft[r.id]; return v !== undefined ? (v === '' ? 0 : Number(v)) : (r.total || 0) }
+  const isSuggestedT = (r: QTRow) => draft[r.id + ':w'] === undefined && draft[r.id] === undefined && !Number(r.perWeek) && !(r.total || 0) && !(r.suggest || 0) && (r.suggestTotal || 0) > 0
+  const totalOf = (r: QTRow) => {
+    const v = draft[r.id]
+    if (v !== undefined) return v === '' ? 0 : Number(v)
+    return r.total || (isSuggestedT(r) ? (r.suggestTotal || 0) : 0)
+  }
   const wanted = (r: QTRow) => weekOf(r) > 0 || totalOf(r) > 0
   const isDone = (r: QTRow) => weekOf(r) > 0
     ? slotCount[r.id] === Math.ceil(weekOf(r) - 1e-9) && (placed[r.id] || 0) === (r.total || 0) && !!r.distributedAt
@@ -159,7 +170,10 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-100">
                 <th className="px-5 py-2.5 font-medium">Учител</th>
                 <th className="px-3 py-2.5 font-medium">Паралелки · до кога учат</th>
-                <th className="px-3 py-2.5 font-medium text-center w-28">Часове / норма</th>
+                <th className="px-2 py-2.5 font-medium text-center w-16" title="Учебен план (НЕИСПУО) — часове седмично, без ИЧ">УП</th>
+                <th className="px-2 py-2.5 font-medium text-center w-16" title="Седмично разписание в EIS — часове, без ИФО">СР</th>
+                <th className="px-2 py-2.5 font-medium text-center w-14" title="Индивидуални часове (ИФО деца) — по отделна заповед, не се смятат тук">ИЧ</th>
+                <th className="px-3 py-2.5 font-medium text-center w-28" title="Часове към норматива (терапиите с норма 30 се броят по 0,7) / норма">Към норматива</th>
                 <th className="px-3 py-2.5 font-medium text-center w-28">Над норматива на седмица</th>
                 <th className="px-3 py-2.5 font-medium text-center w-28">или за годината</th>
                 <th className="px-3 py-2.5 font-medium text-center w-36">В разписанието</th>
@@ -192,11 +206,27 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                         </div>
                       ) : <span className="text-slate-300">няма разписание</span>}
                     </td>
-                    <td className="px-3 py-2 text-center tabular-nums text-[13px]">
-                      {r.load ? (
-                        <span className={(r.load || 0) > (r.norm || 21) ? 'text-slate-800' : 'text-slate-400'}>{fmtW(r.load)} <span className="text-slate-400">/ {r.norm}</span></span>
-                      ) : <span className="text-slate-300">—</span>}
-                    </td>
+                    {(() => {
+                      const hasUp = r.up1 !== null && r.up1 !== undefined
+                      const upTxt = hasUp ? (r.up2 !== null && r.up2 !== r.up1 ? `${fmtW(r.up1)} / ${fmtW(r.up2)}` : fmtW(r.up1) || '0') : ''
+                      const diff = hasUp ? (r.sr || 0) - (r.up1 || 0) : 0
+                      return (<>
+                        <td className="px-2 py-2 text-center tabular-nums text-[13px] text-slate-800">{hasUp ? upTxt : <span className="text-slate-300" title="Няма учебен план за този учител">—</span>}</td>
+                        <td className={`px-2 py-2 text-center tabular-nums text-[13px] ${hasUp && diff !== 0 ? 'text-amber-700 bg-amber-50' : 'text-slate-600'}`}
+                          title={hasUp && diff !== 0 ? (diff < 0 ? `В разписанието липсват ${-diff} ч. спрямо учебния план` : `В разписанието има ${diff} ч. повече от учебния план`) : undefined}>
+                          {r.sr || <span className="text-slate-300">—</span>}{hasUp && diff !== 0 && <AlertTriangle size={11} className="inline ml-1 -mt-0.5" />}
+                        </td>
+                        <td className="px-2 py-2 text-center tabular-nums text-[13px] text-violet-700">{r.ich ? fmtW(r.ich) : <span className="text-slate-300">—</span>}</td>
+                        <td className="px-3 py-2 text-center tabular-nums text-[13px]" title={r.source === 'plan' ? 'По учебния план' : 'По разписанието (няма учебен план)'}>
+                          {r.load ? (
+                            <span className={(r.load || 0) > (r.norm || 21) ? 'text-slate-800' : 'text-slate-400'}>
+                              {fmtW(r.load)}{r.load2 !== null && r.load2 !== undefined && r.load2 !== r.load ? ` / ${fmtW(r.load2)}` : ''} <span className="text-slate-400">/ {r.norm}</span>
+                            </span>
+                          ) : <span className="text-slate-300">—</span>}
+                          {r.source === 'schedule' && r.load ? <div className="text-[10px] text-slate-400">по разписание</div> : null}
+                        </td>
+                      </>)
+                    })()}
                     <td className="px-3 py-2 text-center">
                       <input inputMode="decimal" value={draft[r.id + ':w'] ?? fmtW(r.perWeek)}
                         onChange={e => setDraft(d => ({ ...d, [r.id + ':w']: e.target.value.replace(/[^\d.,]/g, '').replace(/([.,].*)[.,]/, '$1') }))}
@@ -212,8 +242,9 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                         <input inputMode="numeric" value={draft[r.id] ?? (r.total || '')}
                           onChange={e => setDraft(d => ({ ...d, [r.id]: e.target.value.replace(/\D/g, '') }))}
                           onBlur={() => commit(r, 'y')} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                          placeholder="—" title="Годишен брой — последният час спира на точната дата"
-                          className="w-20 text-center px-2 py-1.5 rounded-lg border border-slate-200 tabular-nums focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-50" />
+                          placeholder={isSuggestedT(r) ? String(r.suggestTotal) : '—'} title={isSuggestedT(r) ? `Предложение: над норматива е различно по срокове (${fmtW(r.load)} / ${fmtW(r.load2)} към норма ${r.norm}) → ${r.suggestTotal} ч. за годината` : 'Годишен брой — последният час спира на точната дата'}
+                          className={`w-20 text-center px-2 py-1.5 rounded-lg border tabular-nums focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-50 ${isSuggestedT(r) ? 'border-teal-300 bg-teal-50/60 placeholder:text-teal-700' : 'border-slate-200'}`} />
+                      )}{isSuggestedT(r) && (<div className="text-[10px] text-teal-700 mt-0.5">предложение</div>
                       )}
                     </td>
                     <td className="px-3 py-2 text-center tabular-nums">
@@ -240,12 +271,13 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                   </tr>
                 )
               })}
-              {visible.length === 0 && <tr><td colSpan={7} className="px-5 py-10 text-center text-slate-400">Няма учители</td></tr>}
+              {visible.length === 0 && <tr><td colSpan={10} className="px-5 py-10 text-center text-slate-400">Няма учители</td></tr>}
             </tbody>
           </table>
         </div>
         <p className="px-5 py-3 text-xs text-slate-500 border-t border-slate-100">
-          <b>Предложението</b> (зелено) = часовете му по разписанието (с 0,7 за часовете с „вземане“) минус нормата; поправя се с писане, „Разпредели“ го приема.
+          <b>УП</b> — учебен план (НЕИСПУО), <b>СР</b> — седмично разписание (жълто: не съвпада с УП), <b>ИЧ</b> — индивидуални часове с ИФО деца (по отделна заповед, не се смятат).{" "}
+          <b>Предложението</b> (зелено) = часовете към норматива по учебния план (терапиите по 0,7) минус нормата; ако няма учебен план — по разписанието. Поправя се с писане, „Разпредели“ го приема.
           Въвежда се едното: <b>на седмица</b> (напр. 2 или 2,5 — дробта е още един час за тази част от годината) — всеки час стига до края на годината на своята паралелка и годишният брой се смята сам; <b>или за годината</b> (напр. 100) — последният час спира на датата, в която се събира точният брой.
           Часовете, сложени или преместени на ръка в „График“, имат катинарче и остават при „Наново“ — разпределя се само остатъкът.
           Часовете се слагат случайно в разписанието — по един на ден, по реалните учебни дни от календара.
