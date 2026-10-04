@@ -212,10 +212,10 @@ export async function saveLecturerPlan(staffId: string, total: number, perWeek: 
   if (!m) return { error: 'Нямате права' }
   const { error } = await m.supabase.from('lecturer_plans').upsert({
     staff_id: staffId, academic_year_id: m.yearId, total_hours: Math.max(0, Math.round(total || 0)),
-    per_week: perWeek && perWeek > 0 ? Math.round(perWeek) : null,
+    per_week: perWeek && perWeek > 0 ? Math.round(perWeek * 100) / 100 : null,
     updated_by: m.me.id, updated_at: new Date().toISOString(),
   }, { onConflict: 'staff_id,academic_year_id' })
-  if (error) return { error: error.message.includes('per_week') ? 'Пуснете SQL файла 2026-10-04_class_end_dates.sql' : error.message.includes('lecturer_plans') ? 'Пуснете SQL файла 2026-10-04_lecturer_plans.sql' : error.message }
+  if (error) return { error: error.message.includes('per_week') || error.message.includes('smallint') ? 'Пуснете SQL файла 2026-10-04_lecturer_per_week_fraction.sql' : error.message.includes('lecturer_plans') ? 'Пуснете SQL файла 2026-10-04_lecturer_plans.sql' : error.message }
   return { success: true }
 }
 

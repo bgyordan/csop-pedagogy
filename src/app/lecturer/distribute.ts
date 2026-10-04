@@ -59,7 +59,8 @@ function shuffle<T>(a: T[], rnd: () => number): T[] {
 
 /**
  * total — годишен брой (последният час спира на точната дата);
- * perWeek — N часа седмично, всеки до края на годината на паралелката си (годишният брой излиза сам).
+ * perWeek — N часа седмично, всеки до края на годината на паралелката си (годишният брой излиза сам);
+ *           дробна част (2,5) — още един час, който върви само тази част от своите учебни дни.
  */
 export function planDistribution({ dates, total, perWeek, schedule, classEnd, defaultEnd, rnd = Math.random }: {
   dates: string[]; total?: number; perWeek?: number; schedule: SchedSlot[]; classEnd: Record<string, string>; defaultEnd: string; rnd?: () => number
@@ -76,7 +77,10 @@ export function planDistribution({ dates, total, perWeek, schedule, classEnd, de
   const used = new Set<string>()
   const out: PlannedSlot[] = []
   const weekly = !!perWeek && perWeek > 0
-  let rem = weekly ? perWeek! : (total || 0)
+  const whole = weekly ? Math.floor(perWeek! + 1e-9) : 0
+  const frac = weekly ? Math.round((perWeek! - whole) * 100) / 100 : 0
+  const need = whole + (frac > 0 ? 1 : 0)
+  let rem = weekly ? need : (total || 0)
   // кръгове: в първия — по един час на ден; следващите — само ако не стига
   while (rem > 0) {
     let added = false
@@ -89,7 +93,11 @@ export function planDistribution({ dates, total, perWeek, schedule, classEnd, de
       const pick = shuffle(free.filter(c => c.end === best), rnd)[0]
       used.add(`${pick.day}-${pick.period}`)
       const { end, occ, ...slot } = pick
-      if (weekly) { out.push({ ...slot, dateFrom: from, dateTo: end, hours: occ.length }); rem -= 1 }
+      if (weekly) {
+        if (rem > 1 || frac === 0) out.push({ ...slot, dateFrom: from, dateTo: end, hours: occ.length })
+        else { const h = Math.max(1, Math.round(frac * occ.length)); out.push({ ...slot, dateFrom: from, dateTo: occ[h - 1], hours: h }) }
+        rem -= 1
+      }
       else if (rem >= occ.length) { out.push({ ...slot, dateFrom: from, dateTo: end, hours: occ.length }); rem -= occ.length }
       else { out.push({ ...slot, dateFrom: from, dateTo: occ[rem - 1], hours: rem }); rem = 0 }
       added = true
@@ -97,7 +105,7 @@ export function planDistribution({ dates, total, perWeek, schedule, classEnd, de
     if (!added) break
   }
   const placed = out.reduce((a, s) => a + s.hours, 0)
-  const missing = weekly ? Math.max(0, perWeek! - out.length) : Math.max(0, (total || 0) - placed)
+  const missing = weekly ? Math.max(0, need - out.length) : Math.max(0, (total || 0) - placed)
   return { slots: out.sort((a, b) => a.day - b.day || a.period - b.period), placed, missing }
 }
 

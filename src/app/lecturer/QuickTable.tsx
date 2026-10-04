@@ -44,11 +44,13 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
   }, [marked, schoolDates])
 
   // въвежда се ЕДНОТО: часове на седмица ИЛИ годишен брой
-  const weekOf = (r: QTRow) => { const v = draft[r.id + ':w']; return v !== undefined ? (v === '' ? 0 : Number(v)) : (r.perWeek || 0) }
+  const num = (v: string) => { const n = Number(v.replace(',', '.')); return Number.isFinite(n) ? n : 0 }
+  const fmtW = (n: number | null | undefined) => n ? String(Number(n)).replace('.', ',') : ''
+  const weekOf = (r: QTRow) => { const v = draft[r.id + ':w']; return v !== undefined ? (v === '' ? 0 : num(v)) : Number(r.perWeek || 0) }
   const totalOf = (r: QTRow) => { const v = draft[r.id]; return v !== undefined ? (v === '' ? 0 : Number(v)) : (r.total || 0) }
   const wanted = (r: QTRow) => weekOf(r) > 0 || totalOf(r) > 0
   const isDone = (r: QTRow) => weekOf(r) > 0
-    ? slotCount[r.id] === weekOf(r) && (placed[r.id] || 0) === (r.total || 0) && !!r.distributedAt
+    ? slotCount[r.id] === Math.ceil(weekOf(r) - 1e-9) && (placed[r.id] || 0) === (r.total || 0) && !!r.distributedAt
     : totalOf(r) === (placed[r.id] || 0)
   const visible = rows.filter(r => smartMatch(`${r.name} ${r.classes.map(c => c.name).join(' ')}`, q) && (!onlyWith || wanted(r) || placed[r.id]))
   const sum = rows.reduce((a, r) => a + (weekOf(r) > 0 ? (r.total || 0) : totalOf(r)), 0)
@@ -71,8 +73,8 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
     const key = kind === 'w' ? r.id + ':w' : r.id
     const v = draft[key]
     if (v === undefined) return
-    const n = v === '' ? 0 : Math.max(0, Math.round(Number(v)))
-    const cur = kind === 'w' ? (r.perWeek || 0) : (r.total || 0)
+    const n = v === '' ? 0 : kind === 'w' ? Math.max(0, Math.round(num(v) * 100) / 100) : Math.max(0, Math.round(Number(v)))
+    const cur = kind === 'w' ? Number(r.perWeek || 0) : (r.total || 0)
     if (Number.isNaN(n) || n === cur) { clearDraft(key); return }
     const res: any = kind === 'w' ? await saveLecturerPlan(r.id, 0, n || null) : await saveLecturerPlan(r.id, n, null)
     if (res.error) { toast(res.error, 'error'); return }
@@ -90,7 +92,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
     if (res.error) { toast(`${r.name}: ${res.error}`, 'error'); return false }
     setRows(p => p.map(x => x.id === r.id ? { ...x, total: w > 0 ? res.placed : n, perWeek: w > 0 ? w : null, distributedAt: new Date().toISOString() } : x))
     clearDraft(r.id, r.id + ':w')
-    if (res.missing > 0) toast(w > 0 ? `${r.name}: в разписанието има само ${w - res.missing} подходящи часа` : `${r.name}: не стигат часовете в разписанието — липсват ${res.missing} ч.`, 'error')
+    if (res.missing > 0) toast(w > 0 ? `${r.name}: в разписанието няма достатъчно часове (липсват ${res.missing})` : `${r.name}: не стигат часовете в разписанието — липсват ${res.missing} ч.`, 'error')
     else if (!quiet) toast(`${r.name}: ${res.placed} ч. за годината в ${res.slots} слота`)
     return true
   }
@@ -181,10 +183,10 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                       ) : <span className="text-slate-300">няма разписание</span>}
                     </td>
                     <td className="px-3 py-2 text-center">
-                      <input inputMode="numeric" value={draft[r.id + ':w'] ?? (r.perWeek || '')}
-                        onChange={e => setDraft(d => ({ ...d, [r.id + ':w']: e.target.value.replace(/\D/g, '') }))}
+                      <input inputMode="decimal" value={draft[r.id + ':w'] ?? fmtW(r.perWeek)}
+                        onChange={e => setDraft(d => ({ ...d, [r.id + ':w']: e.target.value.replace(/[^\d.,]/g, '').replace(/([.,].*)[.,]/, '$1') }))}
                         onBlur={() => commit(r, 'w')} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                        placeholder="—" title="Часове на седмица — системата смята годишния брой"
+                        placeholder="—" title="Часове на седмица, може и дробно (2,5) — системата смята годишния брой"
                         className="w-14 text-center px-2 py-1.5 rounded-lg border border-slate-200 tabular-nums focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-50" />
                     </td>
                     <td className="px-3 py-2 text-center">
@@ -200,7 +202,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                     </td>
                     <td className="px-3 py-2 text-center tabular-nums">
                       {ok ? <span className="inline-flex items-center gap-1 text-emerald-700"><Check size={14} /> {p}</span>
-                        : off ? <span className="inline-flex items-center gap-1 text-amber-700" title="Различава се от въведеното"><AlertTriangle size={13} /> {w > 0 ? `${slotCount[r.id] || 0} от ${w}/седм.` : `${p} от ${t}`}</span>
+                        : off ? <span className="inline-flex items-center gap-1 text-amber-700" title="Различава се от въведеното"><AlertTriangle size={13} /> {w > 0 ? `${slotCount[r.id] || 0} от ${fmtW(w)}/седм.` : `${p} от ${t}`}</span>
                         : <span className="text-slate-300">—</span>}
                     </td>
                     <td className="px-3 py-2">
@@ -227,7 +229,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
           </table>
         </div>
         <p className="px-5 py-3 text-xs text-slate-500 border-t border-slate-100">
-          Въвежда се едното: <b>на седмица</b> (напр. 2) — всеки час стига до края на годината на своята паралелка и годишният брой се смята сам; <b>или за годината</b> (напр. 100) — последният час спира на датата, в която се събира точният брой.
+          Въвежда се едното: <b>на седмица</b> (напр. 2 или 2,5 — дробта е още един час за тази част от годината) — всеки час стига до края на годината на своята паралелка и годишният брой се смята сам; <b>или за годината</b> (напр. 100) — последният час спира на датата, в която се събира точният брой.
           Часовете се слагат случайно в разписанието — по един на ден, по реалните учебни дни от календара.
           Датата до паралелката е по класа на децата в училищата им (оранжева — няма въведен клас).
         </p>
