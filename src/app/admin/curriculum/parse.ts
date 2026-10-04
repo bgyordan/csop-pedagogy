@@ -5,6 +5,8 @@ export type RawLine = {
   holder: string; subject: string
   weeksT1: number; hoursT1: number; weeksT2: number; hoursT2: number
   total: number; students: number | null; teacher: string
+  /** индивидуален час (ИЧ) — часовете на ИФО дете, формално в паралелката */
+  individual: boolean
 }
 export type Ref = { id: string; name: string }
 export type NameMap = { kind: 'staff' | 'class' | 'coud'; source_name: string; target_id: string }[]
@@ -33,6 +35,7 @@ export function parseSheet(rows: any[][]): { lines: RawLine[]; error?: string } 
     students: col(x => x.includes('деца') || x.includes('ученици')),
     teacher: col(x => x.startsWith('преподавател')),
   }
+  const mode = h.findIndex(x => x.includes('начин'))   // „Начин на изучаване“ — само за отметката (ИЧ)
   const missing = Object.entries(c).filter(([, i]) => i < 0).map(([k]) => k)
   if (missing.length) return { lines: [], error: `Липсват колони: ${missing.join(', ')}` }
   const lines: RawLine[] = []
@@ -44,6 +47,7 @@ export function parseSheet(rows: any[][]): { lines: RawLine[]; error?: string } 
       weeksT1: num(r[c.w1]), hoursT1: num(r[c.h1]), weeksT2: num(r[c.w2]), hoursT2: num(r[c.h2]),
       total: num(r[c.total]), students: r[c.students] === '' || r[c.students] == null ? null : num(r[c.students]),
       teacher: String(r[c.teacher] ?? '').trim(),
+      individual: mode >= 0 && /\(\s*ИЧ\s*\)/i.test(String(r[mode] ?? '')),
     })
   }
   return { lines }
