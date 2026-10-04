@@ -1,7 +1,8 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { teacherYear, planDistribution, slotHours } from './distribute'
+import { planDistribution, slotHours, classEndsFrom, latestEnd } from './distribute'
+import type { Ends, Grp } from './distribute'
 
 // Разписанието на избран учител (за да маркираме слотове) — за избрания срок
 export async function getTeacherSchedule(staffId: string, term: number = 1) {
@@ -176,6 +177,25 @@ export async function yearSchoolDays() {
   return (data || []).map((d: any) => ({ date: d.date as string, term: d.term === 2 ? 2 : 1 }))
 }
 
+/** Последните учебни дни по групи класове (по МОН) и краят на всяка паралелка — по детето с най-дълъг срок */
+export async function getClassEnds(yearId: string) {
+  const supabase = await createClient()
+  const { data: e } = await supabase.from('school_year_ends').select('grp, end_date').eq('academic_year_id', yearId)
+  const ends: Ends = {}
+  ;(e || []).forEach((r: any) => { ends[r.grp as Grp] = r.end_date })
+  const rows: { className: string; externalClass: string | null }[] = []
+  for (let from = 0; ; from += 1000) {
+    const { data } = await supabase.from('student_enrollments')
+      .select('class:classes(name), student:students(external_class, status)')
+      .eq('academic_year_id', yearId).is('left_at', null).range(from, from + 999)
+    ;(data || []).forEach((r: any) => {
+      if (r.student?.status === 'active') rows.push({ className: r.class?.name || '', externalClass: r.student?.external_class || null })
+    })
+    if (!data || data.length < 1000) break
+  }
+  return { ends, classEnd: classEndsFrom(rows, ends), ready: !!e }
+}
+
 async function manager() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -186,37 +206,50 @@ async function manager() {
   return { supabase, me: me!, yearId: cy?.id as string }
 }
 
-/** Записва числото (и седмиците) без да разпределя */
-export async function saveLecturerPlan(staffId: string, total: number, term2Weeks: number) {
+/** Записва числото, без да разпределя */
+export async function saveLecturerPlan(staffId: string, total: number, perWeek: number | null = null) {
   const m = await manager()
   if (!m) return { error: 'Нямате права' }
   const { error } = await m.supabase.from('lecturer_plans').upsert({
-    staff_id: staffId, academic_year_id: m.yearId, total_hours: Math.max(0, Math.round(total || 0)), term2_weeks: term2Weeks,
+    staff_id: staffId, academic_year_id: m.yearId, total_hours: Math.max(0, Math.round(total || 0)),
+    per_week: perWeek && perWeek > 0 ? Math.round(perWeek) : null,
     updated_by: m.me.id, updated_at: new Date().toISOString(),
   }, { onConflict: 'staff_id,academic_year_id' })
-  if (error) return { error: error.message.includes('lecturer_plans') ? 'Пуснете SQL файла 2026-10-04_lecturer_plans.sql' : error.message }
+  if (error) return { error: error.message.includes('per_week') ? 'Пуснете SQL файла 2026-10-04_class_end_dates.sql' : error.message.includes('lecturer_plans') ? 'Пуснете SQL файла 2026-10-04_lecturer_plans.sql' : error.message }
+  return { success: true }
+}
+
+/** Записва последните учебни дни по групи класове */
+export async function saveYearEnds(ends: Ends) {
+  const m = await manager()
+  if (!m) return { error: 'Нямате права' }
+  const rows = (Object.entries(ends) as [Grp, string][]).filter(([, v]) => v).map(([grp, end_date]) => ({ academic_year_id: m.yearId, grp, end_date }))
+  const { error } = await m.supabase.from('school_year_ends').upsert(rows, { onConflict: 'academic_year_id,grp' })
+  if (error) return { error: error.message.includes('school_year_ends') ? 'Пуснете SQL файла 2026-10-04_class_end_dates.sql' : error.message }
+  revalidatePath('/lecturer')
   return { success: true }
 }
 
 /** Разпределя годишния брой в разписанието на учителя (заменя досегашните му лекторски) */
-export async function autoDistribute(staffId: string, total: number, term2Weeks: number) {
+export async function autoDistribute(staffId: string, total: number, perWeek: number | null = null) {
   const m = await manager()
   if (!m) return { error: 'Нямате права' }
-  const saved = await saveLecturerPlan(staffId, total, term2Weeks)
+  const saved = await saveLecturerPlan(staffId, total, perWeek)
   if ('error' in saved) return saved
 
-  const days = await yearSchoolDays()
-  const year = teacherYear(days, term2Weeks)
-  if (!year.dates.length) return { error: 'Няма въведен учебен календар за годината' }
-  if (!year.hasTerm2) return { error: 'В календара няма дни от II срок — първо го попълнете' }
+  const dates = (await yearSchoolDays()).map(d => d.date)
+  if (!dates.length) return { error: 'Няма въведен учебен календар за годината' }
+  const { ends, classEnd } = await getClassEnds(m.yearId)
+  const defaultEnd = latestEnd(ends)
+  if (!defaultEnd) return { error: 'Не са въведени последните учебни дни по класове (горе в таблицата)' }
 
   // разписанието: от I срок (обикновено е същото и за II); ако няма — от II срок
   let term = 1
   let { slots: sched } = await getTeacherSchedule(staffId, 1)
   if (!sched.length) { term = 2; sched = (await getTeacherSchedule(staffId, 2)).slots }
-  if (!sched.length) return { error: 'Учителят няма въведено разписание' }
+  if (!sched.some(s => s.holderType !== 'ifo')) return { error: 'Учителят няма въведено разписание' }
 
-  const plan = planDistribution({ dates: year.dates, total, term2Weeks, schedule: sched })
+  const plan = planDistribution({ dates, total, perWeek: perWeek || undefined, schedule: sched, classEnd, defaultEnd })
 
   await m.supabase.from('lecturer_slots').delete().eq('staff_id', staffId).eq('academic_year_id', m.yearId)
   if (plan.slots.length) {
@@ -228,7 +261,7 @@ export async function autoDistribute(staffId: string, total: number, term2Weeks:
     })))
     if (error) return { error: error.message }
   }
-  await m.supabase.from('lecturer_plans').update({ distributed_at: new Date().toISOString() })
+  await m.supabase.from('lecturer_plans').update({ distributed_at: new Date().toISOString(), ...(perWeek ? { total_hours: plan.placed } : {}) })
     .eq('staff_id', staffId).eq('academic_year_id', m.yearId)
   revalidatePath('/lecturer')
   return { success: true, placed: plan.placed, missing: plan.missing, slots: plan.slots.length }
