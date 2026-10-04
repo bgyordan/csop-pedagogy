@@ -4,7 +4,7 @@ import { googleOpenUrl } from '@/lib/drive-link'
 import { useEffect, useRef, useState } from 'react'
 import { DocViewer } from '@/components/registry/DocViewer'
 import {
-  Upload, FilePlus2, Loader2, X, ExternalLink, FolderOpen, Download, FileDown, Pencil, Trash2, Check, FileText, Share2,
+  Upload, FilePlus2, Loader2, X, FolderOpen, Download, FileDown, Pencil, Trash2, Check, FileText, Share2,
   Folder, FolderPlus, ChevronRight, ChevronDown, Copy, Eye } from 'lucide-react'
 import { listStudentDocs, createBlankDoc, renameDoc, trashDocs, listDocTemplates, createFromTemplate, listDocYears, copyFromYear } from './drive-actions'
 import { listClassDocs, createBlankClassDoc, renameClassDoc, trashClassDocs, createClassFolder, moveClassDoc } from '@/app/dashboard/components/class-drive-actions'
@@ -97,7 +97,6 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [dropOn, setDropOn] = useState<string | null>(null)
   const [newFolder, setNewFolder] = useState<string | null>(null)
-  const [folderUrl, setFolderUrl] = useState<string>()
   const [myEmail, setMyEmail] = useState<string>()
   const [canEdit, setCanEdit] = useState(false)
   // Преглед „само за четене“ в системата (без нужда от права в Drive)
@@ -121,7 +120,6 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
     if (r.error) setError(r.error)
     setFiles(r.files ?? [])
     setFolders(((r as any).folders ?? []) as Group[])
-    setFolderUrl(r.folderUrl)
     setMyEmail(r.myEmail)
     setCanEdit(!!r.canEdit)
     setSelected(new Set())
@@ -429,12 +427,6 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
             className={`ml-1 px-2 py-0.5 rounded-lg border text-xs focus:outline-none ${yr ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-slate-200 bg-white text-slate-600'}`}>
             {years.years.map(y => <option key={y} value={y}>{y}{y === years.current ? ' (текуща)' : ''}</option>)}
           </select>
-        )}
-        {folderUrl && (
-          <a href={withAccount(folderUrl, myEmail)} target="_blank" rel="noreferrer"
-             className="text-xs text-slate-400 hover:text-slate-600 inline-flex items-center gap-1 ml-1">
-            папката в Drive <ExternalLink size={11} />
-          </a>
         )}
         {myEmail && (
           <span className="text-[11px] text-slate-400" title="Ако Google покаже „Нямате достъп“ — изберете този акаунт">
