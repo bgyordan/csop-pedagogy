@@ -105,29 +105,28 @@ export default async function LecturerPage() {
     const sr = r1(cc.reduce((a, b) => a + b, 0)), srT = cc.filter(x => x < 1).length
     const norm = NORM[t.role] || 21
     const u = upOf[t.id]
-    // предложение: само от учебния план
-    let suggest = 0, suggestTotal = 0, load = sched, source: 'plan' | 'schedule' = 'schedule'
+    // предложение: само от учебния план, отделно за I и II срок
+    let suggest = 0, suggest2 = 0, load = sched, source: 'plan' | 'schedule' = 'schedule'
+    let W1 = 18, W2 = 18   // учебни седмици по срокове — за сметката „за годината“
     if (u) {
       source = 'plan'
-      const o1 = Math.max(0, r1(u.n1 - norm)), o2 = Math.max(0, r1(u.n2 - norm))
+      suggest = Math.max(0, r1(u.n1 - norm)); suggest2 = Math.max(0, r1(u.n2 - norm))
       load = r1(u.n1)
-      if (o1 === o2) suggest = o1
-      else {
-        // различно по срокове → годишен брой: I срок × седмиците му + II срок × седмиците му
-        const W1 = u.w1.length ? Math.max(...u.w1) : 18, W2 = u.w2.length ? Math.max(...u.w2) : 18
-        suggestTotal = Math.round(o1 * W1 + o2 * W2)
-      }
+      if (u.w1.length) W1 = Math.max(...u.w1)
+      if (u.w2.length) W2 = Math.max(...u.w2)
     }   // без учебен план — няма предложение (учебният план е единственият източник)
+    const pw1 = p?.per_week !== null && p?.per_week !== undefined ? Number(p.per_week) : null
+    const pw2 = p?.per_week_t2 !== null && p?.per_week_t2 !== undefined ? Number(p.per_week_t2) : pw1   // старо: един и същ за годината
     return {
       id: t.id, name: t.name, position: t.position,
-      load, norm, suggest, suggestTotal, source,
+      load, norm, suggest, suggest2, source, W1, W2,
       // и двете — редуцирани часове (терапиите по 0,7); в скоби — колко часа са по 0,7
       up1: u ? r1(u.n1) : null, up2: u ? r1(u.n2) : null, upT1: u ? r1(u.t1) : 0, upT2: u ? r1(u.t2) : 0,
       ich: u ? r1(u.ich1) : 0, sr, srT,
       load2: u ? r1(u.n2) : null,
       classes: cls.map(c => ({ name: c, end: classEnd[c] || '' })),
       total: p ? p.total_hours : null,
-      perWeek: p?.per_week || null,
+      perWeek: pw1, perWeek2: pw2,
       distributedAt: p?.distributed_at || null,
     }
   })

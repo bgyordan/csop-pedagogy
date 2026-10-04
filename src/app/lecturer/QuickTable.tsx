@@ -15,11 +15,13 @@ import type { Ends, Grp } from './distribute'
 export type QTRow = {
   id: string; name: string; position: string
   classes: { name: string; end: string }[]
-  total: number | null; perWeek?: number | null; distributedAt: string | null
-  /** часове към норматива (I срок; терапии = 0,7), норма и предложение = разликата */
-  load?: number; load2?: number | null; norm?: number; suggest?: number
-  /** предложение като годишен брой — когато I и II срок се различават */
-  suggestTotal?: number
+  total: number | null; distributedAt: string | null
+  /** записаните часове над норматива на седмица (I / II срок); null — по учебния план */
+  perWeek?: number | null; perWeek2?: number | null
+  /** норма и предложение от учебния план (I / II срок) = часовете по плана − нормата */
+  load?: number; load2?: number | null; norm?: number; suggest?: number; suggest2?: number
+  /** учебни седмици по срокове — за сметката „за годината“ */
+  W1?: number; W2?: number
   /** откъде е предложението: учебен план (НЕИСПУО) или разписание */
   source?: 'plan' | 'schedule'
   /** УП — часове седмично по учебния план без ИЧ (I / II срок); СР — по разписанието без ИФО; ИЧ — индивидуални часове */
@@ -47,35 +49,30 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
   const endsMissing = GROUPS.some(g => !ends[g.key])
 
   // разпределени часове по учител — точно по календара
-  const [placed, slotCount] = useMemo(() => {
+  const [placed] = useMemo(() => {
     const m: Record<string, number> = {}, c: Record<string, number> = {}
     marked.forEach(x => { m[x.staffId] = (m[x.staffId] || 0) + slotHours(schoolDates, x.day, x.dateFrom, x.dateTo, ends); c[x.staffId] = (c[x.staffId] || 0) + 1 })
     return [m, c]
   }, [marked, schoolDates, ends])
 
-  // въвежда се ЕДНОТО: часове на седмица ИЛИ годишен брой
   const num = (v: string) => { const n = Number(v.replace(',', '.')); return Number.isFinite(n) ? n : 0 }
   const fmtW = (n: number | null | undefined) => n ? String(Number(n)).replace('.', ',') : ''
-  // предложението важи, докато не е въведено нищо друго
-  const isSuggested = (r: QTRow) => draft[r.id + ':w'] === undefined && draft[r.id] === undefined && !Number(r.perWeek) && !(r.total || 0) && (r.suggest || 0) > 0
-  const weekOf = (r: QTRow) => {
-    const v = draft[r.id + ':w']
-    if (v !== undefined) return v === '' ? 0 : num(v)
-    if (Number(r.perWeek)) return Number(r.perWeek)
-    return isSuggested(r) ? (r.suggest || 0) : 0
+  const stored = (r: QTRow, k: 1 | 2) => { const v = k === 1 ? r.perWeek : r.perWeek2; return v === null || v === undefined ? null : Number(v) }
+  const sugg = (r: QTRow, k: 1 | 2) => (k === 1 ? r.suggest : r.suggest2) || 0
+  // предложението от учебния план важи, докато не е записано друго число
+  const isSug = (r: QTRow, k: 1 | 2) => draft[`${r.id}:${k}`] === undefined && stored(r, k) === null && sugg(r, k) > 0
+  const eff = (r: QTRow, k: 1 | 2) => {
+    const v = draft[`${r.id}:${k}`]
+    if (v !== undefined) return v === '' ? sugg(r, k) : num(v)
+    return stored(r, k) ?? sugg(r, k)
   }
-  const isSuggestedT = (r: QTRow) => draft[r.id + ':w'] === undefined && draft[r.id] === undefined && !Number(r.perWeek) && !(r.total || 0) && !(r.suggest || 0) && (r.suggestTotal || 0) > 0
-  const totalOf = (r: QTRow) => {
-    const v = draft[r.id]
-    if (v !== undefined) return v === '' ? 0 : Number(v)
-    return r.total || (isSuggestedT(r) ? (r.suggestTotal || 0) : 0)
-  }
-  const wanted = (r: QTRow) => weekOf(r) > 0 || totalOf(r) > 0
-  const isDone = (r: QTRow) => weekOf(r) > 0
-    ? slotCount[r.id] === Math.ceil(weekOf(r) - 1e-9) && (placed[r.id] || 0) === (r.total || 0) && !!r.distributedAt
-    : totalOf(r) === (placed[r.id] || 0)
+  const yearEst = (r: QTRow) => Math.round(eff(r, 1) * (r.W1 || 18) + eff(r, 2) * (r.W2 || 18))
+  const wanted = (r: QTRow) => eff(r, 1) > 0 || eff(r, 2) > 0
+  const isDone = (r: QTRow) => !!r.distributedAt && stored(r, 1) === eff(r, 1) && stored(r, 2) === eff(r, 2) && (placed[r.id] || 0) > 0
+  // записано число, което вече не съвпада с учебния план
+  const drift = (r: QTRow, k: 1 | 2) => r.source === 'plan' && stored(r, k) !== null && stored(r, k) !== sugg(r, k)
   const visible = rows.filter(r => smartMatch(`${r.name} ${r.classes.map(c => c.name).join(' ')}`, q) && (!onlyWith || wanted(r) || placed[r.id]))
-  const sum = rows.reduce((a, r) => a + (weekOf(r) > 0 ? (r.total || 0) : totalOf(r)), 0)
+  const sum = rows.reduce((a, r) => a + (isDone(r) ? (placed[r.id] || 0) : yearEst(r)), 0)
   const sumPlaced = Object.values(placed).reduce((a, b) => a + b, 0)
   const pending = rows.filter(r => wanted(r) && !isDone(r))
 
@@ -90,32 +87,34 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
 
   const clearDraft = (...keys: string[]) => setDraft(p => { const c = { ...p }; keys.forEach(k => delete c[k]); return c })
 
-  /** Записва въведеното поле; другото се нулира (въвежда се или седмично, или годишно) */
-  async function commit(r: QTRow, kind: 'w' | 'y') {
-    const key = kind === 'w' ? r.id + ':w' : r.id
+  /** Поправка на число (I или II срок). Празно = обратно към учебния план. */
+  async function commit(r: QTRow, k: 1 | 2) {
+    const key = `${r.id}:${k}`
     const v = draft[key]
     if (v === undefined) return
-    const n = v === '' ? 0 : kind === 'w' ? Math.max(0, Math.round(num(v) * 100) / 100) : Math.max(0, Math.round(Number(v)))
-    const cur = kind === 'w' ? Number(r.perWeek || 0) : (r.total || 0)
-    if (Number.isNaN(n) || n === cur) { clearDraft(key); return }
-    const res: any = kind === 'w' ? await saveLecturerPlan(r.id, 0, n || null) : await saveLecturerPlan(r.id, n, null)
+    const n = v === '' ? null : Math.max(0, Math.round(num(v) * 100) / 100)
+    if (n === stored(r, k)) { clearDraft(key); return }
+    let n1 = k === 1 ? n : stored(r, 1), n2 = k === 2 ? n : stored(r, 2)
+    // II срок следва I срок, ако по плана са еднакви и за II срок няма отделно число
+    if (k === 1 && stored(r, 2) === null && sugg(r, 1) === sugg(r, 2)) n2 = n
+    const res: any = await saveLecturerPlan(r.id, n1, n2, { reset: true })
     if (res.error) { toast(res.error, 'error'); return }
-    setRows(p => p.map(x => x.id !== r.id ? x : kind === 'w' ? { ...x, perWeek: n || null, total: 0, distributedAt: null } : { ...x, total: n, perWeek: null }))
-    clearDraft(r.id, r.id + ':w')
+    setRows(p => p.map(x => x.id !== r.id ? x : { ...x, perWeek: n1, perWeek2: n2, distributedAt: null }))
+    clearDraft(key)
   }
 
   async function distribute(r: QTRow, quiet = false) {
-    const w = weekOf(r), n = w > 0 ? 0 : totalOf(r)
-    if (w <= 0 && n <= 0) return false
+    const w1 = eff(r, 1), w2 = eff(r, 2)
+    if (w1 <= 0 && w2 <= 0) return false
     if (!quiet && placed[r.id] && !confirm(`${r.name}: да се разпределят ли наново? Часовете, сложени на ръка в „График“ (с катинарче), остават; останалите се слагат отначало.`)) return false
     setBusyId(r.id, true)
-    const res: any = await autoDistribute(r.id, n, w > 0 ? w : null)
+    const res: any = await autoDistribute(r.id, w1, w2)
     setBusyId(r.id, false)
     if (res.error) { toast(`${r.name}: ${res.error}`, 'error'); return false }
-    setRows(p => p.map(x => x.id === r.id ? { ...x, total: w > 0 ? res.placed : n, perWeek: w > 0 ? w : null, distributedAt: new Date().toISOString() } : x))
-    clearDraft(r.id, r.id + ':w')
-    if (res.missing > 0) toast(w > 0 ? `${r.name}: в разписанието няма достатъчно часове (липсват ${res.missing})` : `${r.name}: не стигат часовете в разписанието — липсват ${res.missing} ч.`, 'error')
-    else if (!quiet) toast(`${r.name}: ${res.placed} ч. за годината в ${res.slots} слота`)
+    setRows(p => p.map(x => x.id === r.id ? { ...x, perWeek: w1, perWeek2: w2, total: res.placed, distributedAt: new Date().toISOString() } : x))
+    clearDraft(`${r.id}:1`, `${r.id}:2`)
+    if (res.missing > 0) toast(`${r.name}: в разписанието няма достатъчно часове (липсват ${res.missing})`, 'error')
+    else if (!quiet) toast(`${r.name}: ${res.placed} ч. за годината`)
     return true
   }
 
@@ -158,7 +157,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
             <input type="checkbox" checked={onlyWith} onChange={e => setOnlyWith(e.target.checked)} className="rounded" /> само с лекторски
           </label>
           <div className="ml-auto flex items-center gap-4">
-            <span className="text-sm text-slate-500">въведени <b className="text-slate-800 tabular-nums">{sum}</b> · разпределени <b className="text-slate-800 tabular-nums">{sumPlaced}</b> ч.</span>
+            <span className="text-sm text-slate-500">за годината ≈ <b className="text-slate-800 tabular-nums">{sum}</b> · разпределени <b className="text-slate-800 tabular-nums">{sumPlaced}</b> ч.</span>
             <button onClick={distributeAll} disabled={!pending.length || busy.size > 0 || endsMissing}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm disabled:opacity-40 hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
               {busy.size > 0 ? <Loader2 size={15} className="animate-spin" /> : <Wand2 size={15} />} Разпредели{pending.length ? ` (${pending.length})` : ''}
@@ -175,7 +174,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                 <th rowSpan={2} className="px-3 py-2 font-medium text-left align-bottom border-b border-slate-200">Паралелки<div className="font-normal text-slate-400">до кога учат</div></th>
                 <th colSpan={3} className="px-2 py-2 font-medium text-center border-b border-slate-100 bg-slate-50/80">Часове на седмица<div className="font-normal text-slate-400">терапиите — по 0,7 · в скоби: колко часа са по 0,7</div></th>
                 <th rowSpan={2} className="px-2 py-2 font-medium text-center align-bottom border-b border-slate-200 w-16">Норма</th>
-                <th colSpan={2} className="px-2 py-2 font-medium text-center border-b border-slate-100 bg-teal-50/70 text-teal-800">Лекторски над норматива</th>
+                <th colSpan={3} className="px-2 py-2 font-medium text-center border-b border-slate-100 bg-teal-50/70 text-teal-800">Лекторски над норматива<div className="font-normal text-teal-700/80">часове на седмица · от учебния план</div></th>
                 <th rowSpan={2} className="px-2 py-2 font-medium text-center align-bottom border-b border-slate-200 w-32">Разпределени</th>
                 <th rowSpan={2} className="border-b border-slate-200 w-48" />
               </tr>
@@ -183,14 +182,13 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                 <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-slate-50/80 w-24" title="Учебен план от НЕИСПУО, без индивидуалните часове">по учебен план</th>
                 <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-slate-50/80 w-24" title="Седмичното разписание в EIS, без ИФО">по разписание</th>
                 <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-slate-50/80 w-20" title="Индивидуални часове с ИФО деца — по отделна заповед, не се смятат тук">индивид. (ИЧ)</th>
-                <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-teal-50/70 text-teal-800 w-24">на седмица</th>
-                <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-teal-50/70 text-teal-800 w-24">или за годината</th>
+                <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-teal-50/70 text-teal-800 w-20">I срок</th>
+                <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-teal-50/70 text-teal-800 w-20">II срок</th>
+                <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-teal-50/70 text-teal-800 w-20">за годината</th>
               </tr>
             </thead>
             <tbody>
               {visible.map(r => {
-                const w = weekOf(r)
-                const t = w > 0 ? (r.total || 0) : totalOf(r)
                 const p = placed[r.id] || 0
                 const ok = wanted(r) && isDone(r)
                 const off = (wanted(r) || p > 0) && !ok
@@ -230,30 +228,31 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                         <td className="px-2 py-2 text-center tabular-nums text-[13px] text-slate-500">{r.norm}</td>
                       </>)
                     })()}
-                    <td className="px-3 py-2 text-center">
-                      <input inputMode="decimal" value={draft[r.id + ':w'] ?? fmtW(r.perWeek)}
-                        onChange={e => setDraft(d => ({ ...d, [r.id + ':w']: e.target.value.replace(/[^\d.,]/g, '').replace(/([.,].*)[.,]/, '$1') }))}
-                        onBlur={() => commit(r, 'w')} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                        placeholder={isSuggested(r) ? fmtW(r.suggest) : '—'} title={isSuggested(r) ? `Предложение: ${fmtW(r.up1 ?? r.load)} − ${r.norm} = ${fmtW(r.suggest)}. Може да се поправи.` : 'Часове над норматива на седмица, може и дробно (2,5)'}
-                        className={`w-16 text-center px-2 py-1.5 rounded-lg border tabular-nums focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-50 ${isSuggested(r) ? 'border-teal-300 bg-teal-50/60 placeholder:text-teal-700' : 'border-slate-200'}`} />
-                      {isSuggested(r) && <div className="text-[10px] text-teal-700 mt-0.5">предложение</div>}
+                    <td className="px-2 py-2 text-center">
+                      <input inputMode="decimal" value={draft[`${r.id}:1`] ?? (stored(r, 1) !== null ? fmtW(stored(r, 1)) || '0' : '')}
+                        onChange={e => setDraft(d => ({ ...d, [`${r.id}:1`]: e.target.value.replace(/[^\d.,]/g, '').replace(/([.,].*)[.,]/, '$1') }))}
+                        onBlur={() => commit(r, 1)} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                        placeholder={isSug(r, 1) ? fmtW(sugg(r, 1)) : '—'}
+                        title={isSug(r, 1) ? `От учебния план: ${fmtW(r.up1)} − ${r.norm} = ${fmtW(sugg(r, 1))}. Поправя се с писане; празно — обратно към плана.` : 'Часове над норматива на седмица; празно — обратно към учебния план'}
+                        className={`w-16 text-center px-2 py-1.5 rounded-lg border tabular-nums focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-50 ${isSug(r, 1) ? 'border-teal-300 bg-teal-50/60 placeholder:text-teal-700' : 'border-slate-200'}`} />
+                      {drift(r, 1) && <div className="text-[10px] text-amber-700 mt-0.5" title="Записаното число не съвпада с учебния план">по план: {fmtW(sugg(r, 1)) || '0'}</div>}
                     </td>
-                    <td className="px-3 py-2 text-center">
-                      {w > 0 && !isSuggested(r) ? (
-                        <span className="text-slate-500 tabular-nums" title="Смята се от часовете на седмица по календара">{r.distributedAt && r.total ? `= ${r.total}` : 'след разпределяне'}</span>
-                      ) : (
-                        <input inputMode="numeric" value={draft[r.id] ?? (r.total || '')}
-                          onChange={e => setDraft(d => ({ ...d, [r.id]: e.target.value.replace(/\D/g, '') }))}
-                          onBlur={() => commit(r, 'y')} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                          placeholder={isSuggestedT(r) ? String(r.suggestTotal) : '—'} title={isSuggestedT(r) ? `Предложение: над норматива е различно по срокове (${fmtW(r.load)} / ${fmtW(r.load2)} към норма ${r.norm}) → ${r.suggestTotal} ч. за годината` : 'Годишен брой — последният час спира на точната дата'}
-                          className={`w-20 text-center px-2 py-1.5 rounded-lg border tabular-nums focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-50 ${isSuggestedT(r) ? 'border-teal-300 bg-teal-50/60 placeholder:text-teal-700' : 'border-slate-200'}`} />
-                      )}{isSuggestedT(r) && (<div className="text-[10px] text-teal-700 mt-0.5">предложение</div>
-                      )}
+                    <td className="px-2 py-2 text-center">
+                      <input inputMode="decimal" value={draft[`${r.id}:2`] ?? (stored(r, 2) !== null ? fmtW(stored(r, 2)) || '0' : '')}
+                        onChange={e => setDraft(d => ({ ...d, [`${r.id}:2`]: e.target.value.replace(/[^\d.,]/g, '').replace(/([.,].*)[.,]/, '$1') }))}
+                        onBlur={() => commit(r, 2)} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                        placeholder={isSug(r, 2) ? fmtW(sugg(r, 2)) : '—'}
+                        title={isSug(r, 2) ? `От учебния план: ${fmtW(r.up2)} − ${r.norm} = ${fmtW(sugg(r, 2))}. Поправя се с писане; празно — обратно към плана.` : 'Часове над норматива на седмица; празно — обратно към учебния план'}
+                        className={`w-16 text-center px-2 py-1.5 rounded-lg border tabular-nums focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-50 ${isSug(r, 2) ? 'border-teal-300 bg-teal-50/60 placeholder:text-teal-700' : 'border-slate-200'}`} />
+                      {drift(r, 2) && <div className="text-[10px] text-amber-700 mt-0.5" title="Записаното число не съвпада с учебния план">по план: {fmtW(sugg(r, 2)) || '0'}</div>}
+                    </td>
+                    <td className="px-2 py-2 text-center tabular-nums text-[13px]" title={isDone(r) ? 'Разпределени часове за годината' : 'Приблизително: I срок × седмиците му + II срок × седмиците му'}>
+                      {isDone(r) ? <span className="text-slate-800">{p}</span> : wanted(r) ? <span className="text-slate-500">≈ {yearEst(r)}</span> : <span className="text-slate-300">—</span>}
                     </td>
                     <td className="px-3 py-2 text-center tabular-nums">
                       {ok ? <span className="inline-flex items-center gap-1 text-emerald-700"><Check size={14} /> {p}</span>
                         : off && p === 0 ? <span className="text-slate-400 text-[13px]">още не</span>
-                        : off ? <span className="inline-flex items-center gap-1 text-amber-700" title="Различава се от въведеното"><AlertTriangle size={13} /> {w > 0 ? `${slotCount[r.id] || 0} от ${fmtW(w)}/седм.` : `${p} от ${t}`}</span>
+                        : off ? <span className="inline-flex items-center gap-1 text-amber-700 text-[13px]" title="Числата са сменени след последното разпределяне"><AlertTriangle size={13} /> {p} — за наново</span>
                         : <span className="text-slate-300">—</span>}
                     </td>
                     <td className="px-3 py-2">
@@ -275,7 +274,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                   </tr>
                 )
               })}
-              {visible.length === 0 && <tr><td colSpan={9} className="px-5 py-10 text-center text-slate-400">Няма учители</td></tr>}
+              {visible.length === 0 && <tr><td colSpan={10} className="px-5 py-10 text-center text-slate-400">Няма учители</td></tr>}
             </tbody>
           </table>
         </div>
