@@ -484,7 +484,8 @@ export async function getSubstitutionHoursByStaff(first: string, last: string) {
     .from('substitutions')
     .select('id, absent_staff_id, substitute_staff_id, date_from, date_to, bsch_eligible, kt_article, over_norm')
     .lte('date_from', last).gte('date_to', first)
-  const out: Record<string, { np: number; budget: number }> = {}
+  // by = по отсъстващ: кого е замествал и колко часа (НП / бюджет)
+  const out: Record<string, { np: number; budget: number; by: Record<string, { np: number; budget: number }> }> = {}
   if (!subs || subs.length === 0) return { data: out }
 
   const assignMap = await assignmentsBySub(supabase, subs.map((x: any) => x.id))
@@ -504,8 +505,9 @@ export async function getSubstitutionHoursByStaff(first: string, last: string) {
         if (h === 0) continue
         const isNp = npSet === null ? true : npSet.has(w.iso)
         if (!isNp && sub.over_norm === false) continue   // вътрешно — не се плаща
-        const o = (out[staffId] = out[staffId] || { np: 0, budget: 0 })
-        if (isNp) o.np += h; else o.budget += h
+        const o = (out[staffId] = out[staffId] || { np: 0, budget: 0, by: {} })
+        const b = (o.by[sub.absent_staff_id] = o.by[sub.absent_staff_id] || { np: 0, budget: 0 })
+        if (isNp) { o.np += h; b.np += h } else { o.budget += h; b.budget += h }
       }
     }
   }
