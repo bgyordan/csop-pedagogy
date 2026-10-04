@@ -4,6 +4,7 @@ import { BackButton } from '@/components/ui/BackButton'
 import { GraduationCap } from 'lucide-react'
 import { getFullName } from '@/lib/utils'
 import LecturerClient from './LecturerClient'
+import OrderButton from './OrderButton'
 export const dynamic = 'force-dynamic'
 
 export default async function LecturerPage() {
@@ -49,8 +50,9 @@ export default async function LecturerPage() {
         </div>
         <div>
           <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">Лекторски над норматива</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Определяне на часове над норматива и обща заповед</p>
+          <p className="text-sm text-slate-500 mt-0.5">Определяне на часове над норматива и заповед</p>
         </div>
+        <OrderButton />
       </header>
       <LecturerClient
         academicYearId={currentYear?.id || ''}

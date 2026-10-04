@@ -1,9 +1,8 @@
 'use client'
 import { useState, useMemo, useEffect } from 'react'
-import { Loader2, Check, Save, Search, Plus, X, Trash2, FileDown, UserRound } from 'lucide-react'
+import { Loader2, Check, Save, Search, Plus, X, Trash2, UserRound } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { getTeacherSchedule, saveLecturerSlots, clearLecturerSlots, schoolWeeks, getLecturerFrameworkData, removeLecturerSlot } from './actions'
-import { generateLecturerFrameworkOrder } from '@/lib/docx-substitution'
+import { getTeacherSchedule, saveLecturerSlots, clearLecturerSlots, schoolWeeks, removeLecturerSlot } from './actions'
 
 type Teacher = { id: string; name: string }
 type Marked = { id: string; staffId: string; staffName: string; day: number; period: number; subject: string; holderLabel: string; dateFrom: string; dateTo: string; orderNumber: string; term: number }
@@ -109,16 +108,6 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
     setSaving(false)
   }
 
-  const [genning, setGenning] = useState(false)
-  async function downloadOrder() {
-    setGenning(true)
-    const res: any = await getLecturerFrameworkData()
-    if (res.error) { toast(res.error, 'error'); setGenning(false); return }
-    try { await generateLecturerFrameworkOrder(res.data); toast('Заповедта е изтеглена') }
-    catch (e) { toast('Грешка при генериране', 'error') }
-    setGenning(false)
-  }
-
   async function removeTeacher(id: string) {
     if (!confirm('Изтрий лекторските на този учител?')) return
     await clearLecturerSlots(id)
@@ -207,16 +196,10 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
             <h3 className="text-sm font-medium text-slate-800">Определени лекторски</h3>
             <span className="text-xs text-slate-500">общо <span className="font-medium text-slate-800">{grandTotal}</span> ч.</span>
           </div>
-          <div className="flex gap-2">
-            <button onClick={closeTeacher}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs text-teal-800 bg-teal-50 border border-teal-200 hover:bg-teal-100">
-              <Plus size={13} /> Учител
-            </button>
-            <button onClick={downloadOrder} disabled={genning || byTeacher.length === 0}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-white text-xs hover:opacity-90 disabled:opacity-40" style={{ backgroundColor: '#0f2240' }}>
-              {genning ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />} Обща заповед
-            </button>
-          </div>
+          <button onClick={closeTeacher}
+            className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs text-teal-800 bg-teal-50 border border-teal-200 hover:bg-teal-100">
+            <Plus size={13} /> Учител
+          </button>
         </div>
 
         {byTeacher.length === 0 ? (
