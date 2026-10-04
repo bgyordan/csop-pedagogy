@@ -172,12 +172,14 @@ export async function copyMyScheduleFromTerm1(academicYearId: string, targetStaf
 // Проверка за колизия на ПАРАЛЕЛКА-ниво: в дадена паралелка, ден, час —
 // има ли вече зает слот (от друг учител)? Връща името на предмета/учителя ако да.
 export async function checkClassCollision(
-  classId: string, academicYearId: string, term: number, day: number, period: number
+  classId: string, academicYearId: string, term: number, day: number, period: number, targetStaffId?: string
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { busy: false }
-  const { data: me } = await supabase.from('staff_profiles').select('id').eq('user_id', user.id).single()
+  const { data: me0 } = await supabase.from('staff_profiles').select('id, role').eq('user_id', user.id).single()
+  // в режим „управа редактира чуждо разписание“ — „моите“ часове са на избрания учител, не на управата
+  const me = { id: (targetStaffId && ['admin', 'zdud'].includes(me0?.role || '')) ? targetStaffId : me0?.id }
   const { data: sched } = await supabase
     .from('class_schedules').select('id')
     .eq('class_id', classId).eq('academic_year_id', academicYearId).eq('term', term).maybeSingle()

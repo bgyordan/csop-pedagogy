@@ -77,7 +77,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
   async function checkCollisionFor(day: number, period: number, holderType: 'class' | 'ifo', holderId: string) {
     const key = `${day}-${period}`
     if (holderType === 'class') {
-      const res: any = await checkClassCollision(holderId, academicYearId, term, day, period)
+      const res: any = await checkClassCollision(holderId, academicYearId, term, day, period, targetStaffId)
       if (res.busy) { setCollisions(prev => ({ ...prev, [key]: `${clsName(holderId)}: заета от ${res.by}${res.subject ? ' (' + res.subject + ')' : ''}` })); return }
     } else {
       const res: any = await checkIfoCollision(holderId, academicYearId, term, day, period, targetStaffId)
