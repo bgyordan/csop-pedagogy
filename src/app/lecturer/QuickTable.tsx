@@ -28,6 +28,8 @@ export type QTRow = {
   up1?: number | null; up2?: number | null; sr?: number; ich?: number
   /** колко от часовете са по 0,7 (терапии) — в учебния план (I / II срок) и в разписанието */
   upT1?: number; upT2?: number; srT?: number
+  /** ИЧ в редуцирани часове — за сравнението с разписанието (то включва ИФО) */
+  ichN?: number
 }
 export type QTMarked = { staffId: string; day: number; dateFrom: string; dateTo: string }
 
@@ -73,7 +75,9 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
   // записано число, което вече не съвпада с учебния план
   const drift = (r: QTRow, k: 1 | 2) => r.source === 'plan' && stored(r, k) !== null && stored(r, k) !== sugg(r, k)
   // разписанието не съвпада с учебния план (часовете — и двете редуцирани)
-  const hasDiff = (r: QTRow) => r.up1 !== null && r.up1 !== undefined && Math.round(((r.sr || 0) - (r.up1 || 0)) * 10) !== 0
+  // разписанието (паралелки + ИФО) се сравнява с плана + ИЧ
+  const planAll = (r: QTRow) => (r.up1 || 0) + (r.ichN || 0)
+  const hasDiff = (r: QTRow) => r.up1 !== null && r.up1 !== undefined && Math.round(((r.sr || 0) - planAll(r)) * 10) !== 0
   const diffCount = rows.filter(hasDiff).length
   const visible = rows.filter(r => smartMatch(`${r.name} ${r.classes.map(c => c.name).join(' ')}`, q)
     && (!onlyWith || wanted(r) || placed[r.id]) && (!onlyDiff || hasDiff(r)))
@@ -188,7 +192,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
               </tr>
               <tr className="text-[11px] text-slate-500">
                 <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-slate-50/80 w-24" title="Учебен план от НЕИСПУО, без индивидуалните часове">по учебен план</th>
-                <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-slate-50/80 w-24" title="Седмичното разписание в EIS, без ИФО">по разписание</th>
+                <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-slate-50/80 w-24" title="Седмичното разписание в EIS — паралелки и ИФО; сравнява се с учебния план + ИЧ">по разписание</th>
                 <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-slate-50/80 w-20" title="Индивидуални часове с ИФО деца — по отделна заповед, не се смятат тук">индивид. (ИЧ)</th>
                 <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-teal-50/70 text-teal-800 w-20">I срок</th>
                 <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-teal-50/70 text-teal-800 w-20">II срок</th>
@@ -222,14 +226,15 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                     {(() => {
                       const hasUp = r.up1 !== null && r.up1 !== undefined
                       const t = (n?: number) => n ? <span className="text-slate-400"> ({fmtW(n)})</span> : null
-                      const diff = hasUp ? Math.round(((r.sr || 0) - (r.up1 || 0)) * 10) / 10 : 0
+                      const diff = hasUp ? Math.round(((r.sr || 0) - planAll(r)) * 10) / 10 : 0
+                      const ichNote = r.ichN ? ` (план ${fmtW(r.up1)} + ИЧ ${fmtW(r.ichN)})` : ''
                       return (<>
                         <td className="px-2 py-2 text-center tabular-nums text-[13px] text-slate-800 whitespace-nowrap">
                           {hasUp ? <>{fmtW(r.up1) || '0'}{t(r.upT1)}{r.up2 !== r.up1 && <div className="text-[11px] text-slate-500">II срок: {fmtW(r.up2)}{t(r.upT2)}</div>}</>
                             : <span className="text-slate-400 text-[12px]" title="Учителят не е свързан с учебния план (вж. Учебни планове)">няма уч. план</span>}
                         </td>
                         <td className={`px-2 py-2 text-center tabular-nums text-[13px] whitespace-nowrap ${hasUp && diff !== 0 ? 'text-amber-700' : 'text-slate-600'}`}
-                          title={hasUp && diff !== 0 ? (diff < 0 ? `Разписанието е с ${fmtW(-diff)} ч. по-малко от учебния план — да се провери` : `Разписанието е с ${fmtW(diff)} ч. повече от учебния план — да се провери`) : undefined}>
+                          title={hasUp && diff !== 0 ? (diff < 0 ? `Разписанието е с ${fmtW(-diff)} ч. по-малко от учебния план${ichNote} — да се провери` : `Разписанието е с ${fmtW(diff)} ч. повече от учебния план${ichNote} — да се провери`) : (r.ichN ? `Включва ИФО часовете = ИЧ ${fmtW(r.ichN)} по плана` : undefined)}>
                           {r.sr ? <>{fmtW(r.sr)}{t(r.srT)}</> : <span className="text-slate-300">—</span>}{hasUp && diff !== 0 && <AlertTriangle size={11} className="inline ml-1 -mt-0.5" />}
                         </td>
                         <td className="px-2 py-2 text-center tabular-nums text-[13px] text-violet-700">{r.ich ? fmtW(r.ich) : <span className="text-slate-300">—</span>}</td>
@@ -287,7 +292,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
           </table>
         </div>
         <div className="px-5 py-3 text-xs text-slate-500 border-t border-slate-100 space-y-1">
-          <p><b className="text-slate-700">Как се чете:</b> „Часове на седмица“ — по учебния план от НЕИСПУО и по разписанието в EIS, и двете с терапиите по 0,7 (в скоби — колко часа са по 0,7). Оранжево — разписанието не съвпада с плана и трябва да се провери. ИЧ са по отделна заповед и не се смятат.</p>
+          <p><b className="text-slate-700">Как се чете:</b> „Часове на седмица“ — по учебния план от НЕИСПУО и по разписанието в EIS (паралелки + ИФО), и двете с терапиите по 0,7 (в скоби — колко часа са по 0,7). Оранжево — разписанието не съвпада с плана + ИЧ и трябва да се провери. ИЧ са по отделна заповед и не влизат в лекторските.</p>
           <p><b className="text-slate-700">Лекторски</b> = часовете по учебния план − нормата; предлагат се в зелено и се поправят с писане. Учител без учебен план няма предложение.</p>
           <p><b className="text-slate-700">„Разпредели“</b> слага лекторските в разписанието — по един на ден, всеки до края на годината на паралелката си (датата до паралелката). Часовете, преместени на ръка в „График“, имат катинарче и остават.</p>
         </div>
