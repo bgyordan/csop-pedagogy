@@ -100,6 +100,12 @@ export function planDistribution({ dates, total, perWeek, schedule, classEnd, de
   while (rem > 0) {
     let added = false
     const days = shuffle(Array.from(new Set(cells.map(c => c.day))), rnd)
+    // при годишен брой — първо дните с паралелка с най-дълга година (пълният час да е при нея);
+    // между равните — случайно (sort е стабилен след разбъркването)
+    if (!weekly) {
+      const dayEnd = (d: number) => cells.filter(c => c.day === d && !used.has(`${c.day}-${c.period}`)).reduce((a, c) => c.end > a ? c.end : a, '')
+      days.sort((a, b) => dayEnd(b).localeCompare(dayEnd(a)))
+    }
     // в първия кръг — първо дните без ръчен час (по един час на ден)
     const order = round === 0 ? [...days.filter(d => !busyDays.has(d)), ...days.filter(d => busyDays.has(d))] : days
     round++
