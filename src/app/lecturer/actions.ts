@@ -207,16 +207,20 @@ async function manager() {
   return { supabase, me: me!, yearId: cy?.id as string }
 }
 
-/** Записва числото, без да разпределя */
-export async function saveLecturerPlan(staffId: string, total: number, perWeek: number | null = null) {
+/** Записва часовете над норматива на седмица за I и II срок (без да разпределя); null = по учебния план */
+export async function saveLecturerPlan(staffId: string, w1: number | null, w2: number | null, opts: { total?: number; reset?: boolean } = {}) {
   const m = await manager()
   if (!m) return { error: 'Нямате права' }
+  const r2 = (x: number | null) => x === null || x === undefined || Number.isNaN(x) ? null : Math.max(0, Math.round(x * 100) / 100)
   const { error } = await m.supabase.from('lecturer_plans').upsert({
-    staff_id: staffId, academic_year_id: m.yearId, total_hours: Math.max(0, Math.round(total || 0)),
-    per_week: perWeek && perWeek > 0 ? Math.round(perWeek * 100) / 100 : null,
+    staff_id: staffId, academic_year_id: m.yearId, per_week: r2(w1), per_week_t2: r2(w2),
+    ...(opts.total !== undefined ? { total_hours: Math.max(0, Math.round(opts.total)) } : {}),
+    ...(opts.reset ? { distributed_at: null } : {}),   // числото е сменено → трябва ново разпределяне
     updated_by: m.me.id, updated_at: new Date().toISOString(),
   }, { onConflict: 'staff_id,academic_year_id' })
-  if (error) return { error: error.message.includes('per_week') || error.message.includes('smallint') ? 'Пуснете SQL файла 2026-10-04_lecturer_per_week_fraction.sql' : error.message.includes('lecturer_plans') ? 'Пуснете SQL файла 2026-10-04_lecturer_plans.sql' : error.message }
+  if (error) return { error: error.message.includes('per_week_t2') ? 'Пуснете SQL файла 2026-10-04_lecturer_per_term.sql'
+    : error.message.includes('per_week') || error.message.includes('smallint') ? 'Пуснете SQL файла 2026-10-04_lecturer_per_week_fraction.sql'
+    : error.message.includes('lecturer_plans') ? 'Пуснете SQL файла 2026-10-04_lecturer_plans.sql' : error.message }
   return { success: true }
 }
 
@@ -231,24 +235,32 @@ export async function saveYearEnds(ends: Ends) {
   return { success: true }
 }
 
-/** Разпределя годишния брой в разписанието на учителя (заменя досегашните му лекторски) */
-export async function autoDistribute(staffId: string, total: number, perWeek: number | null = null) {
+/**
+ * Разпределя лекторските в разписанието на учителя (заменя автоматичните; ръчните с катинарче остават).
+ * w1 / w2 — часове над норматива на седмица за I / II срок.
+ *  • еднакви → часовете вървят цялата година (до края на годината на паралелката);
+ *  • различни → I срок до края на I срок, II срок от началото на II срок до края на паралелката.
+ */
+export async function autoDistribute(staffId: string, w1: number, w2: number) {
   const m = await manager()
   if (!m) return { error: 'Нямате права' }
-  const saved = await saveLecturerPlan(staffId, total, perWeek)
+  const saved = await saveLecturerPlan(staffId, w1, w2)
   if ('error' in saved) return saved
 
-  const dates = (await yearSchoolDays()).map(d => d.date)
+  const days = await yearSchoolDays()
+  const dates = days.map(d => d.date)
   if (!dates.length) return { error: 'Няма въведен учебен календар за годината' }
+  const t1 = days.filter(d => d.term !== 2).map(d => d.date), t2 = days.filter(d => d.term === 2).map(d => d.date)
   const { ends, classEnd } = await getClassEnds(m.yearId)
   const defaultEnd = latestEnd(ends)
   if (!defaultEnd) return { error: 'Не са въведени последните учебни дни по класове (горе в таблицата)' }
 
-  // разписанието: от I срок (обикновено е същото и за II); ако няма — от II срок
-  let term = 1
-  let { slots: sched } = await getTeacherSchedule(staffId, 1)
-  if (!sched.length) { term = 2; sched = (await getTeacherSchedule(staffId, 2)).slots }
-  if (!sched.some(s => s.holderType !== 'ifo')) return { error: 'Учителят няма въведено разписание' }
+  // разписанието: от I срок; за II срок — неговото, ако е въведено, иначе пак от I срок
+  const s1 = (await getTeacherSchedule(staffId, 1)).slots
+  const s2own = (await getTeacherSchedule(staffId, 2)).slots
+  const sched1 = s1.length ? s1 : s2own, term1 = s1.length ? 1 : 2
+  const sched2 = s2own.some(s => s.holderType !== 'ifo') ? s2own : sched1, term2 = s2own.some(s => s.holderType !== 'ifo') ? 2 : term1
+  if (!sched1.some(s => s.holderType !== 'ifo')) return { error: 'Учителят няма въведено разписание' }
 
   // ръчно сложените часове остават; разпределя се само остатъкът
   const { data: man, error: manErr } = await m.supabase.from('lecturer_slots').select('day, period, date_from, date_to')
@@ -256,26 +268,53 @@ export async function autoDistribute(staffId: string, total: number, perWeek: nu
   if (manErr) return { error: manErr.message.includes('is_manual') ? 'Пуснете SQL файла 2026-10-04_lecturer_manual.sql' : manErr.message }
   const manual = man || []
   const manualHours = manual.reduce((a: number, x: any) => a + slotHours(dates, x.day, x.date_from, x.date_to, ends), 0)
-  const restWeek = perWeek ? Math.max(0, Math.round((perWeek - manual.length) * 100) / 100) : 0
-  const restTotal = perWeek ? 0 : Math.max(0, total - manualHours)
+  const t2start = t2[0] || '9999-12-31'
+  const inT1 = manual.filter((x: any) => x.date_from < t2start).length
+  const inT2 = manual.filter((x: any) => x.date_to >= t2start).length
+  const rest = (w: number, n: number) => Math.max(0, Math.round((w - n) * 100) / 100)
 
-  const plan = (perWeek ? restWeek : restTotal) > 0
-    ? planDistribution({ dates, total: restTotal, perWeek: restWeek || undefined, schedule: sched, classEnd, defaultEnd, ends, taken: manual })
-    : { slots: [], placed: 0, missing: 0 }
+  type Row = { day: number; period: number; subjectId: string | null; holderType: string; holderLabel: string; dateFrom: string; dateTo: string; hours: number; term: number }
+  const out: Row[] = []
+  let missing = 0
+  if (w1 === w2) {
+    // цялата година
+    const r = rest(w1, Math.max(inT1, inT2))
+    if (r > 0) {
+      const p = planDistribution({ dates, perWeek: r, schedule: sched1, classEnd, defaultEnd, ends, taken: manual })
+      p.slots.forEach(x => out.push({ ...x, term: term1 })); missing += p.missing
+    }
+  } else {
+    // I срок — до края на I срок
+    const r1 = rest(w1, inT1)
+    if (r1 > 0 && t1.length) {
+      const end1 = t1[t1.length - 1]
+      const ce1: Record<string, string> = {}
+      Object.keys(classEnd).forEach(k => { ce1[k] = classEnd[k] < end1 ? classEnd[k] : end1 })
+      const p = planDistribution({ dates: t1, perWeek: r1, schedule: sched1, classEnd: ce1, defaultEnd: end1, taken: manual.filter((x: any) => x.date_from < t2start) })
+      p.slots.forEach(x => out.push({ ...x, term: term1 })); missing += p.missing
+    }
+    // II срок — от началото на II срок до края на годината на паралелката
+    const r2 = rest(w2, inT2)
+    if (r2 > 0 && t2.length) {
+      const p = planDistribution({ dates: t2, perWeek: r2, schedule: sched2, classEnd, defaultEnd, taken: manual.filter((x: any) => x.date_to >= t2start) })
+      p.slots.forEach(x => out.push({ ...x, term: term2 })); missing += p.missing
+    }
+  }
 
   await m.supabase.from('lecturer_slots').delete().eq('staff_id', staffId).eq('academic_year_id', m.yearId).eq('is_manual', false)
-  if (plan.slots.length) {
-    const { error } = await m.supabase.from('lecturer_slots').insert(plan.slots.map(s => ({
+  if (out.length) {
+    const { error } = await m.supabase.from('lecturer_slots').insert(out.map(s => ({
       staff_id: staffId, day: s.day, period: s.period, subject_id: s.subjectId,
       holder_type: s.holderType, holder_label: s.holderLabel,
-      date_from: s.dateFrom, date_to: s.dateTo, term,
+      date_from: s.dateFrom, date_to: s.dateTo, term: s.term,
       academic_year_id: m.yearId, created_by: m.me.id,
     })))
     if (error) return { error: error.message }
   }
-  const placed = plan.placed + manualHours
-  await m.supabase.from('lecturer_plans').update({ distributed_at: new Date().toISOString(), ...(perWeek ? { total_hours: placed } : {}) })
+  // часовете — както ги брои навсякъде другаде (по седмици)
+  const placed = out.reduce((a, s) => a + slotHours(dates, s.day, s.dateFrom, s.dateTo, ends), 0) + manualHours
+  await m.supabase.from('lecturer_plans').update({ distributed_at: new Date().toISOString(), total_hours: placed })
     .eq('staff_id', staffId).eq('academic_year_id', m.yearId)
   revalidatePath('/lecturer')
-  return { success: true, placed, missing: plan.missing, slots: plan.slots.length + manual.length, manual: manual.length }
+  return { success: true, placed, missing, slots: out.length + manual.length, manual: manual.length }
 }
