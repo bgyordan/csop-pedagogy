@@ -6,12 +6,13 @@ import { useRouter } from 'next/navigation'
 import { Table2, CalendarRange } from 'lucide-react'
 import QuickTable from './QuickTable'
 import type { QTRow } from './QuickTable'
+import type { Ends } from './distribute'
 import LecturerClient from './LecturerClient'
 
 type Marked = { id: string; staffId: string; staffName: string; day: number; period: number; subject: string; holderLabel: string; dateFrom: string; dateTo: string; orderNumber: string; term: number }
 
-export default function LecturerTabs({ academicYearId, teachers, marked, schoolDates, rows }: {
-  academicYearId: string; teachers: { id: string; name: string }[]; marked: Marked[]; schoolDates: string[]; rows: QTRow[]
+export default function LecturerTabs({ academicYearId, teachers, marked, schoolDates, rows, ends, defaultEnd }: {
+  academicYearId: string; teachers: { id: string; name: string }[]; marked: Marked[]; schoolDates: string[]; rows: QTRow[]; ends: Ends; defaultEnd: string
 }) {
   const router = useRouter()
   const [tab, setTab] = useState<'table' | 'grid'>('table')
@@ -33,7 +34,7 @@ export default function LecturerTabs({ academicYearId, teachers, marked, schoolD
         {T('grid', 'По разписание', CalendarRange)}
       </div>
       {tab === 'table' ? (
-        <QuickTable rows={rows} marked={marked} schoolDates={schoolDates}
+        <QuickTable rows={rows} marked={marked} schoolDates={schoolDates} ends={ends} defaultEnd={defaultEnd}
           onEdit={id => { setEditId(id); setTab('grid') }} onChanged={() => router.refresh()} />
       ) : (
         <LecturerClient key={gridKey} academicYearId={academicYearId} teachers={teachers} marked={marked}

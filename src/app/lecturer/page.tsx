@@ -4,8 +4,8 @@ import { BackButton } from '@/components/ui/BackButton'
 import { GraduationCap } from 'lucide-react'
 import { getFullName } from '@/lib/utils'
 import LecturerTabs from './LecturerTabs'
-import { yearSchoolDays, getClassWeeks } from './actions'
-import { suggestWeeks } from './distribute'
+import { yearSchoolDays, getClassEnds } from './actions'
+import { latestEnd } from './distribute'
 import OrderButton from './OrderButton'
 export const dynamic = 'force-dynamic'
 
@@ -44,12 +44,11 @@ export default async function LecturerPage() {
   }))
 
   // ── за бързата таблица: паралелките на всеки учител (от разписанието), числата и календара ──
-  const [{ data: scheds }, { data: plans }, { data: ifo }, schoolDays, classWeeks] = await Promise.all([
+  const [{ data: scheds }, { data: plans }, schoolDays, { ends, classEnd }] = await Promise.all([
     supabase.from('class_schedules').select('id, term, class:classes(name)').eq('academic_year_id', currentYear?.id),
-    supabase.from('lecturer_plans').select('staff_id, total_hours, term2_weeks, distributed_at').eq('academic_year_id', currentYear?.id),
-    supabase.from('teacher_ifo_slots').select('teacher_id').eq('academic_year_id', currentYear?.id),
+    supabase.from('lecturer_plans').select('staff_id, total_hours, distributed_at').eq('academic_year_id', currentYear?.id),
     yearSchoolDays(),
-    getClassWeeks(currentYear?.id),
+    getClassEnds(currentYear?.id),
   ])
   const schedClass: Record<string, string> = {}
   ;(scheds || []).forEach((x: any) => { schedClass[x.id] = x.class?.name || '' })
@@ -63,18 +62,15 @@ export default async function LecturerPage() {
       if (!sl || sl.length < 1000) break
     }
   }
-  const hasIfo = new Set((ifo || []).map((r: any) => r.teacher_id))
   const planOf: Record<string, any> = {}
   ;(plans || []).forEach((p: any) => { planOf[p.staff_id] = p })
   const rows = teachers.map(t => {
     const cls = Array.from(classesOf[t.id] || []).filter(Boolean).sort((a, b) => a.localeCompare(b, 'bg', { numeric: true }))
-    const suggested = suggestWeeks(cls, classWeeks)
     const p = planOf[t.id]
     return {
       id: t.id, name: t.name, position: t.position,
-      classes: hasIfo.has(t.id) ? [...cls, 'ИФО'] : cls,
-      classWeeks: Object.fromEntries(cls.map(c => [c, classWeeks[c] || 0])),
-      total: p ? p.total_hours : null, weeks: p ? p.term2_weeks : suggested, suggested,
+      classes: cls.map(c => ({ name: c, end: classEnd[c] || '' })),
+      total: p ? p.total_hours : null,
       distributedAt: p?.distributed_at || null,
     }
   })
@@ -98,6 +94,8 @@ export default async function LecturerPage() {
         marked={marked}
         schoolDates={schoolDays.map(d => d.date)}
         rows={rows}
+        ends={ends}
+        defaultEnd={latestEnd(ends)}
       />
     </div>
   )
