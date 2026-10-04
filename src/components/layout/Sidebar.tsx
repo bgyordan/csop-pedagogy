@@ -98,7 +98,7 @@ const navItems: NavItem[] = [
     icon: <GraduationCap size={16} />,
     roles: ['admin', 'zdud', 'director'],
     children: [
-      { href: '/lecturer', label: 'Лекторски часове', icon: <GraduationCap size={14} />, roles: ['admin', 'zdud', 'director'] },
+      { href: '/lecturer', label: 'Над норматив', icon: <GraduationCap size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/substitutions', label: 'Замествания', icon: <UserX size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/lecturer-review', label: 'Проверка лекторски', icon: <ClipboardList size={14} />, roles: ['admin', 'zdud', 'director'] },
             { href: '/mon-export', label: 'Отчет НП (МОН)', icon: <FileSpreadsheet size={14} />, roles: ['admin', 'zdud', 'director'] },
