@@ -24,6 +24,8 @@ export type QTRow = {
   source?: 'plan' | 'schedule'
   /** УП — часове седмично по учебния план без ИЧ (I / II срок); СР — по разписанието без ИФО; ИЧ — индивидуални часове */
   up1?: number | null; up2?: number | null; sr?: number; ich?: number
+  /** колко от часовете са по 0,7 (терапии) — в учебния план (I / II срок) и в разписанието */
+  upT1?: number; upT2?: number; srT?: number
 }
 export type QTMarked = { staffId: string; day: number; dateFrom: string; dateTo: string }
 
@@ -171,15 +173,15 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
               <tr className="text-[11px] text-slate-500">
                 <th rowSpan={2} className="px-5 py-2 font-medium text-left align-bottom border-b border-slate-200">Учител</th>
                 <th rowSpan={2} className="px-3 py-2 font-medium text-left align-bottom border-b border-slate-200">Паралелки<div className="font-normal text-slate-400">до кога учат</div></th>
-                <th colSpan={3} className="px-2 py-2 font-medium text-center border-b border-slate-100 bg-slate-50/80 rounded-tl-lg">Часове на седмица</th>
-                <th rowSpan={2} className="px-2 py-2 font-medium text-center align-bottom border-b border-slate-200 w-28" title="Часовете по учебния план, като терапиите (норма 30) се броят по 0,7 / нормата на учителя">Към норматива<div className="font-normal text-slate-400">/ норма</div></th>
+                <th colSpan={3} className="px-2 py-2 font-medium text-center border-b border-slate-100 bg-slate-50/80">Часове на седмица<div className="font-normal text-slate-400">терапиите — по 0,7 · в скоби: колко часа са по 0,7</div></th>
+                <th rowSpan={2} className="px-2 py-2 font-medium text-center align-bottom border-b border-slate-200 w-16">Норма</th>
                 <th colSpan={2} className="px-2 py-2 font-medium text-center border-b border-slate-100 bg-teal-50/70 text-teal-800">Лекторски над норматива</th>
                 <th rowSpan={2} className="px-2 py-2 font-medium text-center align-bottom border-b border-slate-200 w-32">Разпределени</th>
                 <th rowSpan={2} className="border-b border-slate-200 w-48" />
               </tr>
               <tr className="text-[11px] text-slate-500">
-                <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-slate-50/80 w-20" title="Учебен план от НЕИСПУО, без индивидуалните часове">по учебен план</th>
-                <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-slate-50/80 w-20" title="Седмичното разписание в EIS, без ИФО">по разписание</th>
+                <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-slate-50/80 w-24" title="Учебен план от НЕИСПУО, без индивидуалните часове">по учебен план</th>
+                <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-slate-50/80 w-24" title="Седмичното разписание в EIS, без ИФО">по разписание</th>
                 <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-slate-50/80 w-20" title="Индивидуални часове с ИФО деца — по отделна заповед, не се смятат тук">индивид. (ИЧ)</th>
                 <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-teal-50/70 text-teal-800 w-24">на седмица</th>
                 <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-teal-50/70 text-teal-800 w-24">или за годината</th>
@@ -213,30 +215,26 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                     </td>
                     {(() => {
                       const hasUp = r.up1 !== null && r.up1 !== undefined
-                      const upTxt = hasUp ? (r.up2 !== null && r.up2 !== r.up1 ? `${fmtW(r.up1)} / ${fmtW(r.up2)}` : fmtW(r.up1) || '0') : ''
-                      const diff = hasUp ? (r.sr || 0) - (r.up1 || 0) : 0
+                      const t = (n?: number) => n ? <span className="text-slate-400"> ({fmtW(n)})</span> : null
+                      const diff = hasUp ? Math.round(((r.sr || 0) - (r.up1 || 0)) * 10) / 10 : 0
                       return (<>
-                        <td className="px-2 py-2 text-center tabular-nums text-[13px] text-slate-800">{hasUp ? upTxt : <span className="text-slate-300" title="Няма учебен план за този учител">—</span>}</td>
-                        <td className={`px-2 py-2 text-center tabular-nums text-[13px] ${hasUp && diff !== 0 ? 'text-amber-700' : 'text-slate-600'}`}
-                          title={hasUp && diff !== 0 ? (diff < 0 ? `В разписанието липсват ${-diff} ч. спрямо учебния план` : `В разписанието има ${diff} ч. повече от учебния план`) : undefined}>
-                          {r.sr || <span className="text-slate-300">—</span>}{hasUp && diff !== 0 && <AlertTriangle size={11} className="inline ml-1 -mt-0.5" />}
+                        <td className="px-2 py-2 text-center tabular-nums text-[13px] text-slate-800 whitespace-nowrap">
+                          {hasUp ? <>{fmtW(r.up1) || '0'}{t(r.upT1)}{r.up2 !== r.up1 && <div className="text-[11px] text-slate-500">II срок: {fmtW(r.up2)}{t(r.upT2)}</div>}</>
+                            : <span className="text-slate-400 text-[12px]" title="Учителят не е свързан с учебния план (вж. Учебни планове)">няма уч. план</span>}
+                        </td>
+                        <td className={`px-2 py-2 text-center tabular-nums text-[13px] whitespace-nowrap ${hasUp && diff !== 0 ? 'text-amber-700' : 'text-slate-600'}`}
+                          title={hasUp && diff !== 0 ? (diff < 0 ? `Разписанието е с ${fmtW(-diff)} ч. по-малко от учебния план — да се провери` : `Разписанието е с ${fmtW(diff)} ч. повече от учебния план — да се провери`) : undefined}>
+                          {r.sr ? <>{fmtW(r.sr)}{t(r.srT)}</> : <span className="text-slate-300">—</span>}{hasUp && diff !== 0 && <AlertTriangle size={11} className="inline ml-1 -mt-0.5" />}
                         </td>
                         <td className="px-2 py-2 text-center tabular-nums text-[13px] text-violet-700">{r.ich ? fmtW(r.ich) : <span className="text-slate-300">—</span>}</td>
-                        <td className="px-3 py-2 text-center tabular-nums text-[13px]" title={r.source === 'plan' ? 'По учебния план' : 'По разписанието (няма учебен план)'}>
-                          {r.load ? (
-                            <span className={(r.load || 0) > (r.norm || 21) ? 'text-slate-800' : 'text-slate-400'}>
-                              {fmtW(r.load)}{r.load2 !== null && r.load2 !== undefined && r.load2 !== r.load ? ` / ${fmtW(r.load2)}` : ''} <span className="text-slate-400">/ {r.norm}</span>
-                            </span>
-                          ) : <span className="text-slate-300">—</span>}
-                          {r.source === 'schedule' && r.load ? <div className="text-[10px] text-slate-400">по разписание</div> : null}
-                        </td>
+                        <td className="px-2 py-2 text-center tabular-nums text-[13px] text-slate-500">{r.norm}</td>
                       </>)
                     })()}
                     <td className="px-3 py-2 text-center">
                       <input inputMode="decimal" value={draft[r.id + ':w'] ?? fmtW(r.perWeek)}
                         onChange={e => setDraft(d => ({ ...d, [r.id + ':w']: e.target.value.replace(/[^\d.,]/g, '').replace(/([.,].*)[.,]/, '$1') }))}
                         onBlur={() => commit(r, 'w')} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                        placeholder={isSuggested(r) ? fmtW(r.suggest) : '—'} title={isSuggested(r) ? `Предложение: ${fmtW(r.load)} − ${r.norm} = ${fmtW(r.suggest)}. Може да се поправи.` : 'Часове над норматива на седмица, може и дробно (2,5)'}
+                        placeholder={isSuggested(r) ? fmtW(r.suggest) : '—'} title={isSuggested(r) ? `Предложение: ${fmtW(r.up1 ?? r.load)} − ${r.norm} = ${fmtW(r.suggest)}. Може да се поправи.` : 'Часове над норматива на седмица, може и дробно (2,5)'}
                         className={`w-16 text-center px-2 py-1.5 rounded-lg border tabular-nums focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-50 ${isSuggested(r) ? 'border-teal-300 bg-teal-50/60 placeholder:text-teal-700' : 'border-slate-200'}`} />
                       {isSuggested(r) && <div className="text-[10px] text-teal-700 mt-0.5">предложение</div>}
                     </td>
@@ -277,13 +275,13 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                   </tr>
                 )
               })}
-              {visible.length === 0 && <tr><td colSpan={10} className="px-5 py-10 text-center text-slate-400">Няма учители</td></tr>}
+              {visible.length === 0 && <tr><td colSpan={9} className="px-5 py-10 text-center text-slate-400">Няма учители</td></tr>}
             </tbody>
           </table>
         </div>
         <div className="px-5 py-3 text-xs text-slate-500 border-t border-slate-100 space-y-1">
-          <p><b className="text-slate-700">Как се чете:</b> „Часове на седмица“ — по учебния план от НЕИСПУО и по разписанието в EIS (оранжево, ако не съвпадат — разписанието трябва да се оправи). ИЧ са по отделна заповед и не се смятат.</p>
-          <p><b className="text-slate-700">Към норматива</b> — часовете по учебния план, като терапиите се броят по 0,7. Разликата над нормата се предлага в зелено като <b className="text-slate-700">лекторски</b>; поправя се с писане.</p>
+          <p><b className="text-slate-700">Как се чете:</b> „Часове на седмица“ — по учебния план от НЕИСПУО и по разписанието в EIS, и двете с терапиите по 0,7 (в скоби — колко часа са по 0,7). Оранжево — разписанието не съвпада с плана и трябва да се провери. ИЧ са по отделна заповед и не се смятат.</p>
+          <p><b className="text-slate-700">Лекторски</b> = часовете по учебния план − нормата; предлагат се в зелено и се поправят с писане. Учител без учебен план няма предложение.</p>
           <p><b className="text-slate-700">„Разпредели“</b> слага лекторските в разписанието — по един на ден, всеки до края на годината на паралелката си (датата до паралелката). Часовете, преместени на ръка в „График“, имат катинарче и остават.</p>
         </div>
       </div>
