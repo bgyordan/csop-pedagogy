@@ -20,10 +20,10 @@ export default async function LecturerPage() {
   const { data: currentYear } = await supabase
     .from('academic_years').select('id, name').eq('is_current', true).single()
 
-  // учители (класни + teacher + възпитатели — всички, които могат да имат часове)
+  // само учителите (класни + teacher) — възпитатели, терапевти и администрация имат лекторски по друга заповед
   const { data: staff } = await supabase
     .from('staff_profiles').select('id, first_name, last_name, position, role')
-    .in('role', ['class_teacher', 'teacher', 'educator']).eq('is_active', true)
+    .in('role', ['class_teacher', 'teacher']).eq('is_active', true)
   const teachers = (staff || []).map((s: any) => ({ id: s.id, name: getFullName(s), position: s.position || '', role: s.role as string }))
     .sort((a, b) => a.name.localeCompare(b.name, 'bg'))
 
