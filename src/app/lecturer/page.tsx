@@ -102,9 +102,11 @@ export default async function LecturerPage() {
     const p = planOf[t.id]
     const sched = r1(Object.values(cells[t.id] || {}).reduce((a, b) => a + b, 0))   // разписание, с 0,7
     // разписание без ИФО — редуцирано (0,7 за часовете с „вземане“) + колко са по 0,7
-    // разписание — всичко: паралелки + ИФО (колежките допълват норматива и с ИФО)
+    // разписание: всичко (паралелки + ИФО) и само паралелки — ИФО някъде допълва норматива, другаде е по отделна заповед
     const cc = Object.values(cells[t.id] || {})
     const sr = r1(cc.reduce((a, b) => a + b, 0)), srT = cc.filter(x => x < 1).length
+    const ccClass = Array.from(classCells[t.id] || []).map(k => cells[t.id]?.[k] ?? 1)
+    const srClass = r1(ccClass.reduce((a, b) => a + b, 0)), srClassT = ccClass.filter(x => x < 1).length
     const norm = NORM[t.role] || 21
     const u = upOf[t.id]
     // предложение: само от учебния план, отделно за I и II срок
@@ -124,7 +126,7 @@ export default async function LecturerPage() {
       load, norm, suggest, suggest2, source, W1, W2,
       // и двете — редуцирани часове (терапиите по 0,7); в скоби — колко часа са по 0,7
       up1: u ? r1(u.n1) : null, up2: u ? r1(u.n2) : null, upT1: u ? r1(u.t1) : 0, upT2: u ? r1(u.t2) : 0,
-      ich: u ? r1(u.ich1) : 0, ichN: u ? r1(u.ichN1) : 0, sr, srT,
+      ich: u ? r1(u.ich1) : 0, ichN: u ? r1(u.ichN1) : 0, sr, srT, srClass, srClassT,
       load2: u ? r1(u.n2) : null,
       classes: cls.map(c => ({ name: c, end: classEnd[c] || '' })),
       total: p ? p.total_hours : null,
