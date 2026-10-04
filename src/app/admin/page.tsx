@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Settings, Bell, School, Users, Star, BookOpen, Coffee, CalendarPlus, LayoutGrid, HeartPulse, GraduationCap, Shield } from 'lucide-react'
+import { Settings, Bell, School, Users, Star, BookOpen, Coffee, CalendarPlus, LayoutGrid, HeartPulse, GraduationCap, Shield, BookOpenCheck } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 export default async function AdminPage() {
@@ -31,6 +31,7 @@ export default async function AdminPage() {
       items: [
         { href: '/admin/years', label: 'Паралелки', desc: 'Паралелки и учебна година', icon: LayoutGrid, color: 'blue' },
         { href: '/admin/subjects', label: 'Предмети', desc: 'Предмети и вземане от терапевт', icon: GraduationCap, color: 'cyan' },
+        { href: '/admin/curriculum', label: 'Учебни планове', desc: 'Внос от НЕИСПУО — часове и преподаватели', icon: BookOpenCheck, color: 'teal' },
         { href: '/admin/schools', label: 'Училища', desc: `${schoolsCount || 0} активни изпращащи`, icon: School, color: 'green' },
         { href: '/admin/coud', label: 'ЦОУД групи', desc: 'Целодневна организация', icon: Coffee, color: 'orange' },
       ],
