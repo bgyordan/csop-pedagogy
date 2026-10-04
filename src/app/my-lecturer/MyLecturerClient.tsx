@@ -143,7 +143,7 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
 
         {expanded && (
           <div className="space-y-3 pt-2 border-t border-slate-100">
-            <p className="text-xs text-slate-500">Отметнете реално взетите часове (махнете неучебните дни). Дните, в които сте били в отпуск или болничен, са махнати и оцветени в жълто.</p>
+            <p className="text-xs text-slate-500">Отметнете реално взетите часове (махнете неучебните дни). Дните, в които сте били в отпуск или болничен, са в жълто и не могат да се включат.</p>
             {expanded.map(sl => (
               <div key={sl.slotId}>
                 <div className="text-sm font-medium text-slate-700 mb-1">{DAY_L[sl.day]} {sl.period}. час · {sl.subject} {sl.holderLabel && <span className="text-slate-400 font-normal">· {sl.holderLabel}</span>}</div>
@@ -152,8 +152,9 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
                     const on = checked[sl.slotId]?.has(dt)
                     const wasAbsent = (sl.absent || []).includes(dt)
                     return (
-                      <button key={dt} onClick={() => toggleDate(sl.slotId, dt)} title={wasAbsent ? 'В този ден сте отсъствали (отпуск/болничен)' : undefined}
-                        className={`px-2.5 py-1 rounded-lg text-xs border transition-all ${
+                      <button key={dt} onClick={() => !wasAbsent && toggleDate(sl.slotId, dt)} disabled={wasAbsent}
+                        title={wasAbsent ? 'В този ден сте били в отпуск/болничен — не може да се декларира' : undefined}
+                        className={`px-2.5 py-1 rounded-lg text-xs border transition-all disabled:cursor-not-allowed ${
                           on ? 'border-[#0f2240] bg-[#0f2240] text-white'
                             : wasAbsent ? 'border-amber-200 bg-amber-50 text-amber-700 line-through'
                             : 'border-slate-200 bg-slate-50 text-slate-400 line-through'

@@ -85,6 +85,22 @@ export async function submitLecturerDeclaration(
   if (overlap.some((e: any) => e.status !== 'submitted')) return { error: 'За част от този период декларацията вече е проверена — обърнете се към ЗДУД' }
   if (overlap.length > 0) await supabase.from('lecturer_declarations').delete().in('id', overlap.map((e: any) => e.id))
 
+  // ПРОВЕРКА: всяка дата трябва да е от системата — учебен ден, в неговия час над норматив
+  // и в периода му, и не в ден, в който самият учител е бил в отпуск/болничен
+  const allowed: any = await getMyLecturerDates(periodFrom, periodTo)
+  const ok: Record<string, Set<string>> = {}
+  ;(allowed.rows || []).forEach((r: any) => {
+    const ab = new Set(r.absent || [])
+    ok[r.slotId] = new Set((r.dates || []).filter((d: string) => !ab.has(d)))
+  })
+  for (const e of entries) {
+    const set = ok[e.slotId]
+    if (!set) return { error: 'Декларацията съдържа час, който не е определен като ваш над норматив' }
+    const bad = e.dates.filter(d => !set.has(d))
+    if (bad.length > 0) return { error: `Недопустими дати (неучебен ден или отпуск/болничен): ${bad.map(d => d.split('-').reverse().join('.')).join(', ')}` }
+    if (new Set(e.dates).size !== e.dates.length) return { error: 'Повторена дата в декларацията' }
+  }
+
   const totalHours = entries.reduce((a, e) => a + e.dates.length, 0)
   const { data: ins, error } = await supabase.from('lecturer_declarations').insert({
     staff_id: me.id, period_from: periodFrom, period_to: periodTo,
