@@ -8,10 +8,11 @@
 //  • Пълни слотове, докато има място; остатъкът — един слот, който спира на датата,
 //    на която се събира точният брой.
 //  • По един час на ден (празник отнема най-много 1 час); втори в същия ден — само ако няма как иначе.
+//  • Избира се час с норма 21; час с норма 30 (терапия) — само ако няма друг.
 //  • ИФО не се ползва.
 
 export type SchoolDay = { date: string; term: number }
-export type SchedSlot = { day: number; period: number; subjectId: string | null; subject: string; holderType: string; holderLabel: string }
+export type SchedSlot = { day: number; period: number; subjectId: string | null; subject: string; holderType: string; holderLabel: string; norm30?: boolean }
 export type PlannedSlot = SchedSlot & { dateFrom: string; dateTo: string; hours: number }
 
 export type Grp = '1-3' | '4-6' | '7-11' | '12'
@@ -102,17 +103,19 @@ export function planDistribution({ dates, total, perWeek, schedule, classEnd, de
     const days = shuffle(Array.from(new Set(cells.map(c => c.day))), rnd)
     // при годишен брой — първо дните с паралелка с най-дълга година (пълният час да е при нея);
     // между равните — случайно (sort е стабилен след разбъркването)
-    if (!weekly) {
-      const dayEnd = (d: number) => cells.filter(c => c.day === d && !used.has(`${c.day}-${c.period}`)).reduce((a, c) => c.end > a ? c.end : a, '')
-      days.sort((a, b) => dayEnd(b).localeCompare(dayEnd(a)))
-    }
+    // първо дните, в които има свободен час с норма 21 (терапиите с норма 30 — последни)
+    const free21 = (d: number) => cells.some(c => c.day === d && !c.norm30 && !used.has(`${c.day}-${c.period}`) && c.occ.length > 0)
+    const dayEnd = (d: number) => cells.filter(c => c.day === d && !used.has(`${c.day}-${c.period}`)).reduce((a, c) => c.end > a ? c.end : a, '')
+    days.sort((a, b) => Number(free21(b)) - Number(free21(a)) || (!weekly ? dayEnd(b).localeCompare(dayEnd(a)) : 0))
     // в първия кръг — първо дните без ръчен час (по един час на ден)
     const order = round === 0 ? [...days.filter(d => !busyDays.has(d)), ...days.filter(d => busyDays.has(d))] : days
     round++
     for (const day of order) {
       if (rem <= 0) break
-      const free = cells.filter(c => c.day === day && !used.has(`${c.day}-${c.period}`) && c.occ.length > 0)
-      if (!free.length) continue
+      const freeAll = cells.filter(c => c.day === day && !used.has(`${c.day}-${c.period}`) && c.occ.length > 0)
+      if (!freeAll.length) continue
+      // в деня — час с норма 21; терапия (норма 30) — само ако друг няма
+      const free = freeAll.some(c => !c.norm30) ? freeAll.filter(c => !c.norm30) : freeAll
       // в деня — паралелка с най-дълга година (часът стига до края), случайно между равните
       const best = free.reduce((a, c) => c.end > a ? c.end : a, '')
       const pick = shuffle(free.filter(c => c.end === best), rnd)[0]

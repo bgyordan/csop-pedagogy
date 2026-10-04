@@ -166,7 +166,7 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
   )
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-6 items-start">
       {/* ── ЛЯВО: списък с определените + обща заповед (не мърда) ── */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden lg:sticky lg:top-4">
         <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60 space-y-2.5">
@@ -202,8 +202,8 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
         )}
       </div>
 
-      {/* ── ДЯСНО ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
+      {/* ── ДЯСНО ── (min-w-0 — широкото разписание се превърта вътре, а не разтяга страницата) */}
+      <div className="min-w-0 bg-white rounded-2xl border border-slate-200 shadow-sm">
         {!teacherId ? (
           /* СТЪПКА 1 — избор на учител, голямо и ясно */
           <div className="p-8 sm:p-10">

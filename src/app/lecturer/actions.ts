@@ -18,14 +18,19 @@ export async function getTeacherSchedule(staffId: string, term: number = 1) {
   ;(scheds || []).forEach((s: any) => { schedName[s.id] = s.class?.name || '' })
   const schedIds = (scheds || []).map((s: any) => s.id)
 
-  const out: { day: number; period: number; subjectId: string | null; subject: string; holderType: string; holderLabel: string }[] = []
+  const out: { day: number; period: number; subjectId: string | null; subject: string; holderType: string; holderLabel: string; norm30?: boolean }[] = []
+  // норма 30: терапии („позволява вземане“ или „терапи“ в името); „Час на класа“ е винаги 21
+  const isN30 = (sub: any) => {
+    const n = String(sub?.name || '').toLowerCase()
+    return !n.includes('час на класа') && (!!sub?.allows_pullout || /терапи/.test(n))
+  }
   if (schedIds.length > 0) {
     const { data: slots } = await supabase
-      .from('schedule_slots').select('schedule_id, day, period, subject_id, subject:subjects(name)')
+      .from('schedule_slots').select('schedule_id, day, period, subject_id, subject:subjects(name, allows_pullout)')
       .in('schedule_id', schedIds).eq('staff_id', staffId)
     ;(slots || []).forEach((sl: any) => out.push({
       day: sl.day, period: sl.period, subjectId: sl.subject_id, subject: sl.subject?.name || '',
-      holderType: 'class', holderLabel: schedName[sl.schedule_id] || '',
+      holderType: 'class', holderLabel: schedName[sl.schedule_id] || '', norm30: isN30(sl.subject),
     }))
   }
   const { data: ifo } = await supabase

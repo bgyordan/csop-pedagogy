@@ -22,7 +22,7 @@ export default async function TemplatesLayout({ children }: { children: React.Re
         isCoordinator={profile.is_coordinator === true}
         userPosition={profile.position || ""}
       />
-      <main className="flex-1 overflow-auto bg-slate-50">
+      <main className="flex-1 min-w-0 overflow-auto bg-slate-50">
         {children}
       </main>
     </div>
