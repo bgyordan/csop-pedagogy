@@ -82,13 +82,14 @@ export default async function LecturerPage() {
   // ── учебен план (НЕИСПУО): УП, ИЧ, часове към норматива (терапии с норма 30 → 0,7) ──
   const { data: cur } = await supabase.from('curriculum_lines')
     .select('*').eq('academic_year_id', currentYear?.id).not('staff_id', 'is', null).range(0, 4999)
-  type Up = { up1: number; up2: number; ich1: number; ich2: number; n1: number; n2: number; t1: number; t2: number; w1: number[]; w2: number[] }
+  type Up = { up1: number; up2: number; ich1: number; ich2: number; ichN1: number; n1: number; n2: number; t1: number; t2: number; w1: number[]; w2: number[] }
   const upOf: Record<string, Up> = {}
   ;(cur || []).forEach((l: any) => {
-    const u = (upOf[l.staff_id] ||= { up1: 0, up2: 0, ich1: 0, ich2: 0, n1: 0, n2: 0, t1: 0, t2: 0, w1: [], w2: [] })
+    const u = (upOf[l.staff_id] ||= { up1: 0, up2: 0, ich1: 0, ich2: 0, ichN1: 0, n1: 0, n2: 0, t1: 0, t2: 0, w1: [], w2: [] })
     const h1 = Number(l.hours_t1 || 0), h2 = Number(l.hours_t2 || 0)
-    if (l.individual) { u.ich1 += h1; u.ich2 += h2; return }   // ИЧ — по отделна заповед, не се смятат
     const k = 21 / (Number(l.subject_norm) || 21)
+    // ИЧ — по отделна заповед, не се смятат в норматива (но се сравняват с ИФО часовете в разписанието)
+    if (l.individual) { u.ich1 += h1; u.ich2 += h2; u.ichN1 += h1 * k; return }
     u.up1 += h1; u.up2 += h2; u.n1 += h1 * k; u.n2 += h2 * k
     if (k < 1) { u.t1 += h1; u.t2 += h2 }   // часове по 0,7 (терапии)
     if (h1) u.w1.push(Number(l.weeks_t1 || 0)); if (h2) u.w2.push(Number(l.weeks_t2 || 0))
@@ -101,7 +102,8 @@ export default async function LecturerPage() {
     const p = planOf[t.id]
     const sched = r1(Object.values(cells[t.id] || {}).reduce((a, b) => a + b, 0))   // разписание, с 0,7
     // разписание без ИФО — редуцирано (0,7 за часовете с „вземане“) + колко са по 0,7
-    const cc = Array.from(classCells[t.id] || []).map(k => cells[t.id]?.[k] ?? 1)
+    // разписание — всичко: паралелки + ИФО (колежките допълват норматива и с ИФО)
+    const cc = Object.values(cells[t.id] || {})
     const sr = r1(cc.reduce((a, b) => a + b, 0)), srT = cc.filter(x => x < 1).length
     const norm = NORM[t.role] || 21
     const u = upOf[t.id]
@@ -122,7 +124,7 @@ export default async function LecturerPage() {
       load, norm, suggest, suggest2, source, W1, W2,
       // и двете — редуцирани часове (терапиите по 0,7); в скоби — колко часа са по 0,7
       up1: u ? r1(u.n1) : null, up2: u ? r1(u.n2) : null, upT1: u ? r1(u.t1) : 0, upT2: u ? r1(u.t2) : 0,
-      ich: u ? r1(u.ich1) : 0, sr, srT,
+      ich: u ? r1(u.ich1) : 0, ichN: u ? r1(u.ichN1) : 0, sr, srT,
       load2: u ? r1(u.n2) : null,
       classes: cls.map(c => ({ name: c, end: classEnd[c] || '' })),
       total: p ? p.total_hours : null,
