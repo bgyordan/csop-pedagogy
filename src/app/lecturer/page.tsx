@@ -60,6 +60,7 @@ export default async function LecturerPage() {
     const k = `${day}-${period}`; (cells[staffId] ||= {})[k] = Math.max(cells[staffId][k] || 0, weightOf(sub))
   }
   const schedIds = Object.keys(schedClass)
+  const classCells: Record<string, Set<string>> = {}   // разписание без ИФО, цели часове (за сравнение с УП)
   const classesOf: Record<string, Set<string>> = {}
   for (let i = 0; i < schedIds.length; i += 100) {
     const ids = schedIds.slice(i, i + 100)
@@ -67,7 +68,7 @@ export default async function LecturerPage() {
       const { data: sl } = await supabase.from('schedule_slots').select('staff_id, schedule_id, day, period, subject:subjects(name, allows_pullout)').in('schedule_id', ids).not('staff_id', 'is', null).range(from, from + 999)
       ;(sl || []).forEach((r: any) => {
         (classesOf[r.staff_id] ||= new Set()).add(schedClass[r.schedule_id])
-        if (schedTerm[r.schedule_id] === 1) put(r.staff_id, r.day, r.period, r.subject)
+        if (schedTerm[r.schedule_id] === 1) { put(r.staff_id, r.day, r.period, r.subject); (classCells[r.staff_id] ||= new Set()).add(`${r.day}-${r.period}`) }
       })
       if (!sl || sl.length < 1000) break
     }
@@ -78,16 +79,47 @@ export default async function LecturerPage() {
   const NORM: Record<string, number> = { class_teacher: 21, teacher: 21, educator: 30 }
   const r1 = (x: number) => Math.round(x * 10) / 10
 
+  // ── учебен план (НЕИСПУО): УП, ИЧ, часове към норматива (терапии с норма 30 → 0,7) ──
+  const { data: cur } = await supabase.from('curriculum_lines')
+    .select('*').eq('academic_year_id', currentYear?.id).not('staff_id', 'is', null).range(0, 4999)
+  type Up = { up1: number; up2: number; ich1: number; ich2: number; n1: number; n2: number; w1: number[]; w2: number[] }
+  const upOf: Record<string, Up> = {}
+  ;(cur || []).forEach((l: any) => {
+    const u = (upOf[l.staff_id] ||= { up1: 0, up2: 0, ich1: 0, ich2: 0, n1: 0, n2: 0, w1: [], w2: [] })
+    const h1 = Number(l.hours_t1 || 0), h2 = Number(l.hours_t2 || 0)
+    if (l.individual) { u.ich1 += h1; u.ich2 += h2; return }   // ИЧ — по отделна заповед, не се смятат
+    const k = 21 / (Number(l.subject_norm) || 21)
+    u.up1 += h1; u.up2 += h2; u.n1 += h1 * k; u.n2 += h2 * k
+    if (h1) u.w1.push(Number(l.weeks_t1 || 0)); if (h2) u.w2.push(Number(l.weeks_t2 || 0))
+  })
+
   const planOf: Record<string, any> = {}
   ;(plans || []).forEach((p: any) => { planOf[p.staff_id] = p })
   const rows = teachers.map(t => {
     const cls = Array.from(classesOf[t.id] || []).filter(Boolean).sort((a, b) => a.localeCompare(b, 'bg', { numeric: true }))
     const p = planOf[t.id]
-    const load = r1(Object.values(cells[t.id] || {}).reduce((a, b) => a + b, 0))
+    const sched = r1(Object.values(cells[t.id] || {}).reduce((a, b) => a + b, 0))   // разписание, с 0,7
+    const sr = classCells[t.id]?.size || 0                                          // разписание без ИФО, цели часове
     const norm = NORM[t.role] || 21
+    const u = upOf[t.id]
+    // предложение: от учебния план (ако го има), иначе от разписанието
+    let suggest = 0, suggestTotal = 0, load = sched, source: 'plan' | 'schedule' = 'schedule'
+    if (u) {
+      source = 'plan'
+      const o1 = Math.max(0, r1(u.n1 - norm)), o2 = Math.max(0, r1(u.n2 - norm))
+      load = r1(u.n1)
+      if (o1 === o2) suggest = o1
+      else {
+        // различно по срокове → годишен брой: I срок × седмиците му + II срок × седмиците му
+        const W1 = u.w1.length ? Math.max(...u.w1) : 18, W2 = u.w2.length ? Math.max(...u.w2) : 18
+        suggestTotal = Math.round(o1 * W1 + o2 * W2)
+      }
+    } else suggest = sched > norm ? r1(sched - norm) : 0
     return {
       id: t.id, name: t.name, position: t.position,
-      load, norm, suggest: load > norm ? r1(load - norm) : 0,
+      load, norm, suggest, suggestTotal, source,
+      up1: u ? r1(u.up1) : null, up2: u ? r1(u.up2) : null, ich: u ? r1(u.ich1) : 0, sr,
+      load2: u ? r1(u.n2) : null,
       classes: cls.map(c => ({ name: c, end: classEnd[c] || '' })),
       total: p ? p.total_hours : null,
       perWeek: p?.per_week || null,
