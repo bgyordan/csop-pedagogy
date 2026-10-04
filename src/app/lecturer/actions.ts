@@ -108,6 +108,43 @@ export async function removeLecturerSlot(staffId: string, day: number, period: n
   return { success: true }
 }
 
+/**
+ * Премества един лекторски час в друга клетка от разписанието — със същите дати.
+ * Ако новата паралелка учи по-кратко, крайната дата се скъсява до нейния край и се връща колко часа липсват.
+ * Преместеният час става „ръчен“ (катинарче) и остава при „Наново“.
+ */
+export async function moveLecturerSlot(staffId: string, term: number,
+  from: { day: number; period: number },
+  to: { day: number; period: number; subjectId: string | null; holderType: string; holderLabel: string }) {
+  const m = await manager()
+  if (!m) return { error: 'Нямате права' }
+  const { data: old } = await m.supabase.from('lecturer_slots').select('id, date_from, date_to')
+    .eq('staff_id', staffId).eq('academic_year_id', m.yearId).eq('day', from.day).eq('period', from.period).eq('term', term).maybeSingle()
+  if (!old) return { error: 'Часът не е намерен — презаредете страницата' }
+  const { data: busy } = await m.supabase.from('lecturer_slots').select('id')
+    .eq('staff_id', staffId).eq('academic_year_id', m.yearId).eq('day', to.day).eq('period', to.period).eq('term', term).maybeSingle()
+  if (busy) return { error: 'В тази клетка вече има лекторски час' }
+
+  // краят на новата паралелка (по детето с най-дълъг срок); ИФО / без данни — най-късният край
+  const { ends, classEnd } = await getClassEnds(m.yearId)
+  const newEnd = (to.holderType === 'class' && classEnd[to.holderLabel]) || latestEnd(ends) || old.date_to
+  const dateTo = newEnd < old.date_to ? newEnd : old.date_to
+
+  const { error } = await m.supabase.from('lecturer_slots').update({
+    day: to.day, period: to.period, subject_id: to.subjectId, holder_type: to.holderType, holder_label: to.holderLabel,
+    date_to: dateTo, is_manual: true,
+  }).eq('id', old.id)
+  if (error) return { error: error.message.includes('is_manual') ? 'Пуснете SQL файла 2026-10-04_lecturer_manual.sql' : error.message }
+
+  let lost = 0
+  if (dateTo !== old.date_to) {
+    const dates = (await yearSchoolDays()).map(d => d.date)
+    lost = Math.max(0, slotHours(dates, from.day, old.date_from, old.date_to, ends) - slotHours(dates, to.day, old.date_from, dateTo, ends))
+  }
+  revalidatePath('/lecturer')
+  return { success: true, dateTo, lost }
+}
+
 
 // ── Данни за ОБЩАТА ЗАПОВЕД за лекторски (таблица човек по човек) ──
 export async function getLecturerFrameworkData() {

@@ -1,8 +1,8 @@
 'use client'
 import { useState, useMemo, useEffect } from 'react'
-import { Loader2, Check, Save, Search, Plus, X, Trash2, UserRound, Lock } from 'lucide-react'
+import { Loader2, Check, Save, Search, Plus, X, Trash2, UserRound, Lock, MoveRight } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { getTeacherSchedule, saveLecturerSlots, clearLecturerSlots, removeLecturerSlot } from './actions'
+import { getTeacherSchedule, saveLecturerSlots, clearLecturerSlots, removeLecturerSlot, moveLecturerSlot } from './actions'
 import { slotHours } from './distribute'
 import type { Ends } from './distribute'
 
@@ -35,6 +35,14 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
   const [to, setTo] = useState('')
   const [saving, setSaving] = useState(false)
   const [term, setTerm] = useState(1)
+  // преместване: избраният вече записан час, който чака нова клетка
+  const [moving, setMoving] = useState<Marked | null>(null)
+  const [movingBusy, setMovingBusy] = useState(false)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMoving(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   useEffect(() => { if (initialTeacherId) selectTeacher(initialTeacherId) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -51,6 +59,7 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
   function switchTerm(t: number) {
     if (t === term) return
     setTerm(t)
+    setMoving(null)
     if (teacherId) loadSchedule(teacherId, t)
   }
 
@@ -66,7 +75,25 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
   const slotAt = (day: number, period: number) => schedule.find(s => s.day === day && s.period === period)
   // вече записан лекторски слот (с период) за текущия учител
   const savedAt = (day: number, period: number) => marked.find(m => m.staffId === teacherId && m.day === day && m.period === period && m.term === term)
+  async function moveTo(day: number, period: number) {
+    if (!moving) return
+    const sl = slotAt(day, period)
+    if (!sl || savedAt(day, period)) return
+    setMovingBusy(true)
+    const res: any = await moveLecturerSlot(teacherId, term, { day: moving.day, period: moving.period },
+      { day, period, subjectId: sl.subjectId, holderType: sl.holderType, holderLabel: sl.holderLabel })
+    setMovingBusy(false)
+    if (res.error) { toast(res.error, 'error'); return }
+    const mv = moving
+    setMarked(prev => prev.map(m => m.id === mv.id
+      ? { ...m, day, period, subject: sl.subject, holderLabel: sl.holderLabel, dateTo: res.dateTo, manual: true } : m))
+    setMoving(null)
+    if (res.lost > 0) toast(`Преместено. Паралелка ${sl.holderLabel} учи до ${fmt(res.dateTo)} — липсват ${res.lost} ч., добавете ги в друг час`, 'error')
+    else toast('Преместено')
+  }
+
   function togglePick(day: number, period: number) {
+    if (moving) { moveTo(day, period); return }
     const key = `${day}-${period}`
     if (!slotAt(day, period)) return // само реални часове
     if (savedAt(day, period)) return // вече записан — маха се с бутона за премахване
@@ -147,7 +174,7 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
   const colorOf = (from: string, to: string) => PERIOD_COLORS[Math.max(0, myGroups.findIndex(g => g.key === `${from}|${to}`)) % PERIOD_COLORS.length]
   const selectedInfo = byTeacher.find(t => t.id === teacherId)
 
-  function closeTeacher() { setTeacherId(''); setSchedule([]); setPicked(new Set()); setFrom(TERM_START[term]()); setTo(''); setTSearch('') }
+  function closeTeacher() { setMoving(null); setTeacherId(''); setSchedule([]); setPicked(new Set()); setFrom(TERM_START[term]()); setTo(''); setTSearch('') }
 
   // показваме само часовете, в които учителят има нещо (празните редове се скриват)
   const visiblePeriods = PERIODS.filter(p => schedule.some(s => s.period === p))
@@ -280,6 +307,15 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
                       ))}
                     </div>
                   )}
+                  {moving ? (
+                    <div className="flex flex-wrap items-center gap-2 mb-3 px-4 py-2.5 rounded-xl bg-teal-50 border border-teal-200 text-[13px] text-teal-900">
+                      {movingBusy ? <Loader2 size={14} className="animate-spin" /> : <MoveRight size={14} />}
+                      Изберете нов час за <b>{moving.subject || 'часа'}</b> ({fmt(moving.dateFrom).slice(0, 5)}–{fmt(moving.dateTo).slice(0, 5)}) — щракнете върху свободна клетка
+                      <button onClick={() => setMoving(null)} className="ml-auto px-2.5 py-1 rounded-lg border border-teal-200 bg-white hover:bg-teal-100 text-xs">Отказ (Esc)</button>
+                    </div>
+                  ) : myGroups.length > 0 && (
+                    <div className="text-[11px] text-slate-500 mb-2">За да смените часа — щракнете върху оцветената клетка, после върху новата. × изтрива часа.</div>
+                  )}
                   <div className="overflow-x-auto">
                     <table className="w-full border-separate" style={{ borderSpacing: '6px' }}>
                       <thead>
@@ -299,20 +335,27 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
                                 <td key={d.n} className="align-top">
                                   {sl ? (
                                     saved ? (
-                                      <div className={`relative w-full min-h-[64px] rounded-xl border px-2.5 py-2 text-left ${colorOf(saved.dateFrom, saved.dateTo).cell}`}>
+                                      <div role="button" tabIndex={0} title="Щракнете, за да преместите часа"
+                                        onClick={() => setMoving(mv => mv?.id === saved.id ? null : saved)}
+                                        className={`relative w-full min-h-[64px] rounded-xl border px-2.5 py-2 text-left cursor-pointer transition-all ${colorOf(saved.dateFrom, saved.dateTo).cell} ${moving?.id === saved.id ? 'ring-2 ring-teal-500 ring-offset-1 shadow-md' : moving ? 'opacity-50' : 'hover:shadow-sm'}`}>
                                         <div className="text-[11px] opacity-80 truncate pr-4 flex items-center gap-1">
                                           {saved.manual && <span title="Сложен на ръка — остава при „Наново“"><Lock size={10} className="shrink-0" /></span>}{sl.holderLabel}
                                         </div>
                                         <div className="text-[13px] truncate">{sl.subject}</div>
                                         <div className="text-[11px] opacity-80 mt-0.5">{fmt(saved.dateFrom).slice(0, 5)}–{fmt(saved.dateTo).slice(0, 5)}</div>
-                                        <button onClick={async () => {
+                                        <button onClick={async e => {
+                                          e.stopPropagation()
+                                          if (moving?.id === saved.id) setMoving(null)
                                           await removeLecturerSlot(teacherId, d.n, period, term)
                                           setMarked(prev => prev.filter(m => !(m.staffId === teacherId && m.day === d.n && m.period === period && m.term === term)))
                                         }} className="absolute top-1.5 right-1.5 opacity-50 hover:opacity-100 hover:text-rose-600" title="Премахни"><X size={13} /></button>
                                       </div>
                                     ) : (
                                       <button onClick={() => togglePick(d.n, period)}
-                                        className={`relative w-full min-h-[64px] rounded-xl px-2.5 py-2 text-left transition-all ${on
+                                        disabled={movingBusy}
+                                        className={`relative w-full min-h-[64px] rounded-xl px-2.5 py-2 text-left transition-all ${moving
+                                          ? 'border-2 border-dashed border-teal-300 bg-white text-slate-700 hover:border-teal-500 hover:bg-teal-50'
+                                          : on
                                           ? 'border-2 border-teal-500 bg-teal-50 text-teal-900 shadow-sm'
                                           : 'border border-slate-200 bg-white text-slate-700 hover:border-teal-300 hover:bg-teal-50/30'}`}>
                                         {on && <span className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full bg-teal-500 text-white flex items-center justify-center"><Check size={12} strokeWidth={3} /></span>}
