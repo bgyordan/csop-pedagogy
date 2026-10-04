@@ -264,11 +264,29 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
           <div className="px-6 md:px-16 py-10 max-w-3xl mx-auto">
             {coverItem?.preview && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={coverItem.preview} alt="" className="w-full max-h-[380px] object-cover rounded-2xl mb-6" />
+              <img src={coverItem.preview} alt="" className="w-full max-h-[320px] object-cover rounded-2xl mb-6" />
             )}
             <span className={`inline-flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-full border ${k.soft}`}><k.icon size={13} /> {k.label}</span>
             <h1 className="text-3xl font-semibold tracking-tight mt-3">{title || 'Заглавие'}</h1>
             <div className="mt-5 text-[16px] leading-relaxed text-slate-800">{body.trim() ? renderRich(body) : <p className="text-slate-400">Текстът ще се появи тук.</p>}</div>
+            {images.length > 1 && (
+              <div className="mt-8">
+                <div className="text-[12px] font-semibold uppercase tracking-widest text-slate-500 mb-3">Снимки · {images.length}</div>
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5">
+                  {images.slice(0, 15).map(it => (
+                    <div key={it.key} className="aspect-square rounded-lg overflow-hidden bg-slate-100">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      {it.preview && <img src={it.preview} alt="" className="w-full h-full object-cover" />}
+                    </div>
+                  ))}
+                  {images.length > 15 && (
+                    <div className="aspect-square rounded-lg border-2 border-dashed border-slate-300 text-slate-600 flex flex-col items-center justify-center">
+                      <span className="text-lg">+{images.length - 15}</span><span className="text-[11px]">още</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="grid lg:grid-cols-[1fr_380px]">
@@ -408,20 +426,20 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
                 </button>
                 <input ref={pickRef} type="file" accept="image/*" multiple className="hidden" onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = '' }} />
                 {images.length > 0 && (
-                  <div className="grid grid-cols-2 gap-2 mt-3">
+                  <div className="grid grid-cols-3 gap-1.5 mt-3 max-h-[440px] overflow-y-auto pr-1 -mr-1">
                     {images.map(it => (
-                      <div key={it.key} className={`rounded-xl overflow-hidden bg-white border-2 ${it.key === cover ? 'border-amber-400' : 'border-transparent'}`}>
-                        <div className="relative aspect-[4/3] bg-slate-200">
+                      <div key={it.key} className={`rounded-lg overflow-hidden bg-white border-2 ${it.key === cover ? 'border-amber-400' : 'border-transparent'}`}>
+                        <div className="relative aspect-square bg-slate-200">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           {it.preview && <img src={it.preview} alt="" className="w-full h-full object-cover" />}
                           <button type="button" onClick={() => setCoverKey(it.key)} title="Направи корица"
-                            className={`absolute top-1.5 left-1.5 w-7 h-7 rounded-full flex items-center justify-center shadow ${it.key === cover ? 'bg-amber-400 text-white' : 'bg-white/90 text-slate-500 hover:text-amber-500'}`}>
-                            <Star size={14} fill={it.key === cover ? 'currentColor' : 'none'} /></button>
+                            className={`absolute top-1 left-1 w-6 h-6 rounded-full flex items-center justify-center shadow ${it.key === cover ? 'bg-amber-400 text-white' : 'bg-white/90 text-slate-500 hover:text-amber-500'}`}>
+                            <Star size={12} fill={it.key === cover ? 'currentColor' : 'none'} /></button>
                           <button type="button" onClick={() => setItems(p => p.filter(x => x.key !== it.key))} title="Махни"
-                            className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-white/90 text-slate-500 hover:text-rose-600 flex items-center justify-center shadow"><Trash2 size={13} /></button>
+                            className="absolute top-1 right-1 w-6 h-6 rounded-full bg-white/90 text-slate-500 hover:text-rose-600 flex items-center justify-center shadow"><Trash2 size={12} /></button>
                         </div>
                         <input value={it.caption} onChange={e => setItems(p => p.map(x => x.key === it.key ? { ...x, caption: e.target.value } : x))}
-                          placeholder="Надпис…" className="w-full px-2 py-1.5 text-[12px] focus:outline-none" />
+                          placeholder="Надпис…" title={it.caption || 'Надпис към снимката'} className="w-full px-1.5 py-1 text-[11px] focus:outline-none" />
                       </div>
                     ))}
                   </div>

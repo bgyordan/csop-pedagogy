@@ -42,11 +42,11 @@ export default function PostCard({ post, author, thumbs, classNames, onOpen, onT
   return (
     <div role="button" tabIndex={0} onClick={onOpen} onKeyDown={e => { if (e.key === 'Enter') onOpen() }}
       className="group cursor-pointer text-left bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 flex flex-col">
-      <div className={`relative aspect-[4/3] overflow-hidden ${cover ? 'bg-slate-100' : `bg-gradient-to-br ${k.grad}`}`}>
+      <div className={`relative aspect-[16/10] overflow-hidden ${cover ? 'bg-slate-100' : `bg-gradient-to-br ${k.grad}`}`}>
         {cover
           // eslint-disable-next-line @next/next/no-img-element
           ? <img src={cover} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500" />
-          : <div className="absolute inset-0 flex items-center justify-center"><Icon size={64} strokeWidth={1.25} className="text-white/80" /></div>}
+          : <div className="absolute inset-0 flex items-center justify-center"><Icon size={48} strokeWidth={1.25} className="text-white/80" /></div>}
         <span className={`absolute top-3 left-3 inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-white/95 shadow-sm ${k.tone}`}>
           <Icon size={12} /> {k.label}
         </span>
@@ -75,7 +75,7 @@ export default function PostCard({ post, author, thumbs, classNames, onOpen, onT
             <span className="text-slate-500">{fmtPeriod(post.period_from, post.period_to)}</span>
           </div>
         )}
-        {text && <p className="text-[13px] text-slate-600 mt-1.5 line-clamp-3 leading-relaxed">{text}</p>}
+        {text && <p className="text-[13px] text-slate-600 mt-1.5 line-clamp-2 leading-relaxed">{text}</p>}
         <div className="mt-auto pt-3 flex items-center gap-2 text-[12px] text-slate-500">
           <Avatar name={author?.name || 'ЦСОП'} size={24} />
           <span className="truncate text-slate-700">{author?.short || 'ЦСОП'}</span>

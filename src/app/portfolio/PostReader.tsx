@@ -14,6 +14,9 @@ import type { Post, Person, Media } from './lib'
 
 const NEWS_CAT: Record<string, string> = { event: 'Събития', project: 'Новини', cabinet: 'Публикации', material: 'Публикации' }
 
+/** Колко снимки се показват веднага в галерията; останалите — с „покажи всички“ */
+const GALLERY_MAX = 15
+
 export default function PostReader({ post, author, thumbs, classNames, canEdit, canDelete, siteDesk, meId, onClose, onEdit, onDeleted, onChanged }: {
   post: Post; author?: Person; thumbs: Record<string, string>; classNames: Record<string, string>
   canEdit: boolean; canDelete: boolean; siteDesk: boolean; meId: string
@@ -25,6 +28,7 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
   const files = post.media.filter(m => !isImage(m))
   const [full, setFull] = useState<Record<string, string>>({})
   const [box, setBox] = useState<number | null>(null)
+  const [allPhotos, setAllPhotos] = useState(false)
   const [viewFile, setViewFile] = useState<Media | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [declining, setDeclining] = useState(false); const [reply, setReply] = useState('')
@@ -171,14 +175,21 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
           {images.length > (cover ? 1 : 0) && (
             <div className="mt-8">
               <h2 className="text-[12px] font-semibold uppercase tracking-widest text-slate-500 mb-3">Снимки · {images.length}</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {images.map((m, i) => (
-                  <button key={m.id} type="button" onClick={() => setBox(i)} className="group relative aspect-square rounded-xl overflow-hidden bg-slate-100">
+              {/* малки миниатюри; при много снимки — първите GALLERY_MAX и „още N“ */}
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5">
+                {(allPhotos ? images : images.slice(0, GALLERY_MAX)).map((m, i) => (
+                  <button key={m.id} type="button" onClick={() => setBox(i)} className="group relative aspect-square rounded-lg overflow-hidden bg-slate-100">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={(m.thumb_path && thumbs[m.thumb_path]) || full[m.path]} alt={m.caption || ''} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    {m.caption && <span className="absolute inset-x-0 bottom-0 p-2 text-[11px] text-white bg-gradient-to-t from-black/70 to-transparent text-left line-clamp-2">{m.caption}</span>}
+                    {m.caption && <span className="absolute inset-x-0 bottom-0 p-1.5 text-[10.5px] leading-tight text-white bg-gradient-to-t from-black/70 to-transparent text-left line-clamp-2">{m.caption}</span>}
                   </button>
                 ))}
+                {!allPhotos && images.length > GALLERY_MAX && (
+                  <button type="button" onClick={() => setAllPhotos(true)}
+                    className="aspect-square rounded-lg border-2 border-dashed border-slate-300 text-slate-600 hover:border-[#0f2240] hover:text-[#0f2240] text-sm font-medium flex flex-col items-center justify-center">
+                    <span className="text-lg">+{images.length - GALLERY_MAX}</span><span className="text-[11px] font-normal">покажи всички</span>
+                  </button>
+                )}
               </div>
             </div>
           )}
