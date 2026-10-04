@@ -10,7 +10,7 @@ import { autoDistribute, saveLecturerPlan } from './actions'
 import { slotHours } from './distribute'
 
 export type QTRow = {
-  id: string; name: string; position: string; classes: string[]
+  id: string; name: string; position: string; classes: string[]; classWeeks?: Record<string, number>
   total: number | null; weeks: number; suggested: number; distributedAt: string | null
 }
 export type QTMarked = { staffId: string; day: number; dateFrom: string; dateTo: string; manual?: boolean }
@@ -131,7 +131,21 @@ export default function QuickTable({ rows: initial, marked, schoolDates, onEdit,
                     <div className="text-slate-800">{r.name}</div>
                     <div className="text-[11px] text-slate-400">{r.position}</div>
                   </td>
-                  <td className="px-3 py-2 text-slate-600 text-[13px]">{r.classes.join(', ') || <span className="text-slate-300">—</span>}</td>
+                  <td className="px-3 py-2 text-slate-600 text-[13px]">
+                    {r.classes.length ? (
+                      <div className="flex flex-wrap gap-1">
+                        {r.classes.map(c => {
+                          const w = r.classWeeks?.[c]
+                          return (
+                            <span key={c} title={w ? `II срок до ${w} седмици (по класа на децата)` : 'няма данни за класа на децата'}
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-50 border border-slate-200 tabular-nums">
+                              {c}{w ? <span className="text-[10px] text-slate-400">{w}</span> : null}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    ) : <span className="text-slate-300">—</span>}
+                  </td>
                   <td className="px-3 py-2 text-center">
                     <input inputMode="numeric" value={draft[r.id] ?? (r.total ?? '')}
                       onChange={e => setDraft(d => ({ ...d, [r.id]: e.target.value.replace(/\D/g, '') }))}
@@ -178,7 +192,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, onEdit,
         </table>
       </div>
       <p className="px-5 py-3 text-xs text-slate-500 border-t border-slate-100">
-        Часовете се слагат случайно в разписанието — по един на ден, по реалните учебни дни от календара. Последният час спира на датата, в която се събира точният брой. •&nbsp;— предложение по класовете.
+        Часовете се слагат случайно в разписанието — по един на ден, по реалните учебни дни от календара. Последният час спира на датата, в която се събира точният брой. Малкото число до паралелката — седмиците във II срок по класа на децата в училищата им; • — предложение за учителя (най-дългата година).
       </p>
     </div>
   )

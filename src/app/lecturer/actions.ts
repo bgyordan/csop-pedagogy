@@ -1,7 +1,7 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { teacherYear, planDistribution, slotHours } from './distribute'
+import { teacherYear, planDistribution, slotHours, classWeeksFrom } from './distribute'
 
 // Разписанието на избран учител (за да маркираме слотове) — за избрания срок
 export async function getTeacherSchedule(staffId: string, term: number = 1) {
@@ -176,6 +176,22 @@ export async function yearSchoolDays() {
   return (data || []).map((d: any) => ({ date: d.date as string, term: d.term === 2 ? 2 : 1 }))
 }
 
+/** Седмиците на всяка паралелка в ЦСОП — по класа на децата в изпращащите училища */
+export async function getClassWeeks(yearId: string) {
+  const supabase = await createClient()
+  const rows: { className: string; externalClass: string | null }[] = []
+  for (let from = 0; ; from += 1000) {
+    const { data } = await supabase.from('student_enrollments')
+      .select('class:classes(name), student:students(external_class, status)')
+      .eq('academic_year_id', yearId).is('left_at', null).range(from, from + 999)
+    ;(data || []).forEach((r: any) => {
+      if (r.student?.status === 'active') rows.push({ className: r.class?.name || '', externalClass: r.student?.external_class || null })
+    })
+    if (!data || data.length < 1000) break
+  }
+  return classWeeksFrom(rows)
+}
+
 async function manager() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -216,7 +232,8 @@ export async function autoDistribute(staffId: string, total: number, term2Weeks:
   if (!sched.length) { term = 2; sched = (await getTeacherSchedule(staffId, 2)).slots }
   if (!sched.length) return { error: 'Учителят няма въведено разписание' }
 
-  const plan = planDistribution({ dates: year.dates, total, term2Weeks, schedule: sched })
+  const classWeeks = await getClassWeeks(m.yearId)
+  const plan = planDistribution({ dates: year.dates, total, term2Weeks, schedule: sched, classWeeks })
 
   await m.supabase.from('lecturer_slots').delete().eq('staff_id', staffId).eq('academic_year_id', m.yearId)
   if (plan.slots.length) {

@@ -13,24 +13,35 @@ export type PlannedSlot = SchedSlot & { dateFrom: string; dateTo: string; hours:
 
 export const dowOf = (date: string) => { const d = new Date(date + 'T12:00:00Z').getUTCDay(); return d === 0 ? 7 : d }
 
-/** Клас от името на паралелката: „1А“, „1 а“, „IV б“ → 1 / 4; иначе null */
-export function gradeOf(name: string): number | null {
+/** Клас в изпращащото училище: „5“, „V“, „IV“ → 5 / 4; иначе null (напр. ПГ) */
+export function gradeOf(name: string | null | undefined): number | null {
   const s = (name || '').trim()
-  const m = s.match(/^(\d{1,2})/)
+  const m = s.match(/^(\d{1,2})(?!\d)/)
   if (m) return Number(m[1])
   const R: [string, number][] = [['XII', 12], ['XI', 11], ['X', 10], ['IX', 9], ['VIII', 8], ['VII', 7], ['VI', 6], ['V', 5], ['IV', 4], ['III', 3], ['II', 2], ['I', 1]]
   for (const [r, n] of R) if (new RegExp(`^${r}(?![IVX])`, 'i').test(s)) return n
   return null
 }
-/** Седмици във II срок според класа: I клас — 14, II–VI — 16, VII+ — 18 */
-export function term2WeeksOf(name: string): number | null {
-  const g = gradeOf(name)
-  if (g === null) return null
+/** Седмици във II срок според класа на ученика: I клас — 14, II–VI — 16, VII+ — 18 */
+export function term2WeeksOfGrade(g: number | null): number | null {
+  if (g === null || g < 1 || g > 12) return null
   return g === 1 ? 14 : g <= 6 ? 16 : 18
 }
-/** Предложение за учителя: най-дългата година сред класовете му (по подразбиране 18) */
-export function suggestWeeks(classNames: string[]): number {
-  const w = classNames.map(term2WeeksOf).filter((x): x is number => x !== null)
+/**
+ * Седмиците на паралелка в ЦСОП (01, 02, … 37) — по децата в нея:
+ * децата идват от различни класове, затова паралелката учи до края на най-дългата им година.
+ */
+export function classWeeksFrom(rows: { className: string; externalClass: string | null }[]): Record<string, number> {
+  const m: Record<string, number> = {}
+  rows.forEach(r => {
+    const w = term2WeeksOfGrade(gradeOf(r.externalClass))
+    if (w !== null && r.className) m[r.className] = Math.max(m[r.className] || 0, w)
+  })
+  return m
+}
+/** Предложение за учителя: най-дългата година сред паралелките му (по подразбиране 18) */
+export function suggestWeeks(classNames: string[], classWeeks: Record<string, number>): number {
+  const w = classNames.map(c => classWeeks[c]).filter((x): x is number => !!x)
   return w.length ? Math.max(...w) : 18
 }
 
@@ -62,15 +73,15 @@ function shuffle<T>(a: T[], rnd: () => number): T[] {
   return r
 }
 
-export function planDistribution({ dates, total, term2Weeks, schedule, rnd = Math.random }: {
-  dates: string[]; total: number; term2Weeks: number; schedule: SchedSlot[]; rnd?: () => number
+export function planDistribution({ dates, total, term2Weeks, schedule, classWeeks = {}, rnd = Math.random }: {
+  dates: string[]; total: number; term2Weeks: number; schedule: SchedSlot[]; classWeeks?: Record<string, number>; rnd?: () => number
 }): { slots: PlannedSlot[]; placed: number; missing: number } {
   const from = dates[0], to = dates[dates.length - 1]
   const byDow: Record<number, string[]> = {}
   dates.forEach(d => { (byDow[dowOf(d)] ||= []).push(d) })
 
   // часовете в класове с по-кратка година не стигат до края — оставяме ги за последно
-  const fits = (s: SchedSlot) => { const w = term2WeeksOf(s.holderLabel); return w === null || w >= term2Weeks }
+  const fits = (s: SchedSlot) => { const w = classWeeks[s.holderLabel]; return !w || w >= term2Weeks }
   // уникални клетки (при групи в един час — една клетка)
   const cells: SchedSlot[] = []
   schedule.forEach(s => { if (!cells.some(c => c.day === s.day && c.period === s.period)) cells.push(s) })
