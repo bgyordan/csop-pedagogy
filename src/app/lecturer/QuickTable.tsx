@@ -94,7 +94,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
   async function distribute(r: QTRow, quiet = false) {
     const w = weekOf(r), n = w > 0 ? 0 : totalOf(r)
     if (w <= 0 && n <= 0) return false
-    if (!quiet && placed[r.id] && !confirm(`${r.name} вече има лекторски в разписанието. Да се заменят ли с ново разпределение?`)) return false
+    if (!quiet && placed[r.id] && !confirm(`${r.name}: да се разпределят ли наново? Часовете, сложени на ръка в „График“ (с катинарче), остават; останалите се слагат отначало.`)) return false
     setBusyId(r.id, true)
     const res: any = await autoDistribute(r.id, n, w > 0 ? w : null)
     setBusyId(r.id, false)
@@ -108,7 +108,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
 
   async function distributeAll() {
     if (!pending.length) return
-    if (!confirm(`Разпредели ${pending.length} учители? Досегашните им лекторски в разписанието се заменят.`)) return
+    if (!confirm(`Разпредели ${pending.length} учители? Часовете, сложени на ръка (с катинарче), остават; останалите се слагат отначало.`)) return
     let ok = 0
     for (const r of pending) if (await distribute(r, true)) ok++
     toast(`Разпределени: ${ok} от ${pending.length}`)
@@ -247,6 +247,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
         <p className="px-5 py-3 text-xs text-slate-500 border-t border-slate-100">
           <b>Предложението</b> (зелено) = часовете му по разписанието (с 0,7 за часовете с „вземане“) минус нормата; поправя се с писане, „Разпредели“ го приема.
           Въвежда се едното: <b>на седмица</b> (напр. 2 или 2,5 — дробта е още един час за тази част от годината) — всеки час стига до края на годината на своята паралелка и годишният брой се смята сам; <b>или за годината</b> (напр. 100) — последният час спира на датата, в която се събира точният брой.
+          Часовете, сложени или преместени на ръка в „График“, имат катинарче и остават при „Наново“ — разпределя се само остатъкът.
           Часовете се слагат случайно в разписанието — по един на ден, по реалните учебни дни от календара.
           Датата до паралелката е по класа на децата в училищата им (оранжева — няма въведен клас).
         </p>
