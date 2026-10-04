@@ -11,6 +11,7 @@ import { getLecturerOverview } from './actions'
 type Row = {
   staffId: string; name: string; position: string
   planned: number; declared: number; hasDecl: boolean; np: number; budget: number
+  substituted: { name: string; np: number; budget: number }[]
 }
 const MONTHS_BG = ['януари','февруари','март','април','май','юни','юли','август','септември','октомври','ноември','декември']
 function schoolMonths() {
@@ -109,8 +110,8 @@ export default function OverviewClient() {
             <thead>
               <tr className="border-b border-slate-100">
                 <th className={`${th} text-left`}>Служител</th>
-                <th className={th} title="Маркираните часове × учебните дни, без дните в отпуск/болничен">Над норм. по заповед</th>
-                <th className={th} title="Подадени от учителя в „Над норматив“">Над норм. декларирани</th>
+                <th className={th} title="Голямото число — декларирани от учителя; отдолу — по заповед (маркираните часове × учебните дни, без отпуск/болничен)">Над норматив</th>
+                <th className={`${th} text-left`}>Замествал</th>
                 <th className={th}>Заместване НП</th>
                 <th className={th}>Заместване бюджет</th>
                 <th className={th} title="Декларирани над норматив + заместване">Общо, ч.</th>
@@ -122,20 +123,32 @@ export default function OverviewClient() {
                 const diff = r.hasDecl && r.declared !== r.planned
                 return (
                   <tr key={r.staffId} className={`border-b border-slate-50 ${i % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-2 align-top">
                       <div className="text-sm text-slate-800">{r.name}</div>
                       <div className="text-[11px] text-slate-400">{r.position}</div>
                     </td>
-                    <td className={`${td} text-slate-500`}>{n(r.planned)}</td>
-                    <td className={td}>
+                    <td className={`${td} align-top`}>
                       {r.hasDecl
-                        ? <span className={diff ? 'text-amber-600' : 'text-slate-800'} title={diff ? `По заповед: ${r.planned}` : undefined}>{r.declared}</span>
-                        : r.planned > 0 ? <span className="text-[11px] text-slate-400">неподадена</span> : n(0)}
+                        ? <div className={diff ? 'text-amber-600' : 'text-slate-800'}>{r.declared}</div>
+                        : r.planned > 0 ? <div className="text-[11px] text-amber-600">неподадена</div> : n(0)}
+                      {r.planned > 0 && <div className={`text-[11px] ${diff ? 'text-amber-600' : 'text-slate-400'}`}>по заповед {r.planned}</div>}
                     </td>
-                    <td className={`${td} text-emerald-700`}>{n(r.np)}</td>
-                    <td className={`${td} text-slate-700`}>{n(r.budget)}</td>
-                    <td className={`${td} text-slate-900 font-medium`}>{n(r.declared + r.np + r.budget)}</td>
-                    <td className={`${td} text-slate-700`}>{money((r.declared + r.budget) * RATE_BUDGET + r.np * RATE_NP)}</td>
+                    <td className="px-3 py-2 align-top">
+                      {r.substituted.length === 0 ? <span className="text-slate-300 text-sm">—</span> : (
+                        <div className="space-y-0.5">
+                          {r.substituted.map((x, k) => (
+                            <div key={k} className="text-[12px] text-slate-600 whitespace-nowrap">
+                              {x.name} <span className="text-slate-400">·</span> {x.np + x.budget} ч
+                              {x.np > 0 && <span className="ml-1 text-emerald-700">({x.budget > 0 ? `${x.np} ` : ''}НП)</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td className={`${td} align-top text-emerald-700`}>{n(r.np)}</td>
+                    <td className={`${td} align-top text-slate-700`}>{n(r.budget)}</td>
+                    <td className={`${td} align-top text-slate-900 font-medium`}>{n(r.declared + r.np + r.budget)}</td>
+                    <td className={`${td} align-top text-slate-700`}>{money((r.declared + r.budget) * RATE_BUDGET + r.np * RATE_NP)}</td>
                   </tr>
                 )
               })}
@@ -143,8 +156,8 @@ export default function OverviewClient() {
             <tfoot>
               <tr className="border-t border-slate-200 bg-slate-50/60">
                 <td className="px-3 py-2 text-xs text-slate-500">Общо ({rows.length} служители)</td>
-                <td className={`${td} text-slate-500`}>{tot.planned}</td>
-                <td className={td}>{tot.declared}</td>
+                <td className={td}>{tot.declared}<div className="text-[11px] text-slate-400">по заповед {tot.planned}</div></td>
+                <td />
                 <td className={`${td} text-emerald-700`}>{tot.np}</td>
                 <td className={td}>{tot.budget}</td>
                 <td className={`${td} font-medium`}>{tot.declared + tot.np + tot.budget}</td>
@@ -153,7 +166,7 @@ export default function OverviewClient() {
             </tfoot>
           </table>
           <p className="px-4 py-2.5 text-[11px] text-slate-400">
-            Жълто — декларираните се различават от заповедта (виж подробностите в архива долу). Вътрешните замествания (в рамките на нормата) не се броят. Ставки: 6,29 € (ВПРЗ чл. 10, ал. 2) и 7,38 € за НП.
+            Жълто — декларираните над норматив се различават от заповедта или декларацията не е подадена (виж подробностите в архива долу). Вътрешните замествания (в рамките на нормата) не се броят. Ставки: 6,29 € (ВПРЗ чл. 10, ал. 2) и 7,38 € за НП.
           </p>
         </div>
       )}

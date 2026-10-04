@@ -74,9 +74,9 @@ export async function getLecturerOverview(first: string, last: string) {
     .lte('date_from', last).gte('date_to', first)
   const isAbsent = (staffId: string, d: string) => (abs || []).some((a: any) => a.absent_staff_id === staffId && d >= a.date_from && d <= a.date_to)
 
-  type R = { planned: number; declared: number; hasDecl: boolean; np: number; budget: number }
+  type R = { planned: number; declared: number; hasDecl: boolean; np: number; budget: number; by: Record<string, { np: number; budget: number }> }
   const rows: Record<string, R> = {}
-  const row = (id: string) => (rows[id] = rows[id] || { planned: 0, declared: 0, hasDecl: false, np: 0, budget: 0 })
+  const row = (id: string) => (rows[id] = rows[id] || { planned: 0, declared: 0, hasDecl: false, np: 0, budget: 0, by: {} })
 
   // над норматив — по заповед (маркираните слотове × учебните дни, без отсъствията)
   const { data: slots } = await supabase.from('lecturer_slots')
@@ -96,17 +96,29 @@ export async function getLecturerOverview(first: string, last: string) {
 
   // заместване
   const sh: any = await getSubstitutionHoursByStaff(first, last)
-  Object.entries((sh.data || {}) as Record<string, { np: number; budget: number }>).forEach(([id, v]) => {
+  Object.entries((sh.data || {}) as Record<string, { np: number; budget: number; by?: Record<string, { np: number; budget: number }> }>).forEach(([id, v]) => {
     const r = row(id); r.np += v.np; r.budget += v.budget
+    Object.entries(v.by || {}).forEach(([aid, h]) => {
+      const b = (r.by[aid] = r.by[aid] || { np: 0, budget: 0 }); b.np += h.np; b.budget += h.budget
+    })
   })
 
   const ids = Object.keys(rows)
   if (ids.length === 0) return { data: [] }
-  const { data: ppl } = await supabase.from('staff_profiles').select('id, first_name, last_name, position').in('id', ids)
+  const absentIds = Array.from(new Set(ids.flatMap(id => Object.keys(rows[id].by))))
+  const { data: ppl } = await supabase.from('staff_profiles').select('id, first_name, last_name, position').in('id', Array.from(new Set([...ids, ...absentIds])))
   const names: Record<string, { name: string; position: string }> = {}
   ;(ppl || []).forEach((p: any) => { names[p.id] = { name: `${p.first_name} ${p.last_name}`, position: p.position || '' } })
 
-  const data = ids.map(id => ({ staffId: id, ...(names[id] || { name: '—', position: '' }), ...rows[id] }))
+  const data = ids.map(id => {
+    const { by, ...rest } = rows[id]
+    // кого е замествал: име + часове (НП / бюджет), по брой часове надолу
+    const substituted = Object.entries(by)
+      .map(([aid, h]) => ({ name: names[aid]?.name || '—', np: h.np, budget: h.budget }))
+      .filter(x => x.np + x.budget > 0)
+      .sort((a, b) => (b.np + b.budget) - (a.np + a.budget))
+    return { staffId: id, ...(names[id] || { name: '—', position: '' }), ...rest, substituted }
+  })
     .filter(r => r.planned + r.declared + r.np + r.budget > 0)
     .sort((a, b) => a.name.localeCompare(b.name, 'bg'))
   return { data }
