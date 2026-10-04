@@ -38,7 +38,7 @@ export default function LecturerTabs({ academicYearId, teachers, marked, schoolD
           onEdit={id => { setEditId(id); setTab('grid') }} onChanged={() => router.refresh()} />
       ) : (
         <LecturerClient key={gridKey} academicYearId={academicYearId} teachers={teachers} marked={marked}
-          schoolDates={schoolDates} initialTeacherId={editId} />
+          schoolDates={schoolDates} ends={ends} initialTeacherId={editId} />
       )}
     </div>
   )

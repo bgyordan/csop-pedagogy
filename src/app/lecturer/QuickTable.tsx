@@ -41,9 +41,9 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
   // разпределени часове по учител — точно по календара
   const [placed, slotCount] = useMemo(() => {
     const m: Record<string, number> = {}, c: Record<string, number> = {}
-    marked.forEach(x => { m[x.staffId] = (m[x.staffId] || 0) + slotHours(schoolDates, x.day, x.dateFrom, x.dateTo); c[x.staffId] = (c[x.staffId] || 0) + 1 })
+    marked.forEach(x => { m[x.staffId] = (m[x.staffId] || 0) + slotHours(schoolDates, x.day, x.dateFrom, x.dateTo, ends); c[x.staffId] = (c[x.staffId] || 0) + 1 })
     return [m, c]
-  }, [marked, schoolDates])
+  }, [marked, schoolDates, ends])
 
   // въвежда се ЕДНОТО: часове на седмица ИЛИ годишен брой
   const num = (v: string) => { const n = Number(v.replace(',', '.')); return Number.isFinite(n) ? n : 0 }
