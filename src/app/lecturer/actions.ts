@@ -124,6 +124,7 @@ export async function getLecturerFrameworkData() {
 
   // точен брой часове: учебните дни от календара в делничния ден на слота
   const cal = (await yearSchoolDays()).map(d => d.date)
+  const { ends } = await getClassEnds(cy?.id)
 
   // групиране: учител -> (предмет+клас+период) -> {дни, часа/седм., общо}
   const byStaff: Record<string, any> = {}
@@ -146,7 +147,7 @@ export async function getLecturerFrameworkData() {
     const g = t.groups[key]
     g.days.add(s.day)
     g.hours++  // брой слотове = часа/седмица за тази комбинация
-    g.total += slotHours(cal, s.day, s.date_from, s.date_to)
+    g.total += slotHours(cal, s.day, s.date_from, s.date_to, ends)
   }
 
   const teachers: any[] = []
@@ -254,12 +255,12 @@ export async function autoDistribute(staffId: string, total: number, perWeek: nu
     .eq('staff_id', staffId).eq('academic_year_id', m.yearId).eq('is_manual', true)
   if (manErr) return { error: manErr.message.includes('is_manual') ? 'Пуснете SQL файла 2026-10-04_lecturer_manual.sql' : manErr.message }
   const manual = man || []
-  const manualHours = manual.reduce((a: number, x: any) => a + slotHours(dates, x.day, x.date_from, x.date_to), 0)
+  const manualHours = manual.reduce((a: number, x: any) => a + slotHours(dates, x.day, x.date_from, x.date_to, ends), 0)
   const restWeek = perWeek ? Math.max(0, Math.round((perWeek - manual.length) * 100) / 100) : 0
   const restTotal = perWeek ? 0 : Math.max(0, total - manualHours)
 
   const plan = (perWeek ? restWeek : restTotal) > 0
-    ? planDistribution({ dates, total: restTotal, perWeek: restWeek || undefined, schedule: sched, classEnd, defaultEnd, taken: manual })
+    ? planDistribution({ dates, total: restTotal, perWeek: restWeek || undefined, schedule: sched, classEnd, defaultEnd, ends, taken: manual })
     : { slots: [], placed: 0, missing: 0 }
 
   await m.supabase.from('lecturer_slots').delete().eq('staff_id', staffId).eq('academic_year_id', m.yearId).eq('is_manual', false)

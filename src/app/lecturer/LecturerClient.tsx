@@ -4,6 +4,7 @@ import { Loader2, Check, Save, Search, Plus, X, Trash2, UserRound, Lock } from '
 import { useToast } from '@/components/ui/Toast'
 import { getTeacherSchedule, saveLecturerSlots, clearLecturerSlots, removeLecturerSlot } from './actions'
 import { slotHours } from './distribute'
+import type { Ends } from './distribute'
 
 type Teacher = { id: string; name: string }
 type Marked = { id: string; staffId: string; staffName: string; day: number; period: number; subject: string; holderLabel: string; dateFrom: string; dateTo: string; orderNumber: string; term: number; manual?: boolean }
@@ -18,8 +19,8 @@ const yearStart = () => `${startYear()}-09-15`
 // граници на сроковете (МОН): I срок до 30.01, II срок от 03.02
 const TERM_START: Record<number, () => string> = { 1: yearStart, 2: () => `${startYear() + 1}-02-03` }
 const TERM1_END = () => `${startYear() + 1}-01-30`
-export default function LecturerClient({ teachers, marked: initialMarked, schoolDates, initialTeacherId }: {
-  academicYearId: string; teachers: Teacher[]; marked: Marked[]; schoolDates: string[]; initialTeacherId?: string
+export default function LecturerClient({ teachers, marked: initialMarked, schoolDates, ends = {}, initialTeacherId }: {
+  academicYearId: string; teachers: Teacher[]; marked: Marked[]; schoolDates: string[]; ends?: Ends; initialTeacherId?: string
 }) {
   const { toast } = useToast()
   const [marked, setMarked] = useState<Marked[]>(initialMarked)
@@ -113,7 +114,7 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
     marked.forEach(x => {
       if (!m[x.staffId]) m[x.staffId] = { name: x.staffName, count: 0, total: 0, periods: new Set(), classes: new Set() }
       m[x.staffId].count++
-      m[x.staffId].total += slotHours(schoolDates, x.day, x.dateFrom, x.dateTo)   // точно по календара
+      m[x.staffId].total += slotHours(schoolDates, x.day, x.dateFrom, x.dateTo, ends)   // точно по календара
       m[x.staffId].periods.add(`${fmt(x.dateFrom)}–${fmt(x.dateTo)}`)
       if (x.holderLabel) m[x.staffId].classes.add(x.holderLabel)
     })
@@ -121,7 +122,7 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
       id, name: v.name, count: v.count, total: v.total,
       periods: [...v.periods], classes: [...v.classes],
     }))
-  }, [marked, schoolDates])
+  }, [marked, schoolDates, ends])
   const grandTotal = byTeacher.reduce((a, t) => a + t.total, 0)
 
   // цвят по период — за да се виждат групите на избрания учител
@@ -363,10 +364,12 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
                         <div className="flex items-center gap-2 flex-wrap">
                           <input type="date" value={to} min={from || undefined} onChange={e => setTo(e.target.value)}
                             className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-teal-400" />
-                          {(term === 1
-                            ? [[TERM1_END(), 'край I срок ' + fmt(TERM1_END()).slice(0, 5)], [`${startYear() + 1}-06-30`, 'цяла година 30.06']]
-                            : [[`${startYear() + 1}-05-31`, '31.05'], [`${startYear() + 1}-06-15`, '15.06'], [`${startYear() + 1}-06-30`, '30.06']]
-                          ).map(([v, l]) => (
+                          {[
+                            ...(term === 1 ? [[TERM1_END(), 'край I срок ' + fmt(TERM1_END()).slice(0, 5)]] : []),
+                            // краищата на годината по групи класове (МОН) — часът носи 32/34/36 седмици
+                            ...([['1-3', 'I–III'], ['4-6', 'IV–VI'], ['7-11', 'VII–XI']] as const)
+                              .filter(([k]) => ends[k]).map(([k, l]) => [ends[k]!, `${l} ${fmt(ends[k]!).slice(0, 5)}`]),
+                          ].map(([v, l]) => (
                             <button key={v} type="button" onClick={() => setTo(v)}
                               className={`px-2.5 py-1.5 rounded-lg text-xs border ${to === v ? 'bg-teal-50 border-teal-300 text-teal-800' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'}`}>{l}</button>
                           ))}

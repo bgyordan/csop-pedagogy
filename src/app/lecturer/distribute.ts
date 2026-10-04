@@ -3,8 +3,8 @@
 //
 //  • Всяка паралелка учи до последния учебен ден на детето с най-дълъг учебен срок в нея
 //    (по класа му в изпращащото училище и датите на МОН: I–III, IV–VI, VII–XI, XII).
-//  • Всеки слот (ден + час в паралелка) дава толкова часа, колкото са учебните дни
-//    в този делничен ден до края на годината на паралелката.
+//  • Брои се по УЧЕБНИ СЕДМИЦИ (както МОН: учебни дни ÷ 5), не по дните на часа —
+//    празник в деня на часа не намалява броя. 1 ч./седм. за година = 32 (I–III), 34 (IV–VI), 36 (VII–XI), 31 (XII).
 //  • Пълни слотове, докато има място; остатъкът — един слот, който спира на датата,
 //    на която се събира точният брой.
 //  • По един час на ден (празник отнема най-много 1 час); втори в същия ден — само ако няма как иначе.
@@ -20,6 +20,13 @@ export const GROUPS: { key: Grp; label: string }[] = [
   { key: '7-11', label: 'VII–XI клас' }, { key: '12', label: 'XII клас' },
 ]
 export type Ends = Partial<Record<Grp, string>>
+/** Учебни седмици за годината по групи (18 + II срок) — 1 ч./седм. носи толкова часа */
+export const YEAR_WEEKS: Record<Grp, number> = { '1-3': 32, '4-6': 34, '7-11': 36, '12': 31 }
+/** Ако датата е последният учебен ден на група — седмиците ѝ по норматив */
+export function normWeeks(end: string, ends: Ends): number | null {
+  const g = (Object.keys(ends) as Grp[]).filter(k => ends[k] === end).sort((a, b) => YEAR_WEEKS[b] - YEAR_WEEKS[a])[0]
+  return g ? YEAR_WEEKS[g] : null
+}
 
 export const dowOf = (date: string) => { const d = new Date(date + 'T12:00:00Z').getUTCDay(); return d === 0 ? 7 : d }
 
@@ -62,8 +69,8 @@ function shuffle<T>(a: T[], rnd: () => number): T[] {
  * perWeek — N часа седмично, всеки до края на годината на паралелката си (годишният брой излиза сам);
  *           дробна част (2,5) — още един час, който върви само тази част от своите учебни дни.
  */
-export function planDistribution({ dates, total, perWeek, schedule, classEnd, defaultEnd, taken = [], rnd = Math.random }: {
-  dates: string[]; total?: number; perWeek?: number; schedule: SchedSlot[]; classEnd: Record<string, string>; defaultEnd: string
+export function planDistribution({ dates, total, perWeek, schedule, classEnd, defaultEnd, ends = {}, taken = [], rnd = Math.random }: {
+  dates: string[]; total?: number; perWeek?: number; schedule: SchedSlot[]; classEnd: Record<string, string>; defaultEnd: string; ends?: Ends
   /** клетки, вече заети от ръчно сложени часове — не се пипат, а дните им се ползват последни */
   taken?: { day: number; period: number }[]
   rnd?: () => number
@@ -74,7 +81,10 @@ export function planDistribution({ dates, total, perWeek, schedule, classEnd, de
   schedule.filter(s => s.holderType !== 'ifo').forEach(s => {
     if (cells.some(c => c.day === s.day && c.period === s.period)) return
     const end = classEnd[s.holderLabel] || defaultEnd
-    cells.push({ ...s, end, occ: dates.filter(d => d <= end && dowOf(d) === s.day) })
+    // седмиците до края на паралелката; i-тата седмица свършва на 5·i-тия учебен ден
+    const upTo = dates.filter(d => d <= end)
+    const weeks = normWeeks(end, ends) ?? Math.round(upTo.length / 5)
+    cells.push({ ...s, end, occ: Array.from({ length: weeks }, (_, i) => upTo[Math.min(upTo.length - 1, 5 * (i + 1) - 1)]) })
   })
 
   const used = new Set<string>(taken.map(t => `${t.day}-${t.period}`))
@@ -118,7 +128,12 @@ export function planDistribution({ dates, total, perWeek, schedule, classEnd, de
   return { slots: out.sort((a, b) => a.day - b.day || a.period - b.period), placed, missing }
 }
 
-/** Точен брой часове на слот: учебните дни в неговия делничен ден между двете дати */
-export function slotHours(dates: string[], day: number, from: string, to: string) {
-  return dates.filter(d => d >= from && d <= to && dowOf(d) === day).length
+/**
+ * Часове на слот = учебните седмици между двете дати; денят на часа няма значение.
+ * До края на годината на група — по норматив (32/34/36/31); иначе учебни дни ÷ 5 (както МОН).
+ */
+export function slotHours(dates: string[], _day: number, from: string, to: string, ends: Ends = {}) {
+  const n = normWeeks(to, ends)
+  if (n !== null && (!dates.length || from <= dates[0])) return n
+  return Math.round(dates.filter(d => d >= from && d <= to).length / 5)
 }
