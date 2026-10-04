@@ -164,23 +164,28 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-100">
-                <th className="px-5 py-2.5 font-medium">Учител</th>
-                <th className="px-3 py-2.5 font-medium">Паралелки · до кога учат</th>
-                <th className="px-2 py-2.5 font-medium text-center w-16" title="Учебен план (НЕИСПУО) — часове седмично, без ИЧ">УП</th>
-                <th className="px-2 py-2.5 font-medium text-center w-16" title="Седмично разписание в EIS — часове, без ИФО">СР</th>
-                <th className="px-2 py-2.5 font-medium text-center w-14" title="Индивидуални часове (ИФО деца) — по отделна заповед, не се смятат тук">ИЧ</th>
-                <th className="px-3 py-2.5 font-medium text-center w-28" title="Часове към норматива (терапиите с норма 30 се броят по 0,7) / норма">Към норматива</th>
-                <th className="px-3 py-2.5 font-medium text-center w-28">Над норматива на седмица</th>
-                <th className="px-3 py-2.5 font-medium text-center w-28">или за годината</th>
-                <th className="px-3 py-2.5 font-medium text-center w-36">В разписанието</th>
-                <th className="px-3 py-2.5 w-48" />
+        {/* заглавията остават видими при превъртане */}
+        <div className="overflow-auto max-h-[calc(100vh-230px)]">
+          <table className="w-full text-sm border-separate border-spacing-0">
+            <thead className="sticky top-0 z-10 bg-white">
+              <tr className="text-[11px] text-slate-500">
+                <th rowSpan={2} className="px-5 py-2 font-medium text-left align-bottom border-b border-slate-200">Учител</th>
+                <th rowSpan={2} className="px-3 py-2 font-medium text-left align-bottom border-b border-slate-200">Паралелки<div className="font-normal text-slate-400">до кога учат</div></th>
+                <th colSpan={3} className="px-2 py-2 font-medium text-center border-b border-slate-100 bg-slate-50/80 rounded-tl-lg">Часове на седмица</th>
+                <th rowSpan={2} className="px-2 py-2 font-medium text-center align-bottom border-b border-slate-200 w-28" title="Часовете по учебния план, като терапиите (норма 30) се броят по 0,7 / нормата на учителя">Към норматива<div className="font-normal text-slate-400">/ норма</div></th>
+                <th colSpan={2} className="px-2 py-2 font-medium text-center border-b border-slate-100 bg-teal-50/70 text-teal-800">Лекторски над норматива</th>
+                <th rowSpan={2} className="px-2 py-2 font-medium text-center align-bottom border-b border-slate-200 w-32">Разпределени</th>
+                <th rowSpan={2} className="border-b border-slate-200 w-48" />
+              </tr>
+              <tr className="text-[11px] text-slate-500">
+                <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-slate-50/80 w-20" title="Учебен план от НЕИСПУО, без индивидуалните часове">по учебен план</th>
+                <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-slate-50/80 w-20" title="Седмичното разписание в EIS, без ИФО">по разписание</th>
+                <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-slate-50/80 w-20" title="Индивидуални часове с ИФО деца — по отделна заповед, не се смятат тук">индивид. (ИЧ)</th>
+                <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-teal-50/70 text-teal-800 w-24">на седмица</th>
+                <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-teal-50/70 text-teal-800 w-24">или за годината</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {visible.map(r => {
                 const w = weekOf(r)
                 const t = w > 0 ? (r.total || 0) : totalOf(r)
@@ -189,7 +194,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                 const off = (wanted(r) || p > 0) && !ok
                 const b = busy.has(r.id)
                 return (
-                  <tr key={r.id} className={off ? 'bg-amber-50/40' : ''}>
+                  <tr key={r.id} className="hover:bg-slate-50/60 [&>td]:border-b [&>td]:border-slate-100">
                     <td className="px-5 py-2">
                       <div className="text-slate-800">{r.name}</div>
                       <div className="text-[11px] text-slate-400">{r.position}</div>
@@ -212,7 +217,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                       const diff = hasUp ? (r.sr || 0) - (r.up1 || 0) : 0
                       return (<>
                         <td className="px-2 py-2 text-center tabular-nums text-[13px] text-slate-800">{hasUp ? upTxt : <span className="text-slate-300" title="Няма учебен план за този учител">—</span>}</td>
-                        <td className={`px-2 py-2 text-center tabular-nums text-[13px] ${hasUp && diff !== 0 ? 'text-amber-700 bg-amber-50' : 'text-slate-600'}`}
+                        <td className={`px-2 py-2 text-center tabular-nums text-[13px] ${hasUp && diff !== 0 ? 'text-amber-700' : 'text-slate-600'}`}
                           title={hasUp && diff !== 0 ? (diff < 0 ? `В разписанието липсват ${-diff} ч. спрямо учебния план` : `В разписанието има ${diff} ч. повече от учебния план`) : undefined}>
                           {r.sr || <span className="text-slate-300">—</span>}{hasUp && diff !== 0 && <AlertTriangle size={11} className="inline ml-1 -mt-0.5" />}
                         </td>
@@ -249,6 +254,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                     </td>
                     <td className="px-3 py-2 text-center tabular-nums">
                       {ok ? <span className="inline-flex items-center gap-1 text-emerald-700"><Check size={14} /> {p}</span>
+                        : off && p === 0 ? <span className="text-slate-400 text-[13px]">още не</span>
                         : off ? <span className="inline-flex items-center gap-1 text-amber-700" title="Различава се от въведеното"><AlertTriangle size={13} /> {w > 0 ? `${slotCount[r.id] || 0} от ${fmtW(w)}/седм.` : `${p} от ${t}`}</span>
                         : <span className="text-slate-300">—</span>}
                     </td>
@@ -275,14 +281,11 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
             </tbody>
           </table>
         </div>
-        <p className="px-5 py-3 text-xs text-slate-500 border-t border-slate-100">
-          <b>УП</b> — учебен план (НЕИСПУО), <b>СР</b> — седмично разписание (жълто: не съвпада с УП), <b>ИЧ</b> — индивидуални часове с ИФО деца (по отделна заповед, не се смятат).{" "}
-          <b>Предложението</b> (зелено) = часовете към норматива по учебния план (терапиите по 0,7) минус нормата; ако няма учебен план — по разписанието. Поправя се с писане, „Разпредели“ го приема.
-          Въвежда се едното: <b>на седмица</b> (напр. 2 или 2,5 — дробта е още един час за тази част от годината) — всеки час стига до края на годината на своята паралелка и годишният брой се смята сам; <b>или за годината</b> (напр. 100) — последният час спира на датата, в която се събира точният брой.
-          Часовете, сложени или преместени на ръка в „График“, имат катинарче и остават при „Наново“ — разпределя се само остатъкът.
-          Часовете се слагат случайно в разписанието — по един на ден, по реалните учебни дни от календара.
-          Датата до паралелката е по класа на децата в училищата им (оранжева — няма въведен клас).
-        </p>
+        <div className="px-5 py-3 text-xs text-slate-500 border-t border-slate-100 space-y-1">
+          <p><b className="text-slate-700">Как се чете:</b> „Часове на седмица“ — по учебния план от НЕИСПУО и по разписанието в EIS (оранжево, ако не съвпадат — разписанието трябва да се оправи). ИЧ са по отделна заповед и не се смятат.</p>
+          <p><b className="text-slate-700">Към норматива</b> — часовете по учебния план, като терапиите се броят по 0,7. Разликата над нормата се предлага в зелено като <b className="text-slate-700">лекторски</b>; поправя се с писане.</p>
+          <p><b className="text-slate-700">„Разпредели“</b> слага лекторските в разписанието — по един на ден, всеки до края на годината на паралелката си (датата до паралелката). Часовете, преместени на ръка в „График“, имат катинарче и остават.</p>
+        </div>
       </div>
     </div>
   )
