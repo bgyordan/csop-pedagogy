@@ -16,6 +16,8 @@ export type QTRow = {
   id: string; name: string; position: string
   classes: { name: string; end: string }[]
   total: number | null; perWeek?: number | null; distributedAt: string | null
+  /** натоварване по разписанието (I срок, с 0,7 за часовете с „вземане“), норма и предложение = разликата */
+  load?: number; norm?: number; suggest?: number
 }
 export type QTMarked = { staffId: string; day: number; dateFrom: string; dateTo: string }
 
@@ -46,7 +48,14 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
   // въвежда се ЕДНОТО: часове на седмица ИЛИ годишен брой
   const num = (v: string) => { const n = Number(v.replace(',', '.')); return Number.isFinite(n) ? n : 0 }
   const fmtW = (n: number | null | undefined) => n ? String(Number(n)).replace('.', ',') : ''
-  const weekOf = (r: QTRow) => { const v = draft[r.id + ':w']; return v !== undefined ? (v === '' ? 0 : num(v)) : Number(r.perWeek || 0) }
+  // предложението важи, докато не е въведено нищо друго
+  const isSuggested = (r: QTRow) => draft[r.id + ':w'] === undefined && draft[r.id] === undefined && !Number(r.perWeek) && !(r.total || 0) && (r.suggest || 0) > 0
+  const weekOf = (r: QTRow) => {
+    const v = draft[r.id + ':w']
+    if (v !== undefined) return v === '' ? 0 : num(v)
+    if (Number(r.perWeek)) return Number(r.perWeek)
+    return isSuggested(r) ? (r.suggest || 0) : 0
+  }
   const totalOf = (r: QTRow) => { const v = draft[r.id]; return v !== undefined ? (v === '' ? 0 : Number(v)) : (r.total || 0) }
   const wanted = (r: QTRow) => weekOf(r) > 0 || totalOf(r) > 0
   const isDone = (r: QTRow) => weekOf(r) > 0
@@ -150,7 +159,8 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
               <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-100">
                 <th className="px-5 py-2.5 font-medium">Учител</th>
                 <th className="px-3 py-2.5 font-medium">Паралелки · до кога учат</th>
-                <th className="px-3 py-2.5 font-medium text-center w-24">На седмица</th>
+                <th className="px-3 py-2.5 font-medium text-center w-28">Часове / норма</th>
+                <th className="px-3 py-2.5 font-medium text-center w-28">Над норматива на седмица</th>
                 <th className="px-3 py-2.5 font-medium text-center w-28">или за годината</th>
                 <th className="px-3 py-2.5 font-medium text-center w-36">В разписанието</th>
                 <th className="px-3 py-2.5 w-48" />
@@ -182,15 +192,21 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                         </div>
                       ) : <span className="text-slate-300">няма разписание</span>}
                     </td>
+                    <td className="px-3 py-2 text-center tabular-nums text-[13px]">
+                      {r.load ? (
+                        <span className={(r.load || 0) > (r.norm || 21) ? 'text-slate-800' : 'text-slate-400'}>{fmtW(r.load)} <span className="text-slate-400">/ {r.norm}</span></span>
+                      ) : <span className="text-slate-300">—</span>}
+                    </td>
                     <td className="px-3 py-2 text-center">
                       <input inputMode="decimal" value={draft[r.id + ':w'] ?? fmtW(r.perWeek)}
                         onChange={e => setDraft(d => ({ ...d, [r.id + ':w']: e.target.value.replace(/[^\d.,]/g, '').replace(/([.,].*)[.,]/, '$1') }))}
                         onBlur={() => commit(r, 'w')} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                        placeholder="—" title="Часове на седмица, може и дробно (2,5) — системата смята годишния брой"
-                        className="w-14 text-center px-2 py-1.5 rounded-lg border border-slate-200 tabular-nums focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-50" />
+                        placeholder={isSuggested(r) ? fmtW(r.suggest) : '—'} title={isSuggested(r) ? `Предложение: ${fmtW(r.load)} − ${r.norm} = ${fmtW(r.suggest)}. Може да се поправи.` : 'Часове над норматива на седмица, може и дробно (2,5)'}
+                        className={`w-16 text-center px-2 py-1.5 rounded-lg border tabular-nums focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-50 ${isSuggested(r) ? 'border-teal-300 bg-teal-50/60 placeholder:text-teal-700' : 'border-slate-200'}`} />
+                      {isSuggested(r) && <div className="text-[10px] text-teal-700 mt-0.5">предложение</div>}
                     </td>
                     <td className="px-3 py-2 text-center">
-                      {w > 0 ? (
+                      {w > 0 && !isSuggested(r) ? (
                         <span className="text-slate-500 tabular-nums" title="Смята се от часовете на седмица по календара">{r.distributedAt && r.total ? `= ${r.total}` : 'след разпределяне'}</span>
                       ) : (
                         <input inputMode="numeric" value={draft[r.id] ?? (r.total || '')}
@@ -224,11 +240,12 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                   </tr>
                 )
               })}
-              {visible.length === 0 && <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-400">Няма учители</td></tr>}
+              {visible.length === 0 && <tr><td colSpan={7} className="px-5 py-10 text-center text-slate-400">Няма учители</td></tr>}
             </tbody>
           </table>
         </div>
         <p className="px-5 py-3 text-xs text-slate-500 border-t border-slate-100">
+          <b>Предложението</b> (зелено) = часовете му по разписанието (с 0,7 за часовете с „вземане“) минус нормата; поправя се с писане, „Разпредели“ го приема.
           Въвежда се едното: <b>на седмица</b> (напр. 2 или 2,5 — дробта е още един час за тази част от годината) — всеки час стига до края на годината на своята паралелка и годишният брой се смята сам; <b>или за годината</b> (напр. 100) — последният час спира на датата, в която се събира точният брой.
           Часовете се слагат случайно в разписанието — по един на ден, по реалните учебни дни от календара.
           Датата до паралелката е по класа на децата в училищата им (оранжева — няма въведен клас).
