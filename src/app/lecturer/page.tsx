@@ -3,7 +3,9 @@ import { redirect } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
 import { GraduationCap } from 'lucide-react'
 import { getFullName } from '@/lib/utils'
-import LecturerClient from './LecturerClient'
+import LecturerTabs from './LecturerTabs'
+import { yearSchoolDays } from './actions'
+import { suggestWeeks } from './distribute'
 import OrderButton from './OrderButton'
 export const dynamic = 'force-dynamic'
 
@@ -20,9 +22,9 @@ export default async function LecturerPage() {
 
   // учители (класни + teacher + възпитатели — всички, които могат да имат часове)
   const { data: staff } = await supabase
-    .from('staff_profiles').select('id, first_name, last_name')
+    .from('staff_profiles').select('id, first_name, last_name, position, role')
     .in('role', ['class_teacher', 'teacher', 'educator']).eq('is_active', true)
-  const teachers = (staff || []).map((s: any) => ({ id: s.id, name: getFullName(s) }))
+  const teachers = (staff || []).map((s: any) => ({ id: s.id, name: getFullName(s), position: s.position || '' }))
     .sort((a, b) => a.name.localeCompare(b.name, 'bg'))
 
   // вече маркирани лекторски слотове (за списъка долу)
@@ -41,6 +43,40 @@ export default async function LecturerPage() {
     term: r.term === 2 ? 2 : 1,
   }))
 
+  // ── за бързата таблица: паралелките на всеки учител (от разписанието), числата и календара ──
+  const [{ data: scheds }, { data: plans }, { data: ifo }, schoolDays] = await Promise.all([
+    supabase.from('class_schedules').select('id, term, class:classes(name)').eq('academic_year_id', currentYear?.id),
+    supabase.from('lecturer_plans').select('staff_id, total_hours, term2_weeks, distributed_at').eq('academic_year_id', currentYear?.id),
+    supabase.from('teacher_ifo_slots').select('teacher_id').eq('academic_year_id', currentYear?.id),
+    yearSchoolDays(),
+  ])
+  const schedClass: Record<string, string> = {}
+  ;(scheds || []).forEach((x: any) => { schedClass[x.id] = x.class?.name || '' })
+  const schedIds = Object.keys(schedClass)
+  const classesOf: Record<string, Set<string>> = {}
+  for (let i = 0; i < schedIds.length; i += 100) {
+    const ids = schedIds.slice(i, i + 100)
+    for (let from = 0; ; from += 1000) {
+      const { data: sl } = await supabase.from('schedule_slots').select('staff_id, schedule_id').in('schedule_id', ids).not('staff_id', 'is', null).range(from, from + 999)
+      ;(sl || []).forEach((r: any) => { (classesOf[r.staff_id] ||= new Set()).add(schedClass[r.schedule_id]) })
+      if (!sl || sl.length < 1000) break
+    }
+  }
+  const hasIfo = new Set((ifo || []).map((r: any) => r.teacher_id))
+  const planOf: Record<string, any> = {}
+  ;(plans || []).forEach((p: any) => { planOf[p.staff_id] = p })
+  const rows = teachers.map(t => {
+    const cls = Array.from(classesOf[t.id] || []).filter(Boolean).sort((a, b) => a.localeCompare(b, 'bg', { numeric: true }))
+    const suggested = suggestWeeks(cls)
+    const p = planOf[t.id]
+    return {
+      id: t.id, name: t.name, position: t.position,
+      classes: hasIfo.has(t.id) ? [...cls, 'ИФО'] : cls,
+      total: p ? p.total_hours : null, weeks: p ? p.term2_weeks : suggested, suggested,
+      distributedAt: p?.distributed_at || null,
+    }
+  })
+
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto animate-in fade-in duration-500">
       <BackButton />
@@ -54,10 +90,12 @@ export default async function LecturerPage() {
         </div>
         <OrderButton />
       </header>
-      <LecturerClient
+      <LecturerTabs
         academicYearId={currentYear?.id || ''}
-        teachers={teachers}
+        teachers={teachers.map(t => ({ id: t.id, name: t.name }))}
         marked={marked}
+        schoolDates={schoolDays.map(d => d.date)}
+        rows={rows}
       />
     </div>
   )

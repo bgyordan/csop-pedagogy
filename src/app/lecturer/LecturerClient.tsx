@@ -2,7 +2,8 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Loader2, Check, Save, Search, Plus, X, Trash2, UserRound } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { getTeacherSchedule, saveLecturerSlots, clearLecturerSlots, schoolWeeks, removeLecturerSlot } from './actions'
+import { getTeacherSchedule, saveLecturerSlots, clearLecturerSlots, removeLecturerSlot } from './actions'
+import { slotHours } from './distribute'
 
 type Teacher = { id: string; name: string }
 type Marked = { id: string; staffId: string; staffName: string; day: number; period: number; subject: string; holderLabel: string; dateFrom: string; dateTo: string; orderNumber: string; term: number }
@@ -17,20 +18,8 @@ const yearStart = () => `${startYear()}-09-15`
 // граници на сроковете (МОН): I срок до 30.01, II срок от 03.02
 const TERM_START: Record<number, () => string> = { 1: yearStart, 2: () => `${startYear() + 1}-02-03` }
 const TERM1_END = () => `${startYear() + 1}-01-30`
-function weeksBetween(from: string, to: string): number {
-  if (!from || !to) return 0
-  const a = new Date(from + 'T00:00'), b = new Date(to + 'T00:00')
-  if (b < a) return 0
-  // брой понеделници (учебни седмици) в интервала
-  let count = 0
-  const d = new Date(a)
-  while (d <= b) { if (d.getDay() === 1) count++; d.setDate(d.getDate() + 1) }
-  // ако периодът започва след понеделник, добавяме първата непълна седмица
-  return count > 0 ? count : 1
-}
-
-export default function LecturerClient({ academicYearId, teachers, marked: initialMarked }: {
-  academicYearId: string; teachers: Teacher[]; marked: Marked[]
+export default function LecturerClient({ teachers, marked: initialMarked, schoolDates, initialTeacherId }: {
+  academicYearId: string; teachers: Teacher[]; marked: Marked[]; schoolDates: string[]; initialTeacherId?: string
 }) {
   const { toast } = useToast()
   const [marked, setMarked] = useState<Marked[]>(initialMarked)
@@ -45,6 +34,8 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
   const [to, setTo] = useState('')
   const [saving, setSaving] = useState(false)
   const [term, setTerm] = useState(1)
+
+  useEffect(() => { if (initialTeacherId) selectTeacher(initialTeacherId) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const teacherName = teachers.find(t => t.id === teacherId)?.name || ''
   const filtered = teachers.filter(t => t.name.toLowerCase().includes(tSearch.toLowerCase())).slice(0, 40)
@@ -116,27 +107,13 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
     toast('Изтрито')
   }
 
-  // учебни седмици по период (от календара) — кеш
-  const [weeksCache, setWeeksCache] = useState<Record<string, number>>({})
-  useEffect(() => {
-    const periods = Array.from(new Set(marked.map(x => `${x.dateFrom}|${x.dateTo}`)))
-    periods.forEach(async p => {
-      if (weeksCache[p] !== undefined) return
-      const [f, t] = p.split('|')
-      if (!f || !t) return
-      const w = await schoolWeeks(f, t)
-      setWeeksCache(prev => ({ ...prev, [p]: w }))
-    })
-  }, [marked])
-
   // групиране по учител — общо часа = СУМА по слот × седмиците на СВОЯ период
   const byTeacher = useMemo(() => {
     const m: Record<string, { name: string; count: number; total: number; periods: Set<string>; classes: Set<string> }> = {}
     marked.forEach(x => {
       if (!m[x.staffId]) m[x.staffId] = { name: x.staffName, count: 0, total: 0, periods: new Set(), classes: new Set() }
-      const w = weeksCache[`${x.dateFrom}|${x.dateTo}`] ?? weeksBetween(x.dateFrom, x.dateTo)
       m[x.staffId].count++
-      m[x.staffId].total += w   // 1 час/седмица × седмиците на този слот
+      m[x.staffId].total += slotHours(schoolDates, x.day, x.dateFrom, x.dateTo)   // точно по календара
       m[x.staffId].periods.add(`${fmt(x.dateFrom)}–${fmt(x.dateTo)}`)
       if (x.holderLabel) m[x.staffId].classes.add(x.holderLabel)
     })
@@ -144,7 +121,7 @@ export default function LecturerClient({ academicYearId, teachers, marked: initi
       id, name: v.name, count: v.count, total: v.total,
       periods: [...v.periods], classes: [...v.classes],
     }))
-  }, [marked, weeksCache])
+  }, [marked, schoolDates])
   const grandTotal = byTeacher.reduce((a, t) => a + t.total, 0)
 
   // цвят по период — за да се виждат групите на избрания учител
