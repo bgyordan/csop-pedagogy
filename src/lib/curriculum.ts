@@ -132,8 +132,8 @@ export function overWithIch(n: number, ichN: number, norm: number, ichLect = 0) 
 export const STAFF_NORM: Record<string, number> = {
   class_teacher: 21, teacher: 21, speech_therapist: 21, rehabilitator: 21, psychologist: 30, educator: 30,
 }
-/** Годишна норма (часове за годината) — ЗДУД 144, директор 72; смята се върху годишните часове */
-export const STAFF_NORM_YEAR: Record<string, number> = { zdud: 144, director: 72 }
+/** Годишна норма (часове за годината) — ЗДУД и ЗДАСД (роля admin) 144, директор 72; смята се върху годишните часове */
+export const STAFF_NORM_YEAR: Record<string, number> = { zdud: 144, admin: 144, director: 72 }
 
 /**
  * Лекторски на седмица по две правила (Наредба № 4/2017):
