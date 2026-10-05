@@ -5,6 +5,9 @@ import { ArrowLeft, Wallet } from 'lucide-react'
 import { loadCurriculum, TEACHER_NORM, canSeeLecturerReport as canSee } from '@/lib/curriculum'
 import type { CurLine } from '@/lib/curriculum'
 import LecturerPlanReport from './LecturerPlanReport'
+import ClassPlanReport from './ClassPlanReport'
+import type { ClassRow } from './ClassPlanReport'
+import ReportTabs from './ReportTabs'
 import type { PlanRow } from './LecturerPlanReport'
 export const dynamic = 'force-dynamic'
 
@@ -63,6 +66,27 @@ export default async function LecturerPlanPage() {
     })
     .sort((a, b) => a.name.localeCompare(b.name, 'bg'))
 
+  // ── по паралелки (както е изгледът във вноса): паралелка → предмети, учители, часове ──
+  const overOf: Record<string, number> = {}
+  rows.forEach(r => { if (r.over1 > 0) overOf[r.id] = r.over1 })
+  const byHolder: Record<string, CurLine[]> = {}
+  lines.forEach(l => { (byHolder[l.classId || l.holder] ||= []).push(l) })
+  const classRows: ClassRow[] = Object.entries(byHolder).map(([key, ls]) => {
+    const main = ls.filter(l => !l.individual), ich = ls.filter(l => l.individual)
+    const byKind: Record<string, number> = {}
+    main.forEach(l => { const k = l.kind || 'друго'; byKind[k] = r1((byKind[k] || 0) + l.h1) })
+    return {
+      key, name: ls[0].holder, classId: ls[0].classId,
+      group: ls[0].classId ? 'class' : /цоуд/i.test(ls[0].holder) ? 'coud' : 'other',
+      teachers: Array.from(new Set(main.map(l => l.teacher).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'bg')),
+      h1: r1(main.reduce((a, l) => a + l.h1, 0)), h2: r1(main.reduce((a, l) => a + l.h2, 0)),
+      total: Math.round(main.reduce((a, l) => a + l.total, 0)), byKind,
+      ich1: r1(ich.reduce((a, l) => a + l.h1, 0)), ichTotal: Math.round(ich.reduce((a, l) => a + l.total, 0)),
+      lines: ls.map(l => ({ id: l.id, subject: l.subject, teacher: l.teacher, teacherOver: l.staffId ? overOf[l.staffId] || 0 : 0,
+        h1: l.h1, h2: l.h2, total: l.total, kind: l.kind, individual: l.individual, therapy: l.norm !== 21 })),
+    }
+  })
+
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto">
       <Link href="/reports/hub" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6 print:hidden">
@@ -77,7 +101,9 @@ export default async function LecturerPlanPage() {
           </p>
         </div>
       </header>
-      <LecturerPlanReport rows={rows} yearName={cy?.name || ''} />
+      <ReportTabs
+        teachers={<LecturerPlanReport rows={rows} yearName={cy?.name || ''} />}
+        classes={<ClassPlanReport rows={classRows} yearName={cy?.name || ''} />} />
     </div>
   )
 }
