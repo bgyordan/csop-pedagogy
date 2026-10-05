@@ -70,6 +70,29 @@ export default async function LecturerPage() {
       if (!sl || sl.length < 1000) break
     }
   }
+  // логопеди и терапевти — графикът им (децата → паралелките им)
+  const { data: tsch } = await supabase.from('therapist_schedules').select('id, staff_id').eq('academic_year_id', currentYear?.id)
+  const tStaff: Record<string, string> = {}
+  ;(tsch || []).forEach((x: any) => { tStaff[x.id] = x.staff_id })
+  const tIds = Object.keys(tStaff)
+  if (tIds.length) {
+    const kids: Record<string, Set<string>> = {}
+    for (let i = 0; i < tIds.length; i += 100) {
+      for (let from = 0; ; from += 1000) {
+        const { data: tsl } = await supabase.from('therapist_slots').select('schedule_id, student_id').in('schedule_id', tIds.slice(i, i + 100)).range(from, from + 999)
+        ;(tsl || []).forEach((r: any) => { if (r.student_id) (kids[tStaff[r.schedule_id]] ||= new Set()).add(r.student_id) })
+        if (!tsl || tsl.length < 1000) break
+      }
+    }
+    const allKids = Array.from(new Set(Object.values(kids).flatMap(k => Array.from(k))))
+    const clsOf: Record<string, string> = {}
+    for (let i = 0; i < allKids.length; i += 200) {
+      const { data: en } = await supabase.from('student_enrollments').select('student_id, class:classes(name)')
+        .eq('academic_year_id', currentYear?.id).is('left_at', null).in('student_id', allKids.slice(i, i + 200))
+      ;(en || []).forEach((r: any) => { if (r.class?.name) clsOf[r.student_id] = r.class.name })
+    }
+    Object.entries(kids).forEach(([sid, set]) => set.forEach(st => { if (clsOf[st]) (classesOf[sid] ||= new Set()).add(clsOf[st]) }))
+  }
 
   const planOf: Record<string, any> = {}
   ;(plans || []).forEach((p: any) => { planOf[p.staff_id] = p })
