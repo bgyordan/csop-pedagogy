@@ -74,7 +74,7 @@ export default async function LecturerPlanPage() {
         over1: o1, over2: o2, overYear: Math.round(o1 * W1 + o2 * W2), W1, W2,
         ich1: r1(ich1), ich2: r1(ich2), ichYear: Math.round(ichYear), ichClasses,
         ichFill: c1?.fill || 0, ichLect: c1?.lect || 0,
-        normAll, normYear, yearSimple: yS, yearMixed: yM, ichYearAll, ichW1, ichW2, diff1: noMain ? null : diff1, diff2: noMain ? null : diff2, diffY: noMain ? null : diffY,
+        normAll, normYear, yearSimple: yS, yearMixed: yM, noIchSimple: L.noIchSimple, noIchMixed: L.noIchMixed, ichYearAll, ichW1, ichW2, diff1: noMain ? null : diff1, diff2: noMain ? null : diff2, diffY: noMain ? null : diffY,
         ifoKids: Array.from(ifoKids[s.id] || []).sort((a, b) => a.localeCompare(b, 'bg')),
         lines: ls.map(l => ({ id: l.id, holder: l.holder, subject: l.subject, h1: l.h1, h2: l.h2, total: l.total, kind: l.kind, individual: l.individual, therapy: l.norm !== 21 })),
       }
@@ -117,7 +117,7 @@ export default async function LecturerPlanPage() {
         </div>
       </header>
       <ReportTabs
-        short={<ShortReport rows={rows.filter(r => r.hasPlan).map(r => ({ name: r.name, position: r.position, norm: r.normAll, normYear: r.normYear, ich: r.ichYearAll, ichW1: r.ichW1, ichW2: r.ichW2, diff1: r.diff1, diff2: r.diff2, diffY: r.diffY, simple: r.yearSimple, mixed: r.yearMixed }))} yearName={cy?.name || ''}
+        short={<ShortReport rows={rows.filter(r => r.hasPlan).map(r => ({ name: r.name, position: r.position, norm: r.normAll, normYear: r.normYear, ich: r.ichYearAll, ichW1: r.ichW1, ichW2: r.ichW2, diff1: r.diff1, diff2: r.diff2, diffY: r.diffY, simple: r.noIchSimple, mixed: r.noIchMixed, simpleAll: r.yearSimple, mixedAll: r.yearMixed }))} yearName={cy?.name || ''}
           unlinked={Object.entries(lines.filter(l => !l.staffId && l.teacher).reduce((m: Record<string, number>, l) => { m[l.teacher] = (m[l.teacher] || 0) + l.h1; return m }, {}))
             .map(([name, h]) => ({ name, h: Math.round(h * 10) / 10 })).sort((a, b) => a.name.localeCompare(b.name, 'bg'))} />}
         teachers={<LecturerPlanReport rows={rows} yearName={cy?.name || ''} />}

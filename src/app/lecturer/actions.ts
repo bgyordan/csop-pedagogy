@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { planDistribution, slotHours, classEndsFrom, latestEnd } from './distribute'
 import type { Ends, Grp } from './distribute'
+import { loadCurriculum, lecturerOf } from '@/lib/curriculum'
 
 // Разписанието на избран учител (за да маркираме слотове) — за избрания срок
 export async function getTeacherSchedule(staffId: string, term: number = 1) {
@@ -147,19 +148,34 @@ export async function moveLecturerSlot(staffId: string, term: number,
 
 
 // ── Данни за ОБЩАТА ЗАПОВЕД за лекторски (таблица човек по човек) ──
-export async function getLecturerFrameworkData() {
+/** Данни за заповедта за лекторски (часовете от разписанието — без ИЧ; ИЧ са по отделна заповед). staffId — само за един човек */
+export async function getLecturerFrameworkData(staffId?: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли' }
   const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
 
-  const { data: slots } = await supabase
+  let sq = supabase
     .from('lecturer_slots')
     .select(`staff_id, day, period, holder_label, date_from, date_to,
       subject:subjects(name),
       staff:staff_profiles!lecturer_slots_staff_id_fkey(first_name, last_name, position, role)`)
     .eq('academic_year_id', cy?.id)
+  if (staffId) sq = sq.eq('staff_id', staffId)
+  const { data: slots } = await sq
   if (!slots || slots.length === 0) return { error: 'Няма определени лекторски часове' }
+
+  // норма — както в „Кратко“ (по длъжност, специалист, годишна за управата)
+  const ids = Array.from(new Set((slots as any[]).map(s => s.staff_id)))
+  const [{ lines }, { data: profs }] = await Promise.all([
+    loadCurriculum(supabase, cy?.id, { all: true }),
+    supabase.from('staff_profiles').select('*').in('id', ids),
+  ])
+  const normOf: Record<string, string> = {}
+  ;(profs || []).forEach((p: any) => {
+    const L = lecturerOf(lines.filter(l => l.staffId === p.id), p)
+    normOf[p.id] = L.normYear ? `${L.normYear} ч. годишно` : L.normAll ? `${L.normAll} ч./седмично` : ''
+  })
 
   const DOW = ['', 'понеделник', 'вторник', 'сряда', 'четвъртък', 'петък']
   const NORMS: Record<string, number> = { class_teacher: 21, teacher: 21, educator: 30, psychologist: 30, speech_therapist: 21, rehabilitator: 21 }
@@ -176,7 +192,7 @@ export async function getLecturerFrameworkData() {
       byStaff[sid] = {
         name: s.staff ? `${s.staff.first_name} ${s.staff.last_name}` : '',
         position: s.staff?.position || 'учител',
-        norm: NORMS[s.staff?.role || ''] || 21,
+        norm: normOf[sid] ?? `${NORMS[s.staff?.role || ''] || 21} ч./седмично`,
         from: s.date_from, to: s.date_to,
         groups: {} as Record<string, { subject: string; cls: string; days: Set<number>; hours: number; total: number; from: string; to: string }>,
       }

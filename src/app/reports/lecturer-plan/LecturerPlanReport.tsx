@@ -15,7 +15,7 @@ export type PlanRow = {
   /** ИЧ, които допълват норматива; ИЧ, признати за лекторски по заповед */
   ichFill: number; ichLect: number
   /** за „Кратко“: норма по длъжност (0 — без норма) и годишните лекторски по двете правила */
-  normAll: number; normYear: number; yearSimple: number; yearMixed: number; ichYearAll: number; ichW1: number; ichW2: number; diff1: number | null; diff2: number | null; diffY: number | null
+  normAll: number; normYear: number; yearSimple: number; yearMixed: number; noIchSimple: number; noIchMixed: number; ichYearAll: number; ichW1: number; ichW2: number; diff1: number | null; diff2: number | null; diffY: number | null
   /** паралелките, в които са ИЧ (по плана) */
   ichClasses: string[]
   /** ИФО децата в разписанието на учителя в EIS */

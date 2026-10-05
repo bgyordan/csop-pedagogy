@@ -738,67 +738,78 @@ export async function generateNpLeaveOrder(d: NpLeaveOrderData) {
   const blob = await Packer.toBlob(doc)
   saveAs(blob, `заповед_отпуск_НП_${d.orderNumber.replace(/[^0-9]/g, '_')}.docx`)
 }
-// ═══ ОБЩА ЗАПОВЕД за ЛЕКТОРСКИ над норматив ═══
+// ═══ ЗАПОВЕД за ЛЕКТОРСКИ над норматив — обща за всички или отделна за всеки (без ИЧ — те са по отделна заповед) ═══
 export interface LecturerFrameworkData {
   teachers: {
-    name: string; position: string; norm: number; from: string; to: string
+    /** norm — текст: „21 ч./седмично“, „144 ч. годишно“ или празно (без норма) */
+    name: string; position: string; norm: string; from: string; to: string
     rows: { subject: string; cls: string; days: string; perWeek: number; weeks: number; total: number }[]
     totalHours: number
   }[]
   yearName: string
   orderNumber?: string
 }
-export async function generateLecturerFrameworkOrder(d: LecturerFrameworkData) {
-  const children: any[] = []
-  header().forEach(p => children.push(p))
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('ЗАПОВЕД', 28)], spacing: { before: 120, after: 40 } }))
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal(`№ ${d.orderNumber || '............'} / ............ ${(d.yearName || '').split('/')[0] || ''} г.`, 22)], spacing: { after: 160 } }))
-
-  children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 120 }, children: [
-    normal('На основание чл. 259, ал. 1 от Кодекса на труда, във връзка с чл. 4, ал. 11, чл. 10, ал. 2 и чл. 20, ал. 1, т. 1 от Наредба № 4 от 20.04.2017 г. за нормиране и заплащане на труда, Приложение № 1 към чл. 4, ал. 11 от същата наредба, утвърденото разпределение на преподавателската работа за учебната ', 22),
-    bold(`${d.yearName} година`, 22),
-    normal(', утвърденото седмично разписание и с оглед обезпечаване на образователния и терапевтичния процес в ЦСОП – гр. Варна,', 22),
-  ] }))
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('НАРЕЖДАМ:', 24)], spacing: { after: 120 } }))
-  children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 120 }, children: [
-    normal('1. Възлагам на изброените педагогически специалисти провеждането на учебни/терапевтични часове над определената им минимална норма преподавателска работа, които се възлагат като лекторски часове, както следва:', 22),
-  ] }))
-
+/** mode: 'common' — една заповед за всички; 'separate' — отделна заповед за всеки (всяка на нова страница, в един файл) */
+export async function generateLecturerFrameworkOrder(d: LecturerFrameworkData, mode: 'common' | 'separate' = 'common') {
   const B = { style: BorderStyle.SINGLE, size: 4, color: '595959' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
   const th = (t: string) => new TableCell({ borders: CELLS, shading: { type: ShadingType.CLEAR, fill: 'EDF2F7' }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(t, 19)] })] })
   const td = (t: string, c = false) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 19)] })] })
+  const normPart = (t: LecturerFrameworkData['teachers'][number]) => `– ${t.position}${t.norm ? `, минимална норма ${t.norm}` : ''}. Общо `
 
-  d.teachers.forEach((t, ti) => {
-    children.push(new Paragraph({ spacing: { before: 160, after: 40 }, children: [
-      bold(`${ti + 1}. ${t.name}`, 20), normal(` – ${t.position}, минимална норма ${t.norm} ч./седмично. Общо `, 20),
-      bold(`${t.totalHours} лекторски часа`, 20),
-      normal(` за периода ${formatDate(t.from)} – ${formatDate(t.to)}:`, 18),
+  // една заповед за дадените хора
+  const order = (list: LecturerFrameworkData['teachers']) => {
+    const children: any[] = []
+    header().forEach(p => children.push(p))
+    children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('ЗАПОВЕД', 28)], spacing: { before: 120, after: 40 } }))
+    children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal(`№ ${d.orderNumber || '............'} / ............ ${(d.yearName || '').split('/')[0] || ''} г.`, 22)], spacing: { after: 160 } }))
+    children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 120 }, children: [
+      normal('На основание чл. 259, ал. 1 от Кодекса на труда, във връзка с чл. 4, ал. 11, чл. 10, ал. 2 и чл. 20, ал. 1, т. 1 от Наредба № 4 от 20.04.2017 г. за нормиране и заплащане на труда, Приложение № 1 към чл. 4, ал. 11 от същата наредба, утвърденото разпределение на преподавателската работа за учебната ', 22),
+      bold(`${d.yearName} година`, 22),
+      normal(', утвърденото седмично разписание и с оглед обезпечаване на образователния и терапевтичния процес в ЦСОП – гр. Варна,', 22),
     ] }))
-    const rows: TableRow[] = [ new TableRow({ children: [
-      th('Предмет / дейност'), th('Клас / група'), th('Дни'), th('Ч./седм.'), th('Седмици'), th('Общо'),
-    ] }) ]
-    t.rows.forEach(r => rows.push(new TableRow({ children: [
-      td(r.subject), td(r.cls, true), td(r.days), td(String(r.perWeek), true), td(String(r.weeks), true), td(String(r.total), true),
-    ] })))
-    children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [3000, 1800, 2400, 900, 900, 800], rows }))
-  })
+    children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('НАРЕЖДАМ:', 24)], spacing: { after: 120 } }))
+    const one = list.length === 1
+    children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 120 }, children: [
+      normal(one
+        ? '1. Възлагам на посочения педагогически специалист провеждането на учебни/терапевтични часове над определената му минимална норма преподавателска работа, които се възлагат като лекторски часове, както следва:'
+        : '1. Възлагам на изброените педагогически специалисти провеждането на учебни/терапевтични часове над определената им минимална норма преподавателска работа, които се възлагат като лекторски часове, както следва:', 22),
+    ] }))
+    list.forEach((t, ti) => {
+      children.push(new Paragraph({ spacing: { before: 160, after: 40 }, children: [
+        bold(one ? t.name : `${ti + 1}. ${t.name}`, 20), normal(` ${normPart(t)}`, 20),
+        bold(`${t.totalHours} лекторски часа`, 20),
+        normal(` за периода ${formatDate(t.from)} – ${formatDate(t.to)}:`, 18),
+      ] }))
+      const rows: TableRow[] = [new TableRow({ children: [
+        th('Предмет / дейност'), th('Клас / група'), th('Дни'), th('Ч./седм.'), th('Седмици'), th('Общо'),
+      ] })]
+      t.rows.forEach(r => rows.push(new TableRow({ children: [
+        td(r.subject), td(r.cls, true), td(r.days), td(String(r.perWeek), true), td(String(r.weeks), true), td(String(r.total), true),
+      ] })))
+      children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [3000, 1800, 2400, 900, 900, 800], rows }))
+    })
+    const P = (t: string) => children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { before: 100, after: 60 }, children: [normal(t, 20)] }))
+    P('2. Лекторските часове се провеждат съобразно утвърденото седмично разписание и утвърдената учебна документация.')
+    P('3. Часовете се отчитат като действително проведени въз основа на съответната задължителна документация и установения в ЦСОП ред за отчитане.')
+    P('4. За действително проведените и отчетени часове над минималната норма да се изплаща допълнително трудово възнаграждение съгласно чл. 20, ал. 1, т. 1 от Наредба № 4 от 20.04.2017 г. и Вътрешните правила за организация на работната заплата в ЦСОП – Варна.')
+    P('5. Контрол по изпълнението на заповедта възлагам на заместник-директора по учебната дейност.')
+    children.push(new Paragraph({ spacing: { before: 60, after: 240 }, children: [normal(one ? 'Настоящата заповед да се доведе до знанието на заинтересованото лице за сведение и изпълнение.' : 'Настоящата заповед да се доведе до знанието на заинтересованите лица за сведение и изпълнение.', 20)] }))
+    children.push(new Paragraph({ children: [bold('ДИРЕКТОР ЦСОП: ', 22), normal('.............................', 22)] }))
+    children.push(new Paragraph({ children: [normal('/ Светлана Иванова /', 20)], spacing: { after: 200 } }))
+    children.push(new Paragraph({ children: [bold(one ? 'Запознат(а):' : 'Запознати:', 20)], spacing: { after: 60 } }))
+    list.forEach((t, i) => children.push(new Paragraph({ spacing: { after: 50 }, children: [normal(`${one ? '' : `${i + 1}. `}${t.name}     ..............................`, 20)] })))
+    return { properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }
+  }
 
-  const P = (t: string) => children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { before: 100, after: 60 }, children: [normal(t, 20)] }))
-  P('2. Лекторските часове се провеждат съобразно утвърденото седмично разписание и утвърдената учебна документация.')
-  P('3. Часовете се отчитат като действително проведени въз основа на съответната задължителна документация и установения в ЦСОП ред за отчитане.')
-  P('4. За действително проведените и отчетени часове над минималната норма да се изплаща допълнително трудово възнаграждение съгласно чл. 20, ал. 1, т. 1 от Наредба № 4 от 20.04.2017 г. и Вътрешните правила за организация на работната заплата в ЦСОП – Варна.')
-  P('5. Контрол по изпълнението на заповедта възлагам на заместник-директора по учебната дейност.')
-  children.push(new Paragraph({ spacing: { before: 60, after: 240 }, children: [normal('Настоящата заповед да се доведе до знанието на заинтересованите лица за сведение и изпълнение.', 20)] }))
-
-  children.push(new Paragraph({ children: [bold('ДИРЕКТОР ЦСОП: ', 22), normal('.............................', 22)] }))
-  children.push(new Paragraph({ children: [normal('/ Светлана Иванова /', 20)], spacing: { after: 200 } }))
-  children.push(new Paragraph({ children: [bold('Запознати:', 20)], spacing: { after: 60 } }))
-  d.teachers.forEach((t, i) => children.push(new Paragraph({ spacing: { after: 50 }, children: [normal(`${i + 1}. ${t.name}     ..............................`, 20)] })))
-
-  const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
+  // отделни — всяка заповед в своя секция (започва на нова страница)
+  const sections = mode === 'separate' ? d.teachers.map(t => order([t])) : [order(d.teachers)]
+  const doc = new Document({ sections })
   const blob = await Packer.toBlob(doc)
-  saveAs(blob, `заповед_лекторски_${(d.yearName || '').replace('/', '_')}.docx`)
+  const y = (d.yearName || '').replace('/', '_')
+  const name = d.teachers.length === 1 ? `заповед_лекторски_${d.teachers[0].name.replace(/\s+/g, '_')}_${y}.docx`
+    : mode === 'separate' ? `заповеди_лекторски_отделни_${y}.docx` : `заповед_лекторски_${y}.docx`
+  saveAs(blob, name)
 }
 
 // ═══ ЗАПОВЕД ЗА ИЗПЛАЩАНЕ НА ЛЕКТОРСКИ ЧАСОВЕ (ВПРЗ чл. 10, ал. 2, 3 и 8) ═══
