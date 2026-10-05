@@ -8,6 +8,7 @@ import LecturerPlanReport from './LecturerPlanReport'
 import ClassPlanReport from './ClassPlanReport'
 import type { ClassRow } from './ClassPlanReport'
 import ReportTabs from './ReportTabs'
+import ShortReport from './ShortReport'
 import type { PlanRow } from './LecturerPlanReport'
 export const dynamic = 'force-dynamic'
 
@@ -110,6 +111,7 @@ export default async function LecturerPlanPage() {
         </div>
       </header>
       <ReportTabs
+        short={<ShortReport rows={rows.map(r => ({ name: r.name, year: r.overYear }))} yearName={cy?.name || ''} />}
         teachers={<LecturerPlanReport rows={rows} yearName={cy?.name || ''} />}
         classes={<ClassPlanReport rows={classRows} yearName={cy?.name || ''} />} />
     </div>
