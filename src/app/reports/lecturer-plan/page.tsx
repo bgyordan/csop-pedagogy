@@ -1,0 +1,77 @@
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import { ArrowLeft, Wallet } from 'lucide-react'
+import { loadCurriculum, TEACHER_NORM, canSeeLecturerReport as canSee } from '@/lib/curriculum'
+import type { CurLine } from '@/lib/curriculum'
+import LecturerPlanReport from './LecturerPlanReport'
+import type { PlanRow } from './LecturerPlanReport'
+export const dynamic = 'force-dynamic'
+
+// Справка „Лекторски по учебен план“ — само за четене, изчислена от учебния план (НЕИСПУО).
+// Достъп: админ, директор, ЗДУД и деловодството (технически секретар), без ЗАС.
+
+export default async function LecturerPlanPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/auth/login')
+  const { data: me } = await supabase.from('staff_profiles').select('role, position').eq('user_id', user.id).single()
+  if (!canSee(me)) redirect('/reports/hub')
+
+  const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
+  const [{ lines, importedAt }, { data: staff }] = await Promise.all([
+    loadCurriculum(supabase, cy?.id, { all: true }),
+    supabase.from('staff_profiles').select('id, first_name, last_name, role, position, is_active'),
+  ])
+
+  const byStaff: Record<string, CurLine[]> = {}
+  lines.forEach(l => { if (l.staffId) (byStaff[l.staffId] ||= []).push(l) })
+  const r1 = (x: number) => Math.round(x * 10) / 10
+
+  const rows: PlanRow[] = (staff || [])
+    .filter((s: any) => byStaff[s.id] || (s.is_active !== false && TEACHER_NORM[s.role]))
+    .map((s: any) => {
+      const ls = byStaff[s.id] || []
+      let n1 = 0, n2 = 0, h1 = 0, ich1 = 0, ich2 = 0, therapy = 0
+      const w1: number[] = [], w2: number[] = []
+      ls.forEach(l => {
+        if (l.individual) { ich1 += l.h1; ich2 += l.h2; return }
+        const k = 21 / l.norm
+        h1 += l.h1; n1 += l.h1 * k; n2 += l.h2 * k
+        if (k < 1) therapy += l.h1
+        if (l.h1) w1.push(l.w1); if (l.h2) w2.push(l.w2)
+      })
+      const norm = TEACHER_NORM[s.role] ?? null
+      const W1 = w1.length ? Math.max(...w1) : 18, W2 = w2.length ? Math.max(...w2) : 18
+      const o1 = norm ? Math.max(0, r1(n1 - norm)) : 0, o2 = norm ? Math.max(0, r1(n2 - norm)) : 0
+      const classes = Array.from(new Set(ls.filter(l => !l.individual).map(l => l.holder)))
+        .sort((a, b) => a.localeCompare(b, 'bg', { numeric: true }))
+      return {
+        id: s.id, name: `${s.first_name} ${s.last_name}`, position: s.position || '',
+        hasPlan: ls.length > 0, classes,
+        h1: r1(h1), n1: r1(n1), n2: r1(n2), therapy: r1(therapy), norm,
+        over1: o1, over2: o2, overYear: Math.round(o1 * W1 + o2 * W2), W1, W2,
+        ich1: r1(ich1), ich2: r1(ich2),
+        lines: ls.map(l => ({ id: l.id, holder: l.holder, subject: l.subject, h1: l.h1, h2: l.h2, total: l.total, kind: l.kind, individual: l.individual, therapy: l.norm !== 21 })),
+      }
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'bg'))
+
+  return (
+    <div className="p-4 md:p-8 max-w-7xl mx-auto">
+      <Link href="/reports/hub" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6 print:hidden">
+        <ArrowLeft size={15} /> Назад към справки
+      </Link>
+      <header className="flex items-center gap-3 mb-6">
+        <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-teal-50 border border-teal-100 text-teal-700"><Wallet size={20} /></div>
+        <div>
+          <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Лекторски по учебен план</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            {cy?.name} · по учебния план от НЕИСПУО{importedAt ? `, качен ${new Date(importedAt).toLocaleDateString('bg-BG')}` : ''} · само справка
+          </p>
+        </div>
+      </header>
+      <LecturerPlanReport rows={rows} yearName={cy?.name || ''} />
+    </div>
+  )
+}
