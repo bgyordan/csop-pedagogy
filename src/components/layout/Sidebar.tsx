@@ -198,7 +198,8 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
     return () => { document.body.style.overflow = '' }
   }, [mobileOpen])
   async function handleLogout() {
-    await supabase.auth.signOut()
+    // изход само от този браузър — сесиите на другите устройства остават
+    await supabase.auth.signOut({ scope: 'local' })
     router.push('/auth/login')
   }
   const isSecretary = userRole === 'secretary'
