@@ -19,10 +19,14 @@ export default async function LecturerPlanPage() {
   if (!canSee(me)) redirect('/reports/hub')
 
   const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
-  const [{ lines, importedAt }, { data: staff }] = await Promise.all([
+  const [{ lines, importedAt }, { data: staff }, { data: ifo }] = await Promise.all([
     loadCurriculum(supabase, cy?.id, { all: true }),
     supabase.from('staff_profiles').select('id, first_name, last_name, role, position, is_active'),
+    // ИФО децата в седмичното разписание на учителя (I срок) — кои деца стоят зад ИЧ
+    supabase.from('teacher_ifo_slots').select('teacher_id, student:students(first_name, last_name)').eq('academic_year_id', cy?.id).eq('term', 1),
   ])
+  const ifoKids: Record<string, Set<string>> = {}
+  ;(ifo || []).forEach((r: any) => { if (r.student) (ifoKids[r.teacher_id] ||= new Set()).add(`${r.student.first_name} ${r.student.last_name}`) })
 
   const byStaff: Record<string, CurLine[]> = {}
   lines.forEach(l => { if (l.staffId) (byStaff[l.staffId] ||= []).push(l) })
@@ -32,10 +36,10 @@ export default async function LecturerPlanPage() {
     .filter((s: any) => byStaff[s.id] || (s.is_active !== false && TEACHER_NORM[s.role]))
     .map((s: any) => {
       const ls = byStaff[s.id] || []
-      let n1 = 0, n2 = 0, h1 = 0, ich1 = 0, ich2 = 0, therapy = 0
+      let n1 = 0, n2 = 0, h1 = 0, ich1 = 0, ich2 = 0, ichYear = 0, therapy = 0
       const w1: number[] = [], w2: number[] = []
       ls.forEach(l => {
-        if (l.individual) { ich1 += l.h1; ich2 += l.h2; return }
+        if (l.individual) { ich1 += l.h1; ich2 += l.h2; ichYear += l.total; return }
         const k = 21 / l.norm
         h1 += l.h1; n1 += l.h1 * k; n2 += l.h2 * k
         if (k < 1) therapy += l.h1
@@ -44,14 +48,16 @@ export default async function LecturerPlanPage() {
       const norm = TEACHER_NORM[s.role] ?? null
       const W1 = w1.length ? Math.max(...w1) : 18, W2 = w2.length ? Math.max(...w2) : 18
       const o1 = norm ? Math.max(0, r1(n1 - norm)) : 0, o2 = norm ? Math.max(0, r1(n2 - norm)) : 0
-      const classes = Array.from(new Set(ls.filter(l => !l.individual).map(l => l.holder)))
-        .sort((a, b) => a.localeCompare(b, 'bg', { numeric: true }))
+      const sortBg = (a: string, b: string) => a.localeCompare(b, 'bg', { numeric: true })
+      const classes = Array.from(new Set(ls.filter(l => !l.individual).map(l => l.holder))).sort(sortBg)
+      const ichClasses = Array.from(new Set(ls.filter(l => l.individual).map(l => l.holder))).sort(sortBg)
       return {
         id: s.id, name: `${s.first_name} ${s.last_name}`, position: s.position || '',
         hasPlan: ls.length > 0, classes,
         h1: r1(h1), n1: r1(n1), n2: r1(n2), therapy: r1(therapy), norm,
         over1: o1, over2: o2, overYear: Math.round(o1 * W1 + o2 * W2), W1, W2,
-        ich1: r1(ich1), ich2: r1(ich2),
+        ich1: r1(ich1), ich2: r1(ich2), ichYear: Math.round(ichYear), ichClasses,
+        ifoKids: Array.from(ifoKids[s.id] || []).sort((a, b) => a.localeCompare(b, 'bg')),
         lines: ls.map(l => ({ id: l.id, holder: l.holder, subject: l.subject, h1: l.h1, h2: l.h2, total: l.total, kind: l.kind, individual: l.individual, therapy: l.norm !== 21 })),
       }
     })
