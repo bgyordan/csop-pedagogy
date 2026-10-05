@@ -34,7 +34,7 @@ async function accessToken() {
 const RETRY = new Set([429, 500, 502, 503, 504])
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
-async function drive(path: string, init: RequestInit = {}) {
+async function drive(path: string, init: RequestInit = {}, maxRetries = 3) {
   for (let attempt = 0; ; attempt++) {
     const token = await accessToken()
     const res = await fetch(API + path, {
@@ -48,7 +48,7 @@ async function drive(path: string, init: RequestInit = {}) {
     if (res.status === 401 && attempt === 0) { cached = null; continue }
     // четене — винаги; запис (POST/PATCH) — само при 429/503, когато Google със сигурност не е изпълнил заявката (без дубликати)
     const safe = !init.method || init.method === 'GET' || res.status === 429 || res.status === 503
-    if (RETRY.has(res.status) && safe && attempt < 3) { await sleep(400 * 2 ** attempt + Math.random() * 300); continue }
+    if (RETRY.has(res.status) && safe && attempt < maxRetries) { await sleep(400 * 2 ** attempt + Math.random() * 300); continue }
     // в лога на сървъра (pm2 logs csop) — коя заявка и какво точно казва Google
     console.error('[drive]', res.status, init.method || 'GET', decodeURIComponent(path).slice(0, 300), JSON.stringify(j?.error || {}).slice(0, 500))
     throw new Error(j?.error?.message || `Drive грешка ${res.status}`)
@@ -310,10 +310,10 @@ export async function listSharedStaffFiles(): Promise<SharedItem[]> {
     }
   }
   const q = `trashed=false and appProperties has { key='shared' and value='true' }`
-  const r = await drive(
+  const r = await listWithFallback(
     `/files?q=${encodeURIComponent(q)}&corpora=drive&driveId=${driveId()}&includeItemsFromAllDrives=true&supportsAllDrives=true` +
-    `&orderBy=${encodeURIComponent('modifiedTime desc')}&pageSize=500` +
-    `&fields=${encodeURIComponent('files(id,name,mimeType,modifiedTime,webViewLink,parents,appProperties,lastModifyingUser(displayName,emailAddress))')}`
+    `&orderBy=${encodeURIComponent('modifiedTime desc')}&pageSize=500`,
+    'files(id,name,mimeType,modifiedTime,webViewLink,parents,appProperties,lastModifyingUser(displayName,emailAddress))',
   )
   const names = await staffNames()
   return (r.files ?? [])
@@ -375,14 +375,26 @@ function whoModified(f: any, names?: { byEmail: Record<string, string>; byLocal:
   return u?.displayName || (email ? email.split('@')[0] : '')
 }
 
+/**
+ * Списък с „кой последно е редактирал“. Google понякога връща 500 „Internal Error“ именно за полето
+ * lastModifyingUser (напр. файл, редактиран от акаунт извън домейна — edu.mon.bg). Тогава питаме пак
+ * без него: списъкът се показва, само без „редактирал“.
+ */
+async function listWithFallback(base: string, fields: string) {
+  try {
+    return await drive(`${base}&fields=${encodeURIComponent(fields)}`, {}, 1)
+  } catch {
+    const lite = fields.replace(/,?lastModifyingUser\([^)]*\)/, '')
+    return await drive(`${base}&fields=${encodeURIComponent(lite)}`)
+  }
+}
+
 // Съдържанието на папка (без изтритите), подредено: първо папки, после по име
 export async function listFolder(folderId: string): Promise<DriveItem[]> {
   const q = `'${folderId}' in parents and trashed=false`
-  const r = await drive(
-    `/files?q=${encodeURIComponent(q)}&corpora=drive&driveId=${driveId()}&includeItemsFromAllDrives=true&supportsAllDrives=true` +
-    // без orderBy=name_natural — Google връща „Internal Error“ (500) при него; подреждаме тук
-    `&pageSize=200` +
-    `&fields=${encodeURIComponent('files(id,name,mimeType,modifiedTime,webViewLink,appProperties,lastModifyingUser(displayName,emailAddress))')}`
+  const r = await listWithFallback(
+    `/files?q=${encodeURIComponent(q)}&corpora=drive&driveId=${driveId()}&includeItemsFromAllDrives=true&supportsAllDrives=true&pageSize=200`,
+    'files(id,name,mimeType,modifiedTime,webViewLink,appProperties,lastModifyingUser(displayName,emailAddress))',
   )
   const names = await staffNames()
   const files = (r.files ?? []).slice().sort((x: any, y: any) =>
