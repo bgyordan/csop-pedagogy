@@ -1,10 +1,10 @@
 import Link from 'next/link'
-import { CalendarDays, Users, Pencil, Check } from 'lucide-react'
+import { CalendarDays, Users, Pencil, Check, BookOpenCheck } from 'lucide-react'
 
 // Обща лента на „Разписание“: две понятия — „Моите часове“ (какво водя аз) и
 // „Паралелка X“ (какво имат децата — сглобено от часовете на всички учители, само за четене).
 export default function ScheduleTabs({ current, classes = [], staffId, term = 1, editHref, doneHref }: {
-  current: 'mine' | string          // 'mine' или id на паралелка
+  current: 'mine' | 'plan' | string // 'mine', 'plan' (учебен план) или id на паралелка
   classes?: { id: string; name: string }[]
   staffId?: string                  // при преглед на чужд профил (управа)
   term?: number
@@ -22,6 +22,9 @@ export default function ScheduleTabs({ current, classes = [], staffId, term = 1,
       <div className="inline-flex flex-wrap gap-1 p-1 rounded-2xl bg-slate-100/80 border border-slate-200">
         <Link href={`/my-schedule${q('')}`} className={tab(current === 'mine')}>
           <CalendarDays size={15} /> Моите часове
+        </Link>
+        <Link href={`/my-schedule/plan${q('')}`} className={tab(current === 'plan')}>
+          <BookOpenCheck size={15} /> Учебен план
         </Link>
         {classes.map(c => (
           <Link key={c.id} href={`/my-schedule/class${q(`c=${c.id}`)}`} className={tab(current === c.id)}>
