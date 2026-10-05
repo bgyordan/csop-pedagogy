@@ -132,6 +132,8 @@ export function overWithIch(n: number, ichN: number, norm: number, ichLect = 0) 
 export const STAFF_NORM: Record<string, number> = {
   class_teacher: 21, teacher: 21, speech_therapist: 21, rehabilitator: 21, psychologist: 30, educator: 30,
 }
+/** Годишна норма (часове за годината) — ЗДУД 144, директор 72; смята се върху годишните часове */
+export const STAFF_NORM_YEAR: Record<string, number> = { zdud: 144, director: 72 }
 
 /**
  * Лекторски на седмица по две правила (Наредба № 4/2017):
@@ -140,9 +142,10 @@ export const STAFF_NORM: Record<string, number> = {
  *             като на лицето (по 1), после другите по коефициента; часовете над нормата се броят по 1 (чл. 10, ал. 2; чл. 20).
  * ИЧ само допълват нормата (последни); над нея се броят само тези по заповед (ichLect).
  */
-export function overBoth(lines: { h: number; norm: number; individual: boolean }[], personNorm: number, ichLect = 0) {
+export function overBoth(lines: { h: number; norm: number; individual: boolean }[], personNorm: number, ichLect = 0, unit?: number) {
   const r = (x: number) => Math.round(x * 100) / 100
-  const base = personNorm || 21                                   // мярка за приравняване при норма 0
+  // мярка за приравняване: нормата на лицето (21/30); при норма 0 или годишна норма — 21
+  const base = unit || personNorm || 21
   const k = (n: number) => base / (n || 21)
   const main = lines.filter(l => !l.individual && l.h > 0), ich = lines.filter(l => l.individual && l.h > 0)
   const ichN = ich.reduce((a, l) => a + l.h * k(l.norm), 0)

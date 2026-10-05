@@ -3,7 +3,9 @@
 import * as XLSX from 'xlsx'
 import { FileSpreadsheet, Printer } from 'lucide-react'
 
-type Row = { name: string; position: string; norm: number; simple: number; mixed: number }
+type Row = { name: string; position: string; norm: number; normYear: number; simple: number; mixed: number }
+
+const normText = (r: Row) => r.normYear ? `${r.normYear} ч. годишно` : r.norm ? `${r.norm} ч./седм.` : 'без норма'
 
 export default function ShortReport({ rows, yearName }: { rows: Row[]; yearName: string }) {
   const list = rows.filter(r => r.simple > 0 || r.mixed > 0).sort((a, b) => a.name.localeCompare(b.name, 'bg'))
@@ -12,7 +14,7 @@ export default function ShortReport({ rows, yearName }: { rows: Row[]; yearName:
   function exportXlsx() {
     const ws = XLSX.utils.aoa_to_sheet([
       ['№', 'Име', 'Длъжност', 'Норма ч./седм.', H1, H2],
-      ...list.map((r, i) => [i + 1, r.name, r.position, r.norm || 'без норма', r.simple, r.mixed]),
+      ...list.map((r, i) => [i + 1, r.name, r.position, normText(r), r.simple, r.mixed]),
       [], ['', 'Общо', '', '', tS, tM],
     ])
     ws['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 26 }, { wch: 12 }, { wch: 26 }, { wch: 32 }]
@@ -43,7 +45,7 @@ export default function ShortReport({ rows, yearName }: { rows: Row[]; yearName:
             <tr key={r.name + i} className="border-t border-slate-100">
               <td className="px-5 py-2 text-slate-400 tabular-nums">{i + 1}</td>
               <td className="px-2 py-2 text-slate-800">{r.name}{r.position && <div className="text-[11px] text-slate-400">{r.position}</div>}</td>
-              <td className="px-2 py-2 text-center tabular-nums text-slate-500 text-[13px]">{r.norm || <span title="Длъжност без преподавателска норма — всичките часове са лекторски">—</span>}</td>
+              <td className="px-2 py-2 text-center tabular-nums text-slate-500 text-[13px]">{r.normYear ? <span title="Годишна норма">{r.normYear} г.</span> : r.norm || <span title="Длъжност без преподавателска норма — всичките часове са лекторски">—</span>}</td>
               <td className="px-3 py-2 text-right tabular-nums text-slate-700">{r.simple}</td>
               <td className={`px-5 py-2 text-right tabular-nums font-medium ${r.mixed !== r.simple ? 'text-teal-800' : 'text-slate-900'}`}>{r.mixed}</td>
             </tr>
@@ -61,7 +63,7 @@ export default function ShortReport({ rows, yearName }: { rows: Row[]; yearName:
       <div className="px-5 py-3 text-xs text-slate-500 border-t border-slate-100 space-y-1">
         <p><b className="text-slate-700">Терапиите по 0,7:</b> всички часове от плана се приравняват към нормата (терапия = 0,7 ч.), вади се нормата; × учебните седмици на срока.</p>
         <p><b className="text-slate-700">0,7 до нормата, после по 1</b> (Наредба № 4/2017, чл. 8 и чл. 10, ал. 2): приравняват се само часовете, които допълват нормата — първо обикновените часове, после терапиите по 0,7; всеки час над нормата е цял лекторски час.</p>
-        <p>Норма по длъжност: учител, логопед, рехабилитатор — 21; психолог, възпитател — 30; без преподавателска норма (управа и др.) — „—“, всички часове са лекторски. ИЧ допълват нормата; над нея — само по заповед.</p>
+        <p>Норма по длъжност: учител, логопед, рехабилитатор — 21 ч./седм.; психолог, възпитател — 30 ч./седм.; ЗДУД — 144 ч. годишно; директор — 72 ч. годишно; без преподавателска норма (ЗДАСД и др.) — „—“, всички часове са лекторски. ИЧ допълват нормата; над нея — само по заповед.</p>
       </div>
     </div>
   )
