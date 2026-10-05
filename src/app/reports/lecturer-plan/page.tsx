@@ -85,6 +85,13 @@ export default async function LecturerPlanPage() {
         const b2 = overBoth(ls.map(l => ({ h: l.h2, norm: nOf(l, normAll || 21), individual: false })), normAll, 0)
         yS = Math.round(b1.simple * AW1 + b2.simple * AW2); yM = Math.round(b1.mixed * AW1 + b2.mixed * AW2)
       }
+      // под / над нормата: натоварването (терапиите по 0,7, на специалистите — по 1; ИЧ включени) − нормата
+      const loadW = (t: 1 | 2) => ls.reduce((a, l) => a + (t === 1 ? l.h1 : l.h2) * (normAll || 21) / nOf(l, normAll || 21), 0)
+      const loadY = ls.reduce((a, l) => a + (l.h1 * (l.w1 || AW1) + l.h2 * (l.w2 || AW2)) * 21 / nOf(l, 21), 0)
+      const r2 = (x: number) => Math.round(x * 10) / 10
+      const diff1 = normYear ? null : normAll ? r2(loadW(1) - normAll) : null
+      const diff2 = normYear ? null : normAll ? r2(loadW(2) - normAll) : null
+      const diffY = normYear ? Math.round(loadY - normYear) : null
       // ИЧ за годината — всеки ред със своите седмици
       const ichW1 = Math.round(ls.filter(l => l.individual).reduce((a, l) => a + l.h1, 0) * 10) / 10
       const ichW2 = Math.round(ls.filter(l => l.individual).reduce((a, l) => a + l.h2, 0) * 10) / 10
@@ -99,7 +106,7 @@ export default async function LecturerPlanPage() {
         over1: o1, over2: o2, overYear: Math.round(o1 * W1 + o2 * W2), W1, W2,
         ich1: r1(ich1), ich2: r1(ich2), ichYear: Math.round(ichYear), ichClasses,
         ichFill: c1?.fill || 0, ichLect: c1?.lect || 0,
-        normAll, normYear, yearSimple: yS, yearMixed: yM, ichYearAll, ichW1, ichW2,
+        normAll, normYear, yearSimple: yS, yearMixed: yM, ichYearAll, ichW1, ichW2, diff1, diff2, diffY,
         ifoKids: Array.from(ifoKids[s.id] || []).sort((a, b) => a.localeCompare(b, 'bg')),
         lines: ls.map(l => ({ id: l.id, holder: l.holder, subject: l.subject, h1: l.h1, h2: l.h2, total: l.total, kind: l.kind, individual: l.individual, therapy: l.norm !== 21 })),
       }
@@ -142,7 +149,7 @@ export default async function LecturerPlanPage() {
         </div>
       </header>
       <ReportTabs
-        short={<ShortReport rows={rows.filter(r => r.hasPlan).map(r => ({ name: r.name, position: r.position, norm: r.normAll, normYear: r.normYear, ich: r.ichYearAll, ichW1: r.ichW1, ichW2: r.ichW2, simple: r.yearSimple, mixed: r.yearMixed }))} yearName={cy?.name || ''}
+        short={<ShortReport rows={rows.filter(r => r.hasPlan).map(r => ({ name: r.name, position: r.position, norm: r.normAll, normYear: r.normYear, ich: r.ichYearAll, ichW1: r.ichW1, ichW2: r.ichW2, diff1: r.diff1, diff2: r.diff2, diffY: r.diffY, simple: r.yearSimple, mixed: r.yearMixed }))} yearName={cy?.name || ''}
           unlinked={Object.entries(lines.filter(l => !l.staffId && l.teacher).reduce((m: Record<string, number>, l) => { m[l.teacher] = (m[l.teacher] || 0) + l.h1; return m }, {}))
             .map(([name, h]) => ({ name, h: Math.round(h * 10) / 10 })).sort((a, b) => a.name.localeCompare(b.name, 'bg'))} />}
         teachers={<LecturerPlanReport rows={rows} yearName={cy?.name || ''} />}
