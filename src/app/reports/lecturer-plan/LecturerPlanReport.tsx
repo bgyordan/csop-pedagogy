@@ -11,7 +11,11 @@ export type PlanRow = {
   id: string; name: string; position: string; hasPlan: boolean; classes: string[]
   h1: number; n1: number; n2: number; therapy: number; norm: number | null
   over1: number; over2: number; overYear: number; W1: number; W2: number
-  ich1: number; ich2: number
+  ich1: number; ich2: number; ichYear: number
+  /** паралелките, в които са ИЧ (по плана) */
+  ichClasses: string[]
+  /** ИФО децата в разписанието на учителя в EIS */
+  ifoKids: string[]
   lines: { id: string; holder: string; subject: string; h1: number; h2: number; total: number; kind: string; individual: boolean; therapy: boolean }[]
 }
 
@@ -25,21 +29,23 @@ const KIND_CLS: Record<string, string> = {
 export default function LecturerPlanReport({ rows, yearName }: { rows: PlanRow[]; yearName: string }) {
   const [q, setQ] = useState('')
   const [onlyOver, setOnlyOver] = useState(true)
+  const [withIch, setWithIch] = useState(false)
   const [open, setOpen] = useState<Set<string>>(new Set())
 
   const visible = useMemo(() => rows.filter(r =>
-    smartMatch(`${r.name} ${r.classes.join(' ')}`, q) && (!onlyOver || r.over1 > 0 || r.over2 > 0)
-  ), [rows, q, onlyOver])
-  const sum = visible.reduce((a, r) => ({ over1: a.over1 + r.over1, over2: a.over2 + r.over2, year: a.year + r.overYear, ich: a.ich + r.ich1 }), { over1: 0, over2: 0, year: 0, ich: 0 })
+    smartMatch(`${r.name} ${r.classes.join(' ')} ${r.ichClasses.join(' ')} ${r.ifoKids.join(' ')}`, q)
+    && (!onlyOver || r.over1 > 0 || r.over2 > 0 || (withIch && r.ich1 > 0))
+  ), [rows, q, onlyOver, withIch])
+  const sum = visible.reduce((a, r) => ({ over1: a.over1 + r.over1, over2: a.over2 + r.over2, year: a.year + r.overYear, ich: a.ich + r.ich1, ichYear: a.ichYear + r.ichYear }), { over1: 0, over2: 0, year: 0, ich: 0, ichYear: 0 })
   const same = (r: PlanRow) => r.over1 === r.over2
   const toggle = (id: string) => setOpen(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
 
   function exportXlsx() {
     const wb = XLSX.utils.book_new()
-    const head = ['Учител', 'Длъжност', 'Паралелки', 'По плана ч./седм.', 'Към норматива (терапии 0,7)', 'Норматив', 'Над норматива I срок', 'Над норматива II срок', 'Седмици I/II', 'Над норматива за годината', 'ИЧ ч./седм.']
-    const data = visible.map(r => [r.name, r.position, r.classes.join(', '), r.h1, r.n1, r.norm ?? '', r.over1, r.over2, `${r.W1}/${r.W2}`, r.overYear, r.ich1])
-    const ws = XLSX.utils.aoa_to_sheet([head, ...data, [], ['Общо', '', '', '', '', '', sum.over1, sum.over2, '', sum.year, sum.ich]])
-    ws['!cols'] = head.map((h, i) => ({ wch: i === 0 ? 26 : i === 2 ? 22 : Math.max(10, Math.min(h.length + 2, 18)) }))
+    const head = ['Учител', 'Длъжност', 'Паралелки', 'По плана ч./седм.', 'Към норматива (терапии 0,7)', 'Норматив', 'Над норматива I срок', 'Над норматива II срок', 'Седмици I/II', 'Над норматива за годината', 'ИЧ ч./седм.', 'ИЧ за годината', 'ИЧ в паралелки', 'ИФО деца (разписание)']
+    const data = visible.map(r => [r.name, r.position, r.classes.join(', '), r.h1, r.n1, r.norm ?? '', r.over1, r.over2, `${r.W1}/${r.W2}`, r.overYear, r.ich1, r.ichYear, r.ichClasses.join(', '), r.ifoKids.join(', ')])
+    const ws = XLSX.utils.aoa_to_sheet([head, ...data, [], ['Общо', '', '', '', '', '', sum.over1, sum.over2, '', sum.year, sum.ich, sum.ichYear]])
+    ws['!cols'] = head.map((h, i) => ({ wch: i === 0 ? 26 : i === 2 || i === 12 ? 22 : i === 13 ? 40 : Math.max(10, Math.min(h.length + 2, 18)) }))
     XLSX.utils.book_append_sheet(wb, ws, 'Лекторски')
     const dHead = ['Учител', 'Паралелка/група', 'Предмет', 'Вид', 'ИЧ', 'I срок ч./седм.', 'II срок ч./седм.', 'За годината']
     const dData: (string | number)[][] = []
@@ -63,6 +69,11 @@ export default function LecturerPlanReport({ rows, yearName }: { rows: PlanRow[]
         <label className="inline-flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
           <input type="checkbox" checked={onlyOver} onChange={e => setOnlyOver(e.target.checked)} className="rounded" /> само с над норматива
         </label>
+        {onlyOver && (
+          <label className="inline-flex items-center gap-2 text-sm text-violet-700 cursor-pointer">
+            <input type="checkbox" checked={withIch} onChange={e => setWithIch(e.target.checked)} className="rounded" /> + с ИЧ
+          </label>
+        )}
         <div className="ml-auto flex gap-2">
           <button onClick={exportXlsx} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm border border-slate-200 text-slate-700 hover:border-[#0f2240]"><FileSpreadsheet size={15} /> Excel</button>
           <button onClick={() => window.print()} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm border border-slate-200 text-slate-700 hover:border-[#0f2240]"><Printer size={15} /> Печат</button>
@@ -80,7 +91,7 @@ export default function LecturerPlanReport({ rows, yearName }: { rows: PlanRow[]
               <th className={`${th} text-center bg-teal-50/60 text-teal-800`}>Над норм. I срок</th>
               <th className={`${th} text-center bg-teal-50/60 text-teal-800`}>II срок</th>
               <th className={`${th} text-center bg-teal-50/60 text-teal-800`}>За годината</th>
-              <th className={`${th} text-center text-violet-700`} title="Индивидуални часове — по отделна заповед, не влизат в над норматива">ИЧ</th>
+              <th className={`${th} text-violet-700`} title="Индивидуални часове с ИФО деца — по отделна заповед, не влизат в над норматива">ИЧ (ИФО)</th>
             </tr>
           </thead>
           <tbody>
@@ -108,7 +119,15 @@ export default function LecturerPlanReport({ rows, yearName }: { rows: PlanRow[]
                     <td className="px-3 py-2.5 text-center tabular-nums font-medium text-teal-800 bg-teal-50/30">{r.over1 ? f(r.over1) : <span className="text-slate-300">—</span>}</td>
                     <td className="px-3 py-2.5 text-center tabular-nums text-teal-800 bg-teal-50/30">{same(r) ? <span className="text-slate-400 text-[12px]">{r.over2 ? 'същото' : '—'}</span> : r.over2 ? f(r.over2) : '—'}</td>
                     <td className="px-3 py-2.5 text-center tabular-nums font-medium text-slate-800 bg-teal-50/30" title={`${f(r.over1)} × ${r.W1} седм. + ${f(r.over2)} × ${r.W2} седм.`}>{r.overYear || <span className="text-slate-300">—</span>}</td>
-                    <td className="px-3 py-2.5 text-center tabular-nums text-violet-700">{r.ich1 ? f(r.ich1) : <span className="text-slate-300">—</span>}</td>
+                    <td className="px-3 py-2.5 text-[13px] text-violet-700 min-w-[150px]">
+                      {r.ich1 || r.ifoKids.length ? (
+                        <>
+                          {r.ich1 > 0 && <div className="tabular-nums">{f(r.ich1)} ч./седм.{r.ichYear ? <span className="text-violet-500"> · {r.ichYear} за год.</span> : null}</div>}
+                          {r.ichClasses.length > 0 && <div className="text-[11px] text-slate-500">в {r.ichClasses.join(' · ')}</div>}
+                          {r.ifoKids.length > 0 && <div className="text-[11px] text-slate-500 truncate max-w-[220px]" title={r.ifoKids.join(', ')}>{r.ifoKids.join(', ')}</div>}
+                        </>
+                      ) : <span className="text-slate-300">—</span>}
+                    </td>
                   </tr>
                   {isOpen && (
                     <tr className="bg-slate-50/50">
@@ -150,7 +169,7 @@ export default function LecturerPlanReport({ rows, yearName }: { rows: PlanRow[]
                 <td className="px-3 py-2.5 text-center tabular-nums font-medium">{f(sum.over1)}</td>
                 <td className="px-3 py-2.5 text-center tabular-nums">{f(sum.over2)}</td>
                 <td className="px-3 py-2.5 text-center tabular-nums font-semibold text-slate-900">{sum.year}</td>
-                <td className="px-3 py-2.5 text-center tabular-nums text-violet-700">{sum.ich ? f(sum.ich) : '—'}</td>
+                <td className="px-3 py-2.5 tabular-nums text-violet-700">{sum.ich ? <>{f(sum.ich)} ч./седм. · {sum.ichYear} за год.</> : '—'}</td>
               </tr>
             </tfoot>
           )}
@@ -158,7 +177,7 @@ export default function LecturerPlanReport({ rows, yearName }: { rows: PlanRow[]
       </div>
       <div className="px-5 py-3 text-xs text-slate-500 border-t border-slate-100 space-y-1">
         <p><b className="text-slate-700">Как се смята:</b> „По плана“ — часовете седмично от учебния план (НЕИСПУО), терапиите (норма 30) по 0,7; в скоби — реалните часове. Над норматива = по плана − норматива (21). За годината = I срок × седмиците му + II срок × седмиците му.</p>
-        <p>ИЧ са по отделна заповед и не влизат в над норматива. Справката не е разпределението по график — то е в „Лекторски над норматива“.</p>
+        <p>ИЧ (ИФО) — часовете по плана с ИФО деца: седмично, за годината и в коя паралелка; имената на децата са от разписанието в EIS. По отделна заповед — не влизат в над норматива. Справката не е разпределението по график — то е в „Лекторски над норматива“.</p>
       </div>
     </div>
   )
