@@ -6,10 +6,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Wand2, Pencil, Search, Check, AlertTriangle, CalendarCheck } from 'lucide-react'
+import { Loader2, Wand2, Pencil, Search, Check, AlertTriangle, CalendarCheck, FileDown } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { smartMatch } from '@/lib/search'
 import { autoDistribute, saveYearEnds } from './actions'
+import { downloadLecturerOrder } from './OrderButton'
 import { slotHours, GROUPS } from './distribute'
 import type { Ends, Grp } from './distribute'
 
@@ -152,7 +153,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                 <th className="px-5 text-left">Име</th>
                 <th className="px-3 text-left">Паралелки<div className="font-normal text-slate-400">до кога учат</div></th>
                 <th className="px-2 text-center w-20">Норма</th>
-                <th className="px-2 text-center w-24">ИЧ<div className="font-normal text-slate-400">за годината</div></th>
+                <th className="px-2 text-center w-24" title="Индивидуални часове — по отделна заповед на директора; не влизат в лекторските тук">ИЧ<div className="font-normal text-slate-400">отделна заповед</div></th>
                 <th className="px-2 text-center w-32 bg-teal-50/70 text-teal-800">Лекторски<div className="font-normal text-teal-700/80">за годината</div></th>
                 <th className="px-2 text-center w-32">Разпределени</th>
                 <th className="w-48" />
@@ -207,6 +208,13 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                           </button>
                         )}
                         {p > 0 && (
+                          <button onClick={async () => { const e = await downloadLecturerOrder('separate', r.id); if (e) toast(e, 'error') }}
+                            title={`Заповед за лекторските на ${r.name} (без ИЧ)`}
+                            className="inline-flex items-center px-2 py-1.5 rounded-lg text-xs border border-slate-200 text-slate-600 hover:border-[#0f2240]">
+                            <FileDown size={13} />
+                          </button>
+                        )}
+                        {p > 0 && (
                           <button onClick={() => onEdit(r.id)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-slate-200 text-slate-700 hover:border-[#0f2240]">
                             <Pencil size={12} /> График
@@ -222,7 +230,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
           </table>
         </div>
         <div className="px-5 py-3 text-xs text-slate-500 border-t border-slate-100 space-y-1">
-          <p><b className="text-slate-700">Лекторски за годината</b> — същите числа като в Справки → „Лекторски по учебен план“ → „Кратко“, по избрания метод горе: <i>0,7 постоянно</i> (терапиите винаги по 0,7) или <i>0,7 до нормата, после 1</i> (часовете над нормата се броят по 1). ИЧ се броят изцяло.</p>
+          <p><b className="text-slate-700">Лекторски за годината</b> — същите числа като в Справки → „Лекторски по учебен план“ → „Кратко“, по избрания метод горе: <i>0,7 постоянно</i> (терапиите винаги по 0,7) или <i>0,7 до нормата, после 1</i> (часовете над нормата се броят по 1). ИЧ не се броят — те са по отделна заповед на директора (тук са само за сведение); само допълват нормата, ако часовете без ИЧ не стигат.</p>
           <p><b className="text-slate-700">„Разпредели“</b> слага годишния брой в разписанието: 1 час седмично от началото на годината, докато се събере числото (напр. 20 → 20 седмици). Ако числото е повече от годината на паралелката (32 / 34 / 36 седмици), първият час върви цялата година, а остатъкът — втори час, пак от началото; и т.н. Часовете, преместени на ръка в „График“, имат катинарче и остават. При смяна на метода разпределените стават „за наново“.</p>
         </div>
       </div>

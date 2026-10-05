@@ -82,7 +82,8 @@ export default async function LecturerPage() {
     return {
       id: t.id, name: t.name, position: t.position, hasPlan: ls.length > 0,
       norm: L.normAll, normYear: L.normYear, ichYear: L.ichYearAll,
-      yearS: L.yearSimple, yearM: L.yearMixed,
+      // без ИЧ — ИЧ са по отделна заповед на директора
+      yearS: L.noIchSimple, yearM: L.noIchMixed,
       classes: cls.map(c => ({ name: c, end: classEnd[c] || '' })),
       total: p ? p.total_hours : null,
       distributedAt: p?.distributed_at || null,

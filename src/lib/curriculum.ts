@@ -193,16 +193,25 @@ export function lecturerOf(ls: CurLine[], s: { role?: string | null; therapy_rol
   const nOf = (l: CurLine, own: number) => isSpec && l.norm === 30 && !/цоуд/i.test(l.holder) ? own : l.norm
   const r2 = (x: number) => Math.round(x * 100) / 100
   let yearSimple: number, yearMixed: number, s1: number, s2: number, m1: number, m2: number
+  // без ИЧ — за заповедта за лекторски (ИЧ са по отделна заповед на директора): ИЧ само допълват нормата
+  let noIchSimple: number, noIchMixed: number
   if (normYear) {
-    const b = overBoth(ls.map(l => ({ h: l.h1 * (l.w1 || AW1) + l.h2 * (l.w2 || AW2), norm: nOf(l, 21), individual: false })), normYear, 0, 21)
+    const yl = ls.map(l => ({ h: l.h1 * (l.w1 || AW1) + l.h2 * (l.w2 || AW2), norm: nOf(l, 21), individual: l.individual }))
+    const b = overBoth(yl.map(l => ({ ...l, individual: false })), normYear, 0, 21)
     yearSimple = Math.round(b.simple); yearMixed = Math.round(b.mixed)
+    const n = overBoth(yl, normYear, 0, 21)
+    noIchSimple = Math.round(n.simple); noIchMixed = Math.round(n.mixed)
     const w = (AW1 + AW2) || 36
     s1 = s2 = r2(yearSimple / w); m1 = m2 = r2(yearMixed / w)
   } else {
-    const b1 = overBoth(ls.map(l => ({ h: l.h1, norm: nOf(l, normAll || 21), individual: false })), normAll, 0)
-    const b2 = overBoth(ls.map(l => ({ h: l.h2, norm: nOf(l, normAll || 21), individual: false })), normAll, 0)
+    const t1 = ls.map(l => ({ h: l.h1, norm: nOf(l, normAll || 21), individual: l.individual }))
+    const t2 = ls.map(l => ({ h: l.h2, norm: nOf(l, normAll || 21), individual: l.individual }))
+    const b1 = overBoth(t1.map(l => ({ ...l, individual: false })), normAll, 0)
+    const b2 = overBoth(t2.map(l => ({ ...l, individual: false })), normAll, 0)
     s1 = b1.simple; s2 = b2.simple; m1 = b1.mixed; m2 = b2.mixed
     yearSimple = Math.round(s1 * AW1 + s2 * AW2); yearMixed = Math.round(m1 * AW1 + m2 * AW2)
+    const n1 = overBoth(t1, normAll, 0), n2 = overBoth(t2, normAll, 0)
+    noIchSimple = Math.round(n1.simple * AW1 + n2.simple * AW2); noIchMixed = Math.round(n1.mixed * AW1 + n2.mixed * AW2)
   }
   // под / над нормата — без ИЧ (те са в отделна колона)
   const noIch = ls.filter(l => !l.individual)
@@ -212,7 +221,7 @@ export function lecturerOf(ls: CurLine[], s: { role?: string | null; therapy_rol
   const ich = ls.filter(l => l.individual)
   return {
     isSpec, normAll, normYear, W1, W2, AW1, AW2,
-    yearSimple, yearMixed, s1, s2, m1, m2,
+    yearSimple, yearMixed, s1, s2, m1, m2, noIchSimple, noIchMixed,
     diff1: normYear ? null : normAll ? d1(loadW(1) - normAll) : null,
     diff2: normYear ? null : normAll ? d1(loadW(2) - normAll) : null,
     diffY: normYear ? Math.round(loadY - normYear) : null,
