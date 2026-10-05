@@ -270,7 +270,8 @@ export async function listTemplates(): Promise<{ id: string; name: string; mimeT
     return items
       .filter(f => TEMPLATE_TYPES.test(f.mimeType))
       .map(f => ({ id: f.id, name: f.name.replace(/\.(docx?|odt|xlsx?|pptx?)$/i, ''), mimeType: f.mimeType }))
-  } catch {
+  } catch (e: any) {
+    console.error('[drive] бланки', e?.message || e)
     return []
   }
 }
