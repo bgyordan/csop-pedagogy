@@ -7,7 +7,8 @@ import LecturerTabs from './LecturerTabs'
 import { yearSchoolDays, getClassEnds } from './actions'
 import { latestEnd } from './distribute'
 import OrderButton from './OrderButton'
-import { overWithIch } from '@/lib/curriculum'
+import { loadCurriculum, lecturerOf, TEACHER_NORM } from '@/lib/curriculum'
+import type { CurLine } from '@/lib/curriculum'
 export const dynamic = 'force-dynamic'
 
 export default async function LecturerPage() {
@@ -21,11 +22,16 @@ export default async function LecturerPage() {
   const { data: currentYear } = await supabase
     .from('academic_years').select('id, name').eq('is_current', true).single()
 
-  // само учителите (класни + teacher) — възпитатели, терапевти и администрация имат лекторски по друга заповед
-  const { data: staff } = await supabase
-    .from('staff_profiles').select('id, first_name, last_name, position, role')
-    .in('role', ['class_teacher', 'teacher']).eq('is_active', true)
-  const teachers = (staff || []).map((s: any) => ({ id: s.id, name: getFullName(s), position: s.position || '', role: s.role as string }))
+  // всички от учебния план (както в Справки → „Кратко“) + активните учители без план
+  const [{ data: staff }, { lines: curLines }] = await Promise.all([
+    supabase.from('staff_profiles').select('*'),
+    loadCurriculum(supabase, currentYear?.id, { all: true }),
+  ])
+  const linesOf: Record<string, CurLine[]> = {}
+  curLines.forEach(l => { if (l.staffId) (linesOf[l.staffId] ||= []).push(l) })
+  const teachers = (staff || [])
+    .filter((s: any) => s.is_active !== false && (linesOf[s.id] || TEACHER_NORM[s.role]))
+    .map((s: any) => ({ id: s.id, name: getFullName(s), position: s.position || '', role: s.role as string, therapy_role: s.therapy_role as string | null }))
     .sort((a, b) => a.name.localeCompare(b.name, 'bg'))
 
   // вече маркирани лекторски слотове (за списъка долу)
@@ -77,7 +83,6 @@ export default async function LecturerPage() {
   const { data: ifo } = await supabase.from('teacher_ifo_slots').select('teacher_id, day, period, subject:subjects(name, allows_pullout)')
     .eq('academic_year_id', currentYear?.id).eq('term', 1)
   ;(ifo || []).forEach((r: any) => put(r.teacher_id, r.day, r.period, r.subject))
-  const NORM: Record<string, number> = { class_teacher: 21, teacher: 21, educator: 30 }
   const r1 = (x: number) => Math.round(x * 10) / 10
 
   // ── учебен план (НЕИСПУО): УП, ИЧ, часове към норматива (терапии с норма 30 → 0,7) ──
@@ -101,37 +106,27 @@ export default async function LecturerPage() {
   const rows = teachers.map(t => {
     const cls = Array.from(classesOf[t.id] || []).filter(Boolean).sort((a, b) => a.localeCompare(b, 'bg', { numeric: true }))
     const p = planOf[t.id]
-    const sched = r1(Object.values(cells[t.id] || {}).reduce((a, b) => a + b, 0))   // разписание, с 0,7
     // разписание без ИФО — редуцирано (0,7 за часовете с „вземане“) + колко са по 0,7
     // разписание: всичко (паралелки + ИФО) и само паралелки — ИФО някъде допълва норматива, другаде е по отделна заповед
     const cc = Object.values(cells[t.id] || {})
     const sr = r1(cc.reduce((a, b) => a + b, 0)), srT = cc.filter(x => x < 1).length
     const ccClass = Array.from(classCells[t.id] || []).map(k => cells[t.id]?.[k] ?? 1)
     const srClass = r1(ccClass.reduce((a, b) => a + b, 0)), srClassT = ccClass.filter(x => x < 1).length
-    const norm = NORM[t.role] || 21
     const u = upOf[t.id]
-    // предложение: само от учебния план, отделно за I и II срок
-    let suggest = 0, suggest2 = 0, load = sched, source: 'plan' | 'schedule' = 'schedule'
-    let W1 = 18, W2 = 18   // учебни седмици по срокове — за сметката „за годината“
-    if (u) {
-      source = 'plan'
-      // ИЧ допълват до нормата; над нея — само колкото е по заповед (ich_lecturer)
-      const il = p?.ich_lecturer !== null && p?.ich_lecturer !== undefined ? Number(p.ich_lecturer) : 0
-      suggest = overWithIch(u.n1, u.ichN1, norm, il).over; suggest2 = overWithIch(u.n2, u.ichN2, norm, il).over
-      load = r1(u.n1)
-      if (u.w1.length) W1 = Math.max(...u.w1)
-      if (u.w2.length) W2 = Math.max(...u.w2)
-    }   // без учебен план — няма предложение (учебният план е единственият източник)
+    // лекторските — общата сметка от учебния план (същата като в „Кратко“), по двата метода
+    const ls = linesOf[t.id] || []
+    const L = lecturerOf(ls, t)
+    const source: 'plan' | 'schedule' = ls.length ? 'plan' : 'schedule'
     const pw1 = p?.per_week !== null && p?.per_week !== undefined ? Number(p.per_week) : null
     const pw2 = p?.per_week_t2 !== null && p?.per_week_t2 !== undefined ? Number(p.per_week_t2) : pw1   // старо: един и същ за годината
     return {
       id: t.id, name: t.name, position: t.position,
-      load, norm, suggest, suggest2, source, W1, W2,
-      // и двете — редуцирани часове (терапиите по 0,7); в скоби — колко часа са по 0,7
-      up1: u ? r1(u.n1) : null, up2: u ? r1(u.n2) : null, upT1: u ? r1(u.t1) : 0, upT2: u ? r1(u.t2) : 0,
-      ich: u ? r1(u.ich1) : 0, ichN: u ? r1(u.ichN1) : 0, ichN2: u ? r1(u.ichN2) : 0,
-      ichLect: p?.ich_lecturer !== null && p?.ich_lecturer !== undefined ? Number(p.ich_lecturer) : null, sr, srT, srClass, srClassT,
-      load2: u ? r1(u.n2) : null,
+      norm: L.normAll, normYear: L.normYear, source, W1: L.AW1, W2: L.AW2,
+      planS1: L.s1, planS2: L.s2, planM1: L.m1, planM2: L.m2, yearS: L.yearSimple, yearM: L.yearMixed,
+      // часовете по плана без ИЧ (терапиите на учител по 0,7, на специалиста — по 1); в скоби — колко са по 0,7
+      up1: ls.length ? L.load1 : null, up2: ls.length ? L.load2 : null, upT1: u && !L.isSpec ? r1(u.t1) : 0, upT2: u && !L.isSpec ? r1(u.t2) : 0,
+      ich: L.ichW1, ichYear: L.ichYearAll, ichN: u ? r1(u.ichN1) : 0, ichN2: u ? r1(u.ichN2) : 0,
+      sr, srT, srClass, srClassT,
       classes: cls.map(c => ({ name: c, end: classEnd[c] || '' })),
       total: p ? p.total_hours : null,
       perWeek: pw1, perWeek2: pw2,
