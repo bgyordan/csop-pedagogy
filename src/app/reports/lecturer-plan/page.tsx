@@ -25,7 +25,7 @@ export default async function LecturerPlanPage() {
   const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
   const [{ lines, importedAt }, { data: staff }, { data: ifo }, { data: plans }] = await Promise.all([
     loadCurriculum(supabase, cy?.id, { all: true }),
-    supabase.from('staff_profiles').select('id, first_name, last_name, role, position, is_active'),
+    supabase.from('staff_profiles').select('*'),
     // ИФО децата в седмичното разписание на учителя (I срок) — кои деца стоят зад ИЧ
     supabase.from('teacher_ifo_slots').select('teacher_id, student:students(first_name, last_name)').eq('academic_year_id', cy?.id).eq('term', 1),
     // ИЧ, признати за лекторски по заповед (Лекторски → Бърза таблица → „лект.“)
@@ -63,14 +63,19 @@ export default async function LecturerPlanPage() {
       const normAll = STAFF_NORM[s.role] ?? 0
       const normYear = STAFF_NORM_YEAR[s.role] ?? 0
       const W1p = W1, W2p = W2
+      // логопед / рехабилитатор / психолог (и с двойна роля, напр. ЗДУД-логопед): терапиите са тяхната работа —
+      // часовете по ДПЛР (норма 30 във вноса) се броят по 1 към тяхната норма, не по 0,7
+      const SPEC = ['speech_therapist', 'rehabilitator', 'psychologist']
+      const isSpec = SPEC.includes(s.role) || SPEC.includes(s.therapy_role)
+      const nOf = (l: CurLine, own: number) => isSpec && l.norm === 30 && !/цоуд/i.test(l.holder) ? own : l.norm
       let yS: number, yM: number
       if (normYear) {
         // годишна норма (ЗДУД 144, директор 72): сметката е върху часовете за годината
-        const b = overBoth(ls.map(l => ({ h: l.h1 * W1p + l.h2 * W2p, norm: l.norm, individual: l.individual })), normYear, (ichLectOf[s.id] || 0) * (W1p + W2p), 21)
+        const b = overBoth(ls.map(l => ({ h: l.h1 * W1p + l.h2 * W2p, norm: nOf(l, 21), individual: l.individual })), normYear, (ichLectOf[s.id] || 0) * (W1p + W2p), 21)
         yS = Math.round(b.simple); yM = Math.round(b.mixed)
       } else {
-        const b1 = overBoth(ls.map(l => ({ h: l.h1, norm: l.norm, individual: l.individual })), normAll, ichLectOf[s.id] || 0)
-        const b2 = overBoth(ls.map(l => ({ h: l.h2, norm: l.norm, individual: l.individual })), normAll, ichLectOf[s.id] || 0)
+        const b1 = overBoth(ls.map(l => ({ h: l.h1, norm: nOf(l, normAll || 21), individual: l.individual })), normAll, ichLectOf[s.id] || 0)
+        const b2 = overBoth(ls.map(l => ({ h: l.h2, norm: nOf(l, normAll || 21), individual: l.individual })), normAll, ichLectOf[s.id] || 0)
         yS = Math.round(b1.simple * W1 + b2.simple * W2); yM = Math.round(b1.mixed * W1 + b2.mixed * W2)
       }
       const sortBg = (a: string, b: string) => a.localeCompare(b, 'bg', { numeric: true })
@@ -126,7 +131,9 @@ export default async function LecturerPlanPage() {
         </div>
       </header>
       <ReportTabs
-        short={<ShortReport rows={rows.filter(r => r.hasPlan).map(r => ({ name: r.name, position: r.position, norm: r.normAll, normYear: r.normYear, simple: r.yearSimple, mixed: r.yearMixed }))} yearName={cy?.name || ''} />}
+        short={<ShortReport rows={rows.filter(r => r.hasPlan).map(r => ({ name: r.name, position: r.position, norm: r.normAll, normYear: r.normYear, simple: r.yearSimple, mixed: r.yearMixed }))} yearName={cy?.name || ''}
+          unlinked={Object.entries(lines.filter(l => !l.staffId && l.teacher).reduce((m: Record<string, number>, l) => { m[l.teacher] = (m[l.teacher] || 0) + l.h1; return m }, {}))
+            .map(([name, h]) => ({ name, h: Math.round(h * 10) / 10 })).sort((a, b) => a.name.localeCompare(b.name, 'bg'))} />}
         teachers={<LecturerPlanReport rows={rows} yearName={cy?.name || ''} />}
         classes={<ClassPlanReport rows={classRows} yearName={cy?.name || ''} />} />
     </div>
