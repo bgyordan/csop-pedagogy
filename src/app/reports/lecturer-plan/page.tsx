@@ -85,9 +85,11 @@ export default async function LecturerPlanPage() {
         const b2 = overBoth(ls.map(l => ({ h: l.h2, norm: nOf(l, normAll || 21), individual: false })), normAll, 0)
         yS = Math.round(b1.simple * AW1 + b2.simple * AW2); yM = Math.round(b1.mixed * AW1 + b2.mixed * AW2)
       }
-      // под / над нормата: натоварването (терапиите по 0,7, на специалистите — по 1; ИЧ включени) − нормата
-      const loadW = (t: 1 | 2) => ls.reduce((a, l) => a + (t === 1 ? l.h1 : l.h2) * (normAll || 21) / nOf(l, normAll || 21), 0)
-      const loadY = ls.reduce((a, l) => a + (l.h1 * (l.w1 || AW1) + l.h2 * (l.w2 || AW2)) * 21 / nOf(l, 21), 0)
+      // под / над нормата: натоварването БЕЗ ИЧ (терапиите по 0,7, на специалистите — по 1) − нормата;
+      // ИЧ са в отделна колона — така се вижда на кого не стигат часовете и колко допълват ИЧ
+      const noIch = ls.filter(l => !l.individual)
+      const loadW = (t: 1 | 2) => noIch.reduce((a, l) => a + (t === 1 ? l.h1 : l.h2) * (normAll || 21) / nOf(l, normAll || 21), 0)
+      const loadY = noIch.reduce((a, l) => a + (l.h1 * (l.w1 || AW1) + l.h2 * (l.w2 || AW2)) * 21 / nOf(l, 21), 0)
       const r2 = (x: number) => Math.round(x * 10) / 10
       const diff1 = normYear ? null : normAll ? r2(loadW(1) - normAll) : null
       const diff2 = normYear ? null : normAll ? r2(loadW(2) - normAll) : null

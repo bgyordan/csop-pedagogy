@@ -44,7 +44,7 @@ export default function ShortReport({ rows, yearName, unlinked = [] }: { rows: R
             <th className="px-5 py-2 font-medium w-10">№</th>
             <th className="px-2 py-2 font-medium">Име</th>
             <th className="px-2 py-2 font-medium text-center w-20">Норма</th>
-            <th className="px-2 py-2 font-medium text-center w-24" title="Натоварването по плана минус нормата — на седмица (I / II срок); при годишна норма — за годината">Под/над<div className="font-normal text-slate-400">нормата</div></th>
+            <th className="px-2 py-2 font-medium text-center w-24" title="Часовете по плана БЕЗ ИЧ минус нормата — на седмица (I / II срок); при годишна норма — за годината. ИЧ са в отделната колона.">Под/над<div className="font-normal text-slate-400">нормата</div></th>
             <th className="px-2 py-2 font-medium text-right w-32 text-violet-700" title="Индивидуални часове с ИФО деца за годината — включени в лекторските">ИЧ<div className="font-normal text-slate-400">за годината (седмично)</div></th>
             <th className="px-3 py-2 font-medium text-right w-36">Лекторски<div className="font-normal text-slate-400">терапиите по 0,7</div></th>
             <th className="px-5 py-2 font-medium text-right w-44">Лекторски<div className="font-normal text-slate-400">0,7 до нормата, после по 1</div></th>
