@@ -28,10 +28,11 @@ export default async function MyPlanPage({ searchParams }: { searchParams: Promi
   }
 
   const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
-  const [{ lines, importedAt }, schedule, { data: cta }] = await Promise.all([
+  const [{ lines, importedAt }, schedule, { data: cta }, { data: lp }] = await Promise.all([
     loadCurriculum(supabase, cy?.id, { staffId: target.id }),
     scheduleHoursByClass(supabase, cy?.id, target.id),
     supabase.from('class_teacher_assignments').select('class:classes(id, name)').eq('staff_id', target.id).eq('academic_year_id', cy?.id),
+    supabase.from('lecturer_plans').select('*').eq('staff_id', target.id).eq('academic_year_id', cy?.id).maybeSingle(),
   ])
   const myClasses = (cta || []).map((a: any) => a.class).filter(Boolean)
     .sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg')) as { id: string; name: string }[]
@@ -54,7 +55,7 @@ export default async function MyPlanPage({ searchParams }: { searchParams: Promi
         </div>
       </div>
       <ScheduleTabs current="plan" classes={myClasses} staffId={viewingOther ? target.id : undefined} term={term} />
-      <CurriculumPlan mode="teacher" lines={lines} importedAt={importedAt} norm={TEACHER_NORM[target.role]} schedule={schedule} title={viewingOther ? 'Учебен план' : 'Моят учебен план'} />
+      <CurriculumPlan mode="teacher" lines={lines} importedAt={importedAt} norm={TEACHER_NORM[target.role]} schedule={schedule} ichLect={Number((lp as any)?.ich_lecturer || 0)} title={viewingOther ? 'Учебен план' : 'Моят учебен план'} />
     </div>
   )
 }

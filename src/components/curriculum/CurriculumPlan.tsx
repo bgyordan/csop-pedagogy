@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { BookOpenCheck, AlertTriangle, UserRound } from 'lucide-react'
 import type { CurLine } from '@/lib/curriculum'
-import { planTotals } from '@/lib/curriculum'
+import { planTotals, overWithIch } from '@/lib/curriculum'
 
 const f = (n: number) => (Math.round(n * 10) / 10).toString().replace('.', ',')
 const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString('bg-BG', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
@@ -11,7 +11,7 @@ const byBg = (a: string, b: string) => a.localeCompare(b, 'bg', { numeric: true 
 const KIND_ORDER = ['ЗП', 'ИУЧ', 'ДПЛР', 'ОФПВ', 'ЦОУД', '']
 const kindRank = (l: CurLine) => KIND_ORDER.indexOf(l.kind)
 
-export default function CurriculumPlan({ mode, lines, importedAt, norm, schedule, title = 'Учебен план', compact = false }: {
+export default function CurriculumPlan({ mode, lines, importedAt, norm, schedule, title = 'Учебен план', compact = false, ichLect = 0 }: {
   mode: 'teacher' | 'class'
   lines: CurLine[]
   importedAt: string | null
@@ -21,6 +21,8 @@ export default function CurriculumPlan({ mode, lines, importedAt, norm, schedule
   schedule?: Record<string, { t1: number; t2: number; name?: string }>
   title?: string
   compact?: boolean
+  /** ИЧ, признати за лекторски по заповед (ч./седм.) */
+  ichLect?: number
 }) {
   const main = lines.filter(l => !l.individual)
     .sort((a, b) => mode === 'teacher'
@@ -166,7 +168,11 @@ export default function CurriculumPlan({ mode, lines, importedAt, norm, schedule
             {(t.ich1 > 0 || t.ich2 > 0) && <span>ИЧ: <b className="text-violet-700 tabular-nums">{f(t.ich1)}</b>{!same && <> / {f(t.ich2)}</>} ч./седм.</span>}
             <span>За годината: <b className="text-slate-800 tabular-nums">{f(t.year)}</b> ч.</span>
             {mode === 'teacher' && norm ? (
-              <span className="ml-auto">Норматив <b className="text-slate-800">{norm}</b> · над норматива: <b className="text-teal-700 tabular-nums">{f(Math.max(0, t.n1 - norm))}</b>{!same && <> / {f(Math.max(0, t.n2 - norm))}</>} ч./седм.</span>
+              <span className="ml-auto">Норматив <b className="text-slate-800">{norm}</b>
+                {(() => { const c1 = overWithIch(t.n1, t.ich1, norm, ichLect), c2 = overWithIch(t.n2, t.ich2, norm, ichLect)
+                  return <>{c1.fill > 0 && <span className="text-violet-700"> · ИЧ допълват {f(c1.fill)}</span>}{c1.lect > 0 && <span className="text-violet-700"> · ИЧ лект. {f(c1.lect)}</span>}
+                    {' '}· над норматива: <b className="text-teal-700 tabular-nums">{f(c1.over)}</b>{!same && <> / {f(c2.over)}</>} ч./седм.</> })()}
+              </span>
             ) : null}
           </div>
         </>

@@ -7,6 +7,7 @@ import LecturerTabs from './LecturerTabs'
 import { yearSchoolDays, getClassEnds } from './actions'
 import { latestEnd } from './distribute'
 import OrderButton from './OrderButton'
+import { overWithIch } from '@/lib/curriculum'
 export const dynamic = 'force-dynamic'
 
 export default async function LecturerPage() {
@@ -82,14 +83,14 @@ export default async function LecturerPage() {
   // ── учебен план (НЕИСПУО): УП, ИЧ, часове към норматива (терапии с норма 30 → 0,7) ──
   const { data: cur } = await supabase.from('curriculum_lines')
     .select('*').eq('academic_year_id', currentYear?.id).not('staff_id', 'is', null).range(0, 4999)
-  type Up = { up1: number; up2: number; ich1: number; ich2: number; ichN1: number; n1: number; n2: number; t1: number; t2: number; w1: number[]; w2: number[] }
+  type Up = { up1: number; up2: number; ich1: number; ich2: number; ichN1: number; ichN2: number; n1: number; n2: number; t1: number; t2: number; w1: number[]; w2: number[] }
   const upOf: Record<string, Up> = {}
   ;(cur || []).forEach((l: any) => {
-    const u = (upOf[l.staff_id] ||= { up1: 0, up2: 0, ich1: 0, ich2: 0, ichN1: 0, n1: 0, n2: 0, t1: 0, t2: 0, w1: [], w2: [] })
+    const u = (upOf[l.staff_id] ||= { up1: 0, up2: 0, ich1: 0, ich2: 0, ichN1: 0, ichN2: 0, n1: 0, n2: 0, t1: 0, t2: 0, w1: [], w2: [] })
     const h1 = Number(l.hours_t1 || 0), h2 = Number(l.hours_t2 || 0)
     const k = 21 / (Number(l.subject_norm) || 21)
     // ИЧ — по отделна заповед, не се смятат в норматива (но се сравняват с ИФО часовете в разписанието)
-    if (l.individual) { u.ich1 += h1; u.ich2 += h2; u.ichN1 += h1 * k; return }
+    if (l.individual) { u.ich1 += h1; u.ich2 += h2; u.ichN1 += h1 * k; u.ichN2 += h2 * k; return }
     u.up1 += h1; u.up2 += h2; u.n1 += h1 * k; u.n2 += h2 * k
     if (k < 1) { u.t1 += h1; u.t2 += h2 }   // часове по 0,7 (терапии)
     if (h1) u.w1.push(Number(l.weeks_t1 || 0)); if (h2) u.w2.push(Number(l.weeks_t2 || 0))
@@ -114,7 +115,9 @@ export default async function LecturerPage() {
     let W1 = 18, W2 = 18   // учебни седмици по срокове — за сметката „за годината“
     if (u) {
       source = 'plan'
-      suggest = Math.max(0, r1(u.n1 - norm)); suggest2 = Math.max(0, r1(u.n2 - norm))
+      // ИЧ допълват до нормата; над нея — само колкото е по заповед (ich_lecturer)
+      const il = p?.ich_lecturer !== null && p?.ich_lecturer !== undefined ? Number(p.ich_lecturer) : 0
+      suggest = overWithIch(u.n1, u.ichN1, norm, il).over; suggest2 = overWithIch(u.n2, u.ichN2, norm, il).over
       load = r1(u.n1)
       if (u.w1.length) W1 = Math.max(...u.w1)
       if (u.w2.length) W2 = Math.max(...u.w2)
@@ -126,7 +129,8 @@ export default async function LecturerPage() {
       load, norm, suggest, suggest2, source, W1, W2,
       // и двете — редуцирани часове (терапиите по 0,7); в скоби — колко часа са по 0,7
       up1: u ? r1(u.n1) : null, up2: u ? r1(u.n2) : null, upT1: u ? r1(u.t1) : 0, upT2: u ? r1(u.t2) : 0,
-      ich: u ? r1(u.ich1) : 0, ichN: u ? r1(u.ichN1) : 0, sr, srT, srClass, srClassT,
+      ich: u ? r1(u.ich1) : 0, ichN: u ? r1(u.ichN1) : 0, ichN2: u ? r1(u.ichN2) : 0,
+      ichLect: p?.ich_lecturer !== null && p?.ich_lecturer !== undefined ? Number(p.ich_lecturer) : null, sr, srT, srClass, srClassT,
       load2: u ? r1(u.n2) : null,
       classes: cls.map(c => ({ name: c, end: classEnd[c] || '' })),
       total: p ? p.total_hours : null,

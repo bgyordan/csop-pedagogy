@@ -109,3 +109,17 @@ export function planTotals(lines: CurLine[]) {
 export const canSeeLecturerReport = (p: { role?: string | null; position?: string | null } | null | undefined) =>
   ['admin', 'zdud', 'director'].includes(p?.role || '') ||
   (p?.role === 'secretary' && /секретар|деловод/i.test(p?.position || '') && !/ЗАС|завеждащ/i.test(p?.position || ''))
+
+/**
+ * Над норматива с ИЧ (годишно правило, еднакво за двата срока):
+ *  • ИЧ допълват норматива автоматично — ако часовете по плана (без ИЧ, терапиите по 0,7) са под нормата,
+ *    ИЧ запълват разликата до нея;
+ *  • останалите ИЧ са по отделна заповед; от тях за лекторски се брои само числото от заповедта (ichLect).
+ */
+export function overWithIch(n: number, ichN: number, norm: number, ichLect = 0) {
+  const r = (x: number) => Math.round(x * 10) / 10
+  const fill = Math.min(Math.max(0, ichN), Math.max(0, norm - n))
+  const rest = Math.max(0, ichN - fill)
+  const lect = Math.min(Math.max(0, ichLect || 0), rest)
+  return { fill: r(fill), rest: r(rest), lect: r(lect), over: r(Math.max(0, n + fill - norm) + lect) }
+}
