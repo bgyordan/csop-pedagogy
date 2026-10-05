@@ -6,10 +6,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Wand2, Pencil, Search, Check, AlertTriangle, CalendarCheck, FileDown } from 'lucide-react'
+import { Loader2, Wand2, Pencil, Search, Check, AlertTriangle, CalendarCheck, FileDown, Trash2 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { smartMatch } from '@/lib/search'
-import { autoDistribute, saveYearEnds } from './actions'
+import { autoDistribute, saveYearEnds, clearAllLecturerSlots } from './actions'
 import { downloadLecturerOrder } from './OrderButton'
 import { slotHours, GROUPS } from './distribute'
 import type { Ends, Grp } from './distribute'
@@ -101,6 +101,17 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
     onChanged()
   }
 
+  async function clearAll() {
+    if (!confirm(`Да се изтрият ли ВСИЧКИ разпределени лекторски (${sumPlaced} ч.) на всички — и сложените на ръка? Не може да се върне.`)) return
+    setBusyId('*', true)
+    const res: any = await clearAllLecturerSlots()
+    setBusyId('*', false)
+    if (res.error) { toast(res.error, 'error'); return }
+    setRows(p => p.map(x => ({ ...x, total: null, distributedAt: null })))
+    toast('Разпределението е изчистено')
+    onChanged()
+  }
+
   return (
     <div className="space-y-4">
       {/* последни учебни дни по класове — по графика на МОН */}
@@ -138,6 +149,12 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
           </label>
           <div className="ml-auto flex items-center gap-4">
             <span className="text-sm text-slate-500">за годината <b className="text-slate-800 tabular-nums">{sum}</b> · разпределени <b className="text-slate-800 tabular-nums">{sumPlaced}</b> ч.</span>
+            {sumPlaced > 0 && (
+              <button onClick={clearAll} disabled={busy.size > 0} title="Изтрива всички разпределени лекторски часове (и сложените на ръка)"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-40">
+                <Trash2 size={14} /> Изчисти всички
+              </button>
+            )}
             <button onClick={distributeAll} disabled={!pending.length || busy.size > 0 || endsMissing}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm disabled:opacity-40 hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
               {busy.size > 0 ? <Loader2 size={15} className="animate-spin" /> : <Wand2 size={15} />} Разпредели{pending.length ? ` (${pending.length})` : ''}

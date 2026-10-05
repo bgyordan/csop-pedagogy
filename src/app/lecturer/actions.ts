@@ -116,6 +116,16 @@ export async function clearLecturerSlots(staffId: string) {
   revalidatePath('/lecturer')
   return { success: true }
 }
+/** Изтрива ВСИЧКИ лекторски слотове за годината (и сложените на ръка) — за начало отначало */
+export async function clearAllLecturerSlots() {
+  const m = await manager()
+  if (!m) return { error: 'Нямате права' }
+  const { error, count } = await m.supabase.from('lecturer_slots').delete({ count: 'exact' }).eq('academic_year_id', m.yearId)
+  if (error) return { error: error.message }
+  await m.supabase.from('lecturer_plans').update({ distributed_at: null, total_hours: 0 }).eq('academic_year_id', m.yearId)
+  revalidatePath('/lecturer')
+  return { success: true, deleted: count || 0 }
+}
 export async function schoolWeeks(from: string, to: string): Promise<number> {
   const supabase = await createClient()
     const { count } = await supabase
