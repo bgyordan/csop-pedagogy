@@ -1,21 +1,28 @@
 'use client'
-// Кратко: само Име и Лекторски за годината. Нищо друго.
+// Кратко: всички от учебния план — Име и годишните лекторски по двете правила.
 import * as XLSX from 'xlsx'
 import { FileSpreadsheet, Printer } from 'lucide-react'
 
-export default function ShortReport({ rows, yearName }: { rows: { name: string; year: number }[]; yearName: string }) {
-  const list = rows.filter(r => r.year > 0).sort((a, b) => a.name.localeCompare(b.name, 'bg'))
-  const total = list.reduce((a, r) => a + r.year, 0)
+type Row = { name: string; position: string; norm: number; simple: number; mixed: number }
+
+export default function ShortReport({ rows, yearName }: { rows: Row[]; yearName: string }) {
+  const list = rows.filter(r => r.simple > 0 || r.mixed > 0).sort((a, b) => a.name.localeCompare(b.name, 'bg'))
+  const tS = list.reduce((a, r) => a + r.simple, 0), tM = list.reduce((a, r) => a + r.mixed, 0)
+  const H1 = 'Лекторски — терапиите по 0,7', H2 = 'Лекторски — 0,7 до нормата, после по 1'
   function exportXlsx() {
-    const ws = XLSX.utils.aoa_to_sheet([['№', 'Име', 'Лекторски за годината'], ...list.map((r, i) => [i + 1, r.name, r.year]), [], ['', 'Общо', total]])
-    ws['!cols'] = [{ wch: 5 }, { wch: 32 }, { wch: 22 }]
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['№', 'Име', 'Длъжност', 'Норма ч./седм.', H1, H2],
+      ...list.map((r, i) => [i + 1, r.name, r.position, r.norm || 'без норма', r.simple, r.mixed]),
+      [], ['', 'Общо', '', '', tS, tM],
+    ])
+    ws['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 26 }, { wch: 12 }, { wch: 26 }, { wch: 32 }]
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Лекторски')
     XLSX.writeFile(wb, `лекторски_${(yearName || '').replace(/\W+/g, '-')}.xlsx`)
   }
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm max-w-xl">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm max-w-4xl">
       <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-100 print:hidden">
-        <span className="text-sm text-slate-500">{list.length} учители</span>
+        <span className="text-sm text-slate-500">{list.length} души · годишно, по учебния план</span>
         <div className="ml-auto flex gap-2">
           <button onClick={exportXlsx} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm border border-slate-200 text-slate-700 hover:border-[#0f2240]"><FileSpreadsheet size={15} /> Excel</button>
           <button onClick={() => window.print()} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm border border-slate-200 text-slate-700 hover:border-[#0f2240]"><Printer size={15} /> Печат</button>
@@ -23,29 +30,39 @@ export default function ShortReport({ rows, yearName }: { rows: { name: string; 
       </div>
       <table className="w-full text-[15px]">
         <thead>
-          <tr className="text-left text-[12px] text-slate-500">
+          <tr className="text-left text-[12px] text-slate-500 align-bottom">
             <th className="px-5 py-2 font-medium w-10">№</th>
             <th className="px-2 py-2 font-medium">Име</th>
-            <th className="px-5 py-2 font-medium text-right">Лекторски за годината</th>
+            <th className="px-2 py-2 font-medium text-center w-20">Норма</th>
+            <th className="px-3 py-2 font-medium text-right w-36">Лекторски<div className="font-normal text-slate-400">терапиите по 0,7</div></th>
+            <th className="px-5 py-2 font-medium text-right w-44">Лекторски<div className="font-normal text-slate-400">0,7 до нормата, после по 1</div></th>
           </tr>
         </thead>
         <tbody>
           {list.map((r, i) => (
             <tr key={r.name + i} className="border-t border-slate-100">
               <td className="px-5 py-2 text-slate-400 tabular-nums">{i + 1}</td>
-              <td className="px-2 py-2 text-slate-800">{r.name}</td>
-              <td className="px-5 py-2 text-right tabular-nums font-medium text-slate-900">{r.year}</td>
+              <td className="px-2 py-2 text-slate-800">{r.name}{r.position && <div className="text-[11px] text-slate-400">{r.position}</div>}</td>
+              <td className="px-2 py-2 text-center tabular-nums text-slate-500 text-[13px]">{r.norm || <span title="Длъжност без преподавателска норма — всичките часове са лекторски">—</span>}</td>
+              <td className="px-3 py-2 text-right tabular-nums text-slate-700">{r.simple}</td>
+              <td className={`px-5 py-2 text-right tabular-nums font-medium ${r.mixed !== r.simple ? 'text-teal-800' : 'text-slate-900'}`}>{r.mixed}</td>
             </tr>
           ))}
-          {list.length === 0 && <tr><td colSpan={3} className="px-5 py-10 text-center text-slate-400">Няма лекторски</td></tr>}
+          {list.length === 0 && <tr><td colSpan={5} className="px-5 py-10 text-center text-slate-400">Няма лекторски</td></tr>}
         </tbody>
         {list.length > 0 && (
           <tfoot><tr className="border-t-2 border-slate-200 bg-slate-50/70">
-            <td /><td className="px-2 py-2.5 font-medium text-slate-700">Общо</td>
-            <td className="px-5 py-2.5 text-right tabular-nums font-semibold text-slate-900">{total}</td>
+            <td /><td className="px-2 py-2.5 font-medium text-slate-700" colSpan={2}>Общо</td>
+            <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-slate-900">{tS}</td>
+            <td className="px-5 py-2.5 text-right tabular-nums font-semibold text-slate-900">{tM}</td>
           </tr></tfoot>
         )}
       </table>
+      <div className="px-5 py-3 text-xs text-slate-500 border-t border-slate-100 space-y-1">
+        <p><b className="text-slate-700">Терапиите по 0,7:</b> всички часове от плана се приравняват към нормата (терапия = 0,7 ч.), вади се нормата; × учебните седмици на срока.</p>
+        <p><b className="text-slate-700">0,7 до нормата, после по 1</b> (Наредба № 4/2017, чл. 8 и чл. 10, ал. 2): приравняват се само часовете, които допълват нормата — първо обикновените часове, после терапиите по 0,7; всеки час над нормата е цял лекторски час.</p>
+        <p>Норма по длъжност: учител, логопед, рехабилитатор — 21; психолог, възпитател — 30; без преподавателска норма (управа и др.) — „—“, всички часове са лекторски. ИЧ допълват нормата; над нея — само по заповед.</p>
+      </div>
     </div>
   )
 }

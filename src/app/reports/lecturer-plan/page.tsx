@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Wallet } from 'lucide-react'
-import { loadCurriculum, overWithIch, TEACHER_NORM, canSeeLecturerReport as canSee } from '@/lib/curriculum'
+import { loadCurriculum, overWithIch, overBoth, STAFF_NORM, TEACHER_NORM, canSeeLecturerReport as canSee } from '@/lib/curriculum'
 import type { CurLine } from '@/lib/curriculum'
 import LecturerPlanReport from './LecturerPlanReport'
 import ClassPlanReport from './ClassPlanReport'
@@ -59,6 +59,10 @@ export default async function LecturerPlanPage() {
       const c1 = norm ? overWithIch(n1, ichN1, norm, ichLectOf[s.id] || 0) : null
       const c2 = norm ? overWithIch(n2, ichN2, norm, ichLectOf[s.id] || 0) : null
       const o1 = c1?.over || 0, o2 = c2?.over || 0
+      // за „Кратко“: всички от плана (и логопеди, и управа) — нормата по длъжност, без длъжност с норма → 0
+      const normAll = STAFF_NORM[s.role] ?? 0
+      const b1 = overBoth(ls.map(l => ({ h: l.h1, norm: l.norm, individual: l.individual })), normAll, ichLectOf[s.id] || 0)
+      const b2 = overBoth(ls.map(l => ({ h: l.h2, norm: l.norm, individual: l.individual })), normAll, ichLectOf[s.id] || 0)
       const sortBg = (a: string, b: string) => a.localeCompare(b, 'bg', { numeric: true })
       const classes = Array.from(new Set(ls.filter(l => !l.individual).map(l => l.holder))).sort(sortBg)
       const ichClasses = Array.from(new Set(ls.filter(l => l.individual).map(l => l.holder))).sort(sortBg)
@@ -69,6 +73,7 @@ export default async function LecturerPlanPage() {
         over1: o1, over2: o2, overYear: Math.round(o1 * W1 + o2 * W2), W1, W2,
         ich1: r1(ich1), ich2: r1(ich2), ichYear: Math.round(ichYear), ichClasses,
         ichFill: c1?.fill || 0, ichLect: c1?.lect || 0,
+        normAll, yearSimple: Math.round(b1.simple * W1 + b2.simple * W2), yearMixed: Math.round(b1.mixed * W1 + b2.mixed * W2),
         ifoKids: Array.from(ifoKids[s.id] || []).sort((a, b) => a.localeCompare(b, 'bg')),
         lines: ls.map(l => ({ id: l.id, holder: l.holder, subject: l.subject, h1: l.h1, h2: l.h2, total: l.total, kind: l.kind, individual: l.individual, therapy: l.norm !== 21 })),
       }
@@ -111,7 +116,7 @@ export default async function LecturerPlanPage() {
         </div>
       </header>
       <ReportTabs
-        short={<ShortReport rows={rows.map(r => ({ name: r.name, year: r.overYear }))} yearName={cy?.name || ''} />}
+        short={<ShortReport rows={rows.filter(r => r.hasPlan).map(r => ({ name: r.name, position: r.position, norm: r.normAll, simple: r.yearSimple, mixed: r.yearMixed }))} yearName={cy?.name || ''} />}
         teachers={<LecturerPlanReport rows={rows} yearName={cy?.name || ''} />}
         classes={<ClassPlanReport rows={classRows} yearName={cy?.name || ''} />} />
     </div>
