@@ -9,12 +9,20 @@ export default function SchoolFilesCardClient({ groups, bare = false }: { groups
   const supabase = createClient()
   const [openIdx, setOpenIdx] = useState<number | null>(null)
 
+  // Отваряне в нов таб с временна връзка (5 мин.): работи на всеки браузър, вкл. телефон/Safari,
+  // където тегленето „на заден план“ (blob) тихо се блокира. PDF и снимки се показват, останалото се тегли.
   async function download(path: string, name: string) {
-    const { data, error } = await supabase.storage.from('school-files').download(path)
-    if (error || !data) return
-    const url = URL.createObjectURL(data)
-    const a = document.createElement('a'); a.href = url; a.download = name
-    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
+    const tab = window.open('', '_blank')   // отваря се веднага при щракването — иначе браузърът го спира
+    const view = /\.(pdf|png|jpe?g|gif|webp)$/i.test(name)
+    const { data, error } = await supabase.storage.from('school-files')
+      .createSignedUrl(path, 300, view ? undefined : { download: name })
+    if (error || !data?.signedUrl) {
+      tab?.close()
+      alert('Файлът не се отвори: ' + (error?.message || 'няма връзка с хранилището') + '\nОпитайте пак или кажете на администратора.')
+      return
+    }
+    if (tab) tab.location.href = data.signedUrl
+    else window.location.href = data.signedUrl   // блокиран нов таб — отваря в същия
   }
 
   return (
