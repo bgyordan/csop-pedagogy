@@ -21,7 +21,10 @@ async function accessToken() {
     cache: 'no-store',
   })
   const j = await res.json()
-  if (!j.access_token) throw new Error('Google вход неуспешен: ' + (j.error_description || j.error))
+  if (!j.access_token) {
+    console.error('[drive] token', res.status, JSON.stringify(j).slice(0, 300))
+    throw new Error('Google вход неуспешен: ' + (j.error_description || j.error))
+  }
   cached = { token: j.access_token, exp: Date.now() + j.expires_in * 1000 }
   return cached.token
 }
@@ -46,6 +49,8 @@ async function drive(path: string, init: RequestInit = {}) {
     // четене — винаги; запис (POST/PATCH) — само при 429/503, когато Google със сигурност не е изпълнил заявката (без дубликати)
     const safe = !init.method || init.method === 'GET' || res.status === 429 || res.status === 503
     if (RETRY.has(res.status) && safe && attempt < 3) { await sleep(400 * 2 ** attempt + Math.random() * 300); continue }
+    // в лога на сървъра (pm2 logs csop) — коя заявка и какво точно казва Google
+    console.error('[drive]', res.status, init.method || 'GET', decodeURIComponent(path).slice(0, 300), JSON.stringify(j?.error || {}).slice(0, 500))
     throw new Error(j?.error?.message || `Drive грешка ${res.status}`)
   }
 }
