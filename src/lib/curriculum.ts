@@ -123,3 +123,47 @@ export function overWithIch(n: number, ichN: number, norm: number, ichLect = 0) 
   const lect = Math.min(Math.max(0, ichLect || 0), rest)
   return { fill: r(fill), rest: r(rest), lect: r(lect), over: r(Math.max(0, n + fill - norm) + lect) }
 }
+
+/**
+ * Норма на седмица по длъжност — за списъка с лекторските на всички от учебния план.
+ * Учител / логопед / рехабилитатор — 21; психолог, възпитател — 30.
+ * Длъжности без преподавателска норма (админ, директор, ЗДУД, ЗДАСД…) — 0: всичките им часове са лекторски.
+ */
+export const STAFF_NORM: Record<string, number> = {
+  class_teacher: 21, teacher: 21, speech_therapist: 21, rehabilitator: 21, psychologist: 30, educator: 30,
+}
+/** Годишна норма (часове за годината) — ЗДУД и ЗДАСД (роля admin) 144, директор 72; смята се върху годишните часове */
+export const STAFF_NORM_YEAR: Record<string, number> = { zdud: 144, admin: 144, director: 72 }
+
+/**
+ * Лекторски на седмица по две правила (Наредба № 4/2017):
+ *  • simple — всички часове се приравняват към нормата на лицето (терапии по 0,7 при норма 21) и се вади нормата;
+ *  • mixed  — приравняват се само часовете, които ДОПЪЛВАТ нормата (чл. 8): първо часовете със същата норма
+ *             като на лицето (по 1), после другите по коефициента; часовете над нормата се броят по 1 (чл. 10, ал. 2; чл. 20).
+ * ИЧ само допълват нормата (последни); над нея се броят само тези по заповед (ichLect).
+ */
+export function overBoth(lines: { h: number; norm: number; individual: boolean }[], personNorm: number, ichLect = 0, unit?: number) {
+  const r = (x: number) => Math.round(x * 100) / 100
+  // мярка за приравняване: нормата на лицето (21/30); при норма 0 или годишна норма — 21
+  const base = unit || personNorm || 21
+  const k = (n: number) => base / (n || 21)
+  const main = lines.filter(l => !l.individual && l.h > 0), ich = lines.filter(l => l.individual && l.h > 0)
+  const ichN = ich.reduce((a, l) => a + l.h * k(l.norm), 0)
+  // simple
+  const n = main.reduce((a, l) => a + l.h * k(l.norm), 0)
+  const fillS = Math.min(ichN, Math.max(0, personNorm - n))
+  const lectS = Math.min(Math.max(0, ichLect), Math.max(0, ichN - fillS))
+  const simple = Math.max(0, n + fillS - personNorm) + lectS
+  // mixed
+  let deficit = personNorm, over = 0
+  const native = main.filter(l => k(l.norm) === 1), other = main.filter(l => k(l.norm) !== 1)
+  for (const l of [...native, ...other]) {
+    const kk = k(l.norm)
+    const used = Math.min(l.h, deficit / kk)       // реални часове, нужни за допълване
+    deficit -= used * kk
+    over += l.h - used                              // остатъкът — по 1
+  }
+  const fillM = Math.min(ichN, Math.max(0, deficit))
+  const lectM = Math.min(Math.max(0, ichLect), Math.max(0, ichN - fillM))
+  return { simple: r(simple), mixed: r(over + lectM) }
+}
