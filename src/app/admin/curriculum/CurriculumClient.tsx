@@ -10,11 +10,12 @@ import { smartMatch } from '@/lib/search'
 import { parseSheet, matchLines } from './parse'
 import type { Ref, NameMap, Matched } from './parse'
 import { importCurriculum } from './actions'
+import { studyKind } from '@/lib/curriculum'
 
 type Line = {
   id: string; holder_label: string; class_id: string | null; coud_group_id: string | null; subject: string
   hours_t1: number; weeks_t1: number; hours_t2: number; weeks_t2: number; total_hours: number
-  students: number | null; teacher_name: string | null; staff_id: string | null; imported_at: string; individual?: boolean
+  students: number | null; teacher_name: string | null; staff_id: string | null; imported_at: string; individual?: boolean; study_mode?: string | null
 }
 
 const fmt = (n: number | string | null | undefined) => n === null || n === undefined ? '' : String(Number(n)).replace('.', ',')
@@ -60,7 +61,7 @@ export default function CurriculumClient({ ready, lines, classes, couds, staff, 
     setSaving(true)
     const out = preview.lines.map(l => ({
       holder: l.holder, subject: l.subject, weeksT1: l.weeksT1, hoursT1: l.hoursT1, weeksT2: l.weeksT2, hoursT2: l.hoursT2,
-      total: l.total, students: l.students, teacher: l.teacher, individual: l.individual, norm: l.norm,
+      total: l.total, students: l.students, teacher: l.teacher, individual: l.individual, norm: l.norm, mode: l.mode,
       classId: l.kind === 'class' ? (fixHolder[l.holder] || l.classId) : null,
       coudId: l.kind === 'coud' ? (fixHolder[l.holder] || l.coudId) : null,
       staffId: fixStaff[l.teacher] || l.staffId,
@@ -155,7 +156,7 @@ export default function CurriculumClient({ ready, lines, classes, couds, staff, 
           <div className="px-5 py-3 border-b border-slate-100 text-sm text-slate-700">Редове от файла</div>
           <div className="max-h-[50vh] overflow-y-auto">
             <LinesTable rows={L.map((l, i) => ({
-              id: String(i), holder: l.holder, subject: l.subject, w1: l.weeksT1, h1: l.hoursT1, w2: l.weeksT2, h2: l.hoursT2, total: l.total, students: l.students, ich: l.individual,
+              id: String(i), holder: l.holder, subject: l.subject, w1: l.weeksT1, h1: l.hoursT1, w2: l.weeksT2, h2: l.hoursT2, total: l.total, students: l.students, ich: l.individual, kind: studyKind(l.mode, l.subject),
               teacher: (fixStaff[l.teacher] || l.staffId) ? staffName[fixStaff[l.teacher] || l.staffId!] : l.teacher, warn: !(fixStaff[l.teacher] || l.staffId),
             }))} showHolder />
           </div>
@@ -226,7 +227,7 @@ export default function CurriculumClient({ ready, lines, classes, couds, staff, 
                 {isOpen && (
                   <div className="bg-slate-50/60 border-t border-slate-100">
                     <LinesTable rows={g.lines.slice().sort((a, b) => holderSort(a.holder_label, b.holder_label)).map(l => ({
-                      id: l.id, holder: l.holder_label, subject: l.subject, w1: l.weeks_t1, h1: l.hours_t1, w2: l.weeks_t2, h2: l.hours_t2, total: l.total_hours, students: l.students, ich: !!l.individual,
+                      id: l.id, holder: l.holder_label, subject: l.subject, w1: l.weeks_t1, h1: l.hours_t1, w2: l.weeks_t2, h2: l.hours_t2, total: l.total_hours, students: l.students, ich: !!l.individual, kind: studyKind(l.study_mode, l.subject),
                       teacher: l.staff_id ? staffName[l.staff_id] || l.teacher_name || '' : l.teacher_name || '', warn: !l.staff_id,
                     }))} showHolder={view === 'teachers'} showTeacher={view === 'classes'} />
                   </div>
@@ -269,7 +270,7 @@ function FixRow({ label, value, onChange, options }: { label: string; value: str
 }
 
 function LinesTable({ rows, showHolder = false, showTeacher = true }: {
-  rows: { id: string; holder: string; subject: string; w1: number; h1: number; w2: number; h2: number; total: number; students: number | null; teacher: string; warn: boolean; ich?: boolean }[]
+  rows: { id: string; holder: string; subject: string; w1: number; h1: number; w2: number; h2: number; total: number; students: number | null; teacher: string; warn: boolean; ich?: boolean; kind?: string }[]
   showHolder?: boolean; showTeacher?: boolean
 }) {
   return (
@@ -289,7 +290,7 @@ function LinesTable({ rows, showHolder = false, showTeacher = true }: {
         {rows.map(r => (
           <tr key={r.id} className="border-t border-slate-100">
             {showHolder && <td className="pl-11 pr-2 py-1.5 text-slate-600 whitespace-nowrap">{r.holder}</td>}
-            <td className={`${showHolder ? 'px-2' : 'pl-11 pr-2'} py-1.5 text-slate-800`}>{r.subject}{r.ich && <span title="Индивидуален час (ИЧ) — ИФО дете, формално в паралелката" className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-violet-50 border border-violet-200 text-violet-700">ИЧ</span>}</td>
+            <td className={`${showHolder ? 'px-2' : 'pl-11 pr-2'} py-1.5 text-slate-800`}>{r.subject}{r.kind && r.kind !== 'ЗП' && <span title="Вид на часа по „Начин на изучаване“" className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded border ${r.kind === 'ИУЧ' ? 'bg-sky-50 border-sky-200 text-sky-700' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>{r.kind}</span>}{r.ich && <span title="Индивидуален час (ИЧ) — ИФО дете, формално в паралелката" className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-violet-50 border border-violet-200 text-violet-700">ИЧ</span>}</td>
             <td className="px-2 py-1.5 text-center tabular-nums text-slate-600">{fmt(r.h1)} <span className="text-slate-400">× {r.w1}</span></td>
             <td className="px-2 py-1.5 text-center tabular-nums text-slate-600">{fmt(r.h2)} <span className="text-slate-400">× {r.w2}</span></td>
             <td className="px-2 py-1.5 text-center tabular-nums text-slate-800">{fmt(r.total)}</td>

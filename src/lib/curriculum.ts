@@ -14,6 +14,26 @@ export type CurLine = {
   individual: boolean       // ИЧ
   norm: number              // 21 или 30 (терапии → 0,7 към норматив 21)
   students: number | null
+  mode: string              // „Начин на изучаване“ от НЕИСПУО, както е
+  kind: StudyKind           // вид на часа, изведен от него
+}
+
+export type StudyKind = 'ЗП' | 'ИУЧ' | 'ДПЛР' | 'ЦОУД' | 'ОФПВ' | ''
+/**
+ * Вид на часа по „Начин на изучаване“ (НЕИСПУО):
+ * ООП → ЗП (раздел А) · РП/УП-А → ИУЧ (раздел Б) · ДПЛР/… → ДПЛР · ДЦО → ЦОУД · ОФПВ.
+ * „(ИЧ)“ в края не променя вида — ИЧ се пази отделно.
+ * Без колона (стар внос) — ИУЧ се познава и по името на предмета („МАТ/МАТ-ИУЧ“).
+ */
+export function studyKind(mode: string | null | undefined, subject = ''): StudyKind {
+  const m = String(mode || '').replace(/\(\s*ИЧ\s*\)/gi, '').trim().toUpperCase()
+  if (/ДПЛР/.test(m)) return 'ДПЛР'
+  if (/ДЦО/.test(m)) return 'ЦОУД'
+  if (/РП\s*\/?\s*УП|РПУПА|ИУЧ|УИЧ/.test(m)) return 'ИУЧ'
+  if (/ОФПВ/.test(m)) return 'ОФПВ'
+  if (/ООП/.test(m)) return 'ЗП'
+  if (!m && /ИУЧ|УИЧ/i.test(subject)) return 'ИУЧ'   // напр. „БЕЛ/БЕЛ-УИЧ“ (печатна грешка в НЕИСПУО)
+  return ''
 }
 
 /** Норматив на седмица по длъжност (учители); за останалите — няма над норматива */
@@ -21,11 +41,14 @@ export const TEACHER_NORM: Record<string, number> = { class_teacher: 21, teacher
 
 export async function loadCurriculum(supabase: any, yearId: string | undefined, by: { staffId?: string; classId?: string }) {
   if (!yearId || (!by.staffId && !by.classId)) return { lines: [] as CurLine[], importedAt: null as string | null }
-  let q = supabase.from('curriculum_lines')
-    .select('id, holder_label, class_id, subject, hours_t1, hours_t2, weeks_t1, weeks_t2, total_hours, teacher_name, staff_id, individual, subject_norm, students, imported_at, class:classes(name), coud:coud_groups(name), staff:staff_profiles!curriculum_lines_staff_id_fkey(first_name, last_name)')
-    .eq('academic_year_id', yearId)
-  q = by.staffId ? q.eq('staff_id', by.staffId) : q.eq('class_id', by.classId)
-  const { data, error } = await q.range(0, 1999)
+  const cols = (withMode: boolean) => `id, holder_label, class_id, subject, hours_t1, hours_t2, weeks_t1, weeks_t2, total_hours, teacher_name, staff_id, individual, subject_norm, students, imported_at,${withMode ? ' study_mode,' : ''} class:classes(name), coud:coud_groups(name), staff:staff_profiles!curriculum_lines_staff_id_fkey(first_name, last_name)`
+  const run = (withMode: boolean) => {
+    const q = supabase.from('curriculum_lines').select(cols(withMode)).eq('academic_year_id', yearId)
+    return (by.staffId ? q.eq('staff_id', by.staffId) : q.eq('class_id', by.classId)).range(0, 1999)
+  }
+  // study_mode идва с миграцията 2026-10-05; без нея — четем без колоната
+  let { data, error } = await run(true)
+  if (error && /study_mode/.test(error.message || '')) ({ data, error } = await run(false))
   if (error) return { lines: [] as CurLine[], importedAt: null as string | null }
   const n = (v: any) => Number(v || 0)
   const lines: CurLine[] = (data || []).map((l: any) => ({
@@ -39,6 +62,8 @@ export async function loadCurriculum(supabase: any, yearId: string | undefined, 
     individual: !!l.individual,
     norm: Number(l.subject_norm) || 21,
     students: l.students === null || l.students === undefined ? null : n(l.students),
+    mode: l.study_mode || '',
+    kind: studyKind(l.study_mode, l.subject),
   }))
   const importedAt = (data || []).reduce((a: string | null, l: any) => (!a || l.imported_at > a ? l.imported_at : a), null)
   return { lines, importedAt }
