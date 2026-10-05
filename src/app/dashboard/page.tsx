@@ -15,6 +15,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { loginTime } from '@/lib/login-time'
 import TodayAbsentStrip from './components/TodayAbsentStrip'
 import CouncilStrip from './components/CouncilStrip'
+import FacilitiesStrip from './components/FacilitiesStrip'
 export const dynamic = 'force-dynamic'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -112,6 +113,9 @@ export default async function DashboardPage() {
 
       {/* За съгласуване — материали за предстоящ съвет, с които още не съм се запознал */}
       {!viewing && <CouncilStrip staffId={profile.id} />}
+
+      {/* Материална база — нови сигнали (управа/деловодство) или отговори по моите сигнали */}
+      {!viewing && <FacilitiesStrip profile={profile} />}
 
       {/* Днес отсъстват — за всички колеги (управата го има в оперативния панел) */}
       {!isAdmin && !isDirector && <TodayAbsentStrip />}
