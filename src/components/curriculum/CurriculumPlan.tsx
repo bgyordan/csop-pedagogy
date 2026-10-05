@@ -7,6 +7,9 @@ import { planTotals } from '@/lib/curriculum'
 const f = (n: number) => (Math.round(n * 10) / 10).toString().replace('.', ',')
 const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString('bg-BG', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
 const byBg = (a: string, b: string) => a.localeCompare(b, 'bg', { numeric: true })
+// ред: ЗП, ИУЧ, ДПЛР, ОФПВ, ЦОУД, без вид
+const KIND_ORDER = ['ЗП', 'ИУЧ', 'ДПЛР', 'ОФПВ', 'ЦОУД', '']
+const kindRank = (l: CurLine) => KIND_ORDER.indexOf(l.kind)
 
 export default function CurriculumPlan({ mode, lines, importedAt, norm, schedule, title = 'Учебен план', compact = false }: {
   mode: 'teacher' | 'class'
@@ -20,10 +23,18 @@ export default function CurriculumPlan({ mode, lines, importedAt, norm, schedule
   compact?: boolean
 }) {
   const main = lines.filter(l => !l.individual)
-    .sort((a, b) => mode === 'teacher' ? byBg(a.holder, b.holder) || byBg(a.subject, b.subject) : byBg(a.subject, b.subject) || byBg(a.teacher, b.teacher))
+    .sort((a, b) => mode === 'teacher'
+      ? byBg(a.holder, b.holder) || kindRank(a) - kindRank(b) || byBg(a.subject, b.subject)
+      : kindRank(a) - kindRank(b) || byBg(a.subject, b.subject) || byBg(a.teacher, b.teacher))
   const ich = lines.filter(l => l.individual)
     .sort((a, b) => mode === 'teacher' ? byBg(a.holder, b.holder) || byBg(a.subject, b.subject) : byBg(a.teacher, b.teacher) || byBg(a.subject, b.subject))
   const t = planTotals(lines)
+  // разбивка по вид (без ИЧ): ЗП / ИУЧ / …
+  const byKind: Record<string, number> = {}
+  main.forEach(l => { const k = l.kind || 'друго'; byKind[k] = (byKind[k] || 0) + l.h1 })
+  const kindParts = Object.entries(byKind).filter(([, h]) => h > 0)
+  const ORDER = ['ЗП', 'ИУЧ', 'ДПЛР', 'ОФПВ', 'ЦОУД', 'друго']
+  kindParts.sort((a, b) => ORDER.indexOf(a[0]) - ORDER.indexOf(b[0]))
   const same = main.every(l => l.h1 === l.h2) && ich.every(l => l.h1 === l.h2)
 
   // разлики разписание ↔ план по паралелки (само за учител)
@@ -59,6 +70,16 @@ export default function CurriculumPlan({ mode, lines, importedAt, norm, schedule
       <th className={`${th} text-center w-24`}>за годината</th>
     </>
   )
+  const KIND_CLS: Record<string, string> = {
+    'ИУЧ': 'bg-sky-50 text-sky-700 border-sky-200', 'ДПЛР': 'bg-violet-50 text-violet-700 border-violet-200',
+    'ЦОУД': 'bg-orange-50 text-orange-700 border-orange-200', 'ОФПВ': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  }
+  const KIND_TITLE: Record<string, string> = {
+    'ИУЧ': 'Избираеми учебни часове — раздел Б (РП/УП-А)', 'ДПЛР': 'Допълнителна подкрепа за личностно развитие',
+    'ЦОУД': 'Целодневна организация (ДЦО)', 'ОФПВ': 'Организирани форми за физическо възпитание',
+  }
+  // вид на часа (ЗП не се отбелязва — той е по подразбиране)
+  const kindTag = (l: CurLine) => l.kind && l.kind !== 'ЗП' && <span title={`${KIND_TITLE[l.kind] || ''}${l.mode ? ` · „${l.mode}“` : ''}`} className={`ml-1.5 text-[10px] px-1.5 py-px rounded border ${KIND_CLS[l.kind] || 'bg-slate-50 text-slate-600 border-slate-200'}`}>{l.kind}</span>
   const therapy = (l: CurLine) => l.norm !== 21 && <span title="Норма 30 — един час се брои 0,7 към норматива" className="ml-1.5 text-[10px] px-1.5 py-px rounded bg-violet-50 text-violet-700 border border-violet-200">0,7</span>
   const who = (l: CurLine) => l.staffId
     ? <span className="inline-flex items-center gap-1.5"><UserRound size={12} className="text-slate-400" />{l.teacher}</span>
@@ -105,7 +126,7 @@ export default function CurriculumPlan({ mode, lines, importedAt, norm, schedule
                   {main.map(l => (
                     <tr key={l.id} className="hover:bg-slate-50/60">
                       {mode === 'teacher' && <td className={`${td} text-slate-700`}>{l.classId ? <Link href={`/classes/${l.classId}`} className="hover:underline">{l.holder}</Link> : l.holder}</td>}
-                      <td className={`${td} text-slate-800`}>{l.subject}{therapy(l)}</td>
+                      <td className={`${td} text-slate-800`}>{l.subject}{kindTag(l)}{therapy(l)}</td>
                       {hours(l)}
                       {mode === 'class' && <td className={`${td} text-slate-700`}>{who(l)}</td>}
                     </tr>
@@ -126,7 +147,7 @@ export default function CurriculumPlan({ mode, lines, importedAt, norm, schedule
                     {ich.map(l => (
                       <tr key={l.id} className="hover:bg-slate-50/60">
                         {mode === 'teacher' && <td className={`${td} w-32 text-slate-700`}>{l.holder}</td>}
-                        <td className={`${td} text-slate-800`}>{l.subject}{therapy(l)}</td>
+                        <td className={`${td} text-slate-800`}>{l.subject}{kindTag(l)}{therapy(l)}</td>
                         {hours(l)}
                         {mode === 'class' && <td className={`${td} text-slate-700`}>{who(l)}</td>}
                       </tr>
@@ -139,7 +160,8 @@ export default function CurriculumPlan({ mode, lines, importedAt, norm, schedule
 
           {/* сбор */}
           <div className="flex flex-wrap gap-x-6 gap-y-2 px-5 py-3 mt-2 border-t border-slate-200 bg-slate-50/50 text-[13px] text-slate-600">
-            <span>Общо {mode === 'class' ? 'за паралелката' : 'по плана'}: <b className="text-slate-800 tabular-nums">{f(t.h1)}</b> ч./седм.{!same && <> (II срок <b className="text-slate-800 tabular-nums">{f(t.h2)}</b>)</>}</span>
+            <span>Общо {mode === 'class' ? 'за паралелката' : 'по плана'}: <b className="text-slate-800 tabular-nums">{f(t.h1)}</b> ч./седм.{!same && <> (II срок <b className="text-slate-800 tabular-nums">{f(t.h2)}</b>)</>}
+              {kindParts.length > 1 && <span className="text-slate-500"> — {kindParts.map(([k, h]) => `${k} ${f(h)}`).join(' · ')}</span>}</span>
             {mode === 'teacher' && t.therapy1 > 0 && <span>към норматива (терапиите по 0,7): <b className="text-slate-800 tabular-nums">{f(t.n1)}</b>{!same && <> / {f(t.n2)}</>}</span>}
             {(t.ich1 > 0 || t.ich2 > 0) && <span>ИЧ: <b className="text-violet-700 tabular-nums">{f(t.ich1)}</b>{!same && <> / {f(t.ich2)}</>} ч./седм.</span>}
             <span>За годината: <b className="text-slate-800 tabular-nums">{f(t.year)}</b> ч.</span>

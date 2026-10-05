@@ -9,6 +9,8 @@ export type RawLine = {
   individual: boolean
   /** норма на предмета: 30 за терапии (ДПЛР или „терапи“ в името) — 1 час = 0,7 към норматив 21; иначе 21 */
   norm: number
+  /** „Начин на изучаване“ както е в НЕИСПУО (ООП, РП/УП-А, ДПЛР/ПСР, ДЦО, ОФПВ, … (ИЧ)) */
+  mode: string
 }
 export type Ref = { id: string; name: string }
 export type NameMap = { kind: 'staff' | 'class' | 'coud'; source_name: string; target_id: string }[]
@@ -51,6 +53,7 @@ export function parseSheet(rows: any[][]): { lines: RawLine[]; error?: string } 
       teacher: String(r[c.teacher] ?? '').trim(),
       individual: mode >= 0 && /\(\s*ИЧ\s*\)/i.test(String(r[mode] ?? '')),
       norm: (mode >= 0 && /ДПЛР/i.test(String(r[mode] ?? ''))) || /терапи/i.test(subject) ? 30 : 21,
+      mode: mode >= 0 ? String(r[mode] ?? '').trim() : '',
     })
   }
   return { lines }
