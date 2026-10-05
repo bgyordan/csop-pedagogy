@@ -39,12 +39,13 @@ export function studyKind(mode: string | null | undefined, subject = ''): StudyK
 /** Норматив на седмица по длъжност (учители); за останалите — няма над норматива */
 export const TEACHER_NORM: Record<string, number> = { class_teacher: 21, teacher: 21 }
 
-export async function loadCurriculum(supabase: any, yearId: string | undefined, by: { staffId?: string; classId?: string }) {
-  if (!yearId || (!by.staffId && !by.classId)) return { lines: [] as CurLine[], importedAt: null as string | null }
+/** by.all — целият план за годината (за справки) */
+export async function loadCurriculum(supabase: any, yearId: string | undefined, by: { staffId?: string; classId?: string; all?: boolean }) {
+  if (!yearId || (!by.staffId && !by.classId && !by.all)) return { lines: [] as CurLine[], importedAt: null as string | null }
   const cols = (withMode: boolean) => `id, holder_label, class_id, subject, hours_t1, hours_t2, weeks_t1, weeks_t2, total_hours, teacher_name, staff_id, individual, subject_norm, students, imported_at,${withMode ? ' study_mode,' : ''} class:classes(name), coud:coud_groups(name), staff:staff_profiles!curriculum_lines_staff_id_fkey(first_name, last_name)`
   const run = (withMode: boolean) => {
     const q = supabase.from('curriculum_lines').select(cols(withMode)).eq('academic_year_id', yearId)
-    return (by.staffId ? q.eq('staff_id', by.staffId) : q.eq('class_id', by.classId)).range(0, 1999)
+    return (by.all ? q : by.staffId ? q.eq('staff_id', by.staffId) : q.eq('class_id', by.classId)).range(0, 4999)
   }
   // study_mode идва с миграцията 2026-10-05; без нея — четем без колоната
   let { data, error } = await run(true)
@@ -103,3 +104,8 @@ export function planTotals(lines: CurLine[]) {
   })
   return Object.fromEntries(Object.entries(t).map(([k, v]) => [k, r1(v)])) as typeof t
 }
+
+/** Справка „Лекторски по учебен план“: админ, директор, ЗДУД и деловодството (технически секретар), без ЗАС */
+export const canSeeLecturerReport = (p: { role?: string | null; position?: string | null } | null | undefined) =>
+  ['admin', 'zdud', 'director'].includes(p?.role || '') ||
+  (p?.role === 'secretary' && /секретар|деловод/i.test(p?.position || '') && !/ЗАС|завеждащ/i.test(p?.position || ''))

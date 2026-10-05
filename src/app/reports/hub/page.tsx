@@ -1,14 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { canSeeLecturerReport } from '@/lib/curriculum'
 import {
   BarChart3, GraduationCap, Bus, FileText, ArrowRight, Coffee, Phone, School, FileSpreadsheet,
-  HeartPulse, Users, ClipboardList, Wallet, Mail, Activity,
+  HeartPulse, Users, ClipboardList, Wallet, Mail, Activity, BookOpenCheck,
 } from 'lucide-react'
 export const dynamic = 'force-dynamic'
 
 // ЕДИН вход за всички справки — групирани по тема, според ролята
-interface ReportCard { href: string; title: string; desc: string; icon: React.ReactNode; roles: string[]; coordinator?: boolean }
+interface ReportCard { href: string; title: string; desc: string; icon: React.ReactNode; roles: string[]; coordinator?: boolean; check?: (p: any) => boolean }
 interface Group { title: string; icon: React.ReactNode; items: ReportCard[] }
 
 const M = ['admin', 'zdud', 'director']
@@ -39,6 +40,7 @@ const GROUPS: Group[] = [
     title: 'ИУП, лекторски и отчети', icon: <Wallet size={16} />,
     items: [
       { href: '/absences', title: 'Реализация на ИУП', desc: 'Месечен отчет по паралелки + Excel', icon: <ClipboardList size={18} />, roles: M },
+      { href: '/reports/lecturer-plan', title: 'Лекторски по учебен план', desc: 'Над норматива по учител и паралелки — от учебния план, Excel', icon: <BookOpenCheck size={18} />, roles: [], check: canSeeLecturerReport },
       { href: '/lecturer-review', title: 'Лекторски часове', desc: 'Над норматив и заместване по служители, суми, заповед за изплащане', icon: <Wallet size={18} />, roles: MS },
       { href: '/mon-export', title: 'Отчет НП (МОН)', desc: '„Без свободен час“ — файл за платформата', icon: <FileSpreadsheet size={18} />, roles: M },
     ],
@@ -57,10 +59,10 @@ export default async function ReportsHubPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
   const { data: profile } = await supabase
-    .from('staff_profiles').select('role, is_coordinator').eq('user_id', user.id).single()
+    .from('staff_profiles').select('role, is_coordinator, position').eq('user_id', user.id).single()
   const role = profile?.role || ''
   const isCoordinator = profile?.is_coordinator === true
-  const can = (r: ReportCard) => r.roles.includes(role) || (isCoordinator && !!r.coordinator)
+  const can = (r: ReportCard) => r.roles.includes(role) || (isCoordinator && !!r.coordinator) || (!!r.check && r.check(profile))
 
   const groups = GROUPS.map(g => ({ ...g, items: g.items.filter(can) })).filter(g => g.items.length > 0)
   if (groups.length === 0) redirect('/dashboard')
