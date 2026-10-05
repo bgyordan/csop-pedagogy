@@ -5,6 +5,8 @@ import { ArrowLeft, Users, BookOpen, ChevronRight, Mail, CalendarClock } from 'l
 import { ROLE_LABELS } from '@/types'
 import { getFullName } from '@/lib/utils'
 import StaffClassesSection from './StaffClassesSection'
+import CurriculumPlan from '@/components/curriculum/CurriculumPlan'
+import { loadCurriculum, scheduleHoursByClass, TEACHER_NORM } from '@/lib/curriculum'
 export const dynamic = 'force-dynamic'
 const CAN_BE_CLASS_TEACHER = ['class_teacher', 'psychologist', 'speech_therapist', 'rehabilitator', 'educator']
 const THERAPIST_ROLES = ['psychologist', 'speech_therapist', 'rehabilitator']
@@ -103,6 +105,10 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   const scheduleHref = THERAPIST_ROLES.includes(staff.role)
     ? `/my-activities/schedule?staff=${id}`
     : `/my-schedule?staff=${id}`
+  // Учебен план от НЕИСПУО — за учителите (и за всеки, който има редове в плана)
+  const isTeacher = !!TEACHER_NORM[staff.role]
+  const plan = await loadCurriculum(supabase, currentYear?.id, { staffId: id })
+  const planSchedule = isTeacher && plan.lines.length ? await scheduleHoursByClass(supabase, currentYear?.id, id) : undefined
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto">
       <Link href="/staff" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6 transition-colors">
@@ -136,6 +142,9 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
           )}
         </div>
       </div>
+      {(isTeacher || plan.lines.length > 0) && (
+        <CurriculumPlan mode="teacher" lines={plan.lines} importedAt={plan.importedAt} norm={TEACHER_NORM[staff.role]} schedule={planSchedule} />
+      )}
       {(CAN_BE_CLASS_TEACHER.includes(staff.role) || assignedClasses.length > 0) && (
         <StaffClassesSection
           staffId={id}

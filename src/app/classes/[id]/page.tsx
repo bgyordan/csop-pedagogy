@@ -10,6 +10,8 @@ import { Users, Coffee, FolderOpen } from 'lucide-react'
 import ClassTeachersSection from './ClassTeachersSection'
 import AddStudentsSection from './AddStudentsSection'
 import ClassScheduleWord from './ClassScheduleWord'
+import CurriculumPlan from '@/components/curriculum/CurriculumPlan'
+import { loadCurriculum } from '@/lib/curriculum'
 export default async function ClassDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
@@ -94,6 +96,8 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
       if (sl.period === 7) scheduleMaxPeriod = 7
     })
   }
+  // ── Учебен план от НЕИСПУО (справочно) ──
+  const plan = await loadCurriculum(supabase, currentYear?.id, { classId: id })
   return (
     <div className="p-4 md:p-8">
       <BackButton />
@@ -208,6 +212,9 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
             </Link>
           )
         })}
+      </div>
+      <div className="mt-8">
+        <CurriculumPlan mode="class" lines={plan.lines} importedAt={plan.importedAt} title={`Учебен план на паралелка ${cls.name}`} compact />
       </div>
       {canSeeClassDocs && (
         <div className="mt-8">
