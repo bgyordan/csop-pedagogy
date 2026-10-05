@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Wallet } from 'lucide-react'
-import { loadCurriculum, overWithIch, overBoth, STAFF_NORM, STAFF_NORM_YEAR, TEACHER_NORM, canSeeLecturerReport as canSee } from '@/lib/curriculum'
+import { loadCurriculum, overWithIch, lecturerOf, TEACHER_NORM, canSeeLecturerReport as canSee } from '@/lib/curriculum'
 import type { CurLine } from '@/lib/curriculum'
 import LecturerPlanReport from './LecturerPlanReport'
 import ClassPlanReport from './ClassPlanReport'
@@ -59,45 +59,11 @@ export default async function LecturerPlanPage() {
       const c1 = norm ? overWithIch(n1, ichN1, norm, ichLectOf[s.id] || 0) : null
       const c2 = norm ? overWithIch(n2, ichN2, norm, ichLectOf[s.id] || 0) : null
       const o1 = c1?.over || 0, o2 = c2?.over || 0
-      // за „Кратко“: всички от плана (и логопеди, и управа) — нормата по длъжност, без длъжност с норма → 0
-      // специалист (логопед / рехабилитатор / психолог): по роля, по двойна роля, по длъжност
-      // или по редове в плана, които са на негово име (в НЕИСПУО „паралелката“ на специалиста е самият той)
-      const SPEC = ['speech_therapist', 'rehabilitator', 'psychologist']
-      const ownLine = (l: CurLine) => !l.classId && !/цоуд/i.test(l.holder) && !l.individual && l.norm === 30
-      const posPsy = /психолог/i.test(s.position || ''), posSpec = /логопед|рехабилит|психолог/i.test(s.position || '')
-      const isSpec = SPEC.includes(s.role) || SPEC.includes(s.therapy_role) || posSpec || ls.some(ownLine)
-      const specNorm = s.role === 'psychologist' || s.therapy_role === 'psychologist' || posPsy ? 30 : 21
-      const normAll = STAFF_NORM[s.role] ?? (isSpec && !STAFF_NORM_YEAR[s.role] ? specNorm : 0)
-      const normYear = STAFF_NORM_YEAR[s.role] ?? 0
-      // седмиците на сроковете — от ВСИЧКИ редове на човека (и ИЧ; при само ИЧ досега падаше на 18/18)
-      const allW1 = ls.filter(l => l.h1).map(l => l.w1), allW2 = ls.filter(l => l.h2).map(l => l.w2)
-      const AW1 = allW1.length ? Math.max(...allW1) : W1, AW2 = allW2.length ? Math.max(...allW2) : W2
-      // терапиите (ДПЛР, норма 30 във вноса) са работата на специалиста — броят се по 1 към неговата норма, не по 0,7
-      const nOf = (l: CurLine, own: number) => isSpec && l.norm === 30 && !/цоуд/i.test(l.holder) ? own : l.norm
-      // ИЧ са реални часове на учителя — влизат и в нормата, и над нея (показват се и в отделна колона)
-      let yS: number, yM: number
-      if (normYear) {
-        // годишна норма (ЗДУД и ЗДАСД 144, директор 72): часовете за годината — всеки ред със своите седмици
-        const b = overBoth(ls.map(l => ({ h: l.h1 * (l.w1 || AW1) + l.h2 * (l.w2 || AW2), norm: nOf(l, 21), individual: false })), normYear, 0, 21)
-        yS = Math.round(b.simple); yM = Math.round(b.mixed)
-      } else {
-        const b1 = overBoth(ls.map(l => ({ h: l.h1, norm: nOf(l, normAll || 21), individual: false })), normAll, 0)
-        const b2 = overBoth(ls.map(l => ({ h: l.h2, norm: nOf(l, normAll || 21), individual: false })), normAll, 0)
-        yS = Math.round(b1.simple * AW1 + b2.simple * AW2); yM = Math.round(b1.mixed * AW1 + b2.mixed * AW2)
-      }
-      // под / над нормата: натоварването БЕЗ ИЧ (терапиите по 0,7, на специалистите — по 1) − нормата;
-      // ИЧ са в отделна колона — така се вижда на кого не стигат часовете и колко допълват ИЧ
-      const noIch = ls.filter(l => !l.individual)
-      const loadW = (t: 1 | 2) => noIch.reduce((a, l) => a + (t === 1 ? l.h1 : l.h2) * (normAll || 21) / nOf(l, normAll || 21), 0)
-      const loadY = noIch.reduce((a, l) => a + (l.h1 * (l.w1 || AW1) + l.h2 * (l.w2 || AW2)) * 21 / nOf(l, 21), 0)
-      const r2 = (x: number) => Math.round(x * 10) / 10
-      const diff1 = normYear ? null : normAll ? r2(loadW(1) - normAll) : null
-      const diff2 = normYear ? null : normAll ? r2(loadW(2) - normAll) : null
-      const diffY = normYear ? Math.round(loadY - normYear) : null
-      // ИЧ за годината — всеки ред със своите седмици
-      const ichW1 = Math.round(ls.filter(l => l.individual).reduce((a, l) => a + l.h1, 0) * 10) / 10
-      const ichW2 = Math.round(ls.filter(l => l.individual).reduce((a, l) => a + l.h2, 0) * 10) / 10
-      const ichYearAll = Math.round(ls.filter(l => l.individual).reduce((a, l) => a + l.h1 * (l.w1 || AW1) + l.h2 * (l.w2 || AW2), 0))
+      // за „Кратко“ — общата сметка (същата е и в „Лекторски → Разпредели“)
+      const L = lecturerOf(ls, s)
+      const { normAll, normYear, yearSimple: yS, yearMixed: yM, diff1, diff2, diffY, ichW1, ichW2, ichYearAll } = L
+      // без часове извън ИЧ „под/над“ няма смисъл (иначе излиза −нормата)
+      const noMain = !L.hasMain
       const sortBg = (a: string, b: string) => a.localeCompare(b, 'bg', { numeric: true })
       const classes = Array.from(new Set(ls.filter(l => !l.individual).map(l => l.holder))).sort(sortBg)
       const ichClasses = Array.from(new Set(ls.filter(l => l.individual).map(l => l.holder))).sort(sortBg)
@@ -108,7 +74,7 @@ export default async function LecturerPlanPage() {
         over1: o1, over2: o2, overYear: Math.round(o1 * W1 + o2 * W2), W1, W2,
         ich1: r1(ich1), ich2: r1(ich2), ichYear: Math.round(ichYear), ichClasses,
         ichFill: c1?.fill || 0, ichLect: c1?.lect || 0,
-        normAll, normYear, yearSimple: yS, yearMixed: yM, ichYearAll, ichW1, ichW2, diff1, diff2, diffY,
+        normAll, normYear, yearSimple: yS, yearMixed: yM, ichYearAll, ichW1, ichW2, diff1: noMain ? null : diff1, diff2: noMain ? null : diff2, diffY: noMain ? null : diffY,
         ifoKids: Array.from(ifoKids[s.id] || []).sort((a, b) => a.localeCompare(b, 'bg')),
         lines: ls.map(l => ({ id: l.id, holder: l.holder, subject: l.subject, h1: l.h1, h2: l.h2, total: l.total, kind: l.kind, individual: l.individual, therapy: l.norm !== 21 })),
       }

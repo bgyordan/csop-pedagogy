@@ -298,7 +298,8 @@ export async function saveYearEnds(ends: Ends) {
  *  • ако е повече от годината на паралелката (32 / 34 / 36 седмици) — този час върви цялата година,
  *    а остатъкът — втори час, пак от началото на годината; и т.н.
  */
-export async function autoDistribute(staffId: string, w1: number, w2: number, total?: number) {
+/** w1/w2 — числата на ръка (ч./седм. по срокове); null — по учебния план (тогава total е годишният брой оттам) */
+export async function autoDistribute(staffId: string, w1: number | null, w2: number | null, total?: number) {
   const m = await manager()
   if (!m) return { error: 'Нямате права' }
   const saved = await saveLecturerPlan(staffId, w1, w2)
@@ -328,7 +329,7 @@ export async function autoDistribute(staffId: string, w1: number, w2: number, to
   // годишният брой: I срок × седмиците му + II срок × седмиците му
   const yearTotal = total !== undefined && Number.isFinite(total)
     ? Math.max(0, Math.round(total))
-    : Math.round(w1 * Math.round(t1.length / 5) + w2 * Math.round(t2.length / 5))
+    : Math.round((w1 || 0) * Math.round(t1.length / 5) + (w2 || 0) * Math.round(t2.length / 5))
 
   type Row = { day: number; period: number; subjectId: string | null; holderType: string; holderLabel: string; dateFrom: string; dateTo: string; hours: number; term: number }
   const out: Row[] = []

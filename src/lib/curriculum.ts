@@ -168,3 +168,57 @@ export function overBoth(lines: { h: number; norm: number; individual: boolean }
   const lectM = Math.min(Math.max(0, ichLect), Math.max(0, ichN - fillM))
   return { simple: r(simple), mixed: r(over + lectM) }
 }
+
+/**
+ * Лекторските на един човек по учебния план — едно и също число в „Кратко“ (Справки) и в „Разпредели“ (Лекторски).
+ *  • норма по длъжност (STAFF_NORM) или годишна (STAFF_NORM_YEAR); специалист — по роля, двойна роля, длъжност или по редовете на негово име;
+ *  • терапиите на учител — по 0,7; на специалиста (своите, норма 30 във вноса) — по 1 към неговата норма;
+ *  • ИЧ се броят изцяло (реални часове), показват се и отделно;
+ *  • седмиците на сроковете — от всички редове на човека.
+ * Връща годишните лекторски по двата метода и седмичните по срокове (при годишна норма — годишните / всички седмици).
+ */
+export function lecturerOf(ls: CurLine[], s: { role?: string | null; therapy_role?: string | null; position?: string | null }) {
+  const role = s.role || '', tr = s.therapy_role || '', pos = s.position || ''
+  const SPEC = ['speech_therapist', 'rehabilitator', 'psychologist']
+  const ownLine = (l: CurLine) => !l.classId && !/цоуд/i.test(l.holder) && !l.individual && l.norm === 30
+  const posPsy = /психолог/i.test(pos), posSpec = /логопед|рехабилит|психолог/i.test(pos)
+  const isSpec = SPEC.includes(role) || SPEC.includes(tr) || posSpec || ls.some(ownLine)
+  const specNorm = role === 'psychologist' || tr === 'psychologist' || posPsy ? 30 : 21
+  const normAll = STAFF_NORM[role] ?? (isSpec && !STAFF_NORM_YEAR[role] ? specNorm : 0)
+  const normYear = STAFF_NORM_YEAR[role] ?? 0
+  // седмици: от редовете без ИЧ, иначе от всички, иначе 18
+  const mx = (a: number[], d: number) => a.length ? Math.max(...a) : d
+  const W1 = mx(ls.filter(l => !l.individual && l.h1).map(l => l.w1), 18), W2 = mx(ls.filter(l => !l.individual && l.h2).map(l => l.w2), 18)
+  const AW1 = mx(ls.filter(l => l.h1).map(l => l.w1), W1), AW2 = mx(ls.filter(l => l.h2).map(l => l.w2), W2)
+  const nOf = (l: CurLine, own: number) => isSpec && l.norm === 30 && !/цоуд/i.test(l.holder) ? own : l.norm
+  const r2 = (x: number) => Math.round(x * 100) / 100
+  let yearSimple: number, yearMixed: number, s1: number, s2: number, m1: number, m2: number
+  if (normYear) {
+    const b = overBoth(ls.map(l => ({ h: l.h1 * (l.w1 || AW1) + l.h2 * (l.w2 || AW2), norm: nOf(l, 21), individual: false })), normYear, 0, 21)
+    yearSimple = Math.round(b.simple); yearMixed = Math.round(b.mixed)
+    const w = (AW1 + AW2) || 36
+    s1 = s2 = r2(yearSimple / w); m1 = m2 = r2(yearMixed / w)
+  } else {
+    const b1 = overBoth(ls.map(l => ({ h: l.h1, norm: nOf(l, normAll || 21), individual: false })), normAll, 0)
+    const b2 = overBoth(ls.map(l => ({ h: l.h2, norm: nOf(l, normAll || 21), individual: false })), normAll, 0)
+    s1 = b1.simple; s2 = b2.simple; m1 = b1.mixed; m2 = b2.mixed
+    yearSimple = Math.round(s1 * AW1 + s2 * AW2); yearMixed = Math.round(m1 * AW1 + m2 * AW2)
+  }
+  // под / над нормата — без ИЧ (те са в отделна колона)
+  const noIch = ls.filter(l => !l.individual)
+  const loadW = (t: 1 | 2) => noIch.reduce((a, l) => a + (t === 1 ? l.h1 : l.h2) * (normAll || 21) / nOf(l, normAll || 21), 0)
+  const loadY = noIch.reduce((a, l) => a + (l.h1 * (l.w1 || AW1) + l.h2 * (l.w2 || AW2)) * 21 / nOf(l, 21), 0)
+  const d1 = (x: number) => Math.round(x * 10) / 10
+  const ich = ls.filter(l => l.individual)
+  return {
+    isSpec, normAll, normYear, W1, W2, AW1, AW2,
+    yearSimple, yearMixed, s1, s2, m1, m2,
+    diff1: normYear ? null : normAll ? d1(loadW(1) - normAll) : null,
+    diff2: normYear ? null : normAll ? d1(loadW(2) - normAll) : null,
+    diffY: normYear ? Math.round(loadY - normYear) : null,
+    hasMain: noIch.some(l => l.h1 || l.h2),
+    load1: d1(loadW(1)), load2: d1(loadW(2)),
+    ichW1: d1(ich.reduce((a, l) => a + l.h1, 0)), ichW2: d1(ich.reduce((a, l) => a + l.h2, 0)),
+    ichYearAll: Math.round(ich.reduce((a, l) => a + l.h1 * (l.w1 || AW1) + l.h2 * (l.w2 || AW2), 0)),
+  }
+}
