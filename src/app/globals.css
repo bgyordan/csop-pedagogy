@@ -158,13 +158,13 @@
 .text-slate-400 { color: #64748b; }
 .text-slate-500 { color: #475569; }
 
-/* Сайдбар: по-тънки иконки */
-.sb-ico svg { stroke-width: 1.75; }
+/* Сайдбар: иконките — малко по-плътни (в тон с шрифта) */
+.sb-ico svg { stroke-width: 2; }
 
 /* Фина зебра в списъците: всеки втори ред леко оцветен (без жълтите/виолетовите/червените маркирани) */
 .zebra > :nth-child(even):not([class*="bg-amber"]):not([class*="bg-violet"]):not([class*="bg-rose"]):not([class*="bg-emerald"]) { background-color: #f4f7fb; }
 .zebra > :nth-child(even):not([class*="bg-amber"]):not([class*="bg-violet"]):not([class*="bg-rose"]):not([class*="bg-emerald"]):hover { background-color: #ebf1f8; }
 
-/* Сайдбар: деловоден тесен шрифт, без удебеляване */
-.sb-font { font-family: 'Roboto Condensed', 'Montserrat', system-ui, sans-serif; font-weight: 300; }
-.sb-font.sb-active { font-weight: 400; }
+/* Сайдбар: деловоден тесен шрифт — нормален, активният пункт малко по-плътен */
+.sb-font { font-family: 'Roboto Condensed', 'Montserrat', system-ui, sans-serif; font-weight: 400; }
+.sb-font.sb-active { font-weight: 500; }
