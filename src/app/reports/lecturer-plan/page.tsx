@@ -60,15 +60,19 @@ export default async function LecturerPlanPage() {
       const c2 = norm ? overWithIch(n2, ichN2, norm, ichLectOf[s.id] || 0) : null
       const o1 = c1?.over || 0, o2 = c2?.over || 0
       // за „Кратко“: всички от плана (и логопеди, и управа) — нормата по длъжност, без длъжност с норма → 0
-      const normAll = STAFF_NORM[s.role] ?? 0
+      // специалист (логопед / рехабилитатор / психолог): по роля, по двойна роля, по длъжност
+      // или по редове в плана, които са на негово име (в НЕИСПУО „паралелката“ на специалиста е самият той)
+      const SPEC = ['speech_therapist', 'rehabilitator', 'psychologist']
+      const ownLine = (l: CurLine) => !l.classId && !/цоуд/i.test(l.holder) && !l.individual && l.norm === 30
+      const posPsy = /психолог/i.test(s.position || ''), posSpec = /логопед|рехабилит|психолог/i.test(s.position || '')
+      const isSpec = SPEC.includes(s.role) || SPEC.includes(s.therapy_role) || posSpec || ls.some(ownLine)
+      const specNorm = s.role === 'psychologist' || s.therapy_role === 'psychologist' || posPsy ? 30 : 21
+      const normAll = STAFF_NORM[s.role] ?? (isSpec && !STAFF_NORM_YEAR[s.role] ? specNorm : 0)
       const normYear = STAFF_NORM_YEAR[s.role] ?? 0
       // седмиците на сроковете — от ВСИЧКИ редове на човека (и ИЧ; при само ИЧ досега падаше на 18/18)
       const allW1 = ls.filter(l => l.h1).map(l => l.w1), allW2 = ls.filter(l => l.h2).map(l => l.w2)
       const AW1 = allW1.length ? Math.max(...allW1) : W1, AW2 = allW2.length ? Math.max(...allW2) : W2
-      // логопед / рехабилитатор / психолог (и с двойна роля, напр. ЗДУД-логопед): терапиите са тяхната работа —
-      // часовете по ДПЛР (норма 30 във вноса) се броят по 1 към тяхната норма, не по 0,7
-      const SPEC = ['speech_therapist', 'rehabilitator', 'psychologist']
-      const isSpec = SPEC.includes(s.role) || SPEC.includes(s.therapy_role)
+      // терапиите (ДПЛР, норма 30 във вноса) са работата на специалиста — броят се по 1 към неговата норма, не по 0,7
       const nOf = (l: CurLine, own: number) => isSpec && l.norm === 30 && !/цоуд/i.test(l.holder) ? own : l.norm
       // ИЧ са реални часове на учителя — влизат и в нормата, и над нея (показват се и в отделна колона)
       let yS: number, yM: number
@@ -82,6 +86,8 @@ export default async function LecturerPlanPage() {
         yS = Math.round(b1.simple * AW1 + b2.simple * AW2); yM = Math.round(b1.mixed * AW1 + b2.mixed * AW2)
       }
       // ИЧ за годината — всеки ред със своите седмици
+      const ichW1 = Math.round(ls.filter(l => l.individual).reduce((a, l) => a + l.h1, 0) * 10) / 10
+      const ichW2 = Math.round(ls.filter(l => l.individual).reduce((a, l) => a + l.h2, 0) * 10) / 10
       const ichYearAll = Math.round(ls.filter(l => l.individual).reduce((a, l) => a + l.h1 * (l.w1 || AW1) + l.h2 * (l.w2 || AW2), 0))
       const sortBg = (a: string, b: string) => a.localeCompare(b, 'bg', { numeric: true })
       const classes = Array.from(new Set(ls.filter(l => !l.individual).map(l => l.holder))).sort(sortBg)
@@ -93,7 +99,7 @@ export default async function LecturerPlanPage() {
         over1: o1, over2: o2, overYear: Math.round(o1 * W1 + o2 * W2), W1, W2,
         ich1: r1(ich1), ich2: r1(ich2), ichYear: Math.round(ichYear), ichClasses,
         ichFill: c1?.fill || 0, ichLect: c1?.lect || 0,
-        normAll, normYear, yearSimple: yS, yearMixed: yM, ichYearAll,
+        normAll, normYear, yearSimple: yS, yearMixed: yM, ichYearAll, ichW1, ichW2,
         ifoKids: Array.from(ifoKids[s.id] || []).sort((a, b) => a.localeCompare(b, 'bg')),
         lines: ls.map(l => ({ id: l.id, holder: l.holder, subject: l.subject, h1: l.h1, h2: l.h2, total: l.total, kind: l.kind, individual: l.individual, therapy: l.norm !== 21 })),
       }
@@ -136,7 +142,7 @@ export default async function LecturerPlanPage() {
         </div>
       </header>
       <ReportTabs
-        short={<ShortReport rows={rows.filter(r => r.hasPlan).map(r => ({ name: r.name, position: r.position, norm: r.normAll, normYear: r.normYear, ich: r.ichYearAll, simple: r.yearSimple, mixed: r.yearMixed }))} yearName={cy?.name || ''}
+        short={<ShortReport rows={rows.filter(r => r.hasPlan).map(r => ({ name: r.name, position: r.position, norm: r.normAll, normYear: r.normYear, ich: r.ichYearAll, ichW1: r.ichW1, ichW2: r.ichW2, simple: r.yearSimple, mixed: r.yearMixed }))} yearName={cy?.name || ''}
           unlinked={Object.entries(lines.filter(l => !l.staffId && l.teacher).reduce((m: Record<string, number>, l) => { m[l.teacher] = (m[l.teacher] || 0) + l.h1; return m }, {}))
             .map(([name, h]) => ({ name, h: Math.round(h * 10) / 10 })).sort((a, b) => a.name.localeCompare(b.name, 'bg'))} />}
         teachers={<LecturerPlanReport rows={rows} yearName={cy?.name || ''} />}
