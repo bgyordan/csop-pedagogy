@@ -41,6 +41,34 @@ export async function getTeacherSchedule(staffId: string, term: number = 1) {
     day: sl.day, period: sl.period, subjectId: sl.subject_id, subject: sl.subject?.name || '',
     holderType: 'ifo', holderLabel: sl.student ? `ИФО ${sl.student.first_name} ${sl.student.last_name}` : 'ИФО',
   }))
+
+  // графикът на логопед / терапевт (като седмично разписание): клетка ден·час с деца;
+  // паралелката на клетката — тази от децата с най-дълга учебна година (до нея стига лекторският час)
+  const { data: ts } = await supabase.from('therapist_schedules').select('id')
+    .eq('staff_id', staffId).eq('academic_year_id', cy?.id).eq('term', term)
+  const tIds = (ts || []).map((x: any) => x.id)
+  if (tIds.length) {
+    const { data: tsl } = await supabase.from('therapist_slots').select('day, period, student_id').in('schedule_id', tIds)
+    if (tsl?.length) {
+      const sids = Array.from(new Set(tsl.map((x: any) => x.student_id).filter(Boolean)))
+      const clsOf: Record<string, string> = {}
+      for (let i = 0; i < sids.length; i += 200) {
+        const { data: en } = await supabase.from('student_enrollments').select('student_id, class:classes(name)')
+          .eq('academic_year_id', cy?.id).is('left_at', null).in('student_id', sids.slice(i, i + 200))
+        ;(en || []).forEach((r: any) => { if (r.class?.name) clsOf[r.student_id] = r.class.name })
+      }
+      const { classEnd } = await getClassEnds(cy?.id)
+      const taken = new Set(out.filter(x => x.holderType !== 'ifo').map(x => `${x.day}-${x.period}`))
+      const cell: Record<string, { day: number; period: number; cls: string }> = {}
+      ;(tsl as any[]).forEach(r => {
+        const k = `${r.day}-${r.period}`; if (taken.has(k)) return
+        const c = clsOf[r.student_id] || ''
+        const cur = cell[k]
+        if (!cur || (classEnd[c] || '') > (classEnd[cur.cls] || '')) cell[k] = { day: r.day, period: r.period, cls: c || cur?.cls || '' }
+      })
+      Object.values(cell).forEach(c => out.push({ day: c.day, period: c.period, subjectId: null, subject: 'Терапия', holderType: 'class', holderLabel: c.cls, norm30: false }))
+    }
+  }
   return { slots: out }
 }
 
@@ -201,7 +229,8 @@ export async function getLecturerFrameworkData(staffId?: string) {
     if (s.date_from < t.from) t.from = s.date_from
     if (s.date_to > t.to) t.to = s.date_to
     const key = `${s.subject?.name || ''}||${s.holder_label || ''}||${s.date_from}||${s.date_to}`
-    if (!t.groups[key]) t.groups[key] = { subject: s.subject?.name || '—', cls: s.holder_label || '—', days: new Set(), hours: 0, total: 0, from: s.date_from, to: s.date_to }
+    // без предмет — час от графика на логопед / терапевт
+    if (!t.groups[key]) t.groups[key] = { subject: s.subject?.name || 'Терапевтична дейност', cls: s.holder_label || '—', days: new Set(), hours: 0, total: 0, from: s.date_from, to: s.date_to }
     const g = t.groups[key]
     g.days.add(s.day)
     g.hours++  // брой слотове = часа/седмица за тази комбинация
