@@ -13,6 +13,7 @@ import '@fontsource/inter/700.css'
 // Roboto Condensed — деловодният шрифт на менюто (сайдбара)
 import '@fontsource/roboto-condensed/300.css'
 import '@fontsource/roboto-condensed/400.css'
+import '@fontsource/roboto-condensed/500.css'
 import './globals.css'
 import { ToastProvider } from '@/components/ui/Toast'
 
