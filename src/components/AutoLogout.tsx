@@ -8,6 +8,14 @@ const TIMEOUT = 30 * 60 * 1000       // 30 минути → изход
 const WARNING = 25 * 60 * 1000       // 25 минути → предупреждение
 const REMAINING = TIMEOUT - WARNING  // 5 минути за реакция
 
+// Активността е ОБЩА за всички табове на браузъра: ако работиш в един таб, другите не те изписват.
+// (По-рано всеки таб броеше сам и неактивен таб изписваше човека и в таба, в който работи.)
+const KEY = 'eis_last_activity'
+const readShared = () => { try { return Number(localStorage.getItem(KEY)) || 0 } catch { return 0 } }
+const writeShared = (t: number) => { try { localStorage.setItem(KEY, String(t)) } catch { /* без localStorage — само този таб */ } }
+// Изход само от ТОЗИ браузър — не затваря сесиите на човека на други устройства (телефон, друг компютър)
+const signOutHere = (supabase: ReturnType<typeof createClient>) => supabase.auth.signOut({ scope: 'local' })
+
 export function AutoLogout() {
   const router = useRouter()
   const supabase = createClient()
@@ -19,7 +27,18 @@ export function AutoLogout() {
     let logoutTimer: ReturnType<typeof setTimeout>
     let countdownInterval: ReturnType<typeof setInterval>
 
+    let lastWrite = 0
+    let lastLocal = Date.now()
+    // колко време е минало от последната активност във ВСИЧКИ табове
+    const sinceShared = () => Date.now() - Math.max(readShared(), lastLocal)
+
     function resetTimer() {
+      lastLocal = Date.now()
+      if (lastLocal - lastWrite > 10_000) { lastWrite = lastLocal; writeShared(lastLocal) }   // не пишем при всяко мърдане на мишката
+      schedule(WARNING)
+    }
+
+    function schedule(wait: number) {
       clearTimeout(warningTimer)
       clearTimeout(logoutTimer)
       clearInterval(countdownInterval)
@@ -27,6 +46,9 @@ export function AutoLogout() {
       setCountdown(5 * 60)
 
       warningTimer = setTimeout(() => {
+        // в друг таб е имало активност — не предупреждаваме, броим отначало от нея
+        const idle = sinceShared()
+        if (idle < WARNING - 1000) { schedule(WARNING - idle); return }
         setShowWarning(true)
         setCountdown(5 * 60)
 
@@ -43,12 +65,18 @@ export function AutoLogout() {
 
         // Изход след 5 минути
         logoutTimer = setTimeout(async () => {
+          // последна проверка — ако междувременно е работено в друг таб, не изписваме
+          if (sinceShared() < TIMEOUT - 1000) { setShowWarning(false); schedule(WARNING - sinceShared()); return }
           setShowWarning(false)
-          await supabase.auth.signOut()
+          await signOutHere(supabase)
           router.push('/auth/login')
         }, REMAINING)
-      }, WARNING)
+      }, Math.max(1000, wait))
     }
+
+    // активност в друг таб → и тук броим отначало (и махаме предупреждението, ако е показано)
+    function onStorage(e: StorageEvent) { if (e.key === KEY) { lastLocal = Number(e.newValue) || Date.now(); schedule(WARNING) } }
+    window.addEventListener('storage', onStorage)
 
     const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart']
     events.forEach(e => window.addEventListener(e, resetTimer))
@@ -56,6 +84,7 @@ export function AutoLogout() {
 
     return () => {
       events.forEach(e => window.removeEventListener(e, resetTimer))
+      window.removeEventListener('storage', onStorage)
       clearTimeout(warningTimer)
       clearTimeout(logoutTimer)
       clearInterval(countdownInterval)
@@ -70,7 +99,7 @@ export function AutoLogout() {
 
   async function handleLogout() {
     setShowWarning(false)
-    await supabase.auth.signOut()
+    await signOutHere(supabase)
     router.push('/auth/login')
   }
 

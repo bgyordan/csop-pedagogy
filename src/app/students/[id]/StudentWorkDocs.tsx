@@ -183,7 +183,8 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
   // ── нов от бланка ──
   async function openCreate() {
     setCreating(v => !v)
-    if (templates === null || yr) setTemplates(noTpl ? [] : await listDocTemplates())
+    // празен списък не се помни — ако Google не е отговорил, при следващото отваряне пита пак
+    if (!templates?.length || yr) setTemplates(noTpl ? [] : await listDocTemplates())
   }
   async function fromTemplate(t: { id: string; name: string }) {
     const tab = openPending()
@@ -473,7 +474,11 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
           {noTpl ? null : templates === null ? (
             <div className="flex items-center gap-2 py-2 text-xs text-slate-400"><Loader2 size={13} className="animate-spin" /> Зареждане на бланките…</div>
           ) : templates.length === 0 ? (
-            <div className="py-2 text-xs text-slate-400 font-light">Няма бланки. Качете ги в папка „Бланки“ в споделения диск.</div>
+            <div className="py-2 text-xs text-slate-500 font-light flex flex-wrap items-center gap-2">
+              Бланките не се заредиха — Google може да не е отговорил (или папка „Бланки“ в споделения диск е празна).
+              <button type="button" onClick={async () => { setTemplates(null); setTemplates(await listDocTemplates()) }}
+                className="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-700 hover:border-[#0f2240] font-normal">Опитай пак</button>
+            </div>
           ) : (
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 mb-3">
               {templates.map(t => (
