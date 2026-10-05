@@ -8,7 +8,8 @@ import { useRouter } from 'next/navigation'
 import { Loader2, Wand2, Pencil, Search, Check, AlertTriangle, CalendarCheck } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { smartMatch } from '@/lib/search'
-import { autoDistribute, saveLecturerPlan, saveYearEnds } from './actions'
+import { autoDistribute, saveLecturerPlan, saveYearEnds, saveIchLecturer } from './actions'
+import { overWithIch } from '@/lib/curriculum'
 import { slotHours, GROUPS } from './distribute'
 import type { Ends, Grp } from './distribute'
 
@@ -29,7 +30,9 @@ export type QTRow = {
   /** колко от часовете са по 0,7 (терапии) — в учебния план (I / II срок) и в разписанието */
   upT1?: number; upT2?: number; srT?: number
   /** ИЧ в редуцирани часове — за сравнението с разписанието (то включва ИФО) */
-  ichN?: number
+  ichN?: number; ichN2?: number
+  /** ИЧ, признати за лекторски по заповед (ч./седм., годишно); null — няма */
+  ichLect?: number | null
   /** разписанието само с паралелките (без ИФО) */
   srClass?: number; srClassT?: number
 }
@@ -63,7 +66,28 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
   const num = (v: string) => { const n = Number(v.replace(',', '.')); return Number.isFinite(n) ? n : 0 }
   const fmtW = (n: number | null | undefined) => n ? String(Number(n)).replace('.', ',') : ''
   const stored = (r: QTRow, k: 1 | 2) => { const v = k === 1 ? r.perWeek : r.perWeek2; return v === null || v === undefined ? null : Number(v) }
-  const sugg = (r: QTRow, k: 1 | 2) => (k === 1 ? r.suggest : r.suggest2) || 0
+  // ИЧ по заповед — черновата, докато се пише
+  const ichLectOf = (r: QTRow) => { const v = draft[`${r.id}:ich`]; return v !== undefined ? (v === '' ? 0 : num(v)) : (r.ichLect || 0) }
+  // разбивка за срока: ИЧ допълват до нормата + ИЧ по заповед
+  const ichCalc = (r: QTRow, k: 1 | 2) => r.source === 'plan' && r.up1 !== null && r.up1 !== undefined
+    ? overWithIch(Number((k === 1 ? r.up1 : r.up2 ?? r.up1) || 0), Number((k === 1 ? r.ichN : r.ichN2 ?? r.ichN) || 0), r.norm || 21, ichLectOf(r))
+    : null
+  const sugg = (r: QTRow, k: 1 | 2) => ichCalc(r, k)?.over ?? ((k === 1 ? r.suggest : r.suggest2) || 0)
+  const suggTitle = (r: QTRow, k: 1 | 2) => {
+    const c = ichCalc(r, k); const up = k === 1 ? r.up1 : r.up2
+    if (!c) return ''
+    return `От учебния план: ${fmtW(up) || '0'}${c.fill ? ` + ИЧ ${fmtW(c.fill)} (допълват)` : ''} − ${r.norm}${c.lect ? ` + ИЧ по заповед ${fmtW(c.lect)}` : ''} = ${fmtW(c.over) || '0'}`
+  }
+  async function commitIch(r: QTRow) {
+    const key = `${r.id}:ich`, v = draft[key]
+    if (v === undefined) return
+    const n = v === '' ? null : Math.max(0, Math.round(num(v) * 10) / 10)
+    if (n === (r.ichLect ?? null)) { clearDraft(key); return }
+    const res: any = await saveIchLecturer(r.id, n)
+    if (res.error) { toast(res.error, 'error'); return }
+    setRows(p => p.map(x => x.id !== r.id ? x : { ...x, ichLect: n, distributedAt: null }))
+    clearDraft(key)
+  }
   // предложението от учебния план важи, докато не е записано друго число
   const isSug = (r: QTRow, k: 1 | 2) => draft[`${r.id}:${k}`] === undefined && stored(r, k) === null && sugg(r, k) > 0
   const eff = (r: QTRow, k: 1 | 2) => {
@@ -202,7 +226,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
               <tr className="text-[11px] text-slate-500">
                 <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-slate-50/80 w-24" title="Учебен план от НЕИСПУО, без индивидуалните часове">по учебен план</th>
                 <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-slate-50/80 w-24" title="Седмичното разписание в EIS; ИФО часовете се броят, ако допълват норматива">по разписание</th>
-                <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-slate-50/80 w-20" title="Индивидуални часове с ИФО деца — по отделна заповед, не се смятат тук">индивид. (ИЧ)</th>
+                <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-slate-50/80 w-20" title="Индивидуални часове с ИФО деца. Ако часовете по плана са под нормата, ИЧ я допълват автоматично; над нея — по отделна заповед („лект.“ — колко от тях са лекторски по заповедта)">индивид. (ИЧ)</th>
                 <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-teal-50/70 text-teal-800 w-20">I срок</th>
                 <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-teal-50/70 text-teal-800 w-20">II срок</th>
                 <th className="px-2 py-2 font-medium text-center border-b border-slate-200 bg-teal-50/70 text-teal-800 w-20">за годината</th>
@@ -247,7 +271,24 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                           title={hasUp && diff !== 0 ? (diff < 0 ? `Разписанието е с ${fmtW(-diff)} ч. по-малко от учебния план${ichNote} — да се провери` : `Разписанието е с ${fmtW(diff)} ч. повече от учебния план${ichNote} — да се провери`) : undefined}>
                           {sh.v ? <>{fmtW(sh.v)}{t(sh.t)}</> : <span className="text-slate-300">—</span>}{hasUp && diff !== 0 && <AlertTriangle size={11} className="inline ml-1 -mt-0.5" />}
                         </td>
-                        <td className="px-2 py-2 text-center tabular-nums text-[13px] text-violet-700">{r.ich ? fmtW(r.ich) : <span className="text-slate-300">—</span>}</td>
+                        <td className="px-2 py-2 text-center tabular-nums text-[13px] text-violet-700">
+                          {r.ich ? (() => {
+                            const c = ichCalc(r, 1)
+                            return (<>
+                              <div>{fmtW(r.ich)}</div>
+                              {c && c.fill > 0 && <div className="text-[10.5px] text-violet-500 whitespace-nowrap" title={`${fmtW(c.fill)} ч. ИЧ допълват норматива до ${r.norm}`}>{fmtW(c.fill)} допълват</div>}
+                              {c && c.rest > 0 && (
+                                <label className="mt-0.5 inline-flex items-center gap-1 text-[10.5px] text-slate-500 whitespace-nowrap" title={`Над нормата остават ${fmtW(c.rest)} ч. ИЧ — по отделна заповед. Напишете колко от тях са лекторски по заповедта на директора (ч./седм., еднакво за годината).`}>
+                                  лект.
+                                  <input inputMode="decimal" value={draft[`${r.id}:ich`] ?? (r.ichLect ? fmtW(r.ichLect) : '')} placeholder="0"
+                                    onChange={e => setDraft(d => ({ ...d, [`${r.id}:ich`]: e.target.value.replace(/[^\d.,]/g, '').replace(/([.,].*)[.,]/, '$1') }))}
+                                    onBlur={() => commitIch(r)} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                                    className="w-10 text-center px-1 py-0.5 rounded-md border border-violet-200 bg-violet-50/50 text-violet-800 tabular-nums focus:outline-none focus:border-violet-400" />
+                                </label>
+                              )}
+                            </>)
+                          })() : <span className="text-slate-300">—</span>}
+                        </td>
                         <td className="px-2 py-2 text-center tabular-nums text-[13px] text-slate-500">{r.norm}</td>
                       </>)
                     })()}
@@ -256,7 +297,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                         onChange={e => setDraft(d => ({ ...d, [`${r.id}:1`]: e.target.value.replace(/[^\d.,]/g, '').replace(/([.,].*)[.,]/, '$1') }))}
                         onBlur={() => commit(r, 1)} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                         placeholder={isSug(r, 1) ? fmtW(sugg(r, 1)) : '—'}
-                        title={isSug(r, 1) ? `От учебния план: ${fmtW(r.up1)} − ${r.norm} = ${fmtW(sugg(r, 1))}. Поправя се с писане; празно — обратно към плана.` : 'Часове над норматива на седмица; празно — обратно към учебния план'}
+                        title={isSug(r, 1) ? `${suggTitle(r, 1)}. Поправя се с писане; празно — обратно към плана.` : 'Часове над норматива на седмица; празно — обратно към учебния план'}
                         className={`w-16 text-center px-2 py-1.5 rounded-lg border tabular-nums focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-50 ${isSug(r, 1) ? 'border-teal-300 bg-teal-50/60 placeholder:text-teal-700' : 'border-slate-200'}`} />
                       {drift(r, 1) && <div className="text-[10px] text-amber-700 mt-0.5" title="Записаното число не съвпада с учебния план">по план: {fmtW(sugg(r, 1)) || '0'}</div>}
                     </td>
@@ -265,7 +306,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                         onChange={e => setDraft(d => ({ ...d, [`${r.id}:2`]: e.target.value.replace(/[^\d.,]/g, '').replace(/([.,].*)[.,]/, '$1') }))}
                         onBlur={() => commit(r, 2)} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                         placeholder={isSug(r, 2) ? fmtW(sugg(r, 2)) : '—'}
-                        title={isSug(r, 2) ? `От учебния план: ${fmtW(r.up2)} − ${r.norm} = ${fmtW(sugg(r, 2))}. Поправя се с писане; празно — обратно към плана.` : 'Часове над норматива на седмица; празно — обратно към учебния план'}
+                        title={isSug(r, 2) ? `${suggTitle(r, 2)}. Поправя се с писане; празно — обратно към плана.` : 'Часове над норматива на седмица; празно — обратно към учебния план'}
                         className={`w-16 text-center px-2 py-1.5 rounded-lg border tabular-nums focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-50 ${isSug(r, 2) ? 'border-teal-300 bg-teal-50/60 placeholder:text-teal-700' : 'border-slate-200'}`} />
                       {drift(r, 2) && <div className="text-[10px] text-amber-700 mt-0.5" title="Записаното число не съвпада с учебния план">по план: {fmtW(sugg(r, 2)) || '0'}</div>}
                     </td>
@@ -304,6 +345,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
         <div className="px-5 py-3 text-xs text-slate-500 border-t border-slate-100 space-y-1">
           <p><b className="text-slate-700">Как се чете:</b> „Часове на седмица“ — по учебния план от НЕИСПУО и по разписанието в EIS, и двете с терапиите по 0,7 (в скоби — колко часа са по 0,7). ИФО часовете се броят, когато допълват норматива. Оранжево — разписанието не съвпада с плана и трябва да се провери. ИЧ са по отделна заповед и не влизат в лекторските.</p>
           <p><b className="text-slate-700">Лекторски</b> = часовете по учебния план − нормата; предлагат се в зелено и се поправят с писане. Учител без учебен план няма предложение.</p>
+          <p><b className="text-slate-700">ИЧ:</b> ако часовете по плана са под нормата, ИЧ я допълват автоматично („допълват“). ИЧ над нормата са по отделна заповед — в „лект.“ се пише колко от тях директорът е определил за лекторски (ч./седм., еднакво за годината); те се добавят към предложението.</p>
           <p><b className="text-slate-700">„Разпредели“</b> слага годишния брой („за годината“) в разписанието: 1 час седмично от началото на годината, докато се събере числото (напр. 20 → 20 седмици). Ако числото е повече от годината на паралелката (32 / 34 / 36 седмици), първият час върви цялата година, а остатъкът — втори час, пак от началото; и т.н. Часовете, преместени на ръка в „График“, имат катинарче и остават.</p>
         </div>
       </div>

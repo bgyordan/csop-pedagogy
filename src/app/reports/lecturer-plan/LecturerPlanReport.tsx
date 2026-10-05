@@ -12,6 +12,8 @@ export type PlanRow = {
   h1: number; n1: number; n2: number; therapy: number; norm: number | null
   over1: number; over2: number; overYear: number; W1: number; W2: number
   ich1: number; ich2: number; ichYear: number
+  /** ИЧ, които допълват норматива; ИЧ, признати за лекторски по заповед */
+  ichFill: number; ichLect: number
   /** паралелките, в които са ИЧ (по плана) */
   ichClasses: string[]
   /** ИФО децата в разписанието на учителя в EIS */
@@ -42,8 +44,8 @@ export default function LecturerPlanReport({ rows, yearName }: { rows: PlanRow[]
 
   function exportXlsx() {
     const wb = XLSX.utils.book_new()
-    const head = ['Учител', 'Длъжност', 'Паралелки', 'По плана ч./седм.', 'Към норматива (терапии 0,7)', 'Норматив', 'Над норматива I срок', 'Над норматива II срок', 'Седмици I/II', 'Над норматива за годината', 'ИЧ ч./седм.', 'ИЧ за годината', 'ИЧ в паралелки', 'ИФО деца (разписание)']
-    const data = visible.map(r => [r.name, r.position, r.classes.join(', '), r.h1, r.n1, r.norm ?? '', r.over1, r.over2, `${r.W1}/${r.W2}`, r.overYear, r.ich1, r.ichYear, r.ichClasses.join(', '), r.ifoKids.join(', ')])
+    const head = ['Учител', 'Длъжност', 'Паралелки', 'По плана ч./седм.', 'Към норматива (терапии 0,7)', 'Норматив', 'Над норматива I срок', 'Над норматива II срок', 'Седмици I/II', 'Над норматива за годината', 'ИЧ ч./седм.', 'ИЧ за годината', 'ИЧ в паралелки', 'ИФО деца (разписание)', 'ИЧ допълват', 'ИЧ лект. по заповед']
+    const data = visible.map(r => [r.name, r.position, r.classes.join(', '), r.h1, r.n1, r.norm ?? '', r.over1, r.over2, `${r.W1}/${r.W2}`, r.overYear, r.ich1, r.ichYear, r.ichClasses.join(', '), r.ifoKids.join(', '), r.ichFill, r.ichLect])
     const ws = XLSX.utils.aoa_to_sheet([head, ...data, [], ['Общо', '', '', '', '', '', sum.over1, sum.over2, '', sum.year, sum.ich, sum.ichYear]])
     ws['!cols'] = head.map((h, i) => ({ wch: i === 0 ? 26 : i === 2 || i === 12 ? 22 : i === 13 ? 40 : Math.max(10, Math.min(h.length + 2, 18)) }))
     XLSX.utils.book_append_sheet(wb, ws, 'Лекторски')
@@ -123,6 +125,11 @@ export default function LecturerPlanReport({ rows, yearName }: { rows: PlanRow[]
                       {r.ich1 || r.ifoKids.length ? (
                         <>
                           {r.ich1 > 0 && <div className="tabular-nums">{f(r.ich1)} ч./седм.{r.ichYear ? <span className="text-violet-500"> · {r.ichYear} за год.</span> : null}</div>}
+                          {(r.ichFill > 0 || r.ichLect > 0) && (
+                            <div className="text-[11px] text-violet-600">
+                              {r.ichFill > 0 && <>{f(r.ichFill)} допълват</>}{r.ichFill > 0 && r.ichLect > 0 && ' · '}{r.ichLect > 0 && <b className="font-medium">{f(r.ichLect)} лект. по заповед</b>}
+                            </div>
+                          )}
                           {r.ichClasses.length > 0 && <div className="text-[11px] text-slate-500">в {r.ichClasses.join(' · ')}</div>}
                           {r.ifoKids.length > 0 && <div className="text-[11px] text-slate-500 truncate max-w-[220px]" title={r.ifoKids.join(', ')}>{r.ifoKids.join(', ')}</div>}
                         </>
@@ -176,8 +183,8 @@ export default function LecturerPlanReport({ rows, yearName }: { rows: PlanRow[]
         </table>
       </div>
       <div className="px-5 py-3 text-xs text-slate-500 border-t border-slate-100 space-y-1">
-        <p><b className="text-slate-700">Как се смята:</b> „По плана“ — часовете седмично от учебния план (НЕИСПУО), терапиите (норма 30) по 0,7; в скоби — реалните часове. Над норматива = по плана − норматива (21). За годината = I срок × седмиците му + II срок × седмиците му.</p>
-        <p>ИЧ (ИФО) — часовете по плана с ИФО деца: седмично, за годината и в коя паралелка; имената на децата са от разписанието в EIS. По отделна заповед — не влизат в над норматива. Справката не е разпределението по график — то е в „Лекторски над норматива“.</p>
+        <p><b className="text-slate-700">Как се смята:</b> „По плана“ — часовете седмично от учебния план (НЕИСПУО), терапиите (норма 30) по 0,7; в скоби — реалните часове. Над норматива = по плана − норматива (21); ако планът е под нормата, ИЧ я допълват, а ИЧ над нея се добавят само колкото са по заповед („лект.“ в Бърза таблица). За годината = I срок × седмиците му + II срок × седмиците му.</p>
+        <p>ИЧ (ИФО) — часовете по плана с ИФО деца: седмично, за годината и в коя паралелка; имената на децата са от разписанието в EIS. Влизат в над норматива само ако допълват нормата или са определени за лекторски със заповед; иначе са по отделна заповед. Справката не е разпределението по график — то е в „Лекторски над норматива“.</p>
       </div>
     </div>
   )

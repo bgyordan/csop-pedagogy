@@ -109,6 +109,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   const isTeacher = !!TEACHER_NORM[staff.role]
   const plan = await loadCurriculum(supabase, currentYear?.id, { staffId: id })
   const planSchedule = isTeacher && plan.lines.length ? await scheduleHoursByClass(supabase, currentYear?.id, id) : undefined
+  const { data: lp } = await supabase.from('lecturer_plans').select('*').eq('staff_id', id).eq('academic_year_id', currentYear?.id).maybeSingle()
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto">
       <Link href="/staff" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6 transition-colors">
@@ -143,7 +144,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
         </div>
       </div>
       {(isTeacher || plan.lines.length > 0) && (
-        <CurriculumPlan mode="teacher" lines={plan.lines} importedAt={plan.importedAt} norm={TEACHER_NORM[staff.role]} schedule={planSchedule} />
+        <CurriculumPlan mode="teacher" lines={plan.lines} importedAt={plan.importedAt} norm={TEACHER_NORM[staff.role]} schedule={planSchedule} ichLect={Number((lp as any)?.ich_lecturer || 0)} />
       )}
       {(CAN_BE_CLASS_TEACHER.includes(staff.role) || assignedClasses.length > 0) && (
         <StaffClassesSection

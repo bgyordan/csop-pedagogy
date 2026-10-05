@@ -266,6 +266,19 @@ export async function saveLecturerPlan(staffId: string, w1: number | null, w2: n
   return { success: true }
 }
 
+/** ИЧ, признати за лекторски по заповед (ч./седм., еднакво за годината); null — няма */
+export async function saveIchLecturer(staffId: string, value: number | null) {
+  const m = await manager()
+  if (!m) return { error: 'Нямате права' }
+  const v = value === null || Number.isNaN(value) ? null : Math.max(0, Math.round(value * 10) / 10)
+  const { error } = await m.supabase.from('lecturer_plans').upsert({
+    staff_id: staffId, academic_year_id: m.yearId, ich_lecturer: v, distributed_at: null,
+    updated_by: m.me.id, updated_at: new Date().toISOString(),
+  }, { onConflict: 'staff_id,academic_year_id' })
+  if (error) return { error: error.message.includes('ich_lecturer') ? 'Пуснете SQL файла 2026-10-05_lecturer_ich.sql' : error.message }
+  return { success: true }
+}
+
 /** Записва последните учебни дни по групи класове */
 export async function saveYearEnds(ends: Ends) {
   const m = await manager()
