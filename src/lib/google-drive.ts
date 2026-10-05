@@ -380,11 +380,14 @@ export async function listFolder(folderId: string): Promise<DriveItem[]> {
   const q = `'${folderId}' in parents and trashed=false`
   const r = await drive(
     `/files?q=${encodeURIComponent(q)}&corpora=drive&driveId=${driveId()}&includeItemsFromAllDrives=true&supportsAllDrives=true` +
-    `&orderBy=${encodeURIComponent('folder,name_natural')}&pageSize=200` +
+    // без orderBy=name_natural — Google връща „Internal Error“ (500) при него; подреждаме тук
+    `&pageSize=200` +
     `&fields=${encodeURIComponent('files(id,name,mimeType,modifiedTime,webViewLink,appProperties,lastModifyingUser(displayName,emailAddress))')}`
   )
   const names = await staffNames()
-  return (r.files ?? []).map((f: any) => ({
+  const files = (r.files ?? []).slice().sort((x: any, y: any) =>
+    Number(y.mimeType === FOLDER) - Number(x.mimeType === FOLDER) || String(x.name).localeCompare(String(y.name), 'bg', { numeric: true }))
+  return files.map((f: any) => ({
     id: f.id,
     name: f.name,
     mimeType: f.mimeType,
