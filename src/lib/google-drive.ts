@@ -26,16 +26,28 @@ async function accessToken() {
   return cached.token
 }
 
+// Google понякога връща временна грешка („Internal Error“ 500, 502/503, 429 — твърде много заявки).
+// Тогава опитваме пак до 3 пъти с кратка пауза; постоянните грешки (404, 403…) се връщат веднага.
+const RETRY = new Set([429, 500, 502, 503, 504])
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+
 async function drive(path: string, init: RequestInit = {}) {
-  const token = await accessToken()
-  const res = await fetch(API + path, {
-    ...init,
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init.headers || {}) },
-    cache: 'no-store',
-  })
-  const j = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(j?.error?.message || `Drive грешка ${res.status}`)
-  return j
+  for (let attempt = 0; ; attempt++) {
+    const token = await accessToken()
+    const res = await fetch(API + path, {
+      ...init,
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init.headers || {}) },
+      cache: 'no-store',
+    })
+    const j = await res.json().catch(() => ({}))
+    if (res.ok) return j
+    // изтекъл токен — нов и пак
+    if (res.status === 401 && attempt === 0) { cached = null; continue }
+    // четене — винаги; запис (POST/PATCH) — само при 429/503, когато Google със сигурност не е изпълнил заявката (без дубликати)
+    const safe = !init.method || init.method === 'GET' || res.status === 429 || res.status === 503
+    if (RETRY.has(res.status) && safe && attempt < 3) { await sleep(400 * 2 ** attempt + Math.random() * 300); continue }
+    throw new Error(j?.error?.message || `Drive грешка ${res.status}`)
+  }
 }
 
 export function driveId() {
