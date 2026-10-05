@@ -126,7 +126,9 @@ export default async function LecturerPlanPage() {
         </div>
       </header>
       <ReportTabs
-        short={<ShortReport rows={rows.filter(r => r.hasPlan).map(r => ({ name: r.name, position: r.position, norm: r.normAll, normYear: r.normYear, simple: r.yearSimple, mixed: r.yearMixed }))} yearName={cy?.name || ''} />}
+        short={<ShortReport rows={rows.filter(r => r.hasPlan).map(r => ({ name: r.name, position: r.position, norm: r.normAll, normYear: r.normYear, simple: r.yearSimple, mixed: r.yearMixed }))} yearName={cy?.name || ''}
+          unlinked={Object.entries(lines.filter(l => !l.staffId && l.teacher).reduce((m: Record<string, number>, l) => { m[l.teacher] = (m[l.teacher] || 0) + l.h1; return m }, {}))
+            .map(([name, h]) => ({ name, h: Math.round(h * 10) / 10 })).sort((a, b) => a.name.localeCompare(b.name, 'bg'))} />}
         teachers={<LecturerPlanReport rows={rows} yearName={cy?.name || ''} />}
         classes={<ClassPlanReport rows={classRows} yearName={cy?.name || ''} />} />
     </div>

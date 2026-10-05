@@ -7,8 +7,9 @@ type Row = { name: string; position: string; norm: number; normYear: number; sim
 
 const normText = (r: Row) => r.normYear ? `${r.normYear} ч. годишно` : r.norm ? `${r.norm} ч./седм.` : 'без норма'
 
-export default function ShortReport({ rows, yearName }: { rows: Row[]; yearName: string }) {
-  const list = rows.filter(r => r.simple > 0 || r.mixed > 0).sort((a, b) => a.name.localeCompare(b.name, 'bg'))
+export default function ShortReport({ rows, yearName, unlinked = [] }: { rows: Row[]; yearName: string; unlinked?: { name: string; h: number }[] }) {
+  // всички с часове в плана — и тези без лекторски (0), за да се вижда, че са сметнати
+  const list = rows.slice().sort((a, b) => a.name.localeCompare(b.name, 'bg'))
   const tS = list.reduce((a, r) => a + r.simple, 0), tM = list.reduce((a, r) => a + r.mixed, 0)
   const H1 = 'Лекторски — терапиите по 0,7', H2 = 'Лекторски — 0,7 до нормата, после по 1'
   function exportXlsx() {
@@ -24,7 +25,7 @@ export default function ShortReport({ rows, yearName }: { rows: Row[]; yearName:
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm max-w-4xl">
       <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-100 print:hidden">
-        <span className="text-sm text-slate-500">{list.length} души · годишно, по учебния план</span>
+        <span className="text-sm text-slate-500">{list.length} души с часове в учебния план · годишно · {list.filter(r => r.mixed > 0).length} с лекторски</span>
         <div className="ml-auto flex gap-2">
           <button onClick={exportXlsx} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm border border-slate-200 text-slate-700 hover:border-[#0f2240]"><FileSpreadsheet size={15} /> Excel</button>
           <button onClick={() => window.print()} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm border border-slate-200 text-slate-700 hover:border-[#0f2240]"><Printer size={15} /> Печат</button>
@@ -46,8 +47,8 @@ export default function ShortReport({ rows, yearName }: { rows: Row[]; yearName:
               <td className="px-5 py-2 text-slate-400 tabular-nums">{i + 1}</td>
               <td className="px-2 py-2 text-slate-800">{r.name}{r.position && <div className="text-[11px] text-slate-400">{r.position}</div>}</td>
               <td className="px-2 py-2 text-center tabular-nums text-slate-500 text-[13px]">{r.normYear ? <span title="Годишна норма">{r.normYear} г.</span> : r.norm || <span title="Длъжност без преподавателска норма — всичките часове са лекторски">—</span>}</td>
-              <td className="px-3 py-2 text-right tabular-nums text-slate-700">{r.simple}</td>
-              <td className={`px-5 py-2 text-right tabular-nums font-medium ${r.mixed !== r.simple ? 'text-teal-800' : 'text-slate-900'}`}>{r.mixed}</td>
+              <td className={`px-3 py-2 text-right tabular-nums ${r.simple ? 'text-slate-700' : 'text-slate-300'}`}>{r.simple}</td>
+              <td className={`px-5 py-2 text-right tabular-nums font-medium ${!r.mixed ? 'text-slate-300 font-normal' : r.mixed !== r.simple ? 'text-teal-800' : 'text-slate-900'}`}>{r.mixed}</td>
             </tr>
           ))}
           {list.length === 0 && <tr><td colSpan={5} className="px-5 py-10 text-center text-slate-400">Няма лекторски</td></tr>}
@@ -60,10 +61,17 @@ export default function ShortReport({ rows, yearName }: { rows: Row[]; yearName:
           </tr></tfoot>
         )}
       </table>
+      {unlinked.length > 0 && (
+        <div className="mx-5 my-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-[13px] text-amber-900">
+          <b>Не са в списъка — преподавателят от НЕИСПУО не е свързан със служител в EIS:</b>
+          <div className="mt-1">{unlinked.map(u => `${u.name} (${String(u.h).replace('.', ',')} ч./седм.)`).join(' · ')}</div>
+          <div className="text-[12px] text-amber-800 mt-1">Свързват се в Администрация → Учебни планове при следващия внос (името от НЕИСПУО → служителя).</div>
+        </div>
+      )}
       <div className="px-5 py-3 text-xs text-slate-500 border-t border-slate-100 space-y-1">
         <p><b className="text-slate-700">Терапиите по 0,7:</b> всички часове от плана се приравняват към нормата (терапия = 0,7 ч.), вади се нормата; × учебните седмици на срока.</p>
         <p><b className="text-slate-700">0,7 до нормата, после по 1</b> (Наредба № 4/2017, чл. 8 и чл. 10, ал. 2): приравняват се само часовете, които допълват нормата — първо обикновените часове, после терапиите по 0,7; всеки час над нормата е цял лекторски час.</p>
-        <p>Норма по длъжност: учител, логопед, рехабилитатор — 21 ч./седм.; психолог, възпитател — 30 ч./седм.; ЗДУД и ЗДАСД — 144 ч. годишно; директор — 72 ч. годишно; без преподавателска норма (други) — „—“, всички часове са лекторски. ИЧ допълват нормата; над нея — само по заповед.</p>
+        <p>Норма по длъжност: учител, логопед, рехабилитатор — 21 ч./седм.; психолог, възпитател — 30 ч./седм. (часовете в ЦОУД са с норма 30); ЗДУД и ЗДАСД — 144 ч. годишно; директор — 72 ч. годишно; без преподавателска норма (други) — „—“, всички часове са лекторски. ИЧ допълват нормата; над нея — само по заповед.</p>
       </div>
     </div>
   )
