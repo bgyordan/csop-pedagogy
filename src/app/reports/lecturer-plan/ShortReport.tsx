@@ -3,22 +3,22 @@
 import * as XLSX from 'xlsx'
 import { FileSpreadsheet, Printer } from 'lucide-react'
 
-type Row = { name: string; position: string; norm: number; normYear: number; simple: number; mixed: number }
+type Row = { name: string; position: string; norm: number; normYear: number; ich: number; simple: number; mixed: number }
 
 const normText = (r: Row) => r.normYear ? `${r.normYear} ч. годишно` : r.norm ? `${r.norm} ч./седм.` : 'без норма'
 
 export default function ShortReport({ rows, yearName, unlinked = [] }: { rows: Row[]; yearName: string; unlinked?: { name: string; h: number }[] }) {
   // всички с часове в плана — и тези без лекторски (0), за да се вижда, че са сметнати
   const list = rows.slice().sort((a, b) => a.name.localeCompare(b.name, 'bg'))
-  const tS = list.reduce((a, r) => a + r.simple, 0), tM = list.reduce((a, r) => a + r.mixed, 0)
+  const tS = list.reduce((a, r) => a + r.simple, 0), tM = list.reduce((a, r) => a + r.mixed, 0), tI = list.reduce((a, r) => a + r.ich, 0)
   const H1 = 'Лекторски — терапиите по 0,7', H2 = 'Лекторски — 0,7 до нормата, после по 1'
   function exportXlsx() {
     const ws = XLSX.utils.aoa_to_sheet([
-      ['№', 'Име', 'Длъжност', 'Норма ч./седм.', H1, H2],
-      ...list.map((r, i) => [i + 1, r.name, r.position, normText(r), r.simple, r.mixed]),
-      [], ['', 'Общо', '', '', tS, tM],
+      ['№', 'Име', 'Длъжност', 'Норма', 'ИЧ за годината (вкл. в лекторските)', H1, H2],
+      ...list.map((r, i) => [i + 1, r.name, r.position, normText(r), r.ich, r.simple, r.mixed]),
+      [], ['', 'Общо', '', '', tI, tS, tM],
     ])
-    ws['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 26 }, { wch: 12 }, { wch: 26 }, { wch: 32 }]
+    ws['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 26 }, { wch: 16 }, { wch: 20 }, { wch: 26 }, { wch: 32 }]
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Лекторски')
     XLSX.writeFile(wb, `лекторски_${(yearName || '').replace(/\W+/g, '-')}.xlsx`)
   }
@@ -37,6 +37,7 @@ export default function ShortReport({ rows, yearName, unlinked = [] }: { rows: R
             <th className="px-5 py-2 font-medium w-10">№</th>
             <th className="px-2 py-2 font-medium">Име</th>
             <th className="px-2 py-2 font-medium text-center w-20">Норма</th>
+            <th className="px-2 py-2 font-medium text-right w-24 text-violet-700" title="Индивидуални часове с ИФО деца за годината — включени в лекторските">ИЧ<div className="font-normal text-slate-400">за годината</div></th>
             <th className="px-3 py-2 font-medium text-right w-36">Лекторски<div className="font-normal text-slate-400">терапиите по 0,7</div></th>
             <th className="px-5 py-2 font-medium text-right w-44">Лекторски<div className="font-normal text-slate-400">0,7 до нормата, после по 1</div></th>
           </tr>
@@ -47,15 +48,17 @@ export default function ShortReport({ rows, yearName, unlinked = [] }: { rows: R
               <td className="px-5 py-2 text-slate-400 tabular-nums">{i + 1}</td>
               <td className="px-2 py-2 text-slate-800">{r.name}{r.position && <div className="text-[11px] text-slate-400">{r.position}</div>}</td>
               <td className="px-2 py-2 text-center tabular-nums text-slate-500 text-[13px]">{r.normYear ? <span title="Годишна норма">{r.normYear} г.</span> : r.norm || <span title="Длъжност без преподавателска норма — всичките часове са лекторски">—</span>}</td>
+              <td className={`px-2 py-2 text-right tabular-nums ${r.ich ? 'text-violet-700' : 'text-slate-300'}`}>{r.ich || '—'}</td>
               <td className={`px-3 py-2 text-right tabular-nums ${r.simple ? 'text-slate-700' : 'text-slate-300'}`}>{r.simple}</td>
               <td className={`px-5 py-2 text-right tabular-nums font-medium ${!r.mixed ? 'text-slate-300 font-normal' : r.mixed !== r.simple ? 'text-teal-800' : 'text-slate-900'}`}>{r.mixed}</td>
             </tr>
           ))}
-          {list.length === 0 && <tr><td colSpan={5} className="px-5 py-10 text-center text-slate-400">Няма лекторски</td></tr>}
+          {list.length === 0 && <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-400">Няма лекторски</td></tr>}
         </tbody>
         {list.length > 0 && (
           <tfoot><tr className="border-t-2 border-slate-200 bg-slate-50/70">
             <td /><td className="px-2 py-2.5 font-medium text-slate-700" colSpan={2}>Общо</td>
+            <td className="px-2 py-2.5 text-right tabular-nums text-violet-700">{tI || '—'}</td>
             <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-slate-900">{tS}</td>
             <td className="px-5 py-2.5 text-right tabular-nums font-semibold text-slate-900">{tM}</td>
           </tr></tfoot>
@@ -71,7 +74,7 @@ export default function ShortReport({ rows, yearName, unlinked = [] }: { rows: R
       <div className="px-5 py-3 text-xs text-slate-500 border-t border-slate-100 space-y-1">
         <p><b className="text-slate-700">Терапиите по 0,7:</b> всички часове от плана се приравняват към нормата (терапия = 0,7 ч.), вади се нормата; × учебните седмици на срока.</p>
         <p><b className="text-slate-700">0,7 до нормата, после по 1</b> (Наредба № 4/2017, чл. 8 и чл. 10, ал. 2): приравняват се само часовете, които допълват нормата — първо обикновените часове, после терапиите по 0,7; всеки час над нормата е цял лекторски час.</p>
-        <p>Норма по длъжност: учител, логопед, рехабилитатор — 21 ч./седм.; психолог, възпитател — 30 ч./седм. (часовете в ЦОУД са с норма 30); ЗДУД и ЗДАСД — 144 ч. годишно; директор — 72 ч. годишно; без преподавателска норма (други) — „—“, всички часове са лекторски. ИЧ допълват нормата; над нея — само по заповед.</p>
+        <p>Норма по длъжност: учител, логопед, рехабилитатор — 21 ч./седм.; психолог, възпитател — 30 ч./седм. (часовете в ЦОУД са с норма 30); ЗДУД и ЗДАСД — 144 ч. годишно; директор — 72 ч. годишно; без преподавателска норма (други) — „—“, всички часове са лекторски. <b className="text-slate-700">ИЧ</b> са часове на учителя като всички останали — влизат в нормата и над нея; колоната „ИЧ“ показва колко от годишните часове са ИЧ (ако част от тях се плащат по отделна заповед, се вижда колко).</p>
       </div>
     </div>
   )
