@@ -4,7 +4,7 @@
 // „Разпредели“ слага годишния брой в разписанието му: 1 ч./седм. от началото на годината до събиране
 // на числото; над годината на паралелката (32/34/36) — следващ час, пак от началото.
 
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, Wand2, Pencil, Search, Check, AlertTriangle, CalendarCheck, FileDown, Trash2 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
@@ -16,6 +16,8 @@ import type { Ends, Grp } from './distribute'
 
 export type QTRow = {
   id: string; name: string; position: string; hasPlan: boolean
+  /** група за подреждането: класни (по паралелка) → учители → логопеди → … */
+  group: number; groupLabel: string; ownClass: string
   classes: { name: string; end: string }[]
   total: number | null; distributedAt: string | null
   /** норма на седмица (0 — няма); годишна норма (ЗДУД, ЗДАСД 144, директор 72) */
@@ -177,16 +179,21 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
               </tr>
             </thead>
             <tbody>
-              {visible.map(r => {
+              {visible.map((r, i) => {
+                const head = i === 0 || visible[i - 1].group !== r.group
                 const p = placed[r.id] || 0
                 const ok = wanted(r) && isDone(r)
                 const off = (wanted(r) || p > 0) && !ok
                 const b = busy.has(r.id)
                 return (
-                  <tr key={r.id} className="hover:bg-slate-50/60 [&>td]:border-b [&>td]:border-slate-100">
+                  <Fragment key={r.id}>
+                  {head && (
+                    <tr><td colSpan={7} className="px-5 pt-4 pb-1.5 text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-100">{r.groupLabel}</td></tr>
+                  )}
+                  <tr className="hover:bg-slate-50/60 [&>td]:border-b [&>td]:border-slate-100">
                     <td className="px-5 py-2">
                       <div className="text-slate-800">{r.name}</div>
-                      <div className="text-[11px] text-slate-400">{r.position}</div>
+                      <div className="text-[11px] text-slate-400">{r.position}{r.ownClass && <span className="text-teal-700"> · класен на {r.ownClass}</span>}</div>
                     </td>
                     <td className="px-3 py-2 text-[13px]">
                       {r.classes.length ? (
@@ -240,6 +247,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                       </div>
                     </td>
                   </tr>
+                  </Fragment>
                 )
               })}
               {visible.length === 0 && <tr><td colSpan={7} className="px-5 py-10 text-center text-slate-400">Няма никой</td></tr>}
