@@ -9,20 +9,9 @@ import { latestEnd } from './distribute'
 import OrderButton from './OrderButton'
 import { loadCurriculum, lecturerOf, TEACHER_NORM } from '@/lib/curriculum'
 import type { CurLine } from '@/lib/curriculum'
+import { loadOwnClasses, groupFields, byStaffGroup } from '@/lib/staff-order'
 export const dynamic = 'force-dynamic'
 
-const GROUP_LABELS = ['Класни ръководители', 'Учители', 'Логопеди', 'Рехабилитатори', 'Психолози', 'Възпитатели', 'Ръководство', 'Други']
-function groupOf(t: { role: string; therapy_role: string | null; position: string }, own?: string) {
-  const pos = (t.position || '').toLowerCase()
-  if (own) return 0
-  if (['admin', 'director', 'zdud'].includes(t.role)) return 6
-  if (['class_teacher', 'teacher', 'coordinator'].includes(t.role)) return 1
-  if (t.role === 'speech_therapist' || /логопед/.test(pos)) return 2
-  if (t.role === 'rehabilitator' || /рехабилит/.test(pos)) return 3
-  if (t.role === 'psychologist' || /психолог/.test(pos)) return 4
-  if (t.role === 'educator' || /възпитател/.test(pos)) return 5
-  return 7
-}
 
 export default async function LecturerPage() {
   const supabase = await createClient()
@@ -107,14 +96,7 @@ export default async function LecturerPage() {
     Object.entries(kids).forEach(([sid, set]) => set.forEach(st => { if (clsOf[st]) (classesOf[sid] ||= new Set()).add(clsOf[st]) }))
   }
 
-  // класните ръководители — по паралелката им (за подреждането на таблицата)
-  const { data: clsRows } = await supabase.from('classes').select('*').eq('academic_year_id', currentYear?.id)
-  const ownClass: Record<string, string> = {}
-  ;(clsRows || []).forEach((c: any) => {
-    if (!c.class_teacher_id || !c.name) return
-    const prev = ownClass[c.class_teacher_id]
-    if (!prev || c.name.localeCompare(prev, 'bg', { numeric: true }) < 0) ownClass[c.class_teacher_id] = c.name
-  })
+  const ownClass = await loadOwnClasses(supabase, currentYear?.id)
 
   const planOf: Record<string, any> = {}
   ;(plans || []).forEach((p: any) => { planOf[p.staff_id] = p })
@@ -124,10 +106,9 @@ export default async function LecturerPage() {
     // лекторските — общата сметка от учебния план (същата като в Справки → „Кратко“), по двата метода
     const ls = linesOf[t.id] || []
     const L = lecturerOf(ls, t)
-    const g = groupOf(t, ownClass[t.id])
     return {
       id: t.id, name: t.name, position: t.position, hasPlan: ls.length > 0,
-      group: g, groupLabel: GROUP_LABELS[g], ownClass: ownClass[t.id] || '',
+      ...groupFields(t, ownClass),
       norm: L.normAll, normYear: L.normYear, ichYear: L.ichYearAll,
       // без ИЧ — ИЧ са по отделна заповед на директора
       yearS: L.noIchSimple, yearM: L.noIchMixed,
@@ -137,9 +118,7 @@ export default async function LecturerPage() {
     }
   })
   // ред: класни ръководители по паралелка → учители → логопеди → рехабилитатори → психолози → възпитатели → ръководство
-  rows.sort((a, b) => a.group - b.group
-    || (a.group === 0 ? a.ownClass.localeCompare(b.ownClass, 'bg', { numeric: true }) : 0)
-    || a.name.localeCompare(b.name, 'bg'))
+  rows.sort(byStaffGroup)
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto animate-in fade-in duration-500">
