@@ -10,6 +10,7 @@ import type { ClassRow } from './ClassPlanReport'
 import ReportTabs from './ReportTabs'
 import ShortReport from './ShortReport'
 import type { PlanRow } from './LecturerPlanReport'
+import { loadOwnClasses, groupFields, byStaffGroup } from '@/lib/staff-order'
 export const dynamic = 'force-dynamic'
 
 // Справка „Лекторски по учебен план“ — само за четене, изчислена от учебния план (НЕИСПУО).
@@ -31,6 +32,7 @@ export default async function LecturerPlanPage() {
     // ИЧ, признати за лекторски по заповед (Лекторски → Бърза таблица → „лект.“)
     supabase.from('lecturer_plans').select('*').eq('academic_year_id', cy?.id),
   ])
+  const ownClass = await loadOwnClasses(supabase, cy?.id)
   const ichLectOf: Record<string, number> = {}
   ;(plans || []).forEach((p: any) => { if (p.ich_lecturer) ichLectOf[p.staff_id] = Number(p.ich_lecturer) })
   const ifoKids: Record<string, Set<string>> = {}
@@ -69,6 +71,7 @@ export default async function LecturerPlanPage() {
       const ichClasses = Array.from(new Set(ls.filter(l => l.individual).map(l => l.holder))).sort(sortBg)
       return {
         id: s.id, name: `${s.first_name} ${s.last_name}`, position: s.position || '',
+        ...groupFields(s, ownClass),
         hasPlan: ls.length > 0, classes,
         h1: r1(h1), n1: r1(n1), n2: r1(n2), therapy: r1(therapy), norm,
         over1: o1, over2: o2, overYear: Math.round(o1 * W1 + o2 * W2), W1, W2,
@@ -79,7 +82,8 @@ export default async function LecturerPlanPage() {
         lines: ls.map(l => ({ id: l.id, holder: l.holder, subject: l.subject, h1: l.h1, h2: l.h2, total: l.total, kind: l.kind, individual: l.individual, therapy: l.norm !== 21 })),
       }
     })
-    .sort((a, b) => a.name.localeCompare(b.name, 'bg'))
+    // класни по паралелка → учители → логопеди → рехабилитатори → психолози → възпитатели → ръководство
+    .sort(byStaffGroup)
 
   // ── по паралелки (както е изгледът във вноса): паралелка → предмети, учители, часове ──
   const overOf: Record<string, number> = {}
@@ -117,7 +121,7 @@ export default async function LecturerPlanPage() {
         </div>
       </header>
       <ReportTabs
-        short={<ShortReport rows={rows.filter(r => r.hasPlan).map(r => ({ name: r.name, position: r.position, norm: r.normAll, normYear: r.normYear, ich: r.ichYearAll, ichW1: r.ichW1, ichW2: r.ichW2, diff1: r.diff1, diff2: r.diff2, diffY: r.diffY, simple: r.noIchSimple, mixed: r.noIchMixed, simpleAll: r.yearSimple, mixedAll: r.yearMixed }))} yearName={cy?.name || ''}
+        short={<ShortReport rows={rows.filter(r => r.hasPlan).map(r => ({ name: r.name, position: r.position, group: r.group, groupLabel: r.groupLabel, ownClass: r.ownClass, norm: r.normAll, normYear: r.normYear, ich: r.ichYearAll, ichW1: r.ichW1, ichW2: r.ichW2, diff1: r.diff1, diff2: r.diff2, diffY: r.diffY, simple: r.noIchSimple, mixed: r.noIchMixed, simpleAll: r.yearSimple, mixedAll: r.yearMixed }))} yearName={cy?.name || ''}
           unlinked={Object.entries(lines.filter(l => !l.staffId && l.teacher).reduce((m: Record<string, number>, l) => { m[l.teacher] = (m[l.teacher] || 0) + l.h1; return m }, {}))
             .map(([name, h]) => ({ name, h: Math.round(h * 10) / 10 })).sort((a, b) => a.name.localeCompare(b.name, 'bg'))} />}
         teachers={<LecturerPlanReport rows={rows} yearName={cy?.name || ''} />}

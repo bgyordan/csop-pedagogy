@@ -1,10 +1,11 @@
 'use client'
 // Кратко: всички от учебния план — Име и годишните лекторски по двете правила.
 // Лекторските са БЕЗ ИЧ (за заповедта за лекторски); ИЧ са по отделна заповед на директора — показват се отделно.
+import { Fragment } from 'react'
 import * as XLSX from 'xlsx'
 import { FileSpreadsheet, Printer } from 'lucide-react'
 
-type Row = { name: string; position: string; norm: number; normYear: number; ich: number; ichW1: number; ichW2: number; diff1: number | null; diff2: number | null; diffY: number | null; simple: number; mixed: number; simpleAll?: number; mixedAll?: number }
+type Row = { name: string; position: string; group?: number; groupLabel?: string; ownClass?: string; norm: number; normYear: number; ich: number; ichW1: number; ichW2: number; diff1: number | null; diff2: number | null; diffY: number | null; simple: number; mixed: number; simpleAll?: number; mixedAll?: number }
 
 const f = (n: number) => String(n).replace('.', ',')
 // седмично: „5“ или „5/4“, ако II срок е различен
@@ -20,7 +21,8 @@ const normText = (r: Row) => r.normYear ? `${r.normYear} ч. годишно` : r
 
 export default function ShortReport({ rows, yearName, unlinked = [] }: { rows: Row[]; yearName: string; unlinked?: { name: string; h: number }[] }) {
   // всички с часове в плана — и тези без лекторски (0), за да се вижда, че са сметнати
-  const list = rows.slice().sort((a, b) => a.name.localeCompare(b.name, 'bg'))
+  // редът идва готов: класни по паралелка → учители → логопеди → …
+  const list = rows
   const tS = list.reduce((a, r) => a + r.simple, 0), tM = list.reduce((a, r) => a + r.mixed, 0), tI = list.reduce((a, r) => a + r.ich, 0)
   const H1 = 'Лекторски — терапиите по 0,7', H2 = 'Лекторски — 0,7 до нормата, после по 1'
   function exportXlsx() {
@@ -56,15 +58,20 @@ export default function ShortReport({ rows, yearName, unlinked = [] }: { rows: R
         </thead>
         <tbody>
           {list.map((r, i) => (
-            <tr key={r.name + i} className="border-t border-slate-100">
+            <Fragment key={r.name + i}>
+            {r.groupLabel && (i === 0 || list[i - 1].group !== r.group) && (
+              <tr><td colSpan={7} className="px-5 pt-4 pb-1.5 text-[11px] uppercase tracking-wide text-slate-400 border-t border-slate-100">{r.groupLabel}</td></tr>
+            )}
+            <tr className="border-t border-slate-100">
               <td className="px-5 py-2 text-slate-400 tabular-nums">{i + 1}</td>
-              <td className="px-2 py-2 text-slate-800">{r.name}{r.position && <div className="text-[11px] text-slate-400">{r.position}</div>}</td>
+              <td className="px-2 py-2 text-slate-800">{r.name}{(r.position || r.ownClass) && <div className="text-[11px] text-slate-400">{r.position}{r.ownClass && <span className="text-teal-700"> · класен на {r.ownClass}</span>}</div>}</td>
               <td className="px-2 py-2 text-center tabular-nums text-slate-500 text-[13px]">{r.normYear ? <span title="Годишна норма">{r.normYear} г.</span> : r.norm || <span title="Длъжност без преподавателска норма — всичките часове са лекторски">—</span>}</td>
               <td className={`px-2 py-2 text-center tabular-nums text-[13px] ${diffVal(r) > 0 ? 'text-teal-700' : diffVal(r) < 0 ? 'text-amber-700' : 'text-slate-500'}`}>{diffText(r) || <span className="text-slate-300">—</span>}</td>
               <td className={`px-2 py-2 text-right tabular-nums ${r.ich ? 'text-violet-700' : 'text-slate-300'}`}>{r.ich ? <>{r.ich} <span className="text-[12px] text-violet-400">({ichWeek(r)} седм.)</span></> : '—'}</td>
               <td className={`px-3 py-2 text-right tabular-nums ${r.simple ? 'text-slate-700' : 'text-slate-300'}`}>{r.simple}{withIch(r.simpleAll, r.simple)}</td>
               <td className={`px-5 py-2 text-right tabular-nums font-medium ${!r.mixed ? 'text-slate-300 font-normal' : r.mixed !== r.simple ? 'text-teal-800' : 'text-slate-900'}`}>{r.mixed}{withIch(r.mixedAll, r.mixed)}</td>
             </tr>
+            </Fragment>
           ))}
           {list.length === 0 && <tr><td colSpan={7} className="px-5 py-10 text-center text-slate-400">Няма лекторски</td></tr>}
         </tbody>

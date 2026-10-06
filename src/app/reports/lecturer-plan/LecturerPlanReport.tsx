@@ -9,6 +9,8 @@ import { smartMatch } from '@/lib/search'
 
 export type PlanRow = {
   id: string; name: string; position: string; hasPlan: boolean; classes: string[]
+  /** група за подреждането: класни (по паралелка) → учители → логопеди → … */
+  group: number; groupLabel: string; ownClass: string
   h1: number; n1: number; n2: number; therapy: number; norm: number | null
   over1: number; over2: number; overYear: number; W1: number; W2: number
   ich1: number; ich2: number; ichYear: number
@@ -99,17 +101,19 @@ export default function LecturerPlanReport({ rows, yearName }: { rows: PlanRow[]
             </tr>
           </thead>
           <tbody>
-            {visible.map(r => {
+            {visible.map((r, i) => {
               const isOpen = open.has(r.id)
+              const head = i === 0 || visible[i - 1].group !== r.group
               return (
                 <Fragment key={r.id}>
+                  {head && <tr><td colSpan={8} className="px-3 pt-4 pb-1.5 text-[11px] uppercase tracking-wide text-slate-400 border-t border-slate-100">{r.groupLabel}</td></tr>}
                   <tr onClick={() => r.hasPlan && toggle(r.id)} className={`border-t border-slate-100 ${r.hasPlan ? 'cursor-pointer hover:bg-slate-50/70' : ''} ${isOpen ? 'bg-slate-50/70' : ''}`}>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-1.5">
                         <ChevronRight size={14} className={`shrink-0 text-slate-400 transition-transform print:hidden ${isOpen ? 'rotate-90' : ''} ${r.hasPlan ? '' : 'opacity-0'}`} />
                         <div>
                           <div className="text-slate-800">{r.name}</div>
-                          {r.position && <div className="text-[11px] text-slate-400">{r.position}</div>}
+                          {(r.position || r.ownClass) && <div className="text-[11px] text-slate-400">{r.position}{r.ownClass && <span className="text-teal-700"> · класен на {r.ownClass}</span>}</div>}
                         </div>
                       </div>
                     </td>
