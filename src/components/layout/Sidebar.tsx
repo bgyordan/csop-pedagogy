@@ -101,6 +101,7 @@ const navItems: NavItem[] = [
     roles: ['admin', 'zdud', 'director'],
     children: [
       { href: '/lecturer', label: 'Над норматив', icon: <GraduationCap size={14} />, roles: ['admin', 'zdud', 'director'] },
+      { href: '/lecturer-schedule', label: 'График лекторски', icon: <CalendarDays size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/substitutions', label: 'Замествания', icon: <UserX size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/lecturer-review', label: 'Проверка лекторски', icon: <ClipboardList size={14} />, roles: ['admin', 'zdud', 'director'] },
             { href: '/mon-export', label: 'Отчет НП (МОН)', icon: <FileSpreadsheet size={14} />, roles: ['admin', 'zdud', 'director'] },
@@ -139,6 +140,7 @@ const navItems: NavItem[] = [
   { href: '/admin/schools', label: 'Училища', icon: <School size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/substitutions', label: 'Замествания', icon: <UserX size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/lecturer-review', label: 'Проверка лекторски', icon: <ClipboardList size={16} />, roles: ['secretary'], section: 'settings' },
+  { href: '/lecturer-schedule', label: 'График лекторски', icon: <CalendarDays size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/duties', label: 'Дежурства', icon: <CalendarDays size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/templates', label: 'Образци на документи', icon: <FileText size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/reports/hub', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['secretary'], section: 'settings' },

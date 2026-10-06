@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
-import { GraduationCap } from 'lucide-react'
+import { GraduationCap, CalendarRange } from 'lucide-react'
+import Link from 'next/link'
 import { getFullName } from '@/lib/utils'
 import LecturerTabs from './LecturerTabs'
 import { yearSchoolDays, getClassEnds } from './actions'
@@ -131,7 +132,12 @@ export default async function LecturerPage() {
           <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">Лекторски над норматива</h1>
           <p className="text-sm text-slate-500 mt-0.5">Определяне на часове над норматива и заповед</p>
         </div>
-        <OrderButton />
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          <Link href="/lecturer-schedule" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm border border-slate-200 bg-white text-slate-700 hover:border-[#0f2240]">
+            <CalendarRange size={16} /> График за печат
+          </Link>
+          <OrderButton />
+        </div>
       </header>
       <LecturerTabs
         academicYearId={currentYear?.id || ''}

@@ -41,7 +41,7 @@ export default function OrderButton() {
   )
 
   return (
-    <div ref={ref} className="ml-auto relative shrink-0">
+    <div ref={ref} className="relative shrink-0">
       <button onClick={() => setOpen(o => !o)} disabled={busy}
         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm hover:opacity-90 disabled:opacity-40"
         style={{ backgroundColor: '#0f2240' }}>
