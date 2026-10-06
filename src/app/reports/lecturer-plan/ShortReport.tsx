@@ -5,7 +5,7 @@ import { Fragment } from 'react'
 import * as XLSX from 'xlsx'
 import { FileSpreadsheet, Printer } from 'lucide-react'
 
-type Row = { name: string; position: string; group?: number; groupLabel?: string; ownClass?: string; norm: number; normYear: number; ich: number; ichW1: number; ichW2: number; diff1: number | null; diff2: number | null; diffY: number | null; simple: number; mixed: number; simpleAll?: number; mixedAll?: number }
+type Row = { name: string; position: string; group?: number; groupLabel?: string; ownClass?: string; norm: number; normYear: number; ich: number; ichFill?: number; ichW1: number; ichW2: number; diff1: number | null; diff2: number | null; diffY: number | null; simple: number; mixed: number; simpleAll?: number; mixedAll?: number }
 
 const f = (n: number) => String(n).replace('.', ',')
 // седмично: „5“ или „5/4“, ако II срок е различен
@@ -23,12 +23,12 @@ export default function ShortReport({ rows, yearName, unlinked = [] }: { rows: R
   // всички с часове в плана — и тези без лекторски (0), за да се вижда, че са сметнати
   // редът идва готов: класни по паралелка → учители → логопеди → …
   const list = rows
-  const tS = list.reduce((a, r) => a + r.simple, 0), tM = list.reduce((a, r) => a + r.mixed, 0), tI = list.reduce((a, r) => a + r.ich, 0)
+  const tS = list.reduce((a, r) => a + r.simple, 0), tM = list.reduce((a, r) => a + r.mixed, 0), tI = list.reduce((a, r) => a + r.ich - (r.ichFill || 0), 0)
   const H1 = 'Лекторски — терапиите по 0,7', H2 = 'Лекторски — 0,7 до нормата, после по 1'
   function exportXlsx() {
     const ws = XLSX.utils.aoa_to_sheet([
       ['№', 'Име', 'Длъжност', 'Норма', 'Под/над нормата', 'ИЧ за годината (отделна заповед)', H1 + ' (без ИЧ)', H2 + ' (без ИЧ)', H1 + ' (с ИЧ)', H2 + ' (с ИЧ)'],
-      ...list.map((r, i) => [i + 1, r.name, r.position, normText(r), diffText(r), r.ich ? `${r.ich} (${ichWeek(r)} седм.)` : '', r.simple, r.mixed, r.simpleAll ?? r.simple, r.mixedAll ?? r.mixed]),
+      ...list.map((r, i) => [i + 1, r.name, r.position, normText(r), diffText(r), r.ich ? (r.ichFill ? `${r.ich - r.ichFill} (общо ${r.ich}, ${r.ichFill} в нормата; ${ichWeek(r)} седм.)` : `${r.ich} (${ichWeek(r)} седм.)`) : '', r.simple, r.mixed, r.simpleAll ?? r.simple, r.mixedAll ?? r.mixed]),
       [], ['', 'Общо', '', '', '', tI, tS, tM],
     ])
     ws['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 26 }, { wch: 16 }, { wch: 16 }, { wch: 20 }, { wch: 30 }, { wch: 36 }, { wch: 30 }, { wch: 36 }]
@@ -67,7 +67,8 @@ export default function ShortReport({ rows, yearName, unlinked = [] }: { rows: R
               <td className="px-2 py-2 text-slate-800">{r.name}{(r.position || r.ownClass) && <div className="text-[11px] text-slate-400">{r.position}{r.ownClass && <span className="text-teal-700"> · класен на {r.ownClass}</span>}</div>}</td>
               <td className="px-2 py-2 text-center tabular-nums text-slate-500 text-[13px]">{r.normYear ? <span title="Годишна норма">{r.normYear} г.</span> : r.norm || <span title="Длъжност без преподавателска норма — всичките часове са лекторски">—</span>}</td>
               <td className={`px-2 py-2 text-center tabular-nums text-[13px] ${diffVal(r) > 0 ? 'text-teal-700' : diffVal(r) < 0 ? 'text-amber-700' : 'text-slate-500'}`}>{diffText(r) || <span className="text-slate-300">—</span>}</td>
-              <td className={`px-2 py-2 text-right tabular-nums ${r.ich ? 'text-violet-700' : 'text-slate-300'}`}>{r.ich ? <>{r.ich} <span className="text-[12px] text-violet-400">({ichWeek(r)} седм.)</span></> : '—'}</td>
+              <td className={`px-2 py-2 text-right tabular-nums ${r.ich ? 'text-violet-700' : 'text-slate-300'}`}>{r.ich ? <>{r.ich - (r.ichFill || 0)} <span className="text-[12px] text-violet-400">({ichWeek(r)} седм.)</span>
+                {!!r.ichFill && <div className="text-[11px] text-violet-400">{r.ichFill} в нормата · общо {r.ich}</div>}</> : '—'}</td>
               <td className={`px-3 py-2 text-right tabular-nums ${r.simple ? 'text-slate-700' : 'text-slate-300'}`}>{r.simple}{withIch(r.simpleAll, r.simple)}</td>
               <td className={`px-5 py-2 text-right tabular-nums font-medium ${!r.mixed ? 'text-slate-300 font-normal' : r.mixed !== r.simple ? 'text-teal-800' : 'text-slate-900'}`}>{r.mixed}{withIch(r.mixedAll, r.mixed)}</td>
             </tr>
@@ -94,7 +95,7 @@ export default function ShortReport({ rows, yearName, unlinked = [] }: { rows: R
       <div className="px-5 py-3 text-xs text-slate-500 border-t border-slate-100 space-y-1">
         <p><b className="text-slate-700">Терапиите по 0,7:</b> всички часове от плана се приравняват към нормата (терапия = 0,7 ч.), вади се нормата; × учебните седмици на срока.</p>
         <p><b className="text-slate-700">0,7 до нормата, после по 1</b> (Наредба № 4/2017, чл. 8 и чл. 10, ал. 2): приравняват се само часовете, които допълват нормата — първо обикновените часове, после терапиите по 0,7; всеки час над нормата е цял лекторски час.</p>
-        <p>Норма по длъжност: учител, логопед, рехабилитатор — 21 ч./седм.; психолог, възпитател — 30 ч./седм. (часовете в ЦОУД са с норма 30); ЗДУД и ЗДАСД — 144 ч. годишно; директор — 72 ч. годишно; без преподавателска норма (други) — „—“, всички часове са лекторски. <b className="text-slate-700">ИЧ</b> са по отделна заповед на директора — в лекторските (за заповедта за лекторски) не се броят; само допълват нормата, ако часовете без ИЧ не стигат. В сиво „с ИЧ“ — колко биха били, ако се броят и ИЧ.</p>
+        <p>Норма по длъжност: учител, логопед, рехабилитатор — 21 ч./седм.; психолог, възпитател — 30 ч./седм. (часовете в ЦОУД са с норма 30); ЗДУД и ЗДАСД — 144 ч. годишно; директор — 72 ч. годишно; без преподавателска норма (други) — „—“, всички часове са лекторски. <b className="text-slate-700">ИЧ</b> са по отделна заповед на директора — в лекторските (за заповедта за лекторски) не се броят; ако часовете без ИЧ не стигат, ИЧ допълват нормата — тази част е изписана дребно („в нормата“) и е извадена от числото в колоната. В сиво „с ИЧ“ — колко биха били, ако се броят и ИЧ.</p>
       </div>
     </div>
   )

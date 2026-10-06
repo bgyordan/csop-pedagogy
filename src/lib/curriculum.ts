@@ -166,14 +166,17 @@ export function overBoth(lines: { h: number; norm: number; individual: boolean }
   }
   const fillM = Math.min(ichN, Math.max(0, deficit))
   const lectM = Math.min(Math.max(0, ichLect), Math.max(0, ichN - fillM))
-  return { simple: r(simple), mixed: r(over + lectM) }
+  // колко реални часа ИЧ отиват за допълване на нормата (еднакво и при двата метода)
+  const ichH = ich.reduce((a, l) => a + l.h, 0)
+  const fillH = ichN > 0 ? fillS * ichH / ichN : 0
+  return { simple: r(simple), mixed: r(over + lectM), ichFill: r(fillH) }
 }
 
 /**
  * Лекторските на един човек по учебния план — едно и също число в „Кратко“ (Справки) и в „Разпредели“ (Лекторски).
  *  • норма по длъжност (STAFF_NORM) или годишна (STAFF_NORM_YEAR); специалист — по роля, двойна роля, длъжност или по редовете на негово име;
  *  • терапиите на учител — по 0,7; на специалиста (своите, норма 30 във вноса) — по 1 към неговата норма;
- *  • ИЧ се броят изцяло (реални часове), показват се и отделно;
+ *  • ИЧ се броят изцяло (реални часове), показват се и отделно; ichFillYear — колко от тях допълват нормата;
  *  • седмиците на сроковете — от всички редове на човека.
  * Връща годишните лекторски по двата метода и седмичните по срокове (при годишна норма — годишните / всички седмици).
  */
@@ -195,12 +198,15 @@ export function lecturerOf(ls: CurLine[], s: { role?: string | null; therapy_rol
   let yearSimple: number, yearMixed: number, s1: number, s2: number, m1: number, m2: number
   // без ИЧ — за заповедта за лекторски (ИЧ са по отделна заповед на директора): ИЧ само допълват нормата
   let noIchSimple: number, noIchMixed: number
+  // ИЧ, които допълват нормата — за годината
+  let ichFillYear = 0
   if (normYear) {
     const yl = ls.map(l => ({ h: l.h1 * (l.w1 || AW1) + l.h2 * (l.w2 || AW2), norm: nOf(l, 21), individual: l.individual }))
     const b = overBoth(yl.map(l => ({ ...l, individual: false })), normYear, 0, 21)
     yearSimple = Math.round(b.simple); yearMixed = Math.round(b.mixed)
     const n = overBoth(yl, normYear, 0, 21)
     noIchSimple = Math.round(n.simple); noIchMixed = Math.round(n.mixed)
+    ichFillYear = n.ichFill
     const w = (AW1 + AW2) || 36
     s1 = s2 = r2(yearSimple / w); m1 = m2 = r2(yearMixed / w)
   } else {
@@ -212,6 +218,7 @@ export function lecturerOf(ls: CurLine[], s: { role?: string | null; therapy_rol
     yearSimple = Math.round(s1 * AW1 + s2 * AW2); yearMixed = Math.round(m1 * AW1 + m2 * AW2)
     const n1 = overBoth(t1, normAll, 0), n2 = overBoth(t2, normAll, 0)
     noIchSimple = Math.round(n1.simple * AW1 + n2.simple * AW2); noIchMixed = Math.round(n1.mixed * AW1 + n2.mixed * AW2)
+    ichFillYear = n1.ichFill * AW1 + n2.ichFill * AW2
   }
   // под / над нормата — без ИЧ (те са в отделна колона)
   const noIch = ls.filter(l => !l.individual)
@@ -229,5 +236,7 @@ export function lecturerOf(ls: CurLine[], s: { role?: string | null; therapy_rol
     load1: d1(loadW(1)), load2: d1(loadW(2)),
     ichW1: d1(ich.reduce((a, l) => a + l.h1, 0)), ichW2: d1(ich.reduce((a, l) => a + l.h2, 0)),
     ichYearAll: Math.round(ich.reduce((a, l) => a + l.h1 * (l.w1 || AW1) + l.h2 * (l.w2 || AW2), 0)),
+    /** ИЧ за годината, които допълват нормата (влизат в нея) */
+    ichFillYear: Math.round(ichFillYear),
   }
 }

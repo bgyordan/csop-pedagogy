@@ -22,8 +22,8 @@ export type QTRow = {
   total: number | null; distributedAt: string | null
   /** норма на седмица (0 — няма); годишна норма (ЗДУД, ЗДАСД 144, директор 72) */
   norm: number; normYear: number
-  /** ИЧ за годината */
-  ichYear: number
+  /** ИЧ за годината (всички) и колко от тях допълват нормата */
+  ichYear: number; ichFill: number
   /** лекторски за годината по учебния план — 0,7 постоянно / 0,7 до нормата, после 1 */
   yearS: number; yearM: number
 }
@@ -172,7 +172,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                 <th className="px-5 text-left">Име</th>
                 <th className="px-3 text-left">Паралелки<div className="font-normal text-slate-400">до кога учат</div></th>
                 <th className="px-2 text-center w-20">Норма</th>
-                <th className="px-2 text-center w-24" title="Индивидуални часове — по отделна заповед на директора; не влизат в лекторските тук">ИЧ<div className="font-normal text-slate-400">отделна заповед</div></th>
+                <th className="px-2 text-center w-28" title="Индивидуални часове за годината. Голямото число — за отделната заповед на директора; ако част от ИЧ допълва нормата, тя е изписана отдолу и е извадена">ИЧ<div className="font-normal text-slate-400">за отделна заповед</div></th>
                 <th className="px-2 text-center w-32 bg-teal-50/70 text-teal-800">Лекторски<div className="font-normal text-teal-700/80">за годината</div></th>
                 <th className="px-2 text-center w-32">Разпределени</th>
                 <th className="w-48" />
@@ -208,7 +208,13 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                       ) : <span className="text-slate-300">няма разписание</span>}
                     </td>
                     <td className="px-2 py-2 text-center tabular-nums text-[13px] text-slate-500 whitespace-nowrap">{r.normYear ? `${r.normYear} г.` : r.norm || '—'}</td>
-                    <td className="px-2 py-2 text-center tabular-nums text-[13px] text-violet-700">{r.ichYear || <span className="text-slate-300">—</span>}</td>
+                    <td className="px-2 py-2 text-center tabular-nums text-[13px] text-violet-700"
+                      title={r.ichFill ? `ИЧ общо ${r.ichYear}: ${r.ichFill} допълват нормата, ${r.ichYear - r.ichFill} — по отделна заповед` : undefined}>
+                      {!r.ichYear ? <span className="text-slate-300">—</span> : <>
+                        <div>{r.ichYear - r.ichFill || <span className="text-slate-300">0</span>}</div>
+                        {r.ichFill > 0 && <div className="text-[10.5px] text-violet-400 whitespace-nowrap">{r.ichFill} в нормата · общо {r.ichYear}</div>}
+                      </>}
+                    </td>
                     <td className="px-2 py-2 text-center tabular-nums bg-teal-50/30"
                       title={`0,7 постоянно: ${r.yearS || 0} · 0,7 до нормата, после 1: ${r.yearM || 0}`}>
                       {!r.hasPlan ? <span className="text-slate-400 text-[12px]" title="Не е свързан с учебния план (вж. Учебни планове)">няма уч. план</span>
@@ -255,7 +261,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
           </table>
         </div>
         <div className="px-5 py-3 text-xs text-slate-500 border-t border-slate-100 space-y-1">
-          <p><b className="text-slate-700">Лекторски за годината</b> — същите числа като в Справки → „Лекторски по учебен план“ → „Кратко“, по избрания метод горе: <i>0,7 постоянно</i> (терапиите винаги по 0,7) или <i>0,7 до нормата, после 1</i> (часовете над нормата се броят по 1). ИЧ не се броят — те са по отделна заповед на директора (тук са само за сведение); само допълват нормата, ако часовете без ИЧ не стигат.</p>
+          <p><b className="text-slate-700">Лекторски за годината</b> — същите числа като в Справки → „Лекторски по учебен план“ → „Кратко“, по избрания метод горе: <i>0,7 постоянно</i> (терапиите винаги по 0,7) или <i>0,7 до нормата, после 1</i> (часовете над нормата се броят по 1). ИЧ не се броят в лекторските — те са по отделна заповед на директора. Ако часовете без ИЧ не стигат до нормата, ИЧ я допълват: тази част е изписана дребно („в нормата“) и е извадена, а голямото число в колона ИЧ е остатъкът за отделната заповед.</p>
           <p><b className="text-slate-700">„Разпредели“</b> слага годишния брой в разписанието: 1 час седмично от началото на годината, докато се събере числото (напр. 20 → 20 седмици). Ако числото е повече от годината на паралелката (32 / 34 / 36 седмици), първият час върви цялата година, а остатъкът — втори час, пак от началото; и т.н. Часовете, преместени на ръка в „График“, имат катинарче и остават. При смяна на метода разпределените стават „за наново“.</p>
         </div>
       </div>
