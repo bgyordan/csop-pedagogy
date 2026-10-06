@@ -252,8 +252,10 @@ export async function getLecturerFrameworkData(staffId?: string) {
     const t = byStaff[sid]
     const rows = Object.values(t.groups).map((g: any) => {
       const days = Array.from(g.days as Set<number>).sort().map(d => DOW[d]).join(', ')
-      return { subject: g.subject, cls: g.cls, days, perWeek: g.hours, weeks: Math.round(g.total / g.hours), total: g.total }
+      return { subject: g.subject, cls: g.cls, days, perWeek: g.hours, weeks: Math.round(g.total / g.hours), total: g.total, from: g.from as string, to: g.to as string }
     })
+    // по реда на провеждане: от началната дата, по-дългите първо
+    rows.sort((a, b) => a.from.localeCompare(b.from) || b.to.localeCompare(a.to) || a.cls.localeCompare(b.cls, 'bg', { numeric: true }))
     const totalHours = rows.reduce((a, r) => a + r.total, 0)
     teachers.push({ name: t.name, position: t.position, norm: t.norm, from: t.from, to: t.to, rows, totalHours })
   }

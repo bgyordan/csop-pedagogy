@@ -743,7 +743,7 @@ export interface LecturerFrameworkData {
   teachers: {
     /** norm — текст: „21 ч./седмично“, „144 ч. годишно“ или празно (без норма) */
     name: string; position: string; norm: string; from: string; to: string
-    rows: { subject: string; cls: string; days: string; perWeek: number; weeks: number; total: number }[]
+    rows: { subject: string; cls: string; days: string; perWeek: number; weeks: number; total: number; from?: string; to?: string }[]
     totalHours: number
   }[]
   yearName: string
@@ -782,12 +782,22 @@ export async function generateLecturerFrameworkOrder(d: LecturerFrameworkData, m
         normal(` за периода ${formatDate(t.from)} – ${formatDate(t.to)}:`, 18),
       ] }))
       const rows: TableRow[] = [new TableRow({ children: [
-        th('Предмет / дейност'), th('Клас / група'), th('Дни'), th('Ч./седм.'), th('Седмици'), th('Общо'),
+        th('Предмет / дейност'), th('Клас / група'), th('Дни'), th('Ч./седм.'), th('Период'), th('Седмици'), th('Общо'),
       ] })]
+      // период на всеки ред; ако часът спира преди края на периода на лицето — крайната дата е с удебелен шрифт
+      const period = (r: LecturerFrameworkData['teachers'][number]['rows'][number]) => {
+        const f = r.from || t.from, e = r.to || t.to
+        return new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [
+          normal(`${formatDate(f)} – `, 19), e < t.to ? bold(formatDate(e), 19) : normal(formatDate(e), 19),
+        ] })] })
+      }
       t.rows.forEach(r => rows.push(new TableRow({ children: [
-        td(r.subject), td(r.cls, true), td(r.days), td(String(r.perWeek), true), td(String(r.weeks), true), td(String(r.total), true),
+        td(r.subject), td(r.cls, true), td(r.days), td(String(r.perWeek), true), period(r), td(String(r.weeks), true), td(String(r.total), true),
       ] })))
-      children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [3000, 1800, 2400, 900, 900, 800], rows }))
+      children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [2600, 1300, 1700, 800, 2300, 900, 700], rows }))
+      if (t.rows.some(r => (r.to || t.to) < t.to)) children.push(new Paragraph({ spacing: { before: 40 }, children: [
+        normal('Часовете с удебелена крайна дата се провеждат до посочената дата (с нея се изчерпва определеният брой лекторски часове).', 17),
+      ] }))
     })
     const P = (t: string) => children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { before: 100, after: 60 }, children: [normal(t, 20)] }))
     P('2. Лекторските часове се провеждат съобразно утвърденото седмично разписание и утвърдената учебна документация.')
