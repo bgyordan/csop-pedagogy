@@ -109,7 +109,7 @@ export default async function LecturerPage() {
     return {
       id: t.id, name: t.name, position: t.position, hasPlan: ls.length > 0,
       ...groupFields(t, ownClass),
-      norm: L.normAll, normYear: L.normYear, ichYear: L.ichYearAll,
+      norm: L.normAll, normYear: L.normYear, ichYear: L.ichYearAll, ichFill: Math.min(L.ichFillYear, L.ichYearAll),
       // без ИЧ — ИЧ са по отделна заповед на директора
       yearS: L.noIchSimple, yearM: L.noIchMixed,
       classes: cls.map(c => ({ name: c, end: classEnd[c] || '' })),
