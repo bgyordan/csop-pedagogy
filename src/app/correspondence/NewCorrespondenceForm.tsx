@@ -1,7 +1,7 @@
 'use client'
 import React, { useState, useRef, useEffect } from 'react'
 import { smartMatch } from '@/lib/search'
-import { canSubstitute } from '@/lib/pedagogues'
+import { canSubstitute, canBeSubstituted } from '@/lib/pedagogues'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { generateNpLeaveOrder } from '@/lib/docx-substitution'
@@ -67,7 +67,7 @@ interface Props {
   totalCount: number
   currentUserId: string
   students: { id: string; first_name: string; last_name: string }[]
-  staff: { id: string; first_name: string; last_name: string; role?: string | null }[]
+  staff: { id: string; first_name: string; last_name: string; role?: string | null; teaching?: boolean }[]
   nomenclature: NomenclatureItem[]
   direction: Direction
   /** Попълване на резервиран номер: същата форма със сценариите, но записът се обновява (номерът и датата остават) */
@@ -229,8 +229,8 @@ export default function NewCorrespondenceForm({
     setGuardians([])
     setCreateOrder(false)
   }
-  // отсъстващият може ли да бъде заместван (учител / възпитател)
-  const absentCanBeSubstituted = canSubstitute(staff.find(x => x.id === staffId)?.role)
+  // отсъстващият може ли да бъде заместван (учител / възпитател или всеки с часове — разписание / ИЧ / план)
+  const absentCanBeSubstituted = canBeSubstituted(staff.find(x => x.id === staffId))
   // всеки отпуск (без помощния персонал) влиза в регистъра „Замествания“ → вижда се в „Днес отсъстват“
   const absentRole = staff.find(x => x.id === staffId)?.role
   const absentInRegister = !!staffId && absentRole !== 'support'

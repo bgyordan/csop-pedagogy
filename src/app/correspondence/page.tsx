@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { teachingStaffIds } from '@/lib/teaching-staff'
 import { ilikeVariants } from '@/lib/search'
 import { redirect } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
@@ -48,11 +49,14 @@ export default async function CorrespondencePage({
     base(supabase.from('correspondence').select('id', { count: 'exact', head: true })),
     noFile(base(supabase.from('correspondence').select('id', { count: 'exact', head: true }))),
   ])
-  const [{ data: students }, { data: staff }, { data: nomenclature }] = await Promise.all([
+  const [{ data: students }, { data: staffRaw }, { data: nomenclature }, teaching] = await Promise.all([
     supabase.from('students').select('id, first_name, last_name').eq('status', 'active').order('last_name'),
     supabase.from('staff_profiles').select('id, first_name, last_name, role').eq('is_active', true).order('last_name'),
     supabase.from('nomenclature_items').select('*').eq('for_correspondence', true).order('section_code').order('item_code'),
+    teachingStaffIds(supabase),
   ])
+  // с преподавателска заетост — при отпуск се заместват, независимо от ролята
+  const staff = (staffRaw || []).map((s: any) => ({ ...s, teaching: teaching.has(s.id) }))
   return (
     <div className="p-4 md:p-8">
       <BackButton />

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { teachingStaffIds } from '@/lib/teaching-staff'
 import { redirect } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
 import SubstitutionsClient from './SubstitutionsClient'
@@ -77,8 +78,11 @@ export default async function SubstitutionsPage() {
     assigns: assignsBy[r.id] || [],
   }))
 
-  const { data: staff } = await supabase
+  const { data: staffRaw } = await supabase
     .from('staff_profiles').select('id, first_name, last_name, role').eq('is_active', true)
+  // с преподавателска заетост (разписание / ИЧ / учебен план) — заместват се, независимо от ролята
+  const teaching = await teachingStaffIds(supabase)
+  const staff = (staffRaw || []).map((s: any) => ({ ...s, teaching: teaching.has(s.id) }))
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto animate-in fade-in duration-500">
