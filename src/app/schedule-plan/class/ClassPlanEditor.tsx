@@ -6,7 +6,7 @@ import { useToast } from '@/components/ui/Toast'
 import { PERIOD_TIMES, PERIOD_LABEL, periodsOverlap } from '@/lib/periods'
 import type { PlanCard } from '@/lib/curriculum'
 import { linkCurriculumSubject, addSubjectQuick } from '@/app/my-schedule/edit/actions'
-import { placeClassSlot, removeClassSlot } from '../actions'
+import { placeClassSlot, removeClassSlot, relinkSlots } from '../actions'
 
 type Slot = { id: string; day: number; period: number; staffId: string | null; subjectId: string; group: boolean; subject: string; teacher: string }
 type Busy = Record<string, { day: number; period: number; label: string }[]>
@@ -104,6 +104,46 @@ export default function ClassPlanEditor({ classId, term, classes, cards: initial
     await linkSubject(c, res.subject.id)
   }
 
+  // часовете „извън плана“, групирани по учител + предмет — с причината и избор „Това е →“ ред от плана
+  const offGroups = useMemo(() => {
+    const g: Record<string, { key: string; staffId: string | null; subjectId: string; subject: string; teacher: string; ids: string[] }> = {}
+    slots.filter(s => check.offPlan.has(s.id)).forEach(s => {
+      const k = `${s.staffId}|${s.subjectId}`
+      ;(g[k] ||= { key: k, staffId: s.staffId, subjectId: s.subjectId, subject: s.subject, teacher: s.teacher, ids: [] }).ids.push(s.id)
+    })
+    const linkable = cards.filter(c => c.place === 'class' && c.subjectId && c.staffId)
+    return Object.values(g).map(x => {
+      const sameSubj = linkable.filter(c => c.subjectId === x.subjectId)
+      const sameTeacher = linkable.filter(c => c.staffId === x.staffId)
+      const why = sameSubj.length ? `в плана предметът е на ${Array.from(new Set(sameSubj.map(c => c.teacher))).join(', ')}`
+        : sameTeacher.length ? 'учителят е в плана, но с друг предмет (в EIS предметът е различен)'
+        : !x.staffId ? 'часът няма учител' : 'нито предметът, нито учителят са в плана на паралелката'
+      // подсказка: ред от плана със същия учител (ако е само един) или със същия предмет
+      const guess = sameTeacher.length === 1 ? sameTeacher[0].key : sameSubj.length === 1 ? sameSubj[0].key : ''
+      return { ...x, why, guess }
+    }).sort((a, b) => a.subject.localeCompare(b.subject, 'bg'))
+  }, [slots, cards, check.offPlan])
+  const [relinkTo, setRelinkTo] = useState<Record<string, string>>({})
+
+  async function relink(gr: { key: string; staffId: string | null; teacher: string; subject: string; ids: string[] }, cardKey: string) {
+    const c = cards.find(x => x.key === cardKey)
+    if (!c || !c.staffId || !c.subjectId) return
+    const n = gr.ids.length
+    const msg = c.staffId !== gr.staffId
+      ? `${n} ${n === 1 ? 'час' : 'часа'} „${gr.subject}“ (${gr.teacher || 'без учител'}) ще станат „${c.subject}“ на ${c.teacher}.\nЧасовете минават в разписанието на ${c.teacher}. Продължаваме?`
+      : `${n} ${n === 1 ? 'час' : 'часа'} „${gr.subject}“ (${gr.teacher}) ще се свържат с „${c.subject}“ от плана. Продължаваме?`
+    if (!confirm(msg)) return
+    setPending(gr.key)
+    const res: any = await relinkSlots(gr.ids, c.staffId, c.subjectId)
+    setPending(null)
+    if (res?.error) { toast(res.error, 'error'); return }
+    const done = new Set<string>(res.updated || [])
+    const subjName = subjectList.find(x => x.id === c.subjectId)?.name || c.subject
+    setSlots(prev => prev.map(s => done.has(s.id) ? { ...s, staffId: c.staffId, subjectId: c.subjectId!, subject: subjName, teacher: c.teacher } : s))
+    if (res.skipped?.length) toast(`Свързани ${done.size}; пропуснати ${res.skipped.length}: ${res.skipped.slice(0, 3).join('; ')}`, 'error')
+    else toast(`Свързани ${done.size} ${done.size === 1 ? 'час' : 'часа'}`)
+  }
+
   const left = r1(check.planH - check.doneH)
 
   return (
@@ -187,7 +227,39 @@ export default function ClassPlanEditor({ classId, term, classes, cards: initial
           <div>
             <div className="font-semibold mb-0.5">Разлика с учебния план:</div>
             {check.over.map(c => <div key={c.key} className="text-xs">{c.subject} ({c.teacher}) — наредени {check.placed[c.key]}, по план {fmt(c.hours)}</div>)}
-            {check.offPlan.size > 0 && <div className="text-xs">{check.offPlan.size} {check.offPlan.size === 1 ? 'час не е' : 'часа не са'} в учебния план (отбелязани „извън плана“)</div>}
+            {check.offPlan.size > 0 && <div className="text-xs">{check.offPlan.size} {check.offPlan.size === 1 ? 'час не е' : 'часа не са'} в учебния план (отбелязани „извън плана“) — виж по-долу защо и ги свържи.</div>}
+          </div>
+        </div>
+      )}
+
+      {offGroups.length > 0 && (
+        <div className="bg-white rounded-2xl border border-amber-200 p-4 shadow-sm">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Часове извън плана</div>
+          <p className="text-xs text-slate-500 mb-3">Час е „по план“, когато и учителят, и предметът в EIS съвпадат с ред от учебния план. Тези са въведени с друг предмет или учител — избери на кой ред от плана отговарят.</p>
+          <div className="space-y-2">
+            {offGroups.map(gr => {
+              const sel = relinkTo[gr.key] ?? gr.guess
+              return (
+                <div key={gr.key} className="flex flex-wrap items-center gap-2 text-sm border-b border-slate-100 last:border-0 pb-2">
+                  <div className="min-w-[220px] flex-1">
+                    <div className="text-slate-800">{gr.subject || '(без предмет)'} · <span className="text-slate-500">{gr.teacher || 'без учител'}</span> <span className="text-xs text-slate-400">· {gr.ids.length} ч.</span></div>
+                    <div className="text-[11px] text-amber-700">{gr.why}</div>
+                  </div>
+                  <span className="text-xs text-slate-500">Това е →</span>
+                  <select value={sel} onChange={e => setRelinkTo(p => ({ ...p, [gr.key]: e.target.value }))}
+                    className="px-2 py-1 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none max-w-[280px]">
+                    <option value="">— ред от плана —</option>
+                    {cards.filter(c => c.place === 'class' && c.subjectId && c.staffId).map(c => (
+                      <option key={c.key} value={c.key}>{c.subject} · {c.teacher}</option>
+                    ))}
+                  </select>
+                  <button onClick={() => sel && relink(gr, sel)} disabled={!sel || pending === gr.key}
+                    className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs text-white disabled:opacity-40" style={{ backgroundColor: '#0f2240' }}>
+                    {pending === gr.key ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Свържи
+                  </button>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
