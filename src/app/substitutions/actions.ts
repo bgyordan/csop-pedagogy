@@ -65,13 +65,14 @@ type Slot = { day: number; period: number; subject: string; cls: string; w?: num
 const slotWeight = (name: string, pullout: boolean) => (!pullout || (name || '').toLowerCase().includes('час на класа')) ? 1 : 0.7
 // Праг за контрол „пълно разписание“ (норма 21, но съвместни часове/терапии свалят тежестта) — от 20 нагоре = пълно
 const WEEK_NORM = 20
-// Роли със седмична норма — за тях важи прагът WEEK_NORM; управата (годишна норма) — не
-const WEEKLY_NORM_ROLES = ['class_teacher', 'teacher', 'educator']
-// Часове седмично по учебния план (НЕИСПУО) на служителя за срока — за всички негови редове (вкл. ИЧ)
+// Часове седмично по учебния план (НЕИСПУО) на служителя за срока — редовете, които се нареждат в разписанието:
+// паралелка, ИЧ или ЦОУД (без терапиите на специалистите — редове без паралелка/група)
 async function planWeekHours(supabase: any, yearId: string | undefined, staffId: string, term: number) {
   if (!yearId) return 0
-  const { data } = await supabase.from('curriculum_lines').select('hours_t1, hours_t2').eq('academic_year_id', yearId).eq('staff_id', staffId)
-  return (data || []).reduce((a: number, l: any) => a + Number((term === 2 ? l.hours_t2 : l.hours_t1) || 0), 0)
+  const { data } = await supabase.from('curriculum_lines').select('hours_t1, hours_t2, class_id, coud_group_id, individual')
+    .eq('academic_year_id', yearId).eq('staff_id', staffId)
+  return (data || []).filter((l: any) => l.class_id || l.coud_group_id || l.individual)
+    .reduce((a: number, l: any) => a + Number((term === 2 ? l.hours_t2 : l.hours_t1) || 0), 0)
 }
 // Всички часове на служител ПО СРОКОВЕ: паралелки (schedule_slots) + ИФО (teacher_ifo_slots)
 // + ЦОУД (educator_slots). Ако за II срок още няма въведено разписание — ползва I срок.
@@ -119,7 +120,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   const { data: sub } = await supabase
     .from('substitutions')
     .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, reason, leave_order_number, leave_order_date, bsch_eligible, kt_article, substitution_order_id, manual_order_number, manual_order_date,
-       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, position, role),
+       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, position),
       sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name, position)`)
     .eq('id', substitutionId).single()
   if (!sub) return { error: 'Заместването не е намерено' }
@@ -149,22 +150,18 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
 
   const absentName = sub.absent ? `${(sub.absent as any).first_name} ${(sub.absent as any).last_name}` : ''
   const subName = sub.sub ? `${(sub.sub as any).first_name} ${(sub.sub as any).last_name}` : ''
-  // Разписанието се смята за ПЪЛНО, когато:
-  //  • седмичните часове (с тежест 0,7 за „вземане“) са поне 20, ИЛИ
-  //  • са наредени поне толкова часа, колкото са по учебния план (НЕИСПУО) на човека за срока
-  //    (напр. учител на непълна норма, управата с няколко часа ИЧ), ИЛИ
-  //  • човекът е без седмична норма (админ, ЗДУД, директор) и има наредени часове.
-  // Непълно (в началото на годината, докато чакат УУП/ИУП) → заповед БЕЗ часове; декларациите после четат готовото разписание.
+  // Разписанието е ПЪЛНО, когато са наредени поне толкова часа, колкото са по учебния план (НЕИСПУО)
+  // на човека за срока — независимо от нормата (21 седмично за учител, 144 / 72 годишно за управата).
+  // Без учебен план — по старото правило: поне 20 седмични часа (с тежест 0,7 за „вземане“).
+  // Непълно (учителят още не е въвел разписанието си) → заповед БЕЗ часове; декларациите после четат готовото разписание.
   const normTerm = wds.length ? wds[0].term : 1
   const weekHours = Math.round(byTerm[normTerm].reduce((a, s) => a + (s.w ?? 1), 0) * 10) / 10
   const placedCount = byTerm[normTerm].length
   const planH = await planWeekHours(supabase, cy?.id, sub.absent_staff_id, normTerm)
-  const absentRole = (sub.absent as any)?.role || ''
-  const fullByPlan = planH > 0 && placedCount >= Math.floor(planH)
-  const noWeeklyNorm = !WEEKLY_NORM_ROLES.includes(absentRole)
-  const noHours = weekHours < WEEK_NORM && !fullByPlan && !(noWeeklyNorm && placedCount > 0)
-  // целта, спрямо която се мери (за съобщението): по плана, ако е под 20, иначе 20
-  const targetHours = planH > 0 && planH < WEEK_NORM ? Math.round(planH * 10) / 10 : WEEK_NORM
+  const noHours = planH > 0 ? placedCount < Math.floor(planH) : weekHours < WEEK_NORM
+  // целта, спрямо която се мери (за съобщението)
+  const targetHours = planH > 0 ? Math.round(planH * 10) / 10 : WEEK_NORM
+  const placedHours = planH > 0 ? placedCount : weekHours
 
   let orderNumber = '', orderDate = ''
   if (sub.substitution_order_id) {
@@ -240,7 +237,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
             yearName: cy?.name || '',
       isBsch: sub.bsch_eligible === true,
       npSplit,
-      noHours, weekHours, targetHours,
+      noHours, weekHours, targetHours, placedHours,
       days: noHours ? [] : days,
       substitutes,
     },

@@ -27,6 +27,7 @@ const mailKey = (e?: string | null) => norm(e).split('@')[0]
 const EMPTY_FORM = {
   first_name: '', middle_name: '', last_name: '',
   role: 'class_teacher' as UserRole,
+  position: '',   // длъжност (в заповедите); празно — по ролята
   email: '', phone: '',
 }
 
@@ -104,6 +105,7 @@ export default function AdminStaffPage() {
       middle_name: s.middle_name || '',
       last_name: s.last_name,
       role: s.role,
+      position: s.position || '',
       email: s.email,
       phone: s.phone || '',
     })
@@ -132,7 +134,8 @@ export default function AdminStaffPage() {
       middle_name: form.middle_name || null,
       last_name: form.last_name,
       role: form.role,
-      position: ROLE_LABELS[form.role],
+      // длъжността се пише в заповедите; ако не е попълнена — както ролята
+      position: form.position.trim() || ROLE_LABELS[form.role],
       email: form.email,
       phone: form.phone || null,
     }
@@ -438,11 +441,22 @@ export default function AdminStaffPage() {
           </div>
           <div>
             <label className="label">Роля</label>
-            <select className="input" value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value as UserRole }))}>
+            <select className="input" value={form.role} onChange={e => setForm(p => {
+              const role = e.target.value as UserRole
+              // длъжността следва ролята, докато не е сменена ръчно
+              const auto = !p.position.trim() || p.position === ROLE_LABELS[p.role]
+              return { ...p, role, position: auto ? ROLE_LABELS[role] : p.position }
+            })}>
               {Object.entries(ROLE_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
               ))}
             </select>
+          </div>
+          <div>
+            <label className="label">Длъжност (в заповедите)</label>
+            <input className="input" value={form.position} placeholder={ROLE_LABELS[form.role]}
+              onChange={e => setForm(p => ({ ...p, position: e.target.value }))} />
+            <p className="text-[11px] text-slate-400 mt-1">Напр. „ЗДАСД“ при роля Администратор. Празно — както ролята.</p>
           </div>
           {editing && form.role === 'class_teacher' && (
             <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200">
