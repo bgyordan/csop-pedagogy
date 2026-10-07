@@ -181,3 +181,33 @@ export async function copySchoolTerm1To2() {
   revalidatePath('/my-schedule')
   return { success: true, copied, already, conflicts }
 }
+
+/**
+ * Свързва вече въведени часове („извън плана“) с ред от учебния план: сменя предмета (и учителя, ако е друг)
+ * на тези часове. Час, при който новият учител е зает по това време, се пропуска.
+ */
+export async function relinkSlots(slotIds: string[], staffId: string, subjectId: string) {
+  const { supabase, yearId, error } = await manager()
+  if (error || !yearId) return { error }
+  if (!slotIds.length || !staffId || !subjectId) return { error: 'Липсват данни' }
+  const { data: rows } = await supabase.from('schedule_slots')
+    .select('id, day, period, staff_id, schedule_id, schedule:class_schedules!inner(term)').in('id', slotIds)
+  const ok: string[] = [], skipped: string[] = []
+  for (const r of (rows || []) as any[]) {
+    if (r.staff_id !== staffId) {
+      const term = r.schedule?.term === 2 ? 2 : 1
+      const where = await teacherBusy(supabase, yearId, term, staffId, r.day, r.period, r.schedule_id)
+      if (where) { skipped.push(`${hourLabel(r.day, r.period)} — учителят е зает ${where}`); continue }
+      const { data: same } = await supabase.from('schedule_slots').select('id')
+        .eq('schedule_id', r.schedule_id).eq('day', r.day).eq('period', r.period).eq('staff_id', staffId).limit(1)
+      if (same?.length) { skipped.push(`${hourLabel(r.day, r.period)} — учителят вече има час тук`); continue }
+    }
+    ok.push(r.id)
+  }
+  if (ok.length) {
+    const { error: uErr } = await supabase.from('schedule_slots').update({ staff_id: staffId, subject_id: subjectId }).in('id', ok)
+    if (uErr) return { error: uErr.message }
+  }
+  revalidatePath('/schedule-plan')
+  return { success: true, updated: ok, skipped }
+}
