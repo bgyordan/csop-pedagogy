@@ -261,6 +261,8 @@ export type PlanCard = {
   subjectId: string | null  // свързаният предмет в EIS (null — още не е свързан)
   hours: number             // часове седмично за срока
   kind: StudyKind
+  staffId: string | null    // учителят по плана (в EIS)
+  teacher: string
   note?: string
 }
 
@@ -268,9 +270,9 @@ export type PlanCard = {
  * Картите на човека за срока. Предметът се свързва: първо по запомненото свързване (curriculum_name_map, вид 'subject'),
  * после по еднакво име в EIS. Без съвпадение — subjectId = null и редакторът предлага да се посочи.
  */
-export async function loadPlanCards(supabase: any, yearId: string | undefined, staffId: string, term: number,
+export async function loadPlanCards(supabase: any, yearId: string | undefined, by: { staffId?: string; classId?: string; all?: boolean }, term: number,
   subjects: { id: string; name: string }[]) {
-  const { lines } = await loadCurriculum(supabase, yearId, { staffId })
+  const { lines } = await loadCurriculum(supabase, yearId, by)
   const { data: maps } = await supabase.from('curriculum_name_map').select('source_name, target_id').eq('kind', 'subject')
   const mapped: Record<string, string> = {}
   ;(maps || []).forEach((m: any) => { mapped[m.source_name] = m.target_id })
@@ -287,10 +289,60 @@ export async function loadPlanCards(supabase: any, yearId: string | undefined, s
     const place: PlanCard['place'] = coud ? 'info' : l.individual ? 'ich' : l.classId ? 'class' : 'info'
     cards.push({
       key: l.id, place, classId: l.classId, holder: l.holder, subject: l.subject, subjectId, hours, kind: l.kind,
+      staffId: l.staffId, teacher: l.teacher,
       note: coud ? 'по общото разписание на групите ЦОУД' : place === 'info' ? 'без паралелка — не се нарежда тук' : undefined,
     })
   })
   const order = { class: 0, ich: 1, info: 2 }
   cards.sort((a, b) => order[a.place] - order[b.place] || a.holder.localeCompare(b.holder, 'bg', { numeric: true }) || a.subject.localeCompare(b.subject, 'bg'))
   return cards
+}
+
+/**
+ * Колко часа от всеки ред на плана са наредени в разписанието за срока.
+ * Час в паралелка ↔ ред: същата паралелка, учител и предмет; ИЧ ↔ ред: учител и предмет, детето от паралелката на реда.
+ * Еднакви редове делят наредените часове по ред; излишъкът отива на последния (както в редактора).
+ */
+export async function planProgress(supabase: any, yearId: string | undefined, term: number, cards: PlanCard[]) {
+  const placed: Record<string, number> = {}
+  if (!yearId || !cards.length) return placed
+  const { data: scheds } = await supabase.from('class_schedules').select('id, class_id').eq('academic_year_id', yearId).eq('term', term)
+  const clsOf: Record<string, string> = {}
+  ;(scheds || []).forEach((x: any) => { clsOf[x.id] = x.class_id })
+  const ids = Object.keys(clsOf)
+  const pool: Record<string, number> = {}
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data: sl } = await supabase.from('schedule_slots').select('schedule_id, staff_id, subject_id')
+      .in('schedule_id', ids.slice(i, i + 100)).range(0, 9999)
+    ;(sl || []).forEach((r: any) => { const k = `c|${clsOf[r.schedule_id]}|${r.staff_id}|${r.subject_id}`; pool[k] = (pool[k] || 0) + 1 })
+  }
+  const { data: ifo } = await supabase.from('teacher_ifo_slots').select('teacher_id, student_id, subject_id')
+    .eq('academic_year_id', yearId).eq('term', term).range(0, 9999)
+  const { data: enr } = await supabase.from('student_enrollments').select('student_id, class_id').eq('academic_year_id', yearId).range(0, 9999)
+  const stCls: Record<string, string> = {}
+  ;(enr || []).forEach((e: any) => { stCls[e.student_id] = e.class_id })
+  ;(ifo || []).forEach((r: any) => {
+    const k1 = `i|${stCls[r.student_id] || ''}|${r.teacher_id}|${r.subject_id}`, k0 = `i||${r.teacher_id}|${r.subject_id}`
+    pool[k1] = (pool[k1] || 0) + 1; pool[k0] = (pool[k0] || 0) + 1
+  })
+  const groups: Record<string, PlanCard[]> = {}
+  cards.forEach(c => {
+    if (!c.subjectId || !c.staffId || c.place === 'info') return
+    const k = c.place === 'class' ? `c|${c.classId}|${c.staffId}|${c.subjectId}` : `i|${c.classId || ''}|${c.staffId}|${c.subjectId}`
+    ;(groups[k] ||= []).push(c)
+  })
+  Object.entries(groups).forEach(([k, cs]) => {
+    let left = pool[k] || 0
+    cs.forEach((c, i) => { const n = i === cs.length - 1 ? left : Math.min(left, c.hours); placed[c.key] = n; left -= n })
+  })
+  return placed
+}
+
+/** Утвърдено (заключено) разписание за срока — учителите не могат да го променят, само управата */
+export async function isScheduleLocked(supabase: any, yearId: string | undefined, term: number) {
+  if (!yearId) return null as null | { locked_at: string; by: string }
+  const { data, error } = await supabase.from('schedule_locks')
+    .select('locked_at, staff:staff_profiles(first_name, last_name)').eq('academic_year_id', yearId).eq('term', term).maybeSingle()
+  if (error || !data) return null   // без миграцията — няма заключване
+  return { locked_at: data.locked_at as string, by: data.staff ? `${data.staff.first_name} ${data.staff.last_name}` : '' }
 }

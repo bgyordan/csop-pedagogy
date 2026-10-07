@@ -3,6 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { periodsOverlap, PERIOD_LABEL } from '@/lib/periods'
+import { isScheduleLocked } from '@/lib/curriculum'
+
+const LOCKED_MSG = 'Разписанието за срока е утвърдено — промени може да направи само управата'
 
 // Клетка от моята решетка: ден·час + носител (паралелка ИЛИ ИФО ученик) + предмет
 export interface MyCell {
@@ -33,6 +36,7 @@ export async function saveMySchedule(
   // Админ/ЗДУД/директор могат да редактират от името на друг учител
   const isManager = ['admin', 'zdud', 'director'].includes(me.role || '')
   const myId = (targetStaffId && isManager) ? targetStaffId : me.id
+  if (!isManager && await isScheduleLocked(supabase, academicYearId, term)) return { error: LOCKED_MSG }
 
   const classCells = cells.filter(c => c.holderType === 'class' && c.subjectId)
   const ifoCells = cells.filter(c => c.holderType === 'ifo' && c.subjectId)
@@ -145,6 +149,7 @@ export async function copyMyScheduleFromTerm1(academicYearId: string, targetStaf
   if (!me) return { error: 'Няма профил' }
   const isManager = ['admin', 'zdud', 'director'].includes(me.role || '')
   const myId = (targetStaffId && isManager) ? targetStaffId : me.id
+  if (!isManager && await isScheduleLocked(supabase, academicYearId, 2)) return { error: LOCKED_MSG }
 
   const { data: t1 } = await supabase
     .from('class_schedules').select('id, class_id').eq('academic_year_id', academicYearId).eq('term', 1)
@@ -230,6 +235,7 @@ export async function releaseClassSlot(
   const { data: me } = await supabase.from('staff_profiles').select('id, role').eq('user_id', user.id).single()
   if (!me) return { error: 'Няма профил' }
   const isManager = ['admin', 'zdud', 'director'].includes(me.role || '')
+  if (!isManager && await isScheduleLocked(supabase, academicYearId, term)) return { error: LOCKED_MSG }
   if (!isManager) {
     const { data: cta } = await supabase.from('class_teacher_assignments').select('class_id')
       .eq('staff_id', me.id).eq('class_id', classId).eq('academic_year_id', academicYearId).maybeSingle()

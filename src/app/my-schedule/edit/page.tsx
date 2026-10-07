@@ -4,7 +4,7 @@ import { CalendarDays } from 'lucide-react'
 import { getFullName } from '@/lib/utils'
 import MyScheduleEditor from './MyScheduleEditor'
 import ScheduleTabs from '../ScheduleTabs'
-import { loadPlanCards, STAFF_NORM } from '@/lib/curriculum'
+import { loadPlanCards, STAFF_NORM, isScheduleLocked } from '@/lib/curriculum'
 export const dynamic = 'force-dynamic'
 
 export default async function MyScheduleEditPage({
@@ -30,6 +30,8 @@ export default async function MyScheduleEditPage({
 
   const { data: currentYear } = await supabase
     .from('academic_years').select('id, name').eq('is_current', true).single()
+  // утвърдено разписание — само управата редактира
+  if (!isManager && await isScheduleLocked(supabase, currentYear?.id, term)) redirect(`/my-schedule${term === 2 ? '?term=2' : ''}`)
 
   // всички паралелки (за да може учителят да избере на кои преподава)
   const { data: allClasses } = await supabase
@@ -55,7 +57,7 @@ export default async function MyScheduleEditPage({
   const { data: subjects } = await supabase.from('subjects').select('id, name, allows_pullout').order('name')
 
   // часовете по учебния план от НЕИСПУО за срока — от тях се нарежда разписанието
-  const plan = await loadPlanCards(supabase, currentYear?.id, targetId, term, subjects || [])
+  const plan = await loadPlanCards(supabase, currentYear?.id, { staffId: targetId }, term, subjects || [])
   // седмична норма по длъжност; управата е с годишна норма — тук не се показва
   const norm = STAFF_NORM[(target as any).role || ''] ?? null
 
