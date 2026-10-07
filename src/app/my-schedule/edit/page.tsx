@@ -4,6 +4,7 @@ import { CalendarDays } from 'lucide-react'
 import { getFullName } from '@/lib/utils'
 import MyScheduleEditor from './MyScheduleEditor'
 import ScheduleTabs from '../ScheduleTabs'
+import { loadPlanCards, STAFF_NORM } from '@/lib/curriculum'
 export const dynamic = 'force-dynamic'
 
 export default async function MyScheduleEditPage({
@@ -17,12 +18,12 @@ export default async function MyScheduleEditPage({
   const { data: me } = await supabase
     .from('staff_profiles').select('id, first_name, last_name, role').eq('user_id', user.id).single()
   if (!me) redirect('/dashboard')
-  const isManager = ['admin', 'zdud'].includes(me.role || '')
+  const isManager = ['admin', 'zdud', 'director'].includes(me.role || '')
   let target = me
   let viewingOther = false
   if (staffParam && staffParam !== me.id && isManager) {
     const { data: other } = await supabase
-      .from('staff_profiles').select('id, first_name, last_name').eq('id', staffParam).single()
+      .from('staff_profiles').select('id, first_name, last_name, role').eq('id', staffParam).single()
     if (other) { target = other as any; viewingOther = true }
   }
   const targetId = target.id
@@ -44,15 +45,19 @@ export default async function MyScheduleEditPage({
   // само ИФО ученици (education_form='ifo' за текущата година)
   const { data: ifoEnroll } = await supabase
     .from('student_enrollments')
-    .select('student:students(id, first_name, middle_name, last_name, status)')
+    .select('class_id, student:students(id, first_name, middle_name, last_name, status)')
     .eq('academic_year_id', currentYear?.id).eq('education_form', 'ifo')
   const studentOpts = (ifoEnroll || [])
-    .map((e: any) => e.student)
-    .filter((s: any) => s && s.status === 'active')
-    .map((s: any) => ({ id: s.id, name: getFullName(s) }))
+    .filter((e: any) => e.student && e.student.status === 'active')
+    .map((e: any) => ({ id: e.student.id, name: getFullName(e.student), classId: e.class_id as string | null }))
 
   // предмети
   const { data: subjects } = await supabase.from('subjects').select('id, name, allows_pullout').order('name')
+
+  // часовете по учебния план от НЕИСПУО за срока — от тях се нарежда разписанието
+  const plan = await loadPlanCards(supabase, currentYear?.id, targetId, term, subjects || [])
+  // седмична норма по длъжност; управата е с годишна норма — тук не се показва
+  const norm = STAFF_NORM[(target as any).role || ''] ?? null
 
   // моите съществуващи слотове (паралелки)
   const { data: mySchedules } = await supabase
@@ -122,6 +127,8 @@ export default async function MyScheduleEditPage({
         myClassTeacherIds={myClassTeacherIds}
         targetStaffId={viewingOther ? targetId : undefined}
         taken={taken}
+        plan={plan}
+        norm={norm}
       />
     </div>
   )

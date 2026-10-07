@@ -79,7 +79,12 @@ export default async function MySchedulePage({
   const myClasses = (cta || []).map((a: any) => a.class).filter(Boolean)
     .sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg')) as { id: string; name: string }[]
   // „Редактирай“: собственото разписание (учител/класен) или от името на друг (админ/ЗДУД)
-  const canEdit = viewingOther ? ['admin', 'zdud'].includes(me.role) : ['class_teacher', 'teacher'].includes(me.role)
+  // Свое: учител/класен, управата (и тя има преподавателска заетост) и всеки с часове в паралелки по учебния план
+  const { count: planCount } = await supabase.from('curriculum_lines').select('id', { count: 'exact', head: true })
+    .eq('academic_year_id', currentYear?.id).eq('staff_id', target.id).not('class_id', 'is', null)
+  const canEdit = viewingOther
+    ? ['admin', 'zdud', 'director'].includes(me.role)
+    : me.role !== 'educator' && (['class_teacher', 'teacher', 'admin', 'zdud', 'director'].includes(me.role) || (planCount || 0) > 0)
   const editHref = `/my-schedule/edit${[viewingOther ? `staff=${target.id}` : '', term === 2 ? 'term=2' : ''].filter(Boolean).join('&').replace(/^./, m => '?' + m)}`
 
   const isEducator = target.role === 'educator'

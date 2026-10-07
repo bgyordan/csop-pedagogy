@@ -86,6 +86,8 @@ const navItems: NavItem[] = [
     roles: ['admin', 'zdud', 'director'],
     children: [
       { href: '/schedules', label: 'Разписания', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'] },
+      // собствените часове по учебния план (управата също има преподавателска заетост)
+      { href: '/my-schedule', label: 'Моето разписание', icon: <CalendarDays size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={14} />, roles: ['admin', 'director', 'zdud'] },
       { href: '/admin/tasks', label: 'График срокове', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/duties', label: 'Дежурства', icon: <CalendarDays size={14} />, roles: ['admin', 'director', 'zdud'] },

@@ -62,11 +62,21 @@ export default async function SchedulesPage({
   let teachers: any[] = []
   if (tab === 'teachers') {
     // Всички учители (класни + без паралелка), дори с празно разписание
-    const { data: allTeachers } = await supabase
+    const { data: roleTeachers } = await supabase
       .from('staff_profiles')
       .select('id, first_name, last_name')
       .in('role', ['class_teacher', 'teacher'])
       .eq('is_active', true)
+    // + всички с часове в паралелки по учебния план (напр. директор, ЗДУД с преподавателска заетост)
+    const { data: planStaff } = await supabase.from('curriculum_lines').select('staff_id')
+      .eq('academic_year_id', currentYear?.id).not('staff_id', 'is', null).not('class_id', 'is', null).range(0, 4999)
+    const known = new Set((roleTeachers || []).map((t: any) => t.id))
+    const extraIds = Array.from(new Set((planStaff || []).map((r: any) => r.staff_id))).filter(id => !known.has(id))
+    const { data: extra } = extraIds.length
+      ? await supabase.from('staff_profiles').select('id, first_name, last_name').in('id', extraIds).eq('is_active', true)
+        .not('role', 'in', '(psychologist,speech_therapist,rehabilitator,educator)')
+      : { data: [] as any[] }
+    const allTeachers = [...(roleTeachers || []), ...(extra || [])]
     const map: Record<string, { id: string; name: string; classes: Set<string>; ifo1: number }> = {}
     ;(allTeachers || []).forEach((t: any) => {
       map[t.id] = { id: t.id, name: getFullName(t), classes: new Set(), ifo1: 0 }
