@@ -65,6 +65,15 @@ type Slot = { day: number; period: number; subject: string; cls: string; w?: num
 const slotWeight = (name: string, pullout: boolean) => (!pullout || (name || '').toLowerCase().includes('час на класа')) ? 1 : 0.7
 // Праг за контрол „пълно разписание“ (норма 21, но съвместни часове/терапии свалят тежестта) — от 20 нагоре = пълно
 const WEEK_NORM = 20
+// Часове седмично по учебния план (НЕИСПУО) на служителя за срока — редовете, които се нареждат в разписанието:
+// паралелка, ИЧ или ЦОУД (без терапиите на специалистите — редове без паралелка/група)
+async function planWeekHours(supabase: any, yearId: string | undefined, staffId: string, term: number) {
+  if (!yearId) return 0
+  const { data } = await supabase.from('curriculum_lines').select('hours_t1, hours_t2, class_id, coud_group_id, individual')
+    .eq('academic_year_id', yearId).eq('staff_id', staffId)
+  return (data || []).filter((l: any) => l.class_id || l.coud_group_id || l.individual)
+    .reduce((a: number, l: any) => a + Number((term === 2 ? l.hours_t2 : l.hours_t1) || 0), 0)
+}
 // Всички часове на служител ПО СРОКОВЕ: паралелки (schedule_slots) + ИФО (teacher_ifo_slots)
 // + ЦОУД (educator_slots). Ако за II срок още няма въведено разписание — ползва I срок.
 async function slotsByTerm(supabase: any, staffId: string, yearId: string | undefined): Promise<Record<number, Slot[]>> {
@@ -141,11 +150,18 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
 
   const absentName = sub.absent ? `${(sub.absent as any).first_name} ${(sub.absent as any).last_name}` : ''
   const subName = sub.sub ? `${(sub.sub as any).first_name} ${(sub.sub as any).last_name}` : ''
-  // Разписанието се смята за ПЪЛНО, когато седмичните часове (с тежест 0,7 за „вземане“) са поне 20.
-  // Непълно (в началото на годината, докато чакат УУП/ИУП) → заповед БЕЗ часове; декларациите после четат готовото разписание.
+  // Разписанието е ПЪЛНО, когато са наредени поне толкова часа, колкото са по учебния план (НЕИСПУО)
+  // на човека за срока — независимо от нормата (21 седмично за учител, 144 / 72 годишно за управата).
+  // Без учебен план — по старото правило: поне 20 седмични часа (с тежест 0,7 за „вземане“).
+  // Непълно (учителят още не е въвел разписанието си) → заповед БЕЗ часове; декларациите после четат готовото разписание.
   const normTerm = wds.length ? wds[0].term : 1
   const weekHours = Math.round(byTerm[normTerm].reduce((a, s) => a + (s.w ?? 1), 0) * 10) / 10
-  const noHours = weekHours < WEEK_NORM
+  const placedCount = byTerm[normTerm].length
+  const planH = await planWeekHours(supabase, cy?.id, sub.absent_staff_id, normTerm)
+  const noHours = planH > 0 ? placedCount < Math.floor(planH) : weekHours < WEEK_NORM
+  // целта, спрямо която се мери (за съобщението)
+  const targetHours = planH > 0 ? Math.round(planH * 10) / 10 : WEEK_NORM
+  const placedHours = planH > 0 ? placedCount : weekHours
 
   let orderNumber = '', orderDate = ''
   if (sub.substitution_order_id) {
@@ -221,7 +237,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
             yearName: cy?.name || '',
       isBsch: sub.bsch_eligible === true,
       npSplit,
-      noHours, weekHours,
+      noHours, weekHours, targetHours, placedHours,
       days: noHours ? [] : days,
       substitutes,
     },
