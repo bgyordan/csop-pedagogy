@@ -8,9 +8,9 @@ import { generateSubstitution, getAssignments, saveAssignments, checkSubstituteO
 import { generateSubstitutionOrder } from '@/lib/docx-substitution'
 import SubstituteDayCanvas, { PALETTE } from './SubstituteDayCanvas'
 import type { SubRow } from './page'
-import { canSubstitute } from '@/lib/pedagogues'
+import { canSubstitute, canBeSubstituted } from '@/lib/pedagogues'
 
-type Staff = { id: string; first_name: string; last_name: string; role?: string | null }
+type Staff = { id: string; first_name: string; last_name: string; role?: string | null; teaching?: boolean }
 const REASONS: Record<string, string> = { sick: 'Болничен', vacation: 'Отпуск', other: 'Друго' }
 function reasonFromKt(kt: string): string { return kt === '162' ? 'sick' : (kt === '160' || kt === '161' || kt === '176' ? 'other' : 'vacation') }
 const KT_ARTICLES: { v: string; l: string }[] = [
@@ -141,6 +141,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [rows, setRows] = useState<SubRow[]>(initial)
   // само учители и възпитатели (при редакция запазваме и вече избрания, ако е друг)
   const pedStaff = (...keep: string[]) => staff.filter(s => canSubstitute(s.role) || keep.includes(s.id))
+  // отсъстващ: учители и възпитатели + всеки с часове (напр. управата с преподавателска заетост)
+  const absentStaff = (...keep: string[]) => staff.filter(s => canBeSubstituted(s) || keep.includes(s.id))
   const [search, setSearch] = useState('')
   const [npOnly, setNpOnly] = useState(false)
   const [periodIdx, setPeriodIdx] = useState(-1)
@@ -449,7 +451,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-slate-500 mb-1">Отсъстващ *</label>
-              <PersonCombo people={pedStaff()} value={absentId} onChange={setAbsentId} placeholder="Търси по име…" excludeId={subId} />
+              <PersonCombo people={absentStaff()} value={absentId} onChange={setAbsentId} placeholder="Търси по име…" excludeId={subId} />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Заместник</label>
@@ -575,7 +577,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                 </span>
               ) : (
               <span className={`text-sm text-slate-600 rounded-md px-2 py-1 ${r.substituteName ? 'bg-emerald-50/60' : ''}`}>
-                {r.substituteName || (canSubstitute(r.absentRole)
+                {r.substituteName || (canSubstitute(r.absentRole) || staff.find(s => s.id === r.absentStaffId)?.teaching
                   ? <span className="inline-flex items-center gap-1 text-amber-500 text-xs"><UserX size={13} /> няма</span>
                   : <span className="text-xs text-slate-400">не се замества</span>)}
               </span>
@@ -653,7 +655,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-slate-500 mb-1">Отсъстващ *</label>
-                <PersonCombo people={pedStaff(eAbsent)} value={eAbsent} onChange={setEAbsent} placeholder="Търси по име…" excludeId={eSub} />
+                <PersonCombo people={absentStaff(eAbsent)} value={eAbsent} onChange={setEAbsent} placeholder="Търси по име…" excludeId={eSub} />
               </div>
               <div>
                 <label className="block text-xs text-slate-500 mb-1">Заместник</label>

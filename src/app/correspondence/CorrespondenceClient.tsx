@@ -31,7 +31,7 @@ interface Props {
   canDelete: boolean
   currentUserId: string
   students: { id: string; first_name: string; last_name: string }[]
-  staff: { id: string; first_name: string; last_name: string; role?: string | null }[]
+  staff: { id: string; first_name: string; last_name: string; role?: string | null; teaching?: boolean }[]
   nomenclature: NomenclatureItem[]
 }
 
