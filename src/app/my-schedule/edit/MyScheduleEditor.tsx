@@ -2,11 +2,12 @@
 import { useState, useMemo } from 'react'
 import { Loader2, Check, Plus, X, Save, AlertTriangle, Copy, Lock, Unlock } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { saveMySchedule, checkClassCollision, checkIfoCollision, addSubjectQuick, releaseClassSlot, copyMyScheduleFromTerm1, type MyCell } from './actions'
+import { saveMySchedule, checkClassCollision, checkIfoCollision, addSubjectQuick, releaseClassSlot, copyMyScheduleFromTerm1, linkCurriculumSubject, type MyCell } from './actions'
 import { PERIOD_TIMES, PERIOD_LABEL, periodsOverlap } from '@/lib/periods'
+import type { PlanCard } from '@/lib/curriculum'
 
 type Cls = { id: string; name: string }
-type Stud = { id: string; name: string }
+type Stud = { id: string; name: string; classId?: string | null }
 type Subj = { id: string; name: string; allows_pullout?: boolean }
 type Slot = { day: number; period: number; holderType: 'class' | 'ifo'; holderId: string; subjectId: string; group?: boolean }
 
@@ -16,9 +17,11 @@ const DAYS = [
 ]
 
 
-export default function MyScheduleEditor({ academicYearId, term, classes, students, subjects, initialSlots, myClassTeacherIds = [], targetStaffId, taken = {} }: {
+export default function MyScheduleEditor({ academicYearId, term, classes, students, subjects, initialSlots, myClassTeacherIds = [], targetStaffId, taken = {}, plan = [], norm = 21 }: {
   academicYearId: string; term: number; classes: Cls[]; students: Stud[]; subjects: Subj[]; initialSlots: Slot[]; myClassTeacherIds?: string[]; targetStaffId?: string
   taken?: Record<string, Record<string, { by: string; subject: string }>>
+  plan?: PlanCard[]           // часовете по учебния план (НЕИСПУО) за срока
+  norm?: number | null        // седмична норма; null — годишна (управата), не се показва
 }) {
   const { toast } = useToast()
   const [takenMap, setTakenMap] = useState(taken)
@@ -43,9 +46,26 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
   )
   // активен носител — паралелка или ученик, в който цъкам сега
   const [active, setActive] = useState<string>(() => {
+    const first = plan.find(c => c.place === 'class' && c.subjectId)
+    if (first) return `plan:${first.key}`
     if (myClassTeacherIds.length > 0) return `class:${myClassTeacherIds[0]}`
     return ''
   })
+  // картите от плана (предметът се свързва в движение)
+  const [cards, setCards] = useState<PlanCard[]>(plan)
+  // ИЧ: детето не идва от НЕИСПУО — избира се ръчно; при отваряне се познава от вече наредените часове
+  const [ichStudent, setIchStudent] = useState<Record<string, string>>(() => {
+    const out: Record<string, string> = {}
+    const used = new Set<string>()
+    plan.filter(c => c.place === 'ich' && c.subjectId).forEach(c => {
+      const hit = initialSlots.find(s => s.holderType === 'ifo' && s.subjectId === c.subjectId && !used.has(`${s.holderId}|${s.subjectId}`) &&
+        (!c.classId || students.find(st => st.id === s.holderId)?.classId === c.classId))
+      if (hit) { out[c.key] = hit.holderId; used.add(`${hit.holderId}|${hit.subjectId}`) }
+    })
+    return out
+  })
+  const [linking, setLinking] = useState<string | null>(null)
+  const activeCard = active.startsWith('plan:') ? cards.find(c => `plan:${c.key}` === active) || null : null
   const [grid, setGrid] = useState<Record<string, { holderType: 'class' | 'ifo'; holderId: string; subjectId: string; group?: boolean }>>(() => {
     const g: Record<string, any> = {}
     initialSlots.forEach(s => { g[`${s.day}-${s.period}`] = { holderType: s.holderType, holderId: s.holderId, subjectId: s.subjectId, group: !!s.group } })
@@ -90,7 +110,49 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
   async function onCellClick(day: number, period: number) {
     const key = `${day}-${period}`
     setGroupCell(null)
+    if (activeCard && activeCard.place !== 'info') { placeFromCard(day, period); return }
     setEditCell(editCell === key ? null : key)
+  }
+
+  // ── Нареждане от учебния план: клик на клетка → часът от активната карта (втори клик — маха го) ──
+  function placeFromCard(day: number, period: number, group = false) {
+    const c = activeCard
+    if (!c) return
+    if (!c.subjectId) { toast('Първо свържете предмета „' + c.subject + '“ с предмет в EIS', 'error'); return }
+    let holder = ''
+    if (c.place === 'class' && c.classId) {
+      holder = `class:${c.classId}`
+      if (!myClasses.includes(c.classId)) setMyClasses(p => [...p, c.classId!])
+    } else if (c.place === 'ich') {
+      const sid = ichStudent[c.key]
+      if (!sid) { toast('Изберете детето, с което е този ИЧ', 'error'); return }
+      holder = `ifo:${sid}`
+      if (!myStudents.includes(sid)) setMyStudents(p => [...p, sid])
+    }
+    if (!holder) return
+    const key = `${day}-${period}`
+    const cur = grid[key]
+    if (!group && cur && `${cur.holderType}:${cur.holderId}` === holder && cur.subjectId === c.subjectId) { clearCell(day, period); return }
+    setSubjectForCell(day, period, c.subjectId, holder, group)
+  }
+
+  async function linkSubject(c: PlanCard, subjectId: string) {
+    if (!subjectId) return
+    setLinking(c.key)
+    const res: any = await linkCurriculumSubject(c.subject, subjectId)
+    setLinking(null)
+    if (res?.error) { toast(res.error, 'error'); return }
+    setCards(prev => prev.map(x => x.subject === c.subject ? { ...x, subjectId } : x))
+    if (c.place !== 'info') setActive(`plan:${c.key}`)
+    toast('Предметът е свързан')
+  }
+
+  async function createAndLink(c: PlanCard) {
+    setLinking(c.key)
+    const res: any = await addSubjectQuick(c.subject, false)
+    if (res?.error) { setLinking(null); toast(res.error, 'error'); return }
+    setSubjectList(prev => [...prev, res.subject].sort((a, b) => a.name.localeCompare(b.name, 'bg')))
+    await linkSubject(c, res.subject.id)
   }
 
   async function setSubjectForCell(day: number, period: number, subjectId: string, holderOverride?: string, group?: boolean) {
@@ -151,9 +213,34 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
   }, [grid])
   const allCollisions: Record<string, string> = { ...ownOverlaps, ...collisions }
 
-  const hasHolders = myClasses.length > 0 || myStudents.length > 0
+  // ── Сверка с учебния план: колко часа от всяка карта са наредени, кои клетки са извън плана ──
+  const planCheck = useMemo(() => {
+    const cellKey = (v: { holderType: string; holderId: string; subjectId: string }) => `${v.holderType === 'class' ? 'c' : 'i'}|${v.holderId}|${v.subjectId}`
+    const cardKey = (c: PlanCard) => !c.subjectId ? '' :
+      c.place === 'class' ? `c|${c.classId}|${c.subjectId}` : c.place === 'ich' && ichStudent[c.key] ? `i|${ichStudent[c.key]}|${c.subjectId}` : ''
+    const pool: Record<string, number> = {}
+    Object.values(grid).forEach(v => { const k = cellKey(v); pool[k] = (pool[k] || 0) + 1 })
+    const placed: Record<string, number> = {}
+    const groups: Record<string, PlanCard[]> = {}
+    cards.forEach(c => { const k = cardKey(c); if (k) (groups[k] ||= []).push(c) })
+    // еднакви редове (паралелка + предмет) делят наредените часове по ред; излишъкът отива на последния
+    Object.entries(groups).forEach(([k, cs]) => {
+      let left = pool[k] || 0
+      cs.forEach((c, i) => { const n = i === cs.length - 1 ? left : Math.min(left, c.hours); placed[c.key] = n; left -= n })
+    })
+    const offPlan = new Set(Object.entries(grid).filter(([, v]) => !groups[cellKey(v)]).map(([k]) => k))
+    const placeable = cards.filter(c => c.place !== 'info')
+    const planH = placeable.reduce((a, c) => a + c.hours, 0)
+    const doneH = placeable.reduce((a, c) => a + Math.min(placed[c.key] || 0, c.hours), 0)
+    const over = placeable.filter(c => (placed[c.key] || 0) > c.hours)
+    return { placed, offPlan, planH, doneH, over }
+  }, [grid, cards, ichStudent])
+  const hasPlan = cards.length > 0
+
+  const hasHolders = myClasses.length > 0 || myStudents.length > 0 || cards.some(c => c.place !== 'info')
   // заетите от други учители клетки в АКТИВНАТА паралелка
-  const activeClassId = active.startsWith('class:') ? active.split(':')[1] : ''
+  const activeClassId = active.startsWith('class:') ? active.split(':')[1]
+    : (activeCard?.place === 'class' && activeCard.classId) ? activeCard.classId : ''
   const takenHere = activeClassId ? (takenMap[activeClassId] || {}) : {}
   const takenCount = Object.keys(takenHere).length
   // класният на активната паралелка (или мениджър, който нарежда от името на класния) е „шеф“ на паралелката
@@ -173,7 +260,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
   }
 
   // ── Брой часове: обикновен час = 1, час с „позволява вземане“ (терапии) = 0,7 ──
-  const NORM = 21
+  const NORM = norm || 21
   // „Час на класа“ винаги = 1, дори да е маркиран с вземане
   const weightOf = (subjectId: string) => {
     const sub = subjectList.find(s => s.id === subjectId)
@@ -228,9 +315,81 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
           )
         )}
       </div>
+      {/* Учебен план (НЕИСПУО) — оттук се нарежда разписанието */}
+      {hasPlan && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">По учебния план (НЕИСПУО) · {term === 2 ? 'II' : 'I'} срок — избери час и цъкай в клетките</div>
+            {planCheck.planH > 0 && (
+              <div className={`text-xs font-medium ${planCheck.doneH >= planCheck.planH ? 'text-emerald-600' : 'text-slate-500'}`}>
+                наредени {fmt(planCheck.doneH)} от {fmt(planCheck.planH)} ч.
+              </div>
+            )}
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {cards.map(c => {
+              const n = planCheck.placed[c.key] || 0
+              const isActive = active === `plan:${c.key}`
+              const info = c.place === 'info'
+              const state = info ? '' : n > c.hours ? 'over' : n === c.hours ? 'done' : ''
+              const kids = c.place === 'ich' ? (students.filter(st => !c.classId || st.classId === c.classId).length ? students.filter(st => !c.classId || st.classId === c.classId) : students) : []
+              return (
+                <div key={c.key}
+                  onClick={() => { if (!info && c.subjectId) setActive(isActive ? '' : `plan:${c.key}`) }}
+                  className={`rounded-xl border px-3 py-2 transition-all ${info ? 'bg-slate-50 border-slate-200 text-slate-500'
+                    : isActive ? (c.place === 'ich' ? 'border-violet-500 ring-2 ring-violet-200 bg-violet-50 cursor-pointer' : 'border-[#0f2240] ring-2 ring-slate-200 bg-blue-50 cursor-pointer')
+                    : c.subjectId ? 'bg-white border-slate-200 hover:border-slate-400 cursor-pointer' : 'bg-amber-50/50 border-amber-200'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className={`text-[11px] font-medium truncate ${c.place === 'ich' ? 'text-violet-600' : info ? 'text-slate-500' : 'text-blue-600'}`}>
+                        {c.place === 'ich' ? 'ИЧ · ' : ''}{c.holder}
+                      </div>
+                      <div className="text-sm text-slate-800 leading-snug break-words">
+                        {c.subject}
+                        {c.kind && c.kind !== 'ЗП' && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded border bg-slate-50 border-slate-200 text-slate-600">{c.kind}</span>}
+                      </div>
+                    </div>
+                    <div className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${info ? 'bg-slate-100 text-slate-500'
+                      : state === 'over' ? 'bg-amber-100 text-amber-800' : state === 'done' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}
+                      title={info ? 'часове седмично по плана' : 'наредени / по плана (ч. седмично)'}>
+                      {info ? `${fmt(c.hours)} ч.` : <>{n}/{fmt(c.hours)}{state === 'done' && <Check size={11} className="inline ml-0.5 -mt-0.5" />}</>}
+                    </div>
+                  </div>
+                  {c.note && <div className="text-[11px] text-slate-400 mt-0.5">{c.note}</div>}
+                  {!info && !c.subjectId && (
+                    <div className="mt-1.5 space-y-1" onClick={e => e.stopPropagation()}>
+                      <div className="text-[11px] text-amber-700">Предметът не е свързан с предмет в EIS:</div>
+                      <select defaultValue="" disabled={linking === c.key} onChange={e => linkSubject(c, e.target.value)}
+                        className="w-full px-2 py-1 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none">
+                        <option value="">— Избери предмет —</option>
+                        {subjectList.map(sb => <option key={sb.id} value={sb.id}>{sb.name}</option>)}
+                      </select>
+                      <button onClick={() => createAndLink(c)} disabled={linking === c.key}
+                        className="text-[11px] text-[#0f2240] hover:underline disabled:opacity-50">
+                        {linking === c.key ? <Loader2 size={11} className="inline animate-spin" /> : '+'} Създай предмет „{c.subject}“
+                      </button>
+                    </div>
+                  )}
+                  {c.place === 'ich' && c.subjectId && (
+                    <div className="mt-1.5" onClick={e => e.stopPropagation()}>
+                      <select value={ichStudent[c.key] || ''}
+                        onChange={e => { const v = e.target.value; setIchStudent(p => ({ ...p, [c.key]: v })); if (v) setActive(`plan:${c.key}`) }}
+                        className="w-full px-2 py-1 border border-violet-200 rounded-lg text-xs bg-white focus:outline-none">
+                        <option value="">— С кое дете е ИЧ? —</option>
+                        {kids.map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Моите паралелки / ученици */}
       <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Работя с — избери активен (в него нареждаш)</div>
+        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">{hasPlan ? 'Извън учебния план (ръчно) — паралелка или ИФО ученик, после предмет' : 'Работя с — избери активен (в него нареждаш)'}</div>
         <div className="flex flex-wrap gap-2 items-center">
           {holders.map(h => (
             <button key={h.val} onClick={() => setActive(h.val)}
@@ -283,11 +442,11 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
             )}
           </div>
         </div>
-        {hasHolders && !active && <div className="text-xs text-amber-600 mt-2">Избери активна паралелка/ученик, за да нареждаш.</div>}
+        {hasHolders && !active && <div className="text-xs text-amber-600 mt-2">{hasPlan ? 'Избери час от учебния план или паралелка/ученик, за да нареждаш.' : 'Избери активна паралелка/ученик, за да нареждаш.'}</div>}
         {takenCount > 0 && <div className="text-xs text-slate-500 mt-2">Сивите клетки са заети от други учители в паралелка {clsName(activeClassId)} ({takenCount} ч.).{isBoss ? ' Като класен можеш да освободиш час с клик върху него.' : ''}</div>}
       </div>
 
-      {hasHolders && (
+      {hasHolders && norm !== null && (
         <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
@@ -316,6 +475,19 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
           <div>
             <div className="font-semibold mb-0.5">Внимание — колизии:</div>
             {Object.entries(allCollisions).map(([k, txt]) => <div key={k} className="text-xs">{DAYS.find(d => d.n === Number(k.split('-')[0]))?.label}, {PERIOD_LABEL[Number(k.split('-')[1])]}{Number(k.split('-')[1]) < 8 ? '. час' : ''} — {txt}</div>)}
+          </div>
+        </div>
+      )}
+
+      {hasPlan && (planCheck.over.length > 0 || planCheck.offPlan.size > 0) && (
+        <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+          <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+          <div>
+            <div className="font-semibold mb-0.5">Разлика с учебния план (може да се запази):</div>
+            {planCheck.over.map(c => (
+              <div key={c.key} className="text-xs">{c.place === 'ich' ? 'ИЧ · ' : ''}{c.holder} · {c.subject} — наредени {planCheck.placed[c.key]}, по план {fmt(c.hours)}</div>
+            ))}
+            {planCheck.offPlan.size > 0 && <div className="text-xs">{planCheck.offPlan.size} {planCheck.offPlan.size === 1 ? 'час не е' : 'часа не са'} в учебния план (отбелязани „извън плана“)</div>}
           </div>
         </div>
       )}
@@ -366,7 +538,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
                           <div className="text-[11px] font-medium text-slate-700 truncate">{busy.by}</div>
                           {busy.subject && <div className="text-[11px] text-slate-500 line-clamp-2 break-words" title={busy.subject}>{busy.subject}</div>}
                         </div>
-                        <button onClick={e => { e.stopPropagation(); setBusyOpen(null); setGroupCell(key); setEditCell(key) }}
+                        <button onClick={e => { e.stopPropagation(); setBusyOpen(null); if (activeCard && activeCard.place === 'class') { placeFromCard(d.n, period, true); return } setGroupCell(key); setEditCell(key) }}
                           title="Паралелката е разделена на групи — влизам в същия час със своята група"
                           className="absolute bottom-2.5 right-2.5 text-[10px] px-1.5 py-0.5 rounded-md border border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50">
                           + група
@@ -415,6 +587,9 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
                                 <div className="text-xs text-slate-700 leading-snug line-clamp-2 break-words min-w-0" title={subjName(cell.subjectId)}>{subjName(cell.subjectId)}</div>
                                 {weightOf(cell.subjectId) < 1 && <span className="shrink-0 text-[9px] px-1 rounded bg-teal-50 text-teal-700 border border-teal-100">0,7</span>}
                               </div>
+                              {hasPlan && planCheck.offPlan.has(key) && (
+                                <div className="text-[9px] text-amber-700" title="Този час не е в учебния план от НЕИСПУО">извън плана</div>
+                              )}
                               {(cell.group || (cell.holderType === 'class' && cell.holderId === activeClassId && !!takenHere[key])) && (
                                 <div className="text-[10px] text-indigo-700 truncate" title={takenHere[key] ? `Група · заедно с ${takenHere[key].by}` : 'Група'}>
                                   <span className="px-1 rounded bg-indigo-50 border border-indigo-100 mr-1">гр.</span>

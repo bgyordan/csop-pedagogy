@@ -240,3 +240,57 @@ export function lecturerOf(ls: CurLine[], s: { role?: string | null; therapy_rol
     ichFillYear: Math.round(ichFillYear),
   }
 }
+
+// ── Седмично разписание по учебния план ──
+
+/** Сравнение на имена на предмети (НЕИСПУО ↔ EIS): без главни/малки, интервали и вида тире */
+export const subjKey = (s: string) => String(s || '').toLowerCase().replace(/[\s.„“"']+/g, '').replace(/[‐‑–—]/g, '-')
+
+/**
+ * Карта от учебния план в редактора на разписанието — един ред от НЕИСПУО за срока.
+ *  • place 'class' — нарежда се в паралелката (schedule_slots);
+ *  • place 'ich'   — индивидуален час на ИФО дете (teacher_ifo_slots), детето се избира ръчно;
+ *  • place 'info'  — не се нарежда тук: ЦОУД (общото разписание на групите) или часове без паралелка (терапии).
+ */
+export type PlanCard = {
+  key: string
+  place: 'class' | 'ich' | 'info'
+  classId: string | null
+  holder: string
+  subject: string           // както е в НЕИСПУО
+  subjectId: string | null  // свързаният предмет в EIS (null — още не е свързан)
+  hours: number             // часове седмично за срока
+  kind: StudyKind
+  note?: string
+}
+
+/**
+ * Картите на човека за срока. Предметът се свързва: първо по запомненото свързване (curriculum_name_map, вид 'subject'),
+ * после по еднакво име в EIS. Без съвпадение — subjectId = null и редакторът предлага да се посочи.
+ */
+export async function loadPlanCards(supabase: any, yearId: string | undefined, staffId: string, term: number,
+  subjects: { id: string; name: string }[]) {
+  const { lines } = await loadCurriculum(supabase, yearId, { staffId })
+  const { data: maps } = await supabase.from('curriculum_name_map').select('source_name, target_id').eq('kind', 'subject')
+  const mapped: Record<string, string> = {}
+  ;(maps || []).forEach((m: any) => { mapped[m.source_name] = m.target_id })
+  const byName: Record<string, string> = {}
+  subjects.forEach(s => { byName[subjKey(s.name)] ||= s.id })
+  const known = new Set(subjects.map(s => s.id))
+  const cards: PlanCard[] = []
+  lines.forEach(l => {
+    const hours = term === 2 ? l.h2 : l.h1
+    if (!hours) return
+    const m = mapped[l.subject]
+    const subjectId = (m && known.has(m) ? m : null) || byName[subjKey(l.subject)] || null
+    const coud = l.kind === 'ЦОУД' || /цоуд/i.test(l.holder)
+    const place: PlanCard['place'] = coud ? 'info' : l.individual ? 'ich' : l.classId ? 'class' : 'info'
+    cards.push({
+      key: l.id, place, classId: l.classId, holder: l.holder, subject: l.subject, subjectId, hours, kind: l.kind,
+      note: coud ? 'по общото разписание на групите ЦОУД' : place === 'info' ? 'без паралелка — не се нарежда тук' : undefined,
+    })
+  })
+  const order = { class: 0, ich: 1, info: 2 }
+  cards.sort((a, b) => order[a.place] - order[b.place] || a.holder.localeCompare(b.holder, 'bg', { numeric: true }) || a.subject.localeCompare(b.subject, 'bg'))
+  return cards
+}

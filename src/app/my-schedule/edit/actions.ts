@@ -30,8 +30,8 @@ export async function saveMySchedule(
   const { data: me } = await supabase
     .from('staff_profiles').select('id, role').eq('user_id', user.id).single()
   if (!me) return { error: 'Няма профил' }
-  // Админ/ЗДУД могат да редактират от името на друг учител
-  const isManager = ['admin', 'zdud'].includes(me.role || '')
+  // Админ/ЗДУД/директор могат да редактират от името на друг учител
+  const isManager = ['admin', 'zdud', 'director'].includes(me.role || '')
   const myId = (targetStaffId && isManager) ? targetStaffId : me.id
 
   const classCells = cells.filter(c => c.holderType === 'class' && c.subjectId)
@@ -143,7 +143,7 @@ export async function copyMyScheduleFromTerm1(academicYearId: string, targetStaf
   const { data: me } = await supabase
     .from('staff_profiles').select('id, role').eq('user_id', user.id).single()
   if (!me) return { error: 'Няма профил' }
-  const isManager = ['admin', 'zdud'].includes(me.role || '')
+  const isManager = ['admin', 'zdud', 'director'].includes(me.role || '')
   const myId = (targetStaffId && isManager) ? targetStaffId : me.id
 
   const { data: t1 } = await supabase
@@ -179,7 +179,7 @@ export async function checkClassCollision(
   if (!user) return { busy: false }
   const { data: me0 } = await supabase.from('staff_profiles').select('id, role').eq('user_id', user.id).single()
   // в режим „управа редактира чуждо разписание“ — „моите“ часове са на избрания учител, не на управата
-  const me = { id: (targetStaffId && ['admin', 'zdud'].includes(me0?.role || '')) ? targetStaffId : me0?.id }
+  const me = { id: (targetStaffId && ['admin', 'zdud', 'director'].includes(me0?.role || '')) ? targetStaffId : me0?.id }
   const { data: sched } = await supabase
     .from('class_schedules').select('id')
     .eq('class_id', classId).eq('academic_year_id', academicYearId).eq('term', term).maybeSingle()
@@ -229,7 +229,7 @@ export async function releaseClassSlot(
   if (!user) return { error: 'Не сте влезли' }
   const { data: me } = await supabase.from('staff_profiles').select('id, role').eq('user_id', user.id).single()
   if (!me) return { error: 'Няма профил' }
-  const isManager = ['admin', 'zdud'].includes(me.role || '')
+  const isManager = ['admin', 'zdud', 'director'].includes(me.role || '')
   if (!isManager) {
     const { data: cta } = await supabase.from('class_teacher_assignments').select('class_id')
       .eq('staff_id', me.id).eq('class_id', classId).eq('academic_year_id', academicYearId).maybeSingle()
@@ -257,7 +257,7 @@ export async function checkIfoCollision(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { busy: false }
   const { data: me } = await supabase.from('staff_profiles').select('id, role').eq('user_id', user.id).single()
-  const myId = (targetStaffId && ['admin', 'zdud'].includes(me?.role || '')) ? targetStaffId : me?.id
+  const myId = (targetStaffId && ['admin', 'zdud', 'director'].includes(me?.role || '')) ? targetStaffId : me?.id
   const { data: rows } = await supabase
     .from('teacher_ifo_slots')
     .select('period, teacher_id, subject:subjects(name), teacher:staff_profiles(first_name, last_name)')
@@ -271,4 +271,25 @@ export async function checkIfoCollision(
     subject: hit.subject?.name || '',
     at: PERIOD_LABEL[hit.period] || String(hit.period),
   }
+}
+
+// Свързва предмет от учебния план (името от НЕИСПУО) с предмет в EIS — важи за всички и при следващ внос.
+// Ново свързване може да направи всеки служител от редактора; вече направено — само управата го сменя.
+export async function linkCurriculumSubject(source: string, subjectId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+  const { data: me } = await supabase.from('staff_profiles').select('id, role').eq('user_id', user.id).single()
+  if (!me) return { error: 'Няма профил' }
+  if (!source.trim() || !subjectId) return { error: 'Липсва предмет' }
+  const admin = createAdminClient()
+  const { data: prev } = await admin.from('curriculum_name_map').select('target_id')
+    .eq('kind', 'subject').eq('source_name', source).maybeSingle()
+  if (prev && prev.target_id !== subjectId && !['admin', 'zdud', 'director'].includes(me.role || '')) {
+    return { error: 'Предметът вече е свързан — смяна може да направи само управата' }
+  }
+  const { error } = await admin.from('curriculum_name_map')
+    .upsert({ kind: 'subject', source_name: source, target_id: subjectId }, { onConflict: 'kind,source_name' })
+  if (error) return { error: /check constraint|kind/i.test(error.message) ? 'Пуснете SQL файла 2026-10-07_curriculum_subject_map.sql' : error.message }
+  return { success: true }
 }
