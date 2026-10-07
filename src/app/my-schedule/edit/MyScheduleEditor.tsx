@@ -322,7 +322,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">По учебния план (НЕИСПУО) · {term === 2 ? 'II' : 'I'} срок — избери час и цъкай в клетките</div>
             {planCheck.planH > 0 && (
               <div className={`text-xs font-medium ${planCheck.doneH >= planCheck.planH ? 'text-emerald-600' : 'text-slate-500'}`}>
-                наредени {fmt(planCheck.doneH)} от {fmt(planCheck.planH)} ч.
+                {planCheck.doneH >= planCheck.planH ? 'всичко по плана е наредено' : `остават ${fmt(planCheck.planH - planCheck.doneH)} от ${fmt(planCheck.planH)} ч.`}
               </div>
             )}
           </div>
@@ -351,8 +351,9 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
                     </div>
                     <div className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${info ? 'bg-slate-100 text-slate-500'
                       : state === 'over' ? 'bg-amber-100 text-amber-800' : state === 'done' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}
-                      title={info ? 'часове седмично по плана' : 'наредени / по плана (ч. седмично)'}>
-                      {info ? `${fmt(c.hours)} ч.` : <>{n}/{fmt(c.hours)}{state === 'done' && <Check size={11} className="inline ml-0.5 -mt-0.5" />}</>}
+                      title={info ? 'часове седмично по плана' : `наредени ${n} от ${fmt(c.hours)} ч. седмично по плана`}>
+                      {info ? `${fmt(c.hours)} ч.` : state === 'done' ? <><Check size={11} className="inline -mt-0.5" /> готово</>
+                        : state === 'over' ? `+${fmt(n - c.hours)} над плана` : `остават ${fmt(c.hours - n)}`}
                     </div>
                   </div>
                   {c.note && <div className="text-[11px] text-slate-400 mt-0.5">{c.note}</div>}

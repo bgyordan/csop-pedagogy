@@ -6,6 +6,7 @@ import { getFullName } from '@/lib/utils'
 import { MyScheduleView } from './MyScheduleView'
 import EducatorScheduleView from './EducatorScheduleView'
 import ScheduleTabs from './ScheduleTabs'
+import { isScheduleLocked } from '@/lib/curriculum'
 export const dynamic = 'force-dynamic'
 
 export default async function MySchedulePage({
@@ -82,9 +83,12 @@ export default async function MySchedulePage({
   // Свое: учител/класен, управата (и тя има преподавателска заетост) и всеки с часове в паралелки по учебния план
   const { count: planCount } = await supabase.from('curriculum_lines').select('id', { count: 'exact', head: true })
     .eq('academic_year_id', currentYear?.id).eq('staff_id', target.id).not('class_id', 'is', null)
+  // утвърдено разписание за срока — учителите само гледат, управата продължава да редактира
+  const lock = await isScheduleLocked(supabase, currentYear?.id, term)
+  const meManager = ['admin', 'zdud', 'director'].includes(me.role)
   const canEdit = viewingOther
-    ? ['admin', 'zdud', 'director'].includes(me.role)
-    : me.role !== 'educator' && (['class_teacher', 'teacher', 'admin', 'zdud', 'director'].includes(me.role) || (planCount || 0) > 0)
+    ? meManager
+    : me.role !== 'educator' && (!lock || meManager) && (['class_teacher', 'teacher', 'admin', 'zdud', 'director'].includes(me.role) || (planCount || 0) > 0)
   const editHref = `/my-schedule/edit${[viewingOther ? `staff=${target.id}` : '', term === 2 ? 'term=2' : ''].filter(Boolean).join('&').replace(/^./, m => '?' + m)}`
 
   const isEducator = target.role === 'educator'
@@ -115,6 +119,11 @@ export default async function MySchedulePage({
           <p className="text-slate-500 text-sm mt-0.5">{target.first_name} {target.last_name} · {currentYear?.name}</p>
         </div>
       </div>
+      {lock && !isEducator && (
+        <div className="mb-4 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
+          Разписанието за {term === 2 ? 'II' : 'I'} срок е утвърдено{lock.by ? ` (${lock.by}, ${new Date(lock.locked_at).toLocaleDateString('bg-BG')})` : ''}{meManager ? ' — управата може да го променя.' : ' — промени само чрез управата.'}
+        </div>
+      )}
       {!isEducator && (
         <ScheduleTabs current="mine" classes={myClasses} staffId={viewingOther ? target.id : undefined} term={term} editHref={canEdit ? editHref : undefined} />
       )}
