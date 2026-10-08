@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { CalendarDays, Clock, FileText, Loader2 } from 'lucide-react'
 import { generateStaffSchedule } from '@/lib/docx-generator'
-import { PERIOD_TIMES, PERIOD_LABEL } from '@/lib/periods'
+import { PERIOD_TIMES, PERIOD_LABEL, AFTERNOON_PERIODS } from '@/lib/periods'
 interface Slot {
   source: 'class' | 'ifo'
   day: number
@@ -45,7 +45,7 @@ export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId
   const pulloutCount = all.filter(s => w(s) < 1).length
   const normOk = weighted >= NORM
   const maxP = all.reduce((m, s) => Math.max(m, s.period), 0)
-  const PERIODS = [1, 2, 3, 4, 5, 6, ...(all.some(s => s.period === 7) ? [7] : []), ...(maxP >= 8 ? [8, 9, 10, 11, 12] : [])]
+  const PERIODS = [1, 2, 3, 4, 5, 6, ...(all.some(s => s.period === 7) ? [7] : []), ...(maxP >= 8 ? AFTERNOON_PERIODS : [])]
   const at = (day: number, period: number) => all.filter(s => s.day === day && s.period === period)
 
   async function handleWord() {

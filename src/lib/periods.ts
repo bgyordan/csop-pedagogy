@@ -1,5 +1,5 @@
 // ЕДИННА номерация на учебните часове (разписания на паралелки, ИФО, ЦОУД, замествания, терапевти):
-// 1–7 = сутрешни часове; 8–12 = следобедни ИФО часове („ИФО 1“–„ИФО 5“);
+// 1–7 = сутрешни часове; 8–13 = следобедни ИФО часове („ИФО 1“–„ИФО 6“);
 // 21–26 = ЦОУД блоковете на възпитателите („ЦОУД 1“–„ЦОУД 6“). В educator_slots се пазят като 1–6 → coudPeriod(p).
 // Номерът НЕ е час от деня — сравнявай по start/end (минути от полунощ).
 export interface PeriodDef { n: number; label: string; time: string; start: number; end: number; afternoon: boolean }
@@ -18,6 +18,7 @@ export const PERIOD_DEFS: PeriodDef[] = [
   { n: 10, label: 'ИФО 3', time: '13:55–14:25', start: t(13, 55), end: t(14, 25), afternoon: true },
   { n: 11, label: 'ИФО 4', time: '14:30–15:00', start: t(14, 30), end: t(15, 0), afternoon: true },
   { n: 12, label: 'ИФО 5', time: '15:05–15:35', start: t(15, 5), end: t(15, 35), afternoon: true },
+  { n: 13, label: 'ИФО 6', time: '15:40–16:10', start: t(15, 40), end: t(16, 10), afternoon: true },
   { n: 21, label: 'ЦОУД 1', time: '12:25–13:00', start: t(12, 25), end: t(13, 0), afternoon: true },
   { n: 22, label: 'ЦОУД 2', time: '13:20–13:55', start: t(13, 20), end: t(13, 55), afternoon: true },
   { n: 23, label: 'ЦОУД 3', time: '14:15–14:50', start: t(14, 15), end: t(14, 50), afternoon: true },
