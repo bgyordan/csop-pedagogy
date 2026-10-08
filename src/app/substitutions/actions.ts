@@ -572,3 +572,49 @@ export async function checkSubstituteOverlap(absentId: string, parts: { staffId:
   }
   return { conflicts: out, total }
 }
+
+// Изтрива заместване докрай и проверява, че е изтрито (досега грешка от базата оставаше незабелязана):
+//  • разпределението по дни (substitution_assignments);
+//  • заповедта РД-08: ако е без качен файл — номерът става „резервиран“ в регистъра (за друг документ);
+//    ако има качен (подписан) файл — остава, само се отвързва;
+//  • самото заместване.
+export async function deleteSubstitution(substitutionId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+  const { data: me } = await supabase.from('staff_profiles').select('role').eq('user_id', user.id).single()
+  if (!['admin', 'zdud', 'director', 'secretary'].includes(me?.role || '')) return { error: 'Нямате права' }
+
+  const { data: sub } = await supabase.from('substitutions')
+    .select('id, date_from, date_to, substitution_order_id, absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name)')
+    .eq('id', substitutionId).maybeSingle()
+  if (!sub) return { error: 'Заместването не е намерено (може вече да е изтрито)' }
+
+  const { error: aErr } = await supabase.from('substitution_assignments').delete().eq('substitution_id', substitutionId)
+  if (aErr) return { error: 'Разпределението по дни не се изтри: ' + aErr.message }
+
+  let orderNote = ''
+  if (sub.substitution_order_id) {
+    const { data: o } = await supabase.from('orders').select('id, number, file_url').eq('id', sub.substitution_order_id).maybeSingle()
+    const { error: uErr } = await supabase.from('substitutions').update({ substitution_order_id: null }).eq('id', substitutionId)
+    if (uErr) return { error: 'Заповедта не се отвърза: ' + uErr.message }
+    if (o && !o.file_url) {
+      const who = sub.absent ? `${(sub.absent as any).first_name} ${(sub.absent as any).last_name}` : ''
+      const d = (x: string) => x.split('-').reverse().join('.')
+      await supabase.from('orders').update({
+        is_reserved: true, title: 'Резервиран номер', without_hours: false,
+        description: `Освободен — изтрито заместване на ${who}, ${d(sub.date_from)}–${d(sub.date_to)}`,
+      }).eq('id', o.id)
+      orderNote = `Заповед № ${o.number} е освободена като резервиран номер.`
+    } else if (o) {
+      orderNote = `Заповед № ${o.number} остава в регистъра (има качен файл).`
+    }
+  }
+
+  const { data: gone, error } = await supabase.from('substitutions').delete().eq('id', substitutionId).select('id')
+  if (error) return { error: 'Заместването не се изтри: ' + error.message }
+  if (!gone || gone.length === 0) return { error: 'Заместването не се изтри (няма права за изтриване в базата)' }
+  revalidatePath('/substitutions')
+  revalidatePath('/lecturer-review')
+  return { success: true, orderNote }
+}

@@ -4,7 +4,7 @@ import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Pencil, Trash2, ChevronDown, Download } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { generateSubstitution, getAssignments, saveAssignments, checkSubstituteOverlap } from './actions'
+import { generateSubstitution, getAssignments, saveAssignments, checkSubstituteOverlap, deleteSubstitution } from './actions'
 import { generateSubstitutionOrder } from '@/lib/docx-substitution'
 import SubstituteDayCanvas, { PALETTE } from './SubstituteDayCanvas'
 import type { SubRow } from './page'
@@ -415,10 +415,13 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
 
   async function del() {
     if (!editId) return
-    if (!confirm('Изтрий това заместване?')) return
-    await supabase.from('substitutions').delete().eq('id', editId)
+    const row = rows.find(x => x.id === editId)
+    if (!confirm(`Изтрий това заместване?${(row as any)?.hasOrder ? '\nЗаповедта към него се освобождава като резервиран номер в регистъра (ако няма качен файл).' : ''}`)) return
+    // на сървъра: разпределение, заповед и самото заместване — с проверка, че наистина е изтрито
+    const res: any = await deleteSubstitution(editId)
+    if (res?.error) { toast(res.error, 'error'); return }
     setRows(prev => prev.filter(x => x.id !== editId))
-    toast('Изтрито')
+    toast(res.orderNote ? `Изтрито. ${res.orderNote}` : 'Изтрито')
     closeEdit()
   }
 
