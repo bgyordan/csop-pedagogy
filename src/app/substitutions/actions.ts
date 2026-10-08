@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { isPedagogical } from '@/lib/pedagogues'
 import { checkDeclarablePeriod } from '@/lib/declaration-periods'
+import { loadLecturerRates, effectiveRates } from '@/lib/lecturer-rates'
 import { coudPeriod, periodsOverlap, PERIOD_LABEL, PERIOD_TIMES } from '@/lib/periods'
 
 // Днешна дата по българско време (сървърът е в UTC — след полунощ даваше вчерашна дата)
@@ -421,6 +422,7 @@ export async function getMonthlyDeclaration(first: string, last: string) {
       periodFrom: first, periodTo: last,
       monthName: `периода ${first.split('-').reverse().join('.')} – ${last.split('-').reverse().join('.')}`, year: new Date(first).getFullYear(), yearName: cy?.name || '',
       rows, totalHours, npHours, budgetHours,
+      rate: effectiveRates(await loadLecturerRates(supabase)).sub,   // ставка €/час — попълва реда в бюджетната декларация
     },
   }
 }

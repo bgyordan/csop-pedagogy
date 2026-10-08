@@ -347,6 +347,13 @@ export async function generateSubstitutionDeclaration(d: SubstDeclData) {
   saveAs(blob, `справка_декларация_НП_${d.substituteName.replace(/\s+/g, '_')}.docx`)
 }
 
+// Ред „… часа по X евро на час – … евро“: с ставка — попълнен; без — трите празни реда от образеца
+const eurD = (v: number) => v.toFixed(2).replace('.', ',')
+function rateLines(total: number, rate: number | undefined, sep: string) {
+  if (rate && rate > 0) return [`${total} часа по ${eurD(rate)} евро на час ${sep} ${eurD(total * rate)} евро;`]
+  return ['6,29', '5,16', '4,62'].map(r => `………… часа по ${r} евро на час ${sep} …………………… евро;`)
+}
+
 export interface SubstInternalDeclData {
   substituteName: string
   subjectLabel: string
@@ -357,6 +364,7 @@ export interface SubstInternalDeclData {
   yearName: string
   rows: { date: string; cls: string; subject: string; hours: number }[]
   totalHours: number
+  rate?: number            // ставка €/час (lecturer_rates) — попълва реда; без нея — празните редове по образец
 }
 
 export async function generateSubstitutionInternalDecl(d: SubstInternalDeclData) {
@@ -395,10 +403,9 @@ export async function generateSubstitutionInternalDecl(d: SubstInternalDeclData)
   children.push(new Paragraph({ text: '', spacing: { after: 120 } }))
 
   children.push(new Paragraph({ children: [normal('Общ брой учебни часове: ', 22), bold(String(d.totalHours), 22)], spacing: { after: 80 } }))
-  children.push(new Paragraph({ children: [normal('………… часа по 6,29 евро на час — …………………… евро;', 22)] }))
-  children.push(new Paragraph({ children: [normal('………… часа по 5,16 евро на час — …………………… евро;', 22)] }))
-  children.push(new Paragraph({ children: [normal('………… часа по 4,62 евро на час — …………………… евро;', 22)] }))
-  children.push(new Paragraph({ children: [normal('/ попълва се от декларатор / учител /', 19)], spacing: { after: 120 } }))
+  rateLines(d.totalHours, d.rate, '—').forEach(l => children.push(new Paragraph({ children: [normal(l, 22)] })))
+  if (!d.rate) children.push(new Paragraph({ children: [normal('/ попълва се от декларатор / учител /', 19)], spacing: { after: 120 } }))
+  else children.push(new Paragraph({ text: '', spacing: { after: 120 } }))
 
   children.push(new Paragraph({ children: [normal('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося наказателна отговорност съгласно законите на Република България.', 20)], spacing: { after: 200 } }))
 
@@ -421,6 +428,7 @@ export interface LecturerDeclData {
   orderRef: string         // "Заповед № …"
   rows: { date: string; group: string; subject: string; hours: number }[]
   totalHours: number
+  rate?: number            // ставка €/час (lecturer_rates) — попълва реда; без нея — празните редове по образец
 }
 
 export async function generateLecturerDeclaration(d: LecturerDeclData) {
@@ -453,9 +461,7 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
   children.push(new Paragraph({ text: '', spacing: { after: 60 } }))
 
   children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [normal('Общ брой учебни часове: ', 22), bold(String(d.totalHours), 22)], spacing: { after: 160 } }))
-  children.push(new Paragraph({ children: [normal('………… часа по 6,29 евро на час - …………………… евро;', 22)] }))
-  children.push(new Paragraph({ children: [normal('………… часа по 5,16 евро на час - …………………… евро;', 22)] }))
-  children.push(new Paragraph({ children: [normal('………… часа по 4,62 евро на час - …………………… евро;', 22)], spacing: { after: 200 } }))
+  rateLines(d.totalHours, d.rate, '-').forEach((l, i, a) => children.push(new Paragraph({ children: [normal(l, 22)], spacing: i === a.length - 1 ? { after: 200 } : undefined })))
 
   children.push(new Paragraph({ children: [normal('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося наказателна отговорност съгласно законите на Република България.', 20)], spacing: { after: 200 } }))
 
@@ -484,6 +490,7 @@ export interface MonthlyDeclData {
   totalHours: number
   periodFrom?: string
   periodTo?: string
+  rate?: number            // ставка €/час за заместване от бюджета (lecturer_rates)
 }
 
 // НП вариант (само НП редове) — точно по бланката Приложение № 2 (Times New Roman 12, полета и таблица като образеца)
@@ -635,8 +642,8 @@ export async function generateMonthlyBudgetDeclaration(d: MonthlyDeclData) {
   children.push(new Table({ width: { size: TEXT_W, type: WidthType.DXA }, columnWidths: COLS, layout: TableLayoutType.FIXED, rows: trows }))
 
   children.push(P([t('Общ брой учебни часове: '), t(String(total), { bold: true })], { alignment: AlignmentType.RIGHT, spacing: { before: 240, after: 160 } }))
-  ;['6,29', '5,16', '4,62'].forEach(r => children.push(P([t(`………… часа по ${r} евро на час - ………………………… евро;`)], { spacing: { after: 100 } })))
-  children.push(P([small('/ попълва се от декларатор/учител /')], { indent: { left: 1000 }, spacing: { after: 160 } }))
+  rateLines(total, d.rate, '-').forEach(l => children.push(P([t(l)], { spacing: { after: 100 } })))
+  if (!d.rate) children.push(P([small('/ попълва се от декларатор/учител /')], { indent: { left: 1000 }, spacing: { after: 160 } }))
 
   children.push(P([t('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося наказателна отговорност съгласно законите на Република България.')], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 200 } }))
 
@@ -826,8 +833,9 @@ export async function generateLecturerFrameworkOrder(d: LecturerFrameworkData, m
 export interface LecturerPaymentData {
   periodLabel: string          // напр. „октомври 2026 г.“
   yearName: string
-  rateBudget: number           // 6,29 € — ВПРЗ чл. 10, ал. 2, т. 1
-  rateNp: number               // 7,38 € — НП „Без свободен час“
+  rateOver: number             // над норматив, €/час (lecturer_rates)
+  rateSub: number              // заместване от бюджета, €/час
+  rateNp: number               // заместване по НП „Без свободен час“, €/час
   rows: { name: string; position: string; overNorm: number; budgetSub: number; np: number }[]
 }
 export async function generateLecturerPaymentOrder(d: LecturerPaymentData) {
@@ -858,14 +866,16 @@ export async function generateLecturerPaymentOrder(d: LecturerPaymentData) {
 
   if (budget.length > 0) {
     children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
-      normal(`${pt++}. Да се изплатят лекторски часове (над норматива и по заместване) за ${d.periodLabel} по ставка ${eur(d.rateBudget)} € за час, както следва:`, 22),
+      normal(`${pt++}. Да се изплатят лекторски часове (над норматива и по заместване) за ${d.periodLabel} ${d.rateOver === d.rateSub
+        ? `по ставка ${eur(d.rateOver)} € за час`
+        : `по ставки ${eur(d.rateOver)} € за час над норматива и ${eur(d.rateSub)} € за час заместване`}, както следва:`, 22),
     ] }))
     const rows: TableRow[] = [new TableRow({ tableHeader: true, children: [
       th('№'), th('Име и фамилия'), th('Длъжност'), th('Над норматив, ч.'), th('Заместване, ч.'), th('Общо, ч.'), th('Сума, €'),
     ] })]
     let tH = 0, tS = 0
     budget.forEach((r, i) => {
-      const h = r.overNorm + r.budgetSub, sum = h * d.rateBudget
+      const h = r.overNorm + r.budgetSub, sum = r.overNorm * d.rateOver + r.budgetSub * d.rateSub
       tH += h; tS += sum
       rows.push(new TableRow({ children: [
         td(String(i + 1)), td(r.name, 'l'), td(r.position, 'l'), td(String(r.overNorm || '–')), td(String(r.budgetSub || '–')), td(String(h)), td(eur(sum), 'r'),

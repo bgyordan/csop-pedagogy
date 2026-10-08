@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
 import { GraduationCap } from 'lucide-react'
 import MyLecturerClient from './MyLecturerClient'
+import { loadLecturerRates, effectiveRates } from '@/lib/lecturer-rates'
 export const dynamic = 'force-dynamic'
 
 export default async function MyLecturerPage() {
@@ -58,6 +59,7 @@ export default async function MyLecturerPage() {
         slots={mySlots}
         declarations={declarations}
         suggestFrom={suggestFrom}
+        rate={effectiveRates(await loadLecturerRates(supabase)).over}
       />
     </div>
   )
