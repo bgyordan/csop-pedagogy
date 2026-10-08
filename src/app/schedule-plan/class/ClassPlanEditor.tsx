@@ -191,6 +191,7 @@ export default function ClassPlanEditor({ classId, term, classes, cards: initial
                       {c.place === 'ich' && <span className="mr-1 text-[10px] px-1.5 py-0.5 rounded bg-violet-50 border border-violet-200 text-violet-700">ИЧ</span>}
                       {c.subject}
                       {c.kind && c.kind !== 'ЗП' && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded border bg-slate-50 border-slate-200 text-slate-600">{c.kind}</span>}
+                        {c.h1 !== c.h2 && <span title="Часове по срокове: I срок – II срок" className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded border bg-amber-50 border-amber-200 text-amber-800 tabular-nums">{fmt(c.h1)}-{fmt(c.h2)}</span>}
                     </div>
                     <div className="text-[11px] text-slate-500 truncate">{c.teacher || 'без учител'}</div>
                   </div>

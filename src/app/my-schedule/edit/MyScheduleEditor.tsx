@@ -350,6 +350,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
                       <div className="text-sm text-slate-800 leading-snug break-words">
                         {c.subject}
                         {c.kind && c.kind !== 'ЗП' && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded border bg-slate-50 border-slate-200 text-slate-600">{c.kind}</span>}
+                        {c.h1 !== c.h2 && <span title="Часове по срокове: I срок – II срок" className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded border bg-amber-50 border-amber-200 text-amber-800 tabular-nums">{fmt(c.h1)}-{fmt(c.h2)}</span>}
                       </div>
                     </div>
                     <div className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${info ? 'bg-slate-100 text-slate-500'
