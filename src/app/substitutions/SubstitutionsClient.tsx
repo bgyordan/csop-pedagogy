@@ -319,8 +319,22 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
 
   function resetMulti() { setMultiOpen(false); setDayMap({}); setSchoolDays([]); setPendingRanges(null) }
 
+  // Един отсъстващ — едно заместване за дадени дни: застъпващ се запис би удвоил часовете (лекторски, декларации, НП).
+  // Връща текст за грешката или '' ако няма застъпване.
+  async function overlapMsg(absent: string, f: string, t: string, exceptId?: string) {
+    let q = supabase.from('substitutions').select('id, date_from, date_to, reason').eq('absent_staff_id', absent).lte('date_from', t).gte('date_to', f)
+    if (exceptId) q = q.neq('id', exceptId)
+    const { data } = await q
+    if (!data || data.length === 0) return ''
+    const d = (x: string) => x.split('-').reverse().join('.')
+    const list = data.map((x: any) => `${d(x.date_from)}–${d(x.date_to)}${x.reason === 'sick' ? ' (болничен)' : x.reason === 'vacation' ? ' (отпуск)' : ''}`).join(', ')
+    return `За този служител вече има заместване за ${list}. Редактирайте съществуващото (смяна на основанието, дните или заместника), вместо да въвеждате ново.`
+  }
+
   async function saveNew() {
     if (!absentId || !from || !to) { toast('Отсъстващ и срок са задължителни', 'error'); return }
+    const dup = await overlapMsg(absentId, from, to)
+    if (dup) { toast(dup, 'error'); return }
     setSaving(true)
     const primary = multiOpen ? firstOwner(dayMap, schoolDays) : subId
     const { data, error } = await supabase.from('substitutions').insert({
@@ -378,6 +392,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
 
   async function saveEdit() {
     if (!editId || !eAbsent || !eFrom || !eTo) { toast('Отсъстващ и срок са задължителни', 'error'); return }
+    const dup = await overlapMsg(eAbsent, eFrom, eTo, editId)
+    if (dup) { toast(dup, 'error'); return }
     setESaving(true)
     const primary = multiOpen ? firstOwner(dayMap, schoolDays) : eSub
     const { data, error } = await supabase.from('substitutions').update({
