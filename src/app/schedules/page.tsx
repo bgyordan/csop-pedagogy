@@ -134,9 +134,12 @@ export default async function SchedulesPage({
   let therapists: any[] = []
   if (tab === 'therapists') {
     const { data: staff } = await supabase
-      .from('staff_profiles').select('id, first_name, last_name, role, is_active')
-      .in('role', ['psychologist', 'speech_therapist', 'rehabilitator']).order('first_name')
+      .from('staff_profiles').select('id, first_name, last_name, role, therapy_role, is_active')
+      .or('role.in.(psychologist,speech_therapist,rehabilitator),therapy_role.in.(psychologist,speech_therapist,rehabilitator)').order('first_name')
+    // с втора, терапевтична роля (напр. ЗДУД + логопед) — по нея
+    const TH = ['psychologist', 'speech_therapist', 'rehabilitator']
     const activeStaff = (staff || []).filter((s: any) => s.is_active !== false)
+      .map((s: any) => TH.includes(s.role) ? s : { ...s, role: s.therapy_role })
     const { data: allStud } = await supabase
       .from('students').select('therapist_psychologist_id, therapist_speech_id, therapist_rehab_id, therapist_rehab2_id, status').eq('status', 'active')
     const roleField: Record<string, string> = { psychologist: 'therapist_psychologist_id', speech_therapist: 'therapist_speech_id', rehabilitator: 'therapist_rehab_id' }

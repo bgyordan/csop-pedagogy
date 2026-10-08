@@ -18,10 +18,12 @@ export default async function MyActivitiesPage() {
   if (!user) redirect('/auth/login')
 
   const { data: profile } = await supabase
-    .from('staff_profiles').select('id, role, first_name, last_name').eq('user_id', user.id).single()
+    .from('staff_profiles').select('id, role, therapy_role, first_name, last_name').eq('user_id', user.id).single()
   if (!profile) redirect('/dashboard')
+  // терапевтичната роля: основната, ако е терапевтична, иначе втората (напр. ЗДУД + логопед)
+  const tRole: string = ROLE_FIELD[profile.role] ? profile.role : ((profile as any).therapy_role || profile.role)
 
-  const field = ROLE_FIELD[profile.role]
+  const field = ROLE_FIELD[tRole]
 
   // Само за терапевтичните роли
   if (!field) {
@@ -63,8 +65,8 @@ export default async function MyActivitiesPage() {
   })
 
   // Кое поле да гледам според моята роля
-  const myKey = profile.role === 'psychologist' ? 'psych'
-    : profile.role === 'speech_therapist' ? 'speech' : 'rehab'
+  const myKey = tRole === 'psychologist' ? 'psych'
+    : tRole === 'speech_therapist' ? 'speech' : 'rehab'
 
   const nameOf = (p: any) => `${p.first_name} ${p.last_name}`
   const rows = (students || []).map((s: any) => {
@@ -100,11 +102,11 @@ export default async function MyActivitiesPage() {
       <div className="mb-6">
         <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Списък за терапия</h1>
         <p className="text-slate-500 text-sm mt-1">
-          {ROLE_LABELS[profile.role as keyof typeof ROLE_LABELS]} · {currentYear?.name}
+          {ROLE_LABELS[tRole as keyof typeof ROLE_LABELS]} · {currentYear?.name}
         </p>
       </div>
 
-      <MyActivitiesClient rows={rows} roleLabel={ROLE_LABELS[profile.role as keyof typeof ROLE_LABELS] || ''} yearName={currentYear?.name || ''} term={1} teacherName={`${profile.first_name} ${profile.last_name}`} />
+      <MyActivitiesClient rows={rows} roleLabel={ROLE_LABELS[tRole as keyof typeof ROLE_LABELS] || ''} yearName={currentYear?.name || ''} term={1} teacherName={`${profile.first_name} ${profile.last_name}`} />
     </div>
   )
 }

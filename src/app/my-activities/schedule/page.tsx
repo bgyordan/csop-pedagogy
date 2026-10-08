@@ -32,7 +32,7 @@ export default async function TherapistSchedulePage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
   const { data: me } = await supabase
-    .from('staff_profiles').select('id, role, first_name, last_name').eq('user_id', user.id).single()
+    .from('staff_profiles').select('id, role, therapy_role, first_name, last_name').eq('user_id', user.id).single()
   if (!me) redirect('/dashboard')
 
   // Целеви терапевт: ако е подаден staff и аз съм admin/zdud/director → онзи; иначе аз.
@@ -42,13 +42,15 @@ export default async function TherapistSchedulePage({
   if (staffParam && staffParam !== me.id) {
     if (!isManager) redirect('/dashboard')
     const { data: other } = await supabase
-      .from('staff_profiles').select('id, role, first_name, last_name').eq('id', staffParam).single()
+      .from('staff_profiles').select('id, role, therapy_role, first_name, last_name').eq('id', staffParam).single()
     if (!other) redirect('/schedules?tab=therapists')
     target = other
     viewingOther = true
   }
 
-  const field = ROLE_FIELD[target.role]
+  // терапевтичната роля: основната, ако е терапевтична, иначе втората (напр. ЗДУД + логопед)
+  const tRole: string = ROLE_FIELD[target.role] ? target.role : ((target as any).therapy_role || target.role)
+  const field = ROLE_FIELD[tRole]
   if (!field) {
     // целевият не е терапевт
     if (viewingOther) redirect('/schedules?tab=therapists')
@@ -168,14 +170,14 @@ export default async function TherapistSchedulePage({
       <div className="mb-6">
         <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Седмичен график</h1>
         <p className="text-slate-500 text-sm mt-1">
-          {target.first_name} {target.last_name} · {ROLE_LABELS[target.role as keyof typeof ROLE_LABELS]} · {currentYear?.name}
+          {target.first_name} {target.last_name} · {ROLE_LABELS[tRole as keyof typeof ROLE_LABELS]} · {currentYear?.name}
         </p>
       </div>
       <TherapistScheduleGrid
         academicYearId={currentYear?.id || ''}
         term={term}
         specialistName={`${target.first_name} ${target.last_name}`}
-        roleLabel={ROLE_LABELS[target.role as keyof typeof ROLE_LABELS] || ''}
+        roleLabel={ROLE_LABELS[tRole as keyof typeof ROLE_LABELS] || ''}
         students={students}
         studentSchedule={studentSchedule}
         takenByOthers={takenByOthers}

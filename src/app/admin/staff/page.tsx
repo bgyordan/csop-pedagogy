@@ -28,6 +28,7 @@ const EMPTY_FORM = {
   first_name: '', middle_name: '', last_name: '',
   role: 'class_teacher' as UserRole,
   position: '',   // длъжност (в заповедите); празно — по ролята
+  therapyRole: '', // втора, терапевтична роля (напр. ЗДУД + логопед): '', psychologist, speech_therapist, rehabilitator
   email: '', phone: '',
 }
 
@@ -106,6 +107,7 @@ export default function AdminStaffPage() {
       last_name: s.last_name,
       role: s.role,
       position: s.position || '',
+      therapyRole: s.therapy_role || '',
       email: s.email,
       phone: s.phone || '',
     })
@@ -136,6 +138,8 @@ export default function AdminStaffPage() {
       role: form.role,
       // длъжността се пише в заповедите; ако не е попълнена — както ролята
       position: form.position.trim() || ROLE_LABELS[form.role],
+      // втора роля има смисъл само ако основната не е същата терапевтична
+      therapy_role: form.therapyRole && form.therapyRole !== form.role ? form.therapyRole : null,
       email: form.email,
       phone: form.phone || null,
     }
@@ -457,6 +461,16 @@ export default function AdminStaffPage() {
             <input className="input" value={form.position} placeholder={ROLE_LABELS[form.role]}
               onChange={e => setForm(p => ({ ...p, position: e.target.value }))} />
             <p className="text-[11px] text-slate-400 mt-1">Напр. „ЗДАСД“ при роля Администратор. Празно — както ролята.</p>
+          </div>
+          <div>
+            <label className="label">Втора роля (терапия)</label>
+            <select className="input" value={form.therapyRole} onChange={e => setForm(p => ({ ...p, therapyRole: e.target.value }))}>
+              <option value="">— няма —</option>
+              <option value="psychologist">Психолог</option>
+              <option value="speech_therapist">Логопед</option>
+              <option value="rehabilitator">Рехабилитатор</option>
+            </select>
+            <p className="text-[11px] text-slate-400 mt-1">Напр. ЗДУД, който е и логопед: вижда „Списък за терапия“ и графика на терапиите, без да губи менюто на основната роля.</p>
           </div>
           {editing && form.role === 'class_teacher' && (
             <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200">
