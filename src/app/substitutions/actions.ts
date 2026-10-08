@@ -427,10 +427,12 @@ export async function getMonthlyDeclaration(first: string, last: string) {
   }
 }
 // ── МОН ОТЧЕТ (НП „Без свободен час") — всички НП замествания за период, редове за импорт ──
-export async function getMonExport(first: string, last: string, rate: number) {
+// Ставката — заместване по НП от „Проверка лекторски“ (lecturer_rates), не от избор в страницата
+export async function getMonExport(first: string, last: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли' }
+  const rate = effectiveRates(await loadLecturerRates(supabase)).np
   const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
 
   // всички НП замествания, застъпващи периода
