@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
 import { BookOpenCheck } from 'lucide-react'
 import CurriculumClient from './CurriculumClient'
+import { fetchAll } from '@/lib/supabase/fetch-all'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,7 +20,7 @@ export default async function CurriculumPage() {
     supabase.from('coud_groups').select('id, name').eq('academic_year_id', cy?.id),
     supabase.from('staff_profiles').select('id, first_name, last_name, is_active'),
     supabase.from('curriculum_name_map').select('kind, source_name, target_id'),
-    supabase.from('curriculum_lines').select('*').eq('academic_year_id', cy?.id).order('holder_label').range(0, 4999),
+    fetchAll(() => supabase.from('curriculum_lines').select('*').eq('academic_year_id', cy?.id).order('holder_label').order('id')),
   ])
 
   return (

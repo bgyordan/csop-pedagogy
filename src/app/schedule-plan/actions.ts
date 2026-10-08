@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { periodsOverlap, PERIOD_LABEL } from '@/lib/periods'
+import { fetchAll } from '@/lib/supabase/fetch-all'
 
 const DAYS_BG = ['', 'пон', 'вт', 'ср', 'чет', 'пет']
 const hourLabel = (d: number, p: number) => `${DAYS_BG[d]} ${PERIOD_LABEL[p]}${p < 8 ? '. час' : ''}`
@@ -115,15 +116,15 @@ export async function copySchoolTerm1To2() {
   const load = async (ids: string[]) => {
     const out: any[] = []
     for (let i = 0; i < ids.length; i += 100) {
-      const { data } = await supabase.from('schedule_slots').select('schedule_id, day, period, subject_id, staff_id, is_group')
-        .in('schedule_id', ids.slice(i, i + 100)).range(0, 9999)
+      const { data } = await fetchAll(() => supabase.from('schedule_slots').select('schedule_id, day, period, subject_id, staff_id, is_group')
+        .in('schedule_id', ids.slice(i, i + 100)).order('id'))
       out.push(...(data || []))
     }
     return out
   }
   const [src, dst] = await Promise.all([load(t1Ids), load(t2Ids)])
-  const { data: ifoAll } = await supabase.from('teacher_ifo_slots')
-    .select('teacher_id, student_id, day, period, subject_id, term').eq('academic_year_id', yearId).range(0, 9999)
+  const { data: ifoAll } = await fetchAll(() => supabase.from('teacher_ifo_slots')
+    .select('teacher_id, student_id, day, period, subject_id, term').eq('academic_year_id', yearId).order('id'))
   const ifo1 = (ifoAll || []).filter((r: any) => r.term === 1), ifo2 = (ifoAll || []).filter((r: any) => r.term === 2)
 
   // заетост във II срок

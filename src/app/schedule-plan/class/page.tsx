@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowLeft, Users } from 'lucide-react'
 import { loadPlanCards, isScheduleLocked } from '@/lib/curriculum'
 import ClassPlanEditor from './ClassPlanEditor'
+import { fetchAll } from '@/lib/supabase/fetch-all'
 export const dynamic = 'force-dynamic'
 
 // „Разписание по план“ → паралелка: управата нарежда всички предмети на паралелката от учебния план;
@@ -50,12 +51,12 @@ export default async function ClassPlanPage({ searchParams }: { searchParams: Pr
     others.forEach((s: any) => { nameOf[s.id] = s.class?.name || '' })
     const ids = Object.keys(nameOf)
     for (let i = 0; i < ids.length; i += 100) {
-      const { data: sl } = await supabase.from('schedule_slots').select('schedule_id, staff_id, day, period')
-        .in('schedule_id', ids.slice(i, i + 100)).in('staff_id', teacherIds).range(0, 9999)
+      const { data: sl } = await fetchAll(() => supabase.from('schedule_slots').select('schedule_id, staff_id, day, period')
+        .in('schedule_id', ids.slice(i, i + 100)).in('staff_id', teacherIds).order('id'))
       ;(sl || []).forEach((r: any) => { (busy[r.staff_id] ||= []).push({ day: r.day, period: r.period, label: `пар. ${nameOf[r.schedule_id]}` }) })
     }
-    const { data: ifo } = await supabase.from('teacher_ifo_slots').select('teacher_id, day, period')
-      .eq('academic_year_id', cy?.id).eq('term', term).in('teacher_id', teacherIds).range(0, 9999)
+    const { data: ifo } = await fetchAll(() => supabase.from('teacher_ifo_slots').select('teacher_id, day, period')
+      .eq('academic_year_id', cy?.id).eq('term', term).in('teacher_id', teacherIds).order('id'))
     ;(ifo || []).forEach((r: any) => { (busy[r.teacher_id] ||= []).push({ day: r.day, period: r.period, label: 'ИЧ' }) })
   }
   const lock = await isScheduleLocked(supabase, cy?.id, term)

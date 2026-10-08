@@ -1,3 +1,4 @@
+import { fetchAll } from '@/lib/supabase/fetch-all'
 // Учебен план от НЕИСПУО — справочен изглед за учител и за паралелка.
 // Чете директно curriculum_lines: при нов внос от НЕИСПУО данните се обновяват сами.
 
@@ -43,10 +44,10 @@ export const TEACHER_NORM: Record<string, number> = { class_teacher: 21, teacher
 export async function loadCurriculum(supabase: any, yearId: string | undefined, by: { staffId?: string; classId?: string; all?: boolean }) {
   if (!yearId || (!by.staffId && !by.classId && !by.all)) return { lines: [] as CurLine[], importedAt: null as string | null }
   const cols = (withMode: boolean) => `id, holder_label, class_id, subject, hours_t1, hours_t2, weeks_t1, weeks_t2, total_hours, teacher_name, staff_id, individual, subject_norm, students, imported_at,${withMode ? ' study_mode,' : ''} class:classes(name), coud:coud_groups(name), staff:staff_profiles!curriculum_lines_staff_id_fkey(first_name, last_name)`
-  const run = (withMode: boolean) => {
+  const run = (withMode: boolean) => fetchAll(() => {
     const q = supabase.from('curriculum_lines').select(cols(withMode)).eq('academic_year_id', yearId)
-    return (by.all ? q : by.staffId ? q.eq('staff_id', by.staffId) : q.eq('class_id', by.classId)).range(0, 4999)
-  }
+    return (by.all ? q : by.staffId ? q.eq('staff_id', by.staffId) : q.eq('class_id', by.classId)).order('id')
+  })
   // study_mode идва с миграцията 2026-10-05; без нея — четем без колоната
   let { data, error } = await run(true)
   if (error && /study_mode/.test(error.message || '')) ({ data, error } = await run(false))
@@ -312,13 +313,13 @@ export async function planProgress(supabase: any, yearId: string | undefined, te
   const ids = Object.keys(clsOf)
   const pool: Record<string, number> = {}
   for (let i = 0; i < ids.length; i += 100) {
-    const { data: sl } = await supabase.from('schedule_slots').select('schedule_id, staff_id, subject_id')
-      .in('schedule_id', ids.slice(i, i + 100)).range(0, 9999)
+    const { data: sl } = await fetchAll(() => supabase.from('schedule_slots').select('schedule_id, staff_id, subject_id')
+      .in('schedule_id', ids.slice(i, i + 100)).order('id'))
     ;(sl || []).forEach((r: any) => { const k = `c|${clsOf[r.schedule_id]}|${r.staff_id}|${r.subject_id}`; pool[k] = (pool[k] || 0) + 1 })
   }
-  const { data: ifo } = await supabase.from('teacher_ifo_slots').select('teacher_id, student_id, subject_id')
-    .eq('academic_year_id', yearId).eq('term', term).range(0, 9999)
-  const { data: enr } = await supabase.from('student_enrollments').select('student_id, class_id').eq('academic_year_id', yearId).range(0, 9999)
+  const { data: ifo } = await fetchAll(() => supabase.from('teacher_ifo_slots').select('teacher_id, student_id, subject_id')
+    .eq('academic_year_id', yearId).eq('term', term).order('id'))
+  const { data: enr } = await fetchAll(() => supabase.from('student_enrollments').select('student_id, class_id').eq('academic_year_id', yearId).order('id'))
   const stCls: Record<string, string> = {}
   ;(enr || []).forEach((e: any) => { stCls[e.student_id] = e.class_id })
   ;(ifo || []).forEach((r: any) => {
