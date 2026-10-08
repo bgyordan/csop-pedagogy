@@ -65,6 +65,8 @@ export default async function DashboardPage() {
   const isDirector = profile.role === 'director'
   const isSpecialist = ['psychologist', 'speech_therapist', 'rehabilitator'].includes(profile.role)
   const isSecretary = profile.role === 'secretary'
+  // втора, терапевтична роля (напр. ЗДУД + логопед) — показва се и таблото на специалиста
+  const therapyRole = !isSpecialist && ['psychologist', 'speech_therapist', 'rehabilitator'].includes(profile.therapy_role || '') ? profile.therapy_role as string : null
   const roleLabel = profile.position || ROLE_LABELS[profile.role] || profile.role
   const isCoordinator = profile.is_coordinator
 
@@ -128,6 +130,12 @@ export default async function DashboardPage() {
         {(profile.role === 'class_teacher' || profile.role === 'teacher') && <ClassTeacherDashboard profile={profile} currentYearId={currentYear.id} />}
         {profile.role === 'educator' && <EducatorDashboard profile={profile} currentYearId={currentYear.id} />}
         {isSecretary && <SecretaryDashboard profile={profile} />}
+        {therapyRole && (
+          <div className="mt-6">
+            <div className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-3">Като {String(ROLE_LABELS[therapyRole as keyof typeof ROLE_LABELS] || therapyRole).toLowerCase()}</div>
+            <SpecialistDashboard profile={{ ...profile, role: therapyRole }} currentYearId={currentYear.id} />
+          </div>
+        )}
       </div>
     </div>
   )
