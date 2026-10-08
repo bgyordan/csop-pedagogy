@@ -80,6 +80,7 @@ export default async function DevelopmentOverviewPage() {
       id: s.id, name: `${s.first_name} ${s.last_name}`, classId: e.class?.id || '', className: e.class?.name || '',
       mine: s.therapist_psychologist_id === me.id, profile: prBy[s.id] || null,
       entry: stage('entry'), mid: stage('mid'), exit: stage('exit'), last: all.length ? all[all.length - 1].assessed_on : null,
+      count: inYear.length,
       targets: tIds.length, rated: lastGas.length, reached: lastGas.filter(v => v >= 0).length, change,
     }
   }).sort((a: OverviewRow, b: OverviewRow) => a.className.localeCompare(b.className, 'bg') || a.name.localeCompare(b.name, 'bg'))
