@@ -4,7 +4,7 @@ import { Loader2, Check, Plus, X, Save, AlertTriangle, Copy, Lock, Unlock } from
 import { useToast } from '@/components/ui/Toast'
 import { saveMySchedule, checkClassCollision, checkIfoCollision, addSubjectQuick, releaseClassSlot, copyMyScheduleFromTerm1, linkCurriculumSubject, type MyCell } from './actions'
 import { PERIOD_TIMES, PERIOD_LABEL, periodsOverlap, AFTERNOON_PERIODS } from '@/lib/periods'
-import { settlePlan, type PlanCard } from '@/lib/curriculum'
+import { settlePlan, subjectCanon, type PlanCard } from '@/lib/curriculum'
 
 type Cls = { id: string; name: string }
 type Stud = { id: string; name: string; classId?: string | null }
@@ -58,7 +58,8 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
     const out: Record<string, string> = {}
     const used = new Set<string>()
     plan.filter(c => c.place === 'ich' && c.subjectId).forEach(c => {
-      const hit = initialSlots.find(s => s.holderType === 'ifo' && s.subjectId === c.subjectId && !used.has(`${s.holderId}|${s.subjectId}`) &&
+      const cn = subjectCanon(subjects)
+      const hit = initialSlots.find(s => s.holderType === 'ifo' && (cn[s.subjectId] || s.subjectId) === c.subjectId && !used.has(`${s.holderId}|${s.subjectId}`) &&
         (!c.classId || students.find(st => st.id === s.holderId)?.classId === c.classId))
       if (hit) { out[c.key] = hit.holderId; used.add(`${hit.holderId}|${hit.subjectId}`) }
     })
@@ -215,7 +216,8 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
 
   // ── Сверка с учебния план: колко часа от всяка карта са наредени, кои клетки са извън плана ──
   const planCheck = useMemo(() => {
-    const cellKey = (v: { holderType: string; holderId: string; subjectId: string }) => `${v.holderType === 'class' ? 'c' : 'i'}|${v.holderId}|${v.subjectId}`
+    const canon = subjectCanon(subjectList)   // дубликатите на предмет — като един
+    const cellKey = (v: { holderType: string; holderId: string; subjectId: string }) => `${v.holderType === 'class' ? 'c' : 'i'}|${v.holderId}|${canon[v.subjectId] || v.subjectId}`
     const cardKey = (c: PlanCard) => !c.subjectId ? '' :
       c.place === 'class' ? `c|${c.classId}|${c.subjectId}` : c.place === 'ich' && ichStudent[c.key] ? `i|${ichStudent[c.key]}|${c.subjectId}` : ''
     const pool: Record<string, number> = {}
@@ -236,7 +238,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
     const doneH = planH - st.left
     const over = placeable.filter(c => st.card[c.key]?.state === 'over')
     return { placed, offPlan, planH, doneH, over, card: st.card, leftH: st.left }
-  }, [grid, cards, ichStudent])
+  }, [grid, cards, ichStudent, subjectList])
   const hasPlan = cards.length > 0
 
   const hasHolders = myClasses.length > 0 || myStudents.length > 0 || cards.some(c => c.place !== 'info')

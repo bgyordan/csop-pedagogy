@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2, Check, X, Plus, AlertTriangle } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { PERIOD_TIMES, PERIOD_LABEL, periodsOverlap } from '@/lib/periods'
-import { settlePlan, type PlanCard } from '@/lib/curriculum'
+import { settlePlan, subjectCanon, type PlanCard } from '@/lib/curriculum'
 import { linkCurriculumSubject, addSubjectQuick } from '@/app/my-schedule/edit/actions'
 import { placeClassSlot, removeClassSlot, relinkSlots } from '../actions'
 
@@ -37,7 +37,8 @@ export default function ClassPlanEditor({ classId, term, classes, cards: initial
 
   // наредени часове по карта: същият учител + предмет в паралелката; еднаквите редове делят по ред
   const check = useMemo(() => {
-    const k = (staffId: string | null, subjectId: string | null) => `${staffId}|${subjectId}`
+    const canon = subjectCanon(subjectList)   // дубликатите на предмет („Арт терапия“ / „Арттерапия“) — като един
+    const k = (staffId: string | null, subjectId: string | null) => `${staffId}|${subjectId ? (canon[subjectId] || subjectId) : subjectId}`
     const pool: Record<string, number> = {}
     slots.forEach(s => { pool[k(s.staffId, s.subjectId)] = (pool[k(s.staffId, s.subjectId)] || 0) + 1 })
     const groups: Record<string, PlanCard[]> = {}
@@ -53,7 +54,7 @@ export default function ClassPlanEditor({ classId, term, classes, cards: initial
     // без половин час в разписанието: 0,5 → 0 или 1; 0,5 + 0,5 на един учител → 1 час (settlePlan)
     const st = settlePlan(cls, placed, c => c.staffId || '')
     return { placed, offPlan, planH, left: st.left, card: st.card, over: cls.filter(c => st.card[c.key]?.state === 'over') }
-  }, [slots, cards])
+  }, [slots, cards, subjectList])
 
   const busyAt = (staffId: string | null, day: number, period: number) =>
     staffId ? (busy[staffId] || []).find(b => b.day === day && periodsOverlap(b.period, period)) : undefined
