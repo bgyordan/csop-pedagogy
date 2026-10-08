@@ -359,8 +359,14 @@ export default function NewCorrespondenceForm({
     if ((isVacation && absentInRegister && leavePeriods.length > 0) || (isNp && absentCanBeSubstituted)) {
       try {
         // отделни дни → по един ред за всеки ден; иначе един ред за периода
-        const periods = leavePeriods.length > 0 ? leavePeriods : [{ from: docDate, to: docDate }]
-        await supabase.from('substitutions').insert(periods.map(p => ({
+        const all = leavePeriods.length > 0 ? leavePeriods : [{ from: docDate, to: docDate }]
+        // без втори запис за дни, за които вече има заместване на същия служител (иначе часовете се удвояват)
+        const { data: existing } = staffId
+          ? await supabase.from('substitutions').select('date_from, date_to').eq('absent_staff_id', staffId)
+              .lte('date_from', all.reduce((a, p) => p.to > a ? p.to : a, all[0].to)).gte('date_to', all.reduce((a, p) => p.from < a ? p.from : a, all[0].from))
+          : { data: [] as any[] }
+        const periods = all.filter(p => !(existing || []).some((e: any) => p.from <= e.date_to && p.to >= e.date_from))
+        if (periods.length > 0) await supabase.from('substitutions').insert(periods.map(p => ({
           absent_staff_id: staffId || null,
           kt_article: ktArticle,
           substitute_staff_id: absentCanBeSubstituted ? (substituteId || null) : null,
