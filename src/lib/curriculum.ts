@@ -261,6 +261,7 @@ export type PlanCard = {
   subject: string           // както е в НЕИСПУО
   subjectId: string | null  // свързаният предмет в EIS (null — още не е свързан)
   hours: number             // часове седмично за срока
+  h1: number; h2: number    // часове по срокове (за „1-0“ / „0-1“)
   kind: StudyKind
   staffId: string | null    // учителят по плана (в EIS)
   teacher: string
@@ -283,15 +284,18 @@ export async function loadPlanCards(supabase: any, yearId: string | undefined, b
   const cards: PlanCard[] = []
   lines.forEach(l => {
     const hours = term === 2 ? l.h2 : l.h1
-    if (!hours) return
+    const other = term === 2 ? l.h1 : l.h2
+    if (!hours && !other) return
     const m = mapped[l.subject]
     const subjectId = (m && known.has(m) ? m : null) || byName[subjKey(l.subject)] || null
     const coud = l.kind === 'ЦОУД' || /цоуд/i.test(l.holder)
-    const place: PlanCard['place'] = coud ? 'info' : l.individual ? 'ich' : l.classId ? 'class' : 'info'
+    // 0 ч. в този срок (часът е в другия: 1-0 / 0-1) — само за справка, не се нарежда и не се брои
+    const offTerm = !hours
+    const place: PlanCard['place'] = offTerm || coud ? 'info' : l.individual ? 'ich' : l.classId ? 'class' : 'info'
     cards.push({
-      key: l.id, place, classId: l.classId, holder: l.holder, subject: l.subject, subjectId, hours, kind: l.kind,
+      key: l.id, place, classId: l.classId, holder: l.holder, subject: l.subject, subjectId, hours, h1: l.h1, h2: l.h2, kind: l.kind,
       staffId: l.staffId, teacher: l.teacher,
-      note: coud ? 'по общото разписание на групите ЦОУД' : place === 'info' ? 'без паралелка — не се нарежда тук' : undefined,
+      note: offTerm ? `в този срок 0 ч. — само във ${term === 2 ? 'I' : 'II'} срок` : coud ? 'по общото разписание на групите ЦОУД' : place === 'info' ? 'без паралелка — не се нарежда тук' : undefined,
     })
   })
   const order = { class: 0, ich: 1, info: 2 }
