@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { CalendarClock, BookOpen, GraduationCap, HeartPulse, Home, ArrowRight, Check, AlertTriangle, CircleSlash } from 'lucide-react'
 import { getFullName } from '@/lib/utils'
 import { ROLE_LABELS } from '@/types'
+import { fetchAll } from '@/lib/supabase/fetch-all'
 export const dynamic = 'force-dynamic'
 
 const TABS = [
@@ -68,8 +69,8 @@ export default async function SchedulesPage({
       .in('role', ['class_teacher', 'teacher'])
       .eq('is_active', true)
     // + всички с часове в паралелки по учебния план (напр. директор, ЗДУД с преподавателска заетост)
-    const { data: planStaff } = await supabase.from('curriculum_lines').select('staff_id')
-      .eq('academic_year_id', currentYear?.id).not('staff_id', 'is', null).not('class_id', 'is', null).range(0, 4999)
+    const { data: planStaff } = await fetchAll(() => supabase.from('curriculum_lines').select('staff_id')
+      .eq('academic_year_id', currentYear?.id).not('staff_id', 'is', null).not('class_id', 'is', null).order('id'))
     const known = new Set((roleTeachers || []).map((t: any) => t.id))
     const extraIds = Array.from(new Set((planStaff || []).map((r: any) => r.staff_id))).filter(id => !known.has(id))
     const { data: extra } = extraIds.length
