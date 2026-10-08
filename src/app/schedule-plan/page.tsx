@@ -25,15 +25,15 @@ export default async function SchedulePlanPage({ searchParams }: { searchParams:
 
   const { data: subjects } = await supabase.from('subjects').select('id, name')
   const cards = await loadPlanCards(supabase, cy?.id, { all: true }, term, subjects || [])
-  const [placed, lock, { data: classes }] = await Promise.all([
+  const [{ placed, offByStaff, offByClass }, lock, { data: classes }] = await Promise.all([
     planProgress(supabase, cy?.id, term, cards),
     isScheduleLocked(supabase, cy?.id, term),
     supabase.from('classes').select('id, name').eq('academic_year_id', cy?.id),
   ])
 
-  type Row = { id: string; name: string; plan: number; done: number; over: number; cards: number; list: PlanCard[] }
+  type Row = { id: string; name: string; plan: number; done: number; over: number; cards: number; list: PlanCard[]; off: number }
   const sum = (rows: Record<string, Row>, id: string, nm: string, c: PlanCard) => {
-    const r = (rows[id] ||= { id, name: nm, plan: 0, done: 0, over: 0, cards: 0, list: [] })
+    const r = (rows[id] ||= { id, name: nm, plan: 0, done: 0, over: 0, cards: 0, list: [], off: 0 })
     r.plan += c.hours; r.cards++; r.list.push(c)
   }
   // без половин час в разписанието: 0,5 → 0 или 1; 0,5 + 0,5 на учител в паралелка → 1 час (settlePlan)
@@ -50,8 +50,8 @@ export default async function SchedulePlanPage({ searchParams }: { searchParams:
     if (c.place === 'class' && c.classId) sum(byClass, c.classId, clsName[c.classId] || c.holder, c)
     if (c.staffId) sum(byTeacher, c.staffId, c.teacher, c)
   })
-  Object.values(byClass).forEach(settle)
-  Object.values(byTeacher).forEach(settle)
+  Object.values(byClass).forEach(r => { settle(r); r.off = offByClass[r.id] || 0 })
+  Object.values(byTeacher).forEach(r => { settle(r); r.off = offByStaff[r.id] || 0 })
   const sortName = (a: Row, b: Row) => a.name.localeCompare(b.name, 'bg', { numeric: true })
   const classRows = Object.values(byClass).sort(sortName)
   const teacherRows = Object.values(byTeacher).sort(sortName)
@@ -64,6 +64,7 @@ export default async function SchedulePlanPage({ searchParams }: { searchParams:
       <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${left <= 0 ? 'bg-emerald-50 text-emerald-700' : r.done === 0 ? 'bg-slate-100 text-slate-500' : 'bg-amber-50 text-amber-700'}`}>
         {left <= 0 ? <><Check size={11} /> готово</> : `остават ${fmt(left)}`}
         {r.over > 0 && <span className="text-amber-700"> · +{fmt(r.over)} над</span>}
+        {r.off > 0 && <span className="text-rose-700" title="Часове в разписанието с предмет или учител, различни от реда в учебния план — свържи ги в редактора"> · {r.off} извън плана</span>}
       </span>
     )
   }

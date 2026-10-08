@@ -310,7 +310,9 @@ export async function loadPlanCards(supabase: any, yearId: string | undefined, b
  */
 export async function planProgress(supabase: any, yearId: string | undefined, term: number, cards: PlanCard[]) {
   const placed: Record<string, number> = {}
-  if (!yearId || !cards.length) return placed
+  // часове „извън плана“ (учител + предмет не съвпадат с ред от плана) — по учител и по паралелка
+  const offByStaff: Record<string, number> = {}, offByClass: Record<string, number> = {}
+  if (!yearId || !cards.length) return { placed, offByStaff, offByClass }
   const { data: scheds } = await supabase.from('class_schedules').select('id, class_id').eq('academic_year_id', yearId).eq('term', term)
   const clsOf: Record<string, string> = {}
   ;(scheds || []).forEach((x: any) => { clsOf[x.id] = x.class_id })
@@ -339,7 +341,13 @@ export async function planProgress(supabase: any, yearId: string | undefined, te
     let left = pool[k] || 0
     cs.forEach((c, i) => { const n = i === cs.length - 1 ? left : Math.min(left, c.hours); placed[c.key] = n; left -= n })
   })
-  return placed
+  Object.entries(pool).forEach(([k, n]) => {
+    if (groups[k]) return
+    const p = k.split('|')
+    if (p[0] === 'c') { if (p[2] && p[2] !== 'null') offByStaff[p[2]] = (offByStaff[p[2]] || 0) + n; offByClass[p[1]] = (offByClass[p[1]] || 0) + n }
+    else offByStaff[p[1]] = (offByStaff[p[1]] || 0) + n
+  })
+  return { placed, offByStaff, offByClass }
 }
 
 /** Утвърдено (заключено) разписание за срока — учителите не могат да го променят, само управата */
