@@ -12,6 +12,7 @@ export type OverviewRow = {
   entry: string | null; mid: string | null; exit: string | null; last: string | null
   targets: number; rated: number; reached: number; change: number | null
   count: number   // оценки за годината
+  motorLast: string | null; motorCount: number   // двигателна оценка (ФВС)
 }
 
 // Състояние за годината: без оценка → започнати (има оценка, още без изходна) → завършени (изходна)
@@ -114,6 +115,7 @@ export default function DevOverviewClient({ rows, ready, yearName, isPsychologis
               <th className="px-2 py-2.5 font-medium">Последна</th>
               <th className="px-2 py-2.5 font-medium">Цели (GAS)</th>
               <th className="px-2 py-2.5 font-medium">Промяна</th>
+              <th className="px-2 py-2.5 font-medium">Двигателна</th>
               <th />
             </tr>
           </thead>
@@ -149,13 +151,16 @@ export default function DevOverviewClient({ rows, ready, yearName, isPsychologis
                       : r.change < 0 ? <span className="inline-flex items-center gap-0.5 text-rose-700"><TrendingDown size={13} />{r.change}%</span>
                       : <span className="inline-flex items-center gap-0.5 text-slate-500"><Minus size={13} />0</span>}
                   </td>
+                  <td className="px-2 py-2 whitespace-nowrap text-[12px]">
+                    {r.motorLast ? <Link href={`/students/${r.id}?tab=dev&view=motor`} className="text-slate-700 hover:underline">{fmtD(r.motorLast)}{r.motorCount > 0 && <span className="text-slate-400"> · {r.motorCount}</span>}</Link> : <span className="text-slate-300">—</span>}
+                  </td>
                   <td className="px-2 py-2 text-right">
                     <Link href={`/students/${r.id}?tab=dev`} className="inline-flex items-center gap-0.5 text-[12px] text-[#0f2240] hover:underline whitespace-nowrap">Отвори <ChevronRight size={13} /></Link>
                   </td>
                 </tr>
               )
             })}
-            {!shown.length && <tr><td colSpan={10} className="text-center py-12 text-slate-500">Няма деца по този филтър.</td></tr>}
+            {!shown.length && <tr><td colSpan={11} className="text-center py-12 text-slate-500">Няма деца по този филтър.</td></tr>}
           </tbody>
         </table>
       </div>
