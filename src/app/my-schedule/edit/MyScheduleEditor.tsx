@@ -3,7 +3,7 @@ import { useState, useMemo } from 'react'
 import { Loader2, Check, Plus, X, Save, AlertTriangle, Copy, Lock, Unlock } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { saveMySchedule, checkClassCollision, checkIfoCollision, addSubjectQuick, releaseClassSlot, copyMyScheduleFromTerm1, linkCurriculumSubject, type MyCell } from './actions'
-import { PERIOD_TIMES, PERIOD_LABEL, periodsOverlap } from '@/lib/periods'
+import { PERIOD_TIMES, PERIOD_LABEL, periodsOverlap, AFTERNOON_PERIODS } from '@/lib/periods'
 import { settlePlan, type PlanCard } from '@/lib/curriculum'
 
 type Cls = { id: string; name: string }
@@ -31,7 +31,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
   const [show7, setShow7] = useState<boolean>(() => initialSlots.some(s => s.period === 7))
   const [showAfternoon, setShowAfternoon] = useState<boolean>(() => initialSlots.some(s => s.period >= 8))
   const morning = show7 ? [1, 2, 3, 4, 5, 6, 7] : [1, 2, 3, 4, 5, 6]
-  const afternoon = [8, 9, 10, 11, 12]
+  const afternoon = AFTERNOON_PERIODS   // ИФО 1–6
   const PERIODS = showAfternoon ? [...morning, ...afternoon] : morning
   const [showAddSubj, setShowAddSubj] = useState(false)
   const [newSubjName, setNewSubjName] = useState('')
