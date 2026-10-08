@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { UserRole } from '@/types'
 import { getFullName } from '@/lib/utils'
-import DevNav from './DevNav'
 export default async function DevelopmentLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -14,8 +13,6 @@ export default async function DevelopmentLayout({ children }: { children: React.
     .eq('user_id', user.id)
     .single()
   if (!profile) redirect('/auth/login')
-  // табовете — само за тези, които виждат и общия анализ (учителите имат само груповата карта)
-  const canOverview = ['admin', 'zdud', 'director', 'psychologist'].includes(profile.role) || profile.is_coordinator === true
   return (
     <div className="flex min-h-screen">
       <Sidebar
@@ -26,7 +23,6 @@ export default async function DevelopmentLayout({ children }: { children: React.
         userPosition={profile.position || ""}
       />
       <main className="flex-1 overflow-auto bg-slate-50">
-        {canOverview && <DevNav />}
         {children}
       </main>
     </div>

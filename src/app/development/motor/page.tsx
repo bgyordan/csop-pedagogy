@@ -1,12 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { MOTOR_ROLES } from '@/lib/motor'
-import GroupMotorClient from './GroupMotorClient'
+import MotorHubClient from './MotorHubClient'
+import type { HubKid } from './MotorHubClient'
 export const dynamic = 'force-dynamic'
 
-// „Двигателна оценка — групова карта“: учителят по ФВС (и терапевтите) оценява няколко деца наведнъж
-// по едни и същи проби и условия. Записва се като отделна оценка на всяко дете (вижда се в досието → Развитие).
-export default async function GroupMotorPage() {
+// „Двигателна оценка“ — една входна точка за учителя по ФВС и терапевтите:
+// „По деца“ (индивидуална оценка на едно дете, без да се отваря досието) и „Групова карта“ (няколко деца наведнъж).
+export default async function MotorHubPage({ searchParams }: { searchParams: Promise<{ mode?: string; c?: string }> }) {
+  const sp = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
@@ -26,5 +28,31 @@ export default async function GroupMotorPage() {
   const list = Object.values(classes).sort((a, b) => a.name.localeCompare(b.name, 'bg', { numeric: true }))
   list.forEach(c => c.kids.sort((a, b) => a.name.localeCompare(b.name, 'bg')))
 
-  return <GroupMotorClient classes={list} meId={me.id} meName={`${me.first_name} ${me.last_name}`} yearId={year?.id || null} yearName={year?.name || ''} />
+  // Състояние на двигателната оценка по деца + GMFCS от профила (за пробите в стоеж)
+  const ids = list.flatMap(c => c.kids.map(k => k.id))
+  const chunk = <T,>(a: T[], n = 300) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n))
+  const sess: any[] = [], prof: any[] = []
+  let ready = true
+  for (const part of chunk(ids)) {
+    const [s, p] = await Promise.all([
+      supabase.from('motor_sessions').select('student_id, academic_year_id, assessed_on, stage, created_at').in('student_id', part),
+      supabase.from('dev_profiles').select('student_id, gmfcs').in('student_id', part),
+    ])
+    if (s.error) { ready = false; break }
+    sess.push(...(s.data || [])); prof.push(...(p.data || []))
+  }
+  const gm = Object.fromEntries(prof.map(p => [p.student_id, p.gmfcs]))
+  const kids: HubKid[] = list.flatMap(c => c.kids.map(k => {
+    const mine = sess.filter(s => s.student_id === k.id).sort((a, b) => a.assessed_on.localeCompare(b.assessed_on) || a.created_at.localeCompare(b.created_at))
+    const inYear = mine.filter(s => s.academic_year_id === year?.id)
+    const last = mine[mine.length - 1]
+    return {
+      id: k.id, name: k.name, classId: c.id, className: c.name, gmfcs: gm[k.id] ?? null,
+      last: last?.assessed_on || null, lastStage: last?.stage || null, count: inYear.length,
+      stages: Array.from(new Set(inYear.map(s => s.stage))) as string[],
+    }
+  }))
+
+  return <MotorHubClient classes={list} kids={kids} ready={ready} meId={me.id} meName={`${me.first_name} ${me.last_name}`} role={me.role}
+    yearId={year?.id || null} yearName={year?.name || ''} initialMode={sp.mode === 'group' ? 'group' : 'kids'} initialClass={sp.c || ''} />
 }
