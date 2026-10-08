@@ -5,6 +5,7 @@ import { CalendarClock, BookOpen, GraduationCap, HeartPulse, Home, ArrowRight, C
 import { getFullName } from '@/lib/utils'
 import { ROLE_LABELS } from '@/types'
 import { fetchAll } from '@/lib/supabase/fetch-all'
+import { STAFF_NORM_YEAR } from '@/lib/curriculum'
 export const dynamic = 'force-dynamic'
 
 const TABS = [
@@ -65,23 +66,26 @@ export default async function SchedulesPage({
     // Всички учители (класни + без паралелка), дори с празно разписание
     const { data: roleTeachers } = await supabase
       .from('staff_profiles')
-      .select('id, first_name, last_name')
+      .select('id, first_name, last_name, role')
       .in('role', ['class_teacher', 'teacher'])
       .eq('is_active', true)
     // + всички с часове в паралелки по учебния план (напр. директор, ЗДУД с преподавателска заетост)
-    const { data: planStaff } = await fetchAll(() => supabase.from('curriculum_lines').select('staff_id')
+    const { data: planStaff } = await fetchAll(() => supabase.from('curriculum_lines').select('staff_id, hours_t1, hours_t2')
       .eq('academic_year_id', currentYear?.id).not('staff_id', 'is', null).not('class_id', 'is', null).order('id'))
     const known = new Set((roleTeachers || []).map((t: any) => t.id))
     const extraIds = Array.from(new Set((planStaff || []).map((r: any) => r.staff_id))).filter(id => !known.has(id))
     const { data: extra } = extraIds.length
-      ? await supabase.from('staff_profiles').select('id, first_name, last_name').in('id', extraIds).eq('is_active', true)
+      ? await supabase.from('staff_profiles').select('id, first_name, last_name, role').in('id', extraIds).eq('is_active', true)
         .not('role', 'in', '(psychologist,speech_therapist,rehabilitator,educator)')
       : { data: [] as any[] }
     const allTeachers = [...(roleTeachers || []), ...(extra || [])]
-    const map: Record<string, { id: string; name: string; classes: Set<string>; ifo1: number }> = {}
+    const map: Record<string, { id: string; name: string; classes: Set<string>; ifo1: number; role: string }> = {}
     ;(allTeachers || []).forEach((t: any) => {
-      map[t.id] = { id: t.id, name: getFullName(t), classes: new Set(), ifo1: 0 }
+      map[t.id] = { id: t.id, name: getFullName(t), classes: new Set(), ifo1: 0, role: t.role || '' }
     })
+    // часове седмично по учебния план за срока — за управата (годишна норма: 144 / 72, не 21 седмично)
+    const planWeek: Record<string, number> = {}
+    ;(planStaff || []).forEach((r: any) => { planWeek[r.staff_id] = (planWeek[r.staff_id] || 0) + Number((term === 2 ? r.hours_t2 : r.hours_t1) || 0) })
     // паралелки на които е класен
     const { data: cta } = await supabase
       .from('class_teacher_assignments')
@@ -127,7 +131,13 @@ export default async function SchedulesPage({
     ;(ifoT || []).forEach((sl: any) => { if (sl.term === term) put(sl.teacher_id, sl.day, sl.period, sl.subject) })
     teachers = Object.values(map).map(t => {
       const hours = Math.round(Object.values(cells[t.id] || {}).reduce((a, b) => a + b, 0) * 10) / 10
-      return { id: t.id, name: t.name, classes: [...t.classes], ifoHours: t.ifo1, hours, status: hours === 0 ? 'none' : hours < NORM ? 'under' : 'ok' }
+      // годишна норма (админ/ЗДАСД, ЗДУД, директор): пълно, когато са наредени часовете по учебния план
+      const yearly = !!STAFF_NORM_YEAR[t.role]
+      const placed = Object.keys(cells[t.id] || {}).length
+      const status = hours === 0 ? 'none'
+        : yearly ? (placed >= Math.floor((planWeek[t.id] || 0) + 1e-6) ? 'ok' : 'under')
+        : hours < NORM ? 'under' : 'ok'
+      return { id: t.id, name: t.name, classes: [...t.classes], ifoHours: t.ifo1, hours, status }
     }).sort((a, b) => a.name.localeCompare(b.name, 'bg'))
   }
   // ── Терапевти ──

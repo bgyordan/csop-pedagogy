@@ -9,6 +9,7 @@ import DevelopmentView from './DevelopmentView'
 import AssessmentEditor from './AssessmentEditor'
 import type { AssessmentInput } from './AssessmentEditor'
 import ProfileCard from './ProfileCard'
+import MotorSection from './MotorSection'
 import { sortAssessments } from './lib'
 import type { Skill, Assessment, Score, Target, AreaKey, Gas, Profile } from './lib'
 
@@ -24,6 +25,11 @@ export default function DevelopmentTab({ studentId, studentName, className, acad
   const [err, setErr] = useState('')
   const [editor, setEditor] = useState<{ a: Assessment | null } | null>(null)
   const [exporting, setExporting] = useState(false)
+  // „Обща оценка“ (умения по области) или „Двигателна оценка“ (ФВС) — помни се за този браузър
+  const [view, setView] = useState<'general' | 'motor'>(() => {
+    try { return localStorage.getItem('eis_dev_view') === 'motor' ? 'motor' : 'general' } catch { return 'general' }
+  })
+  const pickView = (v: 'general' | 'motor') => { setView(v); try { localStorage.setItem('eis_dev_view', v) } catch { /* без localStorage */ } }
   const isManager = MANAGERS.includes(role)
   const canAssess = ASSESSORS.includes(role) || isCoordinator
 
@@ -131,11 +137,22 @@ export default function DevelopmentTab({ studentId, studentName, className, acad
   return (
     <div className="space-y-4">
       <ProfileCard profile={data.profile} studentId={studentId} canEdit={canAssess} onSave={saveProfile} />
+      <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl w-fit">
+        {([['general', 'Обща оценка'], ['motor', 'Двигателна оценка']] as const).map(([k, l]) => (
+          <button key={k} type="button" onClick={() => pickView(k)}
+            className={`px-3 py-1.5 rounded-lg text-[13px] font-medium ${view === k ? 'bg-[#0f2240] text-white' : 'text-slate-600 hover:bg-slate-50'}`}>{l}</button>
+        ))}
+      </div>
+      {view === 'motor' ? (
+        <MotorSection studentId={studentId} studentName={studentName} className={className} academicYearId={academicYearId}
+          meId={meId} role={role} gmfcs={data.profile?.gmfcs ?? null} />
+      ) : (<>
       <DevelopmentView skills={data.skills} assessments={data.assessments} scores={data.scores} targets={data.targets} gas={data.gas} years={data.years} staffNames={data.names}
         onExpected={saveExpected} onRate={rateGas}
         canAssess={canAssess} canEditAssessment={canEditAssessment}
         onNew={() => setEditor({ a: null })} onOpen={a => setEditor({ a })} onToggleTarget={toggleTarget}
         onExport={exportWord} exporting={exporting} />
+      </>)}
       {editor && (
         <AssessmentEditor skills={data.skills} assessments={data.assessments} scores={data.scores} assessment={editor.a} role={role}
           profile={data.profile} academicYearId={academicYearId}
