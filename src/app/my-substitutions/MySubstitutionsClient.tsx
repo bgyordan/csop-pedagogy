@@ -5,25 +5,22 @@ import { useToast } from '@/components/ui/Toast'
 import { getMonthlyDeclaration } from '../substitutions/actions'
 import { generateMonthlyNPDeclaration, generateMonthlyBudgetDeclaration } from '@/lib/docx-substitution'
 import type { MySubRow } from './page'
+import { declarationPeriods, defaultPeriod } from '@/lib/declaration-periods'
 
 function fmt(d: string) { return d ? d.split('-').reverse().join('.') : '—' }
-const MONTHS = ['януари','февруари','март','април','май','юни','юли','август','септември','октомври','ноември','декември']
 
 export default function MySubstitutionsClient({ rows }: { rows: MySubRow[] }) {
   const { toast } = useToast()
-  const now = new Date()
-  const schoolStartYear = (now.getMonth() + 1) >= 9 ? now.getFullYear() : now.getFullYear() - 1
-  const SCHOOL_MONTHS = [9,10,11,12,1,2,3,4,5,6].map(m => ({ m, y: m >= 9 ? schoolStartYear : schoolStartYear + 1, label: `${MONTHS[m-1]} ${m >= 9 ? schoolStartYear : schoolStartYear + 1}` }))
-  const curIdx = Math.max(0, SCHOOL_MONTHS.findIndex(x => x.m === (now.getMonth() + 1)))
-  const [fromIdx, setFromIdx] = useState(curIdx)
-  const [toIdx, setToIdx] = useState(curIdx)
-  const mFirst = (m: number, y: number) => `${y}-${String(m).padStart(2,'0')}-01`
-  const mLast = (m: number, y: number) => `${y}-${String(m).padStart(2,'0')}-${String(new Date(y, m, 0).getDate()).padStart(2,'0')}`
-  const first = mFirst(SCHOOL_MONTHS[fromIdx].m, SCHOOL_MONTHS[fromIdx].y)
-  const last = mLast(SCHOOL_MONTHS[toIdx].m, SCHOOL_MONTHS[toIdx].y)
+  // само приключили периоди: септември–октомври (от 01.11), после по месеци
+  const periods = declarationPeriods()
+  const [periodKey, setPeriodKey] = useState(() => defaultPeriod(periods).key)
+  const period = periods.find(p => p.key === periodKey) || periods[0]
+  const first = period.from
+  const last = period.to
   const [busy, setBusy] = useState<'np' | 'budget' | null>(null)
 
   async function gen(kind: 'np' | 'budget') {
+    if (!period.open) { toast(`Периодът още не е приключил — декларацията се изтегля от ${fmt(period.opensOn)}`, 'error'); return }
     setBusy(kind)
     const res: any = await getMonthlyDeclaration(first, last)
     if (res.error) { toast(res.error, 'error'); setBusy(null); return }
@@ -45,31 +42,24 @@ export default function MySubstitutionsClient({ rows }: { rows: MySubRow[] }) {
       <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-xs text-slate-500 mb-1">От месец</label>
-            <select value={fromIdx} onChange={e => { const i = Number(e.target.value); setFromIdx(i); if (i > toIdx) setToIdx(i) }}
+            <label className="block text-xs text-slate-500 mb-1">Период</label>
+            <select value={periodKey} onChange={e => setPeriodKey(e.target.value)}
               className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none cursor-pointer">
-              {SCHOOL_MONTHS.map((x, i) => <option key={i} value={i}>{x.label} г.</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-slate-500 mb-1">До месец</label>
-            <select value={toIdx} onChange={e => setToIdx(Number(e.target.value))}
-              className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none cursor-pointer">
-              {SCHOOL_MONTHS.map((x, i) => <option key={i} value={i} disabled={i < fromIdx}>{x.label} г.</option>)}
+              {periods.map(p => <option key={p.key} value={p.key} disabled={!p.open}>{p.label}{!p.open ? ` — от ${fmt(p.opensOn)}` : ''}</option>)}
             </select>
           </div>
           <div className="flex gap-2 ml-auto">
-            <button onClick={() => gen('np')} disabled={busy !== null}
+            <button onClick={() => gen('np')} disabled={busy !== null || !period.open}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-medium hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: '#059669' }}>
               {busy === 'np' ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />} Декларация НП
             </button>
-            <button onClick={() => gen('budget')} disabled={busy !== null}
+            <button onClick={() => gen('budget')} disabled={busy !== null || !period.open}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-medium hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>
               {busy === 'budget' ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />} Декларация бюджет
             </button>
           </div>
         </div>
-        <p className="text-[11px] text-slate-400 mt-2">Изберете месец и генерирайте обобщена справка-декларация за всичките си замествания през него (НП отделно от бюджета).</p>
+        <p className="text-[11px] text-slate-400 mt-2">Изберете период и генерирайте обобщена справка-декларация за всичките си замествания през него (НП отделно от бюджета). Декларира се само приключил период: септември и октомври заедно (от 01.11), после всеки месец след края му.</p>
       </div>
 
       {/* Списък на моите замествания (преглед) */}

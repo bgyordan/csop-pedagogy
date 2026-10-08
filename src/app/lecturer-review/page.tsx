@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
 import { ClipboardCheck } from 'lucide-react'
-import ReviewClient from './ReviewClient'
 import OverviewClient from './OverviewClient'
 export const dynamic = 'force-dynamic'
 
@@ -31,15 +30,11 @@ export default async function LecturerReviewPage() {
           <ClipboardCheck size={22} strokeWidth={2} />
         </div>
         <div>
-          <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">Лекторски часове — преглед</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Над норматив и заместване по служители за месец — за ЗДУД и счетоводството</p>
+          <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">Проверка лекторски</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Над норматив и заместване по служители за периода — подробности по дни за сверка с НЕИСПУО</p>
         </div>
       </header>
-      <OverviewClient />
-      <div className="mt-8">
-        <h2 className="text-sm font-semibold text-slate-700 mb-3">Архив на подадените декларации (над норматив)</h2>
-        <ReviewClient rows={rows} />
-      </div>
+      <OverviewClient archive={rows} />
     </div>
   )
 }

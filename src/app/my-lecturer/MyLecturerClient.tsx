@@ -4,22 +4,12 @@ import { Loader2, FileDown, Check, CalendarClock, Trash2 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { getMyLecturerDates, submitLecturerDeclaration, deleteMyDeclaration } from './actions'
 import { generateLecturerDeclaration } from '@/lib/docx-substitution'
+import { declarationPeriods, defaultPeriod } from '@/lib/declaration-periods'
 
 type Slot = { id: string; day: number; period: number; subject: string; holderLabel: string; dateFrom: string; dateTo: string; orderNumber: string }
 type Decl = { id: string; periodFrom: string; periodTo: string; totalHours: number; status: string }
 const DAY_L = ['', 'понеделник', 'вторник', 'сряда', 'четвъртък', 'петък']
 function fmt(d: string) { return d ? d.split('-').reverse().join('.') : '' }
-const todayStr = () => new Date().toISOString().split('T')[0]
-const MONTHS_BG = ['януари','февруари','март','април','май','юни','юли','август','септември','октомври','ноември','декември']
-function schoolMonths() {
-  const now = new Date()
-  const sy = (now.getMonth() + 1) >= 9 ? now.getFullYear() : now.getFullYear() - 1
-  const list: { m: number; y: number; label: string }[] = []
-  for (const m of [9,10,11,12,1,2,3,4,5,6]) { const y = m >= 9 ? sy : sy + 1; list.push({ m, y, label: `${MONTHS_BG[m-1]} ${y}` }) }
-  return list
-}
-const monthFirst = (m: number, y: number) => `${y}-${String(m).padStart(2,'0')}-01`
-const monthLast = (m: number, y: number) => `${y}-${String(m).padStart(2,'0')}-${String(new Date(y, m, 0).getDate()).padStart(2,'0')}`
 const STATUS: Record<string, { l: string; c: string }> = {
   submitted: { l: 'Подадена', c: 'bg-blue-50 text-blue-600' },
   verified: { l: 'Проверена', c: 'bg-emerald-50 text-emerald-600' },
@@ -31,19 +21,23 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
 }) {
   const { toast } = useToast()
   const [declarations, setDeclarations] = useState<Decl[]>(initialDecls)
-  const SM = schoolMonths()
-  const curIdx = Math.max(0, SM.findIndex(x => x.m === (new Date().getMonth() + 1)))
-  const [fromIdx, setFromIdx] = useState(curIdx)
-  const [toIdx, setToIdx] = useState(curIdx)
-  const from = monthFirst(SM[fromIdx].m, SM[fromIdx].y)
-  const to = monthLast(SM[toIdx].m, SM[toIdx].y)
+  // само приключили периоди: септември–октомври (от 01.11), после по месеци
+  const periods = declarationPeriods()
+  const declared = (p: { from: string; to: string }) => initialDecls.some(d => d.periodFrom <= p.to && d.periodTo >= p.from)
+  const [periodKey, setPeriodKey] = useState(() => {
+    const open = periods.filter(p => p.open)
+    return (open.find(p => !declared(p)) || defaultPeriod(periods)).key
+  })
+  const period = periods.find(p => p.key === periodKey) || periods[0]
+  const from = period.from
+  const to = period.to
   const [expanded, setExpanded] = useState<{ slotId: string; day: number; period: number; subject: string; holderLabel: string; dates: string[]; absent?: string[] }[] | null>(null)
   const [checked, setChecked] = useState<Record<string, Set<string>>>({}) // slotId -> Set(dates)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
   async function loadDates() {
-    if (!from || !to) { toast('Задайте период', 'error'); return }
+    if (!period.open) { toast(`Периодът още не е приключил — декларацията се подава от ${fmt(period.opensOn)}`, 'error'); return }
     setLoading(true)
     const res: any = await getMyLecturerDates(from, to)
     setExpanded(res.rows || [])
@@ -83,7 +77,7 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
     try {
       await generateLecturerDeclaration({
         teacherName, position,
-        periodLabel: `${fmt(from)} – ${fmt(to)}`,
+        periodLabel: `${period.label} (${fmt(from)} – ${fmt(to)})`,
         orderRef: slots[0]?.orderNumber ? `Заповед № ${slots[0].orderNumber}` : 'Заповед № …',
         rows, totalHours: rows.length,
       })
@@ -122,24 +116,25 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
         <div className="text-sm font-semibold text-slate-800">Изтегли декларация за период</div>
         <div className="flex items-end gap-3 flex-wrap">
           <div>
-            <label className="block text-xs text-slate-500 mb-1">От месец</label>
-            <select value={fromIdx} onChange={e => { const i = Number(e.target.value); setFromIdx(i); if (i > toIdx) setToIdx(i); setExpanded(null) }}
+            <label className="block text-xs text-slate-500 mb-1">Период</label>
+            <select value={periodKey} onChange={e => { setPeriodKey(e.target.value); setExpanded(null) }}
               className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 cursor-pointer">
-              {SM.map((x, i) => <option key={i} value={i}>{x.label}</option>)}
+              {periods.map(p => (
+                <option key={p.key} value={p.key} disabled={!p.open}>
+                  {p.label}{!p.open ? ` — от ${fmt(p.opensOn)}` : declared(p) ? ' — подадена' : ''}
+                </option>
+              ))}
             </select>
           </div>
-          <div>
-            <label className="block text-xs text-slate-500 mb-1">До месец</label>
-            <select value={toIdx} onChange={e => { setToIdx(Number(e.target.value)); setExpanded(null) }}
-              className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 cursor-pointer">
-              {SM.map((x, i) => <option key={i} value={i} disabled={i < fromIdx}>{x.label}</option>)}
-            </select>
-          </div>
-          <button onClick={loadDates} disabled={loading}
+          <button onClick={loadDates} disabled={loading || !period.open}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50">
             {loading ? <Loader2 size={16} className="animate-spin" /> : <CalendarClock size={16} />} Покажи дните
           </button>
         </div>
+        {!period.open && (
+          <p className="text-xs text-amber-700">Декларира се само приключил период. „{period.label}“ — от {fmt(period.opensOn)}.</p>
+        )}
+        <p className="text-[11px] text-slate-400">Септември и октомври се декларират заедно (от 01.11), после всеки месец след края му. Невзетите часове не се прехвърлят към друг период.</p>
 
         {expanded && (
           <div className="space-y-3 pt-2 border-t border-slate-100">

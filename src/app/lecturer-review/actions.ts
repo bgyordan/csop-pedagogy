@@ -74,9 +74,10 @@ export async function getLecturerOverview(first: string, last: string) {
     .lte('date_from', last).gte('date_to', first)
   const isAbsent = (staffId: string, d: string) => (abs || []).some((a: any) => a.absent_staff_id === staffId && d >= a.date_from && d <= a.date_to)
 
-  type R = { planned: number; declared: number; hasDecl: boolean; np: number; budget: number; by: Record<string, { np: number; budget: number }> }
+  type Decl = { id: string; status: string; from: string; to: string; hours: number }
+  type R = { planned: number; declared: number; hasDecl: boolean; np: number; budget: number; by: Record<string, { np: number; budget: number }>; decls: Decl[] }
   const rows: Record<string, R> = {}
-  const row = (id: string) => (rows[id] = rows[id] || { planned: 0, declared: 0, hasDecl: false, np: 0, budget: 0, by: {} })
+  const row = (id: string) => (rows[id] = rows[id] || { planned: 0, declared: 0, hasDecl: false, np: 0, budget: 0, by: {}, decls: [] })
 
   // над норматив — по заповед (маркираните слотове × учебните дни, без отсъствията)
   const { data: slots } = await supabase.from('lecturer_slots')
@@ -88,10 +89,11 @@ export async function getLecturerOverview(first: string, last: string) {
 
   // над норматив — декларирани от учителя (датите в периода)
   const { data: decls } = await supabase.from('lecturer_declarations')
-    .select('staff_id, entries').lte('period_from', last).gte('period_to', first)
+    .select('id, staff_id, entries, status, period_from, period_to').lte('period_from', last).gte('period_to', first)
   ;(decls || []).forEach((d: any) => {
     const n = ((d.entries as any[]) || []).reduce((a, e) => a + (e.dates || []).filter((x: string) => x >= first && x <= last).length, 0)
     const r = row(d.staff_id); r.declared += n; r.hasDecl = true
+    r.decls.push({ id: d.id, status: d.status, from: d.period_from, to: d.period_to, hours: n })
   })
 
   // заместване
@@ -122,4 +124,59 @@ export async function getLecturerOverview(first: string, last: string) {
     .filter(r => r.planned + r.declared + r.np + r.budget > 0)
     .sort((a, b) => a.name.localeCompare(b.name, 'bg'))
   return { data }
+}
+
+// ── ПОДРОБНОСТИ за един служител в периода (за „Проверка лекторски“): ──
+// над норматив — по часове от заповедта: дните по график, кои са декларирани, кои са в отпуск/болничен;
+// заместване — по дни: кого, кои часове (паралелка, предмет), НП / бюджет.
+export async function getReviewDetail(staffId: string, first: string, last: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+  const { data: me } = await supabase.from('staff_profiles').select('role').eq('user_id', user.id).single()
+  if (!['admin', 'zdud', 'director', 'secretary'].includes(me?.role || '')) return { error: 'Нямате права' }
+  const { data: cy } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
+
+  const { data: cal } = await supabase.from('academic_calendar_days')
+    .select('date, day_of_week').gte('date', first).lte('date', last).eq('is_school_day', true).order('date')
+  const days = (cal || []) as { date: string; day_of_week: number }[]
+  const { data: abs } = await supabase.from('substitutions').select('date_from, date_to')
+    .eq('absent_staff_id', staffId).lte('date_from', last).gte('date_to', first)
+  const isAbsent = (d: string) => (abs || []).some((a: any) => d >= a.date_from && d <= a.date_to)
+
+  // декларираните дати по час от заповедта
+  const { data: decls } = await supabase.from('lecturer_declarations')
+    .select('entries').eq('staff_id', staffId).lte('period_from', last).gte('period_to', first)
+  const declared: Record<string, Set<string>> = {}
+  ;(decls || []).forEach((d: any) => ((d.entries as any[]) || []).forEach(e => {
+    const set = (declared[e.slotId] ||= new Set<string>())
+    ;(e.dates || []).forEach((x: string) => { if (x >= first && x <= last) set.add(x) })
+  }))
+
+  const { data: slots } = await supabase.from('lecturer_slots')
+    .select('id, day, period, holder_label, date_from, date_to, subject:subjects(name)')
+    .eq('staff_id', staffId).eq('academic_year_id', cy?.id).order('day').order('period')
+  const over = (slots || []).map((s: any) => {
+    const inRange = days.filter(c => c.day_of_week === s.day && c.date >= s.date_from && c.date <= s.date_to)
+    const dec = declared[s.id] || new Set<string>()
+    return {
+      slotId: s.id, day: s.day, period: s.period, subject: s.subject?.name || '', holder: s.holder_label || '',
+      dates: inRange.map(c => ({ date: c.date, absent: isAbsent(c.date), declared: dec.has(c.date) })),
+    }
+  }).filter(x => x.dates.length > 0)
+
+  // заместване по дни
+  const sh: any = await getSubstitutionHoursByStaff(first, last, staffId)
+  const subDays = ((sh.data || {})[staffId]?.days || []) as { iso: string; absentId: string; np: boolean; items: { period: number; cls: string; subject: string }[] }[]
+  const absentIds = Array.from(new Set(subDays.map(d => d.absentId)))
+  const names: Record<string, string> = {}
+  if (absentIds.length) {
+    const { data: ppl } = await supabase.from('staff_profiles').select('id, first_name, last_name').in('id', absentIds)
+    ;(ppl || []).forEach((p: any) => { names[p.id] = `${p.first_name} ${p.last_name}` })
+  }
+  const subs = subDays.sort((a, b) => a.iso.localeCompare(b.iso)).map(d => ({
+    date: d.iso, absent: names[d.absentId] || '—', np: d.np,
+    items: d.items.sort((a, b) => a.period - b.period),
+  }))
+  return { over, subs }
 }

@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { isPedagogical } from '@/lib/pedagogues'
+import { checkDeclarablePeriod } from '@/lib/declaration-periods'
 import { coudPeriod, periodsOverlap, PERIOD_LABEL, PERIOD_TIMES } from '@/lib/periods'
 
 // Днешна дата по българско време (сървърът е в UTC — след полунощ даваше вчерашна дата)
@@ -339,7 +340,9 @@ export async function getMonthlyDeclaration(first: string, last: string) {
   const { data: me } = await supabase.from('staff_profiles').select('id, first_name, middle_name, last_name, position').eq('user_id', user.id).single()
   if (!me) return { error: 'Профил не е намерен' }
 
-    // first/last идват като параметри (период от–до)
+  // само приключил период: септември–октомври (от 01.11), после по месеци
+  const pc = checkDeclarablePeriod(first, last)
+  if (!pc.ok) return { error: pc.error }
 
   const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
 
@@ -490,7 +493,8 @@ export async function getMonExport(first: string, last: string, rate: number) {
 
 // ── ЧАСОВЕ ПО ЗАМЕСТВАНЕ по служител за период (за месечния преглед) ──
 // np = часове по НП; budget = платени от бюджета (без вътрешните „в рамките на нормата“)
-export async function getSubstitutionHoursByStaff(first: string, last: string) {
+// onlyStaff — само за този заместник (за подробностите в „Проверка лекторски“); days — по дни, с часовете
+export async function getSubstitutionHoursByStaff(first: string, last: string, onlyStaff?: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли' }
@@ -501,7 +505,8 @@ export async function getSubstitutionHoursByStaff(first: string, last: string) {
     .select('id, absent_staff_id, substitute_staff_id, date_from, date_to, bsch_eligible, kt_article, over_norm')
     .lte('date_from', last).gte('date_to', first)
   // by = по отсъстващ: кого е замествал и колко часа (НП / бюджет)
-  const out: Record<string, { np: number; budget: number; by: Record<string, { np: number; budget: number }> }> = {}
+  type Day = { iso: string; absentId: string; np: boolean; items: { period: number; cls: string; subject: string }[] }
+  const out: Record<string, { np: number; budget: number; by: Record<string, { np: number; budget: number }>; days: Day[] }> = {}
   if (!subs || subs.length === 0) return { data: out }
 
   const assignMap = await assignmentsBySub(supabase, subs.map((x: any) => x.id))
@@ -515,13 +520,16 @@ export async function getSubstitutionHoursByStaff(first: string, last: string) {
     const npSet = await npDays(supabase, sub)
     const cov = coverageOf(sub, assignMap[sub.id])
     for (const [staffId, ranges] of Object.entries(cov)) {
+      if (onlyStaff && staffId !== onlyStaff) continue
       for (const w of wds) {
         if (!inRanges(w.iso, ranges)) continue
-        const h = byTerm[w.term].filter(x => x.day === w.dow).length
+        const dayItems = byTerm[w.term].filter(x => x.day === w.dow)
+        const h = dayItems.length
         if (h === 0) continue
         const isNp = npSet === null ? true : npSet.has(w.iso)
         if (!isNp && sub.over_norm === false) continue   // вътрешно — не се плаща
-        const o = (out[staffId] = out[staffId] || { np: 0, budget: 0, by: {} })
+        const o = (out[staffId] = out[staffId] || { np: 0, budget: 0, by: {}, days: [] })
+        o.days.push({ iso: w.iso, absentId: sub.absent_staff_id, np: isNp, items: dayItems.map(x => ({ period: x.period, cls: x.cls, subject: x.subject })) })
         const b = (o.by[sub.absent_staff_id] = o.by[sub.absent_staff_id] || { np: 0, budget: 0 })
         if (isNp) { o.np += h; b.np += h } else { o.budget += h; b.budget += h }
       }
