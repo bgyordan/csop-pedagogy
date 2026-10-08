@@ -1,6 +1,7 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { checkDeclarablePeriod } from '@/lib/declaration-periods'
 
 // Моите лекторски слотове (спуснати от заповедта) — за текущия учител
 export async function getMyLecturerSlots() {
@@ -76,6 +77,9 @@ export async function submitLecturerDeclaration(
   if (!user) return { error: 'Не сте влезли' }
   const { data: me } = await supabase.from('staff_profiles').select('id').eq('user_id', user.id).single()
   if (!me) return { error: 'Няма профил' }
+  // само приключил период: септември–октомври (от 01.11), после по месеци
+  const pc = checkDeclarablePeriod(periodFrom, periodTo)
+  if (!pc.ok) return { error: pc.error }
   const { data: cy } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
 
   // подаване наново за същия период → старата (неприключена) се заменя; проверена/изплатена не се пипа
