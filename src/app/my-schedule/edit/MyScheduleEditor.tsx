@@ -4,7 +4,7 @@ import { Loader2, Check, Plus, X, Save, AlertTriangle, Copy, Lock, Unlock } from
 import { useToast } from '@/components/ui/Toast'
 import { saveMySchedule, checkClassCollision, checkIfoCollision, addSubjectQuick, releaseClassSlot, copyMyScheduleFromTerm1, linkCurriculumSubject, type MyCell } from './actions'
 import { PERIOD_TIMES, PERIOD_LABEL, periodsOverlap } from '@/lib/periods'
-import type { PlanCard } from '@/lib/curriculum'
+import { settlePlan, type PlanCard } from '@/lib/curriculum'
 
 type Cls = { id: string; name: string }
 type Stud = { id: string; name: string; classId?: string | null }
@@ -231,9 +231,11 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
     const offPlan = new Set(Object.entries(grid).filter(([, v]) => !groups[cellKey(v)]).map(([k]) => k))
     const placeable = cards.filter(c => c.place !== 'info')
     const planH = placeable.reduce((a, c) => a + c.hours, 0)
-    const doneH = placeable.reduce((a, c) => a + Math.min(placed[c.key] || 0, c.hours), 0)
-    const over = placeable.filter(c => (placed[c.key] || 0) > c.hours)
-    return { placed, offPlan, planH, doneH, over }
+    // без половин час в разписанието: 0,5 → 0 или 1; 0,5 + 0,5 в една паралелка (или при едно дете) → 1 час
+    const st = settlePlan(placeable, placed, c => c.place === 'ich' ? `i|${c.classId}|${ichStudent[c.key] || c.key}` : `c|${c.classId}`)
+    const doneH = planH - st.left
+    const over = placeable.filter(c => st.card[c.key]?.state === 'over')
+    return { placed, offPlan, planH, doneH, over, card: st.card, leftH: st.left }
   }, [grid, cards, ichStudent])
   const hasPlan = cards.length > 0
 
@@ -321,8 +323,8 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
           <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">По учебния план (НЕИСПУО) · {term === 2 ? 'II' : 'I'} срок — избери час и цъкай в клетките</div>
             {planCheck.planH > 0 && (
-              <div className={`text-xs font-medium ${planCheck.doneH >= planCheck.planH ? 'text-emerald-600' : 'text-slate-500'}`}>
-                {planCheck.doneH >= planCheck.planH ? 'всичко по плана е наредено' : `остават ${fmt(planCheck.planH - planCheck.doneH)} от ${fmt(planCheck.planH)} ч.`}
+              <div className={`text-xs font-medium ${planCheck.leftH <= 0 ? 'text-emerald-600' : 'text-slate-500'}`}>
+                {planCheck.leftH <= 0 ? 'всичко по плана е наредено' : `остават ${fmt(planCheck.leftH)} от ${fmt(planCheck.planH)} ч.`}
               </div>
             )}
           </div>
@@ -331,7 +333,8 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
               const n = planCheck.placed[c.key] || 0
               const isActive = active === `plan:${c.key}`
               const info = c.place === 'info'
-              const state = info ? '' : n > c.hours ? 'over' : n === c.hours ? 'done' : ''
+              const cs = planCheck.card[c.key]
+              const state = info ? '' : cs?.state === 'over' ? 'over' : cs?.state === 'done' ? 'done' : ''
               const kids = c.place === 'ich' ? (students.filter(st => !c.classId || st.classId === c.classId).length ? students.filter(st => !c.classId || st.classId === c.classId) : students) : []
               return (
                 <div key={c.key}
@@ -353,7 +356,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
                       : state === 'over' ? 'bg-amber-100 text-amber-800' : state === 'done' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}
                       title={info ? 'часове седмично по плана' : `наредени ${n} от ${fmt(c.hours)} ч. седмично по плана`}>
                       {info ? `${fmt(c.hours)} ч.` : state === 'done' ? <><Check size={11} className="inline -mt-0.5" /> готово</>
-                        : state === 'over' ? `+${fmt(n - c.hours)} над плана` : `остават ${fmt(c.hours - n)}`}
+                        : state === 'over' ? `+${fmt(cs?.over || 0)} над плана` : `остават ${fmt(cs?.left || 0)}${cs?.shared ? ' (общо)' : ''}`}
                     </div>
                   </div>
                   {c.note && <div className="text-[11px] text-slate-400 mt-0.5">{c.note}</div>}

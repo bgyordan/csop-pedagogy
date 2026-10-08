@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2, Check, X, Plus, AlertTriangle } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { PERIOD_TIMES, PERIOD_LABEL, periodsOverlap } from '@/lib/periods'
-import type { PlanCard } from '@/lib/curriculum'
+import { settlePlan, type PlanCard } from '@/lib/curriculum'
 import { linkCurriculumSubject, addSubjectQuick } from '@/app/my-schedule/edit/actions'
 import { placeClassSlot, removeClassSlot, relinkSlots } from '../actions'
 
@@ -50,8 +50,9 @@ export default function ClassPlanEditor({ classId, term, classes, cards: initial
     const offPlan = new Set(slots.filter(s => !groups[k(s.staffId, s.subjectId)]).map(s => s.id))
     const cls = cards.filter(c => c.place === 'class')
     const planH = cls.reduce((a, c) => a + c.hours, 0)
-    const doneH = cls.reduce((a, c) => a + Math.min(placed[c.key] || 0, c.hours), 0)
-    return { placed, offPlan, planH, doneH, over: cls.filter(c => (placed[c.key] || 0) > c.hours) }
+    // без половин час в разписанието: 0,5 → 0 или 1; 0,5 + 0,5 на един учител → 1 час (settlePlan)
+    const st = settlePlan(cls, placed, c => c.staffId || '')
+    return { placed, offPlan, planH, left: st.left, card: st.card, over: cls.filter(c => st.card[c.key]?.state === 'over') }
   }, [slots, cards])
 
   const busyAt = (staffId: string | null, day: number, period: number) =>
@@ -144,7 +145,7 @@ export default function ClassPlanEditor({ classId, term, classes, cards: initial
     else toast(`Свързани ${done.size} ${done.size === 1 ? 'час' : 'часа'}`)
   }
 
-  const left = r1(check.planH - check.doneH)
+  const left = r1(check.left)
 
   return (
     <div className="space-y-5">
@@ -177,7 +178,8 @@ export default function ClassPlanEditor({ classId, term, classes, cards: initial
             const cls = c.place === 'class'
             const n = check.placed[c.key] || 0
             const isActive = active === c.key && placeable(c)
-            const state = !cls ? '' : n > c.hours ? 'over' : n === c.hours ? 'done' : ''
+            const cs = check.card[c.key]
+            const state = !cls ? '' : cs?.state === 'over' ? 'over' : cs?.state === 'done' ? 'done' : ''
             return (
               <div key={c.key} onClick={() => placeable(c) && setActive(isActive ? '' : c.key)}
                 className={`rounded-xl border px-3 py-2 transition-all ${!cls ? 'bg-slate-50 border-slate-200 text-slate-500'
@@ -196,7 +198,7 @@ export default function ClassPlanEditor({ classId, term, classes, cards: initial
                     : state === 'over' ? 'bg-amber-100 text-amber-800' : state === 'done' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}
                     title={cls ? `наредени ${n} от ${fmt(c.hours)} ч. седмично по плана` : 'часове седмично по плана'}>
                     {!cls ? `${fmt(c.hours)} ч.` : state === 'done' ? <><Check size={11} className="inline -mt-0.5" /> готово</>
-                      : state === 'over' ? `+${fmt(n - c.hours)} над плана` : `остават ${fmt(c.hours - n)}`}
+                      : state === 'over' ? `+${fmt(cs?.over || 0)} над плана` : `остават ${fmt(cs?.left || 0)}${cs?.shared ? ' (общо)' : ''}`}
                   </div>
                 </div>
                 {c.place === 'ich' && <div className="text-[11px] text-slate-400 mt-0.5">ИЧ с дете — нарежда се в разписанието на учителя</div>}
