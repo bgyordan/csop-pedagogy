@@ -209,6 +209,19 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
     router.push('/auth/login')
   }
   const isSecretary = userRole === 'secretary'
+  // Втора, терапевтична роля (напр. ЗДУД + логопед): добавят се само терапевтичните пунктове,
+  // без да се дублира останалото меню на основната роля
+  const [therapyRole, setTherapyRole] = useState<string | null>(null)
+  useEffect(() => {
+    let off = false
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user || off) return
+      supabase.from('staff_profiles').select('therapy_role').eq('user_id', user.id).maybeSingle()
+        .then(({ data }) => { if (!off) setTherapyRole((data as any)?.therapy_role || null) })
+    })
+    return () => { off = true }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const THERAPY_ITEMS = ['/my-activities', '/surveys']
   // Координаторът вижда СВОЕТО меню (по основната си роля) + групата „Координиращ екип“.
   // По-рано тук се добавяше и ролята 'zdud' → координаторът виждаше цялото меню на ЗДУД.
   const effectiveRoles: UserRole[] = [userRole]
@@ -220,6 +233,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
     if (item.coordinatorOnly && isCoordinator) return true
     // К. съвет: за админ/ЗДУД е в „Администрация“; в менюто остава за членовете на съвета и директора
     if (item.councilOnly) return (isCouncil || userRole === 'director') && !['admin', 'zdud'].includes(userRole)
+    if (therapyRole && THERAPY_ITEMS.includes(item.href) && item.roles?.includes(therapyRole as UserRole)) return true
     if (!item.roles) return true
     return item.roles.some(r => effectiveRoles.includes(r))
   }

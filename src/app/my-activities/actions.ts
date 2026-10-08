@@ -11,9 +11,11 @@ async function myProfile() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли' as const }
-  const { data: profile } = await supabase
-    .from('staff_profiles').select('id, role').eq('user_id', user.id).single()
-  if (!profile) return { error: 'Няма профил' as const }
+  const { data: p } = await supabase
+    .from('staff_profiles').select('id, role, therapy_role').eq('user_id', user.id).single()
+  if (!p) return { error: 'Няма профил' as const }
+  // терапевтичната роля: основната, ако е терапевтична, иначе втората (напр. ЗДУД + логопед)
+  const profile = { id: p.id as string, role: (ROLE_FIELD[p.role] ? p.role : (p as any).therapy_role || p.role) as string }
   return { supabase, profile }
 }
 export async function assignToMe(studentId: string) {
