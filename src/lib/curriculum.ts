@@ -248,6 +248,19 @@ export function lecturerOf(ls: CurLine[], s: { role?: string | null; therapy_rol
 export const subjKey = (s: string) => String(s || '').toLowerCase().replace(/[\s.„“"']+/g, '').replace(/[‐‑–—]/g, '-')
 
 /**
+ * Предмети в EIS с практически еднакво име („Арт терапия“ / „Арттерапия“, „Музикотерапия“ / „музикотерапия“)
+ * са един предмет за сверката с плана: id → общ (каноничен) id — най-малкият id в групата, еднакъв навсякъде.
+ * Иначе редакторът и обобщението можеха да свържат реда от плана с различни дубликати.
+ */
+export function subjectCanon(subjects: { id: string; name: string }[]): Record<string, string> {
+  const first: Record<string, string> = {}
+  subjects.forEach(s => { const k = subjKey(s.name); if (!first[k] || s.id < first[k]) first[k] = s.id })
+  const out: Record<string, string> = {}
+  subjects.forEach(s => { out[s.id] = first[subjKey(s.name)] })
+  return out
+}
+
+/**
  * Карта от учебния план в редактора на разписанието — един ред от НЕИСПУО за срока.
  *  • place 'class' — нарежда се в паралелката (schedule_slots);
  *  • place 'ich'   — индивидуален час на ИФО дете (teacher_ifo_slots), детето се избира ръчно;
@@ -278,8 +291,9 @@ export async function loadPlanCards(supabase: any, yearId: string | undefined, b
   const { data: maps } = await supabase.from('curriculum_name_map').select('source_name, target_id').eq('kind', 'subject')
   const mapped: Record<string, string> = {}
   ;(maps || []).forEach((m: any) => { mapped[m.source_name] = m.target_id })
+  const canon = subjectCanon(subjects)
   const byName: Record<string, string> = {}
-  subjects.forEach(s => { byName[subjKey(s.name)] ||= s.id })
+  subjects.forEach(s => { byName[subjKey(s.name)] = canon[s.id] })
   const known = new Set(subjects.map(s => s.id))
   const cards: PlanCard[] = []
   lines.forEach(l => {
@@ -287,7 +301,7 @@ export async function loadPlanCards(supabase: any, yearId: string | undefined, b
     const other = term === 2 ? l.h1 : l.h2
     if (!hours && !other) return
     const m = mapped[l.subject]
-    const subjectId = (m && known.has(m) ? m : null) || byName[subjKey(l.subject)] || null
+    const subjectId = (m && known.has(m) ? canon[m] : null) || byName[subjKey(l.subject)] || null
     const coud = l.kind === 'ЦОУД' || /цоуд/i.test(l.holder)
     // 0 ч. в този срок (часът е в другия: 1-0 / 0-1) — само за справка, не се нарежда и не се брои
     const offTerm = !hours
@@ -308,7 +322,8 @@ export async function loadPlanCards(supabase: any, yearId: string | undefined, b
  * Час в паралелка ↔ ред: същата паралелка, учител и предмет; ИЧ ↔ ред: учител и предмет (както в личния редактор).
  * Еднакви редове делят наредените часове по ред; излишъкът отива на последния (както в редактора).
  */
-export async function planProgress(supabase: any, yearId: string | undefined, term: number, cards: PlanCard[]) {
+export async function planProgress(supabase: any, yearId: string | undefined, term: number, cards: PlanCard[], canon: Record<string, string> = {}) {
+  const cs = (id: string) => canon[id] || id   // дубликатите на предмет — като един
   const placed: Record<string, number> = {}
   // часове „извън плана“ (учител + предмет не съвпадат с ред от плана) — по учител и по паралелка
   const offByStaff: Record<string, number> = {}, offByClass: Record<string, number> = {}
@@ -321,14 +336,14 @@ export async function planProgress(supabase: any, yearId: string | undefined, te
   for (let i = 0; i < ids.length; i += 100) {
     const { data: sl } = await fetchAll(() => supabase.from('schedule_slots').select('schedule_id, staff_id, subject_id')
       .in('schedule_id', ids.slice(i, i + 100)).order('id'))
-    ;(sl || []).forEach((r: any) => { const k = `c|${clsOf[r.schedule_id]}|${r.staff_id}|${r.subject_id}`; pool[k] = (pool[k] || 0) + 1 })
+    ;(sl || []).forEach((r: any) => { const k = `c|${clsOf[r.schedule_id]}|${r.staff_id}|${cs(r.subject_id)}`; pool[k] = (pool[k] || 0) + 1 })
   }
   const { data: ifo } = await fetchAll(() => supabase.from('teacher_ifo_slots').select('teacher_id, student_id, subject_id')
     .eq('academic_year_id', yearId).eq('term', term).order('id'))
   // ИЧ — по учител + предмет (както в личния редактор): паралелката на детето в EIS може да не съвпада
   // с паралелката на реда в НЕИСПУО, затова не се изисква (иначе наредените ИЧ излизаха „остават“)
   ;(ifo || []).forEach((r: any) => {
-    const k = `i|${r.teacher_id}|${r.subject_id}`
+    const k = `i|${r.teacher_id}|${cs(r.subject_id)}`
     pool[k] = (pool[k] || 0) + 1
   })
   const groups: Record<string, PlanCard[]> = {}

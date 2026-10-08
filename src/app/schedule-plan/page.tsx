@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { CalendarCheck, AlertTriangle, ArrowRight, Check } from 'lucide-react'
-import { loadPlanCards, planProgress, isScheduleLocked, settlePlan, type PlanCard } from '@/lib/curriculum'
+import { loadPlanCards, planProgress, isScheduleLocked, settlePlan, subjectCanon, type PlanCard } from '@/lib/curriculum'
 import PlanAdminBar from './PlanAdminBar'
 export const dynamic = 'force-dynamic'
 
@@ -26,7 +26,7 @@ export default async function SchedulePlanPage({ searchParams }: { searchParams:
   const { data: subjects } = await supabase.from('subjects').select('id, name')
   const cards = await loadPlanCards(supabase, cy?.id, { all: true }, term, subjects || [])
   const [{ placed, offByStaff, offByClass }, lock, { data: classes }] = await Promise.all([
-    planProgress(supabase, cy?.id, term, cards),
+    planProgress(supabase, cy?.id, term, cards, subjectCanon(subjects || [])),
     isScheduleLocked(supabase, cy?.id, term),
     supabase.from('classes').select('id, name').eq('academic_year_id', cy?.id),
   ])
