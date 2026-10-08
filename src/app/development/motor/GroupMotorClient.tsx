@@ -222,7 +222,7 @@ export default function GroupMotorClient({ classes, meId, meName, yearId, yearNa
                 <th className="sticky top-0 left-0 z-20 bg-white border-b border-r border-slate-200 text-left px-3 py-2 font-medium text-slate-500 min-w-[220px]">Проба</th>
                 {kids.map(k => (
                   <th key={k.id} className="sticky top-0 z-10 bg-white border-b border-slate-200 text-left px-2 py-2 font-medium text-slate-700 min-w-[170px]">
-                    <Link href={`/students/${k.id}?tab=dev`} className="hover:underline">{k.name}</Link>
+                    <Link href={`/students/${k.id}?tab=dev&view=motor`} className="hover:underline">{k.name}</Link>
                     {existing[k.id] && <div className="text-[10.5px] font-normal text-emerald-700">записана {date.split('-').reverse().join('.')}</div>}
                   </th>
                 ))}

@@ -17,8 +17,9 @@ const MANAGERS = ['admin', 'zdud', 'director']
 // Оценяват психолозите и логопедите (и координиращият екип, и управата); останалите само разглеждат
 const ASSESSORS = ['psychologist', 'speech_therapist', ...MANAGERS]
 
-export default function DevelopmentTab({ studentId, studentName, className, academicYearId, meId, role, isCoordinator = false }: {
+export default function DevelopmentTab({ studentId, studentName, className, academicYearId, meId, role, isCoordinator = false, initialView }: {
   studentId: string; studentName: string; className: string; academicYearId: string | null; meId: string; role: string; isCoordinator?: boolean
+  initialView?: string
 }) {
   const supabase = createClient()
   const [data, setData] = useState<{ skills: Skill[]; assessments: Assessment[]; scores: Score[]; targets: Target[]; gas: Gas[]; profile: Profile | null; years: Record<string, string>; names: Record<string, string> } | null>(null)
@@ -27,6 +28,7 @@ export default function DevelopmentTab({ studentId, studentName, className, acad
   const [exporting, setExporting] = useState(false)
   // „Обща оценка“ (умения по области) или „Двигателна оценка“ (ФВС) — помни се за този браузър
   const [view, setView] = useState<'general' | 'motor'>(() => {
+    if (initialView === 'motor' || initialView === 'general') return initialView
     try { return localStorage.getItem('eis_dev_view') === 'motor' ? 'motor' : 'general' } catch { return 'general' }
   })
   const pickView = (v: 'general' | 'motor') => { setView(v); try { localStorage.setItem('eis_dev_view', v) } catch { /* без localStorage */ } }
@@ -136,13 +138,17 @@ export default function DevelopmentTab({ studentId, studentName, className, acad
 
   return (
     <div className="space-y-4">
-      <ProfileCard profile={data.profile} studentId={studentId} canEdit={canAssess} onSave={saveProfile} />
-      <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl w-fit">
-        {([['general', 'Обща оценка'], ['motor', 'Двигателна оценка']] as const).map(([k, l]) => (
+      {/* Два раздела: общата оценка по области и двигателната (ФВС) */}
+      <div className="grid grid-cols-2 gap-2 max-w-xl">
+        {([['general', 'Обща оценка', 'умения по области, цели, GAS'], ['motor', 'Двигателна оценка', 'ФВС: 62 проби, групова карта']] as const).map(([k, l, d]) => (
           <button key={k} type="button" onClick={() => pickView(k)}
-            className={`px-3 py-1.5 rounded-lg text-[13px] font-medium ${view === k ? 'bg-[#0f2240] text-white' : 'text-slate-600 hover:bg-slate-50'}`}>{l}</button>
+            className={`text-left px-4 py-2.5 rounded-xl border transition-colors ${view === k ? 'bg-[#0f2240] border-[#0f2240] text-white shadow-sm' : 'bg-white border-slate-200 text-slate-700 hover:border-[#0f2240]'}`}>
+            <div className="text-[14px] font-semibold">{l}</div>
+            <div className={`text-[11.5px] ${view === k ? 'text-white/70' : 'text-slate-500'}`}>{d}</div>
+          </button>
         ))}
       </div>
+      <ProfileCard profile={data.profile} studentId={studentId} canEdit={canAssess} onSave={saveProfile} />
       {view === 'motor' ? (
         <MotorSection studentId={studentId} studentName={studentName} className={className} academicYearId={academicYearId}
           meId={meId} role={role} gmfcs={data.profile?.gmfcs ?? null} />

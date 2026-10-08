@@ -59,7 +59,7 @@ const EPLR_LABELS: Record<string, string> = {
 const TABS = ['docs', 'overview', 'data', 'eplr', 'dev', 'therapy', 'files'] as const
 type Tab = typeof TABS[number]
 
-export default async function StudentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
+export default async function StudentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; view?: string }> }) {
   const { id } = await params
   const sp = await searchParams
   const tab: Tab = (TABS as readonly string[]).includes(sp.tab || '') ? (sp.tab as Tab) : 'docs'
@@ -506,7 +506,7 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
         {tab === 'dev' && showDev && (
           <div className="animate-in fade-in duration-300">
             <DevelopmentTab studentId={id} studentName={getFullName(student as any)} className={(enrollment as any)?.class?.name || ''}
-              academicYearId={currentYear?.id || null} meId={profile?.id || ''} role={profile?.role || ''} isCoordinator={isCoordinator} />
+              academicYearId={currentYear?.id || null} meId={profile?.id || ''} role={profile?.role || ''} isCoordinator={isCoordinator} initialView={sp.view} />
           </div>
         )}
 
