@@ -305,7 +305,7 @@ export async function loadPlanCards(supabase: any, yearId: string | undefined, b
 
 /**
  * Колко часа от всеки ред на плана са наредени в разписанието за срока.
- * Час в паралелка ↔ ред: същата паралелка, учител и предмет; ИЧ ↔ ред: учител и предмет, детето от паралелката на реда.
+ * Час в паралелка ↔ ред: същата паралелка, учител и предмет; ИЧ ↔ ред: учител и предмет (както в личния редактор).
  * Еднакви редове делят наредените часове по ред; излишъкът отива на последния (както в редактора).
  */
 export async function planProgress(supabase: any, yearId: string | undefined, term: number, cards: PlanCard[]) {
@@ -323,17 +323,16 @@ export async function planProgress(supabase: any, yearId: string | undefined, te
   }
   const { data: ifo } = await fetchAll(() => supabase.from('teacher_ifo_slots').select('teacher_id, student_id, subject_id')
     .eq('academic_year_id', yearId).eq('term', term).order('id'))
-  const { data: enr } = await fetchAll(() => supabase.from('student_enrollments').select('student_id, class_id').eq('academic_year_id', yearId).order('id'))
-  const stCls: Record<string, string> = {}
-  ;(enr || []).forEach((e: any) => { stCls[e.student_id] = e.class_id })
+  // ИЧ — по учител + предмет (както в личния редактор): паралелката на детето в EIS може да не съвпада
+  // с паралелката на реда в НЕИСПУО, затова не се изисква (иначе наредените ИЧ излизаха „остават“)
   ;(ifo || []).forEach((r: any) => {
-    const k1 = `i|${stCls[r.student_id] || ''}|${r.teacher_id}|${r.subject_id}`, k0 = `i||${r.teacher_id}|${r.subject_id}`
-    pool[k1] = (pool[k1] || 0) + 1; pool[k0] = (pool[k0] || 0) + 1
+    const k = `i|${r.teacher_id}|${r.subject_id}`
+    pool[k] = (pool[k] || 0) + 1
   })
   const groups: Record<string, PlanCard[]> = {}
   cards.forEach(c => {
     if (!c.subjectId || !c.staffId || c.place === 'info') return
-    const k = c.place === 'class' ? `c|${c.classId}|${c.staffId}|${c.subjectId}` : `i|${c.classId || ''}|${c.staffId}|${c.subjectId}`
+    const k = c.place === 'class' ? `c|${c.classId}|${c.staffId}|${c.subjectId}` : `i|${c.staffId}|${c.subjectId}`
     ;(groups[k] ||= []).push(c)
   })
   Object.entries(groups).forEach(([k, cs]) => {
