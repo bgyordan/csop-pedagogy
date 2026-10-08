@@ -7,10 +7,9 @@ import { smartMatch } from '@/lib/search'
 import { declarationPeriods, defaultPeriod } from '@/lib/declaration-periods'
 import { getLecturerOverview, getReviewDetail, verifyDeclaration, unverifyDeclaration } from './actions'
 import ReviewClient from './ReviewClient'
+import RatesPanel from './RatesPanel'
+import { effectiveRates, eurStr, type LecturerRates } from '@/lib/lecturer-rates'
 
-// ВПРЗ чл. 10, ал. 2, т. 1 (учител с висше образование) и НП „Без свободен час“
-const RATE_BUDGET = 6.29
-const RATE_NP = 7.38
 
 type Decl = { id: string; status: string; from: string; to: string; hours: number }
 type Row = {
@@ -45,8 +44,10 @@ function declState(r: Row, periodOpen: boolean): { key: 'none' | 'missing' | 'no
 
 // „Проверка лекторски“: за периода — над норматив (по график / реализирани) и заместване (НП / бюджет),
 // по служител, с подробности по дни за сверка с НЕИСПУО и потвърждаване на декларацията на място.
-export default function OverviewClient({ archive }: { archive: ArchiveRow[] }) {
+export default function OverviewClient({ archive, rates }: { archive: ArchiveRow[]; rates: LecturerRates }) {
   const { toast } = useToast()
+  // ставки за лекторски час (въвеждат се долу в „Ставки“)
+  const R = effectiveRates(rates)
   const periods = declarationPeriods()
   const [periodKey, setPeriodKey] = useState(() => defaultPeriod(periods).key)
   const period = periods.find(p => p.key === periodKey) || periods[0]
@@ -86,7 +87,7 @@ export default function OverviewClient({ archive }: { archive: ArchiveRow[] }) {
 
   const tot = all.reduce((a, r) => ({ planned: a.planned + r.planned, declared: a.declared + r.declared, np: a.np + r.np, budget: a.budget + r.budget }),
     { planned: 0, declared: 0, np: 0, budget: 0 })
-  const sum = (r: { declared: number; budget: number; np: number }) => (r.declared + r.budget) * RATE_BUDGET + r.np * RATE_NP
+  const sum = (r: { declared: number; budget: number; np: number }) => r.declared * R.over + r.budget * R.sub + r.np * R.np
 
   async function toggle(id: string) {
     if (open === id) { setOpen(null); return }
@@ -114,7 +115,7 @@ export default function OverviewClient({ archive }: { archive: ArchiveRow[] }) {
     setGenning(true)
     try {
       await generateLecturerPaymentOrder({
-        periodLabel: `${period.label} г.`, yearName: '', rateBudget: RATE_BUDGET, rateNp: RATE_NP,
+        periodLabel: `${period.label} г.`, yearName: '', rateOver: R.over, rateSub: R.sub, rateNp: R.np,
         rows: all.map(r => ({ name: r.name, position: r.position, overNorm: r.declared, budgetSub: r.budget, np: r.np })),
       })
     } catch (e) { /* noop */ }
@@ -171,6 +172,7 @@ export default function OverviewClient({ archive }: { archive: ArchiveRow[] }) {
             </div>
           </div>
         )}
+        <RatesPanel rates={rates} />
         {!loading && (counts.missing > 0 || counts.pending > 0) && (
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <AlertTriangle size={14} className="text-amber-500" />
@@ -225,7 +227,7 @@ export default function OverviewClient({ archive }: { archive: ArchiveRow[] }) {
                   <th className={`${th} text-right border-l border-slate-200`}>НП</th>
                   <th className={`${th} text-right`}>Бюджет</th>
                   <th className={`${th} text-right border-l border-slate-200`}>Общо, ч.</th>
-                  <th className={`${th} text-right`} title={`Бюджет × ${RATE_BUDGET} € + НП × ${RATE_NP} €`}>Сума, €</th>
+                  <th className={`${th} text-right`} title={`Над норматив × ${eurStr(R.over)} € + заместване бюджет × ${eurStr(R.sub)} € + НП × ${eurStr(R.np)} €`}>Сума, €</th>
                 </tr>
               </thead>
               <tbody>
@@ -378,7 +380,7 @@ export default function OverviewClient({ archive }: { archive: ArchiveRow[] }) {
         )}
         <p className="px-4 py-2.5 text-[11px] text-slate-400 border-t border-slate-100">
           Над норматив се изплаща по реализираните (декларирани) часове — не повече от графика; невзетите не се прехвърлят към друг период.
-          Заместването — по заповедите (вътрешните, в рамките на нормата, не се броят). Ставки: {RATE_BUDGET.toFixed(2).replace('.', ',')} € (ВПРЗ чл. 10, ал. 2) и {RATE_NP.toFixed(2).replace('.', ',')} € за НП.
+          Заместването — по заповедите (вътрешните, в рамките на нормата, не се броят).
           Щракни на ред за подробности по дни.
         </p>
       </div>

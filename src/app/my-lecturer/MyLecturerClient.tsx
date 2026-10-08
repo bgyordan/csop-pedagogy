@@ -16,8 +16,9 @@ const STATUS: Record<string, { l: string; c: string }> = {
   paid: { l: 'Изплатена', c: 'bg-slate-100 text-slate-500' },
 }
 
-export default function MyLecturerClient({ teacherName, position, slots, declarations: initialDecls, suggestFrom = '' }: {
+export default function MyLecturerClient({ teacherName, position, slots, declarations: initialDecls, suggestFrom = '', rate }: {
   teacherName: string; position: string; slots: Slot[]; declarations: Decl[]; suggestFrom?: string
+  rate?: number   // ставка €/час над норматив (lecturer_rates) — попълва реда в декларацията
 }) {
   const { toast } = useToast()
   const [declarations, setDeclarations] = useState<Decl[]>(initialDecls)
@@ -79,7 +80,7 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
         teacherName, position,
         periodLabel: `${period.label} (${fmt(from)} – ${fmt(to)})`,
         orderRef: slots[0]?.orderNumber ? `Заповед № ${slots[0].orderNumber}` : 'Заповед № …',
-        rows, totalHours: rows.length,
+        rows, totalHours: rows.length, rate,
       })
     } catch (e) { /* noop */ }
             toast('Декларацията е подадена и изтеглена')

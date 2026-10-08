@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
 import { ClipboardCheck } from 'lucide-react'
 import OverviewClient from './OverviewClient'
+import { loadLecturerRates } from '@/lib/lecturer-rates'
 export const dynamic = 'force-dynamic'
 
 export default async function LecturerReviewPage() {
@@ -16,6 +17,7 @@ export default async function LecturerReviewPage() {
     .from('lecturer_declarations')
     .select('id, period_from, period_to, total_hours, status, created_at, staff:staff_profiles!lecturer_declarations_staff_id_fkey(first_name, last_name)')
     .order('created_at', { ascending: false })
+  const rates = await loadLecturerRates(supabase)
   const rows = (data || []).map((d: any) => ({
     id: d.id,
     staffName: d.staff ? `${d.staff.first_name} ${d.staff.last_name}` : '—',
@@ -34,7 +36,7 @@ export default async function LecturerReviewPage() {
           <p className="text-sm text-slate-500 mt-0.5">Над норматив и заместване по служители за периода — подробности по дни за сверка с НЕИСПУО</p>
         </div>
       </header>
-      <OverviewClient archive={rows} />
+      <OverviewClient archive={rows} rates={rates} />
     </div>
   )
 }
