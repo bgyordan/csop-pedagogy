@@ -34,6 +34,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             isCoordinator={profile.is_coordinator === true}
         userPosition={profile.position || ""}
         hasClass={hasClass}
+        therapyRole={profile.therapy_role || null}
 />
       <main className="flex-1 overflow-auto flex flex-col">
         <div className="flex-1">{children}</div>

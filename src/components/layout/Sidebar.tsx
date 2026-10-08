@@ -152,6 +152,7 @@ const navItems: NavItem[] = [
   { href: '/gym-schedule', label: 'Физк. салон', icon: <Dumbbell size={16} />, roles: ['secretary'], section: 'settings' },
 ]
 interface SidebarProps {
+  therapyRole?: string | null   // втора, терапевтична роля (ако не е подадена — зарежда се за влезлия)
   userRole: UserRole
   userName: string
   userEmail: string
@@ -159,7 +160,7 @@ interface SidebarProps {
   hasClass?: boolean
   userPosition?: string
 }
-export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, userPosition = '', hasClass = true }: SidebarProps) {
+export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, userPosition = '', hasClass = true, therapyRole: therapyRoleProp }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -211,8 +212,11 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   const isSecretary = userRole === 'secretary'
   // Втора, терапевтична роля (напр. ЗДУД + логопед): добавят се само терапевтичните пунктове,
   // без да се дублира останалото меню на основната роля
-  const [therapyRole, setTherapyRole] = useState<string | null>(null)
+  // therapyRoleProp — подаден от страницата (напр. при „Виж като…“ — на гледания служител); иначе — моята
+  const [therapyRoleOwn, setTherapyRole] = useState<string | null>(null)
+  const therapyRole = therapyRoleProp !== undefined ? therapyRoleProp : therapyRoleOwn
   useEffect(() => {
+    if (therapyRoleProp !== undefined) return
     let off = false
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user || off) return
