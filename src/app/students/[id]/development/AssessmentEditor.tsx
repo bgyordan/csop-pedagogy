@@ -182,8 +182,8 @@ export default function AssessmentEditor({ skills, assessments, scores, assessme
                           className={`p-1.5 rounded-lg ${vals[sk.id]?.note ? 'text-[#0f2240]' : 'text-slate-400 hover:text-slate-700'}`}><MessageSquare size={15} /></button>
                       )}
                     </div>
-                    {(openNote === sk.id || (readOnly && vals[sk.id]?.note)) && (
-                      <input value={vals[sk.id]?.note || ''} readOnly={readOnly} autoFocus={!readOnly}
+                    {(openNote === sk.id || !!vals[sk.id]?.note) && (
+                      <input value={vals[sk.id]?.note || ''} readOnly={readOnly} autoFocus={!readOnly && openNote === sk.id}
                         onChange={e => setVals(pv => ({ ...pv, [sk.id]: { ...pv[sk.id], note: e.target.value } }))}
                         placeholder="Наблюдение, условия, вид помощ…"
                         className="mt-2 w-full px-3 py-1.5 rounded-lg border border-slate-200 text-[13px] focus:outline-none focus:border-[#0f2240]" />

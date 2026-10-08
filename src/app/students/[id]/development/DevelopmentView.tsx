@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Plus, FileDown, Star, CheckCircle2, TrendingUp, TrendingDown, Minus, Sprout, ChevronDown, Loader2 } from 'lucide-react'
+import { Plus, FileDown, Star, CheckCircle2, TrendingUp, TrendingDown, Minus, Sprout, ChevronDown, Loader2, Pencil, Eye, MessageSquare } from 'lucide-react'
 import Radar, { Spark } from './Radar'
 import { AREAS, SCALE, KINDS, fmtD, profileUpTo, areaPct, scaleOf, NA } from './lib'
 import type { Skill, Assessment, Score, Target, Gas } from './lib'
@@ -25,6 +25,12 @@ export default function DevelopmentView({ skills, assessments, scores, targets, 
   const scoreAt = useMemo(() => {
     const m: Record<string, Record<string, number>> = {}
     scores.forEach(s => { (m[s.assessment_id] ||= {})[s.skill_id] = s.score })
+    return m
+  }, [scores])
+  // бележките към уменията по оценка
+  const noteAt = useMemo(() => {
+    const m: Record<string, Record<string, string>> = {}
+    scores.forEach(s => { if (s.note) (m[s.assessment_id] ||= {})[s.skill_id] = s.note })
     return m
   }, [scores])
   const activeSkills = skills.filter(s => s.active || scores.some(sc => sc.skill_id === s.id))
@@ -128,6 +134,60 @@ export default function DevelopmentView({ skills, assessments, scores, targets, 
         </div>
       </div>
 
+      {/* Оценките — отваряне / редакция */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+        <div className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-2">Оценки</div>
+        <div className="flex flex-wrap gap-2">
+          {assessments.map((a, i) => {
+            const can = canEditAssessment(a)
+            return (
+              <button key={a.id} type="button" onClick={() => onOpen(a)}
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[12.5px] hover:shadow-sm ${i === to ? 'border-[#0f2240] bg-slate-50' : 'border-slate-200 bg-white'}`}>
+                <span className="text-slate-800">{fmtD(a.assessed_on)} · {KINDS[a.kind] || ''}</span>
+                <span className="text-slate-400">{staffNames[a.assessor_id || ''] || ''}</span>
+                <span className={`inline-flex items-center gap-1 ${can ? 'text-[#0f2240] font-medium' : 'text-slate-500'}`}>
+                  {can ? <><Pencil size={12} /> Редактирай</> : <><Eye size={12} /> Отвори</>}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Бележки и обобщения на избраната оценка */}
+      {(() => {
+        const a = assessments[to]
+        const areaNotes = AREAS.map(ar => ({ ar, sum: (a.notes || {})[ar.key] || '', skillNotes: activeSkills.filter(s => s.area === ar.key && noteAt[a.id]?.[s.id]).map(s => ({ s, note: noteAt[a.id][s.id] })) }))
+          .filter(x => x.sum || x.skillNotes.length)
+        return (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <div className="flex flex-wrap items-baseline gap-2 mb-3">
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">Бележки и обобщения</span>
+              <span className="text-[12px] text-slate-500">{label(a, to)}{a.assessor_id && staffNames[a.assessor_id] ? ` · ${staffNames[a.assessor_id]}` : ''}</span>
+            </div>
+            {areaNotes.length === 0 ? <div className="text-[13px] text-slate-400">Няма бележки в тази оценка.</div> : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {areaNotes.map(({ ar, sum, skillNotes }) => (
+                  <div key={ar.key} className="rounded-xl border border-slate-200 p-3">
+                    <div className="flex items-center gap-2 text-[13px] font-semibold mb-1" style={{ color: ar.color }}>
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ background: ar.color }} />{ar.label}
+                    </div>
+                    {sum && <p className="text-[13px] text-slate-700 whitespace-pre-wrap">{sum}</p>}
+                    {skillNotes.length > 0 && (
+                      <ul className="mt-1.5 space-y-1">
+                        {skillNotes.map(({ s, note }) => (
+                          <li key={s.id} className="text-[12.5px] text-slate-600"><span className="text-slate-800">{s.label}:</span> {note}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       {/* Решетка: умения × оценки */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="flex flex-wrap items-center gap-2 px-5 py-3 border-b border-slate-100">
@@ -195,11 +255,13 @@ export default function DevelopmentView({ skills, assessments, scores, targets, 
                         {assessments.map(a => {
                           const v = scoreAt[a.id]?.[sk.id]
                           const s = v !== undefined ? scaleOf(v) : null
+                          const nt = noteAt[a.id]?.[sk.id]
                           return (
                             <td key={a.id} className="px-1 py-1">
-                              <div className="h-7 rounded-md flex items-center justify-center text-[11px] font-semibold"
-                                style={s ? { background: s.bg, color: s.fg } : undefined} title={s ? s.label : 'не е оценено'}>
+                              <div className="relative h-7 rounded-md flex items-center justify-center text-[11px] font-semibold"
+                                style={s ? { background: s.bg, color: s.fg } : undefined} title={s ? `${s.label}${nt ? ` — ${nt}` : ''}` : 'не е оценено'}>
                                 {s ? (v === NA ? 'н/п' : v) : <span className="text-slate-200">·</span>}
+                                {nt && <MessageSquare size={9} className="absolute top-0.5 right-0.5 opacity-70" />}
                               </div>
                             </td>
                           )
