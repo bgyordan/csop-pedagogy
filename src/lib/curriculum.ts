@@ -347,3 +347,48 @@ export async function isScheduleLocked(supabase: any, yearId: string | undefined
   if (error || !data) return null   // без миграцията — няма заключване
   return { locked_at: data.locked_at as string, by: data.staff ? `${data.staff.first_name} ${data.staff.last_name}` : '' }
 }
+
+/**
+ * Сверка „наредени ↔ по план“ без половин час в разписанието (аксиома: в разписанието няма 0,5 ч.).
+ *  • Цялата част на реда се брои строго: 2,5 ч. → поне 2 наредени.
+ *  • Дробните остатъци (0,5) на редовете в една група (учител + паралелка) се събират: 0,5 + 0,5 = 1 нареден час
+ *    (с която и да е от двете дисциплини); сам 0,5 → 0 или 1 (1-0 / 0-1 по срокове или седмици) — и двете са наред.
+ * group(c) — ключът на групата; placed — наредените часове по ред (от разпределението по предмет).
+ * Връща по ред: done / left (остават) / over (над плана) и общо left / over за всички.
+ */
+export function settlePlan<T extends { key: string; hours: number }>(cards: T[], placed: Record<string, number>, group: (c: T) => string) {
+  const eps = 1e-6
+  const card: Record<string, { state: 'done' | 'left' | 'over'; left: number; over: number; shared?: boolean }> = {}
+  const groups: Record<string, T[]> = {}
+  cards.forEach(c => { (groups[group(c)] ||= []).push(c) })
+  let left = 0, over = 0
+  for (const cs of Object.values(groups)) {
+    let F = 0, S = 0
+    for (const c of cs) {
+      const w = Math.floor(c.hours + eps), f = c.hours - w > eps ? c.hours - w : 0
+      const n = placed[c.key] || 0
+      F += f
+      const st = { state: 'done' as 'done' | 'left' | 'over', left: 0, over: 0, shared: false }
+      if (n < w) { st.state = 'left'; st.left = w - n }
+      else if (n > w) { if (f > 0) S += n - w; else { st.state = 'over'; st.over = n - w } }
+      card[c.key] = st
+      left += st.left; over += st.over
+    }
+    // дробната част на групата: нужни floor(F) цели часа, допустими до ceil(F)
+    const need = Math.floor(F + eps), max = Math.ceil(F - eps)
+    const fl = Math.max(0, need - S), fo = Math.max(0, S - max)
+    left += fl; over += fo
+    if (fl > 0) cs.forEach(c => {   // липсващият общ час — показва се на всеки дробен ред без нареден остатък
+      const w = Math.floor(c.hours + eps), n = placed[c.key] || 0
+      if (c.hours - w > eps && n <= w && card[c.key].state !== 'left') card[c.key] = { state: 'left', left: fl, over: 0, shared: true }
+    })
+    if (fo > 0) {
+      let rest = fo
+      cs.forEach(c => {
+        const w = Math.floor(c.hours + eps), n = placed[c.key] || 0
+        if (rest > 0 && c.hours - w > eps && n > w) { const o = Math.min(rest, n - w); rest -= o; card[c.key] = { state: 'over', left: 0, over: o } }
+      })
+    }
+  }
+  return { card, left, over }
+}

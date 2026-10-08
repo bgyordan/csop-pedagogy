@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { CalendarCheck, AlertTriangle, ArrowRight, Check } from 'lucide-react'
-import { loadPlanCards, planProgress, isScheduleLocked, type PlanCard } from '@/lib/curriculum'
+import { loadPlanCards, planProgress, isScheduleLocked, settlePlan, type PlanCard } from '@/lib/curriculum'
 import PlanAdminBar from './PlanAdminBar'
 export const dynamic = 'force-dynamic'
 
@@ -31,11 +31,15 @@ export default async function SchedulePlanPage({ searchParams }: { searchParams:
     supabase.from('classes').select('id, name').eq('academic_year_id', cy?.id),
   ])
 
-  type Row = { id: string; name: string; plan: number; done: number; over: number; cards: number }
+  type Row = { id: string; name: string; plan: number; done: number; over: number; cards: number; list: PlanCard[] }
   const sum = (rows: Record<string, Row>, id: string, nm: string, c: PlanCard) => {
-    const r = (rows[id] ||= { id, name: nm, plan: 0, done: 0, over: 0, cards: 0 })
-    const n = placed[c.key] || 0
-    r.plan += c.hours; r.done += Math.min(n, c.hours); r.over += Math.max(0, n - c.hours); r.cards++
+    const r = (rows[id] ||= { id, name: nm, plan: 0, done: 0, over: 0, cards: 0, list: [] })
+    r.plan += c.hours; r.cards++; r.list.push(c)
+  }
+  // без половин час в разписанието: 0,5 → 0 или 1; 0,5 + 0,5 на учител в паралелка → 1 час (settlePlan)
+  const settle = (r: Row) => {
+    const st = settlePlan(r.list, placed, c => `${c.place}|${c.classId}|${c.staffId}`)
+    r.done = r.plan - st.left; r.over = st.over
   }
   const clsName: Record<string, string> = {}
   ;(classes || []).forEach((c: any) => { clsName[c.id] = c.name })
@@ -46,6 +50,8 @@ export default async function SchedulePlanPage({ searchParams }: { searchParams:
     if (c.place === 'class' && c.classId) sum(byClass, c.classId, clsName[c.classId] || c.holder, c)
     if (c.staffId) sum(byTeacher, c.staffId, c.teacher, c)
   })
+  Object.values(byClass).forEach(settle)
+  Object.values(byTeacher).forEach(settle)
   const sortName = (a: Row, b: Row) => a.name.localeCompare(b.name, 'bg', { numeric: true })
   const classRows = Object.values(byClass).sort(sortName)
   const teacherRows = Object.values(byTeacher).sort(sortName)
