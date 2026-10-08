@@ -60,7 +60,7 @@ const navItems: NavItem[] = [
   },
     { href: '/my-schedule', label: 'Разписание', icon: <CalendarDays size={16} />, roles: ['class_teacher', 'teacher', 'educator'] },
   // двигателна оценка (ФВС) — групова карта; индивидуалната е в досието → Развитие
-  { href: '/development/motor', label: 'Двигателна оценка', icon: <Activity size={16} />, roles: ['class_teacher', 'teacher', 'educator', 'rehabilitator'] },
+  { href: '/development/motor', label: 'Двигателна оценка', icon: <Activity size={16} />, roles: ['admin', 'zdud', 'director', 'class_teacher', 'teacher', 'educator', 'rehabilitator', 'psychologist', 'speech_therapist'] },
   { href: '/gym-schedule', label: 'Физк. салон', icon: <Dumbbell size={16} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'secretary', 'support'] },
   // Материална база — сигнали за проблеми в помещенията (всички служители; деловодството го има в своята секция)
   { href: '/facilities', label: 'Материална база', icon: <Wrench size={16} /> },
@@ -96,7 +96,6 @@ const navItems: NavItem[] = [
       { href: '/admin/tasks', label: 'График срокове', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/duties', label: 'Дежурства', icon: <CalendarDays size={14} />, roles: ['admin', 'director', 'zdud'] },
       { href: '/gym-schedule', label: 'Физк. салон', icon: <Dumbbell size={14} />, roles: ['admin', 'zdud', 'director'] },
-      { href: '/development/motor', label: 'Двигателна оценка', icon: <Activity size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
   },
   { href: '/bullying-council', label: 'К. Съвет', icon: <Shield size={16} />, councilOnly: true },
