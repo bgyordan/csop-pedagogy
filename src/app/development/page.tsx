@@ -33,6 +33,20 @@ export default async function DevelopmentOverviewPage() {
     assessments.push(...(a.data || [])); profiles.push(...(p.data || [])); targets.push(...(t.data || []))
   }
 
+  // Двигателна оценка (ФВС): последна оценка и брой за годината (ако таблицата я има)
+  const motor: any[] = []
+  for (const part of chunk(ids)) {
+    const { data, error } = await supabase.from('motor_sessions').select('student_id, academic_year_id, assessed_on').in('student_id', part)
+    if (error) break
+    motor.push(...(data || []))
+  }
+  const moBy: Record<string, { last: string; count: number }> = {}
+  motor.forEach(m => {
+    const r = (moBy[m.student_id] ||= { last: m.assessed_on, count: 0 })
+    if (m.assessed_on > r.last) r.last = m.assessed_on
+    if (m.academic_year_id === year?.id) r.count++
+  })
+
   // Оценки по умения — за общата промяна през годината (входна → последна)
   const scores: any[] = [], gas: any[] = []
   if (ready) {
@@ -82,6 +96,7 @@ export default async function DevelopmentOverviewPage() {
       entry: stage('entry'), mid: stage('mid'), exit: stage('exit'), last: all.length ? all[all.length - 1].assessed_on : null,
       count: inYear.length,
       targets: tIds.length, rated: lastGas.length, reached: lastGas.filter(v => v >= 0).length, change,
+      motorLast: moBy[s.id]?.last || null, motorCount: moBy[s.id]?.count || 0,
     }
   }).sort((a: OverviewRow, b: OverviewRow) => a.className.localeCompare(b.className, 'bg') || a.name.localeCompare(b.name, 'bg'))
 
