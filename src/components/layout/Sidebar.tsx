@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3, FileSpreadsheet,
-  Inbox, ClipboardList, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench
+  Inbox, ClipboardList, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
@@ -59,6 +59,8 @@ const navItems: NavItem[] = [
     ],
   },
     { href: '/my-schedule', label: 'Разписание', icon: <CalendarDays size={16} />, roles: ['class_teacher', 'teacher', 'educator'] },
+  // двигателна оценка (ФВС) — групова карта; индивидуалната е в досието → Развитие
+  { href: '/development/motor', label: 'Двигателна оценка', icon: <Activity size={16} />, roles: ['class_teacher', 'teacher', 'educator', 'rehabilitator'] },
   { href: '/gym-schedule', label: 'Физк. салон', icon: <Dumbbell size={16} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'secretary', 'support'] },
   // Материална база — сигнали за проблеми в помещенията (всички служители; деловодството го има в своята секция)
   { href: '/facilities', label: 'Материална база', icon: <Wrench size={16} /> },
@@ -94,6 +96,7 @@ const navItems: NavItem[] = [
       { href: '/admin/tasks', label: 'График срокове', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/duties', label: 'Дежурства', icon: <CalendarDays size={14} />, roles: ['admin', 'director', 'zdud'] },
       { href: '/gym-schedule', label: 'Физк. салон', icon: <Dumbbell size={14} />, roles: ['admin', 'zdud', 'director'] },
+      { href: '/development/motor', label: 'Двигателна оценка', icon: <Activity size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
   },
   { href: '/bullying-council', label: 'К. Съвет', icon: <Shield size={16} />, councilOnly: true },
