@@ -64,7 +64,11 @@ export async function exportDevelopment(o: {
       width: { size: 100, type: WidthType.PERCENTAGE },
       rows: [
         new TableRow({ children: [cell('Умение', { bold: true, fill: 'F1F5F9', w: 50 }), ...(same ? [] : [cell('Начало', { bold: true, fill: 'F1F5F9' })]), cell(same ? 'Ниво' : 'Сега', { bold: true, fill: 'F1F5F9' })] }),
-        ...rows.map(s => new TableRow({ children: [cell((targets.some(tg => tg.skill_id === s.id) ? '★ ' : '') + s.label), ...(same ? [] : [cell(lvl(pa[s.id]))]), cell(lvl(pb[s.id]))] })),
+        ...rows.map(s => {
+          // бележката към умението от крайната оценка (наблюдение, условия, вид помощ)
+          const sn = o.scores.find(x => x.assessment_id === B.id && x.skill_id === s.id)?.note
+          return new TableRow({ children: [cell((targets.some(tg => tg.skill_id === s.id) ? '★ ' : '') + s.label + (sn ? ` — ${sn}` : '')), ...(same ? [] : [cell(lvl(pa[s.id]))]), cell(lvl(pb[s.id]))] })
+        }),
       ],
     }))
     if (note) kids.push(new Paragraph({ spacing: { before: 80 }, children: [t('Обобщение: ', { bold: true }), t(note)] }))
