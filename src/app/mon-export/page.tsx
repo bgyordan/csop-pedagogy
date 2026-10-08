@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
 import { FileSpreadsheet } from 'lucide-react'
 import MonExportClient from './MonExportClient'
+import { loadLecturerRates, effectiveRates } from '@/lib/lecturer-rates'
 export const dynamic = 'force-dynamic'
 
 export default async function MonExportPage() {
@@ -24,7 +25,7 @@ export default async function MonExportPage() {
           <p className="text-sm text-slate-500 mt-0.5">Генериране на файл за импорт в платформата на МОН</p>
         </div>
       </header>
-      <MonExportClient />
+      <MonExportClient rate={effectiveRates(await loadLecturerRates(supabase)).np} />
     </div>
   )
 }
