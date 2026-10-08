@@ -14,8 +14,9 @@ const EMPTY: Cell = { score: null, code: null, t1: null, t2: null, l: null, r: n
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })
 const chunk = <T,>(a: T[], n = 200) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n))
 
-export default function GroupMotorClient({ classes, meId, meName, yearId, yearName }: {
+export default function GroupMotorClient({ classes, meId, meName, yearId, yearName, embedded = false }: {
   classes: { id: string; name: string; kids: Kid[] }[]; meId: string; meName: string; yearId: string | null; yearName: string
+  embedded?: boolean   // вътре в „Двигателна оценка“ (без собствено заглавие)
 }) {
   const supabase = createClient()
   const [classIds, setClassIds] = useState<string[]>([])
@@ -136,14 +137,14 @@ export default function GroupMotorClient({ classes, meId, meName, yearId, yearNa
   const num = 'w-12 px-1 py-1 rounded-md border border-slate-300 text-[12px] focus:outline-none focus:border-[#0f2240]'
 
   return (
-    <div className="p-4 md:p-8 max-w-[1400px] mx-auto">
-      <div className="mb-5 flex items-center gap-3">
+    <div className={embedded ? '' : 'p-4 md:p-8 max-w-[1400px] mx-auto'}>
+      {!embedded && <div className="mb-5 flex items-center gap-3">
         <div className="p-2.5 rounded-xl" style={{ backgroundColor: '#0f2240' }}><Activity size={20} className="text-white" /></div>
         <div>
           <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Двигателна оценка — групова карта</h1>
           <p className="text-slate-500 text-sm mt-0.5">{yearName} · едни и същи проби и условия за няколко деца; записва се в досието на всяко дете</p>
         </div>
-      </div>
+      </div>}
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3 mb-4">
         <div>
