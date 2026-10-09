@@ -11,7 +11,7 @@ function fmt(d: string) { return d ? d.split('-').reverse().join('.') : '—' }
 
 export default function MySubstitutionsClient({ rows }: { rows: MySubRow[] }) {
   const { toast } = useToast()
-  // само приключили периоди: септември–октомври (от 01.11), после по месеци
+  // само приключили месеци (септември — от 01.10, октомври — от 01.11, …)
   const periods = declarationPeriods()
   const [periodKey, setPeriodKey] = useState(() => defaultPeriod(periods).key)
   const period = periods.find(p => p.key === periodKey) || periods[0]
@@ -59,7 +59,7 @@ export default function MySubstitutionsClient({ rows }: { rows: MySubRow[] }) {
             </button>
           </div>
         </div>
-        <p className="text-[11px] text-slate-400 mt-2">Изберете период и генерирайте обобщена справка-декларация за всичките си замествания през него (НП отделно от бюджета). Декларира се само приключил период: септември и октомври заедно (от 01.11), после всеки месец след края му.</p>
+        <p className="text-[11px] text-slate-400 mt-2">Изберете период и генерирайте обобщена справка-декларация за всичките си замествания през него (НП отделно от бюджета). Декларира се само приключил месец (септември — от 01.10, октомври — от 01.11 и т.н.).</p>
       </div>
 
       {/* Списък на моите замествания (преглед) */}

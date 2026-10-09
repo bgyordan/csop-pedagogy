@@ -53,6 +53,7 @@ export interface SubstOrderData {
   days: { date: string; items: { period: number; subject: string; cls: string }[] }[]
   substitutes?: { name: string; position: string; from: string; to: string; overNorm: boolean }[]
   npSplit?: { npFrom: string; npTo: string; budgetFrom: string; budgetTo: string } | null
+  rate?: number   // € за учебен час на заместника (lecturer_rates) — влиза в т. 3 на заповедта
   noHours?: boolean   // разписанието на отсъстващия още не е пълно → заповед без часове и таблица
 }
 
@@ -214,7 +215,9 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
 
   let n = 3
   if (d.overNorm) {
-    P('3. Проведените часове по заместването да се изплатят на заместващия педагогически специалист като лекторски часове.')
+    P(d.rate && d.rate > 0
+      ? `3. Проведените часове по заместването да се изплатят на заместващия педагогически специалист като лекторски часове в размер на ${d.rate.toFixed(2).replace('.', ',')} евро за един учебен час.`
+      : '3. Проведените часове по заместването да се изплатят на заместващия педагогически специалист като лекторски часове.')
     children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
       normal('4. Източник на финансиране: ', 22),
       ...(d.isBsch && d.npSplit

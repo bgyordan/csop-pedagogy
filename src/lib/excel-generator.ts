@@ -233,7 +233,7 @@ export function generateAnnualReportExcel(
 // ═══ МОН ОТЧЕТ НП „Без свободен час" — импорт xlsx (лист „Справка") ═══
 export function generateMonImport(rows: {
   name: string; docType: string; docNumber: string; docDate: string;
-  hoursTaken: number; nonSpecHoursTaken: number; kt: string; amount: number;
+  hoursTaken: number; nonSpecHoursTaken: number; kt: string; amount: number; insurance?: number;
 }[]) {
   const HEADERS = ['name','docType','docNumber','docDate','hoursTaken','nonSpecHoursTaken',
     'art155_176_2026EUR','art155_2026EUR','art157_2026EUR','art159_2026EUR','art161_2026EUR',
@@ -255,7 +255,7 @@ export function generateMonImport(rows: {
     o.nonSpecHoursTaken = r.nonSpecHoursTaken
     const col = KT_COL[r.kt] || 'art155_2026EUR'
     o[col] = r.amount
-    o.insurance_2026EUR = ''
+    o.insurance_2026EUR = r.insurance ?? ''   // осигуровки от работодателя (сума + осигуровки ≤ тавана на час)
     return o
   })
   const ws = XLSX.utils.json_to_sheet(data, { header: HEADERS })

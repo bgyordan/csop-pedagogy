@@ -15,8 +15,8 @@ function schoolMonths() {
 const mFirst = (m: number, y: number) => `${y}-${String(m).padStart(2,'0')}-01`
 const mLast = (m: number, y: number) => `${y}-${String(m).padStart(2,'0')}-${String(new Date(y, m, 0).getDate()).padStart(2,'0')}`
 
-// rate — ставката за заместване по НП от „Проверка лекторски“ (само за показване; сървърът я взима сам)
-export default function MonExportClient({ rate }: { rate: number }) {
+// rate — ставката на час във файла, pct — осигуровки от работодателя, cap — таванът с осигуровките (само за показване)
+export default function MonExportClient({ rate, cap, pct }: { rate: number; cap: number; pct: number }) {
   const { toast } = useToast()
   const SM = schoolMonths()
   const now = new Date()
@@ -56,7 +56,7 @@ export default function MonExportClient({ rate }: { rate: number }) {
         <div>
           <div className="text-xs text-slate-500 mb-1">Ставка</div>
           <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm tabular-nums" title="Променя се в „Проверка лекторски“ → Ставки">
-            {eurStr(rate)} € / час
+            {eurStr(rate)} € / час <span className="text-slate-500">+ {eurStr(pct)}% осигуровки = {eurStr(rate * (1 + pct / 100))} € ≤ {eurStr(cap)} €</span>
           </div>
         </div>
       </div>
@@ -64,7 +64,7 @@ export default function MonExportClient({ rate }: { rate: number }) {
         className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-medium hover:opacity-90 disabled:opacity-60" style={{ backgroundColor: '#059669' }}>
         {busy ? <Loader2 size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />} Генерирай МОН файл
       </button>
-      <p className="text-[11px] text-slate-400">Събира всички НП замествания за периода, изчислява часовете (без ваканции) и сумата по съответния член от КТ. Файлът се импортира директно в платформата на МОН. Ставката е тази за заместване по НП от „Проверка лекторски“ → Ставки.</p>
+      <p className="text-[11px] text-slate-400">Събира всички НП замествания за периода, изчислява часовете (без ваканции) и сумата по съответния член от КТ. Файлът се импортира директно в платформата на МОН. Сумата е часове × {eurStr(rate)} €, осигуровките — {eurStr(pct)}% от нея; общо на час не надвишава {eurStr(cap)} €. Ставките се променят в „Проверка лекторски“ → Ставки.</p>
     </div>
   )
 }

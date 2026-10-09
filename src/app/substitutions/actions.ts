@@ -237,6 +237,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
       dateFrom: sub.date_from, dateTo: sub.date_to,
       zdudName: zdud ? `${zdud.first_name} ${zdud.last_name}` : '',
             yearName: cy?.name || '',
+      rate: effectiveRates(await loadLecturerRates(supabase)).sub,   // € за учебен час на заместника (и по НП)
       isBsch: sub.bsch_eligible === true,
       npSplit,
       noHours, weekHours, targetHours, placedHours,
@@ -341,7 +342,7 @@ export async function getMonthlyDeclaration(first: string, last: string) {
   const { data: me } = await supabase.from('staff_profiles').select('id, first_name, middle_name, last_name, position').eq('user_id', user.id).single()
   if (!me) return { error: 'Профил не е намерен' }
 
-  // само приключил период: септември–октомври (от 01.11), после по месеци
+  // само приключил месец (септември — от 01.10, октомври — от 01.11, …)
   const pc = checkDeclarablePeriod(first, last)
   if (!pc.ok) return { error: pc.error }
 
@@ -432,7 +433,8 @@ export async function getMonExport(first: string, last: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли' }
-  const rate = effectiveRates(await loadLecturerRates(supabase)).np
+  // в МОН файла: ставка на час, която с осигуровките от работодателя не надвишава тавана (7,38 / 1,2332 → 5,98 €)
+  const { npMon: rate, npCap, employerPct } = effectiveRates(await loadLecturerRates(supabase))
   const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
 
   // всички НП замествания, застъпващи периода
@@ -488,6 +490,8 @@ export async function getMonExport(first: string, last: string) {
         docType: 'Заповед', docNumber: String(orderNumber).split('/')[0].trim(), docDate: orderDate,
         hoursTaken: hours, nonSpecHoursTaken: isNonSpec ? hours : 0,
         kt: sub.kt_article || '155', amount: +(hours * rate).toFixed(2),
+        // осигуровките за сметка на работодателя; общо ≤ часове × тавана (при закръгляне — до тавана)
+        insurance: Math.min(+(hours * rate * employerPct / 100).toFixed(2), Math.max(0, +(hours * npCap - +(hours * rate).toFixed(2)).toFixed(2))),
       })
     }
   }
