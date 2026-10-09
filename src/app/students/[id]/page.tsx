@@ -52,15 +52,16 @@ const EPLR_LABELS: Record<string, string> = {
   iu_program_school: 'ИУ Програма (училище)', characteristic: 'Характеристика', other: 'Други',
 }
 
-// Досие: Обзор · Данни · Екип · Документи · Развитие (старите адреси ?tab=eplr/therapy/files водят към новите)
-const TABS = ['overview', 'data', 'team', 'docs', 'dev'] as const
+// Досие: Документи (по подразбиране — ползват го най-много) · Обзор · Данни · Екип · Развитие
+// (старите адреси ?tab=eplr/therapy/files водят към новите)
+const TABS = ['docs', 'overview', 'data', 'team', 'dev'] as const
 type Tab = typeof TABS[number]
 const LEGACY_TAB: Record<string, Tab> = { eplr: 'team', therapy: 'team', files: 'docs' }
 
 export default async function StudentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; view?: string }> }) {
   const { id } = await params
   const sp = await searchParams
-  const tab: Tab = (TABS as readonly string[]).includes(sp.tab || '') ? (sp.tab as Tab) : (LEGACY_TAB[sp.tab || ''] || 'overview')
+  const tab: Tab = (TABS as readonly string[]).includes(sp.tab || '') ? (sp.tab as Tab) : (LEGACY_TAB[sp.tab || ''] || 'docs')
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
@@ -184,7 +185,7 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
   if (student.status === 'active' && !eplr) alerts.push({ level: 'amber', icon: Users, tab: 'team', text: 'Няма назначен ЕПЛР екип' })
   if (activeOres) alerts.push({ level: 'info', icon: Sparkles, tab: 'data', text: `ОРЕС от ${formatDate(activeOres.from_date)}${activeOres.to_date ? ` до ${formatDate(activeOres.to_date)}` : ''}` })
 
-  const tabHref = (t: Tab) => t === 'overview' ? `/students/${id}` : `/students/${id}?tab=${t}`
+  const tabHref = (t: Tab) => t === 'docs' ? `/students/${id}` : `/students/${id}?tab=${t}`
 
   const cardCls = "bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm h-full"
   const cardHead = "flex items-center gap-2 mb-3 pb-2.5 border-b border-slate-100"
@@ -192,10 +193,10 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
   // „Развитие“ — за педагогическите роли (не за деловодител и помощен персонал)
   const showDev = !['secretary', 'support'].includes(profile?.role || '')
   const TAB_DEFS: { key: Tab; label: string; icon: any }[] = [
+    { key: 'docs', label: 'Документи', icon: FolderOpen },
     { key: 'overview', label: 'Обзор', icon: LayoutGrid },
     { key: 'data', label: 'Данни', icon: ClipboardList },
     { key: 'team', label: 'Екип', icon: Users },
-    { key: 'docs', label: 'Документи', icon: FolderOpen },
     ...(showDev ? [{ key: 'dev' as Tab, label: 'Развитие', icon: Sprout }] : []),
   ]
   const alertCls = { red: 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100', amber: 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100', info: 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100' }
