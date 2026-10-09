@@ -22,7 +22,7 @@ export interface SubRow {
   noOrder: boolean
   overNorm: boolean
   // няколко заместника — периоди по заместник (празно = един заместник)
-  assigns: { staffId: string; name: string; from: string; to: string }[]
+  assigns: { staffId: string; name: string; from: string; to: string; periods?: number[] | null }[]
 }
 export default async function SubstitutionsPage() {
   const supabase = await createClient()
@@ -43,14 +43,14 @@ export default async function SubstitutionsPage() {
   // разпределение при няколко заместника — зарежда се заедно със списъка (без да се отваря редакция)
   const { data: asg } = await supabase
     .from('substitution_assignments')
-    .select('substitution_id, substitute_staff_id, date_from, date_to, sub:staff_profiles!substitution_assignments_substitute_staff_id_fkey(first_name, last_name)')
+    .select('*, sub:staff_profiles!substitution_assignments_substitute_staff_id_fkey(first_name, last_name)')
     .order('date_from')
   const assignsBy: Record<string, SubRow['assigns']> = {}
   ;(asg || []).forEach((a: any) => {
     ;(assignsBy[a.substitution_id] ||= []).push({
       staffId: a.substitute_staff_id,
       name: a.sub ? `${a.sub.first_name} ${a.sub.last_name}` : '—',
-      from: a.date_from, to: a.date_to,
+      from: a.date_from, to: a.date_to, periods: a.periods?.length ? a.periods : null,
     })
   })
 

@@ -51,7 +51,7 @@ export interface SubstOrderData {
   zdudName: string
   yearName: string
   days: { date: string; items: { period: number; subject: string; cls: string }[] }[]
-  substitutes?: { name: string; position: string; from: string; to: string; overNorm: boolean }[]
+  substitutes?: { name: string; position: string; from: string; to: string; overNorm: boolean; periods?: number[] | null }[]
   npSplit?: { npFrom: string; npTo: string; budgetFrom: string; budgetTo: string } | null
   rate?: number   // € за учебен час на заместника (lecturer_rates) — влиза в т. 3 на заповедта
   noHours?: boolean   // разписанието на отсъстващия още не е пълно → заповед без часове и таблица
@@ -125,6 +125,13 @@ function scheduleMatrix(days: { date: string; items: { period: number; subject: 
   }
   return out
 }
+// „за периода 05.10 – 09.10“ / „за 07.10.2026“ + часовете, ако заместването е по часове
+function sbWhen(sb: { from: string; to: string; periods?: number[] | null }) {
+  const when = sb.from === sb.to ? `за ${formatDate(sb.from)}` : `за периода ${formatDate(sb.from)} – ${formatDate(sb.to)}`
+  if (!sb.periods || !sb.periods.length) return when
+  const ps = [...sb.periods].sort((a, b) => a - b).map(p => `${PERIOD_LABEL[p] ?? p}${p <= 7 ? '.' : ''}`)
+  return `${when}, ${ps.join(', ')}${sb.periods.every(p => p <= 7) ? ' час' : ''}`
+}
 export async function generateSubstitutionOrder(d: SubstOrderData) {
   const children: any[] = []
   header().forEach(p => children.push(p))
@@ -164,7 +171,7 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
     ] }))
     d.substitutes!.forEach((sb, i) => {
       children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 40 }, indent: { left: 400 }, children: [
-        normal(`${i + 1}) за периода ${formatDate(sb.from)} – ${formatDate(sb.to)}: `, 22),
+        normal(`${i + 1}) ${sbWhen(sb)}: `, 22),
         bold(sb.name, 22),
         normal(`, на длъжност ${sb.position || 'учител'}, ${normPhraseFor(sb.overNorm)};`, 22),
       ] }))
@@ -201,8 +208,8 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
       const sbDays = d.days.filter(day => {
         const iso = day.date.split('.').reverse().join('-')
         return iso >= sb.from && iso <= sb.to
-      })
-      children.push(new Paragraph({ spacing: { before: 80, after: 40 }, children: [bold(`${sb.name} (${formatDate(sb.from)} – ${formatDate(sb.to)}):`, 20)] }))
+      }).map(day => sb.periods ? { ...day, items: day.items.filter(it => sb.periods!.includes(it.period)) } : day)
+      children.push(new Paragraph({ spacing: { before: 80, after: 40 }, children: [bold(`${sb.name} (${sbWhen(sb)}):`, 20)] }))
       children.push(...scheduleMatrix(sbDays))
     })
   } else {
@@ -252,8 +259,10 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
 
   children.push(new Paragraph({ children: [bold('Запознати:', 22)], spacing: { after: 80 } }))
   if (multi) {
-    d.substitutes!.forEach((sb, i) => children.push(new Paragraph({ spacing: { after: 60 }, children: [normal(`${i + 1}. ${sb.name} – заместващ     ..............................`, 22)] })))
-    const k = d.substitutes!.length + 1
+    // всеки заместник веднъж (при заместване по часове един човек има няколко реда)
+    const names = Array.from(new Set(d.substitutes!.map(sb => sb.name)))
+    names.forEach((nm, i) => children.push(new Paragraph({ spacing: { after: 60 }, children: [normal(`${i + 1}. ${nm} – заместващ     ..............................`, 22)] })))
+    const k = names.length + 1
     children.push(new Paragraph({ children: [normal(`${k}. ${d.zdudName || '…………………'} – заместник-директор     ..............................`, 22)] }))
   } else {
     children.push(new Paragraph({ spacing: { after: 60 }, children: [normal(`1. ${d.substituteName} – заместващ     ..............................`, 22)] }))
