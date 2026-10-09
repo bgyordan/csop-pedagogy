@@ -923,3 +923,63 @@ export async function generateLecturerPaymentOrder(d: LecturerPaymentData) {
   const blob = await Packer.toBlob(doc)
   saveAs(blob, `заповед_изплащане_лекторски_${d.periodLabel.replace(/\s+/g, '_')}.docx`)
 }
+// ═══ ЗАЯВЛЕНИЕ ЗА ОТПУСК — Приложение № 1 към НП „Без свободен час“ (Модул 1 и Модул 2) ═══
+// Различно от общото заявление: „за ползване на отпуск по време на учебни занятия“. Не се качва в портала на НП,
+// но се пази в деловодството — по него се издават заповедта за отпуск и заповедта за заместване.
+export interface NpLeaveApplicationData {
+  name: string
+  position: string
+  leaveKind: string      // „платен годишен“, „неплатен“ …
+  days: number | null
+  forYear: string        // „2026“
+  dateFrom: string       // ISO
+  dateTo: string         // ISO
+  reason: string
+  backOn: string         // ISO — „Ще бъда на работа на“
+  inNumber?: string      // вх. № (ако е заведено)
+  inDate?: string        // ISO
+  signedOn?: string      // ISO — дата на заявлението
+}
+export async function generateNpLeaveApplication(d: NpLeaveApplicationData) {
+  const dt = (iso?: string) => iso ? formatDate(iso) : ''
+  const y = (iso: string) => iso ? iso.slice(0, 4) : '20….'
+  const P = (runs: TextRun[], o: Record<string, unknown> = {}) => new Paragraph({ children: runs, ...o })
+  const children: any[] = [
+    P([normal('Приложение № 1', 20)], { alignment: AlignmentType.RIGHT }),
+    P([normal('Заявление за отпуск и заповед за заместване по Модул 1 и Модул 2', 20)], { alignment: AlignmentType.RIGHT }),
+    P([new TextRun({ text: 'Образец', italics: true, size: 20 })], { alignment: AlignmentType.RIGHT, spacing: { after: 360 } }),
+    new Paragraph({ tabStops: [{ type: TabStopType.LEFT, position: 5200 }], children: [
+      normal(`ВХ. № ${d.inNumber || '………'}`, 22), new TextRun({ children: [new Tab(), 'ДО ДИРЕКТОРА'], bold: true, size: 22 }),
+    ] }),
+    new Paragraph({ tabStops: [{ type: TabStopType.LEFT, position: 5200 }], spacing: { after: 480 }, children: [
+      normal(`ДАТА ${d.inDate ? dt(d.inDate) : '………'}`, 22), new TextRun({ children: [new Tab(), 'НА ЦСОП – гр. Варна'], bold: true, size: 22 }),
+    ] }),
+    P([bold('ЗАЯВЛЕНИЕ', 28)], { alignment: AlignmentType.CENTER, spacing: { after: 60 } }),
+    P([bold('за ползване на отпуск по време на учебни занятия', 22)], { alignment: AlignmentType.CENTER, spacing: { after: 240 } }),
+    P([normal('от ', 22), bold(d.name || '…………………………………………', 22)], { spacing: { after: 80 } }),
+    P([normal('на длъжност ', 22), bold(d.position || '…………………………', 22)], { spacing: { after: 360 } }),
+    P([bold('УВАЖАЕМА ГОСПОЖО ДИРЕКТОР,', 22)], { spacing: { after: 240 } }),
+    P([
+      normal('Желая да ползвам ', 22), bold(d.leaveKind || '…………………………', 22),
+      normal(' отпуск в размер на ', 22), bold(d.days ? String(d.days) : '……', 22),
+      normal(` ${d.days === 1 ? 'ден' : 'дни'} за `, 22), bold(d.forYear || '……', 22), normal(' г., считано от ', 22),
+      bold(d.dateFrom ? `${dt(d.dateFrom)} г.` : '………………… 20…. г.', 22), normal(' до ', 22),
+      bold(d.dateTo ? `${dt(d.dateTo)} г.` : '………………… 20…. г.', 22), normal(' включително', 22),
+    ], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 160, line: 360 } }),
+    P([normal('поради ', 22), bold(d.reason || '…………………………………………………', 22)], { spacing: { after: 160 } }),
+    P([normal('Ще бъда на работа на ', 22), bold(d.backOn ? `${dt(d.backOn)} г.` : '………………… 20…. г.', 22)], { spacing: { after: 600 } }),
+    new Paragraph({ tabStops: [{ type: TabStopType.LEFT, position: 5600 }], children: [
+      normal(`гр. Варна, ${d.signedOn ? dt(d.signedOn) : '………………'} ${d.signedOn ? 'г.' : `${y(d.dateFrom)} г.`}`, 22),
+      new TextRun({ children: [new Tab(), 'С уважение:'], size: 22 }),
+    ] }),
+    new Paragraph({ tabStops: [{ type: TabStopType.LEFT, position: 5600 }], spacing: { before: 360 }, children: [
+      new TextRun({ children: [new Tab(), '………………………………'], size: 22 }),
+    ] }),
+    new Paragraph({ tabStops: [{ type: TabStopType.LEFT, position: 5600 }], children: [
+      new TextRun({ children: [new Tab(), `/ ${d.name || ''} /`], size: 20 }),
+    ] }),
+  ]
+  const doc = new Document({ sections: [{ properties: { page: { margin: { top: 1134, bottom: 1134, left: 1417, right: 1134 } } }, children }] })
+  const blob = await Packer.toBlob(doc)
+  saveAs(blob, `заявление_отпуск_НП_${(d.name || 'служител').replace(/\s+/g, '_')}.docx`)
+}

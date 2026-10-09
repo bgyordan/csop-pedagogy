@@ -59,6 +59,8 @@ const navItems: NavItem[] = [
     ],
   },
     { href: '/my-schedule', label: 'Разписание', icon: <CalendarDays size={16} />, roles: ['class_teacher', 'teacher', 'educator'] },
+  // заявление за отпуск по НП „Без свободен час“ (Приложение № 1) — за учителите и възпитателите
+  { href: '/leave-np', label: 'Отпуск по НП', icon: <FileText size={16} />, roles: ['class_teacher', 'teacher', 'educator'] },
   // двигателна оценка (ФВС) — групова карта; индивидуалната е в досието → Развитие
   { href: '/development/motor', label: 'Двигателна оценка', icon: <Activity size={16} />, roles: ['admin', 'zdud', 'director', 'class_teacher', 'teacher', 'educator', 'rehabilitator', 'psychologist', 'speech_therapist'] },
   { href: '/gym-schedule', label: 'Физк. салон', icon: <Dumbbell size={16} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'secretary', 'support'] },
@@ -134,6 +136,7 @@ const navItems: NavItem[] = [
   { href: '/admin', label: 'Администрация', icon: <Settings size={16} />, roles: ['admin', 'zdud'] },
   { href: '/correspondence', label: 'Регистър', icon: <Inbox size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/orders', label: 'Заповеди', icon: <ClipboardList size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
+  { href: '/leave-np', label: 'Отпуск по НП', icon: <FileText size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/contracts', label: 'Договори', icon: <FileSignature size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   // „Обществени поръчки“ — скрито: поръчките се водят в АОП (страницата /procurements и данните остават)
   // { href: '/procurements', label: 'Обществени поръчки', icon: <Package size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { generateNpLeaveOrder } from '@/lib/docx-substitution'
 import { FileDrop, useFormKeys, KeysHint } from '@/components/registry/FormParts'
-import { X, Loader2, User, GraduationCap, ChevronDown, ArrowDownLeft, ArrowUpRight, Zap, ClipboardList } from 'lucide-react'
+import { X, Loader2, User, GraduationCap, ChevronDown, ArrowDownLeft, ArrowUpRight, Zap, ClipboardList, FileText } from 'lucide-react'
 // Деловодна година: 15.09 – 14.09 следващата
 function deloYearBounds(ref: Date): { start: string; end: string } {
   const y = ref.getFullYear()
@@ -282,6 +282,21 @@ export default function NewCorrespondenceForm({
       setFromWhom(data[0].full_name)
     }
   }
+  // Заявление по НП (Приложение № 1), попълнено със служителя, вида отпуск и периода
+  async function downloadNpApplication() {
+    const p = staff.find(x => x.id === staffId)
+    const { data: prof } = await supabase.from('staff_profiles').select('position').eq('id', staffId).maybeSingle()
+    const { generateNpLeaveApplication } = await import('@/lib/docx-substitution')
+    const { NP_LEAVE_KIND, leaveDaysInfo } = await import('@/lib/np-leave')
+    const info = leaveDaysInfo(leaveFirst, leaveLast)
+    await generateNpLeaveApplication({
+      name: p ? `${p.first_name} ${p.last_name}` : fromWhom, position: prof?.position || '',
+      leaveKind: NP_LEAVE_KIND[ktArticle] || '', days: separateDays ? leavePeriods.length || null : info.days || null,
+      forYear: (leaveFirst || docDate).slice(0, 4), dateFrom: leaveFirst, dateTo: leaveLast, reason: '',
+      backOn: info.backOn, inNumber: reserved?.number, inDate: docDate, signedOn: docDate,
+    })
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!subject) { alert('Моля попълнете темата.'); return }
@@ -500,6 +515,13 @@ export default function NewCorrespondenceForm({
                       Създай и <strong>заповед за отпуск</strong> (РД-10) с общия файл
                     </span>
                   </label>
+                )}
+                {/* НП: заявлението по Приложение № 1 — попълнено, за подпис (различно от общото) */}
+                {isNp && staffId && (
+                  <button type="button" onClick={downloadNpApplication}
+                    className="mt-1 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-[11px] text-slate-700 hover:border-[#0f2240]">
+                    <FileText size={12} /> Заявление по НП (Прил. 1) — Word за подпис
+                  </button>
                 )}
                 {/* Период на отпуска — винаги (от него зависи „Днес отсъстват“) */}
                 {isVacation && absentInRegister && (
