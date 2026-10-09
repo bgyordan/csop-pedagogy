@@ -189,11 +189,11 @@ export async function saveLecturerRates(r: { unified: boolean; npSame: boolean; 
   const { data: me } = await supabase.from('staff_profiles').select('id, role').eq('user_id', user.id).single()
   if (!['admin', 'zdud', 'director', 'secretary'].includes(me?.role || '')) return { error: 'Нямате права' }
   const ok = (v: number) => Number.isFinite(v) && v > 0 && v < 1000
-  if (!ok(r.over) || (!r.unified && !ok(r.sub)) || (!r.npSame && !ok(r.np))) return { error: 'Въведете ставка в евро, напр. 6,29' }
+  if (!ok(r.over) || (!r.unified && !ok(r.sub)) || !ok(r.np)) return { error: 'Въведете ставка в евро, напр. 6,29' }
   const round = (v: number) => Math.round(v * 100) / 100
   const { error } = await supabase.from('lecturer_rates').upsert({
-    id: 1, unified: r.unified, np_same: r.npSame,
-    rate_over: round(r.over), rate_sub: round(r.unified ? r.over : r.sub), rate_np: round(r.npSame ? r.over : r.np),
+    id: 1, unified: r.unified, np_same: false,   // rate_np = таван за МОН с осигуровките
+    rate_over: round(r.over), rate_sub: round(r.unified ? r.over : r.sub), rate_np: round(r.np),
     updated_at: new Date().toISOString(), updated_by: me?.id || null,
   })
   if (error) return { error: /lecturer_rates|np_same/.test(error.message) ? 'Пуснете SQL файла 2026-10-08_lecturer_rates.sql' : error.message }

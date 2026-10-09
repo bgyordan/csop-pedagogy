@@ -13,6 +13,7 @@ export default async function MonExportPage() {
   const { data: me } = await supabase.from('staff_profiles').select('role').eq('user_id', user.id).single()
   if (!['admin', 'zdud', 'director'].includes(me?.role || '')) redirect('/dashboard')
 
+  const R = effectiveRates(await loadLecturerRates(supabase))
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto animate-in fade-in duration-500">
       <BackButton />
@@ -25,7 +26,7 @@ export default async function MonExportPage() {
           <p className="text-sm text-slate-500 mt-0.5">Генериране на файл за импорт в платформата на МОН</p>
         </div>
       </header>
-      <MonExportClient rate={effectiveRates(await loadLecturerRates(supabase)).np} />
+      <MonExportClient rate={R.np} cap={R.npCap} />
     </div>
   )
 }

@@ -6,8 +6,8 @@ import { useToast } from '@/components/ui/Toast'
 import { effectiveRates, eurStr, type LecturerRates } from '@/lib/lecturer-rates'
 import { saveLecturerRates } from './actions'
 
-// Ставки за лекторски час: една ставка; отметки „същата ставка“ за заместване от бюджета и по НП —
-// без отметка се появява отделно поле. Влизат в сумите, заповедта за изплащане и декларациите на учителите.
+// Ставки за лекторски час: една ставка; отметка „същата ставка“ за заместване от бюджета (иначе отделно поле).
+// По НП заместникът получава ставката за заместване; отделно — таванът на час за МОН заедно с осигуровките.
 export default function RatesPanel({ rates }: { rates: LecturerRates }) {
   const { toast } = useToast()
   const router = useRouter()
@@ -43,7 +43,7 @@ export default function RatesPanel({ rates }: { rates: LecturerRates }) {
       <span className="text-slate-500">Ставка за лекторски час:</span>
       <span>над норматив <b className="tabular-nums">{eurStr(eff.over)} €</b></span>
       <span>заместване бюджет <b className="tabular-nums">{eurStr(eff.sub)} €</b>{rates.unified && <span className="text-slate-400"> (същата)</span>}</span>
-      <span>заместване НП <b className="tabular-nums">{eurStr(eff.np)} €</b>{rates.npSame && <span className="text-slate-400"> (същата)</span>}</span>
+      <span>заместване НП <b className="tabular-nums">{eurStr(eff.np)} €</b> <span className="text-slate-400">(МОН с осигуровките до {eurStr(eff.npCap)} €)</span></span>
       <button onClick={() => setEdit(true)} className="inline-flex items-center gap-1 text-[#0f2240] hover:underline"><Pencil size={12} /> Промени</button>
       {rates.updatedAt && <span className="text-slate-400">· {new Date(rates.updatedAt).toLocaleDateString('bg-BG')}{rates.updatedBy ? `, ${rates.updatedBy}` : ''}</span>}
     </div>
@@ -61,12 +61,9 @@ export default function RatesPanel({ rates }: { rates: LecturerRates }) {
           </label>
           {!f.unified && input('sub', 'Заместване от бюджета')}
         </div>
-        <div className="space-y-1.5">
-          <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
-            <input type="checkbox" checked={f.npSame} onChange={e => setF(p => ({ ...p, npSame: e.target.checked }))} className="rounded" />
-            Заместване по НП „Без свободен час“ — със същата ставка
-          </label>
-          {!f.npSame && input('np', 'Заместване по НП')}
+        <div className="space-y-1">
+          {input('np', 'НП „Без свободен час“ — максимум на час за МОН с осигуровките на работодателя')}
+          <div className="text-[11px] text-slate-400 max-w-xs">На заместника се плаща ставката за заместване; в МОН файла сумата + осигуровките не надвишават този максимум.</div>
         </div>
       </div>
       <div className="flex items-center gap-2">
