@@ -45,14 +45,7 @@ function getInitials(firstName: string, lastName: string): string {
   return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`
 }
 
-// Етикети на ЕПЛР документите (копие от EplrDocumentsSection — там е клиентски модул)
-const EPLR_LABELS: Record<string, string> = {
-  report_assessment: 'Доклад-оценка', protocol_1: 'Протокол №1', protocol_2: 'Протокол №2', protocol_3: 'Протокол №3',
-  functional_map: 'Карта функционална оценка', support_plan: 'План за допълнителна подкрепа', iup_class: 'ИУП (клас)',
-  iu_program_school: 'ИУ Програма (училище)', characteristic: 'Характеристика', other: 'Други',
-}
-
-// Досие: Документи (по подразбиране — ползват го най-много) · Обзор · Данни · Екип · Развитие
+// Досие: Документи (Drive — по подразбиране, ползват го най-много) · Обзор · Данни (вкл. външните документи) · Екип · Развитие
 // (старите адреси ?tab=eplr/therapy/files водят към новите)
 const TABS = ['docs', 'overview', 'data', 'team', 'dev'] as const
 type Tab = typeof TABS[number]
@@ -99,7 +92,6 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
     .from('eplr_attachments')
     .select('*')
     .eq('student_id', id)
-    .eq('academic_year_id', currentYear?.id)
     .order('created_at', { ascending: false })
 
   const { data: eplr } = await supabase
@@ -388,11 +380,6 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
                 {!eplr && <p className="text-xs text-amber-700 pt-1.5">Няма ЕПЛР екип за {currentYearName}.</p>}
               </div>)}
 
-              {overviewCard('Документи ЕПЛР', FileText, 'docs', (eplrDocs || []).length === 0
-                ? <p className="text-sm text-slate-400">Няма качени за {currentYearName}.</p>
-                : <div>{(eplrDocs || []).slice(0, 4).map((d: any) => (
-                    <div key={d.id} className="py-1.5 border-b border-slate-100 last:border-0 text-sm text-slate-800 truncate">{EPLR_LABELS[d.doc_type] || d.file_name || d.doc_type}</div>
-                  ))}{(eplrDocs || []).length > 4 && <p className="text-xs text-slate-400 pt-1.5">и още {(eplrDocs || []).length - 4}</p>}</div>)}
             </div>
           </div>
         )}
@@ -401,24 +388,19 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
         {tab === 'docs' && (
           <div className="animate-in fade-in duration-300 space-y-4">
             <StudentWorkDocs studentId={id} />
-            <div className={`${cardCls} !h-auto`}>
-              <div className={cardHead}>
-                <FileText size={16} className="text-emerald-500" />
-                <h2 className="font-semibold text-slate-800 text-sm">Документи ЕПЛР — {currentYear?.name}</h2>
-                <span className="ml-auto text-[11px] text-slate-400">протоколи, доклад-оценка, план за подкрепа…</span>
-              </div>
-              <EplrDocumentsSection studentId={student.id} academicYearId={currentYear?.id || ''} documents={eplrDocs || []}
-                canManage={canEditDossier} staffId={profile?.id || ''} />
-            </div>
-            <div className={`${cardCls} !h-auto`}>
-              <div className={cardHead}>
-                <Paperclip size={16} className="text-amber-500" />
-                <h2 className="font-semibold text-slate-800 text-sm">Досие — външни документи</h2>
-                <span className="ml-auto text-[11px] text-slate-400">заявления, заповеди, оценки от РЦПППО, медицински…</span>
-              </div>
-              <AttachmentsSection studentId={id} attachments={attachments || []} canManage={canEditDossier} staffId={profile?.id || ''}
-                typeLabels={ATTACHMENT_TYPE_LABELS} currentYearName={currentYearName} yearOptions={yearOptions} />
-            </div>
+            {/* Старите качени ЕПЛР документи — само за преглед; новите (и сканираните подписани) се качват в Drive горе */}
+            {(eplrDocs || []).length > 0 && (
+              <details className={`${cardCls} !h-auto`}>
+                <summary className="cursor-pointer text-sm text-slate-600 select-none flex items-center gap-2">
+                  <FileText size={15} className="text-slate-400" /> Стари качени ЕПЛР документи ({(eplrDocs || []).length})
+                  <span className="text-[11px] text-slate-400">— само за преглед; новите се качват в документите горе</span>
+                </summary>
+                <div className="mt-3">
+                  <EplrDocumentsSection studentId={student.id} academicYearId={currentYear?.id || ''} documents={eplrDocs || []}
+                    canManage={false} staffId={profile?.id || ''} />
+                </div>
+              </details>
+            )}
           </div>
         )}
 
@@ -451,6 +433,16 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
               <h2 className="font-semibold text-slate-800 text-sm">Документи и срокове</h2>
             </div>
             <StudentDocuments studentId={id} canManage={canEditDossier} />
+          </div>
+
+          <div className={`${cardCls} !h-auto mb-4`}>
+            <div className={cardHead}>
+              <Paperclip size={16} className="text-amber-500" />
+              <h2 className="font-semibold text-slate-800 text-sm">Досие — външни документи</h2>
+              <span className="ml-auto text-[11px] text-slate-400">заявления, заповеди и оценки от РЦПППО, медицински…</span>
+            </div>
+            <AttachmentsSection studentId={id} attachments={attachments || []} canManage={canEditDossier} staffId={profile?.id || ''}
+              typeLabels={ATTACHMENT_TYPE_LABELS} currentYearName={currentYearName} yearOptions={yearOptions} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
