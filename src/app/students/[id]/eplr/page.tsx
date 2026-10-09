@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { useToast } from '@/components/ui/Toast'
 import { getFullName } from '@/lib/utils'
 import { StaffProfile, UserRole } from '@/types'
+import { saveEplrTeam, addEplrExternal, removeEplrExternal, canEditEplrTeam } from '../team-actions'
 
 export default function EplrPage() {
   const params = useParams()
@@ -32,8 +33,9 @@ export default function EplrPage() {
   const [externals, setExternals] = useState<{ id: string; full_name: string }[]>([])
   const [newExternal, setNewExternal] = useState('')
   const [yearId, setYearId] = useState<string>('')
+  const [allowed, setAllowed] = useState<boolean | null>(null)
 
-  useEffect(() => { loadData() }, [id])
+  useEffect(() => { loadData(); canEditEplrTeam(id).then(r => setAllowed(r.ok)) }, [id])
 
   async function loadData() {
     const { data: s } = await supabase.from('students').select('*').eq('id', id).single()
@@ -99,18 +101,15 @@ export default function EplrPage() {
   async function addExternal() {
     const name = newExternal.trim()
     if (!name) return
-    const { data, error } = await supabase.from('eplr_external_members').insert({
-      student_id: id,
-      academic_year_id: yearId,
-      full_name: name,
-    }).select('id, full_name').single()
-    if (error) { toast(`Грешка: ${error.message}`, 'error'); return }
-    setExternals(prev => [...prev, data])
+    const res: any = await addEplrExternal(id, name)
+    if (res.error) { toast(`Грешка: ${res.error}`, 'error'); return }
+    setExternals(prev => [...prev, res.data])
     setNewExternal('')
   }
 
   async function removeExternal(extId: string) {
-    await supabase.from('eplr_external_members').delete().eq('id', extId)
+    const res: any = await removeEplrExternal(id, extId)
+    if (res.error) { toast(res.error, 'error'); return }
     setExternals(prev => prev.filter(e => e.id !== extId))
   }
 
@@ -122,26 +121,16 @@ export default function EplrPage() {
     e.preventDefault()
     setSaving(true)
 
-    const { data: year } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
-
-    const payload = {
-      student_id: id,
-      academic_year_id: year?.id,
+    // през сървъра: управата, координаторът и класният на паралелката; класният следва паралелката
+    const res: any = await saveEplrTeam(id, {
       psychologist_id: eplr.psychologist_id || null,
       speech_therapist_id: eplr.speech_therapist_id || null,
       rehabilitator_id: eplr.rehabilitator_id || null,
-      // Класният винаги следва паралелката
-      class_teacher_id: classTeacherId,
-    }
-
-    const { error } = await supabase
-      .from('eplr_teams')
-      .upsert(payload, { onConflict: 'student_id,academic_year_id' })
-
-    if (error) { toast('Грешка при запис', 'error'); setSaving(false); return }
+    })
+    if (res.error) { toast(res.error, 'error'); setSaving(false); return }
 
     toast('ЕПЛР екипът е запазен')
-    router.push(`/students/${id}`)
+    router.push(`/students/${id}?tab=team`)
   }
 
   const fields: { label: string; key: keyof typeof eplr; role: UserRole }[] = [
@@ -152,13 +141,18 @@ export default function EplrPage() {
 
   return (
     <div className="p-8 max-w-lg">
-      <Link href={`/students/${id}`} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6">
+      <Link href={`/students/${id}?tab=team`} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6">
         <ArrowLeft size={15} />
         Назад
       </Link>
 
       <h1 className="text-2xl font-semibold text-slate-800 mb-1">ЕПЛР екип</h1>
       {student && <p className="text-slate-500 text-sm mb-6">{getFullName(student)}</p>}
+      {allowed === false && (
+        <div className="mb-4 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
+          ЕПЛР екипа го определят управата, координаторът и класният ръководител на паралелката — тук можете само да разгледате.
+        </div>
+      )}
 
       <form onSubmit={handleSave} className="card space-y-4">
         {fields.map(({ label, key, role }) => {
@@ -240,10 +234,10 @@ export default function EplrPage() {
         </div>
 
         <div className="flex gap-3 pt-2">
-          <button type="submit" disabled={saving} className="btn-primary" style={{ backgroundColor: '#0f2240' }}>
+          <button type="submit" disabled={saving || allowed === false} className="btn-primary disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>
             {saving ? 'Запазване...' : 'Запази екипа'}
           </button>
-          <Link href={`/students/${id}`} className="btn-secondary">Отказ</Link>
+          <Link href={`/students/${id}?tab=team`} className="btn-secondary">Отказ</Link>
         </div>
       </form>
     </div>
