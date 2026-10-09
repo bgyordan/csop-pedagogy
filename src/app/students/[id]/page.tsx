@@ -169,7 +169,7 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
   
   // Документи със срок (РЦПППО, ТЕЛК, алергии) — за „Внимание“ и обзора
   const { data: sDocs } = await supabase
-    .from('student_documents').select('doc_type, valid_until, note, doc_number, issued_on, diagnosis').eq('student_id', id)
+    .from('student_documents').select('*').eq('student_id', id)
   const sDoc = Object.fromEntries((sDocs || []).map((d: any) => [d.doc_type, d])) as Record<string, any>
   const daysTo = (d?: string | null) => d ? Math.ceil((new Date(d).getTime() - Date.now()) / 864e5) : null
   type Alert = { level: 'red' | 'amber' | 'info'; text: string; tab: Tab; icon: any }
@@ -369,7 +369,8 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
                   const d = sDoc[k]; const left = daysTo(d?.valid_until)
                   return <div key={k}>{row(lbl, !d ? <span className="text-slate-300">няма</span>
                     : k === 'allergy' ? <span className="text-rose-700">{d.note || 'да'}</span>
-                    : !d.valid_until ? 'безсрочен'
+                    : d.indefinite ? 'безсрочен'
+                    : !d.valid_until ? <span className="text-slate-400">без въведен срок</span>
                     : <span className={left! < 0 ? 'text-rose-700' : left! <= 30 ? 'text-amber-700' : 'text-slate-800'}>до {formatDate(d.valid_until)}</span>)}</div>
                 })}
               </div>)}
