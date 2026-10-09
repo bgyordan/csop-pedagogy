@@ -343,7 +343,7 @@ export async function getMonthlyDeclaration(first: string, last: string) {
   if (!me) return { error: 'Профил не е намерен' }
 
   // само приключил месец (септември — от 01.10, октомври — от 01.11, …)
-  const pc = checkDeclarablePeriod(first, last)
+  const pc = checkDeclarablePeriod(first, last, 'sub')
   if (!pc.ok) return { error: pc.error }
 
   const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()

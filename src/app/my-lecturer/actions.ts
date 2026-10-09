@@ -77,8 +77,8 @@ export async function submitLecturerDeclaration(
   if (!user) return { error: 'Не сте влезли' }
   const { data: me } = await supabase.from('staff_profiles').select('id').eq('user_id', user.id).single()
   if (!me) return { error: 'Няма профил' }
-  // само приключил месец (септември — от 01.10, октомври — от 01.11, …)
-  const pc = checkDeclarablePeriod(periodFrom, periodTo)
+  // само приключил период: септември–октомври заедно (от 01.11), после по месеци
+  const pc = checkDeclarablePeriod(periodFrom, periodTo, 'over')
   if (!pc.ok) return { error: pc.error }
   const { data: cy } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
 
