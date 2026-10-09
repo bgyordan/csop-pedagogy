@@ -433,8 +433,8 @@ export async function getMonExport(first: string, last: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли' }
-  // на заместника — ставката за заместване (6,29 €); в МОН сумата + осигуровките от работодателя ≤ тавана (7,38 €/ч)
-  const { np: rate, npCap } = effectiveRates(await loadLecturerRates(supabase))
+  // в МОН файла: ставка на час, която с осигуровките от работодателя не надвишава тавана (7,38 / 1,2332 → 5,98 €)
+  const { npMon: rate, npCap, employerPct } = effectiveRates(await loadLecturerRates(supabase))
   const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
 
   // всички НП замествания, застъпващи периода
@@ -490,8 +490,8 @@ export async function getMonExport(first: string, last: string) {
         docType: 'Заповед', docNumber: String(orderNumber).split('/')[0].trim(), docDate: orderDate,
         hoursTaken: hours, nonSpecHoursTaken: isNonSpec ? hours : 0,
         kt: sub.kt_article || '155', amount: +(hours * rate).toFixed(2),
-        // осигуровките, отчитани по НП: до тавана на час (реалните от работодателя са повече — разликата е за сметка на бюджета)
-        insurance: Math.max(0, +(hours * npCap - +(hours * rate).toFixed(2)).toFixed(2)),
+        // осигуровките за сметка на работодателя; общо ≤ часове × тавана (при закръгляне — до тавана)
+        insurance: Math.min(+(hours * rate * employerPct / 100).toFixed(2), Math.max(0, +(hours * npCap - +(hours * rate).toFixed(2)).toFixed(2))),
       })
     }
   }

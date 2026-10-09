@@ -182,7 +182,7 @@ export async function getReviewDetail(staffId: string, first: string, last: stri
 }
 
 // Ставки за лекторски час — управата и деловодството (lecturer_rates, един ред)
-export async function saveLecturerRates(r: { unified: boolean; npSame: boolean; over: number; sub: number; np: number }) {
+export async function saveLecturerRates(r: { unified: boolean; npSame: boolean; over: number; sub: number; np: number; employerPct: number }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли' }
@@ -190,13 +190,14 @@ export async function saveLecturerRates(r: { unified: boolean; npSame: boolean; 
   if (!['admin', 'zdud', 'director', 'secretary'].includes(me?.role || '')) return { error: 'Нямате права' }
   const ok = (v: number) => Number.isFinite(v) && v > 0 && v < 1000
   if (!ok(r.over) || (!r.unified && !ok(r.sub)) || !ok(r.np)) return { error: 'Въведете ставка в евро, напр. 6,29' }
+  if (!Number.isFinite(r.employerPct) || r.employerPct < 0 || r.employerPct > 60) return { error: 'Въведете процента осигуровки, напр. 23,32' }
   const round = (v: number) => Math.round(v * 100) / 100
   const { error } = await supabase.from('lecturer_rates').upsert({
     id: 1, unified: r.unified, np_same: false,   // rate_np = таван за МОН с осигуровките
-    rate_over: round(r.over), rate_sub: round(r.unified ? r.over : r.sub), rate_np: round(r.np),
+    rate_over: round(r.over), rate_sub: round(r.unified ? r.over : r.sub), rate_np: round(r.np), employer_pct: round(r.employerPct),
     updated_at: new Date().toISOString(), updated_by: me?.id || null,
   })
-  if (error) return { error: /lecturer_rates|np_same/.test(error.message) ? 'Пуснете SQL файла 2026-10-08_lecturer_rates.sql' : error.message }
+  if (error) return { error: /employer_pct/.test(error.message) ? 'Пуснете SQL файла 2026-10-09_lecturer_rates_pct.sql' : /lecturer_rates|np_same/.test(error.message) ? 'Пуснете SQL файла 2026-10-08_lecturer_rates.sql' : error.message }
   revalidatePath('/lecturer-review')
   return { success: true }
 }

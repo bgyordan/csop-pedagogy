@@ -26,7 +26,7 @@ export default async function MonExportPage() {
           <p className="text-sm text-slate-500 mt-0.5">Генериране на файл за импорт в платформата на МОН</p>
         </div>
       </header>
-      <MonExportClient rate={R.np} cap={R.npCap} />
+      <MonExportClient rate={R.npMon} cap={R.npCap} pct={R.employerPct} />
     </div>
   )
 }
