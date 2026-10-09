@@ -4,9 +4,9 @@ import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Pencil, Trash2, ChevronDown, Download } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { generateSubstitution, getAssignments, saveAssignments, checkSubstituteOverlap, deleteSubstitution } from './actions'
+import { generateSubstitution, getAssignments, saveAssignments, checkSubstituteOverlap, deleteSubstitution, getAbsentHours } from './actions'
 import { generateSubstitutionOrder } from '@/lib/docx-substitution'
-import SubstituteDayCanvas, { PALETTE } from './SubstituteDayCanvas'
+import SubstituteDayCanvas, { PALETTE, hourKey } from './SubstituteDayCanvas'
 import type { SubRow } from './page'
 import { canSubstitute, canBeSubstituted } from '@/lib/pedagogues'
 
@@ -34,24 +34,50 @@ const BACK_DAYS = 7 // колко календарни дни назад мож�
 const todayStr = () => { const d = new Date(); d.setDate(d.getDate() - BACK_DAYS); return d.toISOString().split('T')[0] }
 function isWeekend(d: string) { const day = new Date(d + 'T00:00').getDay(); return day === 0 || day === 6 }
 
+// Ключовете „ISO|час“ — ден, разделен по часове (всеки час/ИЧ от различен заместник)
+const hourEntries = (map: Record<string, string>, d: string) => Object.entries(map).filter(([k]) => k.startsWith(d + '|'))
 // Първият (по календарен ред) зает ден → неговият заместник (за представителен запис)
 function firstOwner(map: Record<string, string>, days: string[]) {
-  for (const d of days) if (map[d]) return map[d]
+  for (const d of days) {
+    if (map[d]) return map[d]
+    const h = hourEntries(map, d).sort((a, b) => Number(a[0].split('|')[1]) - Number(b[0].split('|')[1]))[0]
+    if (h) return h[1]
+  }
   return ''
 }
+type AssignRow = { substitute_staff_id: string; date_from: string; date_to: string; over_norm: boolean; periods?: number[] | null }
 // Свива картата „ден → заместник" до непрекъснати периоди (по един ред на период).
 // Ако заместник е накъсан от друг/непокрит ден → отделни редове (коректно за заповедта).
+// Разделените по часове дни → по един ред на заместник за деня, с неговите часове.
 function mapToRows(map: Record<string, string>, days: string[]) {
-  const rows: { substitute_staff_id: string; date_from: string; date_to: string; over_norm: boolean }[] = []
+  const rows: AssignRow[] = []
   let owner = '', start = '', end = ''
   const flush = () => { if (owner) rows.push({ substitute_staff_id: owner, date_from: start, date_to: end, over_norm: true }) }
   for (const d of days) {
+    const hs = hourEntries(map, d)
+    if (hs.length) {
+      flush(); owner = ''
+      const by: Record<string, number[]> = {}
+      hs.forEach(([k, id]) => { (by[id] ||= []).push(Number(k.split('|')[1])) })
+      Object.entries(by).forEach(([id, ps]) => rows.push({ substitute_staff_id: id, date_from: d, date_to: d, over_norm: true, periods: ps.sort((a, b) => a - b) }))
+      continue
+    }
     const o = map[d] || ''
     if (o && o === owner) { end = d }
     else { flush(); owner = o; start = d; end = d }
   }
   flush()
   return rows
+}
+// Редовете от базата → карта „ден → заместник“ (и „ден|час“ при разделяне по часове)
+function rowsToMap(rs: { staffId: string; from: string; to: string; periods?: number[] | null }[], days: string[]) {
+  const m: Record<string, string> = {}
+  rs.forEach(r => days.forEach(d => {
+    if (d < r.from || d > r.to) return
+    if (r.periods && r.periods.length) r.periods.forEach(p => { m[hourKey(d, p)] = r.staffId })
+    else m[d] = r.staffId
+  }))
+  return m
 }
 
 // „Мария Иванова" → „Мария И." (за етикетите в реда)
@@ -154,21 +180,19 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [openId, setOpenId] = useState<string | null>(null)
   const [openDays, setOpenDays] = useState<string[]>([])
   const [openLoading, setOpenLoading] = useState(false)
+  const [openHours, setOpenHours] = useState<Record<string, { period: number; label: string }[]>>({})
   async function toggleOpen(r: SubRow) {
     if (openId === r.id) { setOpenId(null); return }
-    setOpenId(r.id); setOpenDays([]); setOpenLoading(true)
+    setOpenId(r.id); setOpenDays([]); setOpenHours({}); setOpenLoading(true)
+    if (r.assigns.some(a => a.periods?.length)) getAbsentHours(r.absentStaffId, r.dateFrom, r.dateTo).then((x: any) => setOpenHours(x?.data || {}))
     const { data } = await supabase.from('academic_calendar_days')
       .select('date').gte('date', r.dateFrom).lte('date', r.dateTo).eq('is_school_day', true).order('date')
     setOpenDays((data || []).map((x: any) => x.date)); setOpenLoading(false)
   }
-  function viewMap(r: SubRow, days: string[]) {
-    const m: Record<string, string> = {}
-    r.assigns.forEach(a => days.forEach(d => { if (d >= a.from && d <= a.to) m[d] = a.staffId }))
-    return m
-  }
+  const viewMap = (r: SubRow, days: string[]) => rowsToMap(r.assigns, days)
   const nameById = (id: string) => { const p = staff.find(x => x.id === id); return p ? `${p.first_name} ${p.last_name}` : '—' }
-  const toAssigns = (rs: { substitute_staff_id: string; date_from: string; date_to: string }[]): SubRow['assigns'] =>
-    rs.map(x => ({ staffId: x.substitute_staff_id, name: nameById(x.substitute_staff_id), from: x.date_from, to: x.date_to }))
+  const toAssigns = (rs: AssignRow[]): SubRow['assigns'] =>
+    rs.map(x => ({ staffId: x.substitute_staff_id, name: nameById(x.substitute_staff_id), from: x.date_from, to: x.date_to, periods: x.periods ?? null }))
 
   // Създаване
   const [showNew, setShowNew] = useState(false)
@@ -204,7 +228,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [multiOpen, setMultiOpen] = useState(false)
   const [dayMap, setDayMap] = useState<Record<string, string>>({})
   const [schoolDays, setSchoolDays] = useState<string[]>([])
-  const [pendingRanges, setPendingRanges] = useState<{ substitute_staff_id: string; date_from: string; date_to: string; over_norm: boolean }[] | null>(null)
+  const [pendingRanges, setPendingRanges] = useState<AssignRow[] | null>(null)
 
   // активният период е този на отворения поток (редакция или нова форма)
   const pf = editId ? eFrom : from
@@ -224,16 +248,21 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [multiOpen, pf, pt])
 
+  // Часовете на отсъстващия по дни — за разделяне на ден по часове (напр. всеки ИЧ в ИФО от различен колега)
+  type DayHours = Record<string, { period: number; label: string }[]>
+  const [absHours, setAbsHours] = useState<DayHours>({})
+  const multiAbsent = editId ? eAbsent : absentId
+  useEffect(() => {
+    if (!multiOpen || !multiAbsent || !pf || !pt) { setAbsHours({}); return }
+    let cancelled = false
+    getAbsentHours(multiAbsent, pf, pt).then((r: any) => { if (!cancelled) setAbsHours(r?.data || {}) })
+    return () => { cancelled = true }
+  }, [multiOpen, multiAbsent, pf, pt])
+
   // При редакция: разгъваме заредените периоди в картата, щом учебните дни са налични
   useEffect(() => {
     if (!pendingRanges || schoolDays.length === 0) return
-    const m: Record<string, string> = {}
-    for (const r of pendingRanges) {
-      for (const d of schoolDays) {
-        if (d >= r.date_from && d <= r.date_to) m[d] = r.substitute_staff_id
-      }
-    }
-    setDayMap(m)
+    setDayMap(rowsToMap(pendingRanges.map(r => ({ staffId: r.substitute_staff_id, from: r.date_from, to: r.date_to, periods: r.periods })), schoolDays))
     setPendingRanges(null)
   }, [pendingRanges, schoolDays])
 
@@ -251,7 +280,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const ovParts = useMemo(() => {
     const f = editId ? eFrom : from, t = editId ? eTo : to, single = editId ? eSub : subId
     if (!(editId || showNew) || !f || !t) return []
-    if (multiOpen) return mapToRows(dayMap, schoolDays).map(r => ({ staffId: r.substitute_staff_id, from: r.date_from, to: r.date_to }))
+    if (multiOpen) return mapToRows(dayMap, schoolDays).map(r => ({ staffId: r.substitute_staff_id, from: r.date_from, to: r.date_to, periods: r.periods ?? null }))
     return single ? [{ staffId: single, from: f, to: t }] : []
   }, [editId, showNew, eFrom, eTo, from, to, eSub, subId, multiOpen, dayMap, schoolDays])
   const ovKey = JSON.stringify([ovAbsent, ovParts])
@@ -347,7 +376,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     }).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setSaving(false); return }
     if (multiOpen) {
-      await saveAssignments(data.id, mapToRows(dayMap, schoolDays))
+      const ar: any = await saveAssignments(data.id, mapToRows(dayMap, schoolDays))
+      if (ar?.error) toast(ar.error, 'error')
     }
     let newRow: any = mapRow(data)
     if (multiOpen) newRow.assigns = toAssigns(mapToRows(dayMap, schoolDays))
@@ -367,7 +397,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
 
   async function loadAssigns(id: string) {
     const res: any = await getAssignments(id)
-    const ranges = (res.data || []).map((x: any) => ({ substitute_staff_id: x.substitute_staff_id, date_from: x.date_from, date_to: x.date_to, over_norm: x.over_norm !== false }))
+    const ranges: AssignRow[] = (res.data || []).map((x: any) => ({ substitute_staff_id: x.substitute_staff_id, date_from: x.date_from, date_to: x.date_to, over_norm: x.over_norm !== false, periods: x.periods?.length ? x.periods : null }))
     if (ranges.length > 0) { setPendingRanges(ranges); setMultiOpen(true) }
     else { setPendingRanges(null); setMultiOpen(false); setDayMap({}) }
   }
@@ -405,7 +435,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     if (error || !data) { toast('Грешка при запис', 'error'); setESaving(false); return }
     const mapped: any = mapRow(data); mapped.absentStaffId = eAbsent
     const eRanges = multiOpen ? mapToRows(dayMap, schoolDays) : []
-    await saveAssignments(editId, eRanges)
+    const ar: any = await saveAssignments(editId, eRanges)
+    if (ar?.error) { toast(ar.error, 'error'); setESaving(false); return }
     mapped.assigns = toAssigns(eRanges)
     setRows(prev => prev.map(x => x.id === editId ? mapped : x))
     setOverNormMap(p => ({ ...p, [editId]: mapped.overNorm }))
@@ -510,7 +541,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                   ? <p className="text-[13px] text-slate-500">Първо въведи периода (От / До), после разпредели дните.</p>
                   : schoolDays.length === 0
                     ? <p className="text-[13px] text-slate-500">Няма учебни дни в този период.</p>
-                    : <SubstituteDayCanvas schoolDays={schoolDays} staff={pedStaff().filter(s => s.id !== absentId)} value={dayMap} onChange={setDayMap} />}
+                    : <SubstituteDayCanvas schoolDays={schoolDays} staff={pedStaff().filter(s => s.id !== absentId)} value={dayMap} onChange={setDayMap} hours={absHours} />}
               </div>
             )}
           </div>
@@ -655,7 +686,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                     ? <p className="text-sm text-slate-400">Няма учебни дни в този период.</p>
                     : <SubstituteDayCanvas readOnly schoolDays={openDays}
                         staff={subs.map(x => { const [f, ...l] = x.name.split(' '); return { id: x.staffId, first_name: f, last_name: l.join(' ') } })}
-                        value={viewMap(r, openDays)} />}
+                        value={viewMap(r, openDays)} hours={openHours} />}
               </div>
             )}
             </div>
@@ -742,7 +773,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                     ? <p className="text-[13px] text-slate-500">Първо въведи периода (От / До), после разпредели дните.</p>
                     : schoolDays.length === 0
                       ? <p className="text-[13px] text-slate-500">Няма учебни дни в този период.</p>
-                      : <SubstituteDayCanvas schoolDays={schoolDays} staff={pedStaff(...Object.values(dayMap)).filter(s => s.id !== eAbsent)} value={dayMap} onChange={setDayMap} />}
+                      : <SubstituteDayCanvas schoolDays={schoolDays} staff={pedStaff(...Object.values(dayMap)).filter(s => s.id !== eAbsent)} value={dayMap} onChange={setDayMap} hours={absHours} />}
                 </div>
               )}
             </div>

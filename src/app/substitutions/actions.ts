@@ -31,30 +31,41 @@ async function npDays(supabase: any, sub: { date_from: string; date_to: string; 
   const all = await workdays(supabase, sub.date_from, sub.date_to)
   return new Set(all.slice(0, 2).map(w => w.iso))
 }
-// Разпределение „няколко заместника“: substitution_id -> [{ staffId, from, to }]
-async function assignmentsBySub(supabase: any, subIds: string[]): Promise<Record<string, { staffId: string; from: string; to: string }[]>> {
-  const out: Record<string, { staffId: string; from: string; to: string }[]> = {}
+// Разпределение „няколко заместника“: substitution_id -> [{ staffId, from, to, periods }]
+// periods — само тези часове в дните (заместване по часове, напр. всеки ИЧ от различен колега); null = всички
+type Range = { from: string; to: string; periods?: number[] | null }
+async function assignmentsBySub(supabase: any, subIds: string[]): Promise<Record<string, ({ staffId: string } & Range)[]>> {
+  const out: Record<string, ({ staffId: string } & Range)[]> = {}
   if (subIds.length === 0) return out
-  const { data } = await supabase.from('substitution_assignments')
-    .select('substitution_id, substitute_staff_id, date_from, date_to').in('substitution_id', subIds)
+  let { data, error } = await supabase.from('substitution_assignments')
+    .select('substitution_id, substitute_staff_id, date_from, date_to, periods').in('substitution_id', subIds)
+  if (error) ({ data } = await supabase.from('substitution_assignments')   // без миграцията 2026-10-09 — само по дни
+    .select('substitution_id, substitute_staff_id, date_from, date_to').in('substitution_id', subIds))
   ;(data || []).forEach((a: any) => {
     if (!out[a.substitution_id]) out[a.substitution_id] = []
-    out[a.substitution_id].push({ staffId: a.substitute_staff_id, from: a.date_from, to: a.date_to })
+    out[a.substitution_id].push({ staffId: a.substitute_staff_id, from: a.date_from, to: a.date_to, periods: a.periods?.length ? a.periods : null })
   })
   return out
 }
-// Кой заместник кои дни покрива в едно заместване: при разпределение — по периодите му,
+// Кой заместник кои дни (и часове) покрива в едно заместване: при разпределение — по неговите редове,
 // иначе основният заместник покрива целия период
-function coverageOf(sub: { substitute_staff_id: string | null; date_from: string; date_to: string }, assigns?: { staffId: string; from: string; to: string }[]) {
-  const m: Record<string, { from: string; to: string }[]> = {}
+function coverageOf(sub: { substitute_staff_id: string | null; date_from: string; date_to: string }, assigns?: ({ staffId: string } & Range)[]) {
+  const m: Record<string, Range[]> = {}
   if (assigns && assigns.length > 0) {
-    assigns.forEach(a => { (m[a.staffId] = m[a.staffId] || []).push({ from: a.from, to: a.to }) })
+    assigns.forEach(a => { (m[a.staffId] = m[a.staffId] || []).push({ from: a.from, to: a.to, periods: a.periods ?? null }) })
   } else if (sub.substitute_staff_id) {
     m[sub.substitute_staff_id] = [{ from: sub.date_from, to: sub.date_to }]
   }
   return m
 }
-const inRanges = (iso: string, rs: { from: string; to: string }[]) => rs.some(r => iso >= r.from && iso <= r.to)
+const inRanges = (iso: string, rs: Range[]) => rs.some(r => iso >= r.from && iso <= r.to)
+/** Часовете от деня, които покрива заместникът (по редовете му) */
+const coveredItems = <T extends { period: number }>(iso: string, items: T[], rs: Range[]): T[] => {
+  const on = rs.filter(r => iso >= r.from && iso <= r.to)
+  if (on.some(r => !r.periods)) return items
+  const ps = new Set(on.flatMap(r => r.periods || []))
+  return items.filter(it => ps.has(it.period))
+}
 
 async function coudLabel(supabase: any, staffId: string): Promise<string> {
   const { data } = await supabase.from('coud_groups').select('name').eq('teacher_id', staffId).limit(1).maybeSingle()
@@ -206,11 +217,14 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   }
 
     // Няколко заместника (ако има разпределение)
-  const { data: assigns } = await supabase
-    .from('substitution_assignments')
-    .select('date_from, date_to, over_norm, sub:staff_profiles!substitution_assignments_substitute_staff_id_fkey(first_name, last_name, position)')
-    .eq('substitution_id', substitutionId).order('date_from')
+  const asCols = 'date_from, date_to, over_norm, sub:staff_profiles!substitution_assignments_substitute_staff_id_fkey(first_name, last_name, position)'
+  const withP: any = await supabase.from('substitution_assignments')
+    .select(asCols + ', periods').eq('substitution_id', substitutionId).order('date_from')
+  const assigns: any[] | null = withP.error
+    ? (await supabase.from('substitution_assignments').select(asCols).eq('substitution_id', substitutionId).order('date_from')).data
+    : withP.data
   const substitutes = (assigns || []).map((a: any) => ({
+    periods: a.periods?.length ? a.periods as number[] : null,   // само тези часове (заместване по часове)
     name: a.sub ? `${a.sub.first_name} ${a.sub.last_name}` : '',
     position: a.sub?.position || 'учител',
     // лекторски/вътрешно е избор за ЦЯЛОТО заместване (иначе т.1 и т.3 си противоречат)
@@ -314,22 +328,28 @@ export async function getAssignments(substitutionId: string) {
   const supabase = await createClient()
   const { data } = await supabase
     .from('substitution_assignments')
-    .select('id, substitute_staff_id, date_from, date_to, over_norm')
+    .select('*')
     .eq('substitution_id', substitutionId).order('date_from')
   return { data: data || [] }
 }
 
-export async function saveAssignments(substitutionId: string, rows: { substitute_staff_id: string; date_from: string; date_to: string; over_norm: boolean }[]) {
+export async function saveAssignments(substitutionId: string, rows: { substitute_staff_id: string; date_from: string; date_to: string; over_norm: boolean; periods?: number[] | null }[]) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли' }
+  // по часове — само ако колоната я има (иначе старото разпределение не се трие)
+  if (rows.some(r => r.periods && r.periods.length)) {
+    const { error: pErr } = await supabase.from('substitution_assignments').select('periods').limit(1)
+    if (pErr) return { error: 'Пуснете SQL файла 2026-10-09_substitution_assignment_periods.sql (заместване по часове)' }
+  }
   // трием старите и вписваме новите
   await supabase.from('substitution_assignments').delete().eq('substitution_id', substitutionId)
   if (rows.length > 0) {
+    // periods само ако има разделяне по часове (без миграцията колоната я няма)
     const { error } = await supabase.from('substitution_assignments').insert(
-      rows.map(r => ({ substitution_id: substitutionId, ...r }))
+      rows.map(({ periods, ...r }) => ({ substitution_id: substitutionId, ...r, ...(periods && periods.length ? { periods } : {}) }))
     )
-    if (error) return { error: error.message }
+    if (error) return { error: /periods/.test(error.message) ? 'Пуснете SQL файла 2026-10-09_substitution_assignment_periods.sql (заместване по часове)' : error.message }
   }
   revalidatePath('/substitutions')
   return { success: true }
@@ -389,7 +409,7 @@ export async function getMonthlyDeclaration(first: string, last: string) {
       const isNp = npSet === null ? true : npSet.has(w.iso)
       // вътрешно заместване (в рамките на нормата) не се плаща → не влиза в бюджетната декларация
       if (!isNp && (sub as any).over_norm === false) continue
-      const dayItems = byTerm[w.term].filter(s => s.day === w.dow)
+      const dayItems = coveredItems(w.iso, byTerm[w.term].filter(s => s.day === w.dow), myRanges)
       if (dayItems.length === 0) continue
       const dateStr = w.iso.split('-').reverse().join('.')
       const byCls: Record<string, { subjects: string[]; hours: number }> = {}
@@ -469,7 +489,7 @@ export async function getMonExport(first: string, last: string) {
     }
     // часовете на отсъстващия по срок и ден
     const byTerm = await slotsByTerm(supabase, sub.absent_staff_id, cy?.id)
-    const perDay = (term: number, dow: number) => byTerm[term].filter(x => x.day === dow).length
+    const dayItems = (term: number, dow: number) => byTerm[term].filter(x => x.day === dow)
     // учебни дни в пресечението
     const lo = sub.date_from > first ? sub.date_from : first
     const hi = sub.date_to < last ? sub.date_to : last
@@ -479,7 +499,7 @@ export async function getMonExport(first: string, last: string) {
     const cov = coverageOf(sub as any, assignMap[sub.id])
     for (const [staffId, ranges] of Object.entries(cov)) {
       let hours = 0
-      wds.forEach(w => { if ((npSet === null || npSet.has(w.iso)) && inRanges(w.iso, ranges)) hours += perDay(w.term, w.dow) })
+      wds.forEach(w => { if ((npSet === null || npSet.has(w.iso)) && inRanges(w.iso, ranges)) hours += coveredItems(w.iso, dayItems(w.term, w.dow), ranges).length })
       if (hours === 0) continue
       const person = people[staffId] || { name: '', position: '', role: '' }
       // непедагогически = не е педагогически специалист по ЗПУО (по роля)
@@ -531,7 +551,7 @@ export async function getSubstitutionHoursByStaff(first: string, last: string, o
       if (onlyStaff && staffId !== onlyStaff) continue
       for (const w of wds) {
         if (!inRanges(w.iso, ranges)) continue
-        const dayItems = byTerm[w.term].filter(x => x.day === w.dow)
+        const dayItems = coveredItems(w.iso, byTerm[w.term].filter(x => x.day === w.dow), ranges)
         const h = dayItems.length
         if (h === 0) continue
         const isNp = npSet === null ? true : npSet.has(w.iso)
@@ -548,7 +568,7 @@ export async function getSubstitutionHoursByStaff(first: string, last: string, o
 
 // ── ПРЕДУПРЕЖДЕНИЕ: заместникът има ли свой час, който се застъпва ПО ВРЕМЕ с часовете на отсъстващия ──
 // parts = кой заместник кои дни покрива. Връща по един ред на конфликтен ден (първите 8).
-export async function checkSubstituteOverlap(absentId: string, parts: { staffId: string; from: string; to: string }[]) {
+export async function checkSubstituteOverlap(absentId: string, parts: { staffId: string; from: string; to: string; periods?: number[] | null }[]) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || !absentId || parts.length === 0) return { conflicts: [] as string[], total: 0 }
@@ -566,7 +586,7 @@ export async function checkSubstituteOverlap(absentId: string, parts: { staffId:
     const own = cache[part.staffId]
     const wds = await workdays(supabase, part.from, part.to)
     for (const w of wds) {
-      const a = absent[w.term].filter(s => s.day === w.dow)
+      const a = absent[w.term].filter(s => s.day === w.dow && (!part.periods || part.periods.includes(s.period)))
       const b = own[w.term].filter(s => s.day === w.dow)
       const hit = a.flatMap(x => b.filter(y => periodsOverlap(x.period, y.period)).map(y => ({ x, y })))[0]
       if (!hit) continue
@@ -621,4 +641,20 @@ export async function deleteSubstitution(substitutionId: string) {
   revalidatePath('/substitutions')
   revalidatePath('/lecturer-review')
   return { success: true, orderNote }
+}
+
+// ── Часовете на отсъстващия по дни (за разпределяне на заместването по часове) ──
+export async function getAbsentHours(absentId: string, from: string, to: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !absentId || !from || !to) return { data: {} as Record<string, { period: number; label: string }[]> }
+  const { data: cy } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
+  const byTerm = await slotsByTerm(supabase, absentId, cy?.id)
+  const wds = await workdays(supabase, from, to)
+  const out: Record<string, { period: number; label: string }[]> = {}
+  wds.forEach(w => {
+    out[w.iso] = byTerm[w.term].filter(s => s.day === w.dow).sort((a, b) => a.period - b.period)
+      .map(s => ({ period: s.period, label: `${PERIOD_LABEL[s.period] ?? s.period}${s.period <= 7 ? '. час' : ''} · ${s.cls}${s.subject ? ' — ' + s.subject : ''}` }))
+  })
+  return { data: out }
 }
