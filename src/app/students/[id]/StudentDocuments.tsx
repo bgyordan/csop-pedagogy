@@ -11,6 +11,7 @@ interface DocRow {
   issued_on: string | null
   support_type: string | null
   diagnosis: string | null
+  indefinite?: boolean   // безсрочен (напр. ТЕЛК без срок) — различно от „срокът не е въведен“
 }
 interface Props { studentId: string; canManage: boolean }
 
@@ -32,12 +33,13 @@ function fmtDate(d: string) { return new Date(d).toLocaleDateString('bg-BG') }
 
 function hasAnyData(row?: DocRow) {
   if (!row) return false
-  return !!(row.valid_until || (row.note && row.note.trim()) || (row.doc_number && row.doc_number.trim())
+  return !!(row.valid_until || row.indefinite || (row.note && row.note.trim()) || (row.doc_number && row.doc_number.trim())
     || row.issued_on || row.support_type || (row.diagnosis && row.diagnosis.trim()))
 }
 
 function statusOf(row?: DocRow) {
   if (!hasAnyData(row)) return { kind: 'none' as const }
+  if (row!.indefinite) return { kind: 'indefinite' as const }
   if (!row!.valid_until) return { kind: 'nodate' as const }
   const validUntil = new Date(row!.valid_until)
   const now = new Date()
@@ -57,6 +59,7 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
   const [dNumber, setDNumber] = useState('')
   const [dIssued, setDIssued] = useState('')
   const [dValid, setDValid] = useState('')
+  const [dIndef, setDIndef] = useState(false)
   const [dNote, setDNote] = useState('')
   const [dSupport, setDSupport] = useState('')
   const [dDiagnosis, setDDiagnosis] = useState('')
@@ -66,7 +69,7 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
     ;(async () => {
       const { data } = await supabase
         .from('student_documents')
-        .select('doc_type, valid_until, note, doc_number, issued_on, support_type, diagnosis')
+        .select('*')
         .eq('student_id', studentId)
       if (!active) return
       const map: Record<string, DocRow> = {}
@@ -82,6 +85,7 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
     setDNumber(r?.doc_number || '')
     setDIssued(r?.issued_on || '')
     setDValid(r?.valid_until || '')
+    setDIndef(!!r?.indefinite)
     setDNote(r?.note || '')
     setDSupport(r?.support_type || '')
     setDDiagnosis(r?.diagnosis || '')
@@ -95,7 +99,8 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
       doc_type: key,
       doc_number: dNumber.trim() || null,
       issued_on: dIssued || null,
-      valid_until: dValid || null,
+      valid_until: dIndef ? null : (dValid || null),
+      indefinite: dIndef,
       note: dNote.trim() || null,
       support_type: t?.hasSupport ? (dSupport || null) : null,
       diagnosis: t?.hasDiagnosis ? (dDiagnosis.trim() || null) : null,
@@ -104,8 +109,11 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
       await supabase.from('student_documents').delete().eq('student_id', studentId).eq('doc_type', key)
       setRows(prev => { const n = { ...prev }; delete n[key]; return n })
     } else {
+      // indefinite само ако е отбелязано (без миграцията колоната я няма)
+      const { indefinite, ...base } = row
       const { error } = await supabase.from('student_documents')
-        .upsert({ student_id: studentId, ...row, updated_at: new Date().toISOString() }, { onConflict: 'student_id,doc_type' })
+        .upsert({ student_id: studentId, ...base, ...(indefinite || rows[key]?.indefinite ? { indefinite } : {}), updated_at: new Date().toISOString() }, { onConflict: 'student_id,doc_type' })
+      if (error && /indefinite/.test(error.message)) alert('За „безсрочен“ пуснете SQL файла 2026-10-09_student_documents_indefinite.sql')
       if (!error) setRows(prev => ({ ...prev, [key]: row }))
     }
     setSaving(false)
@@ -123,6 +131,9 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
   function StatusPill({ row }: { row?: DocRow }) {
     const st = statusOf(row)
     if (st.kind === 'none') return <span className="text-xs text-slate-400">Не е въведено</span>
+    if (st.kind === 'indefinite') return (
+      <span className="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-md border text-emerald-700 bg-emerald-50 border-emerald-200">Безсрочен</span>
+    )
     if (st.kind === 'nodate') return (
       <span className="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-md border bg-blue-50 text-blue-700 border-blue-200">Въведено</span>
     )
@@ -196,7 +207,12 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
                   </div>
                   <div>
                     <label className={labelCls}>Валиден до</label>
-                    <input type="date" value={dValid} onChange={e => setDValid(e.target.value)} className={inputCls} />
+                    <input type="date" value={dIndef ? '' : dValid} disabled={dIndef} onChange={e => setDValid(e.target.value)} className={inputCls + ' disabled:bg-slate-100 disabled:text-slate-400'} />
+                    <label className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
+                      <input type="checkbox" checked={dIndef} onChange={e => { setDIndef(e.target.checked); if (e.target.checked) setDValid('') }}
+                        className="w-3.5 h-3.5 rounded border-slate-300 accent-[#0f2240]" />
+                      безсрочен
+                    </label>
                   </div>
                   {t.hasSupport && (
                     <div>

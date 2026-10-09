@@ -38,7 +38,7 @@ export async function getFullReport(): Promise<{ error: string } | { headers: st
     supabase.from('coud_enrollments').select('student_id, coud_group:coud_groups(name, teacher:staff_profiles(first_name, last_name))').in('student_id', ids),
     supabase.from('student_ores').select('student_id, from_date, to_date').in('student_id', ids),
     supabase.from('student_surveys').select('student_id, status').in('student_id', ids),
-    supabase.from('student_documents').select('student_id, doc_type, doc_number, issued_on, valid_until, support_type, diagnosis, note').in('student_id', ids),
+    supabase.from('student_documents').select('*').in('student_id', ids),
   ])
 
   const enrMap: Record<string, any> = {}; (enrRes.data || []).forEach((e: any) => { enrMap[e.student_id] = e })
@@ -85,8 +85,8 @@ export async function getFullReport(): Promise<{ error: string } | { headers: st
       nm(ep.psychologist), nm(ep.speech_therapist), nm(ep.rehabilitator),
       cg?.name || '', cg?.teacher ? nm(cg.teacher) : '',
       g.names.join('; '), g.phones.join('; '),
-      rc ? 'Да' : 'Не', rc?.doc_number || '', rc?.issued_on || '', rc?.valid_until || '', (rc?.support_type ? (SUPPORT_LABEL[rc.support_type] || rc.support_type) : ''),
-      tk ? 'Да' : 'Не', tk?.doc_number || '', tk?.issued_on || '', tk?.valid_until || '', tk?.diagnosis || '',
+      rc ? 'Да' : 'Не', rc?.doc_number || '', rc?.issued_on || '', rc?.indefinite ? 'безсрочен' : rc?.valid_until || '', (rc?.support_type ? (SUPPORT_LABEL[rc.support_type] || rc.support_type) : ''),
+      tk ? 'Да' : 'Не', tk?.doc_number || '', tk?.issued_on || '', tk?.indefinite ? 'безсрочен' : tk?.valid_until || '', tk?.diagnosis || '',
       al ? 'Да' : 'Не', al?.valid_until || '', al?.note || '',
     ]
   })
