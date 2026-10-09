@@ -22,8 +22,8 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
 }) {
   const { toast } = useToast()
   const [declarations, setDeclarations] = useState<Decl[]>(initialDecls)
-  // само приключили месеци (септември — от 01.10, октомври — от 01.11, …)
-  const periods = declarationPeriods()
+  // само приключили периоди: септември–октомври заедно (от 01.11), после по месеци
+  const periods = declarationPeriods('over')
   const declared = (p: { from: string; to: string }) => initialDecls.some(d => d.periodFrom <= p.to && d.periodTo >= p.from)
   const [periodKey, setPeriodKey] = useState(() => {
     const open = periods.filter(p => p.open)
@@ -135,7 +135,7 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
         {!period.open && (
           <p className="text-xs text-amber-700">Декларира се само приключил период. „{period.label}“ — от {fmt(period.opensOn)}.</p>
         )}
-        <p className="text-[11px] text-slate-400">Всеки месец се декларира след края му (септември — от 01.10). Невзетите часове не се прехвърлят към друг период.</p>
+        <p className="text-[11px] text-slate-400">Септември и октомври се декларират заедно (от 01.11), после всеки месец след края му. Невзетите часове не се прехвърлят към друг период.</p>
 
         {expanded && (
           <div className="space-y-3 pt-2 border-t border-slate-100">

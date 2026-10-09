@@ -12,7 +12,7 @@ function fmt(d: string) { return d ? d.split('-').reverse().join('.') : '—' }
 export default function MySubstitutionsClient({ rows }: { rows: MySubRow[] }) {
   const { toast } = useToast()
   // само приключили месеци (септември — от 01.10, октомври — от 01.11, …)
-  const periods = declarationPeriods()
+  const periods = declarationPeriods('sub')
   const [periodKey, setPeriodKey] = useState(() => defaultPeriod(periods).key)
   const period = periods.find(p => p.key === periodKey) || periods[0]
   const first = period.from

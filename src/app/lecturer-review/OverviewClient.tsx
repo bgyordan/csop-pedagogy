@@ -48,7 +48,7 @@ export default function OverviewClient({ archive, rates }: { archive: ArchiveRow
   const { toast } = useToast()
   // ставки за лекторски час (въвеждат се долу в „Ставки“)
   const R = effectiveRates(rates)
-  const periods = declarationPeriods()
+  const periods = declarationPeriods('review')
   const [periodKey, setPeriodKey] = useState(() => defaultPeriod(periods).key)
   const period = periods.find(p => p.key === periodKey) || periods[0]
   const first = period.from, last = period.to
@@ -74,14 +74,15 @@ export default function OverviewClient({ archive, rates }: { archive: ArchiveRow
   }, [first, last])
 
   const all = rows || []
-  const st = (r: Row) => declState(r, period.open)
+  // над норматив: „неподадена“ само за периоди, за които може да има декларация (не за отделен септември/октомври)
+  const st = (r: Row) => declState(r, period.overOpen ?? period.open)
   const counts = useMemo(() => ({
     all: all.length,
     over: all.filter(r => r.planned + r.declared > 0).length,
     sub: all.filter(r => r.np + r.budget > 0).length,
     pending: all.filter(r => st(r).key === 'pending').length,
     missing: all.filter(r => st(r).key === 'missing').length,
-  }), [rows, period.open]) // eslint-disable-line react-hooks/exhaustive-deps
+  }), [rows, period.key]) // eslint-disable-line react-hooks/exhaustive-deps
   const shown = all.filter(r => smartMatch(r.name, search) && (
     filter === 'all' ? true : filter === 'over' ? r.planned + r.declared > 0 : filter === 'sub' ? r.np + r.budget > 0 : st(r).key === filter))
 
