@@ -306,7 +306,7 @@ export default function CheckClient({ rates }: { rates: LecturerRates }) {
                           <DetailTable kind={c.kind} lines={d.lines} />
                         )}
                         {c.kind === 'over' && d && d !== 'loading' && !d.hasDecl && (
-                          <div className="mt-2 inline-flex items-center gap-1.5 text-xs text-amber-700"><AlertTriangle size={13} /> Колегата не е подал декларацията през системата — показан е графикът.</div>
+                          <div className="mt-2 inline-flex items-center gap-1.5 text-xs text-amber-700"><AlertTriangle size={13} /> Колегата още не е подал декларацията през системата — показан е графикът (без дните в отсъствие).</div>
                         )}
                         {s.key === 'changed' && (
                           <div className="mt-2 inline-flex items-center gap-1.5 text-xs text-amber-800"><AlertTriangle size={13} /> При проверката бяха {chk?.hoursAtCheck} ч., сега системата показва {c.hours} ч. Провери отново.</div>
