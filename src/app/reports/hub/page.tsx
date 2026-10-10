@@ -41,7 +41,7 @@ const GROUPS: Group[] = [
     items: [
       { href: '/absences', title: 'Реализация на ИУП', desc: 'Месечен отчет по паралелки + Excel', icon: <ClipboardList size={18} />, roles: M },
       { href: '/reports/lecturer-plan', title: 'Лекторски по учебен план', desc: 'Над норматива по учител и паралелки — от учебния план, Excel', icon: <BookOpenCheck size={18} />, roles: [], check: canSeeLecturerReport },
-      { href: '/lecturer-review', title: 'Лекторски часове', desc: 'Над норматив и заместване по служители, суми, заповед за изплащане', icon: <Wallet size={18} />, roles: MS },
+      { href: '/lecturer-check', title: 'Лекторски часове', desc: 'Над норматив и заместване по служители, отметки, ставки, заповед за изплащане', icon: <Wallet size={18} />, roles: MS },
       { href: '/mon-export', title: 'Отчет НП (МОН)', desc: '„Без свободен час“ — файл за платформата', icon: <FileSpreadsheet size={18} />, roles: M },
     ],
   },

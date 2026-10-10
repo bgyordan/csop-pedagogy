@@ -658,6 +658,7 @@ export async function deleteSubstitution(substitutionId: string) {
   if (!gone || gone.length === 0) return { error: 'Заместването не се изтри (няма права за изтриване в базата)' }
   revalidatePath('/substitutions')
   revalidatePath('/lecturer-review')
+  revalidatePath('/lecturer-check')
   return { success: true, orderNote }
 }
 
