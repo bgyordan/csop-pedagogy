@@ -427,14 +427,17 @@ async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_na
       const dayItems = coveredItems(w.iso, byTerm[w.term].filter(s => s.day === w.dow), myRanges)
       if (dayItems.length === 0) continue
       const dateStr = w.iso.split('-').reverse().join('.')
-      const byCls: Record<string, { subjects: string[]; hours: number }> = {}
+      // по паралелка: предметите с броя часове („Математика (2); Социални умения (1)“)
+      const byCls: Record<string, { subjects: Record<string, number>; hours: number }> = {}
       dayItems.forEach(it => {
-        if (!byCls[it.cls]) byCls[it.cls] = { subjects: [], hours: 0 }
-        if (it.subject && !byCls[it.cls].subjects.includes(it.subject)) byCls[it.cls].subjects.push(it.subject)
+        if (!byCls[it.cls]) byCls[it.cls] = { subjects: {}, hours: 0 }
+        if (it.subject) byCls[it.cls].subjects[it.subject] = (byCls[it.cls].subjects[it.subject] || 0) + 1
         byCls[it.cls].hours++
       })
       Object.entries(byCls).forEach(([cls, v]) => rows.push({
-        date: dateStr, orderRef, cls, subject: v.subjects.join('; '), hours: v.hours,
+        date: dateStr, orderRef, cls,
+        subject: Object.keys(v.subjects).length > 1 ? Object.entries(v.subjects).map(([n, c]) => `${n} (${c})`).join('; ') : Object.keys(v.subjects).join(''),
+        hours: v.hours,
                bsch: isNp, kt: sub.kt_article || '',
         absentName: sub.absent ? `${(sub.absent as any).first_name} ${(sub.absent as any).last_name}` : '',
       }))
