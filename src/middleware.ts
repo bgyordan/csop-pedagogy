@@ -1,10 +1,11 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { IMP_COOKIE, IMP_BACK_COOKIE, parseImp } from '@/lib/impersonate'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  if (pathname.startsWith('/auth')) {
+  if (pathname.startsWith('/auth') || pathname.startsWith('/impersonate/stop')) {
     return NextResponse.next()
   }
 
@@ -37,6 +38,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
+  // „Влез като…“: ако сесията вече не е на колегата (излязъл/влязъл друг) — чистим бисквитките;
+  // ако часът е изтекъл — автоматично връщане към админа
+  let imp = parseImp(request.cookies.get(IMP_COOKIE)?.value)
+  if (imp && imp.targetUserId !== user.id) {
+    supabaseResponse.cookies.delete(IMP_COOKIE)
+    supabaseResponse.cookies.delete(IMP_BACK_COOKIE)
+    imp = null
+  }
+  if (imp && Date.now() > imp.until && request.method === 'GET') {
+    return NextResponse.redirect(new URL('/impersonate/stop', request.url))
+  }
+
   // Неактивен служител (напуснал, пенсиониран, в дълъг отпуск) не влиза в системата.
   // Проверява се най-много веднъж на 5 минути (бисквитка eis_ok).
   if (!request.cookies.get('eis_ok')) {
@@ -50,8 +63,8 @@ export async function middleware(request: NextRequest) {
     supabaseResponse.cookies.set('eis_ok', '1', { maxAge: 300, path: '/', httpOnly: true, sameSite: 'lax' })
   }
 
-  // „На линия сега“: отбелязваме активност най-много веднъж на 5 минути на потребител
-  if (!request.cookies.get('eis_seen') && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  // „На линия сега“ (не и докато админ действа като колегата): отбелязваме активност най-много веднъж на 5 минути на потребител
+  if (!imp && !request.cookies.get('eis_seen') && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
       await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/staff_profiles?user_id=eq.${user.id}`, {
         method: 'PATCH',

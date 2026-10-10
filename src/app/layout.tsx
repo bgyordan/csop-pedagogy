@@ -16,6 +16,7 @@ import '@fontsource/roboto-condensed/400.css'
 import '@fontsource/roboto-condensed/500.css'
 import './globals.css'
 import { ToastProvider } from '@/components/ui/Toast'
+import ImpersonationBar from '@/components/ImpersonationBar'
 
 export const metadata: Metadata = {
   title: 'Единна информационна система — ЦСОП Варна',
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body style={{ fontFamily: APP_FONT }}>
         <ToastProvider>
           {children}
+          <ImpersonationBar />
         </ToastProvider>
       </body>
     </html>
