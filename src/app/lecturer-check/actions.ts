@@ -79,7 +79,8 @@ export async function getCellDetail(staffId: string, kind: CheckKind, from: stri
   const hasDecl = (d.over as any[]).some(s => s.dates.some((x: any) => x.declared))
   const map: Record<string, DetailLine> = {}
   ;(d.over as any[]).forEach(s => s.dates.forEach((x: any) => {
-    const mark = x.declared ? 'declared' : x.absent ? 'absent' : 'missing'
+    // още няма подадена декларация → редовете са графикът (не се задраскват); задраскват се само дните в отсъствие
+    const mark = x.absent ? 'absent' : !hasDecl || x.declared ? 'declared' : 'missing'
     const key = `${x.date}|${s.holder}|${s.subject}|${mark}`
     const m = (map[key] = map[key] || { date: x.date.split('-').reverse().join('.'), cls: s.holder, subject: s.subject, hours: 0, mark })
     m.hours++
