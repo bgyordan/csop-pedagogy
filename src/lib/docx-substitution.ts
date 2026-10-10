@@ -531,20 +531,21 @@ export async function generateMonthlyNPDeclaration(d: MonthlyDeclData) {
   children.push(P([t('Център за специална образователна подкрепа – гр. Варна', { bold: true })], { alignment: AlignmentType.CENTER }))
   children.push(hint('( детска градина/училище/ЦСОП/ЦПЛР)'))
   children.push(P([t('ПК 9000, гр. Варна, община Варна, област Варна')], { spacing: { before: 120, after: 0 } }))
-  children.push(P([t('ул. „Петко Стайнов“ № 7, тел.: 052 619 456, e-mail: info-400052@edu.mon.bg')], { spacing: { before: 120, after: 480 } }))
+  children.push(P([t('ул. „Петко Стайнов“ № 7, тел.: 052 619 456, e-mail: info-400052@edu.mon.bg')], { spacing: { before: 120, after: 280 } }))
 
   // заглавие
   children.push(P([t('С П Р А В К А   –   Д Е К Л А Р А Ц И Я', { bold: true })], { alignment: AlignmentType.CENTER, spacing: { after: 120 } }))
   children.push(P([t('за възнаграждение на учител за реално взетите учебни/астрономически часове')], { alignment: AlignmentType.CENTER, spacing: { after: 60 } }))
   children.push(P([t('по Националната програма „Без свободен час“ за 2026 г.,')], { alignment: AlignmentType.CENTER, spacing: { after: 60 } }))
-  children.push(P([t('модул „Без свободен час в училище“')], { alignment: AlignmentType.CENTER, spacing: { after: 480 } }))
+  children.push(P([t('модул „Без свободен час в училище“')], { alignment: AlignmentType.CENTER, spacing: { after: 280 } }))
 
   // долуподписаният — редове с точки до края + пояснения
-  children.push(P([t('Долуподписаният (ата) '), t(d.substituteName, { bold: true }), t(' '), dotTab()], { tabStops: DOTS }))
+  // попълнените автоматично полета — без точки след тях
+  children.push(P([t('Долуподписаният (ата) '), t(d.substituteName, { bold: true })]))
   children.push(hint('(име, презиме, фамилия)'))
-  children.push(P([t('заемащ (а) длъжността '), t(d.substitutePosition || 'учител', { bold: true }), t(' '), dotTab()], { tabStops: DOTS }))
+  children.push(P([t('заемащ (а) длъжността '), t(d.substitutePosition || 'учител', { bold: true })]))
   children.push(hint('(наименование на длъжността)'))
-  children.push(P([t('в '), t('ЦСОП – гр. Варна', { bold: true }), t(' '), dotTab()], { tabStops: DOTS }))
+  children.push(P([t('в '), t('ЦСОП – гр. Варна', { bold: true })]))
   children.push(hint('(училище/ЦСОП/ДГ/ЦПЛР)'))
 
   children.push(P([t('Д Е К Л А Р И Р А М ,', { bold: true })], { alignment: AlignmentType.CENTER, spacing: { before: 240, after: 240 } }))
@@ -552,13 +553,13 @@ export async function generateMonthlyNPDeclaration(d: MonthlyDeclData) {
     { spacing: { after: 120, line: 360, lineRule: LineRuleType.AUTO } }))
 
   // таблица — колоните от образеца
-  const COLS = [1300, 1750, 1250, 1750, 900, 2264]
+  const COLS = [1250, 1700, 1250, 2050, 850, 2114]   // сума 9214
   const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
   const cell = (i: number, lines: string[], bold = false, center = true) => new TableCell({
     borders: CELLS, width: { size: COLS[i], type: WidthType.DXA }, verticalAlign: VerticalAlign.CENTER,
     margins: { top: 40, bottom: 40, left: 60, right: 60 },
-    children: lines.map(l => new Paragraph({ alignment: center ? AlignmentType.CENTER : AlignmentType.LEFT, spacing: { after: 0, line: 252 }, children: [t(l, { size: 22, ...(bold ? { bold: true } : {}) })] })),
+    children: lines.map(l => new Paragraph({ alignment: center ? AlignmentType.CENTER : AlignmentType.LEFT, spacing: { after: 0, line: 252 }, children: [t(l, { size: bold ? 20 : 22, ...(bold ? { bold: true } : {}) })] })),
   })
   const head = new TableRow({ tableHeader: true, children: [
     cell(0, ['Дата'], true), cell(1, ['Заповед №… от…', 'Договор №… от…'], true), cell(2, ['Клас'], true),
@@ -575,14 +576,15 @@ export async function generateMonthlyNPDeclaration(d: MonthlyDeclData) {
   children.push(P([it('(цифром, словом)')], { alignment: AlignmentType.RIGHT, spacing: { after: 240 } }))
 
   children.push(P([t('Темите на преподаденото учебно /образователно съдържание са вписани в дневника на класа/групата.')], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 120, line: 360, lineRule: LineRuleType.AUTO } }))
-  children.push(P([t('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося отговорност съгласно законите на Република България.')], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 480, line: 360, lineRule: LineRuleType.AUTO } }))
+  children.push(P([t('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося отговорност съгласно законите на Република България.')], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 360, line: 360, lineRule: LineRuleType.AUTO } }))
 
   // подписи
-  children.push(P([t('Декларатор: '), dotTab()], { tabStops: DOTS }))
+  const KEEP = { keepNext: true, keepLines: true }
+  children.push(P([t('Декларатор: '), dotTab()], { tabStops: DOTS, ...KEEP }))
   const TABS2 = [{ type: TabStopType.CENTER, position: 4200 }, { type: TabStopType.CENTER, position: 8000 }]
   const tab = () => new TextRun({ font: F, size: 24, children: [new Tab()] })
-  children.push(P([tab(), it('(личен подпис)'), tab(), it('(дата)')], { tabStops: TABS2, spacing: { after: 480 } }))
-  children.push(P([t('Директор: '), dotTab()], { tabStops: DOTS }))
+  children.push(P([tab(), it('(личен подпис)'), tab(), it('(дата)')], { tabStops: TABS2, spacing: { after: 400 }, ...KEEP }))
+  children.push(P([t('Директор: '), dotTab()], { tabStops: DOTS, ...KEEP }))
   children.push(P([tab(), it('(име, фамилия, подпис, кръгъл печат)'), tab(), it('(дата)')], { tabStops: TABS2 }))
 
   const doc = new Document({
@@ -621,7 +623,7 @@ export async function generateMonthlyBudgetDeclaration(d: MonthlyDeclData) {
   children.push(P([t('По заместване', { bold: true, underline: {} })], { alignment: AlignmentType.RIGHT, spacing: { after: 360 } }))
   children.push(P([new TextRun({ text: 'Д Е К Л А Р А Ц И Я', font: F, size: 24, bold: true })], { alignment: AlignmentType.CENTER, spacing: { after: 240 } }))
 
-  children.push(P([t('Долуподписаният/та '), t(d.substituteName, { bold: true }), t(' '), tab()], { tabStops: DOTS }))
+  children.push(P([t('Долуподписаният/та '), t(d.substituteName, { bold: true })]))
   children.push(P([small('(име, презиме, фамилия)')], { alignment: AlignmentType.CENTER }))
   children.push(P([t('учител по …………………………………………………, образование ……………………………')], { spacing: { after: 60 } }))
   children.push(P([t('ДЕКЛАРИРАМ', { bold: true }), t(', '), t('че', { bold: true })], { spacing: { after: 60 } }))
