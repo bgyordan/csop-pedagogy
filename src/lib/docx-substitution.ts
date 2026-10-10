@@ -852,15 +852,25 @@ export interface LecturerPaymentData {
   rateNp: number               // заместване по НП „Без свободен час“, €/час
   rows: { name: string; position: string; overNorm: number; budgetSub: number; np: number }[]
 }
-export async function generateLecturerPaymentOrder(d: LecturerPaymentData) {
+// mode: 'combined' — една заповед с две точки (бюджет + НП);
+//       'separate' — един файл с ДВЕ отделни заповеди (бюджет и НП), всяка на своя страница, със свой номер и подпис.
+export async function generateLecturerPaymentOrder(d: LecturerPaymentData, mode: 'combined' | 'separate' = 'combined') {
+  const budget = d.rows.filter(r => r.overNorm + r.budgetSub > 0)
+  const np = d.rows.filter(r => r.np > 0)
+  const sections = mode === 'separate'
+    ? [budget.length ? paymentOrderChildren(d, budget, []) : null, np.length ? paymentOrderChildren(d, [], np) : null].filter(Boolean) as any[][]
+    : [paymentOrderChildren(d, budget, np)]
+  const doc = new Document({ sections: sections.map(children => ({ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children })) })
+  const blob = await Packer.toBlob(doc)
+  saveAs(blob, `заповед_изплащане_лекторски_${mode === 'separate' ? 'бюджет_и_НП_' : ''}${d.periodLabel.replace(/\s+/g, '_')}.docx`)
+}
+
+function paymentOrderChildren(d: LecturerPaymentData, budget: LecturerPaymentData['rows'], np: LecturerPaymentData['rows']) {
   const eur = (v: number) => v.toFixed(2).replace('.', ',')
   const children: any[] = []
   header().forEach(p => children.push(p))
   children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('ЗАПОВЕД', 28)], spacing: { before: 120, after: 40 } }))
   children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal('№ ............ / ............ г.', 22)], spacing: { after: 160 } }))
-
-  const budget = d.rows.filter(r => r.overNorm + r.budgetSub > 0)
-  const np = d.rows.filter(r => r.np > 0)
 
   children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 120 }, children: [
     normal('На основание чл. 259, ал. 1 от Кодекса на труда, чл. 20, ал. 1, т. 1 от Наредба № 4 от 20.04.2017 г. за нормиране и заплащане на труда, чл. 10, ал. 2, ал. 3 и ал. 8 от Вътрешните правила за работната заплата в ЦСОП – Варна', 22),
@@ -879,10 +889,13 @@ export async function generateLecturerPaymentOrder(d: LecturerPaymentData) {
   let pt = 1
 
   if (budget.length > 0) {
+    const hasOver = budget.some(r => r.overNorm > 0), hasSub = budget.some(r => r.budgetSub > 0)
+    const what = hasOver && hasSub ? 'лекторски часове (над норматива и по заместване)' : hasOver ? 'лекторски часове над норматива' : 'лекторски часове по заместване'
+    const rate = hasOver && hasSub && d.rateOver !== d.rateSub
+      ? `по ставки ${eur(d.rateOver)} € за час над норматива и ${eur(d.rateSub)} € за час заместване`
+      : `по ставка ${eur(hasOver ? d.rateOver : d.rateSub)} € за час`
     children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
-      normal(`${pt++}. Да се изплатят лекторски часове (над норматива и по заместване) за ${d.periodLabel} ${d.rateOver === d.rateSub
-        ? `по ставка ${eur(d.rateOver)} € за час`
-        : `по ставки ${eur(d.rateOver)} € за час над норматива и ${eur(d.rateSub)} € за час заместване`}, както следва:`, 22),
+      normal(`${pt++}. Да се изплатят ${what} за ${d.periodLabel} ${rate}, както следва:`, 22),
     ] }))
     const rows: TableRow[] = [new TableRow({ tableHeader: true, children: [
       th('№'), th('Име и фамилия'), th('Длъжност'), th('Над норматив, ч.'), th('Заместване, ч.'), th('Общо, ч.'), th('Сума, €'),
@@ -929,11 +942,9 @@ export async function generateLecturerPaymentOrder(d: LecturerPaymentData) {
   children.push(new Paragraph({ children: [bold('ДИРЕКТОР ЦСОП: ', 22), normal('.............................', 22)] }))
   children.push(new Paragraph({ children: [normal('/ Светлана Иванова /', 20)], spacing: { after: 200 } }))
   children.push(new Paragraph({ children: [bold('Запознат: ', 20), normal('Радка Георгиева – счетоводител     ..............................', 20)] }))
-
-  const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
-  const blob = await Packer.toBlob(doc)
-  saveAs(blob, `заповед_изплащане_лекторски_${d.periodLabel.replace(/\s+/g, '_')}.docx`)
+  return children
 }
+
 // ═══ ЗАЯВЛЕНИЕ ЗА ОТПУСК — Приложение № 1 към НП „Без свободен час“ (Модул 1 и Модул 2) ═══
 // Различно от общото заявление: „за ползване на отпуск по време на учебни занятия“. Не се качва в портала на НП,
 // но се пази в деловодството — по него се издават заповедта за отпуск и заповедта за заместване.

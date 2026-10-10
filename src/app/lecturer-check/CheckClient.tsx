@@ -134,7 +134,9 @@ export default function CheckClient({ rates }: { rates: LecturerRates }) {
 
   // заповед за изплащане — само проверените (ОК) декларации от таба
   const [genning, setGenning] = useState(false)
-  async function paymentOrder() {
+  const [orderMenu, setOrderMenu] = useState(false)
+  async function paymentOrder(mode: 'combined' | 'separate' = 'combined') {
+    setOrderMenu(false)
     const okRows = tabRows.map(r => {
       const ok = (k: CheckKind) => { const c = cellsOf(r).find(x => x.kind === k); return c && ['ok', 'paid'].includes(st(r, c).key) ? c.hours : 0 }
       return { name: r.name, position: r.position, overNorm: tab === 'over' ? ok('over') : 0, budgetSub: tab === 'sub' ? ok('sub_budget') : 0, np: tab === 'sub' ? ok('sub_np') : 0 }
@@ -147,7 +149,7 @@ export default function CheckClient({ rates }: { rates: LecturerRates }) {
       await generateLecturerPaymentOrder({
         periodLabel: `${tab === 'over' && over ? over.label : month.label} г.`, yearName: '',
         rateOver: R.over, rateSub: R.sub, rateNp: R.np, rows: okRows,
-      })
+      }, mode)
     } catch { /* */ }
     setGenning(false)
   }
@@ -225,10 +227,24 @@ export default function CheckClient({ rates }: { rates: LecturerRates }) {
                   <FileSpreadsheet size={14} /> МОН отчет (НП)
                 </Link>
               )}
-              <button onClick={paymentOrder} disabled={genning}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-teal-200 bg-teal-50 text-sm text-teal-800 hover:bg-teal-100 disabled:opacity-50">
-                {genning ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} Заповед за изплащане
-              </button>
+              <div className="relative">
+                <button onClick={() => tab === 'sub' ? setOrderMenu(o => !o) : paymentOrder()} disabled={genning}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-teal-200 bg-teal-50 text-sm text-teal-800 hover:bg-teal-100 disabled:opacity-50">
+                  {genning ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} Заповед за изплащане
+                </button>
+                {orderMenu && (
+                  <div className="absolute right-0 z-30 mt-1.5 w-72 rounded-xl border border-slate-200 bg-white shadow-lg p-1.5">
+                    <button onClick={() => paymentOrder('separate')} className="w-full text-left px-3 py-2 rounded-lg hover:bg-teal-50">
+                      <div className="text-sm text-slate-800">Две отделни заповеди</div>
+                      <div className="text-[11px] text-slate-400 font-light">бюджет и НП — в един файл, всяка на своя страница</div>
+                    </button>
+                    <button onClick={() => paymentOrder('combined')} className="w-full text-left px-3 py-2 rounded-lg hover:bg-teal-50">
+                      <div className="text-sm text-slate-800">Обща заповед</div>
+                      <div className="text-[11px] text-slate-400 font-light">една заповед с две точки — бюджет и НП</div>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
