@@ -361,8 +361,38 @@ export async function generateSubstitutionDeclaration(d: SubstDeclData) {
 
 // Ред „… часа по X евро на час – … евро“: с ставка — попълнен; без — трите празни реда от образеца
 const eurD = (v: number) => v.toFixed(2).replace('.', ',')
+// Сума в евро с думи: 56,61 → „петдесет и шест евро и шестдесет и един евроцента“
+export function eurWords(v: number) {
+  const cents = Math.round(v * 100), e = Math.floor(cents / 100), c = cents % 100
+  const UN: Record<'m' | 'n' | 'f', string[]> = {
+    m: ['', 'един', 'два', 'три', 'четири', 'пет', 'шест', 'седем', 'осем', 'девет'],
+    n: ['', 'едно', 'две', 'три', 'четири', 'пет', 'шест', 'седем', 'осем', 'девет'],
+    f: ['', 'една', 'две', 'три', 'четири', 'пет', 'шест', 'седем', 'осем', 'девет'],
+  }
+  const TEEN = ['десет', 'единадесет', 'дванадесет', 'тринадесет', 'четиринадесет', 'петнадесет', 'шестнадесет', 'седемнадесет', 'осемнадесет', 'деветнадесет']
+  const TENS = ['', '', 'двадесет', 'тридесет', 'четиридесет', 'петдесет', 'шестдесет', 'седемдесет', 'осемдесет', 'деветдесет']
+  const HUND = ['', 'сто', 'двеста', 'триста', 'четиристотин', 'петстотин', 'шестстотин', 'седемстотин', 'осемстотин', 'деветстотин']
+  const parts999 = (n: number, g: 'm' | 'n' | 'f') => {
+    const out: string[] = [], h = Math.floor(n / 100), t = Math.floor((n % 100) / 10), u = n % 10
+    if (h) out.push(HUND[h])
+    if (t === 1) out.push(TEEN[u]); else { if (t) out.push(TENS[t]); if (u) out.push(UN[g][u]) }
+    return out
+  }
+  const join = (p: string[]) => p.length > 1 ? p.slice(0, -1).join(' ') + ' и ' + p[p.length - 1] : p.join('')
+  const words = (n: number, g: 'm' | 'n' | 'f') => {
+    if (n === 0) return 'нула'
+    const th = Math.floor(n / 1000), rest = n % 1000, p: string[] = []
+    if (th) p.push(th === 1 ? 'хиляда' : `${join(parts999(th, 'f'))} хиляди`)
+    p.push(...parts999(rest, g))
+    return join(p)
+  }
+  let s = `${words(e, 'n')} евро`
+  if (c) s += ` и ${words(c, 'm')} ${c === 1 ? 'евроцент' : 'евроцента'}`
+  return s
+}
+
 function rateLines(total: number, rate: number | undefined, sep: string) {
-  if (rate && rate > 0) return [`${total} часа по ${eurD(rate)} евро на час ${sep} ${eurD(total * rate)} евро;`]
+  if (rate && rate > 0) return [`${total} часа по ${eurD(rate)} евро на час ${sep} ${eurD(total * rate)} евро (${eurWords(total * rate)}).`]
   return ['6,29', '5,16', '4,62'].map(r => `………… часа по ${r} евро на час ${sep} …………………… евро;`)
 }
 
@@ -566,13 +596,19 @@ export async function generateMonthlyNPDeclaration(d: MonthlyDeclData) {
     cell(3, ['Тема от учебното', '/образователното', 'съдържание'], true), cell(4, ['Брой', 'часове'], true), cell(5, ['Име на отсъстващия', 'учител'], true),
   ] })
   const body = rows.map(r => new TableRow({ children: [
-    cell(0, [r.date]), cell(1, [r.orderRef]), cell(2, [r.cls]), cell(3, ['']), cell(4, [String(r.hours)]), cell(5, [r.absentName], false, false),
+    cell(0, [r.date]), cell(1, [r.orderRef]), cell(2, [/^\d+$/.test(r.cls.trim()) ? `паралелка №${r.cls.trim()}` : r.cls]), cell(3, ['']), cell(4, [String(r.hours)]), cell(5, [r.absentName], false, false),
   ] }))
   children.push(new Table({ width: { size: TEXT_W, type: WidthType.DXA }, columnWidths: COLS, layout: TableLayoutType.FIXED, rows: [head, ...body] }))
 
   // общо + цифром/словом
-  children.push(P([t('Общ брой учебни/астрономически часове: '), t(String(total), { bold: true }), t(' х ………… EUR = ……………… EUR')], { spacing: { before: 240, after: 0 } }))
-  children.push(P([dotTab()], { tabStops: DOTS, spacing: { before: 120, after: 0 } }))
+  // ставката е тази за заместване (6,29 €); 7,38 € е само таванът с осигуровките за МОН
+  const npRate = d.rate && d.rate > 0 ? d.rate : 0
+  children.push(P([t('Общ брой учебни/астрономически часове: '), t(String(total), { bold: true }),
+    ...(npRate ? [t(' х '), t(eurD(npRate), { bold: true }), t(' EUR = '), t(eurD(total * npRate), { bold: true }), t(' EUR')] : [t(' х ………… EUR = ……………… EUR')])],
+    { spacing: { before: 240, after: 0 } }))
+  children.push(npRate
+    ? P([t(`${eurD(total * npRate)} EUR (${eurWords(total * npRate)})`)], { spacing: { before: 120, after: 0 } })
+    : P([dotTab()], { tabStops: DOTS, spacing: { before: 120, after: 0 } }))
   children.push(P([it('(цифром, словом)')], { alignment: AlignmentType.RIGHT, spacing: { after: 240 } }))
 
   children.push(P([t('Темите на преподаденото учебно /образователно съдържание са вписани в дневника на класа/групата.')], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 120, line: 360, lineRule: LineRuleType.AUTO } }))
@@ -625,7 +661,7 @@ export async function generateMonthlyBudgetDeclaration(d: MonthlyDeclData) {
 
   children.push(P([t('Долуподписаният/та '), t(d.substituteName, { bold: true })]))
   children.push(P([small('(име, презиме, фамилия)')], { alignment: AlignmentType.CENTER }))
-  children.push(P([t('учител по …………………………………………………, образование ……………………………')], { spacing: { after: 60 } }))
+  children.push(P([t('заемащ длъжността '), t(d.substitutePosition || 'учител', { bold: true }), t(', образование ……………………………')], { spacing: { after: 60 } }))
   children.push(P([t('ДЕКЛАРИРАМ', { bold: true }), t(', '), t('че', { bold: true })], { spacing: { after: 60 } }))
   children.push(P([
     t('за месец '), t(monthLabel, { bold: true }), t(' 2026 година, съм взел/а следните часове над минималната норма задължителна преподавателска работа, съгласно Заповед № '),
@@ -646,7 +682,7 @@ export async function generateMonthlyBudgetDeclaration(d: MonthlyDeclData) {
     cell(0, ['№', 'по', 'ред']), cell(1, ['Дата']), cell(2, ['Паралелка – клас']), cell(3, ['Предмет']), cell(4, ['Брой', 'часове']),
   ] })]
   rows.forEach((r, i) => trows.push(new TableRow({ children: [
-    cell(0, [String(i + 1)]), cell(1, [r.date]), cell(2, [r.cls]), cell(3, [r.subject], { align: AlignmentType.LEFT }), cell(4, [String(r.hours)]),
+    cell(0, [String(i + 1)]), cell(1, [r.date]), cell(2, [/^\d+$/.test(r.cls.trim()) ? `№${r.cls.trim()}` : r.cls]), cell(3, [r.subject], { align: AlignmentType.LEFT }), cell(4, [String(r.hours)]),
   ] })))
   // празни редове до минимум 5 — като в бланката
   for (let i = rows.length; i < 5; i++) trows.push(new TableRow({ children: [0, 1, 2, 3, 4].map(k => cell(k, [''])) }))
