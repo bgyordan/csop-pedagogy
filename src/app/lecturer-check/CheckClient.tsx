@@ -236,7 +236,7 @@ export default function CheckClient({ rates }: { rates: LecturerRates }) {
                   <div className="absolute right-0 z-30 mt-1.5 w-72 rounded-xl border border-slate-200 bg-white shadow-lg p-1.5">
                     <button onClick={() => paymentOrder('separate')} className="w-full text-left px-3 py-2 rounded-lg hover:bg-teal-50">
                       <div className="text-sm text-slate-800">Две отделни заповеди</div>
-                      <div className="text-[11px] text-slate-400 font-light">бюджет и НП — в един файл, всяка на своя страница</div>
+                      <div className="text-[11px] text-slate-400 font-light">бюджет и НП — в един файл, всяка на своя страница; НП-заповедта е за портала</div>
                     </button>
                     <button onClick={() => paymentOrder('combined')} className="w-full text-left px-3 py-2 rounded-lg hover:bg-teal-50">
                       <div className="text-sm text-slate-800">Обща заповед</div>

@@ -897,21 +897,23 @@ function paymentOrderChildren(d: LecturerPaymentData, budget: LecturerPaymentDat
     children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
       normal(`${pt++}. Да се изплатят ${what} за ${d.periodLabel} ${rate}, както следва:`, 22),
     ] }))
-    const rows: TableRow[] = [new TableRow({ tableHeader: true, children: [
-      th('№'), th('Име и фамилия'), th('Длъжност'), th('Над норматив, ч.'), th('Заместване, ч.'), th('Общо, ч.'), th('Сума, €'),
-    ] })]
+    // двете колони (над норматив + заместване) — само когато в заповедта има и от двата вида
+    const both = hasOver && hasSub
+    const rows: TableRow[] = [new TableRow({ tableHeader: true, children: both
+      ? [th('№'), th('Име и фамилия'), th('Длъжност'), th('Над норматив, ч.'), th('Заместване, ч.'), th('Общо, ч.'), th('Сума, €')]
+      : [th('№'), th('Име и фамилия'), th('Длъжност'), th('Часове'), th('Сума, €')] })]
     let tH = 0, tS = 0
     budget.forEach((r, i) => {
       const h = r.overNorm + r.budgetSub, sum = r.overNorm * d.rateOver + r.budgetSub * d.rateSub
       tH += h; tS += sum
-      rows.push(new TableRow({ children: [
-        td(String(i + 1)), td(r.name, 'l'), td(r.position, 'l'), td(String(r.overNorm || '–')), td(String(r.budgetSub || '–')), td(String(h)), td(eur(sum), 'r'),
-      ] }))
+      rows.push(new TableRow({ children: both
+        ? [td(String(i + 1)), td(r.name, 'l'), td(r.position, 'l'), td(String(r.overNorm || '–')), td(String(r.budgetSub || '–')), td(String(h)), td(eur(sum), 'r')]
+        : [td(String(i + 1)), td(r.name, 'l'), td(r.position, 'l'), td(String(h)), td(eur(sum), 'r')] }))
     })
-    rows.push(new TableRow({ children: [
-      td(''), td('Общо', 'l', true), td(''), td(''), td(''), td(String(tH), 'c', true), td(eur(tS), 'r', true),
-    ] }))
-    children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [500, 2600, 2200, 1100, 1100, 900, 1200], rows }))
+    rows.push(new TableRow({ children: both
+      ? [td(''), td('Общо', 'l', true), td(''), td(''), td(''), td(String(tH), 'c', true), td(eur(tS), 'r', true)]
+      : [td(''), td('Общо', 'l', true), td(''), td(String(tH), 'c', true), td(eur(tS), 'r', true)] }))
+    children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: both ? [500, 2600, 2200, 1100, 1100, 900, 1200] : [500, 3200, 2800, 1200, 1400], rows }))
     children.push(new Paragraph({ text: '', spacing: { after: 80 } }))
   }
 
