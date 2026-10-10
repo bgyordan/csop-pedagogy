@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
+import { IMP_COOKIE } from '@/lib/impersonate'
 import AdminDashboard from './components/AdminDashboard'
 import SpecialistDashboard from './components/SpecialistDashboard'
 import ClassTeacherDashboard from './components/ClassTeacherDashboard'
@@ -42,8 +44,10 @@ export default async function DashboardPage() {
 
   // Предишно влизане: при ново влизане (Supabase Auth last_sign_in_at се е сменил)
   // старото „последно“ става „предишно“. Записва се за ИСТИНСКИЯ потребител, не при „Виж като…“.
-  let prevLogin: string | null = real?.prev_login_at ?? null
-  if (real && user.last_sign_in_at && 'last_login_at' in real && real.last_login_at !== user.last_sign_in_at) {
+  // При „Влез като…“ не пипаме датите на колегата.
+  const impersonating = !!(await cookies()).get(IMP_COOKIE)
+  let prevLogin: string | null = impersonating ? null : (real?.prev_login_at ?? null)
+  if (!impersonating && real && user.last_sign_in_at && 'last_login_at' in real && real.last_login_at !== user.last_sign_in_at) {
     prevLogin = real.last_login_at ?? null
     try {
       await createAdminClient().from('staff_profiles')
@@ -58,7 +62,7 @@ export default async function DashboardPage() {
     ? await supabase.from('staff_profiles').select('id, first_name, middle_name, last_name, role, position')
         .not('user_id', 'is', null).neq('id', real.id).order('first_name')
     : { data: null }
-  const people = (staffList || []).map((p: any) => ({ id: p.id, name: getFullName(p), label: labelOf(p) }))
+  const people = (staffList || []).map((p: any) => ({ id: p.id, name: getFullName(p), label: labelOf(p), role: p.role }))
   const viewing = viewingAs ? { id: profile.id, name: getFullName(profile), label: labelOf(profile) } : null
 
   const isAdmin = ['admin', 'zdud'].includes(profile.role)
