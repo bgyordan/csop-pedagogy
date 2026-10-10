@@ -365,7 +365,22 @@ export async function getMonthlyDeclaration(first: string, last: string) {
   // само приключил месец (септември — от 01.10, октомври — от 01.11, …)
   const pc = checkDeclarablePeriod(first, last, 'sub')
   if (!pc.ok) return { error: pc.error }
+  return buildMonthlyDeclaration(supabase, me, first, last)
+}
 
+// Същите редове като в декларацията на колегата — за „Отчитане лекторски“ (управа и деловодство)
+export async function getMonthlyDeclarationFor(staffId: string, first: string, last: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+  const { data: viewer } = await supabase.from('staff_profiles').select('role').eq('user_id', user.id).single()
+  if (!['admin', 'zdud', 'director', 'secretary'].includes(viewer?.role || '')) return { error: 'Нямате права' }
+  const { data: me } = await supabase.from('staff_profiles').select('id, first_name, middle_name, last_name, position').eq('id', staffId).single()
+  if (!me) return { error: 'Профил не е намерен' }
+  return buildMonthlyDeclaration(supabase, me, first, last)
+}
+
+async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_name: string; middle_name?: string | null; last_name: string; position?: string | null }, first: string, last: string) {
   const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
 
   // всички мои замествания, застъпващи месеца — като основен заместник ИЛИ в разпределение по дни

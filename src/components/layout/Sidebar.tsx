@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3, FileSpreadsheet,
-  Inbox, ClipboardList, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity
+  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
@@ -111,6 +111,7 @@ const navItems: NavItem[] = [
       { href: '/lecturer', label: 'Над норматив', icon: <GraduationCap size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/lecturer-schedule', label: 'График лекторски', icon: <CalendarDays size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/substitutions', label: 'Замествания', icon: <UserX size={14} />, roles: ['admin', 'zdud', 'director'] },
+      { href: '/lecturer-check', label: 'Отчитане лекторски', icon: <ListChecks size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/lecturer-review', label: 'Проверка лекторски', icon: <ClipboardList size={14} />, roles: ['admin', 'zdud', 'director'] },
             { href: '/mon-export', label: 'Отчет НП (МОН)', icon: <FileSpreadsheet size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
@@ -148,6 +149,7 @@ const navItems: NavItem[] = [
   { href: '/students/documents', label: 'Досиета', icon: <FileText size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/admin/schools', label: 'Училища', icon: <School size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/substitutions', label: 'Замествания', icon: <UserX size={16} />, roles: ['secretary'], section: 'settings' },
+  { href: '/lecturer-check', label: 'Отчитане лекторски', icon: <ListChecks size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/lecturer-review', label: 'Проверка лекторски', icon: <ClipboardList size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/lecturer-schedule', label: 'График лекторски', icon: <CalendarDays size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/duties', label: 'Дежурства', icon: <CalendarDays size={16} />, roles: ['secretary'], section: 'settings' },
