@@ -579,7 +579,7 @@ export async function generateMonthlyNPDeclaration(d: MonthlyDeclData) {
   children.push(hint('(училище/ЦСОП/ДГ/ЦПЛР)'))
 
   children.push(P([t('Д Е К Л А Р И Р А М ,', { bold: true })], { alignment: AlignmentType.CENTER, spacing: { before: 240, after: 240 } }))
-  children.push(P([t('че за периода '), t(period, { bold: true }), t(' действително съм провел следните учебни/астрономически часове като заместващ на отсъстващ учител:')],
+  children.push(P([t('че за периода '), t(period, { bold: true }), t(' действително съм провел следните учебни часове като заместващ на отсъстващ учител:')],
     { spacing: { after: 120, line: 360, lineRule: LineRuleType.AUTO } }))
 
   // таблица — колоните от образеца
@@ -603,13 +603,13 @@ export async function generateMonthlyNPDeclaration(d: MonthlyDeclData) {
   // общо + цифром/словом
   // ставката е тази за заместване (6,29 €); 7,38 € е само таванът с осигуровките за МОН
   const npRate = d.rate && d.rate > 0 ? d.rate : 0
-  children.push(P([t('Общ брой учебни/астрономически часове: '), t(String(total), { bold: true }),
+  children.push(P([t('Общ брой учебни часове: '), t(String(total), { bold: true }),
     ...(npRate ? [t(' х '), t(eurD(npRate), { bold: true }), t(' EUR = '), t(eurD(total * npRate), { bold: true }), t(' EUR')] : [t(' х ………… EUR = ……………… EUR')])],
     { spacing: { before: 240, after: 0 } }))
   children.push(npRate
-    ? P([t(`${eurD(total * npRate)} EUR (${eurWords(total * npRate)})`)], { spacing: { before: 120, after: 0 } })
+    ? P([t(eurWords(total * npRate))], { alignment: AlignmentType.CENTER, spacing: { before: 120, after: 0 } })
     : P([dotTab()], { tabStops: DOTS, spacing: { before: 120, after: 0 } }))
-  children.push(P([it('(цифром, словом)')], { alignment: AlignmentType.RIGHT, spacing: { after: 240 } }))
+  children.push(P([it('(цифром, словом)')], { alignment: AlignmentType.CENTER, spacing: { after: 240 } }))
 
   children.push(P([t('Темите на преподаденото учебно /образователно съдържание са вписани в дневника на класа/групата.')], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 120, line: 360, lineRule: LineRuleType.AUTO } }))
   children.push(P([t('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося отговорност съгласно законите на Република България.')], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 360, line: 360, lineRule: LineRuleType.AUTO } }))
@@ -620,7 +620,7 @@ export async function generateMonthlyNPDeclaration(d: MonthlyDeclData) {
   const TABS2 = [{ type: TabStopType.CENTER, position: 4200 }, { type: TabStopType.CENTER, position: 8000 }]
   const tab = () => new TextRun({ font: F, size: 24, children: [new Tab()] })
   children.push(P([tab(), it('(личен подпис)'), tab(), it('(дата)')], { tabStops: TABS2, spacing: { after: 400 }, ...KEEP }))
-  children.push(P([t('Директор: '), dotTab()], { tabStops: DOTS, ...KEEP }))
+  children.push(P([t('Директор: '), t('Светлана Иванова', { bold: true }), t(' '), dotTab()], { tabStops: DOTS, ...KEEP }))
   children.push(P([tab(), it('(име, фамилия, подпис, кръгъл печат)'), tab(), it('(дата)')], { tabStops: TABS2 }))
 
   const doc = new Document({
@@ -679,7 +679,7 @@ export async function generateMonthlyBudgetDeclaration(d: MonthlyDeclData) {
     children: lines.map(l => new Paragraph({ alignment: o.align ?? AlignmentType.CENTER, spacing: { after: 0 }, children: [t(l, { size: 18, bold: !!o.bold })] })),
   })
   const trows: TableRow[] = [new TableRow({ tableHeader: true, children: [
-    cell(0, ['№', 'по', 'ред']), cell(1, ['Дата']), cell(2, ['Паралелка – клас']), cell(3, ['Предмет']), cell(4, ['Брой', 'часове']),
+    cell(0, ['№', 'по', 'ред']), cell(1, ['Дата']), cell(2, ['Паралелка / група']), cell(3, ['Предмет']), cell(4, ['Брой', 'часове']),
   ] })]
   rows.forEach((r, i) => trows.push(new TableRow({ children: [
     cell(0, [String(i + 1)]), cell(1, [r.date]), cell(2, [/^\d+$/.test(r.cls.trim()) ? `№${r.cls.trim()}` : r.cls]), cell(3, [r.subject], { align: AlignmentType.LEFT }), cell(4, [String(r.hours)]),
@@ -692,7 +692,7 @@ export async function generateMonthlyBudgetDeclaration(d: MonthlyDeclData) {
   children.push(new Table({ width: { size: TEXT_W, type: WidthType.DXA }, columnWidths: COLS, layout: TableLayoutType.FIXED, rows: trows }))
 
   children.push(P([t('Общ брой учебни часове: '), t(String(total), { bold: true })], { alignment: AlignmentType.RIGHT, spacing: { before: 240, after: 160 } }))
-  rateLines(total, d.rate, '-').forEach(l => children.push(P([t(l)], { spacing: { after: 100 } })))
+  rateLines(total, d.rate, '=').forEach(l => children.push(P([t(l)], { spacing: { after: 100 } })))
   if (!d.rate) children.push(P([small('/ попълва се от декларатор/учител /')], { indent: { left: 1000 }, spacing: { after: 160 } }))
 
   children.push(P([t('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося наказателна отговорност съгласно законите на Република България.')], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 200 } }))
@@ -706,7 +706,7 @@ export async function generateMonthlyBudgetDeclaration(d: MonthlyDeclData) {
   children.push(P([tab(), t('         ЗДУД')], { tabStops: RIGHT_COL, spacing: { after: 360 } }))
   children.push(P([t('Сумата е проверена, начислена и изплатена по ведомост за месец ……………………… 2026г.')], { spacing: { after: 160 } }))
   children.push(P([t('………………………… 2026 година')], { border: RULE, spacing: { after: 120 } }))
-  children.push(P([tab(), t('Главен счетоводител: ', { italics: true }), t('……………………')], { tabStops: [{ type: TabStopType.LEFT, position: 4500 }] }))
+  children.push(P([tab(), t('Счетоводител: ', { italics: true }), t('……………………')], { tabStops: [{ type: TabStopType.LEFT, position: 4500 }] }))
 
   const doc = new Document({
     styles: { default: { document: { run: { font: F, size: 20 } } } },
