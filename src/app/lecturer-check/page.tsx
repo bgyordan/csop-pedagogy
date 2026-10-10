@@ -4,6 +4,7 @@ import { BackButton } from '@/components/ui/BackButton'
 import { ListChecks } from 'lucide-react'
 import { loadLecturerRates } from '@/lib/lecturer-rates'
 import CheckClient from './CheckClient'
+import RatesPanel from '../lecturer-review/RatesPanel'
 export const dynamic = 'force-dynamic'
 
 // „Отчитане лекторски“ — горе периодът, отдолу табове Заместване | Над норматив.
@@ -29,6 +30,8 @@ export default async function LecturerCheckPage() {
         </div>
       </header>
       <CheckClient rates={rates} />
+      {/* ставките за лекторски час (преместени от старата „Проверка лекторски“) */}
+      <div className="mt-10"><RatesPanel rates={rates} /></div>
     </div>
   )
 }
