@@ -61,3 +61,11 @@ export function defaultPeriod(periods: DeclPeriod[]) {
   const open = periods.filter(p => p.open)
   return open.length ? open[open.length - 1] : (periods.find(p => p.current) || periods[0])
 }
+
+/** Срок за предаване на подписаната декларация — до DEADLINE_DAY-то число на месеца след периода */
+export const DEADLINE_DAY = 10
+export function deadlineOf(periodTo: string) {
+  const [y, m] = periodTo.split('-').map(Number)
+  const ny = m === 12 ? y + 1 : y, nm = m === 12 ? 1 : m + 1
+  return `${ny}-${pad(nm)}-${pad(DEADLINE_DAY)}`
+}
