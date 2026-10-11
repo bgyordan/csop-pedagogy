@@ -42,3 +42,13 @@ export function isFilled(p: Passport | null | undefined): boolean {
 }
 
 export const PASSPORT_COLS = 'student_id, communication, communication_note, likes, triggers, calming, eating, eating_note, toilet, mobility, safety, updated_by, updated_at'
+
+// Редът за запис (upsert) — общ за досието и за списъка „Паспорти“
+export function passportRow(studentId: string, meId: string, v: Passport) {
+  return {
+    student_id: studentId, communication: v.communication, communication_note: v.communication_note || null,
+    likes: v.likes || null, triggers: v.triggers || null, calming: v.calming || null,
+    eating: v.eating, eating_note: v.eating_note || null, toilet: v.toilet, mobility: v.mobility,
+    safety: v.safety || null, updated_by: meId || null, updated_at: new Date().toISOString(),
+  }
+}

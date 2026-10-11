@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Loader2, Pencil, Printer, X, Save, IdCard } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import PassportSheet from './PassportSheet'
-import { COMMUNICATION, EATING, TOILET, MOBILITY, PASSPORT_COLS, emptyPassport, isFilled } from './lib'
+import { COMMUNICATION, EATING, TOILET, MOBILITY, PASSPORT_COLS, emptyPassport, isFilled, passportRow } from './lib'
 import type { Passport } from './lib'
 
 export default function PassportTab({ studentId, meId, canEdit }: { studentId: string; meId: string; canEdit: boolean }) {
@@ -73,12 +73,7 @@ export default function PassportTab({ studentId, meId, canEdit }: { studentId: s
       {open && (
         <PassportEditor initial={p || emptyPassport(studentId)} onClose={() => setOpen(false)}
           onSave={async v => {
-            const { error } = await supabase.from('student_passports').upsert({
-              student_id: studentId, communication: v.communication, communication_note: v.communication_note || null,
-              likes: v.likes || null, triggers: v.triggers || null, calming: v.calming || null,
-              eating: v.eating, eating_note: v.eating_note || null, toilet: v.toilet, mobility: v.mobility,
-              safety: v.safety || null, updated_by: meId || null, updated_at: new Date().toISOString(),
-            })
+            const { error } = await supabase.from('student_passports').upsert(passportRow(studentId, meId, v))
             if (error) return error.message
             setOpen(false)
             await load()
@@ -106,7 +101,7 @@ function Choice({ value, opts, onChange }: { value: string | null; opts: Record<
   )
 }
 
-function PassportEditor({ initial, onClose, onSave }: { initial: Passport; onClose: () => void; onSave: (p: Passport) => Promise<string | null> }) {
+export function PassportEditor({ initial, onClose, onSave }: { initial: Passport; onClose: () => void; onSave: (p: Passport) => Promise<string | null> }) {
   const { toast } = useToast()
   const [p, setP] = useState<Passport>({ ...initial, communication: [...(initial.communication || [])] })
   const [busy, setBusy] = useState(false)
