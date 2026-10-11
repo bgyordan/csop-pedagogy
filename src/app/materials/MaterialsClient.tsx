@@ -15,14 +15,14 @@ import type { Material, Source } from './lib'
 
 const MAX_MB = 30
 
-export default function MaterialsClient({ materials, sources, names, thumbs, meId, isManager, today }: {
-  materials: Material[]; sources: Source[]; names: Record<string, string>; thumbs: Record<string, string>; meId: string; isManager: boolean; today: string
+export default function MaterialsClient({ initialArea = '', materials, sources, names, thumbs, meId, isManager, today }: {
+  initialArea?: string; materials: Material[]; sources: Source[]; names: Record<string, string>; thumbs: Record<string, string>; meId: string; isManager: boolean; today: string
 }) {
   const supabase = createClient()
   const router = useRouter()
   const { toast } = useToast()
   const [q, setQ] = useState('')
-  const [area, setArea] = useState('')
+  const [area, setArea] = useState(initialArea)
   const [kind, setKind] = useState('')
   const [upload, setUpload] = useState(false)
   const srcOf = useMemo(() => Object.fromEntries(sources.map(s => [s.id, s])), [sources])

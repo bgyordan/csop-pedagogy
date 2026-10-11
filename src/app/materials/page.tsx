@@ -10,7 +10,8 @@ import { isImage, sourceValid } from './lib'
 import type { Material, Source } from './lib'
 export const dynamic = 'force-dynamic'
 
-export default async function MaterialsPage() {
+export default async function MaterialsPage({ searchParams }: { searchParams: Promise<{ area?: string }> }) {
+  const sp = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
@@ -56,7 +57,7 @@ export default async function MaterialsPage() {
       </header>
       {error
         ? <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-2xl px-4 py-3">Материалите още не са подготвени в базата — пуснете SQL файла 2026-10-11_materials.sql.</div>
-        : <MaterialsClient materials={materials} sources={sources} names={names} thumbs={thumbs} meId={me.id} isManager={isManager} today={today} />}
+        : <MaterialsClient initialArea={sp.area || ''} materials={materials} sources={sources} names={names} thumbs={thumbs} meId={me.id} isManager={isManager} today={today} />}
     </div>
   )
 }

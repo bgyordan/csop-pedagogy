@@ -50,7 +50,7 @@ export default async function RoomPage({ params }: { params: Promise<{ token: st
   if (!recent) await db.from('online_room_visits').insert({ ores_id: ores.id })
 
   const { data: posts } = await db.from('online_room_posts')
-    .select('id, author_id, body, link_url, file_path, file_name, created_at')
+    .select('id, author_id, body, link_url, file_path, file_name, material_id, created_at')
     .eq('ores_id', ores.id).is('hidden_at', null).order('created_at', { ascending: false })
   const { data: msgs } = await db.from('online_room_messages')
     .select('id, post_id, from_parent, author_id, kind, body, created_at').eq('ores_id', ores.id).order('created_at')
@@ -60,11 +60,23 @@ export default async function RoomPage({ params }: { params: Promise<{ token: st
   const who: Record<string, string> = {}
   ;(authors || []).forEach((a: any) => { who[a.id] = `${a.first_name} ${a.last_name}` })
   const paths = (posts || []).map((p: any) => p.file_path).filter(Boolean) as string[]
-  const urls: Record<string, string> = {}
+  const urls: Record<string, string> = {}     // ключ: file_path или „m:<material_id>“
   if (paths.length) {
     const { data } = await db.storage.from('online-room').createSignedUrls(paths, 60 * 60 * 6)
     ;(data || []).forEach((d: any) => { if (d.signedUrl && d.path) urls[d.path] = d.signedUrl })
   }
+  // материали от библиотеката — файлът е в кофата materials
+  const matIds = (posts || []).map((p: any) => p.material_id).filter(Boolean) as string[]
+  if (matIds.length) {
+    const { data: ms } = await db.from('materials').select('id, file_path').in('id', matIds)
+    const byPath: Record<string, string> = {}
+    ;(ms || []).forEach((m: any) => { byPath[m.file_path] = m.id })
+    if (Object.keys(byPath).length) {
+      const { data } = await db.storage.from('materials').createSignedUrls(Object.keys(byPath), 60 * 60 * 6)
+      ;(data || []).forEach((d: any) => { if (d.signedUrl && d.path && byPath[d.path]) urls['m:' + byPath[d.path]] = d.signedUrl })
+    }
+  }
+  const fileUrl = (p: any) => p.material_id ? urls['m:' + p.material_id] : (p.file_path ? urls[p.file_path] : undefined)
   const thread: Record<string, any[]> = {}
   ;(msgs || []).forEach((m: any) => { (thread[m.post_id] = thread[m.post_id] || []).push(m) })
   const fmt = (d: string) => d.split('-').reverse().join('.')
@@ -94,8 +106,8 @@ export default async function RoomPage({ params }: { params: Promise<{ token: st
                     <ExternalLink size={16} className="shrink-0" /> <span className="truncate">Отвори линка</span>
                   </a>
                 )}
-                {p.file_path && urls[p.file_path] && (
-                  <a href={urls[p.file_path]} target="_blank" rel="noopener noreferrer"
+                {fileUrl(p) && (
+                  <a href={fileUrl(p)} target="_blank" rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-[15px] hover:bg-slate-100 w-fit max-w-full">
                     <Paperclip size={16} className="shrink-0" /> <span className="truncate">{p.file_name || 'Файл'}</span>
                   </a>

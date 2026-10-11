@@ -4,7 +4,8 @@
 // а на всеки етап — оценка от −2 (много под очакваното) до +2 (много над очакваното).
 
 import { useState } from 'react'
-import { Star, ChevronDown, Check } from 'lucide-react'
+import Link from 'next/link'
+import { Star, ChevronDown, Check, Library } from 'lucide-react'
 import { AREAS, GAS, gasOf, fmtD, KINDS, scaleOf } from './lib'
 import type { Skill, Assessment, Target, Gas } from './lib'
 
@@ -52,6 +53,12 @@ export default function TargetsPanel({ targets, skills, assessments, gas, curren
                 </button>
                 {isOpen && (
                   <div className="px-3 pb-3 space-y-3">
+                    {area && (
+                      <Link href={`/materials?area=${area.key}`} target="_blank"
+                        className="inline-flex items-center gap-1.5 text-[12.5px] text-emerald-700 hover:underline">
+                        <Library size={13} /> Материали за „{area.label}“
+                      </Link>
+                    )}
                     <div>
                       <label className="block text-[11.5px] text-slate-500 mb-1">Очакван резултат до края на годината (= 0)</label>
                       <textarea value={draft[t.id] ?? t.expected ?? ''} readOnly={!canEdit} rows={2}
