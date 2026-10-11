@@ -10,6 +10,8 @@ import PassportSheet from '../students/[id]/passport/PassportSheet'
 import { PASSPORT_COLS, isFilled } from '../students/[id]/passport/lib'
 import type { Passport } from '../students/[id]/passport/lib'
 import PrintButton from './PrintButton'
+import PassportList from './PassportList'
+import type { ListKid } from './PassportList'
 export const dynamic = 'force-dynamic'
 
 type Kid = { id: string; name: string; group: string }
@@ -109,6 +111,22 @@ export default async function PassportsPage({ searchParams }: { searchParams: Pr
   const withP = kids.filter(k => isFilled(pass[k.id]))
   const without = kids.filter(k => !isFilled(pass[k.id]))
 
+  // Кои паспорти може да попълва колегата (същото правило като в базата); управата — всички
+  const single = !!sp.student && !sp.class && !sp.staff && !sp.coud
+  const canEdit: Record<string, boolean> = {}
+  if (!single) {
+    if (isManager) kids.forEach(k => { canEdit[k.id] = true })
+    else await Promise.all(kids.map(async k => {
+      const { data } = await supabase.rpc('passport_can_edit', { p_student: k.id })
+      canEdit[k.id] = data === true
+    }))
+  }
+  const subtitleOf = (k: Kid) => [k.group, k.group.startsWith('Паралелка') || !clsOf[k.id] ? '' : `паралелка ${clsOf[k.id]}`].filter(Boolean).join(' · ')
+  const listKids: ListKid[] = kids.map(k => ({
+    id: k.id, name: k.name, group: subtitleOf(k), passport: pass[k.id] || null, filled: isFilled(pass[k.id]),
+    updated: pass[k.id]?.updated_at ? new Date(pass[k.id].updated_at as string).toLocaleDateString('bg-BG') : '', canEdit: !!canEdit[k.id],
+  }))
+
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto print:p-0 print:max-w-none">
       <div className="print:hidden"><BackButton /></div>
@@ -118,26 +136,28 @@ export default async function PassportsPage({ searchParams }: { searchParams: Pr
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">{title}</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{withP.length} попълнени{without.length ? ` · ${without.length} без паспорт` : ''} · всяко дете на отделна страница</p>
+          <p className="text-sm text-slate-500 mt-0.5">{single ? 'преглед за печат' : `${withP.length} попълнени${without.length ? ` · ${without.length} без паспорт` : ''} · „Печат“ отпечатва попълнените, всяко на отделен лист`}</p>
         </div>
         {withP.length > 0 && <PrintButton />}
       </header>
 
       {kids.length === 0 && <p className="text-sm text-slate-400">Няма деца за показване.</p>}
 
-      <div className="space-y-6 print:space-y-0">
+      {/* На екрана: работният списък (без при едно дете — там е прегледът за печат) */}
+      {!single && kids.length > 0 && <div className="print:hidden"><PassportList kids={listKids} meId={me?.id || ''} /></div>}
+
+      {/* Листовете за печат — при едно дете се виждат и на екрана */}
+      <div className={single ? 'space-y-6 print:space-y-0' : 'hidden print:block'}>
         {withP.map((k, i) => (
           <section key={k.id} className={`bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 print:border-0 print:shadow-none print:rounded-none print:p-0 ${i > 0 ? 'print:break-before-page' : ''}`}>
-            <PassportSheet passport={pass[k.id]} name={k.name} subtitle={[k.group, k.group.startsWith('Паралелка') || !clsOf[k.id] ? '' : `паралелка ${clsOf[k.id]}`].filter(Boolean).join(' · ')} />
+            <PassportSheet passport={pass[k.id]} name={k.name} subtitle={subtitleOf(k)} />
             <p className="mt-4 text-[11px] text-slate-400">Паспорт на детето · ЦСОП Варна · поверително — само за служебно ползване</p>
           </section>
         ))}
       </div>
 
-      {without.length > 0 && (
-        <div className="mt-6 text-[13px] text-slate-500 print:hidden">
-          Без попълнен паспорт: {without.map((k, i) => <span key={k.id}>{i > 0 && ', '}{k.name}</span>)}
-        </div>
+      {single && without.length > 0 && (
+        <div className="mt-6 text-[13px] text-slate-500 print:hidden">Паспортът не е попълнен.</div>
       )}
     </div>
   )
