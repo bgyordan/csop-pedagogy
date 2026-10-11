@@ -1,0 +1,887 @@
+{
+ "version": 1,
+ "source": "ЕИС — начален комплект",
+ "license": "Пиктограми: Twemoji (CC-BY 4.0, © Twitter/X и сътрудници). Шрифтове: Nunito, Andika (SIL OFL).",
+ "items": [
+  {
+   "seed_key": "trace-straight",
+   "title": "Проследи: прави и наклонени линии",
+   "description": "Проследяване с молив от пиктограмата до целта — хоризонтални, вертикални и наклонени линии. Зелена точка — начало, червена — край.",
+   "kind": "worksheet",
+   "areas": [
+    "fine_motor"
+   ],
+   "pages": 3,
+   "file": "trace-straight.pdf",
+   "preview": "trace-straight.jpg"
+  },
+  {
+   "seed_key": "trace-curves",
+   "title": "Проследи: вълни, дъги и примки",
+   "description": "Пет вида криви линии с нарастваща трудност — вълни, дъги, зигзаг, стъпала и примки. Подготовка за писане.",
+   "kind": "worksheet",
+   "areas": [
+    "fine_motor",
+    "academic"
+   ],
+   "pages": 6,
+   "file": "trace-curves.pdf",
+   "preview": "trace-curves.jpg"
+  },
+  {
+   "seed_key": "trace-shapes",
+   "title": "Проследи формите",
+   "description": "Осем геометрични форми в три размера — първо образец, после проследяване по пунктира. Кръг, квадрат, триъгълник, правоъгълник, звезда, сърце, ромб, овал.",
+   "kind": "worksheet",
+   "areas": [
+    "fine_motor",
+    "cognitive"
+   ],
+   "pages": 2,
+   "file": "trace-shapes.pdf",
+   "preview": "trace-shapes.jpg"
+  },
+  {
+   "seed_key": "cutting",
+   "title": "Режи по линията",
+   "description": "Ленти за рязане с ножица — права, вълнообразна, зигзаг, стъпала и дъги, после форми за изрязване. Тренира координация око–ръка.",
+   "kind": "worksheet",
+   "areas": [
+    "fine_motor"
+   ],
+   "pages": 3,
+   "file": "cutting.pdf",
+   "preview": "cutting.jpg"
+  },
+  {
+   "seed_key": "mazes",
+   "title": "Лабиринти",
+   "description": "Шест лабиринта с нарастваща трудност — от широки коридори за начинаещи до по-сложни. Всеки има история: помогни на пчеличката да стигне до цветето.",
+   "kind": "worksheet",
+   "areas": [
+    "fine_motor",
+    "cognitive"
+   ],
+   "pages": 6,
+   "file": "mazes.pdf",
+   "preview": "mazes.jpg"
+  },
+  {
+   "seed_key": "dot-to-dot",
+   "title": "Свържи точките",
+   "description": "Свържи точките по ред на числата и открий картинката. От 4 до 15 точки — броене и графомоторика едновременно.",
+   "kind": "worksheet",
+   "areas": [
+    "fine_motor",
+    "academic"
+   ],
+   "pages": 8,
+   "file": "dot-to-dot.pdf",
+   "preview": "dot-to-dot.jpg"
+  },
+  {
+   "seed_key": "mandalas",
+   "title": "Мандали за оцветяване",
+   "description": "Шест симетрични мандали — от едри и прости до по-детайлни. Успокояваща дейност за концентрация и фина моторика.",
+   "kind": "worksheet",
+   "areas": [
+    "fine_motor",
+    "sensory"
+   ],
+   "pages": 6,
+   "file": "mandalas.pdf",
+   "preview": "mandalas.jpg"
+  },
+  {
+   "seed_key": "color-by-number",
+   "title": "Оцвети по номер",
+   "description": "Картинки в квадратчета — всяко число е цвят. Тренира разпознаване на цифри, цветове и внимателно оцветяване.",
+   "kind": "worksheet",
+   "areas": [
+    "fine_motor",
+    "academic",
+    "cognitive"
+   ],
+   "pages": 4,
+   "file": "color-by-number.pdf",
+   "preview": "color-by-number.jpg"
+  },
+  {
+   "seed_key": "digits",
+   "title": "Цифрите от 0 до 10",
+   "description": "По една страница за всяка цифра: голяма цифра за проследяване, броене с картинки и десетична рамка, редове за писане и „намери цифрата“.",
+   "kind": "worksheet",
+   "areas": [
+    "academic",
+    "fine_motor"
+   ],
+   "pages": 11,
+   "file": "digits.pdf",
+   "preview": "digits.jpg"
+  },
+  {
+   "seed_key": "alphabet",
+   "title": "Буквите от А до Я",
+   "description": "Тридесет страници — по една за всяка буква: главна и малка буква за проследяване, картинка и дума, редове за писане. Шрифт Andika — ясни форми за начинаещи.",
+   "kind": "worksheet",
+   "areas": [
+    "academic",
+    "fine_motor"
+   ],
+   "pages": 30,
+   "file": "alphabet.pdf",
+   "preview": "alphabet.jpg"
+  },
+  {
+   "seed_key": "alphabet-cards",
+   "title": "Азбука — карти с картинки",
+   "description": "Тридесет карти за изрязване: буква, картинка и дума. За стена, игри „намери буквата“ и подреждане.",
+   "kind": "cards",
+   "areas": [
+    "academic",
+    "receptive"
+   ],
+   "pages": 3,
+   "file": "alphabet-cards.pdf",
+   "preview": "alphabet-cards.jpg"
+  },
+  {
+   "seed_key": "number-cards",
+   "title": "Карти с числа 0–10",
+   "description": "Единадесет карти: цифра, дума, десетична рамка и точки. За броене, сравняване и подреждане по ред.",
+   "kind": "cards",
+   "areas": [
+    "academic",
+    "cognitive"
+   ],
+   "pages": 2,
+   "file": "number-cards.pdf",
+   "preview": "number-cards.jpg"
+  },
+  {
+   "seed_key": "count-circle",
+   "title": "Преброй и огради",
+   "description": "Преброй картинките и огради правилното число. Три нива: до 5, до 8 и до 10.",
+   "kind": "worksheet",
+   "areas": [
+    "academic",
+    "cognitive"
+   ],
+   "pages": 3,
+   "file": "count-circle.pdf",
+   "preview": "count-circle.jpg"
+  },
+  {
+   "seed_key": "count-match",
+   "title": "Свържи количеството с числото",
+   "description": "Свържи всяка група картинки с правилното число. Тренира съответствие количество–цифра.",
+   "kind": "worksheet",
+   "areas": [
+    "academic",
+    "cognitive"
+   ],
+   "pages": 2,
+   "file": "count-match.pdf",
+   "preview": "count-match.jpg"
+  },
+  {
+   "seed_key": "addition",
+   "title": "Събиране с картинки",
+   "description": "Задачи за събиране с картинки — до 5 и до 10. Преброй двете групи и напиши колко са общо.",
+   "kind": "worksheet",
+   "areas": [
+    "academic",
+    "cognitive"
+   ],
+   "pages": 2,
+   "file": "addition.pdf",
+   "preview": "addition.jpg"
+  },
+  {
+   "seed_key": "syllables",
+   "title": "Пляскай сричките",
+   "description": "Кажи думата, пляскай сричките и оцвети толкова кръгчета. Фонологично осъзнаване — от 1 до 4 срички.",
+   "kind": "worksheet",
+   "areas": [
+    "academic",
+    "receptive",
+    "expressive"
+   ],
+   "pages": 3,
+   "file": "syllables.pdf",
+   "preview": "syllables.jpg"
+  },
+  {
+   "seed_key": "first-sound",
+   "title": "С кой звук започва?",
+   "description": "Кажи думата и огради буквата, с която започва. 24 картинки, по три възможности.",
+   "kind": "worksheet",
+   "areas": [
+    "academic",
+    "receptive"
+   ],
+   "pages": 3,
+   "file": "first-sound.pdf",
+   "preview": "first-sound.jpg"
+  },
+  {
+   "seed_key": "match-same",
+   "title": "Свържи еднаквите",
+   "description": "Свържи всяка картинка с еднаквата от другата страна. Три страници: животни, храна, превозни средства.",
+   "kind": "worksheet",
+   "areas": [
+    "cognitive",
+    "fine_motor"
+   ],
+   "pages": 3,
+   "file": "match-same.pdf",
+   "preview": "match-same.jpg"
+  },
+  {
+   "seed_key": "shadows",
+   "title": "Намери сянката",
+   "description": "Свържи картинката с нейната сянка. Зрително възприятие и форма — три страници с нарастваща трудност.",
+   "kind": "worksheet",
+   "areas": [
+    "cognitive"
+   ],
+   "pages": 3,
+   "file": "shadows.pdf",
+   "preview": "shadows.jpg"
+  },
+  {
+   "seed_key": "odd-one-out",
+   "title": "Кое не е на мястото си?",
+   "description": "Във всеки ред едно не принадлежи към групата. Огради го и кажи защо. Категоризация и речник.",
+   "kind": "worksheet",
+   "areas": [
+    "cognitive",
+    "receptive"
+   ],
+   "pages": 2,
+   "file": "odd-one-out.pdf",
+   "preview": "odd-one-out.jpg"
+  },
+  {
+   "seed_key": "sort-categories",
+   "title": "Сортирай: храна, животни, превозни средства",
+   "description": "Табло с три групи и карти за изрязване и залепване. Категоризация — подходящо и за велкро.",
+   "kind": "board",
+   "areas": [
+    "cognitive",
+    "receptive"
+   ],
+   "pages": 2,
+   "file": "sort-categories.pdf",
+   "preview": "sort-categories.jpg"
+  },
+  {
+   "seed_key": "find-same",
+   "title": "Намери и огради",
+   "description": "Намери всички картинки като образеца и ги огради. Зрително внимание и търсене — три нива.",
+   "kind": "worksheet",
+   "areas": [
+    "cognitive"
+   ],
+   "pages": 3,
+   "file": "find-same.pdf",
+   "preview": "find-same.jpg"
+  },
+  {
+   "seed_key": "big-small",
+   "title": "Голямо и малко",
+   "description": "Огради голямото, после малкото. Сравняване по размер с познати картинки.",
+   "kind": "worksheet",
+   "areas": [
+    "cognitive",
+    "receptive"
+   ],
+   "pages": 2,
+   "file": "big-small.pdf",
+   "preview": "big-small.jpg"
+  },
+  {
+   "seed_key": "more-less",
+   "title": "Къде са повече?",
+   "description": "Сравни двете групи и огради тази, в която са повече (или по-малко). Количествени представи без броене до края.",
+   "kind": "worksheet",
+   "areas": [
+    "cognitive",
+    "academic"
+   ],
+   "pages": 2,
+   "file": "more-less.pdf",
+   "preview": "more-less.jpg"
+  },
+  {
+   "seed_key": "patterns",
+   "title": "Продължи редицата",
+   "description": "Разгледай редицата и продължи — нарисувай, оцвети или залепи следващите. От АБ до АББ и АБВ. Картите за отговор са долу.",
+   "kind": "worksheet",
+   "areas": [
+    "cognitive",
+    "academic"
+   ],
+   "pages": 3,
+   "file": "patterns.pdf",
+   "preview": "patterns.jpg"
+  },
+  {
+   "seed_key": "memory-animals",
+   "title": "Мемори — животни",
+   "description": "24 карти (12 двойки) за игра на мемори, за сдвояване и за назоваване на животни.",
+   "kind": "game",
+   "areas": [
+    "cognitive",
+    "expressive"
+   ],
+   "pages": 2,
+   "file": "memory-animals.pdf",
+   "preview": "memory-animals.jpg"
+  },
+  {
+   "seed_key": "memory-food",
+   "title": "Мемори — храна",
+   "description": "24 карти (12 двойки) с плодове, зеленчуци и храни — мемори, сдвояване, назоваване.",
+   "kind": "game",
+   "areas": [
+    "cognitive",
+    "expressive"
+   ],
+   "pages": 2,
+   "file": "memory-food.pdf",
+   "preview": "memory-food.jpg"
+  },
+  {
+   "seed_key": "strip-puzzles",
+   "title": "Пъзели от ленти",
+   "description": "Голяма картинка, нарязана на ленти с номера. Изрежи и подреди — по картинката или по числата. 3, 4, 5 и 6 части.",
+   "kind": "game",
+   "areas": [
+    "cognitive",
+    "fine_motor"
+   ],
+   "pages": 4,
+   "file": "strip-puzzles.pdf",
+   "preview": "strip-puzzles.jpg"
+  },
+  {
+   "seed_key": "associations",
+   "title": "Кое с кое върви?",
+   "description": "Свържи нещата, които вървят заедно: чорап и обувка, пчела и цвете, четка и зъб. Асоциации и речник.",
+   "kind": "worksheet",
+   "areas": [
+    "cognitive",
+    "receptive"
+   ],
+   "pages": 3,
+   "file": "associations.pdf",
+   "preview": "associations.jpg"
+  },
+  {
+   "seed_key": "colors-match",
+   "title": "Какъв цвят е?",
+   "description": "Свържи всеки плод или предмет с неговия цвят. Карти с цветовете за назоваване.",
+   "kind": "worksheet",
+   "areas": [
+    "cognitive",
+    "receptive"
+   ],
+   "pages": 3,
+   "file": "colors-match.pdf",
+   "preview": "colors-match.jpg"
+  },
+  {
+   "seed_key": "seasons-sort",
+   "title": "Сезоните",
+   "description": "Четирите сезона — карти и табло за сортиране на картинки: сняг, цветя, слънце, листа. Време и природа.",
+   "kind": "board",
+   "areas": [
+    "cognitive",
+    "receptive"
+   ],
+   "pages": 2,
+   "file": "seasons-sort.pdf",
+   "preview": "seasons-sort.jpg"
+  },
+  {
+   "seed_key": "first-then",
+   "title": "Първо — после",
+   "description": "Табло „Първо — после“ и 36 карти с дейности и награди. Помага на детето да приеме задачата, като вижда какво следва.",
+   "kind": "board",
+   "areas": [
+    "receptive",
+    "sensory"
+   ],
+   "pages": 3,
+   "file": "first-then.pdf",
+   "preview": "first-then.jpg"
+  },
+  {
+   "seed_key": "now-next-then",
+   "title": "Сега — после — накрая",
+   "description": "Табло с три стъпки за по-дълги поредици и преходи. Използва същите карти като „Първо — после“.",
+   "kind": "board",
+   "areas": [
+    "receptive",
+    "sensory"
+   ],
+   "pages": 1,
+   "file": "now-next-then.pdf",
+   "preview": "now-next-then.jpg"
+  },
+  {
+   "seed_key": "choice-boards",
+   "title": "Табла за избор",
+   "description": "Табла „Искам…“ с 2, 3 и 4 възможности за избор — за храна, игра или дейност. С картите от „Първо — после“ или собствени снимки.",
+   "kind": "board",
+   "areas": [
+    "expressive",
+    "receptive"
+   ],
+   "pages": 3,
+   "file": "choice-boards.pdf",
+   "preview": "choice-boards.jpg"
+  },
+  {
+   "seed_key": "core-board",
+   "title": "Ядро речник — 24 думи",
+   "description": "Комуникационно табло с 24-те най-често използвани думи, оцветени по ключа на Фицджералд. Посочване на дума или изграждане на кратко изречение.",
+   "kind": "board",
+   "areas": [
+    "expressive",
+    "receptive"
+   ],
+   "pages": 1,
+   "file": "core-board.pdf",
+   "preview": "core-board.jpg"
+  },
+  {
+   "seed_key": "board-food",
+   "title": "Табло: храна и напитки",
+   "description": "Тематично табло за закуска и обяд — 20 храни и напитки плюс „искам, още, не, готово, помощ“.",
+   "kind": "board",
+   "areas": [
+    "expressive",
+    "self_care"
+   ],
+   "pages": 1,
+   "file": "board-food.pdf",
+   "preview": "board-food.jpg"
+  },
+  {
+   "seed_key": "board-play",
+   "title": "Табло: игра и почивка",
+   "description": "Тематично табло за свободното време — 20 игри и дейности плюс ядро думи.",
+   "kind": "board",
+   "areas": [
+    "expressive",
+    "social"
+   ],
+   "pages": 1,
+   "file": "board-play.pdf",
+   "preview": "board-play.jpg"
+  },
+  {
+   "seed_key": "board-feelings-needs",
+   "title": "Табло: чувства и нужди",
+   "description": "Табло, с което детето казва как се чувства и от какво има нужда — 20 думи плюс ядро.",
+   "kind": "board",
+   "areas": [
+    "expressive",
+    "social"
+   ],
+   "pages": 1,
+   "file": "board-feelings-needs.pdf",
+   "preview": "board-feelings-needs.jpg"
+  },
+  {
+   "seed_key": "need-cards",
+   "title": "Карти за нуждите",
+   "description": "Дванадесет карти, които детето носи на ключодържател или лента: тоалетна, вода, помощ, почивка, боли ме, стоп… В голям и в малък размер.",
+   "kind": "cards",
+   "areas": [
+    "expressive",
+    "self_care"
+   ],
+   "pages": 2,
+   "file": "need-cards.pdf",
+   "preview": "need-cards.jpg"
+  },
+  {
+   "seed_key": "big-request-cards",
+   "title": "Големи карти: почивка, помощ, чакам, готово",
+   "description": "Големи карти за молба и преход — „Искам почивка“, „Помогни ми“, „Чакам“, „Готово“, „Да“, „Не“. По две на страница.",
+   "kind": "cards",
+   "areas": [
+    "expressive",
+    "sensory"
+   ],
+   "pages": 3,
+   "file": "big-request-cards.pdf",
+   "preview": "big-request-cards.jpg"
+  },
+  {
+   "seed_key": "class-rules",
+   "title": "Правилата в класа",
+   "description": "Плакат с шест правила с картинки: гледам, слушам, вдигам ръка, седя на мястото си, говоря тихо, помагам. За стената и за индивидуално напомняне.",
+   "kind": "board",
+   "areas": [
+    "social",
+    "receptive"
+   ],
+   "pages": 1,
+   "file": "class-rules.pdf",
+   "preview": "class-rules.jpg"
+  },
+  {
+   "seed_key": "action-cards",
+   "title": "Карти с действия",
+   "description": "36 карти с глаголи — ям, пия, спя, тичам, рисувам, чета… За разбиране („покажи кой тича“), назоваване и изречения.",
+   "kind": "cards",
+   "areas": [
+    "expressive",
+    "receptive"
+   ],
+   "pages": 3,
+   "file": "action-cards.pdf",
+   "preview": "action-cards.jpg"
+  },
+  {
+   "seed_key": "sentence-strip",
+   "title": "Лента за изречение „Аз искам…“",
+   "description": "Лента за изграждане на изречение: „Аз“ + „искам“ + картинка. С карти за най-честите желания. Основа за PECS етап IV.",
+   "kind": "board",
+   "areas": [
+    "expressive"
+   ],
+   "pages": 2,
+   "file": "sentence-strip.pdf",
+   "preview": "sentence-strip.jpg"
+  },
+  {
+   "seed_key": "visual-schedule",
+   "title": "Визуален график за деня",
+   "description": "Вертикален график „Моят ден“ с 8 места и джоб „Готово“, плюс 36 карти за училищни дейности и терапии. Детето маха картата, когато дейността свърши.",
+   "kind": "board",
+   "areas": [
+    "receptive",
+    "sensory",
+    "self_care"
+   ],
+   "pages": 4,
+   "file": "visual-schedule.pdf",
+   "preview": "visual-schedule.jpg"
+  },
+  {
+   "seed_key": "token-boards",
+   "title": "Жетонни табла (5 и 10)",
+   "description": "Табла за поощрение с 5 и 10 звезди и място за наградата („Работя за…“). Жетоните за изрязване са на същата страница.",
+   "kind": "board",
+   "areas": [
+    "sensory",
+    "social"
+   ],
+   "pages": 2,
+   "file": "token-boards.pdf",
+   "preview": "token-boards.jpg"
+  },
+  {
+   "seed_key": "waiting-card",
+   "title": "Карта „Чакам“ с обратно броене",
+   "description": "Карта за чакане с обратно броене 5–4–3–2–1 и идеи какво да правя, докато чакам. Помага при трудност с чакането.",
+   "kind": "board",
+   "areas": [
+    "sensory",
+    "social"
+   ],
+   "pages": 1,
+   "file": "waiting-card.pdf",
+   "preview": "waiting-card.jpg"
+  },
+  {
+   "seed_key": "work-system",
+   "title": "Моята работа: 1 — 2 — 3 — готово",
+   "description": "Система за самостоятелна работа (TEACCH): три задачи по ред, после награда. Детето вижда колко има и кога свършва.",
+   "kind": "board",
+   "areas": [
+    "sensory",
+    "cognitive"
+   ],
+   "pages": 1,
+   "file": "work-system.pdf",
+   "preview": "work-system.jpg"
+  },
+  {
+   "seed_key": "calendar-board",
+   "title": "Днес е…",
+   "description": "Табло за сутрешния кръг: ден от седмицата, време навън и как се чувствам. С карти за дните и времето.",
+   "kind": "board",
+   "areas": [
+    "cognitive",
+    "receptive",
+    "social"
+   ],
+   "pages": 3,
+   "file": "calendar-board.pdf",
+   "preview": "calendar-board.jpg"
+  },
+  {
+   "seed_key": "emotion-cards",
+   "title": "Карти с емоции",
+   "description": "Дванадесет карти с емоции — радост, тъга, гняв, страх, изненада, спокойствие, умора, тревога и др. За назоваване, „покажи как се чувстваш“ и игри.",
+   "kind": "cards",
+   "areas": [
+    "social",
+    "expressive"
+   ],
+   "pages": 1,
+   "file": "emotion-cards.pdf",
+   "preview": "emotion-cards.jpg"
+  },
+  {
+   "seed_key": "feelings-checkin",
+   "title": "Как се чувствам днес?",
+   "description": "Лист за сутрешна проверка на чувствата: огради лицето, нарисувай защо и какво ще ти помогне.",
+   "kind": "worksheet",
+   "areas": [
+    "social",
+    "expressive"
+   ],
+   "pages": 1,
+   "file": "feelings-checkin.pdf",
+   "preview": "feelings-checkin.jpg"
+  },
+  {
+   "seed_key": "emotion-match",
+   "title": "Свържи лицето с думата",
+   "description": "Свържи всяко лице с името на емоцията. Разпознаване на емоции и четене на думи.",
+   "kind": "worksheet",
+   "areas": [
+    "social",
+    "academic"
+   ],
+   "pages": 2,
+   "file": "emotion-match.pdf",
+   "preview": "emotion-match.jpg"
+  },
+  {
+   "seed_key": "scale-5",
+   "title": "Моята скала 1–5",
+   "description": "Скала на напрежението от 1 (спокоен) до 5 (избухвам) с празно място за личните стратегии на детето. Попълва се заедно с детето.",
+   "kind": "board",
+   "areas": [
+    "social",
+    "sensory"
+   ],
+   "pages": 1,
+   "file": "scale-5.pdf",
+   "preview": "scale-5.jpg"
+  },
+  {
+   "seed_key": "calm-menu",
+   "title": "Меню за успокояване",
+   "description": "Табло с 12 начина да се успокоиш — дишане, слушалки, вода, тихо място, мече… Детето избира, когато е напрегнато. С място за отметки.",
+   "kind": "board",
+   "areas": [
+    "sensory",
+    "social"
+   ],
+   "pages": 1,
+   "file": "calm-menu.pdf",
+   "preview": "calm-menu.jpg"
+  },
+  {
+   "seed_key": "breathing",
+   "title": "Карти за дишане",
+   "description": "Пет упражнения за дишане с рисунка за проследяване с пръст: цвете и свещ, квадрат, звезда, балон, вълни. За успокояване и саморегулация.",
+   "kind": "cards",
+   "areas": [
+    "sensory",
+    "social"
+   ],
+   "pages": 5,
+   "file": "breathing.pdf",
+   "preview": "breathing.jpg"
+  },
+  {
+   "seed_key": "story-angry",
+   "title": "Социална история: Когато се ядосам",
+   "description": "Кратка история от първо лице: какво става, когато се ядосам, и какво мога да направя — да спра, да дишам, да поискам почивка.",
+   "kind": "story",
+   "areas": [
+    "social",
+    "sensory"
+   ],
+   "pages": 1,
+   "file": "story-angry.pdf",
+   "preview": "story-angry.jpg"
+  },
+  {
+   "seed_key": "story-waiting",
+   "title": "Социална история: Чакам реда си",
+   "description": "История за чакане на ред — в игра, на опашка, при говорене. С идеи какво да правя, докато чакам.",
+   "kind": "story",
+   "areas": [
+    "social"
+   ],
+   "pages": 1,
+   "file": "story-waiting.pdf",
+   "preview": "story-waiting.jpg"
+  },
+  {
+   "seed_key": "story-change",
+   "title": "Социална история: Когато има промяна",
+   "description": "История за неочаквани промени в графика — друг учител, отменена дейност, нова стая. Подготвя детето, че промяната е нормална.",
+   "kind": "story",
+   "areas": [
+    "social",
+    "sensory"
+   ],
+   "pages": 1,
+   "file": "story-change.pdf",
+   "preview": "story-change.jpg"
+  },
+  {
+   "seed_key": "story-hello",
+   "title": "Социална история: Казвам здравей",
+   "description": "История за поздрав — как да поздравя, да погледна и да отговоря. Първи стъпки в общуването с връстници.",
+   "kind": "story",
+   "areas": [
+    "social",
+    "expressive"
+   ],
+   "pages": 1,
+   "file": "story-hello.pdf",
+   "preview": "story-hello.jpg"
+  },
+  {
+   "seed_key": "story-therapy",
+   "title": "Социална история: Отивам на терапия",
+   "description": "История за ходенето при логопед, психолог или рехабилитатор — кой ме взима, какво правим, кога се връщам в класа.",
+   "kind": "story",
+   "areas": [
+    "social",
+    "receptive"
+   ],
+   "pages": 1,
+   "file": "story-therapy.pdf",
+   "preview": "story-therapy.jpg"
+  },
+  {
+   "seed_key": "seq-handwashing",
+   "title": "Мия си ръцете — стъпки",
+   "description": "Поредица от 7 стъпки за миене на ръце: плакат, лента до мивката и карти за подреждане.",
+   "kind": "board",
+   "areas": [
+    "self_care",
+    "receptive"
+   ],
+   "pages": 3,
+   "file": "seq-handwashing.pdf",
+   "preview": "seq-handwashing.jpg"
+  },
+  {
+   "seed_key": "seq-toilet",
+   "title": "Отивам до тоалетна — стъпки",
+   "description": "Поредица за тоалетна: казвам, отивам, събличам, сядам, хартия, пускам водата, обличам, мия ръце.",
+   "kind": "board",
+   "areas": [
+    "self_care",
+    "receptive"
+   ],
+   "pages": 3,
+   "file": "seq-toilet.pdf",
+   "preview": "seq-toilet.jpg"
+  },
+  {
+   "seed_key": "seq-teeth",
+   "title": "Мия си зъбите — стъпки",
+   "description": "Поредица за миене на зъби — паста, четкане отгоре и отдолу, изплакване. Плакат, лента и карти.",
+   "kind": "board",
+   "areas": [
+    "self_care"
+   ],
+   "pages": 3,
+   "file": "seq-teeth.pdf",
+   "preview": "seq-teeth.jpg"
+  },
+  {
+   "seed_key": "seq-dressing",
+   "title": "Обличам се — стъпки",
+   "description": "Поредица за обличане навън: чорапи, панталон, блуза, яке, обувки, шапка. Плакат, лента и карти.",
+   "kind": "board",
+   "areas": [
+    "self_care",
+    "fine_motor"
+   ],
+   "pages": 3,
+   "file": "seq-dressing.pdf",
+   "preview": "seq-dressing.jpg"
+  },
+  {
+   "seed_key": "seq-lunch",
+   "title": "На масата — стъпки и правила",
+   "description": "Поредица за хранене: мия ръце, сядам, чакам, ям с вилица, пия вода, казвам „Готово“, прибирам.",
+   "kind": "board",
+   "areas": [
+    "self_care",
+    "social"
+   ],
+   "pages": 3,
+   "file": "seq-lunch.pdf",
+   "preview": "seq-lunch.jpg"
+  },
+  {
+   "seed_key": "seq-arrival",
+   "title": "Сутрин в училище — стъпки",
+   "description": "Поредица за пристигане: поздравявам, събличам якето, закачам раницата, мия ръце, гледам графика, сядам.",
+   "kind": "board",
+   "areas": [
+    "self_care",
+    "social"
+   ],
+   "pages": 3,
+   "file": "seq-arrival.pdf",
+   "preview": "seq-arrival.jpg"
+  },
+  {
+   "seed_key": "movement-cubes",
+   "title": "Кубчета за движение",
+   "description": "Две кубчета за сглобяване: „Движи се!“ (скачай, пляскай, тичай на място…) и „Движи се като животно“ (жаба, мечка, птица…). За физкултура и сензорни паузи.",
+   "kind": "game",
+   "areas": [
+    "gross_motor",
+    "sensory"
+   ],
+   "pages": 2,
+   "file": "movement-cubes.pdf",
+   "preview": "movement-cubes.jpg"
+  },
+  {
+   "seed_key": "movement-cards",
+   "title": "Карти за движение",
+   "description": "24 карти за двигателни паузи и физкултура — скачай, клекни, балансирай на един крак, пълзи, хвърли топка…",
+   "kind": "cards",
+   "areas": [
+    "gross_motor",
+    "sensory"
+   ],
+   "pages": 2,
+   "file": "movement-cards.pdf",
+   "preview": "movement-cards.jpg"
+  },
+  {
+   "seed_key": "hopscotch-path",
+   "title": "Пътека за скачане",
+   "description": "Цветни стъпки за пода — разпечатай, ламинирай и подреди като пътека: стъпи на крачето, скочи на двата крака, стой на един.",
+   "kind": "game",
+   "areas": [
+    "gross_motor"
+   ],
+   "pages": 4,
+   "file": "hopscotch-path.pdf",
+   "preview": "hopscotch-path.jpg"
+  }
+ ]
+}

@@ -13,7 +13,12 @@ export type Source = { id: string; name: string; allow_parents: boolean; valid_u
 export type Material = {
   id: string; title: string; description: string | null; kind: string; areas: string[]; source_id: string | null
   file_path: string; file_name: string; mime_type: string | null; size: number | null; uploaded_by: string | null; created_at: string
+  preview_path?: string | null; pages?: number | null; seed_key?: string | null
 }
+
+// Началният комплект на ЕИС (public/materials-seed, генериран от scripts/materials)
+export const SEED_SOURCE = 'ЕИС — начален комплект'
+export type SeedItem = { seed_key: string; title: string; description: string; kind: string; areas: string[]; pages: number; file: string; preview: string }
 
 export const isImage = (m: { mime_type: string | null; file_name: string }) =>
   (m.mime_type || '').startsWith('image/') || /\.(png|jpe?g|gif|webp)$/i.test(m.file_name)
