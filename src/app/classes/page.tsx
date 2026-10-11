@@ -111,7 +111,7 @@ export default async function ClassesPage({
     ;(coudAppls || []).forEach((a: any) => applSet.add(a.student_id))
   }
   type CoudStudent = { name: string; className: string; externalClass: string; classTeacher: string; hasAppl: boolean }
-  type CoudGroupData = { name: string; teacher: string; students: CoudStudent[] }
+  type CoudGroupData = { id: string; name: string; teacher: string; students: CoudStudent[] }
   const coudData: CoudGroupData[] = (coudGroups || []).map(g => {
     const teacher = (g.teacher as any) ? `${(g.teacher as any).first_name} ${(g.teacher as any).last_name}` : '—'
     const students: CoudStudent[] = (coudEnrollments || [])
@@ -124,7 +124,7 @@ export default async function ClassesPage({
         hasAppl: applSet.has(e.student.id),
       }))
       .sort((a, b) => a.name.localeCompare(b.name, 'bg'))
-    return { name: g.name, teacher, students }
+    return { id: g.id, name: g.name, teacher, students }
   })
   const coudStudentCount = (coudEnrollments || []).length
   const coudApplCount = applSet.size
@@ -175,7 +175,7 @@ export default async function ClassesPage({
       </div>
       {tab === 'coud' ? (
         /* ── ЦОУД ГРУПИ (табове) ── */
-        <CoudTabs groups={coudData} />
+        <CoudTabs groups={coudData} showPassports={!['secretary', 'support'].includes(myProfile?.role || '')} />
       ) : (
         <>
           {/* ДЕСКТОП: таблица — чиста (Паралелка · Класен · Уч. · Разписание) */}

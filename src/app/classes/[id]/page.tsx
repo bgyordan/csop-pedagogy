@@ -6,7 +6,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { BackButton } from '@/components/ui/BackButton'
 import { getFullName } from '@/lib/utils'
-import { Users, Coffee, FolderOpen } from 'lucide-react'
+import { Users, Coffee, FolderOpen, IdCard } from 'lucide-react'
 import ClassTeachersSection from './ClassTeachersSection'
 import AddStudentsSection from './AddStudentsSection'
 import ClassScheduleWord from './ClassScheduleWord'
@@ -112,7 +112,15 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
               )}
             </div>
           </div>
-          <ClassScheduleWord className={cls.name} yearName={currentYear?.name || ''} slots={scheduleSlots} maxPeriod={scheduleMaxPeriod} term={scheduleTerm} />
+          <div className="flex items-center gap-2 flex-wrap">
+            {!['secretary', 'support'].includes(myProfile?.role || '') && (
+              <Link href={`/passports?class=${id}`} target="_blank"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-300 text-sm text-slate-700 hover:border-[#0f2240]">
+                <IdCard size={15} /> Паспорти на децата
+              </Link>
+            )}
+            <ClassScheduleWord className={cls.name} yearName={currentYear?.name || ''} slots={scheduleSlots} maxPeriod={scheduleMaxPeriod} term={scheduleTerm} />
+          </div>
         </div>
       </div>
       <ClassTeachersSection
