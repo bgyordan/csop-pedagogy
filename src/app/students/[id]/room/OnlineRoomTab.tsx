@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Loader2, Send, Link2, Paperclip, Copy, Check, MonitorSmartphone, X, ExternalLink, EyeOff, Eye, FileDown, Play, MessageCircle, CircleCheck } from 'lucide-react'
+import { Loader2, Send, Link2, Paperclip, Copy, Check, MonitorSmartphone, X, ExternalLink, EyeOff, Eye, FileDown, Play, MessageCircle, CircleCheck, Square, RotateCcw } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { generateOresChronology } from '@/lib/docx-ores'
 
@@ -19,7 +19,7 @@ const PUBLIC_BASE = process.env.NEXT_PUBLIC_PUBLIC_URL || 'https://is.csop-varna
 const MAX_MB = 20
 const MSG_LABEL: Record<string, string> = { ok: 'Разбрахме', unclear: 'Не разбирам — моля, обяснете', resend: 'Моля, изпратете материала отново', text: '' }
 
-export type OresRow = { id: string; from_date: string; to_date: string | null; reason: string | null; room_token?: string | null }
+export type OresRow = { id: string; from_date: string; to_date: string | null; reason: string | null; room_token?: string | null; room_closed_at?: string | null; to_date_before_close?: string | null }
 type Post = { id: string; author_id: string | null; body: string | null; link_url: string | null; file_path: string | null; file_name: string | null; created_at: string; hidden_at: string | null; hidden_by: string | null }
 type Msg = { id: string; post_id: string; from_parent: boolean; author_id: string | null; kind: string; body: string | null; read_at: string | null; created_at: string }
 
@@ -30,7 +30,7 @@ export default function OnlineRoomTab({ studentId, studentName, oresList, meId, 
   studentId: string; studentName: string; oresList: OresRow[]; meId: string; isManager: boolean; canStart: boolean
 }) {
   const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })
-  const isActive = (o: OresRow) => o.from_date <= today && (!o.to_date || o.to_date >= today)
+  const isActive = (o: OresRow) => !o.room_closed_at && o.from_date <= today && (!o.to_date || o.to_date >= today)
   const periods = useMemo(() => [...oresList].filter(o => o.room_token).sort((a, b) => b.from_date.localeCompare(a.from_date)), [oresList])
   const active = periods.find(isActive) || null
   const [selId, setSelId] = useState<string | null>(active?.id || periods[0]?.id || null)
@@ -114,7 +114,9 @@ function Room({ studentId, studentName, ores, live, meId, isManager }: {
   studentId: string; studentName: string; ores: OresRow; live: boolean; meId: string; isManager: boolean
 }) {
   const supabase = createClient()
+  const router = useRouter()
   const { toast } = useToast()
+  const [closing, setClosing] = useState(false)
   const [posts, setPosts] = useState<Post[] | null>(null)
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [visits, setVisits] = useState<string[]>([])
@@ -206,6 +208,32 @@ function Room({ studentId, studentName, ores, live, meId, isManager }: {
     if (data?.signedUrl) window.open(data.signedUrl, '_blank')
   }
 
+  // „Приключи ОРЕС“ — крайна дата днес, линкът спира веднага; „Отвори отново“ връща предишната крайна дата
+  async function closeRoom() {
+    if (!confirm('Да се приключи ли ОРЕС днес? Линкът на родителя спира веднага. Хронологията остава.')) return
+    setClosing(true)
+    const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })
+    const { error } = await supabase.from('student_ores').update({
+      room_closed_at: new Date().toISOString(), room_closed_by: meId || null,
+      to_date_before_close: ores.to_date, to_date: !ores.to_date || ores.to_date > today ? today : ores.to_date,
+    }).eq('id', ores.id)
+    setClosing(false)
+    if (error) { toast('Грешка: ' + error.message, 'error'); return }
+    toast('ОРЕС е приключен — стаята е затворена')
+    router.refresh()
+  }
+  async function reopenRoom() {
+    if (!confirm('Да се отвори ли стаята отново? Линкът на родителя ще работи пак.')) return
+    setClosing(true)
+    const { error } = await supabase.from('student_ores').update({
+      room_closed_at: null, room_closed_by: null, to_date: ores.to_date_before_close ?? null, to_date_before_close: null,
+    }).eq('id', ores.id)
+    setClosing(false)
+    if (error) { toast('Грешка: ' + error.message, 'error'); return }
+    toast('Стаята е отворена отново')
+    router.refresh()
+  }
+
   async function exportChronology() {
     if (!posts) return
     setExporting(true)
@@ -237,12 +265,24 @@ function Room({ studentId, studentName, ores, live, meId, isManager }: {
           <MonitorSmartphone size={16} className={live ? 'text-sky-600' : 'text-slate-400'} />
           <span className="text-sm text-slate-800">ОРЕС от {fmt(ores.from_date)}{ores.to_date ? ` до ${fmt(ores.to_date)}` : ''}</span>
           {live ? <span className="text-[11px] px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">стаята е отворена</span>
-                : <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">приключил — само преглед</span>}
+                : <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">{ores.room_closed_at ? `приключен на ${when(ores.room_closed_at)}` : 'приключил'} — само преглед</span>}
           <span className="text-[12px] text-slate-500">· родителят е отварял линка {visits.length} пъти</span>
           <button type="button" onClick={exportChronology} disabled={exporting || !posts}
             className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 text-[13px] text-slate-700 hover:border-[#0f2240] disabled:opacity-50">
             {exporting ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />} Хронология
           </button>
+          {isManager && live && (
+            <button type="button" onClick={closeRoom} disabled={closing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 text-[13px] text-rose-700 hover:bg-rose-50 disabled:opacity-50">
+              {closing ? <Loader2 size={13} className="animate-spin" /> : <Square size={12} />} Приключи ОРЕС
+            </button>
+          )}
+          {isManager && !live && ores.room_closed_at && (
+            <button type="button" onClick={reopenRoom} disabled={closing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 text-[13px] text-slate-700 hover:border-[#0f2240] disabled:opacity-50">
+              {closing ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />} Отвори отново
+            </button>
+          )}
         </div>
         {live && <>
           <div className="flex flex-wrap items-center gap-2">

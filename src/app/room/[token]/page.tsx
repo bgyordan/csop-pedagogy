@@ -73,7 +73,8 @@ export default async function RoomPage({ params }: { params: Promise<{ token: st
   return (
     <Shell>
       <h1 className="text-2xl font-normal text-[#0f2240]">Материали за {ores.firstName}</h1>
-      <p className="text-sm text-slate-500 mt-1 mb-6">Обучение от разстояние · от {fmt(ores.from_date)}{ores.to_date ? ` до ${fmt(ores.to_date)}` : ''}. Най-новото е най-горе.</p>
+      <p className="text-sm text-slate-500 mt-1">Обучение от разстояние · от {fmt(ores.from_date)}{ores.to_date ? ` до ${fmt(ores.to_date)}` : ''}. Най-новото е най-горе.</p>
+      <p className="text-[13px] text-sky-800 bg-sky-50 border border-sky-100 rounded-xl px-3 py-2 mt-3 mb-6">Запазете този линк (в Viber, като отметка или на началния екран) — с него влизате всеки път, без регистрация.</p>
 
       {(posts || []).length === 0 ? (
         <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-8 text-center text-slate-500">Учителите още не са публикували материали. Проверете отново по-късно.</div>

@@ -118,7 +118,7 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
     .from('student_ores').select('*').eq('student_id', id).order('from_date', { ascending: false })
 
   const today = new Date().toISOString().split('T')[0]
-  const activeOres = (oresRecords || []).find(o => o.from_date <= today && (!o.to_date || o.to_date >= today))
+  const activeOres = (oresRecords || []).find(o => !(o as any).room_closed_at && o.from_date <= today && (!o.to_date || o.to_date >= today))
   
   // Класният ръководител на паралелката на детето (за текущата година)
   let isMyClass = false

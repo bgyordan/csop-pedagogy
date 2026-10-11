@@ -18,9 +18,9 @@ export function todaySofia() {
 export async function activeOresByToken(db: SupabaseClient, token: string) {
   if (!UUID.test(token) || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null
   const { data } = await db.from('student_ores')
-    .select('id, from_date, to_date, student:students(first_name, status)').eq('room_token', token).maybeSingle()
+    .select('id, from_date, to_date, room_closed_at, student:students(first_name, status)').eq('room_token', token).maybeSingle()
   const st = (data as any)?.student
   const today = todaySofia()
-  if (!data || !st || st.status !== 'active' || data.from_date > today || (data.to_date && data.to_date < today)) return null
+  if (!data || !st || st.status !== 'active' || (data as any).room_closed_at || data.from_date > today || (data.to_date && data.to_date < today)) return null
   return { id: data.id as string, from_date: data.from_date as string, to_date: data.to_date as string | null, firstName: st.first_name as string }
 }
