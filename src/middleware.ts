@@ -5,7 +5,8 @@ import { IMP_COOKIE, IMP_BACK_COOKIE, parseImp } from '@/lib/impersonate'
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  if (pathname.startsWith('/auth') || pathname.startsWith('/impersonate/stop')) {
+  // /room/<token> — онлайн стаята за родителя: без вход, достъпът е самият личен линк
+  if (pathname.startsWith('/auth') || pathname.startsWith('/impersonate/stop') || pathname.startsWith('/room/')) {
     return NextResponse.next()
   }
 

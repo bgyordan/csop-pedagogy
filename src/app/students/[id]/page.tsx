@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import OutreachBadge from '@/components/OutreachBadge'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Heart, CalendarClock, ClipboardList, Sparkles, FolderOpen, LayoutGrid, AlertTriangle, Phone, ChevronDown, ChevronRight, Bus, Utensils, Sprout, Mail, IdCard } from 'lucide-react'
+import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Heart, CalendarClock, ClipboardList, Sparkles, FolderOpen, LayoutGrid, AlertTriangle, Phone, ChevronDown, ChevronRight, Bus, Utensils, Sprout, Mail, IdCard, MonitorSmartphone } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
 import { DOCUMENT_TYPE_LABELS, DocumentType, STATUS_LABELS, DocumentStatus } from '@/types'
 import { AttachmentsSection } from './AttachmentsSection'
@@ -18,6 +18,7 @@ import StudentDocuments from './StudentDocuments'
 import MoreMenu from './MoreMenu'
 import DevelopmentTab from './development/DevelopmentTab'
 import PassportTab from './passport/PassportTab'
+import OnlineRoomTab from './room/OnlineRoomTab'
 import FillEplrButton from './FillEplrButton'
 
 const ATTACHMENT_TYPE_LABELS: Record<string, string> = {
@@ -48,7 +49,7 @@ function getInitials(firstName: string, lastName: string): string {
 
 // Досие: Документи (Drive — по подразбиране, ползват го най-много) · Обзор · Паспорт · Данни (вкл. външните документи) · Екип · Развитие
 // (старите адреси ?tab=eplr/therapy/files водят към новите)
-const TABS = ['docs', 'overview', 'passport', 'data', 'team', 'dev'] as const
+const TABS = ['docs', 'overview', 'room', 'passport', 'data', 'team', 'dev'] as const
 type Tab = typeof TABS[number]
 const LEGACY_TAB: Record<string, Tab> = { eplr: 'team', therapy: 'team', files: 'docs' }
 
@@ -176,7 +177,7 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
     else if (d !== null && d <= 30) alerts.push({ level: 'amber', icon: CalendarClock, tab: 'data', text: `${lbl} — изтича след ${d} дни` })
   }
   if (student.status === 'active' && !eplr) alerts.push({ level: 'amber', icon: Users, tab: 'team', text: 'Няма назначен ЕПЛР екип' })
-  if (activeOres) alerts.push({ level: 'info', icon: Sparkles, tab: 'data', text: `ОРЕС от ${formatDate(activeOres.from_date)}${activeOres.to_date ? ` до ${formatDate(activeOres.to_date)}` : ''}` })
+  if (activeOres) alerts.push({ level: 'info', icon: Sparkles, tab: (activeOres as any).room_token && !['secretary', 'support'].includes(profile?.role || '') ? 'room' : 'data', text: `ОРЕС от ${formatDate(activeOres.from_date)}${activeOres.to_date ? ` до ${formatDate(activeOres.to_date)}` : ''}` })
 
   const tabHref = (t: Tab) => t === 'docs' ? `/students/${id}` : `/students/${id}?tab=${t}`
 
@@ -190,9 +191,12 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
   const canEditPassport = canManage || profile?.role === 'director' || isCoordinator || isMyClass || (!!meId && (
     [eplr?.psychologist?.id, eplr?.speech_therapist?.id, eplr?.rehabilitator?.id, eplr?.class_teacher?.id].includes(meId)
     || [(student as any).therapist_psychologist?.id, (student as any).therapist_speech?.id, (student as any).therapist_rehab?.id, (student as any).therapist_rehab2?.id].includes(meId)))
+  const showRoom = showDev && !!(activeOres as any)?.room_token
   const TAB_DEFS: { key: Tab; label: string; icon: any }[] = [
     { key: 'docs', label: 'Документи', icon: FolderOpen },
     { key: 'overview', label: 'Обзор', icon: LayoutGrid },
+    // „Онлайн стая“ — само докато детето е на ОРЕС
+    ...(showRoom ? [{ key: 'room' as Tab, label: 'Онлайн стая', icon: MonitorSmartphone }] : []),
     ...(showDev ? [{ key: 'passport' as Tab, label: 'Паспорт', icon: IdCard }] : []),
     { key: 'data', label: 'Данни', icon: ClipboardList },
     { key: 'team', label: 'Екип', icon: Users },
@@ -539,6 +543,13 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
               </p>
             </div>
             <div className="max-w-xl"><TherapistHistory studentId={id} /></div>
+          </div>
+        )}
+
+        {/* ОНЛАЙН СТАЯ — материали и указания за родителя по време на ОРЕС */}
+        {tab === 'room' && showRoom && activeOres && (
+          <div className="animate-in fade-in duration-300">
+            <OnlineRoomTab studentId={id} ores={activeOres as any} meId={meId} isManager={canManage || profile?.role === 'director'} />
           </div>
         )}
 
