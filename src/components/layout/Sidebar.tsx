@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3, FileSpreadsheet,
-  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity
+  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity, IdCard
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
@@ -33,8 +33,40 @@ interface NavItem {
 }
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Начало', icon: <LayoutDashboard size={16} /> },
-  { href: '/students', label: 'Ученици', icon: <Users size={16} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'support'] },
-  // Управата: основните регистри в една група, отворена по подразбиране
+  // ── КОЛЕГИТЕ (учители, възпитатели, терапевти): групи по това, за какво ползват менюто ──
+  // Децата: учениците, паспортите, развитието, анкетите
+  {
+    href: '#kids',
+    label: 'Децата',
+    icon: <Users size={16} />,
+    children: [
+      { href: '/students', label: 'Ученици', icon: <Users size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'support'] },
+      // паспортите на децата, с които работя — за печат
+      { href: '/passports', label: 'Паспорти', icon: <IdCard size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator'] },
+      { href: '/development', label: 'Развитие', icon: <Sprout size={14} />, roles: ['psychologist'] },
+      // двигателна оценка (ФВС) — групова карта; индивидуалната е в досието → Развитие
+      { href: '/development/motor', label: 'Двигателна оценка', icon: <Activity size={14} />, roles: ['class_teacher', 'teacher', 'educator', 'rehabilitator', 'psychologist', 'speech_therapist'] },
+      { href: '/surveys', label: 'Анкети на новите деца', icon: <ClipboardList size={14} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
+    ],
+  },
+  // Моята работа: разписание, ИУП, терапии, лекторски, отпуск
+  {
+    href: '#mywork',
+    label: 'Моята работа',
+    icon: <CalendarDays size={16} />,
+    defaultOpen: true,   // най-ползваното — отворено по подразбиране (за управата групата я няма)
+    children: [
+      { href: '/my-schedule', label: 'Разписание', icon: <CalendarDays size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
+      { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={14} />, roles: ['class_teacher'] },
+      { href: '/my-activities', label: 'Списък за терапия', icon: <HeartPulse size={14} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
+      { href: '/my-substitutions', label: 'Заместване', icon: <UserX size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
+      { href: '/my-lecturer', label: 'Над норматив', icon: <GraduationCap size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
+      // заявление за отпуск по НП „Без свободен час“ (Приложение № 1) — за учителите и възпитателите
+      { href: '/leave-np', label: 'Отпуск по НП', icon: <FileText size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
+      { href: '/reports', label: 'Справки', icon: <BarChart3 size={14} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
+    ],
+  },
+  // ── УПРАВАТА: основните регистри в една група, отворена по подразбиране ──
   {
     href: '#school',
     label: 'Училище',
@@ -45,10 +77,11 @@ const navItems: NavItem[] = [
       { href: '/students', label: 'Ученици', icon: <Users size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/classes', label: 'Паралелки', icon: <BookOpen size={14} />, roles: ['admin', 'director', 'zdud'] },
       { href: '/staff', label: 'Служители', icon: <UserCircle size={14} />, roles: ['admin', 'director', 'zdud'] },
+      { href: '/passports', label: 'Паспорти', icon: <IdCard size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
   },
-  { href: '/portfolio', label: 'Портфолио', icon: <Images size={16} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
-   {
+  // Документи — за всички (Портфолио — без помощния персонал)
+  {
     href: '#documents',
     label: 'Документи',
     icon: <FileText size={16} />,
@@ -56,37 +89,25 @@ const navItems: NavItem[] = [
       { href: '/templates', label: 'Образци', icon: <FileText size={14} /> },
       { href: '/normative-docs', label: 'Документи в ЦСОП', icon: <ScrollText size={14} /> },
       { href: '/council', label: 'За съгласуване', icon: <ClipboardCheck size={14} /> },
+      { href: '/portfolio', label: 'Портфолио', icon: <Images size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
+      // Старият генератор — временно (колегите го търсят). Новото: досие → „Документи“ → „Нов документ“. Да се махне, щом всички минат на бланките.
+      { href: '/generator', label: 'Генератор (стар)', icon: <FileText size={14} />, roles: ['class_teacher', 'teacher', 'educator', 'psychologist', 'speech_therapist', 'rehabilitator'] },
     ],
   },
-    { href: '/my-schedule', label: 'Разписание', icon: <CalendarDays size={16} />, roles: ['class_teacher', 'teacher', 'educator'] },
-  // заявление за отпуск по НП „Без свободен час“ (Приложение № 1) — за учителите и възпитателите
-  { href: '/leave-np', label: 'Отпуск по НП', icon: <FileText size={16} />, roles: ['class_teacher', 'teacher', 'educator'] },
-  // двигателна оценка (ФВС) — групова карта; индивидуалната е в досието → Развитие
-  { href: '/development/motor', label: 'Двигателна оценка', icon: <Activity size={16} />, roles: ['admin', 'zdud', 'director', 'class_teacher', 'teacher', 'educator', 'rehabilitator', 'psychologist', 'speech_therapist'] },
-  { href: '/gym-schedule', label: 'Физк. салон', icon: <Dumbbell size={16} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'secretary', 'support'] },
-  // Материална база — сигнали за проблеми в помещенията (всички служители; деловодството го има в своята секция)
-  { href: '/facilities', label: 'Материална база', icon: <Wrench size={16} /> },
-       {
-      href: '#lecturer',
-      label: 'Лекторски',
-      icon: <GraduationCap size={16} />,
-      roles: ['class_teacher', 'teacher', 'educator'],
-      children: [
-        { href: '/my-substitutions', label: 'Заместване', icon: <UserX size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
-        { href: '/my-lecturer', label: 'Над норматив', icon: <GraduationCap size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
-      ],
-    },
-   { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={16} />, roles: ['class_teacher'] },
-  { href: '/my-activities', label: 'Списък за терапия', icon: <HeartPulse size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
-  { href: '/development', label: 'Развитие', icon: <Sprout size={16} />, roles: ['psychologist'] },
-    { href: '/surveys', label: 'Анкети на новите деца', icon: <ClipboardList size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
-    // Старият генератор — временно обратно (колегите го търсят). Новото: досие → „Документи“ → „Нов документ“. Да се махне, щом всички минат на бланките.
-  { href: '/generator', label: 'Генератор (стар)', icon: <FileText size={16} />, roles: ['class_teacher', 'teacher', 'educator', 'psychologist', 'speech_therapist', 'rehabilitator'] },
-  { href: '/reports', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
+  // Сграда — физкултурен салон и сигнали за помещенията (управата има салона в „Учебен процес“, базата — отделен ред)
+  {
+    href: '#building',
+    label: 'Сграда',
+    icon: <Building2 size={16} />,
+    children: [
+      { href: '/gym-schedule', label: 'Физк. салон', icon: <Dumbbell size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'support'] },
+      { href: '/facilities', label: 'Материална база', icon: <Wrench size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'support'] },
+    ],
+  },
   {
     href: '#process',
     label: 'Учебен процес',
-        icon: <Calendar size={16} />,
+    icon: <Calendar size={16} />,
     roles: ['admin', 'zdud', 'director'],
     children: [
       { href: '/schedules', label: 'Разписания', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'] },
@@ -100,6 +121,8 @@ const navItems: NavItem[] = [
       { href: '/gym-schedule', label: 'Физк. салон', icon: <Dumbbell size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
   },
+  // Материална база — за управата отделен ред (колегите я имат в „Сграда“, деловодството — в своята секция)
+  { href: '/facilities', label: 'Материална база', icon: <Wrench size={16} />, roles: ['admin', 'zdud', 'director'] },
   { href: '/bullying-council', label: 'К. Съвет', icon: <Shield size={16} />, councilOnly: true },
   { href: '/reports/hub', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['admin', 'zdud', 'director'] },
   {
@@ -112,7 +135,7 @@ const navItems: NavItem[] = [
       { href: '/lecturer-schedule', label: 'График лекторски', icon: <CalendarDays size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/substitutions', label: 'Замествания', icon: <UserX size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/lecturer-check', label: 'Отчитане лекторски', icon: <ListChecks size={14} />, roles: ['admin', 'zdud', 'director'] },
-            { href: '/mon-export', label: 'Отчет НП (МОН)', icon: <FileSpreadsheet size={14} />, roles: ['admin', 'zdud', 'director'] },
+      { href: '/mon-export', label: 'Отчет НП (МОН)', icon: <FileSpreadsheet size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
   },
   {
@@ -127,9 +150,10 @@ const navItems: NavItem[] = [
       { href: '/admin/therapists', label: 'Терапевти', icon: <HeartPulse size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
       { href: '/admin/coud', label: 'ЦОУД групи', icon: <Users size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
       { href: '/reports/hub', label: 'Справки и писма', icon: <BarChart3 size={14} />, roles: [], coordinatorOnly: true },
-            { href: '/surveys', label: 'Анкети на новите деца', icon: <ClipboardList size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
-     { href: '/admin/eplr-schedule', label: 'График ЕПЛР', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
+      { href: '/surveys', label: 'Анкети на новите деца', icon: <ClipboardList size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
+      { href: '/admin/eplr-schedule', label: 'График ЕПЛР', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
       { href: '/development', label: 'Развитие на децата', icon: <Sprout size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
+      { href: '/development/motor', label: 'Двигателна оценка', icon: <Activity size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
   },
   // Администрация (рядко: структура, предмети, училища, съобщения, нова година…) — един ред най-долу
