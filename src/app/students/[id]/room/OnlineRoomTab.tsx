@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Loader2, Send, Link2, Paperclip, Copy, Check, MonitorSmartphone, X, ExternalLink, EyeOff, Eye, FileDown, Play, MessageCircle, CircleCheck, Square, RotateCcw } from 'lucide-react'
+import { Loader2, Send, Link2, Paperclip, Copy, Check, MonitorSmartphone, X, ExternalLink, EyeOff, Eye, FileDown, Play, MessageCircle, CircleCheck, Square, RotateCcw, Library, Search } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { generateOresChronology } from '@/lib/docx-ores'
 
@@ -20,7 +20,7 @@ const MAX_MB = 20
 const MSG_LABEL: Record<string, string> = { ok: 'Разбрахме', unclear: 'Не разбирам — моля, обяснете', resend: 'Моля, изпратете материала отново', text: '' }
 
 export type OresRow = { id: string; from_date: string; to_date: string | null; reason: string | null; room_token?: string | null; room_closed_at?: string | null; to_date_before_close?: string | null }
-type Post = { id: string; author_id: string | null; body: string | null; link_url: string | null; file_path: string | null; file_name: string | null; created_at: string; hidden_at: string | null; hidden_by: string | null }
+type Post = { id: string; author_id: string | null; body: string | null; link_url: string | null; file_path: string | null; file_name: string | null; created_at: string; hidden_at: string | null; hidden_by: string | null; material_id: string | null }
 type Msg = { id: string; post_id: string; from_parent: boolean; author_id: string | null; kind: string; body: string | null; read_at: string | null; created_at: string }
 
 const fmt = (d: string) => d.split('-').reverse().join('.')
@@ -128,17 +128,18 @@ function Room({ studentId, studentName, ores, live, meId, isManager }: {
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [picker, setPicker] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const parentUrl = `${PUBLIC_BASE}/room/${ores.room_token}`
 
   const load = useCallback(async () => {
     const [ps, ms, vs] = await Promise.all([
-      supabase.from('online_room_posts').select('id, author_id, body, link_url, file_path, file_name, created_at, hidden_at, hidden_by')
+      supabase.from('online_room_posts').select('id, author_id, body, link_url, file_path, file_name, created_at, hidden_at, hidden_by, material_id')
         .eq('ores_id', ores.id).order('created_at', { ascending: false }),
       supabase.from('online_room_messages').select('id, post_id, from_parent, author_id, kind, body, read_at, created_at').eq('ores_id', ores.id).order('created_at'),
       supabase.from('online_room_visits').select('visited_at').eq('ores_id', ores.id).order('visited_at'),
     ])
-    if (ps.error || ms.error) { setErr('Онлайн стаята още не е подготвена в базата — пуснете SQL файловете 2026-10-11_online_room.sql и 2026-10-11_online_room_2.sql.'); return }
+    if (ps.error || ms.error) { setErr('Онлайн стаята още не е подготвена в базата — пуснете SQL файловете 2026-10-11_online_room*.sql.'); return }
     setPosts((ps.data || []) as Post[])
     setMsgs((ms.data || []) as Msg[])
     setVisits((vs.data || []).map((v: any) => v.visited_at))
@@ -188,6 +189,19 @@ function Room({ studentId, studentName, ores, live, meId, isManager }: {
     load()
   }
 
+  // материал от библиотеката → публикация (указанията от полето, ако има, иначе описанието на материала)
+  async function pickMaterial(m: any) {
+    const { error } = await supabase.from('online_room_posts').insert({
+      ores_id: ores.id, student_id: studentId, author_id: meId,
+      body: body.trim() || [m.title, m.description].filter(Boolean).join(' — '), link_url: null,
+      file_path: null, file_name: m.file_name, material_id: m.id,
+    })
+    if (error) { toast('Грешка: ' + error.message, 'error'); return }
+    setBody(''); setPicker(false)
+    toast('Материалът е публикуван за родителя')
+    load()
+  }
+
   async function toggleHidden(p: Post) {
     const hide = !p.hidden_at
     if (hide && !confirm('Да се скрие ли от родителя? В хронологията остава.')) return
@@ -203,8 +217,14 @@ function Room({ studentId, studentName, ores, live, meId, isManager }: {
     load(); return true
   }
 
-  async function openFile(path: string) {
-    const { data } = await supabase.storage.from('online-room').createSignedUrl(path, 120)
+  async function openFile(p: Post) {
+    let bucket = 'online-room', path = p.file_path
+    if (p.material_id) {   // материал от библиотеката — файлът е в кофата materials
+      const { data: m } = await supabase.from('materials').select('file_path').eq('id', p.material_id).maybeSingle()
+      if (m?.file_path) { bucket = 'materials'; path = m.file_path }
+    }
+    if (!path) { toast('Файлът вече не е наличен', 'error'); return }
+    const { data } = await supabase.storage.from(bucket).createSignedUrl(path, 120)
     if (data?.signedUrl) window.open(data.signedUrl, '_blank')
   }
 
@@ -319,6 +339,10 @@ function Room({ studentId, studentName, ores, live, meId, isManager }: {
                 <Paperclip size={14} /> Файл
               </button>
             )}
+            <button type="button" onClick={() => setPicker(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-300 text-[13px] text-emerald-800 hover:bg-emerald-50">
+              <Library size={14} /> От библиотеката
+            </button>
             <button type="button" onClick={publish} disabled={busy}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>
               {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} Публикувай
@@ -326,6 +350,8 @@ function Room({ studentId, studentName, ores, live, meId, isManager }: {
           </div>
         </div>
       )}
+
+      {picker && <LibraryPicker onClose={() => setPicker(false)} onPick={pickMaterial} />}
 
       {/* Публикациите — най-новите горе */}
       {posts === null ? (
@@ -358,7 +384,7 @@ function Room({ studentId, studentName, ores, live, meId, isManager }: {
                 {p.body && <p className="text-[14px] text-slate-800 whitespace-pre-line leading-relaxed">{p.body}</p>}
                 <div className="flex flex-wrap gap-2 mt-1.5">
                   {p.link_url && <a href={p.link_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[13px] text-sky-700 hover:underline max-w-full"><ExternalLink size={13} /> <span className="truncate">{p.link_url}</span></a>}
-                  {p.file_path && <button type="button" onClick={() => openFile(p.file_path!)} className="inline-flex items-center gap-1 text-[13px] text-sky-700 hover:underline"><Paperclip size={13} /> {p.file_name || 'файл'}</button>}
+                  {(p.file_path || p.material_id) && <button type="button" onClick={() => openFile(p)} className="inline-flex items-center gap-1 text-[13px] text-sky-700 hover:underline"><Paperclip size={13} /> {p.file_name || 'файл'}</button>}
                 </div>
                 <Thread msgs={th} names={names} canReply={live && !p.hidden_at} onReply={t => reply(p.id, t)} />
               </div>
@@ -366,6 +392,54 @@ function Room({ studentId, studentName, ores, live, meId, isManager }: {
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── „От библиотеката“: само материали от източници, разрешени за родители и неизтекли ──
+function LibraryPicker({ onPick, onClose }: { onPick: (m: any) => Promise<void>; onClose: () => void }) {
+  const supabase = createClient()
+  const [list, setList] = useState<any[] | null>(null)
+  const [q, setQ] = useState('')
+  const [busy, setBusy] = useState<string | null>(null)
+  useEffect(() => {
+    (async () => {
+      const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })
+      const { data } = await supabase.from('materials').select('id, title, description, file_name, source:material_sources(allow_parents, valid_until)').order('title')
+      setList((data || []).filter((m: any) => m.source?.allow_parents && (!m.source.valid_until || m.source.valid_until >= today)))
+    })()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const shown = (list || []).filter(m => !q || `${m.title} ${m.description || ''}`.toLowerCase().includes(q.toLowerCase()))
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
+      <div className="max-w-xl mx-auto my-0 md:my-10 bg-white md:rounded-3xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-3 px-6 py-3.5 border-b border-slate-200">
+          <Library size={17} className="text-emerald-700" />
+          <h2 className="text-base font-medium text-[#0f2240] flex-1">Добави от библиотеката</h2>
+          <button type="button" onClick={onClose} className="p-2 rounded-xl text-slate-500 hover:bg-slate-100"><X size={18} /></button>
+        </div>
+        <div className="px-6 py-4 space-y-3">
+          <div className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-xl focus-within:border-[#0f2240]">
+            <Search size={14} className="text-slate-400" />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Търси материал…" className="flex-1 min-w-0 text-[14px] focus:outline-none" />
+          </div>
+          {list === null ? <div className="flex justify-center py-6 text-slate-400"><Loader2 className="animate-spin" size={18} /></div>
+            : shown.length === 0 ? <p className="text-[13px] text-slate-400 py-4 text-center">Няма материали, които може да се дават на родители.</p>
+            : <div className="max-h-[50vh] overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-xl">
+                {shown.map(m => (
+                  <button key={m.id} type="button" disabled={!!busy} onClick={async () => { setBusy(m.id); await onPick(m); setBusy(null) }}
+                    className="w-full text-left px-4 py-2.5 hover:bg-slate-50 disabled:opacity-50 flex items-center gap-2">
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-[14px] text-slate-800 truncate">{m.title}</span>
+                      {m.description && <span className="block text-[12px] text-slate-500 truncate">{m.description}</span>}
+                    </span>
+                    {busy === m.id && <Loader2 size={14} className="animate-spin text-slate-400" />}
+                  </button>
+                ))}
+              </div>}
+          <p className="text-[11.5px] text-slate-400">Показват се само материалите, които може да се дават на родители.</p>
+        </div>
+      </div>
     </div>
   )
 }
