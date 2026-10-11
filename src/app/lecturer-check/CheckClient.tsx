@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { Loader2, Search, FileDown, Check, X, Inbox, Banknote, RotateCcw, AlertTriangle, FileSpreadsheet } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { smartMatch } from '@/lib/search'
-import { declarationPeriods, defaultPeriod, deadlineOf, sofiaTodayIso } from '@/lib/declaration-periods'
+import { declarationPeriods, defaultPeriod, deadlineOf, sofiaTodayIso, DEADLINE_ACTIVE } from '@/lib/declaration-periods'
 import { effectiveRates, type LecturerRates } from '@/lib/lecturer-rates'
 import { generateLecturerPaymentOrder } from '@/lib/docx-substitution'
 import { getCheckMonth, getCellDetail, setCheck, type Check as CheckT, type CheckKind, type CheckRow, type DetailLine } from './actions'
@@ -29,13 +29,13 @@ const STATE: Record<StateKey, { label: string; cls: string; dot: string }> = {
 
 function stateOf(hours: number, c: CheckT | undefined, periodTo: string, today: string): { key: StateKey; late: boolean } {
   const due = deadlineOf(periodTo)
-  const late = !!c?.receivedAt && fmtIso(c.receivedAt) > due
+  const late = DEADLINE_ACTIVE && !!c?.receivedAt && fmtIso(c.receivedAt) > due
   if (c?.paidAt) return { key: 'paid', late }
   if (c?.status === 'ok') return { key: c.hoursAtCheck !== null && c.hoursAtCheck !== hours ? 'changed' : 'ok', late }
   if (c?.status === 'issue') return { key: 'issue', late }
   if (c?.receivedAt) return { key: 'received', late }
   if (today <= periodTo) return { key: 'current', late: false }
-  return { key: today > due ? 'missing' : 'waiting', late: false }
+  return { key: DEADLINE_ACTIVE && today > due ? 'missing' : 'waiting', late: false }
 }
 // ISO дата по българско време от timestamp
 function fmtIso(ts: string) {
@@ -189,6 +189,7 @@ export default function CheckClient({ rates }: { rates: LecturerRates }) {
           Срок за предаване на декларациите: <span className="font-medium text-slate-700">до {fmt(due)}</span>
           {today <= (tab === 'over' && over ? over.to : month.to)
             ? <span className="text-slate-400"> · месецът още тече</span>
+            : !DEADLINE_ACTIVE ? <span className="text-slate-400"> · засега не се следи</span>
             : daysLeft >= 0 ? <span className="text-slate-400"> · остават {daysLeft} дни</span>
             : <span className="text-rose-600"> · срокът мина</span>}
         </div>
