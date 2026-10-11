@@ -11,7 +11,7 @@ import { PERIOD_LABEL, PERIOD_TIMES, byStartTime } from './periods'
 function bold(text: string, size = 22): TextRun { return new TextRun({ text, bold: true, size }) }
 function normal(text: string, size = 22): TextRun { return new TextRun({ text, size }) }
 // ═══ ХЕДЪР (лого вляво + текст) ═══
-function header(): any[] {
+export function header(): any[] {
   const noB = { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } }
   return [
     new Table({

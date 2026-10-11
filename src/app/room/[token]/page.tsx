@@ -1,14 +1,16 @@
 // Онлайн стая — страницата за РОДИТЕЛЯ. Без вход: достъпът е личният линк (/room/<token>).
-// Работи само докато ОРЕС периодът е активен. Показва само малкото име на детето, публикациите и файловете
-// (с временни линкове). Данните се четат на сървъра със service-role клиента — браузърът не получава ключ.
+// Работи само докато ОРЕС периодът е активен. Показва малкото име на детето, публикациите (без скритите),
+// файловете (с временни линкове) и нишката въпроси/отговори под всяка публикация.
+// Всяко отваряне се записва („видяно от родителя“) — най-много веднъж на 10 минути.
+// Данните се четат на сървъра със service-role клиента — браузърът не получава ключ.
 
 import type { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { MonitorSmartphone, ExternalLink, Paperclip, Lock } from 'lucide-react'
+import { activeOresByToken, MSG_LABEL } from './lib'
+import ParentReply from './ParentReply'
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Онлайн стая — ЦСОП Варна', robots: { index: false, follow: false } }
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function Closed() {
   return (
@@ -37,18 +39,22 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 export default async function RoomPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
-  if (!UUID.test(token) || !process.env.SUPABASE_SERVICE_ROLE_KEY) return <Closed />
   const db = createAdminClient()
+  const ores = await activeOresByToken(db, token)
+  if (!ores) return <Closed />
 
-  const { data: ores } = await db.from('student_ores')
-    .select('id, from_date, to_date, student:students(first_name, status)').eq('room_token', token).maybeSingle()
-  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })   // YYYY-MM-DD по българско време
-  const st = (ores as any)?.student
-  if (!ores || !st || st.status !== 'active' || ores.from_date > today || (ores.to_date && ores.to_date < today)) return <Closed />
+  // посещение (за „видяно от родителя“) — не по-често от веднъж на 10 минути
+  const tenMin = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+  const { count: recent } = await db.from('online_room_visits').select('id', { count: 'exact', head: true })
+    .eq('ores_id', ores.id).gte('visited_at', tenMin)
+  if (!recent) await db.from('online_room_visits').insert({ ores_id: ores.id })
 
   const { data: posts } = await db.from('online_room_posts')
-    .select('id, author_id, body, link_url, file_path, file_name, created_at').eq('ores_id', ores.id).order('created_at', { ascending: false })
-  const authorIds = Array.from(new Set((posts || []).map((p: any) => p.author_id).filter(Boolean))) as string[]
+    .select('id, author_id, body, link_url, file_path, file_name, created_at')
+    .eq('ores_id', ores.id).is('hidden_at', null).order('created_at', { ascending: false })
+  const { data: msgs } = await db.from('online_room_messages')
+    .select('id, post_id, from_parent, author_id, kind, body, created_at').eq('ores_id', ores.id).order('created_at')
+  const authorIds = Array.from(new Set([...(posts || []), ...(msgs || [])].map((p: any) => p.author_id).filter(Boolean))) as string[]
   const { data: authors } = authorIds.length
     ? await db.from('staff_profiles').select('id, first_name, last_name').in('id', authorIds) : { data: [] as any[] }
   const who: Record<string, string> = {}
@@ -59,11 +65,14 @@ export default async function RoomPage({ params }: { params: Promise<{ token: st
     const { data } = await db.storage.from('online-room').createSignedUrls(paths, 60 * 60 * 6)
     ;(data || []).forEach((d: any) => { if (d.signedUrl && d.path) urls[d.path] = d.signedUrl })
   }
+  const thread: Record<string, any[]> = {}
+  ;(msgs || []).forEach((m: any) => { (thread[m.post_id] = thread[m.post_id] || []).push(m) })
   const fmt = (d: string) => d.split('-').reverse().join('.')
+  const when = (d: string) => new Date(d).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
 
   return (
     <Shell>
-      <h1 className="text-2xl font-normal text-[#0f2240]">Материали за {st.first_name}</h1>
+      <h1 className="text-2xl font-normal text-[#0f2240]">Материали за {ores.firstName}</h1>
       <p className="text-sm text-slate-500 mt-1 mb-6">Обучение от разстояние · от {fmt(ores.from_date)}{ores.to_date ? ` до ${fmt(ores.to_date)}` : ''}. Най-новото е най-горе.</p>
 
       {(posts || []).length === 0 ? (
@@ -91,6 +100,18 @@ export default async function RoomPage({ params }: { params: Promise<{ token: st
                   </a>
                 )}
               </div>
+
+              {(thread[p.id] || []).length > 0 && (
+                <div className="mt-3 space-y-1.5">
+                  {thread[p.id].map((m: any) => (
+                    <div key={m.id} className={`text-[14px] px-3 py-2 rounded-xl ${m.from_parent ? 'bg-slate-50 text-slate-700' : 'bg-sky-50 text-slate-800 border border-sky-100'}`}>
+                      <span className="text-[12px] text-slate-500">{m.from_parent ? 'Вие' : (who[m.author_id] || 'Учител')} · {when(m.created_at)}</span>
+                      <div className="whitespace-pre-line">{[MSG_LABEL[m.kind], m.body].filter(Boolean).join(' — ')}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <ParentReply token={token} postId={p.id} />
             </article>
           ))}
         </div>
