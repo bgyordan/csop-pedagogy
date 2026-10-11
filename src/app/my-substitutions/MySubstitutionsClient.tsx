@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
-import { Loader2, FileDown, UserX, CalendarClock } from 'lucide-react'
+import Link from 'next/link'
+import { Loader2, FileDown, UserX, CalendarClock, IdCard } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { getMonthlyDeclaration } from '../substitutions/actions'
 import { generateMonthlyNPDeclaration, generateMonthlyBudgetDeclaration } from '@/lib/docx-substitution'
@@ -11,6 +12,8 @@ function fmt(d: string) { return d ? d.split('-').reverse().join('.') : '—' }
 
 export default function MySubstitutionsClient({ rows }: { rows: MySubRow[] }) {
   const { toast } = useToast()
+  // паспортите на децата се показват, докато заместването тече или предстои
+  const today = new Date().toISOString().slice(0, 10)
   // само приключили месеци (септември — от 01.10, октомври — от 01.11, …)
   const periods = declarationPeriods('sub')
   const [periodKey, setPeriodKey] = useState(() => defaultPeriod(periods).key)
@@ -84,6 +87,13 @@ export default function MySubstitutionsClient({ rows }: { rows: MySubRow[] }) {
                   {!r.bsch && !r.overNorm && <span className="ml-2 inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200" title="В рамките на нормата — не влиза в декларацията">без заплащане</span>}
                 </div>
               </div>
+              {r.absentId && r.dateTo >= today && (
+                <Link href={`/passports?staff=${r.absentId}`} target="_blank"
+                  title="Паспортите на децата, с които работи отсъстващият колега"
+                  className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 text-[13px] text-slate-700 hover:border-[#0f2240]">
+                  <IdCard size={14} /> Паспорти на децата
+                </Link>
+              )}
             </div>
           ))}
         </div>

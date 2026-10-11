@@ -6,6 +6,7 @@ import MySubstitutionsClient from './MySubstitutionsClient'
 export const dynamic = 'force-dynamic'
 export interface MySubRow {
   id: string
+  absentId: string | null
   absentName: string
   dateFrom: string
   dateTo: string
@@ -32,7 +33,7 @@ export default async function MySubstitutionsPage() {
 
   let q = supabase
     .from('substitutions')
-    .select(`id, date_from, date_to, reason, bsch_eligible, substitution_order_id, over_norm,
+    .select(`id, absent_staff_id, date_from, date_to, reason, bsch_eligible, substitution_order_id, over_norm,
       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name)`)
     .order('date_from', { ascending: false })
   q = asIds.length > 0 ? q.or(`substitute_staff_id.eq.${me.id},id.in.(${asIds.join(',')})`) : q.eq('substitute_staff_id', me.id)
@@ -53,6 +54,7 @@ export default async function MySubstitutionsPage() {
     if (parts && parts.length === 0) return []
     return [{
       id: r.id,
+      absentId: r.absent_staff_id || null,
       absentName: r.absent ? `${r.absent.first_name} ${r.absent.last_name}` : '—',
       dateFrom: parts ? parts[0].from : r.date_from,
       dateTo: parts ? parts[parts.length - 1].to : r.date_to,

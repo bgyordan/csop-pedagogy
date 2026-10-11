@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import OutreachBadge from '@/components/OutreachBadge'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Heart, CalendarClock, ClipboardList, Sparkles, FolderOpen, LayoutGrid, AlertTriangle, Phone, ChevronDown, ChevronRight, Bus, Utensils, Sprout, Mail } from 'lucide-react'
+import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Heart, CalendarClock, ClipboardList, Sparkles, FolderOpen, LayoutGrid, AlertTriangle, Phone, ChevronDown, ChevronRight, Bus, Utensils, Sprout, Mail, IdCard } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
 import { DOCUMENT_TYPE_LABELS, DocumentType, STATUS_LABELS, DocumentStatus } from '@/types'
 import { AttachmentsSection } from './AttachmentsSection'
@@ -17,6 +17,7 @@ import TherapistHistory from './TherapistHistory'
 import StudentDocuments from './StudentDocuments'
 import MoreMenu from './MoreMenu'
 import DevelopmentTab from './development/DevelopmentTab'
+import PassportTab from './passport/PassportTab'
 import FillEplrButton from './FillEplrButton'
 
 const ATTACHMENT_TYPE_LABELS: Record<string, string> = {
@@ -45,9 +46,9 @@ function getInitials(firstName: string, lastName: string): string {
   return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`
 }
 
-// Досие: Документи (Drive — по подразбиране, ползват го най-много) · Обзор · Данни (вкл. външните документи) · Екип · Развитие
+// Досие: Документи (Drive — по подразбиране, ползват го най-много) · Обзор · Паспорт · Данни (вкл. външните документи) · Екип · Развитие
 // (старите адреси ?tab=eplr/therapy/files водят към новите)
-const TABS = ['docs', 'overview', 'data', 'team', 'dev'] as const
+const TABS = ['docs', 'overview', 'passport', 'data', 'team', 'dev'] as const
 type Tab = typeof TABS[number]
 const LEGACY_TAB: Record<string, Tab> = { eplr: 'team', therapy: 'team', files: 'docs' }
 
@@ -184,9 +185,15 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
 
   // „Развитие“ — за педагогическите роли (не за деловодител и помощен персонал)
   const showDev = !['secretary', 'support'].includes(profile?.role || '')
+  // „Паспорт“ — попълват го управата, координаторът, класният, ЕПЛР екипът и терапевтите на детето (същото пази и базата)
+  const meId = profile?.id || ''
+  const canEditPassport = canManage || profile?.role === 'director' || isCoordinator || isMyClass || (!!meId && (
+    [eplr?.psychologist?.id, eplr?.speech_therapist?.id, eplr?.rehabilitator?.id, eplr?.class_teacher?.id].includes(meId)
+    || [(student as any).therapist_psychologist?.id, (student as any).therapist_speech?.id, (student as any).therapist_rehab?.id, (student as any).therapist_rehab2?.id].includes(meId)))
   const TAB_DEFS: { key: Tab; label: string; icon: any }[] = [
     { key: 'docs', label: 'Документи', icon: FolderOpen },
     { key: 'overview', label: 'Обзор', icon: LayoutGrid },
+    ...(showDev ? [{ key: 'passport' as Tab, label: 'Паспорт', icon: IdCard }] : []),
     { key: 'data', label: 'Данни', icon: ClipboardList },
     { key: 'team', label: 'Екип', icon: Users },
     ...(showDev ? [{ key: 'dev' as Tab, label: 'Развитие', icon: Sprout }] : []),
@@ -532,6 +539,13 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
               </p>
             </div>
             <div className="max-w-xl"><TherapistHistory studentId={id} /></div>
+          </div>
+        )}
+
+        {/* ПАСПОРТ — една страница за заместници, ЦОУД и нови колеги */}
+        {tab === 'passport' && showDev && (
+          <div className="animate-in fade-in duration-300">
+            <PassportTab studentId={id} meId={meId} canEdit={canEditPassport} />
           </div>
         )}
 

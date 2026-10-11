@@ -1,11 +1,12 @@
 'use client'
 import { useState } from 'react'
-import { Check } from 'lucide-react'
+import Link from 'next/link'
+import { Check, IdCard } from 'lucide-react'
 
 type CoudStudent = { name: string; className: string; externalClass: string; classTeacher: string; hasAppl: boolean }
-type CoudGroupData = { name: string; teacher: string; students: CoudStudent[] }
+type CoudGroupData = { id: string; name: string; teacher: string; students: CoudStudent[] }
 
-export default function CoudTabs({ groups }: { groups: CoudGroupData[] }) {
+export default function CoudTabs({ groups, showPassports = false }: { groups: CoudGroupData[]; showPassports?: boolean }) {
   const [active, setActive] = useState(0)
   if (groups.length === 0) {
     return <div className="bg-white rounded-xl border border-slate-200 text-center py-12 text-slate-400 text-sm shadow-sm">Няма ЦОУД групи</div>
@@ -27,8 +28,14 @@ export default function CoudTabs({ groups }: { groups: CoudGroupData[] }) {
 
       {/* Таблица на активната група */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-        <div className="px-4 py-2.5 border-b border-slate-100 bg-slate-50/60 text-xs text-slate-500">
-          Възпитател: <span className="font-medium text-slate-700">{g.teacher}</span>
+        <div className="px-4 py-2.5 border-b border-slate-100 bg-slate-50/60 text-xs text-slate-500 flex items-center gap-3">
+          <span>Възпитател: <span className="font-medium text-slate-700">{g.teacher}</span></span>
+          {showPassports && g.students.length > 0 && (
+            <Link href={`/passports?coud=${g.id}`} target="_blank"
+              className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-300 text-[12px] text-slate-700 bg-white hover:border-[#0f2240]">
+              <IdCard size={13} /> Паспорти на децата
+            </Link>
+          )}
         </div>
         {g.students.length === 0 ? (
           <div className="px-4 py-8 text-center text-slate-400 text-sm">Няма записани ученици</div>
