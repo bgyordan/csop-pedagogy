@@ -248,22 +248,7 @@ export function photoImg(dataUrl: string): Promise<Img> {
   return imgCache.get(id)!
 }
 
-/** Файл от компютъра → умален dataURL (за да не тежи в чернова и PDF) */
-export async function fileToDataUrl(f: File): Promise<string> {
-  const url = URL.createObjectURL(f)
-  try {
-    const i = await loadImage(url)
-    const k = Math.min(1, 700 / Math.max(i.naturalWidth, i.naturalHeight))
-    const c = document.createElement('canvas')
-    c.width = Math.round(i.naturalWidth * k)
-    c.height = Math.round(i.naturalHeight * k)
-    const ctx = c.getContext('2d')!
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, c.width, c.height)
-    ctx.drawImage(i, 0, 0, c.width, c.height)
-    return c.toDataURL('image/jpeg', 0.85)
-  } finally { URL.revokeObjectURL(url) }
-}
+export { fileToDataUrl } from '@/lib/photo'
 
 function hash(s: string) {
   let h = 0
