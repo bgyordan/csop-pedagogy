@@ -18,6 +18,7 @@ import { loginTime } from '@/lib/login-time'
 import TodayAbsentStrip from './components/TodayAbsentStrip'
 import CouncilStrip from './components/CouncilStrip'
 import FacilitiesStrip from './components/FacilitiesStrip'
+import OnlineRoomStrip from './components/OnlineRoomStrip'
 export const dynamic = 'force-dynamic'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -122,6 +123,9 @@ export default async function DashboardPage() {
 
       {/* Материална база — нови сигнали (управа/деловодство) или отговори по моите сигнали */}
       {!viewing && <FacilitiesStrip profile={profile} />}
+
+      {/* Онлайн стаи — децата на ОРЕС, с които работя */}
+      <OnlineRoomStrip profile={profile} currentYearId={currentYear.id} />
 
       {/* Днес отсъстват — за всички колеги (управата го има в оперативния панел) */}
       {!isAdmin && !isDirector && <TodayAbsentStrip />}

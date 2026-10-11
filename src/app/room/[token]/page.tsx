@@ -1,0 +1,101 @@
+// Онлайн стая — страницата за РОДИТЕЛЯ. Без вход: достъпът е личният линк (/room/<token>).
+// Работи само докато ОРЕС периодът е активен. Показва само малкото име на детето, публикациите и файловете
+// (с временни линкове). Данните се четат на сървъра със service-role клиента — браузърът не получава ключ.
+
+import type { Metadata } from 'next'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { MonitorSmartphone, ExternalLink, Paperclip, Lock } from 'lucide-react'
+export const dynamic = 'force-dynamic'
+export const metadata: Metadata = { title: 'Онлайн стая — ЦСОП Варна', robots: { index: false, follow: false } }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function Closed() {
+  return (
+    <Shell>
+      <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
+        <Lock size={28} className="mx-auto mb-3 text-slate-300" />
+        <p className="text-slate-700">Стаята не е активна.</p>
+        <p className="text-sm text-slate-500 mt-1">Линкът е изтекъл или е грешен. Обърнете се към класния ръководител.</p>
+      </div>
+    </Shell>
+  )
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-2xl mx-auto px-4 py-6 md:py-10">
+        <div className="flex items-center gap-2 text-[12px] uppercase tracking-widest text-slate-500 mb-4">
+          <MonitorSmartphone size={15} /> ЦСОП Варна · Онлайн стая
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+export default async function RoomPage({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params
+  if (!UUID.test(token) || !process.env.SUPABASE_SERVICE_ROLE_KEY) return <Closed />
+  const db = createAdminClient()
+
+  const { data: ores } = await db.from('student_ores')
+    .select('id, from_date, to_date, student:students(first_name, status)').eq('room_token', token).maybeSingle()
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })   // YYYY-MM-DD по българско време
+  const st = (ores as any)?.student
+  if (!ores || !st || st.status !== 'active' || ores.from_date > today || (ores.to_date && ores.to_date < today)) return <Closed />
+
+  const { data: posts } = await db.from('online_room_posts')
+    .select('id, author_id, body, link_url, file_path, file_name, created_at').eq('ores_id', ores.id).order('created_at', { ascending: false })
+  const authorIds = Array.from(new Set((posts || []).map((p: any) => p.author_id).filter(Boolean))) as string[]
+  const { data: authors } = authorIds.length
+    ? await db.from('staff_profiles').select('id, first_name, last_name').in('id', authorIds) : { data: [] as any[] }
+  const who: Record<string, string> = {}
+  ;(authors || []).forEach((a: any) => { who[a.id] = `${a.first_name} ${a.last_name}` })
+  const paths = (posts || []).map((p: any) => p.file_path).filter(Boolean) as string[]
+  const urls: Record<string, string> = {}
+  if (paths.length) {
+    const { data } = await db.storage.from('online-room').createSignedUrls(paths, 60 * 60 * 6)
+    ;(data || []).forEach((d: any) => { if (d.signedUrl && d.path) urls[d.path] = d.signedUrl })
+  }
+  const fmt = (d: string) => d.split('-').reverse().join('.')
+
+  return (
+    <Shell>
+      <h1 className="text-2xl font-normal text-[#0f2240]">Материали за {st.first_name}</h1>
+      <p className="text-sm text-slate-500 mt-1 mb-6">Обучение от разстояние · от {fmt(ores.from_date)}{ores.to_date ? ` до ${fmt(ores.to_date)}` : ''}. Най-новото е най-горе.</p>
+
+      {(posts || []).length === 0 ? (
+        <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-8 text-center text-slate-500">Учителите още не са публикували материали. Проверете отново по-късно.</div>
+      ) : (
+        <div className="space-y-3">
+          {(posts || []).map((p: any) => (
+            <article key={p.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-4">
+              <div className="text-[13px] text-slate-500 mb-1.5">
+                {new Date(p.created_at).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                {p.author_id && who[p.author_id] ? <> · {who[p.author_id]}</> : null}
+              </div>
+              {p.body && <p className="text-[16px] text-slate-800 whitespace-pre-line leading-relaxed">{p.body}</p>}
+              <div className="flex flex-col gap-2 mt-2">
+                {p.link_url && (
+                  <a href={p.link_url} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-50 border border-sky-200 text-sky-800 text-[15px] hover:bg-sky-100 w-fit max-w-full">
+                    <ExternalLink size={16} className="shrink-0" /> <span className="truncate">Отвори линка</span>
+                  </a>
+                )}
+                {p.file_path && urls[p.file_path] && (
+                  <a href={urls[p.file_path]} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-[15px] hover:bg-slate-100 w-fit max-w-full">
+                    <Paperclip size={16} className="shrink-0" /> <span className="truncate">{p.file_name || 'Файл'}</span>
+                  </a>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+      <p className="text-[12px] text-slate-400 mt-8">Този линк е личен — не го споделяйте. Спира да работи, когато обучението от разстояние приключи.</p>
+    </Shell>
+  )
+}
