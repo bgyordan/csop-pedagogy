@@ -64,6 +64,8 @@ export function defaultPeriod(periods: DeclPeriod[]) {
 
 /** Срок за предаване на подписаната декларация — до DEADLINE_DAY-то число на месеца след периода */
 export const DEADLINE_DAY = 10
+/** Следи ли се срокът (просрочени / закъснели). Засега НЕ — септември беше тестов/извънреден; включва се с true. */
+export const DEADLINE_ACTIVE = false
 export function deadlineOf(periodTo: string) {
   const [y, m] = periodTo.split('-').map(Number)
   const ny = m === 12 ? y + 1 : y, nm = m === 12 ? 1 : m + 1
