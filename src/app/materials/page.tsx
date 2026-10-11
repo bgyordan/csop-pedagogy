@@ -35,12 +35,16 @@ export default async function MaterialsPage({ searchParams }: { searchParams: Pr
   const names: Record<string, string> = {}
   ;(st || []).forEach((s: any) => { names[s.id] = `${s.first_name} ${s.last_name}` })
 
-  // малки картинки за изображенията
+  // малки картинки: превюто (ако има) или самото изображение; ключ — file_path на материала
   const thumbs: Record<string, string> = {}
-  const imgPaths = materials.filter(isImage).map(m => m.file_path)
-  if (imgPaths.length) {
-    const { data } = await supabase.storage.from('materials').createSignedUrls(imgPaths, 60 * 60)
-    ;(data || []).forEach((d: any) => { if (d.signedUrl && d.path) thumbs[d.path] = d.signedUrl })
+  const thumbOf = new Map<string, string>()   // път на картинката → file_path
+  materials.forEach(m => {
+    if (m.preview_path) thumbOf.set(m.preview_path, m.file_path)
+    else if (isImage(m)) thumbOf.set(m.file_path, m.file_path)
+  })
+  if (thumbOf.size) {
+    const { data } = await supabase.storage.from('materials').createSignedUrls(Array.from(thumbOf.keys()), 60 * 60)
+    ;(data || []).forEach((d: any) => { if (d.signedUrl && d.path && thumbOf.has(d.path)) thumbs[thumbOf.get(d.path)!] = d.signedUrl })
   }
 
   return (

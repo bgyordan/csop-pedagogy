@@ -1,0 +1,1332 @@
+{
+ "license": "Twemoji © Twitter/X и сътрудници, CC-BY 4.0 — github.com/jdecked/twemoji",
+ "categories": {
+  "emotions": "Емоции",
+  "needs": "Нужди и общуване",
+  "actions": "Дейности",
+  "school": "Училище и терапии",
+  "food": "Храна",
+  "places": "Места и превозни средства",
+  "nature": "Природа и времето",
+  "animals": "Животни",
+  "objects": "Предмети",
+  "shapes": "Цветове и форми"
+ },
+ "items": [
+  {
+   "key": "happy",
+   "label": "радост",
+   "cat": "emotions"
+  },
+  {
+   "key": "sad",
+   "label": "тъга",
+   "cat": "emotions"
+  },
+  {
+   "key": "angry",
+   "label": "гняв",
+   "cat": "emotions"
+  },
+  {
+   "key": "scared",
+   "label": "страх",
+   "cat": "emotions"
+  },
+  {
+   "key": "surprised",
+   "label": "изненада",
+   "cat": "emotions"
+  },
+  {
+   "key": "calm",
+   "label": "спокойствие",
+   "cat": "emotions"
+  },
+  {
+   "key": "sleepy",
+   "label": "сънливост",
+   "cat": "emotions"
+  },
+  {
+   "key": "hurt",
+   "label": "боли ме",
+   "cat": "emotions"
+  },
+  {
+   "key": "love",
+   "label": "обич",
+   "cat": "emotions"
+  },
+  {
+   "key": "confused",
+   "label": "объркване",
+   "cat": "emotions"
+  },
+  {
+   "key": "sick",
+   "label": "болен съм",
+   "cat": "emotions"
+  },
+  {
+   "key": "proud",
+   "label": "гордост",
+   "cat": "emotions"
+  },
+  {
+   "key": "silly",
+   "label": "весело",
+   "cat": "emotions"
+  },
+  {
+   "key": "worried",
+   "label": "тревога",
+   "cat": "emotions"
+  },
+  {
+   "key": "bored",
+   "label": "скука",
+   "cat": "emotions"
+  },
+  {
+   "key": "toilet",
+   "label": "тоалетна",
+   "cat": "needs"
+  },
+  {
+   "key": "water",
+   "label": "вода",
+   "cat": "needs"
+  },
+  {
+   "key": "eat",
+   "label": "ям",
+   "cat": "needs"
+  },
+  {
+   "key": "help",
+   "label": "помощ",
+   "cat": "needs"
+  },
+  {
+   "key": "stop",
+   "label": "стоп",
+   "cat": "needs"
+  },
+  {
+   "key": "yes",
+   "label": "да",
+   "cat": "needs"
+  },
+  {
+   "key": "no",
+   "label": "не",
+   "cat": "needs"
+  },
+  {
+   "key": "more",
+   "label": "още",
+   "cat": "needs"
+  },
+  {
+   "key": "done",
+   "label": "готово",
+   "cat": "needs"
+  },
+  {
+   "key": "quiet",
+   "label": "тихо",
+   "cat": "needs"
+  },
+  {
+   "key": "headphones",
+   "label": "слушалки",
+   "cat": "needs"
+  },
+  {
+   "key": "hug",
+   "label": "прегръдка",
+   "cat": "needs"
+  },
+  {
+   "key": "hello",
+   "label": "здравей",
+   "cat": "needs"
+  },
+  {
+   "key": "wait",
+   "label": "чакам",
+   "cat": "needs"
+  },
+  {
+   "key": "break",
+   "label": "почивка",
+   "cat": "needs"
+  },
+  {
+   "key": "look",
+   "label": "гледай",
+   "cat": "needs"
+  },
+  {
+   "key": "listen",
+   "label": "слушай",
+   "cat": "needs"
+  },
+  {
+   "key": "talk",
+   "label": "говоря",
+   "cat": "needs"
+  },
+  {
+   "key": "think",
+   "label": "мисля",
+   "cat": "needs"
+  },
+  {
+   "key": "clap",
+   "label": "браво",
+   "cat": "needs"
+  },
+  {
+   "key": "hand_up",
+   "label": "вдигам ръка",
+   "cat": "needs"
+  },
+  {
+   "key": "me",
+   "label": "аз",
+   "cat": "needs"
+  },
+  {
+   "key": "you",
+   "label": "ти",
+   "cat": "needs"
+  },
+  {
+   "key": "like",
+   "label": "харесвам",
+   "cat": "needs"
+  },
+  {
+   "key": "want",
+   "label": "искам",
+   "cat": "needs"
+  },
+  {
+   "key": "go",
+   "label": "тръгвам",
+   "cat": "needs"
+  },
+  {
+   "key": "come",
+   "label": "ела",
+   "cat": "needs"
+  },
+  {
+   "key": "drink",
+   "label": "пия",
+   "cat": "needs"
+  },
+  {
+   "key": "wash_hands",
+   "label": "мия ръцете",
+   "cat": "actions"
+  },
+  {
+   "key": "shower",
+   "label": "къпя се",
+   "cat": "actions"
+  },
+  {
+   "key": "toothbrush",
+   "label": "мия зъбите",
+   "cat": "actions"
+  },
+  {
+   "key": "tshirt",
+   "label": "блуза",
+   "cat": "actions"
+  },
+  {
+   "key": "trousers",
+   "label": "панталон",
+   "cat": "actions"
+  },
+  {
+   "key": "shoes",
+   "label": "обувки",
+   "cat": "actions"
+  },
+  {
+   "key": "socks",
+   "label": "чорапи",
+   "cat": "actions"
+  },
+  {
+   "key": "coat",
+   "label": "яке",
+   "cat": "actions"
+  },
+  {
+   "key": "cap",
+   "label": "шапка",
+   "cat": "actions"
+  },
+  {
+   "key": "scissors",
+   "label": "режа",
+   "cat": "actions"
+  },
+  {
+   "key": "pencil",
+   "label": "пиша",
+   "cat": "actions"
+  },
+  {
+   "key": "crayon",
+   "label": "оцветявам",
+   "cat": "actions"
+  },
+  {
+   "key": "book",
+   "label": "чета",
+   "cat": "actions"
+  },
+  {
+   "key": "paint",
+   "label": "рисувам",
+   "cat": "actions"
+  },
+  {
+   "key": "puzzle",
+   "label": "пъзел",
+   "cat": "actions"
+  },
+  {
+   "key": "blocks",
+   "label": "кубчета",
+   "cat": "actions"
+  },
+  {
+   "key": "music",
+   "label": "музика",
+   "cat": "actions"
+  },
+  {
+   "key": "dance",
+   "label": "танцувам",
+   "cat": "actions"
+  },
+  {
+   "key": "ball",
+   "label": "игра с топка",
+   "cat": "actions"
+  },
+  {
+   "key": "run",
+   "label": "тичам",
+   "cat": "actions"
+  },
+  {
+   "key": "walk",
+   "label": "вървя",
+   "cat": "actions"
+  },
+  {
+   "key": "yoga",
+   "label": "дишам спокойно",
+   "cat": "actions"
+  },
+  {
+   "key": "slide",
+   "label": "пързалка",
+   "cat": "actions"
+  },
+  {
+   "key": "swim",
+   "label": "плувам",
+   "cat": "actions"
+  },
+  {
+   "key": "bike",
+   "label": "колело",
+   "cat": "actions"
+  },
+  {
+   "key": "bed",
+   "label": "лягам",
+   "cat": "actions"
+  },
+  {
+   "key": "broom",
+   "label": "подреждам",
+   "cat": "actions"
+  },
+  {
+   "key": "cook",
+   "label": "готвя",
+   "cat": "actions"
+  },
+  {
+   "key": "shop",
+   "label": "пазарувам",
+   "cat": "actions"
+  },
+  {
+   "key": "computer",
+   "label": "компютър",
+   "cat": "actions"
+  },
+  {
+   "key": "tablet",
+   "label": "таблет",
+   "cat": "actions"
+  },
+  {
+   "key": "tv",
+   "label": "телевизор",
+   "cat": "actions"
+  },
+  {
+   "key": "videogame",
+   "label": "игра",
+   "cat": "actions"
+  },
+  {
+   "key": "sing",
+   "label": "пея",
+   "cat": "actions"
+  },
+  {
+   "key": "drum",
+   "label": "барабан",
+   "cat": "actions"
+  },
+  {
+   "key": "jump",
+   "label": "скачам",
+   "cat": "actions"
+  },
+  {
+   "key": "sleep",
+   "label": "спя",
+   "cat": "actions"
+  },
+  {
+   "key": "sit",
+   "label": "сядам",
+   "cat": "actions"
+  },
+  {
+   "key": "play",
+   "label": "играя",
+   "cat": "actions"
+  },
+  {
+   "key": "garden",
+   "label": "градинка",
+   "cat": "actions"
+  },
+  {
+   "key": "bubbles",
+   "label": "балончета",
+   "cat": "actions"
+  },
+  {
+   "key": "swing",
+   "label": "люлка",
+   "cat": "actions"
+  },
+  {
+   "key": "school",
+   "label": "училище",
+   "cat": "school"
+  },
+  {
+   "key": "teacher",
+   "label": "учител",
+   "cat": "school"
+  },
+  {
+   "key": "math",
+   "label": "математика",
+   "cat": "school"
+  },
+  {
+   "key": "letters",
+   "label": "буквите",
+   "cat": "school"
+  },
+  {
+   "key": "books",
+   "label": "книги",
+   "cat": "school"
+  },
+  {
+   "key": "backpack",
+   "label": "раница",
+   "cat": "school"
+  },
+  {
+   "key": "abacus",
+   "label": "сметало",
+   "cat": "school"
+  },
+  {
+   "key": "speech",
+   "label": "логопед",
+   "cat": "school"
+  },
+  {
+   "key": "psychologist",
+   "label": "психолог",
+   "cat": "school"
+  },
+  {
+   "key": "therapy_move",
+   "label": "рехабилитация",
+   "cat": "school"
+  },
+  {
+   "key": "doctor",
+   "label": "лекар",
+   "cat": "school"
+  },
+  {
+   "key": "clock",
+   "label": "час",
+   "cat": "school"
+  },
+  {
+   "key": "calendar",
+   "label": "календар",
+   "cat": "school"
+  },
+  {
+   "key": "bell",
+   "label": "звънец",
+   "cat": "school"
+  },
+  {
+   "key": "sport",
+   "label": "физкултура",
+   "cat": "school"
+  },
+  {
+   "key": "art",
+   "label": "изкуство",
+   "cat": "school"
+  },
+  {
+   "key": "science",
+   "label": "околен свят",
+   "cat": "school"
+  },
+  {
+   "key": "globe",
+   "label": "светът",
+   "cat": "school"
+  },
+  {
+   "key": "ruler",
+   "label": "линийка",
+   "cat": "school"
+  },
+  {
+   "key": "glue",
+   "label": "лепило",
+   "cat": "school"
+  },
+  {
+   "key": "notebook",
+   "label": "тетрадка",
+   "cat": "school"
+  },
+  {
+   "key": "circle_time",
+   "label": "кръг",
+   "cat": "school"
+  },
+  {
+   "key": "class",
+   "label": "приятели",
+   "cat": "school"
+  },
+  {
+   "key": "bus_school",
+   "label": "автобус",
+   "cat": "school"
+  },
+  {
+   "key": "breakfast",
+   "label": "закуска",
+   "cat": "food"
+  },
+  {
+   "key": "lunch",
+   "label": "обяд",
+   "cat": "food"
+  },
+  {
+   "key": "milk",
+   "label": "мляко",
+   "cat": "food"
+  },
+  {
+   "key": "juice",
+   "label": "сок",
+   "cat": "food"
+  },
+  {
+   "key": "cookie",
+   "label": "бисквитка",
+   "cat": "food"
+  },
+  {
+   "key": "apple",
+   "label": "ябълка",
+   "cat": "food"
+  },
+  {
+   "key": "banana",
+   "label": "банан",
+   "cat": "food"
+  },
+  {
+   "key": "bread",
+   "label": "хляб",
+   "cat": "food"
+  },
+  {
+   "key": "cheese",
+   "label": "сирене",
+   "cat": "food"
+  },
+  {
+   "key": "carrot",
+   "label": "морков",
+   "cat": "food"
+  },
+  {
+   "key": "pizza",
+   "label": "пица",
+   "cat": "food"
+  },
+  {
+   "key": "pasta",
+   "label": "макарони",
+   "cat": "food"
+  },
+  {
+   "key": "pear",
+   "label": "круша",
+   "cat": "food"
+  },
+  {
+   "key": "grapes",
+   "label": "грозде",
+   "cat": "food"
+  },
+  {
+   "key": "strawberry",
+   "label": "ягода",
+   "cat": "food"
+  },
+  {
+   "key": "watermelon",
+   "label": "диня",
+   "cat": "food"
+  },
+  {
+   "key": "orange",
+   "label": "портокал",
+   "cat": "food"
+  },
+  {
+   "key": "pineapple",
+   "label": "ананас",
+   "cat": "food"
+  },
+  {
+   "key": "egg",
+   "label": "яйце",
+   "cat": "food"
+  },
+  {
+   "key": "tomato",
+   "label": "домат",
+   "cat": "food"
+  },
+  {
+   "key": "cucumber",
+   "label": "краставица",
+   "cat": "food"
+  },
+  {
+   "key": "icecream",
+   "label": "сладолед",
+   "cat": "food"
+  },
+  {
+   "key": "cake",
+   "label": "торта",
+   "cat": "food"
+  },
+  {
+   "key": "candy",
+   "label": "близалка",
+   "cat": "food"
+  },
+  {
+   "key": "mushroom",
+   "label": "гъба",
+   "cat": "food"
+  },
+  {
+   "key": "chocolate",
+   "label": "шоколад",
+   "cat": "food"
+  },
+  {
+   "key": "soup",
+   "label": "супа",
+   "cat": "food"
+  },
+  {
+   "key": "home",
+   "label": "вкъщи",
+   "cat": "places"
+  },
+  {
+   "key": "bus",
+   "label": "автобус",
+   "cat": "places"
+  },
+  {
+   "key": "car",
+   "label": "кола",
+   "cat": "places"
+  },
+  {
+   "key": "hospital",
+   "label": "болница",
+   "cat": "places"
+  },
+  {
+   "key": "park",
+   "label": "парк",
+   "cat": "places"
+  },
+  {
+   "key": "tree",
+   "label": "дърво",
+   "cat": "places"
+  },
+  {
+   "key": "train",
+   "label": "влак",
+   "cat": "places"
+  },
+  {
+   "key": "plane",
+   "label": "самолет",
+   "cat": "places"
+  },
+  {
+   "key": "ship",
+   "label": "кораб",
+   "cat": "places"
+  },
+  {
+   "key": "bicycle",
+   "label": "колело",
+   "cat": "places"
+  },
+  {
+   "key": "truck",
+   "label": "камион",
+   "cat": "places"
+  },
+  {
+   "key": "tractor",
+   "label": "трактор",
+   "cat": "places"
+  },
+  {
+   "key": "rocket",
+   "label": "ракета",
+   "cat": "places"
+  },
+  {
+   "key": "helicopter",
+   "label": "хеликоптер",
+   "cat": "places"
+  },
+  {
+   "key": "ambulance",
+   "label": "линейка",
+   "cat": "places"
+  },
+  {
+   "key": "firetruck",
+   "label": "пожарна",
+   "cat": "places"
+  },
+  {
+   "key": "police",
+   "label": "полиция",
+   "cat": "places"
+  },
+  {
+   "key": "playground",
+   "label": "площадка",
+   "cat": "places"
+  },
+  {
+   "key": "shop_place",
+   "label": "магазин",
+   "cat": "places"
+  },
+  {
+   "key": "lighthouse",
+   "label": "кула",
+   "cat": "places"
+  },
+  {
+   "key": "sun",
+   "label": "слънце",
+   "cat": "nature"
+  },
+  {
+   "key": "rain",
+   "label": "дъжд",
+   "cat": "nature"
+  },
+  {
+   "key": "snow",
+   "label": "сняг",
+   "cat": "nature"
+  },
+  {
+   "key": "autumn",
+   "label": "есен",
+   "cat": "nature"
+  },
+  {
+   "key": "spring",
+   "label": "пролет",
+   "cat": "nature"
+  },
+  {
+   "key": "moon",
+   "label": "нощ",
+   "cat": "nature"
+  },
+  {
+   "key": "rainbow",
+   "label": "дъга",
+   "cat": "nature"
+  },
+  {
+   "key": "cloud",
+   "label": "облак",
+   "cat": "nature"
+  },
+  {
+   "key": "wind",
+   "label": "вятър",
+   "cat": "nature"
+  },
+  {
+   "key": "flower",
+   "label": "цвете",
+   "cat": "nature"
+  },
+  {
+   "key": "summer",
+   "label": "лято",
+   "cat": "nature"
+  },
+  {
+   "key": "winter",
+   "label": "зима",
+   "cat": "nature"
+  },
+  {
+   "key": "leaf",
+   "label": "лист",
+   "cat": "nature"
+  },
+  {
+   "key": "fire",
+   "label": "огън",
+   "cat": "nature"
+  },
+  {
+   "key": "star_night",
+   "label": "звезда",
+   "cat": "nature"
+  },
+  {
+   "key": "candle",
+   "label": "свещ",
+   "cat": "nature"
+  },
+  {
+   "key": "wave",
+   "label": "море",
+   "cat": "nature"
+  },
+  {
+   "key": "mountain",
+   "label": "планина",
+   "cat": "nature"
+  },
+  {
+   "key": "dog",
+   "label": "куче",
+   "cat": "animals"
+  },
+  {
+   "key": "cat",
+   "label": "котка",
+   "cat": "animals"
+  },
+  {
+   "key": "fish",
+   "label": "риба",
+   "cat": "animals"
+  },
+  {
+   "key": "bird",
+   "label": "птица",
+   "cat": "animals"
+  },
+  {
+   "key": "horse",
+   "label": "кон",
+   "cat": "animals"
+  },
+  {
+   "key": "cow",
+   "label": "крава",
+   "cat": "animals"
+  },
+  {
+   "key": "pig",
+   "label": "прасе",
+   "cat": "animals"
+  },
+  {
+   "key": "chicken",
+   "label": "кокошка",
+   "cat": "animals"
+  },
+  {
+   "key": "sheep",
+   "label": "овца",
+   "cat": "animals"
+  },
+  {
+   "key": "rabbit",
+   "label": "заек",
+   "cat": "animals"
+  },
+  {
+   "key": "bear",
+   "label": "мечка",
+   "cat": "animals"
+  },
+  {
+   "key": "lion",
+   "label": "лъв",
+   "cat": "animals"
+  },
+  {
+   "key": "elephant",
+   "label": "слон",
+   "cat": "animals"
+  },
+  {
+   "key": "butterfly",
+   "label": "пеперуда",
+   "cat": "animals"
+  },
+  {
+   "key": "ladybug",
+   "label": "калинка",
+   "cat": "animals"
+  },
+  {
+   "key": "frog",
+   "label": "жаба",
+   "cat": "animals"
+  },
+  {
+   "key": "monkey",
+   "label": "маймуна",
+   "cat": "animals"
+  },
+  {
+   "key": "giraffe",
+   "label": "жираф",
+   "cat": "animals"
+  },
+  {
+   "key": "deer",
+   "label": "елен",
+   "cat": "animals"
+  },
+  {
+   "key": "flamingo",
+   "label": "фламинго",
+   "cat": "animals"
+  },
+  {
+   "key": "hedgehog",
+   "label": "таралеж",
+   "cat": "animals"
+  },
+  {
+   "key": "bee",
+   "label": "пчела",
+   "cat": "animals"
+  },
+  {
+   "key": "snail",
+   "label": "охлюв",
+   "cat": "animals"
+  },
+  {
+   "key": "turtle",
+   "label": "костенурка",
+   "cat": "animals"
+  },
+  {
+   "key": "duck",
+   "label": "патица",
+   "cat": "animals"
+  },
+  {
+   "key": "owl",
+   "label": "бухал",
+   "cat": "animals"
+  },
+  {
+   "key": "mouse",
+   "label": "мишка",
+   "cat": "animals"
+  },
+  {
+   "key": "fox",
+   "label": "лисица",
+   "cat": "animals"
+  },
+  {
+   "key": "panda",
+   "label": "панда",
+   "cat": "animals"
+  },
+  {
+   "key": "whale",
+   "label": "кит",
+   "cat": "animals"
+  },
+  {
+   "key": "bone",
+   "label": "кокал",
+   "cat": "animals"
+  },
+  {
+   "key": "carrot2",
+   "label": "морков",
+   "cat": "animals"
+  },
+  {
+   "key": "star",
+   "label": "звезда",
+   "cat": "objects"
+  },
+  {
+   "key": "trophy",
+   "label": "купа",
+   "cat": "objects"
+  },
+  {
+   "key": "gift",
+   "label": "подарък",
+   "cat": "objects"
+  },
+  {
+   "key": "balloon",
+   "label": "балон",
+   "cat": "objects"
+  },
+  {
+   "key": "teddy",
+   "label": "мече",
+   "cat": "objects"
+  },
+  {
+   "key": "party",
+   "label": "празник",
+   "cat": "objects"
+  },
+  {
+   "key": "heart",
+   "label": "сърце",
+   "cat": "objects"
+  },
+  {
+   "key": "key",
+   "label": "ключ",
+   "cat": "objects"
+  },
+  {
+   "key": "umbrella",
+   "label": "чадър",
+   "cat": "objects"
+  },
+  {
+   "key": "glasses",
+   "label": "очила",
+   "cat": "objects"
+  },
+  {
+   "key": "phone",
+   "label": "телефон",
+   "cat": "objects"
+  },
+  {
+   "key": "lamp",
+   "label": "лампа",
+   "cat": "objects"
+  },
+  {
+   "key": "clock2",
+   "label": "часовник",
+   "cat": "objects"
+  },
+  {
+   "key": "needle",
+   "label": "игла",
+   "cat": "objects"
+  },
+  {
+   "key": "yoyo",
+   "label": "йо-йо",
+   "cat": "objects"
+  },
+  {
+   "key": "kite",
+   "label": "хвърчило",
+   "cat": "objects"
+  },
+  {
+   "key": "guitar",
+   "label": "китара",
+   "cat": "objects"
+  },
+  {
+   "key": "crown",
+   "label": "корона",
+   "cat": "objects"
+  },
+  {
+   "key": "hat",
+   "label": "шапка",
+   "cat": "objects"
+  },
+  {
+   "key": "lantern",
+   "label": "фенер",
+   "cat": "objects"
+  },
+  {
+   "key": "fist",
+   "label": "юмрук",
+   "cat": "objects"
+  },
+  {
+   "key": "nose",
+   "label": "нос",
+   "cat": "objects"
+  },
+  {
+   "key": "ear",
+   "label": "ухо",
+   "cat": "objects"
+  },
+  {
+   "key": "eye",
+   "label": "око",
+   "cat": "objects"
+  },
+  {
+   "key": "hand",
+   "label": "ръка",
+   "cat": "objects"
+  },
+  {
+   "key": "foot",
+   "label": "крак",
+   "cat": "objects"
+  },
+  {
+   "key": "tooth",
+   "label": "зъб",
+   "cat": "objects"
+  },
+  {
+   "key": "triangle_ruler",
+   "label": "ъгъл",
+   "cat": "objects"
+  },
+  {
+   "key": "flag",
+   "label": "знаме",
+   "cat": "objects"
+  },
+  {
+   "key": "home2",
+   "label": "къща",
+   "cat": "objects"
+  },
+  {
+   "key": "house",
+   "label": "къщи",
+   "cat": "objects"
+  },
+  {
+   "key": "soap",
+   "label": "сапун",
+   "cat": "objects"
+  },
+  {
+   "key": "towel",
+   "label": "хартия",
+   "cat": "objects"
+  },
+  {
+   "key": "chair",
+   "label": "стол",
+   "cat": "objects"
+  },
+  {
+   "key": "door",
+   "label": "врата",
+   "cat": "objects"
+  },
+  {
+   "key": "window",
+   "label": "прозорец",
+   "cat": "objects"
+  },
+  {
+   "key": "scale",
+   "label": "везна",
+   "cat": "objects"
+  },
+  {
+   "key": "magnet",
+   "label": "магнит",
+   "cat": "objects"
+  },
+  {
+   "key": "dice",
+   "label": "зарче",
+   "cat": "objects"
+  },
+  {
+   "key": "pen",
+   "label": "химикалка",
+   "cat": "objects"
+  },
+  {
+   "key": "bulb",
+   "label": "идея",
+   "cat": "objects"
+  },
+  {
+   "key": "tooth_brush2",
+   "label": "четка",
+   "cat": "objects"
+  },
+  {
+   "key": "red",
+   "label": "червено",
+   "cat": "shapes"
+  },
+  {
+   "key": "orange_c",
+   "label": "оранжево",
+   "cat": "shapes"
+  },
+  {
+   "key": "yellow",
+   "label": "жълто",
+   "cat": "shapes"
+  },
+  {
+   "key": "green",
+   "label": "зелено",
+   "cat": "shapes"
+  },
+  {
+   "key": "blue",
+   "label": "синьо",
+   "cat": "shapes"
+  },
+  {
+   "key": "purple",
+   "label": "лилаво",
+   "cat": "shapes"
+  },
+  {
+   "key": "brown",
+   "label": "кафяво",
+   "cat": "shapes"
+  },
+  {
+   "key": "black",
+   "label": "черно",
+   "cat": "shapes"
+  },
+  {
+   "key": "white",
+   "label": "бяло",
+   "cat": "shapes"
+  },
+  {
+   "key": "red_sq",
+   "label": "червен квадрат",
+   "cat": "shapes"
+  },
+  {
+   "key": "blue_sq",
+   "label": "син квадрат",
+   "cat": "shapes"
+  },
+  {
+   "key": "green_sq",
+   "label": "зелен квадрат",
+   "cat": "shapes"
+  },
+  {
+   "key": "yellow_sq",
+   "label": "жълт квадрат",
+   "cat": "shapes"
+  },
+  {
+   "key": "diamond",
+   "label": "ромб",
+   "cat": "shapes"
+  },
+  {
+   "key": "triangle",
+   "label": "триъгълник",
+   "cat": "shapes"
+  }
+ ]
+}

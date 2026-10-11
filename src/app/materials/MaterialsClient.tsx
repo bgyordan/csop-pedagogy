@@ -12,6 +12,7 @@ import { smartMatch } from '@/lib/search'
 import { AREAS, areaMeta } from '../students/[id]/development/lib'
 import { KINDS, isImage, sourceValid } from './lib'
 import type { Material, Source } from './lib'
+import SeedLoader from './SeedLoader'
 
 const MAX_MB = 30
 
@@ -39,7 +40,7 @@ export default function MaterialsClient({ initialArea = '', materials, sources, 
 
   async function remove(m: Material) {
     if (!confirm(`Да се изтрие ли „${m.title}“ от библиотеката?`)) return
-    await supabase.storage.from('materials').remove([m.file_path])
+    await supabase.storage.from('materials').remove([m.file_path, ...(m.preview_path ? [m.preview_path] : [])])
     const { error } = await supabase.from('materials').delete().eq('id', m.id)
     if (error) { toast(error.message, 'error'); return }
     toast('Изтрито'); router.refresh()
@@ -68,6 +69,8 @@ export default function MaterialsClient({ initialArea = '', materials, sources, 
         )}
       </div>
 
+      {isManager && <SeedLoader materials={materials} sources={sources} meId={meId} />}
+
       {/* Филтри */}
       <div className="flex flex-wrap gap-1 p-1 bg-slate-100 rounded-xl w-fit">
         <button type="button" onClick={() => setArea('')} className={chip(!area)}>Всички области</button>
@@ -91,20 +94,20 @@ export default function MaterialsClient({ initialArea = '', materials, sources, 
             const expired = !sourceValid(src, today)
             return (
               <div key={m.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all">
-                <button type="button" onClick={() => open(m, false)} className="h-36 bg-slate-50 flex items-center justify-center border-b border-slate-100 overflow-hidden">
+                <button type="button" onClick={() => open(m, false)} className={`${m.preview_path ? 'h-44' : 'h-36'} bg-slate-50 flex items-center justify-center border-b border-slate-100 overflow-hidden`}>
                   {thumbs[m.file_path]
-                    ? <img src={thumbs[m.file_path]} alt="" className="w-full h-full object-contain" />
+                    ? <img src={thumbs[m.file_path]} alt="" loading="lazy" className={m.preview_path ? 'w-full h-full object-cover object-top' : 'w-full h-full object-contain'} />
                     : <div className="flex flex-col items-center gap-1 text-slate-300">{isImage(m) ? <ImageIcon size={34} /> : <FileText size={34} />}<span className="text-[11px] uppercase tracking-widest">{(m.file_name.split('.').pop() || '').slice(0, 5)}</span></div>}
                 </button>
                 <div className="px-4 py-3 flex-1 flex flex-col">
                   <div className="text-[14px] text-slate-800 leading-snug">{m.title}</div>
                   {m.description && <p className="text-[12.5px] text-slate-500 mt-0.5 line-clamp-2">{m.description}</p>}
                   <div className="flex flex-wrap gap-1 mt-2">
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{KINDS[m.kind] || m.kind}</span>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{KINDS[m.kind] || m.kind}{m.pages ? ` · ${m.pages} стр.` : ''}</span>
                     {m.areas.map(a => <span key={a} className="text-[11px] px-2 py-0.5 rounded-full border" style={{ color: areaMeta(a).color, borderColor: areaMeta(a).color + '40' }}>{areaMeta(a).short}</span>)}
                     {isManager && expired && <span className="text-[11px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">изтекъл източник — скрит за колегите</span>}
                   </div>
-                  <div className="text-[11.5px] text-slate-400 mt-2">{(m.uploaded_by && names[m.uploaded_by]) || '—'} · {new Date(m.created_at).toLocaleDateString('bg-BG')}</div>
+                  <div className="text-[11.5px] text-slate-400 mt-auto pt-2">{m.seed_key ? 'Начален комплект на ЕИС' : <>{(m.uploaded_by && names[m.uploaded_by]) || '—'} · {new Date(m.created_at).toLocaleDateString('bg-BG')}</>}</div>
                   <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
                     <button type="button" onClick={() => open(m, false)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 text-[13px] text-slate-700 hover:border-[#0f2240]"><Printer size={13} /> Отвори / печат</button>
                     <button type="button" onClick={() => open(m, true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 text-[13px] text-slate-700 hover:border-[#0f2240]"><Download size={13} /> Изтегли</button>
