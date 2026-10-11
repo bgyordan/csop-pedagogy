@@ -28,6 +28,8 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
   const files = post.media.filter(m => !isImage(m))
   const [full, setFull] = useState<Record<string, string>>({})
   const [box, setBox] = useState<number | null>(null)
+  /** Коя снимка е голяма в панела вдясно (по подразбиране корицата) */
+  const [sel, setSel] = useState(() => Math.max(0, images.findIndex(m => m.path === post.cover_path)))
   const [allPhotos, setAllPhotos] = useState(false)
   const [viewFile, setViewFile] = useState<Media | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -56,9 +58,11 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
     return () => window.removeEventListener('keydown', onKey)
   }, [close, box, images.length])
 
-  const coverSmall = coverThumb(post, thumbs)
-  const coverMedia = images.find(m => m.path === post.cover_path) || images[0]
-  const cover = (coverMedia && full[coverMedia.path]) || coverSmall
+  // при разглеждане на цял екран — запомни докъде си стигнал
+  useEffect(() => { if (box !== null) setSel(box) }, [box])
+
+  const shown = images[sel] || images[0]
+  const shownSrc = shown ? (full[shown.path] || (shown.thumb_path ? thumbs[shown.thumb_path] : undefined) || coverThumb(post, thumbs)) : undefined
 
   async function download(m: Media) {
     const { data } = await supabase.storage.from('portfolio').download(m.path)
@@ -130,37 +134,61 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm overflow-y-auto panel-in" onClick={onClose}>
-      <article className="relative max-w-4xl mx-auto my-0 md:my-8 bg-white md:rounded-3xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+      <article className="relative max-w-5xl mx-auto my-0 md:my-8 bg-white md:rounded-3xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
         <button type="button" onClick={onClose} title="Затвори (Esc)"
           className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-white/90 hover:bg-white shadow flex items-center justify-center text-slate-700"><X size={18} /></button>
 
-        {cover ? (
-          <button type="button" onClick={() => setBox(Math.max(0, images.indexOf(coverMedia!)))} className="block w-full bg-slate-900">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={cover} alt="" className="w-full max-h-[460px] object-cover" />
-          </button>
-        ) : (
-          <div className={`h-40 bg-gradient-to-br ${k.grad} flex items-center justify-center`}><Icon size={72} strokeWidth={1.25} className="text-white/80" /></div>
-        )}
+        {/* Горе: текст вляво, снимки вдясно (на телефон — снимките отгоре) */}
+        <div className={`px-5 md:px-8 pt-14 md:pt-8 pb-2 ${images.length ? 'md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,400px)] md:gap-8' : ''}`}>
+          {images.length > 0 && (
+            <div className="md:order-2 md:sticky md:top-6 self-start mb-6 md:mb-0">
+              <button type="button" onClick={() => setBox(sel)} title="Цял екран"
+                className="group block w-full aspect-[4/3] rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {shownSrc && <img src={shownSrc} alt={shown?.caption || ''} className="w-full h-full object-contain" />}
+              </button>
+              {shown?.caption && <p className="mt-1.5 text-[12.5px] text-slate-500 leading-snug">{shown.caption}</p>}
+              {images.length > 1 && (
+                <div className="mt-2 grid grid-cols-5 gap-1.5">
+                  {(allPhotos ? images : images.slice(0, GALLERY_MAX)).map((m, i) => (
+                    <button key={m.id} type="button" onClick={() => setSel(i)} title={m.caption || `Снимка ${i + 1}`}
+                      className={`aspect-square rounded-lg overflow-hidden bg-slate-100 transition-all ${i === sel ? 'ring-2 ring-[#0f2240] ring-offset-1' : 'opacity-75 hover:opacity-100'}`}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={(m.thumb_path && thumbs[m.thumb_path]) || full[m.path]} alt="" loading="lazy" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                  {!allPhotos && images.length > GALLERY_MAX && (
+                    <button type="button" onClick={() => setAllPhotos(true)}
+                      className="aspect-square rounded-lg border border-dashed border-slate-300 text-slate-600 hover:border-[#0f2240] hover:text-[#0f2240] text-[13px] flex items-center justify-center">
+                      +{images.length - GALLERY_MAX}
+                    </button>
+                  )}
+                </div>
+              )}
+              <p className="mt-1.5 text-[11.5px] text-slate-400">{images.length > 1 ? `${sel + 1} от ${images.length} · ` : ''}клик върху снимката — на цял екран</p>
+            </div>
+          )}
 
-        <div className="px-6 md:px-12 py-8">
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <span className={`inline-flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-full border ${k.soft}`}><Icon size={13} /> {k.label}</span>
-            {post.kind === 'project' && post.status && STATUS[post.status] && <span className={`text-[12px] px-2.5 py-1 rounded-full ${STATUS[post.status].cls}`}>{STATUS[post.status].label}</span>}
-            {draft && <span className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1 rounded-full bg-slate-700 text-white"><Lock size={12} /> Само за мен</span>}
-            {!draft && site && <span className={`inline-flex items-center gap-1 text-[12px] px-2.5 py-1 rounded-full ${site.cls}`}><Globe size={12} /> {site.label}</span>}
+          <div className="md:order-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className={`inline-flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-full border ${k.soft}`}><Icon size={13} /> {k.label}</span>
+              {post.kind === 'project' && post.status && STATUS[post.status] && <span className={`text-[12px] px-2.5 py-1 rounded-full ${STATUS[post.status].cls}`}>{STATUS[post.status].label}</span>}
+              {draft && <span className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1 rounded-full bg-slate-700 text-white"><Lock size={12} /> Само за мен</span>}
+              {!draft && site && <span className={`inline-flex items-center gap-1 text-[12px] px-2.5 py-1 rounded-full ${site.cls}`}><Globe size={12} /> {site.label}</span>}
+            </div>
+            <h1 className="text-2xl md:text-[28px] font-semibold tracking-tight text-slate-900 leading-tight">{post.title}</h1>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-4 text-sm text-slate-500">
+              <span className="inline-flex items-center gap-2"><Avatar name={author?.name || 'ЦСОП'} size={30} />
+                <span><span className="text-slate-800 font-medium">{author?.name || 'ЦСОП'}</span>{author?.label ? <span className="block text-[12px]">{author.label}</span> : null}</span></span>
+              <span className="inline-flex items-center gap-1"><CalendarDays size={14} /> {fmtDate(post.event_date || post.created_at)}</span>
+              {post.kind === 'project' && (post.period_from || post.period_to) && <span>· {fmtPeriod(post.period_from, post.period_to)}</span>}
+              {cls.length > 0 && <span>· {cls.join(', ')}</span>}
+            </div>
+            {post.body?.trim() && <div className="mt-5 text-[15.5px] leading-relaxed text-slate-800">{renderRich(post.body)}</div>}
           </div>
-          <h1 className="text-2xl md:text-[32px] font-semibold tracking-tight text-slate-900 leading-tight">{post.title}</h1>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-4 text-sm text-slate-500">
-            <span className="inline-flex items-center gap-2"><Avatar name={author?.name || 'ЦСОП'} size={30} />
-              <span><span className="text-slate-800 font-medium">{author?.name || 'ЦСОП'}</span>{author?.label ? <span className="block text-[12px]">{author.label}</span> : null}</span></span>
-            <span className="inline-flex items-center gap-1"><CalendarDays size={14} /> {fmtDate(post.event_date || post.created_at)}</span>
-            {post.kind === 'project' && (post.period_from || post.period_to) && <span>· {fmtPeriod(post.period_from, post.period_to)}</span>}
-            {cls.length > 0 && <span>· {cls.join(', ')}</span>}
-          </div>
+        </div>
 
-          {post.body?.trim() && <div className="mt-6 text-[16px] leading-relaxed text-slate-800">{renderRich(post.body)}</div>}
-
+        <div className="px-5 md:px-8 pb-8">
           {projectBlocks.length > 0 && (
             <div className={`mt-6 grid gap-3 ${projectBlocks.length === 3 ? 'md:grid-cols-3' : projectBlocks.length === 2 ? 'md:grid-cols-2' : ''}`}>
               {projectBlocks.map(([h, v, I]) => (
@@ -169,28 +197,6 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
                   <div className="text-[14px] text-slate-800 whitespace-pre-line leading-relaxed">{v}</div>
                 </div>
               ))}
-            </div>
-          )}
-
-          {images.length > (cover ? 1 : 0) && (
-            <div className="mt-8">
-              <h2 className="text-[12px] font-semibold uppercase tracking-widest text-slate-500 mb-3">Снимки · {images.length}</h2>
-              {/* малки миниатюри; при много снимки — първите GALLERY_MAX и „още N“ */}
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5">
-                {(allPhotos ? images : images.slice(0, GALLERY_MAX)).map((m, i) => (
-                  <button key={m.id} type="button" onClick={() => setBox(i)} className="group relative aspect-square rounded-lg overflow-hidden bg-slate-100">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={(m.thumb_path && thumbs[m.thumb_path]) || full[m.path]} alt={m.caption || ''} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    {m.caption && <span className="absolute inset-x-0 bottom-0 p-1.5 text-[10.5px] leading-tight text-white bg-gradient-to-t from-black/70 to-transparent text-left line-clamp-2">{m.caption}</span>}
-                  </button>
-                ))}
-                {!allPhotos && images.length > GALLERY_MAX && (
-                  <button type="button" onClick={() => setAllPhotos(true)}
-                    className="aspect-square rounded-lg border-2 border-dashed border-slate-300 text-slate-600 hover:border-[#0f2240] hover:text-[#0f2240] text-sm font-medium flex flex-col items-center justify-center">
-                    <span className="text-lg">+{images.length - GALLERY_MAX}</span><span className="text-[11px] font-normal">покажи всички</span>
-                  </button>
-                )}
-              </div>
             </div>
           )}
 
