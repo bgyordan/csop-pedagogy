@@ -10,10 +10,10 @@ export default async function OnlineRoomStrip({ profile, currentYearId }: { prof
   const supabase = await createClient()
   const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })
   const { data: ores, error } = await supabase.from('student_ores')
-    .select('id, student_id, to_date, room_token, student:students(id, first_name, last_name, status, therapist_psychologist_id, therapist_speech_id, therapist_rehab_id, therapist_rehab2_id)')
+    .select('id, student_id, to_date, room_token, room_closed_at, student:students(id, first_name, last_name, status, therapist_psychologist_id, therapist_speech_id, therapist_rehab_id, therapist_rehab2_id)')
     .lte('from_date', today).or(`to_date.is.null,to_date.gte.${today}`)
   if (error || !ores?.length) return null
-  let list = ores.filter((o: any) => o.room_token && o.student?.status === 'active')
+  let list = ores.filter((o: any) => o.room_token && !o.room_closed_at && o.student?.status === 'active')
   if (!list.length) return null
 
   const ids = list.map((o: any) => o.student_id)

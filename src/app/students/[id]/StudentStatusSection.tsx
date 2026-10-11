@@ -66,7 +66,7 @@ export default function StudentStatusSection({
   }
 
   const today = new Date().toISOString().split('T')[0]
-  const activeOres = ores.find(o => o.from_date <= today && (!o.to_date || o.to_date >= today))
+  const activeOres = ores.find(o => !(o as any).room_closed_at && o.from_date <= today && (!o.to_date || o.to_date >= today))
 
   async function updateForm(newForm: string) {
     if (!enrollmentId) return
@@ -99,7 +99,14 @@ export default function StudentStatusSection({
 
   async function deleteOres(oresId: string) {
     if (!confirm('Изтриване на записа за ОРЕС?')) return
-    await supabase.from('student_ores').delete().eq('id', oresId)
+    const { error } = await supabase.from('student_ores').delete().eq('id', oresId)
+    if (error) {
+      // в онлайн стаята има публикации — хронологията се пази (ОРЕС се приключва от таба „Онлайн стая“)
+      alert(error.code === '23503'
+        ? 'Този ОРЕС има хронология в онлайн стаята и не може да се изтрие. Приключете го от таба „Онлайн стая“.'
+        : 'Грешка при изтриване: ' + error.message)
+      return
+    }
     setOres(prev => prev.filter(o => o.id !== oresId))
     router.refresh()
   }
