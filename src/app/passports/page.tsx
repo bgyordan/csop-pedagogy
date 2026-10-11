@@ -3,8 +3,9 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { BackButton } from '@/components/ui/BackButton'
-import { IdCard } from 'lucide-react'
+import { IdCard, ChevronRight } from 'lucide-react'
 import PassportSheet from '../students/[id]/passport/PassportSheet'
 import { PASSPORT_COLS, isFilled } from '../students/[id]/passport/lib'
 import type { Passport } from '../students/[id]/passport/lib'
@@ -14,12 +15,20 @@ export const dynamic = 'force-dynamic'
 type Kid = { id: string; name: string; group: string }
 
 export default async function PassportsPage({ searchParams }: { searchParams: Promise<{ student?: string; class?: string; coud?: string; staff?: string }> }) {
-  const sp = await searchParams
+  const sp = { ...(await searchParams) }
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
   const { data: cy } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
   const yearId = cy?.id
+  const { data: me } = await supabase.from('staff_profiles').select('id, role').eq('user_id', user.id).single()
+  const isManager = ['admin', 'zdud', 'director'].includes(me?.role || '')
+
+  // От менюто (без избор): колегите — децата, с които работят; управата — избор на паралелка / ЦОУД група
+  if (!sp.student && !sp.class && !sp.coud && !sp.staff) {
+    if (!isManager && me?.id) sp.staff = me.id
+    else return <PassportPicker yearId={yearId} />
+  }
 
   // 1. Кои деца и в каква група
   const groupOf: Record<string, string> = {}          // student_id → етикет на групата
@@ -33,7 +42,8 @@ export default async function PassportsPage({ searchParams }: { searchParams: Pr
   if (sp.coud) coudIds.add(sp.coud)
   if (sp.staff) {
     const { data: st } = await supabase.from('staff_profiles').select('first_name, last_name').eq('id', sp.staff).maybeSingle()
-    if (st) title = `Децата на ${st.first_name} ${st.last_name}`
+    if (sp.staff === me?.id) title = 'Децата, с които работя'
+    else if (st) title = `Децата на ${st.first_name} ${st.last_name}`
     // паралелки: класен + всяка паралелка, в която има часове
     const [{ data: ct }, { data: scheds }, { data: ifo }, { data: cg }] = await Promise.all([
       supabase.from('class_teacher_assignments').select('class_id').eq('staff_id', sp.staff).eq('academic_year_id', yearId),
@@ -51,6 +61,15 @@ export default async function PassportsPage({ searchParams }: { searchParams: Pr
     }
     ;(ifo || []).forEach((r: any) => add(r.student_id, 'ИФО'))
     ;(cg || []).forEach((r: any) => coudIds.add(r.id))
+    // терапевтите: децата, с които работят, и ЕПЛР екипите им
+    const [{ data: th }, { data: et }] = await Promise.all([
+      supabase.from('students').select('id, status')
+        .or(`therapist_psychologist_id.eq.${sp.staff},therapist_speech_id.eq.${sp.staff},therapist_rehab_id.eq.${sp.staff},therapist_rehab2_id.eq.${sp.staff}`),
+      supabase.from('eplr_teams').select('student_id').eq('academic_year_id', yearId)
+        .or(`psychologist_id.eq.${sp.staff},speech_therapist_id.eq.${sp.staff},rehabilitator_id.eq.${sp.staff},class_teacher_id.eq.${sp.staff}`),
+    ])
+    ;(th || []).filter((r: any) => r.status === 'active').forEach((r: any) => add(r.id, ''))
+    ;(et || []).forEach((r: any) => add(r.student_id, ''))
   }
 
   if (classIds.size) {
@@ -73,7 +92,7 @@ export default async function PassportsPage({ searchParams }: { searchParams: Pr
 
   // 2. Имената, паралелката (за подзаглавието) и паспортите
   const [{ data: studs }, { data: pp }, { data: enr }] = ids.length ? await Promise.all([
-    supabase.from('students').select('id, first_name, middle_name, last_name').in('id', ids),
+    supabase.from('students').select('id, first_name, middle_name, last_name, status').in('id', ids),
     supabase.from('student_passports').select(PASSPORT_COLS).in('student_id', ids),
     supabase.from('student_enrollments').select('student_id, class:classes(name)').in('student_id', ids).eq('academic_year_id', yearId),
   ]) : [{ data: [] }, { data: [] }, { data: [] }] as any
@@ -82,7 +101,7 @@ export default async function PassportsPage({ searchParams }: { searchParams: Pr
   const pass: Record<string, Passport> = {}
   ;(pp || []).forEach((p: any) => { pass[p.student_id] = p as Passport })
 
-  const kids: Kid[] = (studs || []).map((s: any) => ({
+  const kids: Kid[] = (studs || []).filter((s: any) => s.status === 'active' || sp.student).map((s: any) => ({
     id: s.id, name: `${s.first_name} ${s.last_name}`, group: groupOf[s.id] || (clsOf[s.id] ? `Паралелка ${clsOf[s.id]}` : ''),
   })).sort((a: Kid, b: Kid) => a.group.localeCompare(b.group, 'bg', { numeric: true }) || a.name.localeCompare(b.name, 'bg'))
   if (sp.student && kids[0] && !sp.class && !sp.staff && !sp.coud) title = `Паспорт — ${kids[0].name}`
@@ -120,6 +139,38 @@ export default async function PassportsPage({ searchParams }: { searchParams: Pr
           Без попълнен паспорт: {without.map((k, i) => <span key={k.id}>{i > 0 && ', '}{k.name}</span>)}
         </div>
       )}
+    </div>
+  )
+}
+
+// Управата: избор на паралелка или ЦОУД група
+async function PassportPicker({ yearId }: { yearId: string | undefined }) {
+  const supabase = await createClient()
+  const [{ data: classes }, { data: coud }] = await Promise.all([
+    supabase.from('classes').select('id, name').eq('academic_year_id', yearId).order('name'),
+    supabase.from('coud_groups').select('id, name').eq('academic_year_id', yearId).order('name'),
+  ])
+  const pill = 'inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 hover:border-[#0f2240]'
+  return (
+    <div className="p-4 md:p-8 max-w-4xl mx-auto">
+      <BackButton />
+      <header className="flex items-center gap-4 mt-2 mb-6 pb-5 border-b border-slate-100">
+        <div className="flex items-center justify-center shrink-0 w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 text-slate-600"><IdCard size={22} /></div>
+        <div>
+          <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">Паспорти на децата</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Изберете паралелка или ЦОУД група — паспортите се отварят за печат, всяко дете на отделен лист</p>
+        </div>
+      </header>
+      <h2 className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-2">Паралелки</h2>
+      <div className="flex flex-wrap gap-2 mb-6">
+        {(classes || []).map((c: any) => <Link key={c.id} href={`/passports?class=${c.id}`} className={pill}>{c.name} <ChevronRight size={13} className="text-slate-400" /></Link>)}
+      </div>
+      {(coud || []).length > 0 && <>
+        <h2 className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-2">ЦОУД групи</h2>
+        <div className="flex flex-wrap gap-2">
+          {(coud || []).map((g: any) => <Link key={g.id} href={`/passports?coud=${g.id}`} className={pill}>{g.name} <ChevronRight size={13} className="text-slate-400" /></Link>)}
+        </div>
+      </>}
     </div>
   )
 }
