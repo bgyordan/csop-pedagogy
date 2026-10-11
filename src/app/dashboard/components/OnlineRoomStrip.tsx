@@ -10,7 +10,7 @@ export default async function OnlineRoomStrip({ profile, currentYearId }: { prof
   const supabase = await createClient()
   const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })
   const { data: ores, error } = await supabase.from('student_ores')
-    .select('student_id, to_date, room_token, student:students(id, first_name, last_name, status, therapist_psychologist_id, therapist_speech_id, therapist_rehab_id, therapist_rehab2_id)')
+    .select('id, student_id, to_date, room_token, student:students(id, first_name, last_name, status, therapist_psychologist_id, therapist_speech_id, therapist_rehab_id, therapist_rehab2_id)')
     .lte('from_date', today).or(`to_date.is.null,to_date.gte.${today}`)
   if (error || !ores?.length) return null
   let list = ores.filter((o: any) => o.room_token && o.student?.status === 'active')
@@ -53,11 +53,18 @@ export default async function OnlineRoomStrip({ profile, currentYearId }: { prof
     if (!list.length) return null
   }
 
+  // нови въпроси от родителите (непрочетени) — по ОРЕС период
+  const unread: Record<string, number> = {}
+  const { data: um } = await supabase.from('online_room_messages').select('ores_id')
+    .in('ores_id', list.map((o: any) => o.id)).eq('from_parent', true).is('read_at', null).neq('kind', 'ok')
+  ;(um || []).forEach((m: any) => { unread[m.ores_id] = (unread[m.ores_id] || 0) + 1 })
+  const totalUnread = Object.values(unread).reduce((a, b) => a + b, 0)
   const fmt = (d: string) => d.split('-').reverse().join('.')
   return (
-    <div className="px-5 py-3 rounded-2xl border border-sky-200 bg-sky-50/60 shadow-sm">
+    <div className={`px-5 py-3 rounded-2xl border shadow-sm ${totalUnread ? 'border-amber-300 bg-amber-50/60' : 'border-sky-200 bg-sky-50/60'}`}>
       <div className="flex items-center gap-2 text-sm text-slate-800">
         <MonitorSmartphone size={16} className="text-sky-700" /> Онлайн стаи — деца на ОРЕС ({list.length})
+        {totalUnread > 0 && <span className="text-[12px] px-2 py-0.5 rounded-full bg-amber-500 text-white">{totalUnread} {totalUnread === 1 ? 'нов въпрос' : 'нови въпроса'} от родители</span>}
       </div>
       <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
         {list.map((o: any) => (
@@ -65,6 +72,7 @@ export default async function OnlineRoomStrip({ profile, currentYearId }: { prof
             {o.student.first_name} {o.student.last_name}
             {classOf[o.student_id]?.name && <span className="text-slate-500"> · {classOf[o.student_id].name}</span>}
             {o.to_date && <span className="text-slate-500"> · до {fmt(o.to_date)}</span>}
+            {unread[o.id] > 0 && <span className="text-amber-700"> · {unread[o.id]} въпрос{unread[o.id] > 1 ? 'а' : ''}</span>}
             <ArrowRight size={12} />
           </Link>
         ))}
