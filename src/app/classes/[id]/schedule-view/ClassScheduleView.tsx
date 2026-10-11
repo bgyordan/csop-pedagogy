@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { CalendarDays, FileText, Loader2, User } from 'lucide-react'
+import { CalendarDays, FileText, Loader2, User, Images } from 'lucide-react'
 import { generateClassSchedule } from '@/lib/docx-generator'
 
 interface Slot { day: number; period: number; subjectName: string; allowsPullout: boolean; teacher: string }
@@ -43,10 +43,16 @@ export default function ClassScheduleView({ term, slots, className, yearName, ma
           <a href={`?term=2${extraQuery}`} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${term === 2 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`} style={term === 2 ? { backgroundColor: '#0f2240' } : {}}>II срок</a>
         </div>
         {slots.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+          <a href={`/visual-schedule?c=${classId}&term=${term}`}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-slate-300 text-slate-700 bg-white hover:border-[#0f2240]">
+            <Images size={15} /> Визуален график
+          </a>
           <button onClick={handleWord} disabled={generating}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60 hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
             {generating ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />} Изтегли Word
           </button>
+          </div>
         )}
       </div>
 
