@@ -49,7 +49,7 @@ const navItems: NavItem[] = [
       { href: '/surveys', label: 'Анкети на новите деца', icon: <ClipboardList size={14} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
     ],
   },
-  // Моята работа: разписание, ИУП, терапии, лекторски, отпуск
+  // Моята работа: разписание, ИУП, терапии
   {
     href: '#mywork',
     label: 'Моята работа',
@@ -59,11 +59,19 @@ const navItems: NavItem[] = [
       { href: '/my-schedule', label: 'Разписание', icon: <CalendarDays size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
       { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={14} />, roles: ['class_teacher'] },
       { href: '/my-activities', label: 'Списък за терапия', icon: <HeartPulse size={14} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
+      { href: '/reports', label: 'Справки', icon: <BarChart3 size={14} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
+    ],
+  },
+  // Лекторски: всичко за заплащането — замествания, над норматив и отпуск по НП (както при управата)
+  {
+    href: '#lecturer',
+    label: 'Лекторски',
+    icon: <GraduationCap size={16} />,
+    children: [
       { href: '/my-substitutions', label: 'Заместване', icon: <UserX size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
       { href: '/my-lecturer', label: 'Над норматив', icon: <GraduationCap size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
-      // заявление за отпуск по НП „Без свободен час“ (Приложение № 1) — за учителите и възпитателите
+      // заявление за отпуск по НП „Без свободен час“ (Приложение № 1)
       { href: '/leave-np', label: 'Отпуск по НП', icon: <FileText size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
-      { href: '/reports', label: 'Справки', icon: <BarChart3 size={14} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
     ],
   },
   // ── УПРАВАТА: основните регистри в една група, отворена по подразбиране ──
