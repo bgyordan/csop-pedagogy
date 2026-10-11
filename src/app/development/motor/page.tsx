@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { MOTOR_ROLES } from '@/lib/motor'
 import MotorHubClient from './MotorHubClient'
+import { myChildrenIds } from '@/lib/my-children'
 import type { HubKid } from './MotorHubClient'
 export const dynamic = 'force-dynamic'
 
@@ -19,9 +20,13 @@ export default async function MotorHubPage({ searchParams }: { searchParams: Pro
   const { data: enr } = await supabase.from('student_enrollments')
     .select('student:students(id, first_name, last_name, status), class:classes(id, name)')
     .eq('academic_year_id', year?.id)
+  // Всеки вижда само своите деца (паралелки, часове, ИФО, ЦОУД, терапия, ЕПЛР); управата — всички
+  const isManager = ['admin', 'zdud', 'director'].includes(me.role)
+  const mine = isManager ? null : await myChildrenIds(supabase, me.id, year?.id)
   const classes: Record<string, { id: string; name: string; kids: { id: string; name: string }[] }> = {}
   ;(enr || []).forEach((e: any) => {
     if (!e.student || e.student.status !== 'active' || !e.class) return
+    if (mine && !mine.has(e.student.id)) return
     const c = (classes[e.class.id] ||= { id: e.class.id, name: e.class.name, kids: [] })
     c.kids.push({ id: e.student.id, name: `${e.student.first_name} ${e.student.last_name}` })
   })
@@ -43,9 +48,9 @@ export default async function MotorHubPage({ searchParams }: { searchParams: Pro
   }
   const gm = Object.fromEntries(prof.map(p => [p.student_id, p.gmfcs]))
   const kids: HubKid[] = list.flatMap(c => c.kids.map(k => {
-    const mine = sess.filter(s => s.student_id === k.id).sort((a, b) => a.assessed_on.localeCompare(b.assessed_on) || a.created_at.localeCompare(b.created_at))
-    const inYear = mine.filter(s => s.academic_year_id === year?.id)
-    const last = mine[mine.length - 1]
+    const own = sess.filter(s => s.student_id === k.id).sort((a, b) => a.assessed_on.localeCompare(b.assessed_on) || a.created_at.localeCompare(b.created_at))
+    const inYear = own.filter(s => s.academic_year_id === year?.id)
+    const last = own[own.length - 1]
     return {
       id: k.id, name: k.name, classId: c.id, className: c.name, gmfcs: gm[k.id] ?? null,
       last: last?.assessed_on || null, lastStage: last?.stage || null, count: inYear.length,
