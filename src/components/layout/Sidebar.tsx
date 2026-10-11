@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3, FileSpreadsheet,
-  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity, IdCard
+  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity, IdCard, Library
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
@@ -47,6 +47,8 @@ const navItems: NavItem[] = [
       // двигателна оценка (ФВС) — групова карта; индивидуалната е в досието → Развитие
       { href: '/development/motor', label: 'Двигателна оценка', icon: <Activity size={14} />, roles: ['class_teacher', 'teacher', 'educator', 'rehabilitator', 'psychologist', 'speech_therapist'] },
       { href: '/surveys', label: 'Анкети на новите деца', icon: <ClipboardList size={14} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
+      // обща библиотека: работни листове, табла, игри — търсене и печат
+      { href: '/materials', label: 'Материали', icon: <Library size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator'] },
     ],
   },
   // Моята работа: разписание, ИУП, терапии
@@ -86,6 +88,7 @@ const navItems: NavItem[] = [
       { href: '/classes', label: 'Паралелки', icon: <BookOpen size={14} />, roles: ['admin', 'director', 'zdud'] },
       { href: '/staff', label: 'Служители', icon: <UserCircle size={14} />, roles: ['admin', 'director', 'zdud'] },
       { href: '/passports', label: 'Паспорти', icon: <IdCard size={14} />, roles: ['admin', 'zdud', 'director'] },
+      { href: '/materials', label: 'Материали', icon: <Library size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
   },
   // Документи — за всички (Портфолио — без помощния персонал)
