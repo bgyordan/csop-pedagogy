@@ -49,6 +49,7 @@ const navItems: NavItem[] = [
       { href: '/surveys', label: 'Анкети на новите деца', icon: <ClipboardList size={14} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
       // обща библиотека: работни листове, табла, игри — търсене и печат
       { href: '/materials', label: 'Материали', icon: <Library size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator'] },
+      { href: '/visual-schedule', label: 'Визуален график', icon: <Images size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
     ],
   },
   // Моята работа: разписание, ИУП, терапии
@@ -89,6 +90,7 @@ const navItems: NavItem[] = [
       { href: '/staff', label: 'Служители', icon: <UserCircle size={14} />, roles: ['admin', 'director', 'zdud'] },
       { href: '/passports', label: 'Паспорти', icon: <IdCard size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/materials', label: 'Материали', icon: <Library size={14} />, roles: ['admin', 'zdud', 'director'] },
+      { href: '/visual-schedule', label: 'Визуален график', icon: <Images size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
   },
   // Документи — за всички (Портфолио — без помощния персонал)
