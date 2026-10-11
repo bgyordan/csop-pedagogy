@@ -5,7 +5,7 @@
 import { useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Search, Upload, Printer, Download, Trash2, X, Loader2, FileText, Settings2, ImageIcon } from 'lucide-react'
+import { Search, Upload, Printer, Download, Trash2, X, Loader2, FileText, Settings2, ImageIcon, Wand2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 import { smartMatch } from '@/lib/search'
@@ -58,6 +58,10 @@ export default function MaterialsClient({ initialArea = '', materials, sources, 
             className="flex-1 min-w-0 text-[14px] focus:outline-none" />
           {q && <button type="button" onClick={() => setQ('')} className="text-slate-400 hover:text-slate-700"><X size={14} /></button>}
         </div>
+        <Link href="/materials/make"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm hover:opacity-90 bg-violet-700">
+          <Wand2 size={15} /> Създай табло
+        </Link>
         <button type="button" onClick={() => setUpload(true)}
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
           <Upload size={15} /> Качи материал
