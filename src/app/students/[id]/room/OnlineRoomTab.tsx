@@ -8,8 +8,8 @@ import { createClient } from '@/lib/supabase/client'
 import { Loader2, Send, Link2, Paperclip, Trash2, Copy, Check, MonitorSmartphone, X, ExternalLink } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 
-// Родителите са извън сградата → линкът винаги е през външния адрес
-const PUBLIC_BASE = process.env.NEXT_PUBLIC_PUBLIC_URL || 'https://out.csop-varna.bg'
+// Линкът за родителя — през основния адрес (is.csop-varna.bg работи и отвън през Cloudflare)
+const PUBLIC_BASE = process.env.NEXT_PUBLIC_PUBLIC_URL || 'https://is.csop-varna.bg'
 const MAX_MB = 20
 
 type Post = { id: string; author_id: string | null; body: string | null; link_url: string | null; file_path: string | null; file_name: string | null; created_at: string }
