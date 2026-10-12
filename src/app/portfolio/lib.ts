@@ -51,6 +51,50 @@ export const MANAGERS = ['admin', 'zdud', 'director']
 export const isImage = (m: { mime: string | null; name: string | null }) =>
   (m.mime || '').startsWith('image/') || /\.(jpe?g|png|webp|gif|heic)$/i.test(m.name || '')
 
+// ── Видео: пази се в Google Drive (path = „drive:<id>“), гледа се през ЕИС ──
+export const VIDEO_MAX_MB = 500
+export const VIDEO_EXT = /\.(mp4|mov|m4v|webm|3gp|avi|mkv)$/i
+export const isVideoFile = (f: { type: string; name: string }) => f.type.startsWith('video/') || VIDEO_EXT.test(f.name)
+export const isVideo = (m: { mime: string | null; name: string | null; path?: string }) =>
+  (m.path || '').startsWith('drive:') || (m.mime || '').startsWith('video/')
+export const isDrive = (path: string) => path.startsWith('drive:')
+export const driveIdOf = (path: string) => path.slice('drive:'.length)
+export const videoSrc = (m: { path: string }) => `/api/portfolio-video/${driveIdOf(m.path)}`
+
+const videoMime = (f: File) => f.type.startsWith('video/') ? f.type
+  : ({ mov: 'video/quicktime', m4v: 'video/x-m4v', webm: 'video/webm', '3gp': 'video/3gpp', avi: 'video/x-msvideo', mkv: 'video/x-matroska' } as Record<string, string>)[(f.name.split('.').pop() || '').toLowerCase()] || 'video/mp4'
+
+/** Качва видео направо в Google Drive (без да минава през сървъра). Връща id на файла. */
+export async function uploadVideo(file: File, postId: string, onProgress: (pct: number) => void): Promise<{ id: string; mime: string }> {
+  const mime = videoMime(file)
+  const r = await fetch('/api/portfolio-video/start', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: file.name, mime, size: file.size, postId }),
+  })
+  const j = await r.json().catch(() => ({}))
+  if (!r.ok || !j.uploadUrl) throw new Error(j.error || 'Видеото не може да се качи')
+  const id = await new Promise<string>((resolve, reject) => {
+    const x = new XMLHttpRequest()
+    x.open('PUT', j.uploadUrl)
+    x.setRequestHeader('Content-Type', mime)
+    x.upload.onprogress = e => { if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100)) }
+    x.onload = () => {
+      if (x.status >= 200 && x.status < 300) {
+        try { const d = JSON.parse(x.responseText); if (d.id) return resolve(d.id) } catch { /* */ }
+      }
+      reject(new Error(`Видеото не се качи (Google ${x.status})`))
+    }
+    x.onerror = () => reject(new Error('Видеото не се качи — връзката с Google прекъсна'))
+    x.send(file)
+  })
+  return { id, mime }
+}
+
+/** Мести видеата в кошчето на диска (при махане от публикация или изтриване на публикация) */
+export async function trashVideos(paths: string[]) {
+  await Promise.all(paths.filter(isDrive).map(p => fetch(`/api/portfolio-video/${driveIdOf(p)}`, { method: 'DELETE' }).catch(() => null)))
+}
+
 export const fmtDate = (iso: string | null) => iso ? new Date(iso.length === 10 ? iso + 'T00:00' : iso).toLocaleDateString('bg-BG', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
 export const fmtShort = (iso: string | null) => iso ? new Date(iso.length === 10 ? iso + 'T00:00' : iso).toLocaleDateString('bg-BG', { day: 'numeric', month: 'short' }) : ''
 

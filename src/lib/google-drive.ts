@@ -546,3 +546,51 @@ export async function unshareEmails(fileId: string, emails: string[]) {
   }
   return removed
 }
+
+// ═══ ВИДЕО В ПОРТФОЛИОТО ═══
+// Клиповете не се пазят на нашия сървър, а в споделения диск, в папка „Портфолио – видео“.
+// Браузърът качва файла направо в Google (resumable сесия, отворена от сървъра),
+// а гледането минава през ЕИС (/api/portfolio-video/<id>) — файловете остават лични за eis@.
+export const PORTFOLIO_VIDEO_KIND = 'portfolio-video'
+
+export async function ensurePortfolioVideoFolder() {
+  const props = { kind: 'portfolio-video-root' }
+  return (await findFolder(props))?.id ?? (await createFolder('Портфолио – видео', driveId(), props))
+}
+
+/** Отваря сесия за качване; връща адреса, на който браузърът качва файла (PUT) */
+export async function startResumableUpload(opts: { name: string; mime: string; size: number; folderId: string; origin: string; props: Record<string, string> }) {
+  for (let attempt = 0; ; attempt++) {
+    const token = await accessToken()
+    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=id,name,mimeType,size', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json; charset=UTF-8',
+        'X-Upload-Content-Type': opts.mime,
+        'X-Upload-Content-Length': String(opts.size),
+        // с Origin Google разрешава на браузъра от този адрес да качи файла (CORS)
+        Origin: opts.origin,
+      },
+      body: JSON.stringify({ name: opts.name, parents: [opts.folderId], appProperties: opts.props }),
+      cache: 'no-store',
+    })
+    if (res.status === 401 && attempt === 0) { cached = null; continue }
+    const location = res.headers.get('location')
+    if (!res.ok || !location) {
+      const j = await res.json().catch(() => ({}))
+      console.error('[drive] resumable', res.status, JSON.stringify(j?.error || {}).slice(0, 500))
+      throw new Error(j?.error?.message || `Drive грешка ${res.status}`)
+    }
+    return location
+  }
+}
+
+/** Поток от файла (с Range — за превъртане на видеото) */
+export async function streamDriveFile(fileId: string, range?: string | null) {
+  const token = await accessToken()
+  return fetch(`${API}/files/${fileId}?alt=media&supportsAllDrives=true`, {
+    headers: { Authorization: `Bearer ${token}`, ...(range ? { Range: range } : {}) },
+    cache: 'no-store',
+  })
+}

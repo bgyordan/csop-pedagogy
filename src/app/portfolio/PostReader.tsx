@@ -9,7 +9,7 @@ import {
 import { renderRich } from '@/app/site-docs/shared'
 import { DocViewer } from '@/components/registry/DocViewer'
 import { Avatar, coverThumb } from './PostCard'
-import { kindMeta, fmtDate, fmtPeriod, STATUS, SITE, isImage, plain, resizeImage, isDraft } from './lib'
+import { kindMeta, fmtDate, fmtPeriod, STATUS, SITE, isImage, isVideo, isDrive, videoSrc, trashVideos, plain, resizeImage, isDraft } from './lib'
 import type { Post, Person, Media } from './lib'
 
 const NEWS_CAT: Record<string, string> = { event: 'Събития', project: 'Новини', cabinet: 'Публикации', material: 'Публикации' }
@@ -25,7 +25,8 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
   const supabase = createClient()
   const k = kindMeta(post.kind); const Icon = k.icon
   const images = post.media.filter(isImage)
-  const files = post.media.filter(m => !isImage(m))
+  const videos = post.media.filter(m => isVideo(m))
+  const files = post.media.filter(m => !isImage(m) && !isVideo(m))
   const [full, setFull] = useState<Record<string, string>>({})
   const [box, setBox] = useState<number | null>(null)
   /** Коя снимка е голяма в панела вдясно (по подразбиране корицата) */
@@ -74,8 +75,9 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
   async function remove() {
     if (!confirm('Да изтрия ли публикацията заедно със снимките?')) return
     setBusy('del')
-    const paths = post.media.flatMap(m => [m.path, m.thumb_path].filter(Boolean) as string[])
+    const paths = post.media.flatMap(m => [m.path, m.thumb_path].filter(x => x && !isDrive(x)) as string[])
     if (paths.length) await supabase.storage.from('portfolio').remove(paths)
+    await trashVideos(post.media.map(m => m.path))
     const { error } = await supabase.from('portfolio_posts').delete().eq('id', post.id)
     setBusy(null)
     if (error) { alert(error.message); return }
@@ -197,6 +199,20 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
                   <div className="text-[14px] text-slate-800 whitespace-pre-line leading-relaxed">{v}</div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {videos.length > 0 && (
+            <div className="mt-8">
+              <h2 className="text-[12px] font-semibold uppercase tracking-widest text-slate-500 mb-3">Видео</h2>
+              <div className="space-y-5">
+                {videos.map(m => (
+                  <figure key={m.id}>
+                    <video controls playsInline preload="metadata" src={videoSrc(m)} className="w-full max-h-[70vh] rounded-2xl bg-black" />
+                    {m.caption && <figcaption className="mt-1.5 text-[13px] text-slate-600">{m.caption}</figcaption>}
+                  </figure>
+                ))}
+              </div>
             </div>
           )}
 
