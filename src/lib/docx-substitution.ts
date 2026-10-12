@@ -844,10 +844,11 @@ export async function generateLecturerFrameworkOrder(d: LecturerFrameworkData, m
     const children: any[] = []
     header().forEach(p => children.push(p))
     children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('ЗАПОВЕД', 28)], spacing: { before: 120, after: 40 } }))
-    children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal(`№ ${d.orderNumber || '............'} / ............ ${(d.yearName || '').split('/')[0] || ''} г.`, 22)], spacing: { after: 160 } }))
+    // в номера — само календарната година на издаване („… / ……… 2026 г.“), не учебната
+    children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal(`№ ${d.orderNumber || '............'} / ............ ${new Date().getFullYear()} г.`, 22)], spacing: { after: 160 } }))
     children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 120 }, children: [
-      normal('На основание чл. 259, ал. 1 от Кодекса на труда, във връзка с чл. 4, ал. 11, чл. 10, ал. 2 и чл. 20, ал. 1, т. 1 от Наредба № 4 от 20.04.2017 г. за нормиране и заплащане на труда, Приложение № 1 към чл. 4, ал. 11 от същата наредба, утвърденото разпределение на преподавателската работа за учебната ', 22),
-      bold(`${d.yearName} година`, 22),
+      normal('На основание чл. 259, ал. 1 от Кодекса на труда, във връзка с чл. 4, ал. 11, чл. 10, ал. 2 и чл. 20, ал. 1, т. 1 от Наредба № 4 от 20.04.2017 г. за нормиране и заплащане на труда, Приложение № 1 към чл. 4, ал. 11 от същата наредба, утвърденото разпределение на преподавателската работа, чл. 10, ал. 2 от Вътрешните правила за работна заплата, въз основа на Списък-образец № 3 за учебната ', 22),
+      bold(`${(d.yearName || '').replace('/', '-')} година`, 22),
       normal(', утвърденото седмично разписание и с оглед обезпечаване на образователния и терапевтичния процес в ЦСОП – гр. Варна,', 22),
     ] }))
     children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('НАРЕЖДАМ:', 24)], spacing: { after: 120 } }))
