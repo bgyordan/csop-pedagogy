@@ -1,7 +1,7 @@
 // Общ ред на служителите в таблиците за лекторски:
 // класни ръководители (по паралелката им) → учители → логопеди → рехабилитатори → психолози → възпитатели → ръководство → други.
 
-export const STAFF_GROUP_LABELS = ['Класни ръководители', 'Учители', 'Логопеди', 'Рехабилитатори', 'Психолози', 'Възпитатели', 'Ръководство', 'Други']
+export const STAFF_GROUP_LABELS = ['Класни ръководители', 'Учители', 'Логопеди', 'Рехабилитатори', 'Психолози', 'Учители ЦОУД', 'Ръководство', 'Други']
 
 export function staffGroup(s: { role?: string | null; position?: string | null }, ownClass?: string) {
   const pos = (s.position || '').toLowerCase()
@@ -12,7 +12,7 @@ export function staffGroup(s: { role?: string | null; position?: string | null }
   if (role === 'speech_therapist' || /логопед/.test(pos)) return 2
   if (role === 'rehabilitator' || /рехабилит/.test(pos)) return 3
   if (role === 'psychologist' || /психолог/.test(pos)) return 4
-  if (role === 'educator' || /възпитател/.test(pos)) return 5
+  if (role === 'educator' || /възпитател|цоуд/i.test(pos)) return 5
   return 7
 }
 

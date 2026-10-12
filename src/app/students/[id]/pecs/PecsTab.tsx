@@ -85,7 +85,7 @@ export default function PecsTab({ studentId, childName, firstName, meId, isManag
   if (access === false) return (
     <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-sm text-slate-500">
       <Lock size={24} className="mx-auto mb-2 text-slate-300" />
-      PECS на детето виждат колегите, които работят с него — класен, учители, възпитател, терапевти и ЕПЛР екипът.
+      PECS на детето виждат колегите, които работят с него — класен, учители, учител ЦОУД, терапевти и ЕПЛР екипът.
     </div>
   )
   if (profile === undefined || access === null) return <div className="flex justify-center py-10 text-slate-400"><Loader2 className="animate-spin" size={20} /></div>

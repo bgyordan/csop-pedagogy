@@ -28,7 +28,7 @@ export async function applyStandardEducatorSchedule(educatorIds: string[], acade
   const supabase = await createClient()
   const auth = await requireAdmin(supabase)
   if ('error' in auth) return { error: auth.error }
-  if (!educatorIds.length) return { error: 'Няма избрани възпитатели' }
+  if (!educatorIds.length) return { error: 'Няма избрани учители ЦОУД' }
   if (!academicYearId) return { error: 'Липсва учебна година' }
 
   const rows: any[] = []

@@ -29,7 +29,7 @@ export default function CoudTabs({ groups, showPassports = false }: { groups: Co
       {/* Таблица на активната група */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
         <div className="px-4 py-2.5 border-b border-slate-100 bg-slate-50/60 text-xs text-slate-500 flex items-center gap-3">
-          <span>Възпитател: <span className="font-medium text-slate-700">{g.teacher}</span></span>
+          <span>Учител ЦОУД: <span className="font-medium text-slate-700">{g.teacher}</span></span>
           {showPassports && g.students.length > 0 && (
             <Link href={`/passports?coud=${g.id}`} target="_blank"
               className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-300 text-[12px] text-slate-700 bg-white hover:border-[#0f2240]">

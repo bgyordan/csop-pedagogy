@@ -15,7 +15,7 @@ const GROUPS = [
   { key: 'admin', label: 'Администрация' },
   { key: 'therapy', label: 'Терапевти и специалисти' },
   { key: 'teachers', label: 'Педагогически екип' },
-  { key: 'educators', label: 'Възпитатели ЦОУД' },
+  { key: 'educators', label: 'Учители ЦОУД' },
   { key: 'assistants', label: 'Помощник на учителя' },
   { key: 'other', label: 'Помощен персонал' },
 ]
@@ -36,7 +36,7 @@ function autoTitle(p: StaffRow) {
     case 'psychologist': return 'Психолог'
     case 'speech_therapist': return 'Логопед'
     case 'rehabilitator': return pos.toLowerCase().startsWith('ерготерапевт') ? 'Ерготерапевт' : 'Рехабилитатор'
-    case 'educator': return 'Възпитател'
+    case 'educator': return 'Учител ЦОУД'
   }
   if (isAssistant(p)) return 'Помощник на учителя'
   return pos || 'Служител'

@@ -130,7 +130,7 @@ export default function CoudGroupsClient({ groups, teachers, academicYearId, yea
             <input autoFocus value={newName} onChange={e => setNewName(e.target.value)}
               placeholder="Име (напр. ЦОУД 01)" className="input flex-1 text-sm" />
             <select value={newTeacher} onChange={e => setNewTeacher(e.target.value)} className="input sm:w-56 text-sm">
-              <option value="">— Възпитател —</option>
+              <option value="">— Учител ЦОУД —</option>
               {sortedTeachers.map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name}</option>)}
             </select>
             <div className="flex gap-2">
@@ -162,7 +162,7 @@ export default function CoudGroupsClient({ groups, teachers, academicYearId, yea
                   <div className="flex flex-col sm:flex-row gap-2 w-full">
                     <input value={editName} onChange={e => setEditName(e.target.value)} className="input flex-1 text-sm" />
                     <select value={editTeacher} onChange={e => setEditTeacher(e.target.value)} className="input sm:w-48 text-sm">
-                      <option value="">— Възпитател —</option>
+                      <option value="">— Учител ЦОУД —</option>
                       {sortedTeachers.map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name}</option>)}
                     </select>
                     <div className="flex gap-2">
@@ -180,7 +180,7 @@ export default function CoudGroupsClient({ groups, teachers, academicYearId, yea
                         <div className="font-semibold text-slate-800 text-sm">{g.name}</div>
                         <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                           <User size={11} />
-                          {g.teacher ? `${g.teacher.first_name} ${g.teacher.last_name}` : 'Без възпитател'}
+                          {g.teacher ? `${g.teacher.first_name} ${g.teacher.last_name}` : 'Без учител ЦОУД'}
                         </div>
                       </div>
                     </div>

@@ -185,7 +185,7 @@ export default function StudentStatusSection({
           {coudGroupName ? (
             <div className="flex-1">
               <div className="text-sm font-medium text-slate-700">{coudGroupName}</div>
-              {coudTeacher && <div className="text-xs text-slate-500 mt-1">Възпитател: {coudTeacher}</div>}
+              {coudTeacher && <div className="text-xs text-slate-500 mt-1">Учител ЦОУД: {coudTeacher}</div>}
             </div>
           ) : (
             <div className="text-sm text-slate-400 flex-1">Не е записан</div>

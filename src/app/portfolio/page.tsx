@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Администратор', director: 'Директор', zdud: 'ЗДУД', secretary: 'Деловодител',
   psychologist: 'Психолог', speech_therapist: 'Логопед', rehabilitator: 'Рехабилитатор',
-  class_teacher: 'Класен ръководител', teacher: 'Учител', educator: 'Възпитател', coordinator: 'Координатор',
+  class_teacher: 'Класен ръководител', teacher: 'Учител', educator: 'Учител ЦОУД', coordinator: 'Координатор',
 }
 
 export default async function PortfolioPage() {
