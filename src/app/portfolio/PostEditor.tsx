@@ -3,13 +3,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
-  X, ImagePlus, Star, Lock, Users, Trash2, Loader2, Bold, Heading2, List, Globe, ShieldCheck, Paperclip, Upload, Send, Eye, PenLine,
+  X, ImagePlus, Star, Lock, Users, Trash2, Loader2, Bold, Heading2, List, Globe, ShieldCheck, Paperclip, Upload, Send, Eye, PenLine, Film,
 } from 'lucide-react'
 import { renderRich, slugName } from '@/app/site-docs/shared'
-import { KINDS, kindMeta, isImage, resizeImage, uid, STATUS } from './lib'
+import { KINDS, kindMeta, isImage, isVideo, isVideoFile, isDrive, uploadVideo, trashVideos, VIDEO_MAX_MB, resizeImage, uid, STATUS } from './lib'
 import type { Post, Kind, Media, Cls } from './lib'
 
-type Item = { key: string; media?: Media; file?: File; preview?: string; caption: string; image: boolean }
+type Item = { key: string; media?: Media; file?: File; preview?: string; caption: string; image: boolean; video?: boolean }
 
 function Grow({ value, onChange, placeholder, className, minRows = 3, taRef }: {
   value: string; onChange: (v: string) => void; placeholder?: string; className?: string; minRows?: number; taRef?: React.RefObject<HTMLTextAreaElement | null>
@@ -49,7 +49,7 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
   const [status, setStatus] = useState(post?.status || 'in_progress')
   const [classIds, setClassIds] = useState<string[]>(post ? post.classIds : (presetKind === 'project' ? myClassIds : []))
   const [items, setItems] = useState<Item[]>(() => (post?.media || []).map(m => ({
-    key: m.id, media: m, caption: m.caption || '', image: isImage(m), preview: m.thumb_path ? thumbs[m.thumb_path] : undefined,
+    key: m.id, media: m, caption: m.caption || '', image: isImage(m), video: isVideo(m), preview: m.thumb_path ? thumbs[m.thumb_path] : undefined,
   })))
   const [coverKey, setCoverKey] = useState<string | null>(() => post?.media.find(m => m.path === post.cover_path)?.id || null)
   const wasRequested = post?.site_status === 'requested' || post?.site_status === 'published'
@@ -67,19 +67,25 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const pickRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const videoRef = useRef<HTMLInputElement>(null)
   const dirty = useRef(false)
   useEffect(() => { dirty.current = true }, [title, body, items, kind]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { dirty.current = false }, [])
 
   const images = items.filter(i => i.image)
-  const others = items.filter(i => !i.image)
+  const videos = items.filter(i => i.video)
+  const others = items.filter(i => !i.image && !i.video)
   const cover = coverKey && images.some(i => i.key === coverKey) ? coverKey : images[0]?.key || null
 
   function addFiles(list: FileList | File[]) {
-    const arr = Array.from(list)
+    const all = Array.from(list)
+    const big = all.filter(f => isVideoFile(f) && f.size > VIDEO_MAX_MB * 1024 * 1024)
+    if (big.length) setErr(`Видео над ${VIDEO_MAX_MB} MB не може да се качи: ${big.map(f => f.name).join(', ')}`)
+    const arr = all.filter(f => !big.includes(f))
     setItems(prev => [...prev, ...arr.map(f => {
-      const image = f.type.startsWith('image/')
-      return { key: uid(), file: f, caption: '', image, preview: image ? URL.createObjectURL(f) : undefined }
+      const video = isVideoFile(f)
+      const image = !video && f.type.startsWith('image/')
+      return { key: uid(), file: f, caption: '', image, video, preview: image ? URL.createObjectURL(f) : undefined }
     })])
   }
   useEffect(() => () => { items.forEach(i => i.file && i.preview && URL.revokeObjectURL(i.preview)) }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -164,12 +170,14 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
       const keep = new Set(items.filter(i => i.media).map(i => i.media!.id))
       const gone = (post?.media || []).filter(m => !keep.has(m.id))
       if (gone.length) {
-        await supabase.storage.from('portfolio').remove(gone.flatMap(m => [m.path, m.thumb_path].filter(Boolean) as string[]))
+        const stored = gone.flatMap(m => [m.path, m.thumb_path].filter(x => x && !isDrive(x)) as string[])
+        if (stored.length) await supabase.storage.from('portfolio').remove(stored)
+        await trashVideos(gone.map(m => m.path))
         await supabase.from('portfolio_media').delete().in('id', gone.map(m => m.id))
       }
 
-      // Нови и променени — по реда: снимките, после файловете
-      const ordered = [...images, ...others]
+      // Нови и променени — по реда: снимките, видеата, после файловете
+      const ordered = [...images, ...videos, ...others]
       const pathOf: Record<string, string> = {}
       let n = 0
       for (let i = 0; i < ordered.length; i++) {
@@ -184,7 +192,13 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
         setBusy(`Качване ${n} / ${ordered.filter(x => x.file).length}…`)
         const key = uid()
         let path: string, thumb: string | null = null, mime = f.type || 'application/octet-stream', size = f.size
-        if (it.image) {
+        if (it.video) {
+          // видеото — направо в Google Drive, с напредък в %
+          const label = `Качване ${n} / ${ordered.filter(x => x.file).length} — видео`
+          setBusy(`${label}…`)
+          const up = await uploadVideo(f, id!, pct => setBusy(`${label} ${pct}%`))
+          path = `drive:${up.id}`; mime = up.mime
+        } else if (it.image) {
           let big: Blob | null = null, small: Blob | null = null
           try { big = await resizeImage(f, 2000); small = await resizeImage(f, 640, 0.8) } catch { /* непознат формат (напр. HEIC) — качва се както е */ }
           if (big && small) {
@@ -444,6 +458,27 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
                     ))}
                   </div>
                 )}
+              </div>
+
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-2">Видео <span className="normal-case tracking-normal font-normal text-slate-400">— до {VIDEO_MAX_MB} MB, пази се в Google Drive</span></div>
+                {videos.map(it => (
+                  <div key={it.key} className="mb-1.5 rounded-xl bg-white border border-slate-200">
+                    <div className="flex items-center gap-2 px-3 py-2">
+                      <Film size={14} className="text-slate-500 shrink-0" />
+                      <span className="text-[13px] truncate flex-1">{it.media?.name || it.file?.name}</span>
+                      {it.file && <span className="text-[11px] text-slate-400 shrink-0">{Math.round(it.file.size / 1024 / 1024)} MB</span>}
+                      <button type="button" onClick={() => setItems(p => p.filter(x => x.key !== it.key))} className="text-slate-400 hover:text-rose-600"><X size={14} /></button>
+                    </div>
+                    <input value={it.caption} onChange={e => setItems(p => p.map(x => x.key === it.key ? { ...x, caption: e.target.value } : x))}
+                      placeholder="Надпис към видеото…" className="w-full px-3 py-1.5 text-[12px] border-t border-slate-100 rounded-b-xl focus:outline-none" />
+                  </div>
+                ))}
+                <button type="button" onClick={() => videoRef.current?.click()}
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-[13px] text-slate-700 hover:border-[#0f2240]">
+                  <Film size={14} /> Добави видео
+                </button>
+                <input ref={videoRef} type="file" multiple accept="video/*" className="hidden" onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = '' }} />
               </div>
 
               <div>

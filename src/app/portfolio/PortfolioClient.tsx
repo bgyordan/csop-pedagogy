@@ -9,7 +9,7 @@ import PostReader from './PostReader'
 import PostEditor from './PostEditor'
 import SharedFilesTab, { SharedFilesStrip, loadSharedFiles } from './SharedFilesTab'
 import type { FileRow } from './SharedFilesTab'
-import { KINDS, MANAGERS, isImage, isDraft } from './lib'
+import { KINDS, MANAGERS, isImage, isDraft, isDrive, trashVideos } from './lib'
 import { createClient } from '@/lib/supabase/client'
 import type { Post, Person, Cls, Kind } from './lib'
 
@@ -82,8 +82,9 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
   async function removePost(p: Post) {
     if (!confirm(`Да изтрия ли „${p.title}“ заедно със снимките?`)) return
     const supabase = createClient()
-    const paths = p.media.flatMap(m => [m.path, m.thumb_path].filter(Boolean) as string[])
+    const paths = p.media.flatMap(m => [m.path, m.thumb_path].filter(x => x && !isDrive(x)) as string[])
     if (paths.length) await supabase.storage.from('portfolio').remove(paths)
+    await trashVideos(p.media.map(m => m.path))
     const { error } = await supabase.from('portfolio_posts').delete().eq('id', p.id)
     if (error) { flash(error.message); return }
     refresh('Публикацията е изтрита.')

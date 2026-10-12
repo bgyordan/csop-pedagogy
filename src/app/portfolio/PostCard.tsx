@@ -1,7 +1,7 @@
 'use client'
 
-import { Images, Paperclip, Globe, Share2, Lock, Trash2 } from 'lucide-react'
-import { kindMeta, plain, fmtShort, fmtPeriod, STATUS, SITE, isImage } from './lib'
+import { Images, Paperclip, Globe, Share2, Lock, Trash2, Film } from 'lucide-react'
+import { kindMeta, plain, fmtShort, fmtPeriod, STATUS, SITE, isImage, isVideo } from './lib'
 import type { Post, Person } from './lib'
 
 export function initials(name: string) {
@@ -34,7 +34,8 @@ export default function PostCard({ post, author, thumbs, classNames, onOpen, onT
   const k = kindMeta(post.kind); const Icon = k.icon
   const cover = coverThumb(post, thumbs)
   const photos = post.media.filter(isImage).length
-  const files = post.media.length - photos
+  const videos = post.media.filter(m => isVideo(m)).length
+  const files = post.media.length - photos - videos
   const site = SITE[post.site_status]
   const text = plain(post.body || post.ideas || post.activities || post.goals, 150)
   const cls = post.classIds.map(id => classNames[id]).filter(Boolean)
@@ -60,9 +61,10 @@ export default function PostCard({ post, author, thumbs, classNames, onOpen, onT
             <Globe size={11} /> {site.label}
           </span>
         )}
-        {(photos > 1 || files > 0) && (
+        {(photos > 1 || files > 0 || videos > 0) && (
           <span className="absolute bottom-3 right-3 inline-flex items-center gap-2 text-[11px] px-2 py-1 rounded-full bg-black/55 text-white backdrop-blur-sm">
             {photos > 1 && <span className="inline-flex items-center gap-1"><Images size={12} />{photos}</span>}
+            {videos > 0 && <span className="inline-flex items-center gap-1"><Film size={12} />{videos}</span>}
             {files > 0 && <span className="inline-flex items-center gap-1"><Paperclip size={12} />{files}</span>}
           </span>
         )}
