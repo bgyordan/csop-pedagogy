@@ -74,7 +74,7 @@ function scheduleMatrix(days: { date: string; items: { period: number; subject: 
 
   // всички реално срещани часове, подредени по начален час (1–7 сутрин, ИФО 8–12, ЦОУД 21–26)
   const periods = Array.from(new Set(workdays.flatMap(d => d.items.map(it => it.period)))).sort(byStartTime)
-  // надпис на реда: „1.“ за сутрешен час; „ИФО 1 (12:45–13:15)“ / „ЦОУД 1 (12:25–13:00)“ за следобедните
+  // надпис на реда: „1.“ за сутрешен час; „ИФО 1 (12:45–13:20)“ / „ЦОУД 1 (12:25–13:00)“ за следобедните
   const rowLabel = (p: number) => p <= 7 ? `${p}.` : `${PERIOD_LABEL[p] || p} (${PERIOD_TIMES[p] || ''})`
 
   const out: any[] = []

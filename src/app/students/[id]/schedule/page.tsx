@@ -63,14 +63,14 @@ export default async function IfoSchedulePage({
   }))
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
-      <Link href={fromSchedules ? '/schedules?tab=ifo' : `/students/${studentId}`} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6">
+      <Link href={fromSchedules ? '/schedules?tab=ifo' : `/students/${studentId}`} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6 print:hidden">
         <ArrowLeft size={15} /> {fromSchedules ? 'Назад към Разписания' : 'Назад към ученика'}
       </Link>
       <div className="mb-6">
         <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Индивидуално седмично разписание</h1>
         <p className="text-slate-500 text-sm mt-1">{getFullName(student)} · ИФО · {currentYear?.name}</p>
       </div>
-      <IfoScheduleView term={term} slots={viewSlots} fromSchedules={fromSchedules} />
+      <IfoScheduleView term={term} slots={viewSlots} fromSchedules={fromSchedules} studentName={getFullName(student)} yearName={currentYear?.name || ''} />
     </div>
   )
 }
