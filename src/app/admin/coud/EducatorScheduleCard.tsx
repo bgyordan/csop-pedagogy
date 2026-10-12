@@ -28,11 +28,11 @@ export default function EducatorScheduleCard({ educators, seeded, academicYearId
       setBusyId('')
       if ('error' in r && r.error) { setMsg({ type: 'err', text: r.error }); return }
       setDone(new Set(educators.map(e => e.id)))
-      setMsg({ type: 'ok', text: 'Стандартният блок е приложен на всички възпитатели.' })
+      setMsg({ type: 'ok', text: 'Стандартният блок е приложен на всички учители ЦОУД.' })
     })
   }
   function clearOne(id: string) {
-    if (!confirm('Изчисти ЦОУД разписанието на този възпитател?')) return
+    if (!confirm('Изчисти ЦОУД разписанието на този учител ЦОУД?')) return
     setBusyId(id); setMsg(null)
     start(async () => {
       const r = await clearEducatorSchedule(id, academicYearId)
@@ -49,7 +49,7 @@ export default function EducatorScheduleCard({ educators, seeded, academicYearId
         <h3 className="text-base font-semibold text-slate-800">Стандартно ЦОУД разписание</h3>
       </div>
       <p className="text-sm text-slate-500 mb-4">
-        Наливане на фиксирания следобеден блок (отдих · самоподготовка · занимания, 6 часа/ден) на възпитателите. Нужно е, за да се остойностяват коректно заместванията им.
+        Наливане на фиксирания следобеден блок (отдих · самоподготовка · занимания, 6 часа/ден) на учителите ЦОУД. Нужно е, за да се остойностяват коректно заместванията им.
       </p>
 
       {msg && (
@@ -59,7 +59,7 @@ export default function EducatorScheduleCard({ educators, seeded, academicYearId
       )}
 
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-slate-400">{educators.length} възпитатели · {done.size} с въведено разписание</span>
+        <span className="text-xs text-slate-400">{educators.length} учители ЦОУД · {done.size} с въведено разписание</span>
         <button onClick={applyAll} disabled={pending || educators.length === 0}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-medium hover:opacity-90 disabled:opacity-60"
           style={{ backgroundColor: ACCENT }}>
@@ -93,7 +93,7 @@ export default function EducatorScheduleCard({ educators, seeded, academicYearId
             </div>
           )
         })}
-        {educators.length === 0 && <div className="py-6 text-center text-sm text-slate-400">Няма активни възпитатели.</div>}
+        {educators.length === 0 && <div className="py-6 text-center text-sm text-slate-400">Няма активни учители ЦОУД.</div>}
       </div>
     </div>
   )

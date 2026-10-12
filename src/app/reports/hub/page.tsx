@@ -25,7 +25,7 @@ const GROUPS: Group[] = [
       { href: '/reports/guardians', title: 'Родители и контакти', desc: 'Ученик, паралелка, родител и телефон — за печат', icon: <Phone size={18} />, roles: MS },
       { href: '/reports/traveling', title: 'Пътуващи ученици', desc: 'Деца от друго населено място', icon: <Bus size={18} />, roles: MS },
       { href: '/reports/enrollments', title: 'Заявления за прием и ЦОУД', desc: 'Подадени заявления с подателите', icon: <FileText size={18} />, roles: MS },
-      { href: '/reports/coud', title: 'ЦОУД групи', desc: 'Групи, възпитатели и записани ученици', icon: <Coffee size={18} />, roles: MS },
+      { href: '/reports/coud', title: 'ЦОУД групи', desc: 'Групи, учители ЦОУД и записани ученици', icon: <Coffee size={18} />, roles: MS },
     ],
   },
   {

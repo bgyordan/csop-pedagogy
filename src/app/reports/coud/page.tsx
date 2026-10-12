@@ -76,7 +76,7 @@ export default async function CoudReportPage() {
               <thead className="bg-slate-50/50 border-b border-slate-100">
                 <tr>
                   <th className="text-left px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Група</th>
-                  <th className="text-left px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Възпитател</th>
+                  <th className="text-left px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Учител ЦОУД</th>
                   <th className="text-left px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Ученик</th>
                 </tr>
               </thead>

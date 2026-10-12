@@ -153,7 +153,7 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
 
   children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('ВЪЗЛАГАМ:', 24)], spacing: { after: 120 } }))
 
-  const isEducator = /възпитател/i.test(d.absentPosition || '')
+  const isEducator = /възпитател|цоуд/i.test(d.absentPosition || '')
   const holderWord = d.holderType === 'coud' || isEducator ? 'група ЦОУД' : 'паралелка'
   const normPhraseFor = (on: boolean) => on ? 'извън времето на задължителната норма преподавателска заетост' : 'в рамките на задължителната норма преподавателска заетост'
   const holderTail = d.noHours
@@ -391,6 +391,23 @@ export function eurWords(v: number) {
   return s
 }
 
+// „Математика (2); Социални умения (1)“ → всеки предмет на отделен ред: „Математика - 2“, „Социални умения - 1“
+function subjectLines(subject: string): string[] {
+  const parts = (subject || '').split(/;\s*/).filter(Boolean)
+  if (parts.length <= 1) return [subject || '']
+  return parts.map(x => { const m = x.match(/^(.*)\s\((\d+)\)$/); return m ? `${m[1]} - ${m[2]}` : x })
+}
+// Бюджетна декларация: винаги трите реда от бланката (6,29 / 5,16 / 4,62).
+// Ставката от „Проверка лекторски“ попълва своя ред; ако е друга — отделен попълнен ред отгоре.
+function budgetRateLines(total: number, rate: number | undefined): string[] {
+  const has = !!rate && rate > 0
+  const blank = (r: string) => `………… часа по ${r} евро на час - …………………………евро;`
+  const lines = ['6,29', '5,16', '4,62'].map(r => has && eurD(rate!) === r
+    ? `${total} часа по ${r} евро на час - ${eurD(total * rate!)} евро;`
+    : blank(r))
+  if (has && !['6,29', '5,16', '4,62'].includes(eurD(rate!))) lines.unshift(`${total} часа по ${eurD(rate!)} евро на час - ${eurD(total * rate!)} евро;`)
+  return lines
+}
 function rateLines(total: number, rate: number | undefined, sep: string) {
   if (rate && rate > 0) return [`${total} часа по ${eurD(rate)} евро на час ${sep} ${eurD(total * rate)} евро (${eurWords(total * rate)}).`]
   return ['6,29', '5,16', '4,62'].map(r => `………… часа по ${r} евро на час ${sep} …………………… евро;`)
@@ -579,7 +596,15 @@ export async function generateMonthlyNPDeclaration(d: MonthlyDeclData) {
   children.push(hint('(училище/ЦСОП/ДГ/ЦПЛР)'))
 
   children.push(P([t('Д Е К Л А Р И Р А М ,', { bold: true })], { alignment: AlignmentType.CENTER, spacing: { before: 240, after: 240 } }))
-  children.push(P([t('че за периода '), t(period, { bold: true }), t(' действително съм провел следните учебни часове като заместващ на отсъстващ учител:')],
+  // месец: един месец → „септември 2026 г.“; повече → „септември – октомври 2026 г.“
+  const NP_MONTHS = ['януари','февруари','март','април','май','юни','юли','август','септември','октомври','ноември','декември']
+  let npMonth = period
+  if (d.periodFrom && d.periodTo) {
+    const a = new Date(d.periodFrom + 'T00:00'), b = new Date(d.periodTo + 'T00:00')
+    const m1 = NP_MONTHS[a.getMonth()], m2 = NP_MONTHS[b.getMonth()]
+    npMonth = m1 === m2 ? `${m1} ${a.getFullYear()} г.` : `${m1} – ${m2} ${b.getFullYear()} г.`
+  }
+  children.push(P([t('че за месец '), t(npMonth, { bold: true }), t(' действително съм провел следните учебни часове като заместващ на отсъстващ учител:')],
     { spacing: { after: 120, line: 360, lineRule: LineRuleType.AUTO } }))
 
   // таблица — колоните от образеца
@@ -682,7 +707,7 @@ export async function generateMonthlyBudgetDeclaration(d: MonthlyDeclData) {
     cell(0, ['№', 'по', 'ред']), cell(1, ['Дата']), cell(2, ['Паралелка / група']), cell(3, ['Предмет']), cell(4, ['Брой', 'часове']),
   ] })]
   rows.forEach((r, i) => trows.push(new TableRow({ children: [
-    cell(0, [String(i + 1)]), cell(1, [r.date]), cell(2, [/^\d+$/.test(r.cls.trim()) ? `№${r.cls.trim()}` : r.cls]), cell(3, [r.subject], { align: AlignmentType.LEFT }), cell(4, [String(r.hours)]),
+    cell(0, [String(i + 1)]), cell(1, [r.date]), cell(2, [/^\d+$/.test(r.cls.trim()) ? `№${r.cls.trim()}` : r.cls]), cell(3, subjectLines(r.subject), { align: AlignmentType.LEFT }), cell(4, [String(r.hours)]),
   ] })))
   // празни редове до минимум 5 — като в бланката
   for (let i = rows.length; i < 5; i++) trows.push(new TableRow({ children: [0, 1, 2, 3, 4].map(k => cell(k, [''])) }))
@@ -692,8 +717,8 @@ export async function generateMonthlyBudgetDeclaration(d: MonthlyDeclData) {
   children.push(new Table({ width: { size: TEXT_W, type: WidthType.DXA }, columnWidths: COLS, layout: TableLayoutType.FIXED, rows: trows }))
 
   children.push(P([t('Общ брой учебни часове: '), t(String(total), { bold: true })], { alignment: AlignmentType.RIGHT, spacing: { before: 240, after: 160 } }))
-  rateLines(total, d.rate, '=').forEach(l => children.push(P([t(l)], { spacing: { after: 100 } })))
-  if (!d.rate) children.push(P([small('/ попълва се от декларатор/учител /')], { indent: { left: 1000 }, spacing: { after: 160 } }))
+  budgetRateLines(total, d.rate).forEach(l => children.push(P([t(l)], { spacing: { after: 100 } })))
+  children.push(P([small('/ попълва се от декларатор/учител /')], { indent: { left: 1000 }, spacing: { after: 160 } }))
 
   children.push(P([t('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося наказателна отговорност съгласно законите на Република България.')], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 200 } }))
 

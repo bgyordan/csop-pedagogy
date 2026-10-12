@@ -205,7 +205,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   rehabilitator: 'Рехабилитатор',
   class_teacher: 'Класен ръководител',
   teacher: 'Учител',
-  educator: 'Възпитател',
+  educator: 'Учител ЦОУД',
     secretary: 'Секретар',
   support: 'Помощен персонал',
 }
