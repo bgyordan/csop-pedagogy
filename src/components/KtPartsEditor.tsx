@@ -12,28 +12,45 @@ export default function KtPartsEditor({ parts, onChange, from, to, base }: {
 }) {
   const set = (i: number, patch: Partial<KtPart>) => onChange(parts.map((p, j) => j === i ? { ...p, ...patch } : p))
   const add = () => onChange([...parts, { kt: base === '160' ? '155' : '160', from: to || from, to: to || from }])
-  const inputCls = 'px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-[13px] focus:outline-none focus:border-slate-400'
+  const field = 'w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[13px] focus:outline-none focus:border-[#0f2240]'
   const bad = (p: KtPart) => !p.from || !p.to || p.from > p.to || (from && p.from < from) || (to && p.to > to)
+  const ready = !!from && !!to
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       {parts.map((p, i) => (
-        <div key={i} className={`flex flex-wrap items-center gap-1.5 p-2 rounded-xl border ${bad(p) ? 'border-rose-200 bg-rose-50/50' : 'border-slate-200 bg-slate-50/60'}`}>
-          <select value={p.kt} onChange={e => set(i, { kt: e.target.value })} className={`${inputCls} flex-1 min-w-[180px] cursor-pointer`}>
+        <div key={i} className={`rounded-xl border p-2.5 space-y-2 ${bad(p) ? 'border-rose-300 bg-rose-50/60' : 'border-[#0f2240]/20 bg-[#0f2240]/[0.03]'}`}>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">Друг член {parts.length > 1 ? `№ ${i + 1}` : ''}</span>
+            <button type="button" onClick={() => onChange(parts.filter((_, j) => j !== i))}
+              className="inline-flex items-center gap-1 text-[12px] text-slate-400 hover:text-rose-600"><X size={13} /> махни</button>
+          </div>
+          <select value={p.kt} onChange={e => set(i, { kt: e.target.value })} className={`${field} cursor-pointer`}>
             {KT_ARTICLES.map(a => <option key={a.v} value={a.v}>{a.l}</option>)}
           </select>
-          <span className="text-[12px] text-slate-500">от</span>
-          <input type="date" value={p.from} min={from || undefined} max={to || undefined} onChange={e => set(i, { from: e.target.value })} className={inputCls} />
-          <span className="text-[12px] text-slate-500">до</span>
-          <input type="date" value={p.to} min={p.from || from || undefined} max={to || undefined} onChange={e => set(i, { to: e.target.value })} className={inputCls} />
-          <button type="button" onClick={() => onChange(parts.filter((_, j) => j !== i))} title="Махни" className="p-1 text-slate-400 hover:text-rose-600"><X size={14} /></button>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className="block text-[10px] text-slate-400 mb-0.5">От</span>
+              <input type="date" value={p.from} min={from || undefined} max={to || undefined} onChange={e => set(i, { from: e.target.value })} className={field} />
+            </label>
+            <label className="block">
+              <span className="block text-[10px] text-slate-400 mb-0.5">До</span>
+              <input type="date" value={p.to} min={p.from || from || undefined} max={to || undefined} onChange={e => set(i, { to: e.target.value })} className={field} />
+            </label>
+          </div>
+          {bad(p) && <p className="text-[11px] text-rose-600">Датите трябва да са в периода на отпуска ({from ? from.split('-').reverse().join('.') : '…'} – {to ? to.split('-').reverse().join('.') : '…'}).</p>}
         </div>
       ))}
-      <button type="button" onClick={add} disabled={!from || !to}
-        className="inline-flex items-center gap-1 text-[12px] text-slate-600 hover:text-[#0f2240] disabled:opacity-40">
-        <Plus size={13} /> друг член за част от периода (напр. 2 дни платен + 2 дни неплатен)
+
+      <button type="button" onClick={add} disabled={!ready}
+        className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-[#0f2240]/40 bg-white text-[13px] font-medium text-[#0f2240] hover:bg-[#0f2240]/5 hover:border-[#0f2240] disabled:opacity-40 disabled:cursor-not-allowed transition">
+        <Plus size={15} /> {parts.length ? 'Добави още един член' : 'Част от периода е по друг член'}
       </button>
-      {parts.length > 0 && <p className="text-[11px] text-slate-400 font-light">Останалите дни от периода са по основния член.</p>}
+      <p className="text-[11px] text-slate-400 font-light leading-snug">
+        {!ready ? 'Първо попълни периода на отпуска.'
+          : parts.length ? 'Останалите дни от периода са по основния член отгоре.'
+          : 'Напр. 2 дни платен (чл. 155) + 2 дни неплатен (чл. 160) в едно заявление.'}
+      </p>
     </div>
   )
 }
