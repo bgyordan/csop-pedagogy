@@ -1,7 +1,7 @@
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   WidthType, AlignmentType, BorderStyle, ShadingType, ImageRun,
-  Tab, TabStopType, LeaderType, VerticalAlign, TableLayoutType, LineRuleType,
+  Tab, TabStopType, LeaderType, VerticalAlign, TableLayoutType, LineRuleType, HeightRule,
 } from 'docx'
 import { CSOP_LOGO_B64 } from './docx-generator'
 import { saveAs } from 'file-saver'
@@ -620,27 +620,26 @@ function npDeclSection(d: MonthlyDeclData) {
     { spacing: { after: 120, line: 360, lineRule: LineRuleType.AUTO } }))
 
   // таблица — колоните от образеца
-  const COLS = [1150, 1500, 1150, 3050, 700, 1664]   // сума 9214 — „Тема“ по-широка: там се пише на ръка
+  const COLS = [1300, 1850, 1150, 2330, 820, 1764]   // сума 9214 — датата и „014/12.10.2026г.“ се побират на един ред
   const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
   const cell = (i: number, lines: string[], bold = false, center = true) => new TableCell({
     borders: CELLS, width: { size: COLS[i], type: WidthType.DXA }, verticalAlign: VerticalAlign.CENTER,
     margins: { top: 40, bottom: 40, left: 60, right: 60 },
-    children: lines.map(l => new Paragraph({ alignment: center ? AlignmentType.CENTER : AlignmentType.LEFT, spacing: { after: 0, line: 252 }, children: [t(l, { size: bold ? 20 : 22, ...(bold ? { bold: true } : {}) })] })),
+    children: lines.map(l => new Paragraph({ alignment: center ? AlignmentType.CENTER : AlignmentType.LEFT, spacing: { after: 0, line: 252 }, children: [t(l, { size: 20, ...(bold ? { bold: true } : {}) })] })),
   })
   const head = new TableRow({ tableHeader: true, children: [
     cell(0, ['Дата'], true), cell(1, ['Заповед №… от…', 'Договор №… от…'], true), cell(2, ['Клас'], true),
     cell(3, ['Тема от учебното', '/образователното', 'съдържание'], true), cell(4, ['Брой', 'часове'], true), cell(5, ['Име на отсъстващия', 'учител'], true),
   ] })
-  // всеки час на отделен ред (по реда в деня) — в „Тема“ се пише темата на ТОЗИ час от дневника;
-  // предметът е отпечатан, за да се знае кой час кой е
+  // всеки час на отделен ред (по реда в деня) — „Тема“ е празна: попълва се на ръка от дневника
   const perHour = rows.flatMap(r => {
     const its = (r.items || []).slice().sort((a, b) => a.period - b.period)
     return its.length === r.hours ? its.map(it => ({ r, subject: it.subject })) : Array.from({ length: r.hours }, () => ({ r, subject: r.subject }))
   })
-  const body = perHour.map(({ r, subject }) => new TableRow({ cantSplit: true, children: [
+  const body = perHour.map(({ r }) => new TableRow({ cantSplit: true, height: { value: 420, rule: HeightRule.ATLEAST }, children: [
     cell(0, [r.date]), cell(1, [r.orderRef]), cell(2, [/^\d+$/.test(r.cls.trim()) ? `паралелка №${r.cls.trim()}` : r.cls]),
-    cell(3, [subject ? `${subject}: ` : ''], false, false), cell(4, ['1']), cell(5, [r.absentName], false, false),
+    cell(3, ['']), cell(4, ['1']), cell(5, [r.absentName], false, false),
   ] }))
   children.push(new Table({ width: { size: TEXT_W, type: WidthType.DXA }, columnWidths: COLS, layout: TableLayoutType.FIXED, rows: [head, ...body] }))
 
