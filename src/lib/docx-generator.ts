@@ -1926,6 +1926,8 @@ export async function generateClassSchedule(
   slots: Record<string, string>,
   maxPeriod: number,      // до кой час се показва (6 или 7)
   teachers?: Record<string, string>, // по избор: { "ден-час": "име на учител" } → добавя колона „Учител"
+  // по избор: собствени часове (напр. ИФО ученик — сутрешни + „ИФО 1“…„ИФО 6“), вместо стандартните 1–7
+  customPeriods?: { period: number; time: string; label?: string }[],
 ) {
   const B = { style: BorderStyle.SINGLE, size: 4, color: SCH_BORDER }
   const CELLS = { top: B, bottom: B, left: B, right: B }
@@ -1940,7 +1942,9 @@ export async function generateClassSchedule(
   // другите извиквания на функцията, които работят само с предмети).
   const hasTeachers = !!teachers && Object.values(teachers).some(v => (v || '').trim())
 
-  const periods = SCHEDULE_PERIODS.filter(p => p.gm || p.period <= maxPeriod)
+  const periods: { period: number; time: string; gm?: boolean; label?: string }[] = customPeriods
+    ? customPeriods
+    : SCHEDULE_PERIODS.filter(p => p.gm || p.period <= maxPeriod)
   const children: any[] = []
 
   // Хедър с лого
@@ -1964,9 +1968,9 @@ export async function generateClassSchedule(
     // Хедър колони
     const cols = hasTeachers
       ? [
-          { t: '№', w: 7 },
+          { t: '№', w: customPeriods ? 11 : 7 },
           { t: 'Час', w: 20 },
-          { t: 'Предмет / Образователно направление / Терапия', w: 48 },
+          { t: 'Предмет / Образователно направление / Терапия', w: customPeriods ? 44 : 48 },
           { t: 'Учител', w: 25 },
         ]
       : [
@@ -2001,7 +2005,7 @@ export async function generateClassSchedule(
           new TableCell({
             borders: CELLS, margins: { top: 40, bottom: 40, left: 60, right: 60 },
             ...(isGm ? { shading: { type: ShadingType.CLEAR, fill: 'EEEEEE' } } : {}),
-            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: isGm ? 'ГМ' : String(p.period), bold: isGm, size: 20, color: isGm ? '888888' : '000000' })] })],
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: isGm ? 'ГМ' : (p.label || String(p.period)), bold: isGm, size: 20, color: isGm ? '888888' : '000000' })] })],
           }),
           new TableCell({
             borders: CELLS, margins: { top: 40, bottom: 40, left: 60, right: 60 },
