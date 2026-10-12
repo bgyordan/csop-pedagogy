@@ -132,6 +132,7 @@ const navItems: NavItem[] = [
       { href: '/my-schedule', label: 'Моето разписание', icon: <CalendarDays size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={14} />, roles: ['admin', 'director', 'zdud'] },
       { href: '/admin/tasks', label: 'График срокове', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'] },
+      { href: '/school-calendar', label: 'Учебен календар', icon: <CalendarDays size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/duties', label: 'Дежурства', icon: <CalendarDays size={14} />, roles: ['admin', 'director', 'zdud'] },
       { href: '/gym-schedule', label: 'Физк. салон', icon: <Dumbbell size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],

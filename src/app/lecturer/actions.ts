@@ -126,13 +126,19 @@ export async function clearAllLecturerSlots() {
   revalidatePath('/lecturer')
   return { success: true, deleted: count || 0 }
 }
+// За ПЛАНИРАНЕТО (заповедта за лекторски) спонтанните неучебни дни се броят като учебни —
+// седмиците в заповедта не се променят; изпадат само от реално декларираните дни.
+const PLAN_DAYS = 'is_school_day.eq.true,spontaneous.eq.true'
+
 export async function schoolWeeks(from: string, to: string): Promise<number> {
   const supabase = await createClient()
-    const { count } = await supabase
-    .from('academic_calendar_days')
-    .select('*', { count: 'exact', head: true })
-    .gte('date', from).lte('date', to).eq('is_school_day', true)
-  return Math.round((count || 0) / 5)
+  const q = (planned: boolean) => {
+    const b = supabase.from('academic_calendar_days').select('*', { count: 'exact', head: true }).gte('date', from).lte('date', to)
+    return planned ? b.or(PLAN_DAYS) : b.eq('is_school_day', true)
+  }
+  let r = await q(true)
+  if (r.error) r = await q(false)   // колоната spontaneous още я няма (SQL не е пуснат)
+  return Math.round((r.count || 0) / 5)
 }
 
 // Премахва един лекторски слот (day/period) на учител
@@ -272,9 +278,13 @@ const startYearNow = () => { const d = new Date(); return d.getMonth() >= 7 ? d.
 export async function yearSchoolDays() {
   const supabase = await createClient()
   const y = startYearNow()
-  const { data } = await supabase.from('academic_calendar_days').select('date, term')
-    .gte('date', `${y}-09-01`).lte('date', `${y + 1}-08-31`).eq('is_school_day', true).order('date')
-  return (data || []).map((d: any) => ({ date: d.date as string, term: d.term === 2 ? 2 : 1 }))
+  const q = (planned: boolean) => {
+    const b = supabase.from('academic_calendar_days').select('date, term').gte('date', `${y}-09-01`).lte('date', `${y + 1}-08-31`)
+    return (planned ? b.or(PLAN_DAYS) : b.eq('is_school_day', true)).order('date')
+  }
+  let r = await q(true)
+  if (r.error) r = await q(false)
+  return (r.data || []).map((d: any) => ({ date: d.date as string, term: d.term === 2 ? 2 : 1 }))
 }
 
 /** Последните учебни дни по групи класове (по МОН) и краят на всяка паралелка — по детето с най-дълъг срок */

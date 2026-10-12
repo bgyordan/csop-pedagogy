@@ -17,6 +17,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { loginTime } from '@/lib/login-time'
 import TodayAbsentStrip from './components/TodayAbsentStrip'
 import CouncilStrip from './components/CouncilStrip'
+import NonSchoolDayStrip from './components/NonSchoolDayStrip'
 import FacilitiesStrip from './components/FacilitiesStrip'
 import OnlineRoomStrip from './components/OnlineRoomStrip'
 export const dynamic = 'force-dynamic'
@@ -117,6 +118,9 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Спонтанен неучебен ден — днес или в следващите дни */}
+      <NonSchoolDayStrip />
 
       {/* За съгласуване — материали за предстоящ съвет, с които още не съм се запознал */}
       {!viewing && <CouncilStrip staffId={profile.id} />}
