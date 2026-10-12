@@ -4,7 +4,9 @@ import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Pencil, Trash2, ChevronDown, Download } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { generateSubstitution, getAssignments, saveAssignments, checkSubstituteOverlap, deleteSubstitution, getAbsentHours } from './actions'
+import { generateSubstitution, getAssignments, saveAssignments, checkSubstituteOverlap, deleteSubstitution, getAbsentHours, getKtParts, saveKtParts } from './actions'
+import KtPartsEditor, { ktPartsError } from '@/components/KtPartsEditor'
+import type { KtPart } from '@/lib/kt'
 import { generateSubstitutionOrder } from '@/lib/docx-substitution'
 import SubstituteDayCanvas, { PALETTE, hourKey } from './SubstituteDayCanvas'
 import type { SubRow } from './page'
@@ -207,6 +209,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [reason, setReason] = useState('sick')
   const [bsch, setBsch] = useState(false)
     const [ktArticle, setKtArticle] = useState('155')
+  const [ktParts, setKtParts] = useState<KtPart[]>([])
+  const [eKtParts, setEKtParts] = useState<KtPart[]>([])
   const [eKtArticle, setEKtArticle] = useState('155')
   const [saving, setSaving] = useState(false)
 
@@ -362,6 +366,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
 
   async function saveNew() {
     if (!absentId || !from || !to) { toast('Отсъстващ и срок са задължителни', 'error'); return }
+    const kErr = ktPartsError(ktParts, from, to)
+    if (kErr) { toast(kErr, 'error'); return }
     const dup = await overlapMsg(absentId, from, to)
     if (dup) { toast(dup, 'error'); return }
     setSaving(true)
@@ -375,6 +381,10 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       over_norm: bsch ? true : nOverNorm,
     }).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setSaving(false); return }
+    if (ktParts.length > 0) {
+      const kr: any = await saveKtParts(data.id, ktParts)
+      if (kr?.error) toast(kr.error, 'error')
+    }
     if (multiOpen) {
       const ar: any = await saveAssignments(data.id, mapToRows(dayMap, schoolDays))
       if (ar?.error) toast(ar.error, 'error')
@@ -391,7 +401,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     setRows(prev => [newRow, ...prev])
     setOverNormMap(p => ({ ...p, [newRow.id]: newRow.overNorm }))
     toast('Заместването е добавено')
-    setAbsentId(''); setSubId(''); setFrom(''); setTo(''); setReason('sick'); setBsch(false); setKtArticle('155'); setOrderMode('create'); setNManualNumber(''); setNManualDate(''); setNOverNorm(true); setShowNew(false); setSaving(false)
+    setAbsentId(''); setSubId(''); setFrom(''); setTo(''); setReason('sick'); setBsch(false); setKtArticle('155'); setKtParts([]); setOrderMode('create'); setNManualNumber(''); setNManualDate(''); setNOverNorm(true); setShowNew(false); setSaving(false)
     resetMulti()
   }
 
@@ -408,6 +418,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     setEAbsent(absentIdByRow[r.id] || '')
     setESub(r.substituteId || '')
     setEFrom(r.dateFrom); setETo(r.dateTo); setEReason(r.reason); setEBsch(!!(r as any).bsch); setEKtArticle((r as any).ktArticle || '155')
+    setEKtParts([]); getKtParts(r.id).then((x: any) => setEKtParts(x?.data || []))
     setEManualNumber((r as any).manualNumber || ''); setEManualDate((r as any).manualDate || ''); setENoOrder(!!(r as any).noOrder)
     setEOverNorm(overNormMap[r.id] !== false)
   }
@@ -422,6 +433,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
 
   async function saveEdit() {
     if (!editId || !eAbsent || !eFrom || !eTo) { toast('Отсъстващ и срок са задължителни', 'error'); return }
+    const kErr = ktPartsError(eKtParts, eFrom, eTo)
+    if (kErr) { toast(kErr, 'error'); return }
     const dup = await overlapMsg(eAbsent, eFrom, eTo, editId)
     if (dup) { toast(dup, 'error'); return }
     setESaving(true)
@@ -433,6 +446,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       over_norm: eBsch ? true : eOverNorm,
     }).eq('id', editId).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setESaving(false); return }
+    const kr: any = await saveKtParts(editId, eKtParts)
+    if (kr?.error) { toast(kr.error, 'error'); setESaving(false); return }
     const mapped: any = mapRow(data); mapped.absentStaffId = eAbsent
     const eRanges = multiOpen ? mapToRows(dayMap, schoolDays) : []
     const ar: any = await saveAssignments(editId, eRanges)
@@ -523,6 +538,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                 className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 cursor-pointer">
                 {KT_ARTICLES.map(a => <option key={a.v} value={a.v}>{a.l}</option>)}
               </select>
+              <div className="mt-1.5"><KtPartsEditor parts={ktParts} onChange={setKtParts} from={from} to={to} base={ktArticle} /></div>
             </div>
           </div>
           <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm cursor-pointer transition-all ${bsch ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
@@ -728,6 +744,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                   {KT_ARTICLES.map(a => <option key={a.v} value={a.v}>{a.l}</option>)}
                 </select>
               </div>
+              <div className="md:col-span-2"><KtPartsEditor parts={eKtParts} onChange={setEKtParts} from={eFrom} to={eTo} base={eKtArticle} /></div>
               <div className="md:col-span-2">
                 <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm cursor-pointer transition-all ${eBsch ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
                   <input type="checkbox" checked={eBsch} onChange={e => setEBsch(e.target.checked)} className="sr-only" />

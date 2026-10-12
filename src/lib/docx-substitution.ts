@@ -53,8 +53,15 @@ export interface SubstOrderData {
   days: { date: string; items: { period: number; subject: string; cls: string }[] }[]
   substitutes?: { name: string; position: string; from: string; to: string; overNorm: boolean; periods?: number[] | null }[]
   npSplit?: { npFrom: string; npTo: string; budgetFrom: string; budgetTo: string } | null
+  /** отпуск по няколко члена от КТ: дните по НП и дните от бюджета (непрекъснати периоди) */
+  funding?: { np: { from: string; to: string }[]; budget: { from: string; to: string }[] } | null
   rate?: number   // € за учебен час на заместника (lecturer_rates) — влиза в т. 3 на заповедта
   noHours?: boolean   // разписанието на отсъстващия още не е пълно → заповед без часове и таблица
+}
+
+// „12.10.2026 – 13.10.2026 и 15.10.2026“ — периодите на финансирането в заповедта
+function rangesText(rs: { from: string; to: string }[]) {
+  return rs.map(r => r.from === r.to ? formatDate(r.from) : `${formatDate(r.from)} – ${formatDate(r.to)}`).join(' и ')
 }
 
 // Матрица на седмичното разписание: дни (Пн-Пт) колони, часове редове.
@@ -227,7 +234,12 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
       : '3. Проведените часове по заместването да се изплатят на заместващия педагогически специалист като лекторски часове.')
     children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
       normal('4. Източник на финансиране: ', 22),
-      ...(d.isBsch && d.npSplit
+      ...(d.isBsch && d.funding
+        ? [bold('Национална програма „Без свободен час", Модул 1', 22),
+           normal(` – за ${rangesText(d.funding.np)}; `, 22),
+           bold('бюджет на ЦСОП (собствени средства)', 22),
+           normal(` – за ${rangesText(d.funding.budget)}.`, 22)]
+        : d.isBsch && d.npSplit
         ? [bold('Национална програма „Без свободен час", Модул 1', 22),
            normal(` – за ${formatDate(d.npSplit.npFrom)} – ${formatDate(d.npSplit.npTo)} (първите два работни дни от временната неработоспособност); `, 22),
            bold('бюджет на ЦСОП (собствени средства)', 22),
@@ -764,6 +776,8 @@ export interface NpLeaveOrderData {
   absentName: string
   absentPosition: string
   ktArticle: string        // 155/157/159/161/162/168/169/170/176
+  /** части от периода с друг член (напр. последните 2 дни — чл. 160) */
+  ktParts?: { from: string; to: string; kt: string }[]
   dateFrom: string
   dateTo: string
   workDays: number         // брой работни/учебни дни отпуск
@@ -774,6 +788,7 @@ const KT_TEXT: Record<string, string> = {
   '155': 'чл. 155 – платен годишен отпуск',
   '157': 'чл. 157 – отпуск при определени събития',
   '159': 'чл. 159 – отпуск за синдикална дейност',
+  '160': 'чл. 160 – неплатен отпуск',
   '161': 'чл. 161 – платен служебен/творчески отпуск',
   '162': 'чл. 162 – отпуск при временна неработоспособност',
   '168': 'чл. 168 – допълнителен отпуск за отглеждане на дете',
@@ -789,16 +804,40 @@ export async function generateNpLeaveOrder(d: NpLeaveOrderData) {
 
   const df = formatDate(d.dateFrom), dt = formatDate(d.dateTo)
   const ktText = KT_TEXT[d.ktArticle] || `чл. ${d.ktArticle} КТ`
+  // няколко члена → непрекъснати периоди по член (календарни дни)
+  const runs: { kt: string; from: string; to: string }[] = []
+  if (d.ktParts?.length) {
+    const iso = (x: Date) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
+    for (let x = new Date(d.dateFrom + 'T00:00'); iso(x) <= d.dateTo; x.setDate(x.getDate() + 1)) {
+      const day = iso(x), kt = d.ktParts.find(p => day >= p.from && day <= p.to)?.kt || d.ktArticle
+      const last = runs[runs.length - 1]
+      if (last && last.kt === kt) last.to = day; else runs.push({ kt, from: day, to: day })
+    }
+  }
+  const multi = runs.length > 1
+  const arts = Array.from(new Set(runs.map(r => r.kt)))
 
   children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 120 }, children: [
     normal('На основание чл. 259, ал. 1 от Закона за предучилищното и училищното образование, ', 22),
-    normal(`${ktText.replace(/^чл\. \d+[^–]*– /, 'чл. ' + d.ktArticle + ' ')} от Глава осма, раздел I от Кодекса на труда`, 22),
+    normal(multi
+      ? `${arts.map(k => `чл. ${k}`).join(' и ')} от Глава осма, раздел I от Кодекса на труда`
+      : `${ktText.replace(/^чл\. \d+[^–]*– /, 'чл. ' + d.ktArticle + ' ')} от Глава осма, раздел I от Кодекса на труда`, 22),
     normal(` и подадено `, 22), bold(d.leaveRef || 'заявление', 22),
     normal(', както и във връзка с осигуряване на заместване по Национална програма „Без свободен час", Модул 1,', 22),
   ] }))
 
   children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('РАЗРЕШАВАМ:', 24)], spacing: { after: 120 } }))
 
+  if (multi) {
+    children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 }, children: [
+      normal('Ползване на отпуск на ', 22),
+      bold(`${d.absentName}${d.absentPosition ? ' – ' + d.absentPosition : ''}`, 22), normal(', както следва:', 22),
+    ] }))
+    runs.forEach((r, i) => children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 60 }, indent: { left: 360 }, children: [
+      normal(`– на основание ${KT_TEXT[r.kt] || `чл. ${r.kt} КТ`}, за периода от `, 22), bold(formatDate(r.from), 22), normal(' до ', 22), bold(formatDate(r.to), 22),
+      normal(` включително${i === runs.length - 1 ? '.' : ';'}`, 22),
+    ] })))
+  } else {
   children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 }, children: [
     normal('Ползване на отпуск на ', 22),
     bold(`${d.absentName}${d.absentPosition ? ' – ' + d.absentPosition : ''}`, 22),
@@ -808,6 +847,7 @@ export async function generateNpLeaveOrder(d: NpLeaveOrderData) {
     normal('за периода от ', 22), bold(df, 22), normal(' до ', 22), bold(dt, 22),
     normal(` включително${d.workDays ? ` (${d.workDays} работни дни)` : ''}.`, 22),
   ] }))
+  }
 
   children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 }, children: [
     normal('Заместването на отсъстващия учител да се осигури по реда на Националната програма „Без свободен час", Модул 1, за реално проведените учебни часове.', 22),
