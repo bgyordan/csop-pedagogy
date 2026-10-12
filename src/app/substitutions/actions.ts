@@ -455,7 +455,7 @@ async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_na
   const ktMap = await ktPartsBySub(supabase, subs.map((x: any) => x.id))
 
 
-  const rows: { subId: string; date: string; orderRef: string; cls: string; subject: string; hours: number; bsch: boolean; kt: string; absentName: string }[] = []
+  const rows: { subId: string; date: string; orderRef: string; cls: string; subject: string; hours: number; items?: { period: number; subject: string }[]; bsch: boolean; kt: string; absentName: string }[] = []
 
   for (const sub of subs) {
     // само моите дни в това заместване
@@ -486,16 +486,17 @@ async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_na
       if (dayItems.length === 0) continue
       const dateStr = w.iso.split('-').reverse().join('.')
       // по паралелка: предметите с броя часове („Математика (2); Социални умения (1)“)
-      const byCls: Record<string, { subjects: Record<string, number>; hours: number }> = {}
+      const byCls: Record<string, { subjects: Record<string, number>; hours: number; items: { period: number; subject: string }[] }> = {}
       dayItems.forEach(it => {
-        if (!byCls[it.cls]) byCls[it.cls] = { subjects: {}, hours: 0 }
+        if (!byCls[it.cls]) byCls[it.cls] = { subjects: {}, hours: 0, items: [] }
         if (it.subject) byCls[it.cls].subjects[it.subject] = (byCls[it.cls].subjects[it.subject] || 0) + 1
         byCls[it.cls].hours++
+        byCls[it.cls].items.push({ period: it.period, subject: it.subject || '' })   // по час — за НП декларацията (тема на всеки час)
       })
       Object.entries(byCls).forEach(([cls, v]) => rows.push({
         subId: sub.id, date: dateStr, orderRef, cls,
         subject: Object.keys(v.subjects).length > 1 ? Object.entries(v.subjects).map(([n, c]) => `${n} (${c})`).join('; ') : Object.keys(v.subjects).join(''),
-        hours: v.hours,
+        hours: v.hours, items: v.items,
                bsch: isNp, kt: ktOn(ktMap[sub.id], sub.kt_article, w.iso),
         absentName: sub.absent ? `${(sub.absent as any).first_name} ${(sub.absent as any).last_name}` : '',
       }))
