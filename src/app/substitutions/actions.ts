@@ -5,6 +5,7 @@ import { isPedagogical } from '@/lib/pedagogues'
 import { checkDeclarablePeriod } from '@/lib/declaration-periods'
 import { loadLecturerRates, effectiveRates } from '@/lib/lecturer-rates'
 import { coudPeriod, periodsOverlap, PERIOD_LABEL, PERIOD_TIMES } from '@/lib/periods'
+import { NP_KT, ktOn, type KtPart } from '@/lib/kt'
 
 // Днешна дата по българско време (сървърът е в UTC — след полунощ даваше вчерашна дата)
 function sofiaToday() {
@@ -25,11 +26,52 @@ async function workdays(supabase: any, from: string, to: string): Promise<{ iso:
 // ЦОУД етикет за възпитател (по coud_groups.teacher_id)
 // НП при болничен (чл. 162): финансират се само първите 2 работни дни от болничния
 // (тези, които плаща работодателят). Връща множеството НП дни или null = всички дни са НП.
-async function npDays(supabase: any, sub: { date_from: string; date_to: string; kt_article?: string | null; bsch_eligible?: boolean | null }): Promise<Set<string> | null> {
+// Отпуск по няколко члена (parts): денят е НП, ако членът му е от НП-списъка (при чл. 162 — първите 2 дни болничен);
+// напр. чл. 155 + чл. 160 → дните по чл. 160 (неплатен) се плащат от бюджета.
+async function npDays(supabase: any, sub: { date_from: string; date_to: string; kt_article?: string | null; bsch_eligible?: boolean | null }, parts?: KtPart[]): Promise<Set<string> | null> {
   if (sub.bsch_eligible !== true) return new Set()
-  if (sub.kt_article !== '162') return null
+  if (!parts || parts.length === 0) {
+    if (sub.kt_article !== '162') return null
+    const all = await workdays(supabase, sub.date_from, sub.date_to)
+    return new Set(all.slice(0, 2).map(w => w.iso))
+  }
   const all = await workdays(supabase, sub.date_from, sub.date_to)
-  return new Set(all.slice(0, 2).map(w => w.iso))
+  const out = new Set<string>()
+  let sick = 0
+  for (const w of all) {
+    const kt = ktOn(parts, sub.kt_article, w.iso)
+    if (kt === '162') { if (sick < 2) out.add(w.iso); sick++ }
+    else if (NP_KT.has(kt)) out.add(w.iso)
+  }
+  return out
+}
+
+// Частите с друг член от КТ: substitution_id -> [{ from, to, kt }] (без SQL-а — празно)
+async function ktPartsBySub(supabase: any, subIds: string[]): Promise<Record<string, KtPart[]>> {
+  const out: Record<string, KtPart[]> = {}
+  if (subIds.length === 0) return out
+  const { data, error } = await supabase.from('substitution_kt_parts').select('substitution_id, date_from, date_to, kt_article').in('substitution_id', subIds).order('date_from')
+  if (error) return out
+  ;(data || []).forEach((r: any) => { (out[r.substitution_id] ||= []).push({ from: r.date_from, to: r.date_to, kt: r.kt_article }) })
+  return out
+}
+export async function getKtParts(substitutionId: string) {
+  const supabase = await createClient()
+  return { data: (await ktPartsBySub(supabase, [substitutionId]))[substitutionId] || [] }
+}
+export async function saveKtParts(substitutionId: string, parts: KtPart[]) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+  const { error: dErr } = await supabase.from('substitution_kt_parts').delete().eq('substitution_id', substitutionId)
+  if (dErr) return parts.length ? { error: 'Пуснете SQL файла 2026-10-12_substitution_kt_parts.sql (отпуск по няколко члена)' } : { success: true }
+  const clean = parts.filter(p => p.kt && p.from && p.to && p.from <= p.to)
+  if (clean.length > 0) {
+    const { error } = await supabase.from('substitution_kt_parts').insert(clean.map(p => ({ substitution_id: substitutionId, date_from: p.from, date_to: p.to, kt_article: p.kt })))
+    if (error) return { error: error.message }
+  }
+  revalidatePath('/substitutions')
+  return { success: true }
 }
 // Разпределение „няколко заместника“: substitution_id -> [{ staffId, from, to, periods }]
 // periods — само тези часове в дните (заместване по часове, напр. всеки ИЧ от различен колега); null = всички
@@ -157,9 +199,24 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   const usedTerms = Array.from(new Set(wds.map(w => w.term)))
   const bySlot: Slot[] = (usedTerms.length ? usedTerms : [1]).flatMap(t => byTerm[t])
   // НП при болничен (чл. 162): НП само за първите 2 работни дни, останалите — бюджет
-  const npSplit = (sub.bsch_eligible === true && (sub as any).kt_article === '162' && wds.length > 2)
+  const kparts = (await ktPartsBySub(supabase, [substitutionId]))[substitutionId] || []
+  const npSplit = (kparts.length === 0 && sub.bsch_eligible === true && (sub as any).kt_article === '162' && wds.length > 2)
     ? { npFrom: wds[0].iso, npTo: wds[1].iso, budgetFrom: wds[2].iso, budgetTo: sub.date_to }
     : null
+  // няколко члена → кои дни са по НП и кои от бюджета, като непрекъснати периоди
+  let funding: { np: { from: string; to: string }[]; budget: { from: string; to: string }[] } | null = null
+  if (kparts.length > 0 && sub.bsch_eligible === true) {
+    const npSet = await npDays(supabase, sub as any, kparts)
+    const runs = { np: [] as { from: string; to: string }[], budget: [] as { from: string; to: string }[] }
+    let cur: { kind: 'np' | 'budget'; from: string; to: string } | null = null
+    for (const w of wds) {
+      const kind = npSet === null || npSet.has(w.iso) ? 'np' : 'budget'
+      if (cur && cur.kind === kind) cur.to = w.iso
+      else { if (cur) runs[cur.kind].push({ from: cur.from, to: cur.to }); cur = { kind, from: w.iso, to: w.iso } }
+    }
+    if (cur) runs[cur.kind].push({ from: cur.from, to: cur.to })
+    if (runs.np.length && runs.budget.length) funding = runs
+  }
 
   const absentName = sub.absent ? `${(sub.absent as any).first_name} ${(sub.absent as any).last_name}` : ''
   const subName = sub.sub ? `${(sub.sub as any).first_name} ${(sub.sub as any).last_name}` : ''
@@ -253,7 +310,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
             yearName: cy?.name || '',
       rate: effectiveRates(await loadLecturerRates(supabase)).sub,   // € за учебен час на заместника (и по НП)
       isBsch: sub.bsch_eligible === true,
-      npSplit,
+      npSplit, funding,
       noHours, weekHours, targetHours, placedHours,
       days: noHours ? [] : days,
       substitutes,
@@ -395,6 +452,7 @@ async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_na
   const { data: subs } = await q
   if (!subs || subs.length === 0) return { error: 'Няма замествания за този месец' }
   const assignMap = await assignmentsBySub(supabase, subs.map((x: any) => x.id))
+  const ktMap = await ktPartsBySub(supabase, subs.map((x: any) => x.id))
 
 
   const rows: { subId: string; date: string; orderRef: string; cls: string; subject: string; hours: number; bsch: boolean; kt: string; absentName: string }[] = []
@@ -418,7 +476,7 @@ async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_na
     const lo = sub.date_from > first ? sub.date_from : first
     const hi = sub.date_to < last ? sub.date_to : last
     const wds = await workdays(supabase, lo, hi)
-    const npSet = await npDays(supabase, sub)
+    const npSet = await npDays(supabase, sub, ktMap[sub.id])
     for (const w of wds) {
       if (!inRanges(w.iso, myRanges)) continue
       const isNp = npSet === null ? true : npSet.has(w.iso)
@@ -438,7 +496,7 @@ async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_na
         subId: sub.id, date: dateStr, orderRef, cls,
         subject: Object.keys(v.subjects).length > 1 ? Object.entries(v.subjects).map(([n, c]) => `${n} (${c})`).join('; ') : Object.keys(v.subjects).join(''),
         hours: v.hours,
-               bsch: isNp, kt: sub.kt_article || '',
+               bsch: isNp, kt: ktOn(ktMap[sub.id], sub.kt_article, w.iso),
         absentName: sub.absent ? `${(sub.absent as any).first_name} ${(sub.absent as any).last_name}` : '',
       }))
     }
@@ -486,6 +544,7 @@ export async function getMonExport(first: string, last: string) {
 
   // разпределения по дни + имената/длъжностите на всички заместници в тях
   const assignMap = await assignmentsBySub(supabase, subs.map((x: any) => x.id))
+  const ktMap = await ktPartsBySub(supabase, subs.map((x: any) => x.id))
   const extraIds = Array.from(new Set(Object.values(assignMap).flat().map(a => a.staffId)))
   const people: Record<string, { name: string; position: string; role: string }> = {}
   ;(subs as any[]).forEach(x => { if (x.substitute_staff_id && x.sub) people[x.substitute_staff_id] = { name: `${x.sub.first_name} ${x.sub.last_name}`, position: x.sub.position || '', role: x.sub.role || '' } })
@@ -512,12 +571,19 @@ export async function getMonExport(first: string, last: string) {
     const lo = sub.date_from > first ? sub.date_from : first
     const hi = sub.date_to < last ? sub.date_to : last
     const wds = await workdays(supabase, lo, hi)
-    const npSet = await npDays(supabase, sub)   // при чл. 162 — само първите 2 работни дни
-    // по един ред за всеки заместник — само неговите дни
+    const parts = ktMap[sub.id]
+    const npSet = await npDays(supabase, sub, parts)   // при чл. 162 — само първите 2 работни дни; при няколко члена — по члена на деня
+    // по един ред за всеки заместник (и член от КТ) — само неговите дни
     const cov = coverageOf(sub as any, assignMap[sub.id])
     for (const [staffId, ranges] of Object.entries(cov)) {
-      let hours = 0
-      wds.forEach(w => { if ((npSet === null || npSet.has(w.iso)) && inRanges(w.iso, ranges)) hours += coveredItems(w.iso, dayItems(w.term, w.dow), ranges).length })
+      const byKt: Record<string, number> = {}
+      wds.forEach(w => {
+        if ((npSet === null || npSet.has(w.iso)) && inRanges(w.iso, ranges)) {
+          const kt = ktOn(parts, sub.kt_article, w.iso) || '155'
+          byKt[kt] = (byKt[kt] || 0) + coveredItems(w.iso, dayItems(w.term, w.dow), ranges).length
+        }
+      })
+      for (const [kt, hours] of Object.entries(byKt)) {
       if (hours === 0) continue
       const person = people[staffId] || { name: '', position: '', role: '' }
       // непедагогически = не е педагогически специалист по ЗПУО (по роля)
@@ -527,10 +593,11 @@ export async function getMonExport(first: string, last: string) {
         // в портала номерът и датата са отделни полета → само номера („014“), без „/23.09.2026г.“
         docType: 'Заповед', docNumber: String(orderNumber).split('/')[0].trim(), docDate: orderDate,
         hoursTaken: hours, nonSpecHoursTaken: isNonSpec ? hours : 0,
-        kt: sub.kt_article || '155', amount: +(hours * rate).toFixed(2),
+        kt, amount: +(hours * rate).toFixed(2),
         // осигуровките за сметка на работодателя; общо ≤ часове × тавана (при закръгляне — до тавана)
         insurance: Math.min(+(hours * rate * employerPct / 100).toFixed(2), Math.max(0, +(hours * npCap - +(hours * rate).toFixed(2)).toFixed(2))),
       })
+      }
     }
   }
   if (rows.length === 0) return { error: 'Няма часове за отчет в този период' }
@@ -556,6 +623,7 @@ export async function getSubstitutionHoursByStaff(first: string, last: string, o
   if (!subs || subs.length === 0) return { data: out }
 
   const assignMap = await assignmentsBySub(supabase, subs.map((x: any) => x.id))
+  const ktMap = await ktPartsBySub(supabase, subs.map((x: any) => x.id))
   const slotCache: Record<string, Record<number, Slot[]>> = {}
   for (const sub of subs as any[]) {
     if (!slotCache[sub.absent_staff_id]) slotCache[sub.absent_staff_id] = await slotsByTerm(supabase, sub.absent_staff_id, cy?.id)
@@ -563,7 +631,7 @@ export async function getSubstitutionHoursByStaff(first: string, last: string, o
     const lo = sub.date_from > first ? sub.date_from : first
     const hi = sub.date_to < last ? sub.date_to : last
     const wds = await workdays(supabase, lo, hi)
-    const npSet = await npDays(supabase, sub)
+    const npSet = await npDays(supabase, sub, ktMap[sub.id])
     const cov = coverageOf(sub, assignMap[sub.id])
     for (const [staffId, ranges] of Object.entries(cov)) {
       if (onlyStaff && staffId !== onlyStaff) continue

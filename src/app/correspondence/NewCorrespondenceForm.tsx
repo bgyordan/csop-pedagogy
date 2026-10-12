@@ -5,6 +5,9 @@ import { canSubstitute, canBeSubstituted } from '@/lib/pedagogues'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { generateNpLeaveOrder } from '@/lib/docx-substitution'
+import { saveKtParts } from '@/app/substitutions/actions'
+import KtPartsEditor, { ktPartsError } from '@/components/KtPartsEditor'
+import { ktLabel, type KtPart } from '@/lib/kt'
 import { FileDrop, useFormKeys, KeysHint } from '@/components/registry/FormParts'
 import { X, Loader2, User, GraduationCap, ChevronDown, ArrowDownLeft, ArrowUpRight, Zap, ClipboardList, FileText } from 'lucide-react'
 // Деловодна година: 15.09 – 14.09 следващата
@@ -153,6 +156,8 @@ export default function NewCorrespondenceForm({
   const [addToDossier, setAddToDossier] = useState(true)
   const [createOrder, setCreateOrder] = useState(false)
     const [ktArticle, setKtArticle] = useState('155')
+  // отпуск по няколко члена (само при „Период“) — напр. 2 дни чл. 155 + 2 дни чл. 160
+  const [ktParts, setKtParts] = useState<KtPart[]>([])
   // Заместване (само сценарий отпуск, опционално)
   const [substituteId, setSubstituteId] = useState('')
   const [subFrom, setSubFrom] = useState('')
@@ -297,9 +302,13 @@ export default function NewCorrespondenceForm({
     })
   }
 
+  // частите важат само при отпуск за период (не при отделни дни)
+  const partsUsed: KtPart[] = isVacation && !separateDays ? ktParts : []
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!subject) { alert('Моля попълнете темата.'); return }
+    if (partsUsed.length > 0) { const kErr = ktPartsError(partsUsed, subFrom, subTo); if (kErr) { alert(kErr); return } }
     if (isVacation && absentInRegister && leavePeriods.length === 0) { alert(separateDays ? 'Моля добавете поне един ден на отпуска.' : 'Моля попълнете периода на отпуска (от – до).'); return }
     setSaving(true)
     const { start: dStart, end: dEnd } = deloYearBounds(new Date(docDate))
@@ -351,7 +360,7 @@ export default function NewCorrespondenceForm({
           date: docDate,
           title: `Заповед за отпуск на ${fromWhom || ''}`.trim(),
           nomenclature_item: 'РД-10',
-          description: `Издадена въз основа на Вх. ${docNumber} · Отпуск по чл. ${ktArticle} КТ`,
+          description: `Издадена въз основа на Вх. ${docNumber} · Отпуск по ${ktLabel(ktArticle, partsUsed)} КТ`,
                     file_url: fileUrl || null,
           file_name: fileName || null,
                     created_by: currentUserId,
@@ -361,7 +370,7 @@ export default function NewCorrespondenceForm({
           try {
             await generateNpLeaveOrder({
               orderNumber, absentName: fromWhom || '', absentPosition: '',
-                            ktArticle, dateFrom: leaveFirst || docDate, dateTo: leaveLast || docDate, workDays: 0,
+                            ktArticle, ktParts: partsUsed, dateFrom: leaveFirst || docDate, dateTo: leaveLast || docDate, workDays: 0,
               leaveRef: `Заявление вх. № ${docNumber}`, zdudName: 'Силвия Кьошкерян',
             })
           } catch (_) {}
@@ -381,7 +390,8 @@ export default function NewCorrespondenceForm({
               .lte('date_from', all.reduce((a, p) => p.to > a ? p.to : a, all[0].to)).gte('date_to', all.reduce((a, p) => p.from < a ? p.from : a, all[0].from))
           : { data: [] as any[] }
         const periods = all.filter(p => !(existing || []).some((e: any) => p.from <= e.date_to && p.to >= e.date_from))
-        if (periods.length > 0) await supabase.from('substitutions').insert(periods.map(p => ({
+        if (periods.length > 0) {
+          const { data: ins } = await supabase.from('substitutions').insert(periods.map(p => ({
           absent_staff_id: staffId || null,
           kt_article: ktArticle,
           substitute_staff_id: absentCanBeSubstituted ? (substituteId || null) : null,
@@ -391,7 +401,10 @@ export default function NewCorrespondenceForm({
           bsch_eligible: isNp && absentCanBeSubstituted,
           leave_order_date: docDate,
           created_by: currentUserId,
-        })))
+        }))).select('id')
+          // части с друг член — към записа за периода
+          if (partsUsed.length > 0 && ins?.length === 1) await saveKtParts(ins[0].id, partsUsed)
+        }
       } catch (_) { /* заместването не бива да блокира деловодството */ }
     }
 
@@ -565,6 +578,9 @@ export default function NewCorrespondenceForm({
                         <input type="date" value={subTo} min={subFrom || new Date(Date.now() - 7 * 864e5).toISOString().split('T')[0]} onChange={e => setSubTo(e.target.value)} className="input w-full text-xs" />
                       </div>
                     </div>
+                    )}
+                    {!separateDays && (
+                      <KtPartsEditor parts={ktParts} onChange={setKtParts} from={subFrom} to={subTo} base={ktArticle} />
                     )}
                     {!absentCanBeSubstituted && (
                       <div className="text-[11px] text-slate-500">Не се замества — колегите ще го видят в „Днес отсъстват“.</div>
