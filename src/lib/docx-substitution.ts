@@ -557,7 +557,7 @@ export interface MonthlyDeclData {
   monthName: string
   year: number
   yearName: string
-  rows: { date: string; orderRef: string; cls: string; subject: string; hours: number; bsch: boolean; kt: string; absentName: string }[]
+  rows: { date: string; orderRef: string; cls: string; subject: string; hours: number; items?: { period: number; subject: string }[]; bsch: boolean; kt: string; absentName: string }[]
   totalHours: number
   periodFrom?: string
   periodTo?: string
@@ -620,7 +620,7 @@ function npDeclSection(d: MonthlyDeclData) {
     { spacing: { after: 120, line: 360, lineRule: LineRuleType.AUTO } }))
 
   // таблица — колоните от образеца
-  const COLS = [1250, 1700, 1250, 2050, 850, 2114]   // сума 9214
+  const COLS = [1150, 1500, 1150, 3050, 700, 1664]   // сума 9214 — „Тема“ по-широка: там се пише на ръка
   const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
   const cell = (i: number, lines: string[], bold = false, center = true) => new TableCell({
@@ -632,8 +632,15 @@ function npDeclSection(d: MonthlyDeclData) {
     cell(0, ['Дата'], true), cell(1, ['Заповед №… от…', 'Договор №… от…'], true), cell(2, ['Клас'], true),
     cell(3, ['Тема от учебното', '/образователното', 'съдържание'], true), cell(4, ['Брой', 'часове'], true), cell(5, ['Име на отсъстващия', 'учител'], true),
   ] })
-  const body = rows.map(r => new TableRow({ children: [
-    cell(0, [r.date]), cell(1, [r.orderRef]), cell(2, [/^\d+$/.test(r.cls.trim()) ? `паралелка №${r.cls.trim()}` : r.cls]), cell(3, ['']), cell(4, [String(r.hours)]), cell(5, [r.absentName], false, false),
+  // всеки час на отделен ред (по реда в деня) — в „Тема“ се пише темата на ТОЗИ час от дневника;
+  // предметът е отпечатан, за да се знае кой час кой е
+  const perHour = rows.flatMap(r => {
+    const its = (r.items || []).slice().sort((a, b) => a.period - b.period)
+    return its.length === r.hours ? its.map(it => ({ r, subject: it.subject })) : Array.from({ length: r.hours }, () => ({ r, subject: r.subject }))
+  })
+  const body = perHour.map(({ r, subject }) => new TableRow({ cantSplit: true, children: [
+    cell(0, [r.date]), cell(1, [r.orderRef]), cell(2, [/^\d+$/.test(r.cls.trim()) ? `паралелка №${r.cls.trim()}` : r.cls]),
+    cell(3, [subject ? `${subject}: ` : ''], false, false), cell(4, ['1']), cell(5, [r.absentName], false, false),
   ] }))
   children.push(new Table({ width: { size: TEXT_W, type: WidthType.DXA }, columnWidths: COLS, layout: TableLayoutType.FIXED, rows: [head, ...body] }))
 
