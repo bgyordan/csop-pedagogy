@@ -18,6 +18,7 @@ import { loginTime } from '@/lib/login-time'
 import TodayAbsentStrip from './components/TodayAbsentStrip'
 import CouncilStrip from './components/CouncilStrip'
 import NonSchoolDayStrip from './components/NonSchoolDayStrip'
+import DutyStrip from './components/DutyStrip'
 import FacilitiesStrip from './components/FacilitiesStrip'
 import OnlineRoomStrip from './components/OnlineRoomStrip'
 export const dynamic = 'force-dynamic'
@@ -121,6 +122,9 @@ export default async function DashboardPage() {
 
       {/* Спонтанен неучебен ден — днес или в следващите дни */}
       <NonSchoolDayStrip />
+
+      {/* Дежурни тази седмица */}
+      {!viewing && <DutyStrip staffId={profile.id} />}
 
       {/* За съгласуване — материали за предстоящ съвет, с които още не съм се запознал */}
       {!viewing && <CouncilStrip staffId={profile.id} />}
