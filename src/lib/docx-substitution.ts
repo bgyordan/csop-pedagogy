@@ -553,7 +553,7 @@ export interface MonthlyDeclData {
 }
 
 // НП вариант (само НП редове) — точно по бланката Приложение № 2 (Times New Roman 12, полета и таблица като образеца)
-export async function generateMonthlyNPDeclaration(d: MonthlyDeclData) {
+function npDeclSection(d: MonthlyDeclData) {
   const rows = d.rows.filter(r => r.bsch)
   const total = rows.reduce((a, r) => a + r.hours, 0)
   const F = 'Times New Roman'
@@ -648,16 +648,22 @@ export async function generateMonthlyNPDeclaration(d: MonthlyDeclData) {
   children.push(P([t('Директор: '), t('Светлана Иванова', { bold: true }), t(' '), dotTab()], { tabStops: DOTS, ...KEEP }))
   children.push(P([tab(), it('(име, фамилия, подпис, кръгъл печат)'), tab(), it('(дата)')], { tabStops: TABS2 }))
 
-  const doc = new Document({
-    styles: { default: { document: { run: { font: F, size: 24 } } } },
-    sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 709, right: 1134, bottom: 567, left: 1701 } } }, children }],
-  })
-  const blob = await Packer.toBlob(doc)
-  saveAs(blob, `декларация_НП_${period.replace(/\s+/g, '').replace(/[–.]/g, '-')}_${d.substituteName.replace(/\s+/g, '_')}.docx`)
+  return {
+    section: { properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 709, right: 1134, bottom: 567, left: 1701 } } }, children },
+    stem: period.replace(/\s+/g, '').replace(/[–.]/g, '-'),
+  }
+}
+const NP_STYLES = { default: { document: { run: { font: 'Times New Roman', size: 24 } } } }
+const BUDGET_STYLES = { default: { document: { run: { font: 'Times New Roman', size: 20 } } } }
+
+export async function generateMonthlyNPDeclaration(d: MonthlyDeclData) {
+  const { section, stem } = npDeclSection(d)
+  const blob = await Packer.toBlob(new Document({ styles: NP_STYLES, sections: [section] }))
+  saveAs(blob, `декларация_НП_${stem}_${d.substituteName.replace(/\s+/g, '_')}.docx`)
 }
 
 // Бюджетен вариант (само бюджетните редове) — точно по бланката „По заместване / ДЕКЛАРАЦИЯ“
-export async function generateMonthlyBudgetDeclaration(d: MonthlyDeclData) {
+function budgetDeclSection(d: MonthlyDeclData) {
   const rows = d.rows.filter(r => !r.bsch)
   const total = rows.reduce((a, r) => a + r.hours, 0)
   const F = 'Times New Roman'
@@ -733,12 +739,24 @@ export async function generateMonthlyBudgetDeclaration(d: MonthlyDeclData) {
   children.push(P([t('………………………… 2026 година')], { border: RULE, spacing: { after: 120 } }))
   children.push(P([tab(), t('Счетоводител: ', { italics: true }), t('……………………')], { tabStops: [{ type: TabStopType.LEFT, position: 4500 }] }))
 
-  const doc = new Document({
-    styles: { default: { document: { run: { font: F, size: 20 } } } },
-    sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 709, right: 707, bottom: 851, left: 1417 } } }, children }],
-  })
-  const blob = await Packer.toBlob(doc)
-  saveAs(blob, `декларация_бюджет_${monthLabel.replace(/\s+/g, '')}_${d.substituteName.replace(/\s+/g, '_')}.docx`)
+  return {
+    section: { properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 709, right: 707, bottom: 851, left: 1417 } } }, children },
+    stem: monthLabel.replace(/\s+/g, ''),
+  }
+}
+
+export async function generateMonthlyBudgetDeclaration(d: MonthlyDeclData) {
+  const { section, stem } = budgetDeclSection(d)
+  const blob = await Packer.toBlob(new Document({ styles: BUDGET_STYLES, sections: [section] }))
+  saveAs(blob, `декларация_бюджет_${stem}_${d.substituteName.replace(/\s+/g, '_')}.docx`)
+}
+
+/** Декларациите на няколко колеги в един файл — всяка на нова страница (за печат наведнъж) */
+export async function generateMonthlyDeclarationsBatch(list: MonthlyDeclData[], kind: 'np' | 'budget', label: string) {
+  const parts = list.map(d => (kind === 'np' ? npDeclSection(d) : budgetDeclSection(d)).section)
+  if (!parts.length) return
+  const blob = await Packer.toBlob(new Document({ styles: kind === 'np' ? NP_STYLES : BUDGET_STYLES, sections: parts }))
+  saveAs(blob, `декларации_${kind === 'np' ? 'НП' : 'бюджет'}_${label.replace(/\s+/g, '_')}.docx`)
 }
 // ═══ ЗАПОВЕД ЗА ПОЛЗВАНЕ НА ОТПУСК (образец №1 на НП „Без свободен час") ═══
 export interface NpLeaveOrderData {

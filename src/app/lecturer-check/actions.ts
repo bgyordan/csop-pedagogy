@@ -113,3 +113,15 @@ export async function setCheck(p: { staffId: string; kind: CheckKind; from: stri
   if (e) return { error: /lecturer_checks/.test(e.message) ? 'Пуснете SQL файла 2026-10-10_lecturer_checks.sql' : e.message }
   return { ok: true }
 }
+
+// Данните за декларацията за заместване на колега(и) — за печат от „Отчитане лекторски“ (управа и деловодство)
+export async function getSubDeclarations(staffIds: string[], from: string, to: string) {
+  const { error } = await manager()
+  if (error) return { error }
+  const out: any[] = []
+  for (const id of staffIds) {
+    const r: any = await getMonthlyDeclarationFor(id, from, to)
+    if (r?.data) out.push(r.data)
+  }
+  return { data: out }
+}
