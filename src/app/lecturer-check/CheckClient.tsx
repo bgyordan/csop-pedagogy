@@ -1,13 +1,13 @@
 'use client'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Loader2, Search, FileDown, Check, X, Inbox, Banknote, RotateCcw, AlertTriangle, FileSpreadsheet } from 'lucide-react'
+import { Loader2, Search, FileDown, Check, X, Inbox, Banknote, RotateCcw, AlertTriangle, FileSpreadsheet, Printer } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { smartMatch } from '@/lib/search'
 import { declarationPeriods, defaultPeriod, deadlineOf, sofiaTodayIso, DEADLINE_ACTIVE } from '@/lib/declaration-periods'
 import { effectiveRates, type LecturerRates } from '@/lib/lecturer-rates'
-import { generateLecturerPaymentOrder } from '@/lib/docx-substitution'
-import { getCheckMonth, getCellDetail, setCheck, type Check as CheckT, type CheckKind, type CheckRow, type DetailLine } from './actions'
+import { generateLecturerPaymentOrder, generateMonthlyNPDeclaration, generateMonthlyBudgetDeclaration, generateMonthlyDeclarationsBatch } from '@/lib/docx-substitution'
+import { getCheckMonth, getCellDetail, setCheck, getSubDeclarations, type Check as CheckT, type CheckKind, type CheckRow, type DetailLine } from './actions'
 
 type Tab = 'sub' | 'over'
 type Filter = 'all' | 'missing' | 'todo' | 'ok' | 'issue'
@@ -154,6 +154,33 @@ export default function CheckClient({ rates }: { rates: LecturerRates }) {
     setGenning(false)
   }
 
+  // Декларации за заместване — за печат вместо колегите (Ванина ги разнася за подпис)
+  const [declBusy, setDeclBusy] = useState<string | null>(null)
+  const [declMenu, setDeclMenu] = useState(false)
+  async function oneDecl(r: CheckRow, c: Cell) {
+    setDeclBusy(`${r.staffId}|${c.kind}`)
+    const res: any = await getSubDeclarations([r.staffId], month.from, month.to)
+    const d = res?.data?.[0]
+    if (res?.error || !d) { toast(res?.error || 'Няма данни за декларацията', 'error'); setDeclBusy(null); return }
+    try { c.kind === 'sub_np' ? await generateMonthlyNPDeclaration(d) : await generateMonthlyBudgetDeclaration(d) }
+    catch { toast('Грешка при генериране', 'error') }
+    setDeclBusy(null)
+  }
+  async function allDecl(kind: 'np' | 'budget') {
+    setDeclMenu(false)
+    const who = visible.filter(r => kind === 'np' ? r.subNp > 0 : r.subBudget > 0)
+    if (!who.length) { toast(kind === 'np' ? 'Няма НП часове по този филтър' : 'Няма бюджетни часове по този филтър', 'error'); return }
+    setDeclBusy('all')
+    const res: any = await getSubDeclarations(who.map(r => r.staffId), month.from, month.to)
+    if (res?.error) { toast(res.error, 'error'); setDeclBusy(null); return }
+    const list = (res.data || []).filter((d: any) => d.rows.some((x: any) => kind === 'np' ? x.bsch : !x.bsch))
+    try { await generateMonthlyDeclarationsBatch(list, kind, month.label); toast(`${list.length} декларации в един файл`) }
+    catch { toast('Грешка при генериране', 'error') }
+    setDeclBusy(null)
+  }
+  const npPeople = visible.filter(r => r.subNp > 0).length
+  const budgetPeople = visible.filter(r => r.subBudget > 0).length
+
   const due = deadlineOf(tab === 'over' && over ? over.to : month.to)
   const daysLeft = Math.round((Date.parse(due) - Date.parse(today)) / 86400000)
 
@@ -223,6 +250,27 @@ export default function CheckClient({ rates }: { rates: LecturerRates }) {
                 className="pl-8 pr-3 py-1.5 w-52 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-100" />
             </div>
             <div className="ml-auto flex items-center gap-2">
+              {tab === 'sub' && (
+                <div className="relative">
+                  <button onClick={() => setDeclMenu(o => !o)} disabled={declBusy === 'all'}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                    {declBusy === 'all' ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />} Декларации за печат
+                  </button>
+                  {declMenu && (
+                    <div className="absolute right-0 z-30 mt-1.5 w-72 rounded-xl border border-slate-200 bg-white shadow-lg p-1.5">
+                      <button onClick={() => allDecl('np')} disabled={!npPeople} className="w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-50 disabled:opacity-40">
+                        <div className="text-sm text-slate-800">Всички НП · {npPeople}</div>
+                        <div className="text-[11px] text-slate-400 font-light">Приложение № 2 — един файл, всеки на нова страница</div>
+                      </button>
+                      <button onClick={() => allDecl('budget')} disabled={!budgetPeople} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 disabled:opacity-40">
+                        <div className="text-sm text-slate-800">Всички бюджетни · {budgetPeople}</div>
+                        <div className="text-[11px] text-slate-400 font-light">„По заместване“ — един файл, всеки на нова страница</div>
+                      </button>
+                      <div className="px-3 pt-1.5 pb-1 text-[11px] text-slate-400 font-light">По текущия филтър и търсене — напр. само „Не са предадени“.</div>
+                    </div>
+                  )}
+                </div>
+              )}
               {tab === 'sub' && (
                 <Link href="/mon-export" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-600 hover:bg-slate-50">
                   <FileSpreadsheet size={14} /> МОН отчет (НП)
@@ -298,8 +346,16 @@ export default function CheckClient({ rates }: { rates: LecturerRates }) {
                     const id = `${r.staffId}|${c.kind}`, d = detail[id], chk = checkOf(r.staffId, c), s = st(r, c)
                     return (
                       <div key={id} className="px-4 py-4 bg-slate-50/70 border-t border-slate-100">
-                        <div className="text-xs text-slate-500 font-light mb-2">
-                          {KIND_LABEL[c.kind]} · {fmt(c.from)} – {fmt(c.to)} · <span className="text-slate-700">това е в декларацията на колегата — сравни ред по ред</span>
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <div className="text-xs text-slate-500 font-light">
+                            {KIND_LABEL[c.kind]} · {fmt(c.from)} – {fmt(c.to)} · <span className="text-slate-700">това е в декларацията на колегата — сравни ред по ред</span>
+                          </div>
+                          {c.kind !== 'over' && (
+                            <button onClick={() => oneDecl(r, c)} disabled={declBusy === id}
+                              className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs text-slate-700 hover:border-[#0f2240] disabled:opacity-50">
+                              {declBusy === id ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />} Декларация (Word)
+                            </button>
+                          )}
                         </div>
                         {d === 'loading' || !d ? (
                           <div className="flex items-center gap-2 text-sm text-slate-400 py-4"><Loader2 size={14} className="animate-spin" /> Зареждане…</div>
