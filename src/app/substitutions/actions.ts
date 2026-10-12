@@ -397,7 +397,7 @@ async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_na
   const assignMap = await assignmentsBySub(supabase, subs.map((x: any) => x.id))
 
 
-  const rows: { date: string; orderRef: string; cls: string; subject: string; hours: number; bsch: boolean; kt: string; absentName: string }[] = []
+  const rows: { subId: string; date: string; orderRef: string; cls: string; subject: string; hours: number; bsch: boolean; kt: string; absentName: string }[] = []
 
   for (const sub of subs) {
     // само моите дни в това заместване
@@ -435,7 +435,7 @@ async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_na
         byCls[it.cls].hours++
       })
       Object.entries(byCls).forEach(([cls, v]) => rows.push({
-        date: dateStr, orderRef, cls,
+        subId: sub.id, date: dateStr, orderRef, cls,
         subject: Object.keys(v.subjects).length > 1 ? Object.entries(v.subjects).map(([n, c]) => `${n} (${c})`).join('; ') : Object.keys(v.subjects).join(''),
         hours: v.hours,
                bsch: isNp, kt: sub.kt_article || '',
