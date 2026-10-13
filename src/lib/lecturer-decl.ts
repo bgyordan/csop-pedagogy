@@ -4,7 +4,7 @@
 //  • над норматив — „По Образец 3“, по заповедта „над норматив“;
 //  • ИФО — отделен файл „По Образец 1“, по ИФО заповедта; детето — горе в текста (учител има най-много едно ИФО дете);
 //  • логопед — „По Образец 1“, „…за допълнителна подкрепа“, колона „Учебен час“, предмет по учебния план.
-// И трите — по месеци: ред-заглавие „Септември 2026“, под него ред на седмичен слот, в „Дата“ само дните.
+// И трите — по месеци: ред-заглавие „Септември“ (годината е в периода горе), под него ред на седмичен слот, в „Дата“ само дните.
 
 import { generateLecturerDeclaration } from './docx-substitution'
 import { PERIOD_TIMES } from './periods'
@@ -49,7 +49,7 @@ function monthly(list: DeclItem[], slotOf: (it: DeclItem) => Slot): Row[] {
       ;(by[s.key] ||= { ...s, dates: [] }).dates.push(r.iso)
     })
     const m = MONTHS[Number(ym.slice(5, 7)) - 1]
-    const head: Row = { iso: `${ym}-00`, date: '', group: '', subject: '', hours: 0, heading: `${m[0].toUpperCase()}${m.slice(1)} ${ym.slice(0, 4)}` }
+    const head: Row = { iso: `${ym}-00`, date: '', group: '', subject: '', hours: 0, heading: `${m[0].toUpperCase()}${m.slice(1)}` }
     return [head, ...Object.values(by)
       .sort((a, b) => a.sort.localeCompare(b.sort, 'bg', { numeric: true }))
       .map(g => {

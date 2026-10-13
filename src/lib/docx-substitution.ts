@@ -593,7 +593,8 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
   children.push(new Paragraph({ tabStops: SIG, children: [new TextRun({ children: [new Tab()] }), new TextRun({ text: '                        (ЗДУД)', italics: true, size: 20 })], spacing: { after: 200 } }))
 
   children.push(new Paragraph({ children: [normal(`Сумата е проверена, начислена и изплатена по ведомост за месец ${dots(15)} ${Y} г.`, 20)], spacing: { after: 80 } }))
-  children.push(new Paragraph({ children: [bold('Счетоводител: ', 22), normal(dots(20), 22)] }))
+  // в същата колона като „ДЕКЛАРАТОР“ и „Проверил“
+  children.push(new Paragraph({ tabStops: SIG, children: [new TextRun({ children: [new Tab()] }), bold('Счетоводител: ', 22), normal(dots(20), 22)] }))
 
   const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
   const blob = await Packer.toBlob(doc)
