@@ -7,6 +7,7 @@ import { CSOP_LOGO_B64 } from './docx-generator'
 import { saveAs } from 'file-saver'
 import { formatDate } from './utils'
 import { PERIOD_LABEL, PERIOD_TIMES, byStartTime } from './periods'
+import { DEFAULT_RATES } from '@/lib/lecturer-rates'
 
 function bold(text: string, size = 22): TextRun { return new TextRun({ text, bold: true, size }) }
 function normal(text: string, size = 22): TextRun { return new TextRun({ text, size }) }
@@ -730,6 +731,9 @@ function budgetDeclSection(d: MonthlyDeclData) {
   children.push(new Table({ width: { size: TEXT_W, type: WidthType.DXA }, columnWidths: COLS, layout: TableLayoutType.FIXED, rows: trows }))
 
   children.push(P([t('Общ брой учебни часове: '), t(String(total), { bold: true })], { alignment: AlignmentType.RIGHT, spacing: { before: 240, after: 160 } }))
+  // един попълнен ред по ставката за заместване (от „Проверка лекторски“; иначе 6,29 €)
+  const rate = d.rate && d.rate > 0 ? d.rate : DEFAULT_RATES.sub
+  children.push(P([t(`${total} часа по ${eurD(rate)} евро на час - ${eurD(total * rate)} евро;`)], { spacing: { after: 160 } }))
 
   children.push(P([t('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося наказателна отговорност съгласно законите на Република България.')], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 200 } }))
 
