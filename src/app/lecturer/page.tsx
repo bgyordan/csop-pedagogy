@@ -10,6 +10,7 @@ import { latestEnd } from './distribute'
 import OrderButton from './OrderButton'
 import { loadCurriculum, lecturerOf, TEACHER_NORM } from '@/lib/curriculum'
 import type { CurLine } from '@/lib/curriculum'
+import { loadLecturerOrders } from '@/lib/lecturer-orders'
 import { loadOwnClasses, groupFields, byStaffGroup } from '@/lib/staff-order'
 export const dynamic = 'force-dynamic'
 
@@ -98,6 +99,7 @@ export default async function LecturerPage() {
   }
 
   const ownClass = await loadOwnClasses(supabase, currentYear?.id)
+  const ordersOf = await loadLecturerOrders(supabase, currentYear?.id)
 
   const planOf: Record<string, any> = {}
   ;(plans || []).forEach((p: any) => { planOf[p.staff_id] = p })
@@ -116,6 +118,7 @@ export default async function LecturerPage() {
       classes: cls.map(c => ({ name: c, end: classEnd[c] || '' })),
       total: p ? p.total_hours : null,
       distributedAt: p?.distributed_at || null,
+      orders: ordersOf[t.id] || {},
     }
   })
   // ред: класни ръководители по паралелка → учители → логопеди → рехабилитатори → психолози → възпитатели → ръководство

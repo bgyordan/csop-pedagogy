@@ -490,13 +490,16 @@ export interface LecturerDeclData {
   rows: { date: string; group: string; subject: string; hours: number }[]
   totalHours: number
   rate?: number            // ставка €/час (lecturer_rates) — попълва реда; без нея — празните редове по образец
+  /** „По Образец 3“ (над норматив, по подразбиране) или „По Образец 1“ (ИФО) */
+  form?: string
+  fileTag?: string
 }
 
 export async function generateLecturerDeclaration(d: LecturerDeclData) {
   const children: any[] = []
   const dots = (n: number) => '.'.repeat(n)
 
-  children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: 'По Образец 3', bold: true, size: 20 })], spacing: { after: 120 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: d.form || 'По Образец 3', bold: true, size: 20, underline: {} })], spacing: { after: 120 } }))
   children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Д Е К Л А Р А Ц И Я', bold: true, size: 26 })], spacing: { after: 160 } }))
 
   children.push(new Paragraph({ children: [normal('Долуподписаният/та ', 22), bold(d.teacherName, 22), normal(' ' + dots(20), 22)], spacing: { after: 10 } }))
@@ -540,7 +543,7 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
 
   const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
   const blob = await Packer.toBlob(doc)
-  saveAs(blob, `декларация_лекторски_${d.teacherName.replace(/\\s+/g, '_')}.docx`)
+  saveAs(blob, `декларация_${d.fileTag || 'лекторски'}_${d.teacherName.replace(/\s+/g, '_')}.docx`)
 }
 // ═══ МЕСЕЧНА справка-декларация за ЗАМЕСТВАНЕ ═══
 export interface MonthlyDeclData {

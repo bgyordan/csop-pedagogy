@@ -4,6 +4,7 @@ import { BackButton } from '@/components/ui/BackButton'
 import { GraduationCap } from 'lucide-react'
 import MyLecturerClient from './MyLecturerClient'
 import { loadLecturerRates, effectiveRates } from '@/lib/lecturer-rates'
+import { loadLecturerOrders, orderText } from '@/lib/lecturer-orders'
 export const dynamic = 'force-dynamic'
 
 export default async function MyLecturerPage() {
@@ -18,12 +19,14 @@ export default async function MyLecturerPage() {
   // моите лекторски слотове
   const { data: slots } = await supabase
     .from('lecturer_slots')
-    .select('id, day, period, holder_label, date_from, date_to, order_number, subject:subjects(name)')
+    .select('id, day, period, holder_type, holder_label, date_from, date_to, order_number, subject:subjects(name)')
     .eq('staff_id', me.id).eq('academic_year_id', cy?.id).order('day').order('period')
   const mySlots = (slots || []).map((r: any) => ({
     id: r.id, day: r.day, period: r.period, subject: r.subject?.name || '',
-    holderLabel: r.holder_label || '', dateFrom: r.date_from, dateTo: r.date_to, orderNumber: r.order_number || '',
+    holderType: r.holder_type || '', holderLabel: r.holder_label || '', dateFrom: r.date_from, dateTo: r.date_to, orderNumber: r.order_number || '',
   }))
+  // заповедите от регистъра, вързани в „Лекторски часове“ (над норматив / ИФО)
+  const myOrders = (await loadLecturerOrders(supabase, cy?.id, me.id))[me.id] || {}
 
   // предишни декларации
   const { data: decls } = await supabase
@@ -60,6 +63,8 @@ export default async function MyLecturerPage() {
         declarations={declarations}
         suggestFrom={suggestFrom}
         rate={effectiveRates(await loadLecturerRates(supabase)).over}
+        orderOver={orderText(myOrders.over)}
+        orderIfo={orderText(myOrders.ifo)}
       />
     </div>
   )

@@ -424,3 +424,28 @@ export async function autoDistribute(staffId: string, w1: number | null, w2: num
   revalidatePath('/lecturer')
   return { success: true, placed, missing, slots: out.length + manual.length, manual: manual.length }
 }
+
+/** Заповедите от регистъра за избор (най-новите отгоре; търсене по номер или заглавие) */
+export async function searchOrdersForLecturer(q: string) {
+  const m = await manager()
+  if (!m) return { error: 'Нямате права', list: [] }
+  let qq = m.supabase.from('orders').select('id, number, date, title').order('date', { ascending: false }).limit(30)
+  const s = q.trim().replace(/[%,()]/g, ' ').trim()
+  if (s) qq = qq.or(`number.ilike.%${s}%,title.ilike.%${s}%`)
+  const { data, error } = await qq
+  if (error) return { error: error.message, list: [] }
+  return { list: (data || []).map((o: any) => ({ id: o.id as string, number: (o.number || '') as string, title: (o.title || '') as string, date: (o.date || '') as string })) }
+}
+
+/** Връзва заповед от регистъра към служителя за годината (kind: 'over' — над норматив, 'ifo' — ИФО); null — маха връзката */
+export async function setLecturerOrder(staffId: string, kind: 'over' | 'ifo', orderId: string | null) {
+  const m = await manager()
+  if (!m) return { error: 'Нямате права' }
+  const key = { academic_year_id: m.yearId, staff_id: staffId, kind }
+  const { error } = orderId
+    ? await m.supabase.from('lecturer_orders').upsert({ ...key, order_id: orderId, updated_at: new Date().toISOString() }, { onConflict: 'academic_year_id,staff_id,kind' })
+    : await m.supabase.from('lecturer_orders').delete().match(key)
+  if (error) return { error: error.message.includes('lecturer_orders') ? 'Пуснете SQL файла 2026-10-13_lecturer_orders.sql' : error.message }
+  revalidatePath('/lecturer'); revalidatePath('/my-lecturer')
+  return { success: true }
+}
