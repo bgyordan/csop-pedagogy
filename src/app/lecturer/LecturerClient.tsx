@@ -11,7 +11,9 @@ type Marked = { id: string; staffId: string; staffName: string; day: number; per
 type SchedSlot = { day: number; period: number; subjectId: string | null; subject: string; holderType: string; holderLabel: string }
 
 const DAYS = [{ n: 1, l: 'Пон' }, { n: 2, l: 'Вт' }, { n: 3, l: 'Ср' }, { n: 4, l: 'Чет' }, { n: 5, l: 'Пет' }]
-const PERIODS = [1, 2, 3, 4, 5, 6, 7]
+// сутрешните 1–7 и следобедните ИФО (8–13 = „ИФО 1“–„ИФО 6“) — ИФО часовете се маркират на ръка, по ИФО заповедта
+const PERIODS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+const periodLabel = (p: number) => p <= 7 ? `${p}.` : `ИФО ${p - 7}`
 function fmt(d: string) { return d ? d.split('-').reverse().join('.') : '' }
 // начало на лекторските часове: 15.09 на текущата учебна година
 const startYear = () => { const d = new Date(); return d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1 }
@@ -325,7 +327,7 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
                       <tbody>
                         {visiblePeriods.map(period => (
                           <tr key={period}>
-                            <td className="text-center text-sm text-slate-500">{period}.</td>
+                            <td className={`text-center whitespace-nowrap ${period > 7 ? 'text-[11px] text-violet-600' : 'text-sm text-slate-500'}`}>{periodLabel(period)}</td>
                             {DAYS.map(d => {
                               const sl = slotAt(d.n, period)
                               const key = `${d.n}-${period}`

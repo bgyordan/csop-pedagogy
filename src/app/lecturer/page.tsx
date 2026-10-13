@@ -50,6 +50,7 @@ export default async function LecturerPage() {
     day: r.day, period: r.period, subject: r.subject?.name || '',
     holderLabel: r.holder_label || '', dateFrom: r.date_from, dateTo: r.date_to,
     orderNumber: r.order_number || '',
+    holderType: r.holder_type || '',
     term: r.term === 2 ? 2 : 1,
     manual: r.is_manual === true,
   }))
