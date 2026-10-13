@@ -61,7 +61,7 @@ export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over
       .sort((a, b) => a.dow - b.dow || a.time.localeCompare(b.time))
       .map(g => {
         const ds = g.dates.sort()
-        return { iso: ds[0], date: ds.map(shortDate).join('; '), group: `${DAYS[g.dow]}\n${g.time}`, subject: g.subject, hours: ds.length }
+        return { iso: ds[0], date: ds.map(shortDate).join('; '), group: `${DAYS[g.dow]}\n${g.time.replace(' – ', '–')}`, subject: g.subject, hours: ds.length }
       })
   }
   if (over.length) await generateLecturerDeclaration({
