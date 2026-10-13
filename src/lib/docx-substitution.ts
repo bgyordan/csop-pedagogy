@@ -409,17 +409,6 @@ function subjectLines(subject: string): string[] {
   if (parts.length <= 1) return [subject || '']
   return parts.map(x => { const m = x.match(/^(.*)\s\((\d+)\)$/); return m ? `${m[1]} - ${m[2]}` : x })
 }
-// Бюджетна декларация: винаги трите реда от бланката (6,29 / 5,16 / 4,62).
-// Ставката от „Проверка лекторски“ попълва своя ред; ако е друга — отделен попълнен ред отгоре.
-function budgetRateLines(total: number, rate: number | undefined): string[] {
-  const has = !!rate && rate > 0
-  const blank = (r: string) => `………… часа по ${r} евро на час - …………………………евро;`
-  const lines = ['6,29', '5,16', '4,62'].map(r => has && eurD(rate!) === r
-    ? `${total} часа по ${r} евро на час - ${eurD(total * rate!)} евро;`
-    : blank(r))
-  if (has && !['6,29', '5,16', '4,62'].includes(eurD(rate!))) lines.unshift(`${total} часа по ${eurD(rate!)} евро на час - ${eurD(total * rate!)} евро;`)
-  return lines
-}
 function rateLines(total: number, rate: number | undefined, sep: string) {
   if (rate && rate > 0) return [`${total} часа по ${eurD(rate)} евро на час ${sep} ${eurD(total * rate)} евро (${eurWords(total * rate)}).`]
   return ['6,29', '5,16', '4,62'].map(r => `………… часа по ${r} евро на час ${sep} …………………… евро;`)
@@ -710,7 +699,7 @@ function budgetDeclSection(d: MonthlyDeclData) {
 
   children.push(P([t('Долуподписаният/та '), t(d.substituteName, { bold: true })]))
   children.push(P([small('(име, презиме, фамилия)')], { alignment: AlignmentType.CENTER }))
-  children.push(P([t('заемащ длъжността '), t(d.substitutePosition || 'учител', { bold: true }), t(', образование ……………………………')], { spacing: { after: 60 } }))
+  children.push(P([t('заемащ длъжността '), t(d.substitutePosition || 'учител', { bold: true })], { spacing: { after: 60 } }))
   children.push(P([t('ДЕКЛАРИРАМ', { bold: true }), t(', '), t('че', { bold: true })], { spacing: { after: 60 } }))
   children.push(P([
     t('за месец '), t(monthLabel, { bold: true }), t(' 2026 година, съм взел/а следните часове над минималната норма задължителна преподавателска работа, съгласно Заповед № '),
@@ -741,8 +730,6 @@ function budgetDeclSection(d: MonthlyDeclData) {
   children.push(new Table({ width: { size: TEXT_W, type: WidthType.DXA }, columnWidths: COLS, layout: TableLayoutType.FIXED, rows: trows }))
 
   children.push(P([t('Общ брой учебни часове: '), t(String(total), { bold: true })], { alignment: AlignmentType.RIGHT, spacing: { before: 240, after: 160 } }))
-  budgetRateLines(total, d.rate).forEach(l => children.push(P([t(l)], { spacing: { after: 100 } })))
-  children.push(P([small('/ попълва се от декларатор/учител /')], { indent: { left: 1000 }, spacing: { after: 160 } }))
 
   children.push(P([t('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося наказателна отговорност съгласно законите на Република България.')], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 200 } }))
 
