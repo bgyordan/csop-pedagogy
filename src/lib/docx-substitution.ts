@@ -512,7 +512,7 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
   const DOW = ['нед', 'пон', 'вт', 'ср', 'чет', 'пет', 'съб']
   const dow = (dt: string) => { const [dd, mm, yy] = dt.split('.').map(Number); return yy ? DOW[new Date(yy, mm - 1, dd).getDay()] : '' }
   // ширините: над норматив — тясна „Група“ (само паралелката); ИФО — по-широка (името на детето); логопед — часът
-  const WIDTHS: Record<string, number[]> = { over: [900, 2250, 1050, 4900, 1000], ifo: [900, 2250, 2300, 3650, 1000], speech: [800, 3100, 2700, 2400, 1000] }
+  const WIDTHS: Record<string, number[]> = { over: [900, 2250, 1050, 4900, 1000], ifo: [900, 2250, 2300, 3650, 1000], speech: [800, 3000, 2900, 2400, 1000] }
   // подписите — с табулация, за да стоят на едно място
   const SIG = [{ type: TabStopType.LEFT, position: 5600 }]
 
@@ -530,9 +530,12 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
 
   const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
-  const th = (t: string) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(t, 20)] })] })
+  // ширините са фиксирани (в DXA) — иначе Word ги разпределя сам и дългите дати изяждат колоната с часа
+  const W = WIDTHS[layout] || WIDTHS.over
+  const wOf = (col: number) => ({ size: W[col], type: WidthType.DXA })
+  const th = (t: string, col: number) => new TableCell({ width: wOf(col), borders: CELLS, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(t, 20)] })] })
   const td = (t: string, c = false) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 20)] })] })
-  const rows: TableRow[] = [ new TableRow({ children: [th('№ по ред'), th('Дата'), th(d.groupHeader || 'Група'), th('Предмет'), th('Брой часове')] }) ]
+  const rows: TableRow[] = [ new TableRow({ children: [th('№ по ред', 0), th('Дата', 1), th(d.groupHeader || 'Група', 2), th('Предмет', 3), th('Брой часове', 4)] }) ]
   // логопед — само датата (иначе не се събира); над норматив и ИФО — с деня на същия ред
   // еднаквите поредни клетки в „Група“ и „Предмет“ се сливат (предметът — само в рамките на една група)
   // на смяна на предмет/група — по-дебела линия отгоре през реда (без слятата клетка на групата, ако тя продължава)
@@ -540,9 +543,9 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
   const cellB = (sep: boolean) => sep ? { ...CELLS, top: THICK } : CELLS
   // „\n“ в текста — нов ред в клетката (логопед: „понеделник“ / „09:15 – 09:50“)
   const paras = (t: string, c: boolean) => t.split('\n').map(x => new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(x, 20)] }))
-  const cell = (t: string, c: boolean, sep: boolean) => new TableCell({ borders: cellB(sep), verticalAlign: VerticalAlign.CENTER, children: paras(t, c) })
-  const merged = (t: string, first: boolean, c: boolean, sep: boolean) => new TableCell({
-    borders: cellB(sep), verticalAlign: VerticalAlign.CENTER,
+  const cell = (t: string, c: boolean, sep: boolean, col: number) => new TableCell({ width: wOf(col), borders: cellB(sep), verticalAlign: VerticalAlign.CENTER, children: paras(t, c) })
+  const merged = (t: string, first: boolean, c: boolean, sep: boolean, col: number) => new TableCell({
+    width: wOf(col), borders: cellB(sep), verticalAlign: VerticalAlign.CENTER,
     verticalMerge: first ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE,
     children: first ? paras(t, c) : [new Paragraph({ children: [] })],
   })
@@ -554,10 +557,10 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
     const sep = i > 0 && layout !== 'speech' && newSubject
     const dt = layout === 'speech' ? r.date : `${r.date} ${dow(r.date)}`.trim()
     rows.push(new TableRow({ children: [
-      cell(String(i + 1), true, sep), cell(dt, true, sep), merged(r.group, newGroup, true, sep && newGroup), merged(r.subject, newSubject, false, sep), cell(String(r.hours), true, sep),
+      cell(String(i + 1), true, sep, 0), cell(dt, true, sep, 1), merged(r.group, newGroup, true, sep && newGroup, 2), merged(r.subject, newSubject, false, sep, 3), cell(String(r.hours), true, sep, 4),
     ] }))
   })
-  children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: WIDTHS[layout] || WIDTHS.over, rows }))
+  children.push(new Table({ width: { size: W.reduce((a, x) => a + x, 0), type: WidthType.DXA }, layout: TableLayoutType.FIXED, columnWidths: W, rows }))
   children.push(new Paragraph({ text: '', spacing: { after: 60 } }))
 
   children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [normal('Общ брой учебни часове: ', 22), bold(String(d.totalHours), 22)], spacing: { after: 160 } }))
