@@ -512,7 +512,7 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
   const DOW = ['нед', 'пон', 'вт', 'ср', 'чет', 'пет', 'съб']
   const dow = (dt: string) => { const [dd, mm, yy] = dt.split('.').map(Number); return yy ? DOW[new Date(yy, mm - 1, dd).getDay()] : '' }
   // ширините: над норматив — тясна „Група“ (само паралелката); ИФО — по-широка (името на детето); логопед — часът
-  const WIDTHS: Record<string, number[]> = { over: [900, 2250, 1050, 4900, 1000], ifo: [900, 2250, 2300, 3650, 1000], speech: [800, 3300, 2100, 2800, 1000] }
+  const WIDTHS: Record<string, number[]> = { over: [900, 2250, 1050, 4900, 1000], ifo: [900, 2250, 2300, 3650, 1000], speech: [800, 3100, 2700, 2400, 1000] }
   // подписите — с табулация, за да стоят на едно място
   const SIG = [{ type: TabStopType.LEFT, position: 5600 }]
 
