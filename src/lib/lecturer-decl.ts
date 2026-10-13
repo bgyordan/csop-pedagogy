@@ -38,25 +38,41 @@ const dowOf = (iso: string) => new Date(iso + 'T00:00').getDay()
 const slotTime = (p: number) => hourText(p).replace(' – ', '–')
 
 type Row = { iso: string; date: string; group: string; subject: string; hours: number; heading?: string }
-type Slot = { key: string; sort: string; group: string; subject: string; prefix: string }
+/** dow/period — за сливане на поредни часове (блок от 2 часа) в един ред */
+type Slot = { key: string; sort: string; group: string; subject: string; prefix: string; dow?: number; period?: number }
 
-/** По месеци: ред-заглавие за месеца, под него ред на слот с дните от месеца („21, 28“) и броя им */
-function monthly(list: DeclItem[], slotOf: (it: DeclItem) => Slot): Row[] {
+/**
+ * По месеци: ред-заглавие за месеца, под него ред на слот с дните от месеца („21, 28“) и часовете.
+ * joinBlocks — поредни часове в един ден със същия предмет и същите дати стават един ред
+ * („13:25–14:40“), часовете се сумират.
+ */
+function monthly(list: DeclItem[], slotOf: (it: DeclItem) => Slot, joinBlocks = false): Row[] {
   const months = Array.from(new Set(list.map(r => r.iso.slice(0, 7)))).sort()
   return months.flatMap(ym => {
-    const by: Record<string, Slot & { dates: string[] }> = {}
+    const by: Record<string, Slot & { dates: string[]; hours: number }> = {}
     list.filter(r => r.iso.startsWith(ym)).forEach(r => {
       const s = slotOf(r)
-      ;(by[s.key] ||= { ...s, dates: [] }).dates.push(r.iso)
+      const g = (by[s.key] ||= { ...s, dates: [], hours: 0 })
+      g.dates.push(r.iso); g.hours++
+    })
+    const slots = Object.values(by)
+      .map(g => ({ ...g, dates: Array.from(new Set(g.dates)).sort() }))
+      .sort((a, b) => a.sort.localeCompare(b.sort, 'bg', { numeric: true }))
+    // блок от поредни часове → един ред, часовете се сумират
+    const out: (typeof slots[number] & { last?: number })[] = []
+    slots.forEach(g => {
+      const p = out[out.length - 1]
+      if (joinBlocks && p && p.dow === g.dow && p.subject === g.subject && p.last !== undefined && g.period === p.last + 1
+          && p.dates.join() === g.dates.join()) {
+        p.group = `${p.group.split('–')[0]}–${g.group.split('–')[1]}`
+        p.hours += g.hours; p.last = g.period
+      } else out.push({ ...g, last: g.period })
     })
     const m = MONTHS[Number(ym.slice(5, 7)) - 1]
     const head: Row = { iso: `${ym}-00`, date: '', group: '', subject: '', hours: 0, heading: `${m[0].toUpperCase()}${m.slice(1)}` }
-    return [head, ...Object.values(by)
-      .sort((a, b) => a.sort.localeCompare(b.sort, 'bg', { numeric: true }))
-      .map(g => {
-        const ds = Array.from(new Set(g.dates)).sort()
-        return { iso: ds[0], date: g.prefix + ds.map(x => String(Number(x.slice(8, 10)))).join(', '), group: g.group, subject: g.subject, hours: ds.length }
-      })]
+    return [head, ...out.map(g => ({
+      iso: g.dates[0], date: g.prefix + g.dates.map(x => String(Number(x.slice(8, 10)))).join(', '), group: g.group, subject: g.subject, hours: g.hours,
+    }))]
   })
 }
 
@@ -73,13 +89,13 @@ export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over
       // логопед: „понеделник / 09:15–09:50“, предметът по учебния план
       ? monthly(overItems, it => {
           const dw = dowOf(it.iso)
-          return { key: `${dw}|${it.period}`, sort: `${dw}|${pad(it.period)}`, group: slotTime(it.period),
+          return { key: `${dw}|${it.period}`, sort: `${dw}|${pad(it.period)}`, group: slotTime(it.period), dow: dw, period: it.period,
             subject: !it.subject || it.subject === 'Терапия' ? SPEECH_SUBJECT : it.subject, prefix: `${DAYS[dw]}\n` }
-        })
+        }, true)
       // над норматив: паралелка → предмет → ден от седмицата; в „Дата“ „чет: 17, 24“
       : monthly(overItems, it => {
           const dw = dowOf(it.iso)
-          return { key: `${it.holderLabel}|${it.subject}|${dw}|${it.period}`, sort: `${it.holderLabel}|${it.subject}|${dw}|${pad(it.period)}`,
+          return { key: `${it.holderLabel}|${it.subject}|${dw}`, sort: `${it.holderLabel}|${it.subject}|${dw}`,
             group: it.holderLabel, subject: it.subject, prefix: `${DAYS_SHORT[dw]}: ` }
         })
     docs.push({
@@ -96,9 +112,9 @@ export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over
     const student = Array.from(new Set(ifoItems.map(it => it.holderLabel.replace(/^ИФО\s*/, '').trim()).filter(Boolean))).join(', ')
     const rows = monthly(ifoItems, it => {
       const dw = dowOf(it.iso)
-      return { key: `${dw}|${it.period}|${it.subject}`, sort: `${dw}|${pad(it.period)}|${it.subject}`,
+      return { key: `${dw}|${it.period}|${it.subject}`, sort: `${dw}|${pad(it.period)}|${it.subject}`, dow: dw, period: it.period,
         group: slotTime(it.period), subject: it.subject, prefix: `${DAYS[dw]}\n` }
-    })
+    }, true)
     docs.push({
       teacherName: d.teacherName, position: d.position, periodLabel: d.periodLabel, orderRef: d.orderIfo,
       rows, totalHours: ifoItems.length, rate: d.rate, form: 'По Образец 1', fileTag: `ИФО${tag}`, layout: 'ifo',
