@@ -512,7 +512,7 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
   const DOW = ['нед', 'пон', 'вт', 'ср', 'чет', 'пет', 'съб']
   const dow = (dt: string) => { const [dd, mm, yy] = dt.split('.').map(Number); return yy ? DOW[new Date(yy, mm - 1, dd).getDay()] : '' }
   // ширините: над норматив — тясна „Група“ (само паралелката); ИФО — по-широка (името на детето); логопед — часът
-  const WIDTHS: Record<string, number[]> = { over: [900, 2250, 1050, 4900, 1000], ifo: [900, 2250, 2300, 3650, 1000], speech: [900, 1900, 1850, 4450, 1000] }
+  const WIDTHS: Record<string, number[]> = { over: [900, 2250, 1050, 4900, 1000], ifo: [900, 2250, 2300, 3650, 1000], speech: [800, 3300, 2100, 2800, 1000] }
   // подписите — с табулация, за да стоят на едно място
   const SIG = [{ type: TabStopType.LEFT, position: 5600 }]
 
@@ -538,11 +538,13 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
   // на смяна на предмет/група — по-дебела линия отгоре през реда (без слятата клетка на групата, ако тя продължава)
   const THICK = { style: BorderStyle.SINGLE, size: 14, color: '000000' }
   const cellB = (sep: boolean) => sep ? { ...CELLS, top: THICK } : CELLS
-  const cell = (t: string, c: boolean, sep: boolean) => new TableCell({ borders: cellB(sep), children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 20)] })] })
+  // „\n“ в текста — нов ред в клетката (логопед: „понеделник“ / „09:15 – 09:50“)
+  const paras = (t: string, c: boolean) => t.split('\n').map(x => new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(x, 20)] }))
+  const cell = (t: string, c: boolean, sep: boolean) => new TableCell({ borders: cellB(sep), verticalAlign: VerticalAlign.CENTER, children: paras(t, c) })
   const merged = (t: string, first: boolean, c: boolean, sep: boolean) => new TableCell({
     borders: cellB(sep), verticalAlign: VerticalAlign.CENTER,
     verticalMerge: first ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE,
-    children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: first ? [normal(t, 20)] : [] })],
+    children: first ? paras(t, c) : [new Paragraph({ children: [] })],
   })
   d.rows.forEach((r, i) => {
     const prev = d.rows[i - 1]
