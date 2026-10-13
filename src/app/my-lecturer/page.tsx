@@ -12,7 +12,7 @@ export default async function MyLecturerPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
   const { data: me } = await supabase
-    .from('staff_profiles').select('id, first_name, last_name, position').eq('user_id', user.id).single()
+    .from('staff_profiles').select('id, first_name, last_name, position, role, therapy_role').eq('user_id', user.id).single()
   if (!me) redirect('/dashboard')
   const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
 
@@ -65,6 +65,7 @@ export default async function MyLecturerPage() {
         rate={effectiveRates(await loadLecturerRates(supabase)).over}
         orderOver={orderText(myOrders.over)}
         orderIfo={orderText(myOrders.ifo)}
+        isSpeech={me.role === 'speech_therapist' || (me as any).therapy_role === 'speech_therapist'}
       />
     </div>
   )

@@ -493,6 +493,10 @@ export interface LecturerDeclData {
   /** „По Образец 3“ (над норматив, по подразбиране) или „По Образец 1“ (ИФО) */
   form?: string
   fileTag?: string
+  /** заглавие на 3-тата колона — „Група“ (по подразбиране) или „Учебен час“ (логопеди) */
+  groupHeader?: string
+  /** след „задължителна преподавателска работа“ — напр. „ за допълнителна подкрепа“ (логопеди) */
+  workNote?: string
 }
 
 export async function generateLecturerDeclaration(d: LecturerDeclData) {
@@ -508,14 +512,14 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
 
   children.push(new Paragraph({ children: [
     bold('ДЕКЛАРИРАМ, че ', 22),
-    normal(`за периода ${d.periodLabel} 2026 година, съм взел/а следните часове над минималната норма задължителна преподавателска работа, съгласно ${d.orderRef}`, 22),
+    normal(`за периода ${d.periodLabel} 2026 година, съм взел/а следните часове над минималната норма задължителна преподавателска работа${d.workNote || ''}, съгласно ${d.orderRef}`, 22),
   ], spacing: { after: 160 } }))
 
   const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
   const th = (t: string) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(t, 20)] })] })
   const td = (t: string, c = false) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 20)] })] })
-  const rows: TableRow[] = [ new TableRow({ children: [th('№ по ред'), th('Дата'), th('Група'), th('Предмет'), th('Брой часове')] }) ]
+  const rows: TableRow[] = [ new TableRow({ children: [th('№ по ред'), th('Дата'), th(d.groupHeader || 'Група'), th('Предмет'), th('Брой часове')] }) ]
   d.rows.forEach((r, i) => {
     rows.push(new TableRow({ children: [
       td(String(i + 1), true), td(r.date, true), td(r.group, true), td(r.subject), td(String(r.hours), true),

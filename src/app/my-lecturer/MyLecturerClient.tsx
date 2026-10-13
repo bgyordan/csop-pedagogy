@@ -5,6 +5,11 @@ import { useToast } from '@/components/ui/Toast'
 import { getMyLecturerDates, submitLecturerDeclaration, deleteMyDeclaration } from './actions'
 import { generateLecturerDeclaration } from '@/lib/docx-substitution'
 import { declarationPeriods, defaultPeriod } from '@/lib/declaration-periods'
+import { PERIOD_TIMES } from '@/lib/periods'
+
+// „9:15–9:50“ → „09:15 – 09:50“ (като в бланката на логопедите)
+const hourText = (p: number) => (PERIOD_TIMES[p] || `${p}. час`).split('–').map(x => x.padStart(5, '0')).join(' – ')
+const SPEECH_SUBJECT = 'Рехабилитация на комуникативните нарушения'
 
 type Slot = { id: string; day: number; period: number; subject: string; holderType?: string; holderLabel: string; dateFrom: string; dateTo: string; orderNumber: string }
 type Decl = { id: string; periodFrom: string; periodTo: string; totalHours: number; status: string }
@@ -16,10 +21,12 @@ const STATUS: Record<string, { l: string; c: string }> = {
   paid: { l: 'Изплатена', c: 'bg-slate-100 text-slate-500' },
 }
 
-export default function MyLecturerClient({ teacherName, position, slots, declarations: initialDecls, suggestFrom = '', rate, orderOver = 'Заповед № …', orderIfo = 'Заповед № …' }: {
+export default function MyLecturerClient({ teacherName, position, slots, declarations: initialDecls, suggestFrom = '', rate, orderOver = 'Заповед № …', orderIfo = 'Заповед № …', isSpeech = false }: {
   teacherName: string; position: string; slots: Slot[]; declarations: Decl[]; suggestFrom?: string
   /** „Заповед № 80/10.10.2025г.“ — от регистъра (над норматив / ИФО) */
   orderOver?: string; orderIfo?: string
+  /** логопед: колона „Учебен час“ (часът от графика) вместо паралелката, предметът — по учебния план */
+  isSpeech?: boolean
   rate?: number   // ставка €/час над норматив (lecturer_rates) — попълва реда в декларацията
 }) {
   const { toast } = useToast()
@@ -75,9 +82,11 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
     const over: Row[] = [], ifo: Row[] = []
     ;(expanded || []).forEach(sl => {
       const isIfo = sl.holderType === 'ifo'
+      const speech = isSpeech && !isIfo
       Array.from(checked[sl.slotId] || []).forEach(dt => (isIfo ? ifo : over).push({
-        iso: dt, date: fmt(dt), group: sl.holderLabel, hours: 1,
-        subject: isIfo ? `${sl.subject} · ${sl.period}. час` : sl.subject,
+        iso: dt, date: fmt(dt), hours: 1,
+        group: speech ? hourText(sl.period) : sl.holderLabel,
+        subject: isIfo ? `${sl.subject} · ${sl.period}. час` : speech && (!sl.subject || sl.subject === 'Терапия') ? SPEECH_SUBJECT : sl.subject,
       }))
     })
     const byDate = (a: Row, b: Row) => a.iso.localeCompare(b.iso) || a.subject.localeCompare(b.subject, 'bg')
@@ -86,6 +95,7 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
       if (over.length) await generateLecturerDeclaration({
         teacherName, position, periodLabel, orderRef: orderOver,
         rows: over.sort(byDate), totalHours: over.length, rate,
+        ...(isSpeech ? { form: 'По Образец 1', groupHeader: 'Учебен час', workNote: ' за допълнителна подкрепа' } : {}),
       })
       if (ifo.length) await generateLecturerDeclaration({
         teacherName, position, periodLabel, orderRef: orderIfo,
