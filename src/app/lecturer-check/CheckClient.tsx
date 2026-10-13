@@ -7,7 +7,8 @@ import { smartMatch } from '@/lib/search'
 import { declarationPeriods, defaultPeriod, deadlineOf, sofiaTodayIso, DEADLINE_ACTIVE } from '@/lib/declaration-periods'
 import { effectiveRates, type LecturerRates } from '@/lib/lecturer-rates'
 import { generateLecturerPaymentOrder, generateMonthlyNPDeclaration, generateMonthlyBudgetDeclaration, generateMonthlyDeclarationsBatch } from '@/lib/docx-substitution'
-import { getCheckMonth, getCellDetail, setCheck, getSubDeclarations, type Check as CheckT, type CheckKind, type CheckRow, type DetailLine } from './actions'
+import { downloadLecturerDeclarations } from '@/lib/lecturer-decl'
+import { getCheckMonth, getCellDetail, setCheck, getSubDeclarations, getOverDeclPreview, type Check as CheckT, type CheckKind, type CheckRow, type DetailLine } from './actions'
 
 type Tab = 'sub' | 'over'
 type Filter = 'all' | 'missing' | 'todo' | 'ok' | 'issue'
@@ -164,6 +165,21 @@ export default function CheckClient({ rates }: { rates: LecturerRates }) {
     if (res?.error || !d) { toast(res?.error || 'Няма данни за декларацията', 'error'); setDeclBusy(null); return }
     try { c.kind === 'sub_np' ? await generateMonthlyNPDeclaration(d) : await generateMonthlyBudgetDeclaration(d) }
     catch { toast('Грешка при генериране', 'error') }
+    setDeclBusy(null)
+  }
+  // над норматив: същият Word, който колегата ще изтегли (над норматив / ИФО / логопед) — без да се подава
+  async function overPreview(r: CheckRow, c: Cell) {
+    if (!over) return
+    setDeclBusy(`${r.staffId}|${c.kind}`)
+    const res: any = await getOverDeclPreview(r.staffId, c.from, c.to)
+    if (res?.error || !res?.data) { toast(res?.error || 'Няма данни за декларацията', 'error'); setDeclBusy(null); return }
+    const d = res.data
+    try {
+      const n = await downloadLecturerDeclarations({ ...d, periodLabel: `${over.label} (${fmt(c.from)} – ${fmt(c.to)})`, tagSuffix: '_ПРЕГЛЕД' })
+      const miss = [n.over && d.missingOrder.over ? 'над норматив' : '', n.ifo && d.missingOrder.ifo ? 'ИФО' : ''].filter(Boolean)
+      if (miss.length) toast(`Няма вързана заповед за ${miss.join(' и ')} — в декларацията е „Заповед № …“`, 'error')
+      else toast(`${n.over && n.ifo ? 'Две декларации' : 'Декларацията'} · ${d.fromDecl ? 'по подадените дати' : 'по графика (още не е подадена)'}`)
+    } catch { toast('Грешка при генериране', 'error') }
     setDeclBusy(null)
   }
   async function allDecl(kind: 'np' | 'budget') {
@@ -350,6 +366,12 @@ export default function CheckClient({ rates }: { rates: LecturerRates }) {
                           <div className="text-xs text-slate-500 font-light">
                             {KIND_LABEL[c.kind]} · {fmt(c.from)} – {fmt(c.to)} · <span className="text-slate-700">това е в декларацията на колегата — сравни ред по ред</span>
                           </div>
+                          {c.kind === 'over' && over && (
+                            <button onClick={() => overPreview(r, c)} disabled={declBusy === id} title="Същият Word, който колегата ще изтегли — без да се подава нищо"
+                              className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs text-slate-700 hover:border-[#0f2240] disabled:opacity-50">
+                              {declBusy === id ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />} Преглед на декларацията
+                            </button>
+                          )}
                           {c.kind !== 'over' && (
                             <button onClick={() => oneDecl(r, c)} disabled={declBusy === id}
                               className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs text-slate-700 hover:border-[#0f2240] disabled:opacity-50">

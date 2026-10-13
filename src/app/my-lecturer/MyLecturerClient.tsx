@@ -3,13 +3,8 @@ import { useState } from 'react'
 import { Loader2, FileDown, Check, CalendarClock, Trash2 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { getMyLecturerDates, submitLecturerDeclaration, deleteMyDeclaration } from './actions'
-import { generateLecturerDeclaration } from '@/lib/docx-substitution'
 import { declarationPeriods, defaultPeriod } from '@/lib/declaration-periods'
-import { PERIOD_TIMES } from '@/lib/periods'
-
-// „9:15–9:50“ → „09:15 – 09:50“ (като в бланката на логопедите)
-const hourText = (p: number) => (PERIOD_TIMES[p] || `${p}. час`).split('–').map(x => x.padStart(5, '0')).join(' – ')
-const SPEECH_SUBJECT = 'Рехабилитация на комуникативните нарушения'
+import { downloadLecturerDeclarations } from '@/lib/lecturer-decl'
 
 type Slot = { id: string; day: number; period: number; subject: string; holderType?: string; holderLabel: string; dateFrom: string; dateTo: string; orderNumber: string }
 type Decl = { id: string; periodFrom: string; periodTo: string; totalHours: number; status: string }
@@ -77,33 +72,20 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
     const res: any = await submitLecturerDeclaration(from, to, entries)
     if (res.error) { toast(res.error, 'error'); setSaving(false); return }
 
-    // генерираме Word — две отделни декларации: над норматив (Образец 3) и ИФО (Образец 1), всяка по своята заповед
-    type Row = { iso: string; date: string; group: string; subject: string; hours: number }
-    const over: Row[] = [], ifo: Row[] = []
-    ;(expanded || []).forEach(sl => {
-      const isIfo = sl.holderType === 'ifo'
-      const speech = isSpeech && !isIfo
-      Array.from(checked[sl.slotId] || []).forEach(dt => (isIfo ? ifo : over).push({
-        iso: dt, date: fmt(dt), hours: 1,
-        group: speech ? hourText(sl.period) : sl.holderLabel,
-        subject: isIfo ? `${sl.subject} · ${hourText(sl.period)}` : speech && (!sl.subject || sl.subject === 'Терапия') ? SPEECH_SUBJECT : sl.subject,
-      }))
-    })
-    const byDate = (a: Row, b: Row) => a.iso.localeCompare(b.iso) || a.subject.localeCompare(b.subject, 'bg')
-    const periodLabel = `${period.label} (${fmt(from)} – ${fmt(to)})`
+    // генерираме Word — над норматив (Образец 3) и ИФО (Образец 1) отделно, всяка по своята заповед; логопедите — с учебния час
+    let over = 0, ifo = 0
     try {
-      if (over.length) await generateLecturerDeclaration({
-        teacherName, position, periodLabel, orderRef: orderOver,
-        rows: over.sort(byDate), totalHours: over.length, rate,
-        ...(isSpeech ? { form: 'По Образец 1', groupHeader: 'Учебен час', workNote: ' за допълнителна подкрепа', layout: 'speech' as const } : {}),
+      const r = await downloadLecturerDeclarations({
+        teacherName, position, periodLabel: `${period.label} (${fmt(from)} – ${fmt(to)})`,
+        orderOver, orderIfo, isSpeech, rate,
+        items: (expanded || []).flatMap(sl => Array.from(checked[sl.slotId] || []).map(iso => ({
+          iso, period: sl.period, subject: sl.subject, holderType: sl.holderType, holderLabel: sl.holderLabel,
+        }))),
       })
-      if (ifo.length) await generateLecturerDeclaration({
-        teacherName, position, periodLabel, orderRef: orderIfo,
-        rows: ifo.sort(byDate), totalHours: ifo.length, rate, form: 'По Образец 1', fileTag: 'ИФО', layout: 'ifo',
-      })
+      over = r.over; ifo = r.ifo
     } catch (e) { /* noop */ }
-    toast(over.length && ifo.length ? 'Подадено — изтеглени са две декларации: над норматив и ИФО' : 'Декларацията е подадена и изтеглена')
-    setDeclarations(prev => [{ id: res.id || `tmp-${Date.now()}`, periodFrom: from, periodTo: to, totalHours: over.length + ifo.length, status: 'submitted' }, ...prev.filter(d => !(d.status === 'submitted' && from <= d.periodTo && to >= d.periodFrom))])
+    toast(over && ifo ? 'Подадено — изтеглени са две декларации: над норматив и ИФО' : 'Декларацията е подадена и изтеглена')
+    setDeclarations(prev => [{ id: res.id || `tmp-${Date.now()}`, periodFrom: from, periodTo: to, totalHours: over + ifo, status: 'submitted' }, ...prev.filter(d => !(d.status === 'submitted' && from <= d.periodTo && to >= d.periodFrom))])
     setSaving(false)
     setExpanded(null); setChecked({})
   }

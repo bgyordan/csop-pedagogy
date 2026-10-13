@@ -2,6 +2,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { getLecturerOverview, getReviewDetail } from '../lecturer-review/actions'
 import { getMonthlyDeclarationFor } from '../substitutions/actions'
+import { loadLecturerOrders, orderText } from '@/lib/lecturer-orders'
+import { loadLecturerRates, effectiveRates } from '@/lib/lecturer-rates'
 
 // „Отчитане лекторски“ — контролният лист по хартиените декларации.
 // Самата декларация е на хартия; тук се пазят само отметките: получена → ОК / несъответствие → изплатена.
@@ -124,4 +126,53 @@ export async function getSubDeclarations(staffIds: string[], from: string, to: s
     if (r?.data) out.push(r.data)
   }
   return { data: out }
+}
+
+/**
+ * Преглед на декларацията за над норматив на колега (без да се подава) — същите данни, с които колегата я тегли:
+ * ако вече е подал за периода — подадените дати; иначе графикът без дните в отпуск/болничен.
+ */
+export async function getOverDeclPreview(staffId: string, from: string, to: string) {
+  const { supabase, error } = await manager()
+  if (error) return { error }
+  const { data: cy } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
+  const { data: p } = await supabase.from('staff_profiles').select('first_name, last_name, position, role, therapy_role').eq('id', staffId).single()
+  if (!p) return { error: 'Няма такъв служител' }
+
+  const { data: slots } = await supabase.from('lecturer_slots')
+    .select('id, day, period, holder_type, holder_label, date_from, date_to, subject:subjects(name)')
+    .eq('staff_id', staffId).eq('academic_year_id', cy?.id)
+  const { data: cal } = await supabase.from('academic_calendar_days')
+    .select('date, day_of_week').gte('date', from).lte('date', to).eq('is_school_day', true)
+  const { data: abs } = await supabase.from('substitutions').select('date_from, date_to')
+    .eq('absent_staff_id', staffId).lte('date_from', to).gte('date_to', from)
+  const isAbsent = (d: string) => (abs || []).some((a: any) => d >= a.date_from && d <= a.date_to)
+
+  // подадена декларация за периода → нейните дати
+  const { data: decls } = await supabase.from('lecturer_declarations')
+    .select('entries').eq('staff_id', staffId).lte('period_from', to).gte('period_to', from)
+  const declared: Record<string, string[]> = {}
+  ;(decls || []).forEach((d: any) => ((d.entries as any[]) || []).forEach(e => {
+    (declared[e.slotId] ||= []).push(...(e.dates || []).filter((x: string) => x >= from && x <= to))
+  }))
+  const fromDecl = Object.keys(declared).length > 0
+
+  const items = (slots || []).flatMap((s: any) => {
+    const dates = fromDecl
+      ? (declared[s.id] || [])
+      : (cal || []).filter((c: any) => c.day_of_week === s.day && c.date >= s.date_from && c.date <= s.date_to && !isAbsent(c.date)).map((c: any) => c.date)
+    return dates.map((iso: string) => ({ iso, period: s.period, subject: s.subject?.name || '', holderType: s.holder_type || '', holderLabel: s.holder_label || '' }))
+  })
+  if (!items.length) return { error: 'Няма часове над норматив за този период' }
+
+  const orders = (await loadLecturerOrders(supabase, cy?.id, staffId))[staffId] || {}
+  return { data: {
+    teacherName: `${p.first_name} ${p.last_name}`,
+    position: p.position || 'Учител/старши учител на ДУИ',
+    isSpeech: p.role === 'speech_therapist' || p.therapy_role === 'speech_therapist',
+    orderOver: orderText(orders.over), orderIfo: orderText(orders.ifo),
+    missingOrder: { over: !orders.over, ifo: !orders.ifo },
+    rate: effectiveRates(await loadLecturerRates(supabase)).over,
+    items, fromDecl,
+  } }
 }
