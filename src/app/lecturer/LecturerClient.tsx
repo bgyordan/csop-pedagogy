@@ -1,8 +1,8 @@
 'use client'
 import { useState, useMemo, useEffect } from 'react'
-import { Loader2, Check, Save, Search, Plus, X, Trash2, UserRound, Lock, MoveRight } from 'lucide-react'
+import { Loader2, Check, Save, Search, Plus, X, Trash2, UserRound, Lock, MoveRight, Pencil } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { getTeacherSchedule, saveLecturerSlots, clearLecturerSlots, removeLecturerSlot, moveLecturerSlot } from './actions'
+import { getTeacherSchedule, saveLecturerSlots, clearLecturerSlots, removeLecturerSlot, moveLecturerSlot, changeLecturerPeriod } from './actions'
 import { slotHours } from './distribute'
 import type { Ends } from './distribute'
 
@@ -40,6 +40,9 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
   // преместване: избраният вече записан час, който чака нова клетка
   const [moving, setMoving] = useState<Marked | null>(null)
   const [movingBusy, setMovingBusy] = useState(false)
+  // смяна на срока на цяла група (период) наведнъж
+  const [editGroup, setEditGroup] = useState<{ key: string; oldFrom: string; oldTo: string; from: string; to: string } | null>(null)
+  const [editBusy, setEditBusy] = useState(false)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMoving(null) }
     window.addEventListener('keydown', onKey)
@@ -303,10 +306,39 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
                     <div className="flex flex-wrap items-center gap-2 text-xs mb-3">
                       <span className="text-slate-500">Вече записани:</span>
                       {myGroups.map(g => (
-                        <span key={g.key} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${colorOf(g.from, g.to).cell}`}>
+                        <button key={g.key} type="button" title="Смени срока на тези часове"
+                          onClick={() => setEditGroup(e => e?.key === g.key ? null : { key: g.key, oldFrom: g.from, oldTo: g.to, from: g.from, to: g.to })}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border hover:shadow-sm ${colorOf(g.from, g.to).cell} ${editGroup?.key === g.key ? 'ring-2 ring-teal-500 ring-offset-1' : ''}`}>
                           <span className={`h-2 w-2 rounded-full ${colorOf(g.from, g.to).dot}`} /> {fmt(g.from)}–{fmt(g.to)} · {g.count} ч./седм.
-                        </span>
+                          <Pencil size={11} className="opacity-60" />
+                        </button>
                       ))}
+                    </div>
+                  )}
+                  {editGroup && (
+                    <div className="flex flex-wrap items-end gap-3 mb-3 px-4 py-3 rounded-xl bg-teal-50/60 border border-teal-200 text-[13px]">
+                      <div className="text-teal-900 w-full">Нов срок за часовете с период {fmt(editGroup.oldFrom)}–{fmt(editGroup.oldTo)}:</div>
+                      <label className="text-xs text-slate-500">От
+                        <input type="date" value={editGroup.from} onChange={e => setEditGroup({ ...editGroup, from: e.target.value })}
+                          className="block mt-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm" /></label>
+                      <label className="text-xs text-slate-500">До
+                        <input type="date" value={editGroup.to} min={editGroup.from || undefined} onChange={e => setEditGroup({ ...editGroup, to: e.target.value })}
+                          className="block mt-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm" /></label>
+                      <button type="button" disabled={editBusy || !editGroup.from || !editGroup.to || editGroup.to < editGroup.from} onClick={async () => {
+                          const e = editGroup
+                          setEditBusy(true)
+                          const res: any = await changeLecturerPeriod(teacherId, term, e.oldFrom, e.oldTo, e.from, e.to)
+                          setEditBusy(false)
+                          if (res.error) { toast(res.error, 'error'); return }
+                          setMarked(prev => prev.map(m => m.staffId === teacherId && m.term === term && m.dateFrom === e.oldFrom && m.dateTo === e.oldTo
+                            ? { ...m, dateFrom: e.from, dateTo: e.to, manual: true } : m))
+                          setEditGroup(null)
+                          toast(`Срокът е сменен (${res.count} ч./седм.)`)
+                        }}
+                        className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-white text-sm disabled:opacity-40" style={{ backgroundColor: '#0f2240' }}>
+                        {editBusy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Запази
+                      </button>
+                      <button type="button" onClick={() => setEditGroup(null)} className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-600 hover:bg-slate-50">Отказ</button>
                     </div>
                   )}
                   {moving ? (
