@@ -7,7 +7,7 @@ import { smartMatch } from '@/lib/search'
 import { declarationPeriods, defaultPeriod, deadlineOf, sofiaTodayIso, DEADLINE_ACTIVE } from '@/lib/declaration-periods'
 import { effectiveRates, type LecturerRates } from '@/lib/lecturer-rates'
 import { generateLecturerPaymentOrder, generateMonthlyNPDeclaration, generateMonthlyBudgetDeclaration, generateMonthlyDeclarationsBatch } from '@/lib/docx-substitution'
-import { downloadLecturerDeclarations } from '@/lib/lecturer-decl'
+import { downloadLecturerDeclarations, declPeriodLabel } from '@/lib/lecturer-decl'
 import { getCheckMonth, getCellDetail, setCheck, getSubDeclarations, getOverDeclPreview, type Check as CheckT, type CheckKind, type CheckRow, type DetailLine } from './actions'
 
 type Tab = 'sub' | 'over'
@@ -175,7 +175,7 @@ export default function CheckClient({ rates }: { rates: LecturerRates }) {
     if (res?.error || !res?.data) { toast(res?.error || 'Няма данни за декларацията', 'error'); setDeclBusy(null); return }
     const d = res.data
     try {
-      const n = await downloadLecturerDeclarations({ ...d, periodLabel: `${over.label} (${fmt(c.from)} – ${fmt(c.to)})`, tagSuffix: '_ПРЕГЛЕД' })
+      const n = await downloadLecturerDeclarations({ ...d, periodLabel: declPeriodLabel(over.label, c.from, c.to), tagSuffix: '_ПРЕГЛЕД' })
       const miss = [n.over && d.missingOrder.over ? 'над норматив' : '', n.ifo && d.missingOrder.ifo ? 'ИФО' : ''].filter(Boolean)
       if (miss.length) toast(`Няма вързана заповед за ${miss.join(' и ')} — в декларацията е „Заповед № …“`, 'error')
       else toast(`${n.over && n.ifo ? 'Две декларации' : 'Декларацията'} · ${d.fromDecl ? 'по подадените дати' : 'по графика (още не е подадена)'}`)
