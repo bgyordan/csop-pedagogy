@@ -4,7 +4,7 @@ import { Loader2, FileDown, Check, CalendarClock, Trash2 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { getMyLecturerDates, submitLecturerDeclaration, deleteMyDeclaration } from './actions'
 import { declarationPeriods, defaultPeriod } from '@/lib/declaration-periods'
-import { downloadLecturerDeclarations } from '@/lib/lecturer-decl'
+import { downloadLecturerDeclarations, declPeriodLabel } from '@/lib/lecturer-decl'
 
 type Slot = { id: string; day: number; period: number; subject: string; holderType?: string; holderLabel: string; dateFrom: string; dateTo: string; orderNumber: string }
 type Decl = { id: string; periodFrom: string; periodTo: string; totalHours: number; status: string }
@@ -76,7 +76,7 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
     let over = 0, ifo = 0
     try {
       const r = await downloadLecturerDeclarations({
-        teacherName, position, periodLabel: `${period.label} (${fmt(from)} – ${fmt(to)})`,
+        teacherName, position, periodLabel: declPeriodLabel(period.label, from, to),
         orderOver, orderIfo, isSpeech, rate,
         items: (expanded || []).flatMap(sl => Array.from(checked[sl.slotId] || []).map(iso => ({
           iso, period: sl.period, subject: sl.subject, holderType: sl.holderType, holderLabel: sl.holderLabel,

@@ -23,6 +23,13 @@ export const hourText = (p: number) => (PERIOD_TIMES[p] || `${p}. час`).split
 export const SPEECH_SUBJECT = 'Рехабилитация на комуникативните нарушения'
 const fmt = (d: string) => d.split('-').reverse().join('.')
 
+/** „септември – октомври 2026 (15.09.2026 – 31.10.2026)“ — началото е не по-рано от 15.09 (началото на учебната година) */
+export function declPeriodLabel(label: string, from: string, to: string) {
+  const y = Number(from.slice(0, 4)), m = Number(from.slice(5, 7))
+  const start = m === 9 && from < `${y}-09-15` ? `${y}-09-15` : from
+  return `${label} (${fmt(start)} – ${fmt(to)})`
+}
+
 /** Тегли една или две декларации; връща колко часа влязоха във всяка */
 export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over: number; ifo: number }> {
   type Row = { iso: string; date: string; group: string; subject: string; hours: number }
