@@ -95,11 +95,11 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
       if (over.length) await generateLecturerDeclaration({
         teacherName, position, periodLabel, orderRef: orderOver,
         rows: over.sort(byDate), totalHours: over.length, rate,
-        ...(isSpeech ? { form: 'По Образец 1', groupHeader: 'Учебен час', workNote: ' за допълнителна подкрепа' } : {}),
+        ...(isSpeech ? { form: 'По Образец 1', groupHeader: 'Учебен час', workNote: ' за допълнителна подкрепа', layout: 'speech' as const } : {}),
       })
       if (ifo.length) await generateLecturerDeclaration({
         teacherName, position, periodLabel, orderRef: orderIfo,
-        rows: ifo.sort(byDate), totalHours: ifo.length, rate, form: 'По Образец 1', fileTag: 'ИФО',
+        rows: ifo.sort(byDate), totalHours: ifo.length, rate, form: 'По Образец 1', fileTag: 'ИФО', layout: 'ifo',
       })
     } catch (e) { /* noop */ }
     toast(over.length && ifo.length ? 'Подадено — изтеглени са две декларации: над норматив и ИФО' : 'Декларацията е подадена и изтеглена')
