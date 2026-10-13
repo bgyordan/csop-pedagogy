@@ -28,13 +28,11 @@ const fmt = (d: string) => d.split('-').reverse().join('.')
 export function declPeriodLabel(label: string, _from?: string, _to?: string) {
   return label
 }
-// „21.09.2026“ → „21.IX“ (римски месец — кратко и не се слива при изброяване)
-const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
-const shortDate = (iso: string) => `${iso.slice(8, 10)}.${ROMAN[Number(iso.slice(5, 7))]}`
+const MONTHS = ['януари', 'февруари', 'март', 'април', 'май', 'юни', 'юли', 'август', 'септември', 'октомври', 'ноември', 'декември']
 
 /** Тегли една или две декларации; връща колко часа влязоха във всяка */
 export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over: number; ifo: number }> {
-  type Row = { iso: string; date: string; group: string; subject: string; hours: number }
+  type Row = { iso: string; date: string; group: string; subject: string; hours: number; heading?: string }
   const over: Row[] = [], ifo: Row[] = []
   d.items.forEach(it => {
     const isIfo = it.holderType === 'ifo'
@@ -48,21 +46,27 @@ export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over
   // обобщено: паралелка → предмет → датите подред (така еднаквите клетки се сливат в декларацията)
   const byGroup = (a: Row, b: Row) => a.group.localeCompare(b.group, 'bg', { numeric: true }) || a.subject.localeCompare(b.subject, 'bg') || a.iso.localeCompare(b.iso)
   const tag = d.tagSuffix || ''
-  // логопед: един ред на слот — „понеделник / 09:15 – 09:50“, в „Дата“ всички дати за него, брой = колко са
+  // логопед: по месеци — ред-заглавие „Септември 2026“, под него ред на слот („понеделник / 09:15–09:50“),
+  // в „Дата“ само дните от месеца („21, 28“), брой = колко са
   const DAYS = ['неделя', 'понеделник', 'вторник', 'сряда', 'четвъртък', 'петък', 'събота']
   const speechRows = (): Row[] => {
-    const by: Record<string, { dow: number; time: string; subject: string; dates: string[] }> = {}
-    over.forEach(r => {
-      const dow = new Date(r.iso + 'T00:00').getDay()
-      const k = `${dow}|${r.group}|${r.subject}`
-      ;(by[k] ||= { dow, time: r.group, subject: r.subject, dates: [] }).dates.push(r.iso)
-    })
-    return Object.values(by)
-      .sort((a, b) => a.dow - b.dow || a.time.localeCompare(b.time))
-      .map(g => {
-        const ds = g.dates.sort()
-        return { iso: ds[0], date: ds.map(shortDate).join('; '), group: `${DAYS[g.dow]}\n${g.time.replace(' – ', '–')}`, subject: g.subject, hours: ds.length }
+    const months = Array.from(new Set(over.map(r => r.iso.slice(0, 7)))).sort()
+    return months.flatMap(ym => {
+      const by: Record<string, { dow: number; time: string; subject: string; dates: string[] }> = {}
+      over.filter(r => r.iso.startsWith(ym)).forEach(r => {
+        const dow = new Date(r.iso + 'T00:00').getDay()
+        const k = `${dow}|${r.group}|${r.subject}`
+        ;(by[k] ||= { dow, time: r.group, subject: r.subject, dates: [] }).dates.push(r.iso)
       })
+      const m = MONTHS[Number(ym.slice(5, 7)) - 1]
+      const head: Row = { iso: `${ym}-00`, date: '', group: '', subject: '', hours: 0, heading: `${m[0].toUpperCase()}${m.slice(1)} ${ym.slice(0, 4)}` }
+      return [head, ...Object.values(by)
+        .sort((a, b) => a.dow - b.dow || a.time.localeCompare(b.time))
+        .map(g => {
+          const ds = g.dates.sort()
+          return { iso: ds[0], date: ds.map(x => String(Number(x.slice(8, 10)))).join(', '), group: `${DAYS[g.dow]}\n${g.time.replace(' – ', '–')}`, subject: g.subject, hours: ds.length }
+        })]
+    })
   }
   if (over.length) await generateLecturerDeclaration({
     teacherName: d.teacherName, position: d.position, periodLabel: d.periodLabel, orderRef: d.orderOver,
