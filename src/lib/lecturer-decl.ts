@@ -43,13 +43,28 @@ export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over
       subject: isIfo ? `${it.subject} · ${hourText(it.period)}` : speech && (!it.subject || it.subject === 'Терапия') ? SPEECH_SUBJECT : it.subject,
     })
   })
-  const byDate = (a: Row, b: Row) => a.iso.localeCompare(b.iso) || a.subject.localeCompare(b.subject, 'bg')
   // обобщено: паралелка → предмет → датите подред (така еднаквите клетки се сливат в декларацията)
   const byGroup = (a: Row, b: Row) => a.group.localeCompare(b.group, 'bg', { numeric: true }) || a.subject.localeCompare(b.subject, 'bg') || a.iso.localeCompare(b.iso)
   const tag = d.tagSuffix || ''
+  // логопед: един ред на слот — „понеделник / 09:15 – 09:50“, в „Дата“ всички дати за него, брой = колко са
+  const DAYS = ['неделя', 'понеделник', 'вторник', 'сряда', 'четвъртък', 'петък', 'събота']
+  const speechRows = (): Row[] => {
+    const by: Record<string, { dow: number; time: string; subject: string; dates: string[] }> = {}
+    over.forEach(r => {
+      const dow = new Date(r.iso + 'T00:00').getDay()
+      const k = `${dow}|${r.group}|${r.subject}`
+      ;(by[k] ||= { dow, time: r.group, subject: r.subject, dates: [] }).dates.push(r.iso)
+    })
+    return Object.values(by)
+      .sort((a, b) => a.dow - b.dow || a.time.localeCompare(b.time))
+      .map(g => {
+        const ds = g.dates.sort()
+        return { iso: ds[0], date: ds.map(x => fmt(x).slice(0, 5)).join(', '), group: `${DAYS[g.dow]}\n${g.time}`, subject: g.subject, hours: ds.length }
+      })
+  }
   if (over.length) await generateLecturerDeclaration({
     teacherName: d.teacherName, position: d.position, periodLabel: d.periodLabel, orderRef: d.orderOver,
-    rows: over.sort(d.isSpeech ? byDate : byGroup), totalHours: over.length, rate: d.rate,
+    rows: d.isSpeech ? speechRows() : over.sort(byGroup), totalHours: over.length, rate: d.rate,
     ...(d.isSpeech
       ? { form: 'По Образец 1', groupHeader: 'Учебен час', workNote: ' за допълнителна подкрепа', layout: 'speech' as const, fileTag: `лекторски${tag}` }
       : { fileTag: `лекторски${tag}` }),
