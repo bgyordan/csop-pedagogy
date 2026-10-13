@@ -512,7 +512,7 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
   const DOW = ['нед', 'пон', 'вт', 'ср', 'чет', 'пет', 'съб']
   const dow = (dt: string) => { const [dd, mm, yy] = dt.split('.').map(Number); return yy ? DOW[new Date(yy, mm - 1, dd).getDay()] : '' }
   // ширините: над норматив — тясна „Група“ (само паралелката); ИФО — по-широка (името на детето); логопед — часът
-  const WIDTHS: Record<string, number[]> = { over: [900, 2250, 1050, 4900, 1000], ifo: [900, 2250, 2300, 3650, 1000], speech: [900, 1650, 1850, 4700, 1000] }
+  const WIDTHS: Record<string, number[]> = { over: [900, 2250, 1050, 4900, 1000], ifo: [900, 2250, 2300, 3650, 1000], speech: [900, 1900, 1850, 4450, 1000] }
   // подписите — с табулация, за да стоят на едно място
   const SIG = [{ type: TabStopType.LEFT, position: 5600 }]
 
@@ -520,7 +520,7 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
   children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Д Е К Л А Р А Ц И Я', bold: true, size: 26 })], spacing: { after: 160 } }))
 
   children.push(new Paragraph({ children: [normal('Долуподписаният/та ', 22), bold(d.teacherName, 22)], spacing: { after: 10 } }))
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '(име, презиме, фамилия)', italics: true, size: 20 })], spacing: { after: 60 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '(име, фамилия)', italics: true, size: 20 })], spacing: { after: 60 } }))
   children.push(new Paragraph({ children: [normal('Длъжност: ', 22), normal(d.position || 'Учител/старши учител на ДУИ', 22)], spacing: { after: 120 } }))
 
   children.push(new Paragraph({ children: [
@@ -533,13 +533,8 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
   const th = (t: string) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(t, 20)] })] })
   const td = (t: string, c = false) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 20)] })] })
   const rows: TableRow[] = [ new TableRow({ children: [th('№ по ред'), th('Дата'), th(d.groupHeader || 'Група'), th('Предмет'), th('Брой часове')] }) ]
-  // логопед — денят под датата; иначе на същия ред
-  const dateCell = (dt: string) => layout === 'speech'
-    ? new TableCell({ borders: CELLS, children: [
-        new Paragraph({ alignment: AlignmentType.CENTER, children: [normal(dt, 20)] }),
-        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: dow(dt), size: 18, color: '404040' })] }),
-      ] })
-    : td(`${dt} ${dow(dt)}`.trim(), true)
+  // логопед — само датата (иначе не се събира); над норматив и ИФО — с деня на същия ред
+  const dateCell = (dt: string) => layout === 'speech' ? td(dt, true) : td(`${dt} ${dow(dt)}`.trim(), true)
   d.rows.forEach((r, i) => {
     rows.push(new TableRow({ children: [
       td(String(i + 1), true), dateCell(r.date), td(r.group, true), td(r.subject), td(String(r.hours), true),
