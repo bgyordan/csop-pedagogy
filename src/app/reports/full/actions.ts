@@ -1,5 +1,6 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
+import { isOresActive, todaySofia, ORES_ACTIVE_COLS } from '@/lib/ores'
 
 const SUPPORT_LABEL: Record<string, string> = { short: 'краткосрочна', long: 'дългосрочна' }
 const SURVEY_LABEL: Record<string, string> = { completed: 'Завършена', in_progress: 'В процес' }
@@ -36,7 +37,7 @@ export async function getFullReport(): Promise<{ error: string } | { headers: st
     supabase.from('eplr_teams').select('student_id, psychologist:staff_profiles!eplr_teams_psychologist_id_fkey(first_name, last_name), speech_therapist:staff_profiles!eplr_teams_speech_therapist_id_fkey(first_name, last_name), rehabilitator:staff_profiles!eplr_teams_rehabilitator_id_fkey(first_name, last_name)').eq('academic_year_id', cy?.id),
     supabase.from('student_guardians').select('student_id, full_name, phone').in('student_id', ids),
     supabase.from('coud_enrollments').select('student_id, coud_group:coud_groups(name, teacher:staff_profiles(first_name, last_name))').in('student_id', ids),
-    supabase.from('student_ores').select('student_id, from_date, to_date').in('student_id', ids),
+    supabase.from('student_ores').select(ORES_ACTIVE_COLS).in('student_id', ids),
     supabase.from('student_surveys').select('student_id, status').in('student_id', ids),
     supabase.from('student_documents').select('*').in('student_id', ids),
   ])
@@ -48,7 +49,7 @@ export async function getFullReport(): Promise<{ error: string } | { headers: st
   ;(guardRes.data || []).forEach((g: any) => { const m = guardMap[g.student_id] || (guardMap[g.student_id] = { names: [], phones: [] }); if (g.full_name) m.names.push(g.full_name); if (g.phone) m.phones.push(g.phone) })
   const coudMap: Record<string, any> = {}; (coudRes.data || []).forEach((c: any) => { if (!coudMap[c.student_id]) coudMap[c.student_id] = c.coud_group })
   const today = new Date().toISOString().split('T')[0]
-  const oresActive: Record<string, boolean> = {}; (oresRes.data || []).forEach((o: any) => { if (o.from_date <= today && (!o.to_date || o.to_date >= today)) oresActive[o.student_id] = true })
+  const oresActive: Record<string, boolean> = {}; (oresRes.data || []).forEach((o: any) => { if (isOresActive(o)) oresActive[o.student_id] = true })
   const surveyMap: Record<string, string> = {}; (surveyRes.data || []).forEach((s: any) => { surveyMap[s.student_id] = s.status })
   const docMap: Record<string, Record<string, any>> = {}; (docRes.data || []).forEach((d: any) => { (docMap[d.student_id] || (docMap[d.student_id] = {}))[d.doc_type] = d })
 

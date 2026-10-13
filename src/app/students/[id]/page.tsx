@@ -21,6 +21,7 @@ import PassportTab from './passport/PassportTab'
 import OnlineRoomTab from './room/OnlineRoomTab'
 import PecsTab from './pecs/PecsTab'
 import FillEplrButton from './FillEplrButton'
+import { isOresActive, todaySofia, ORES_ACTIVE_COLS } from '@/lib/ores'
 
 const ATTACHMENT_TYPE_LABELS: Record<string, string> = {
   enrollment_application: 'Заявление за прием',
@@ -118,8 +119,7 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
   const { data: oresRecords } = await supabase
     .from('student_ores').select('*').eq('student_id', id).order('from_date', { ascending: false })
 
-  const today = new Date().toISOString().split('T')[0]
-  const activeOres = (oresRecords || []).find(o => !(o as any).room_closed_at && o.from_date <= today && (!o.to_date || o.to_date >= today))
+  const activeOres = (oresRecords || []).find(o => isOresActive(o as any))
   
   // Класният ръководител на паралелката на детето (за текущата година)
   let isMyClass = false
@@ -552,7 +552,7 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
         {tab === 'room' && showRoom && (
           <div className="animate-in fade-in duration-300">
             <OnlineRoomTab studentId={id} studentName={getFullName(student as any)} oresList={(oresRecords || []) as any}
-              meId={meId} isManager={canManage || profile?.role === 'director'} canStart={canManage || profile?.role === 'director'} />
+              meId={meId} isManager={canManage || profile?.role === 'director'} canStart={canManage || profile?.role === 'director'} isAdmin={profile?.role === 'admin'} />
           </div>
         )}
 

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { GraduationCap, Home, Wifi, Plus, X, Loader2, Check, Calendar } from 'lucide-react'
+import { isOresActive, todaySofia, ORES_ACTIVE_COLS } from '@/lib/ores'
 
 function coudEligible(ext?: string | null): boolean {
   if (!ext) return true
@@ -65,8 +66,8 @@ export default function StudentStatusSection({
     router.refresh()
   }
 
-  const today = new Date().toISOString().split('T')[0]
-  const activeOres = ores.find(o => !(o as any).room_closed_at && o.from_date <= today && (!o.to_date || o.to_date >= today))
+  const today = todaySofia()
+  const activeOres = ores.find(o => isOresActive(o as any, today))
 
   async function updateForm(newForm: string) {
     if (!enrollmentId) return
@@ -103,7 +104,7 @@ export default function StudentStatusSection({
     if (error) {
       // в онлайн стаята има публикации — хронологията се пази (ОРЕС се приключва от таба „Онлайн стая“)
       alert(error.code === '23503'
-        ? 'Този ОРЕС има хронология в онлайн стаята и не може да се изтрие. Приключете го от таба „Онлайн стая“.'
+        ? 'Този ОРЕС има хронология в онлайн стаята и не може да се изтрие. Приключете го от таба „Онлайн стая“ (ако е тестов — администраторът го изтрива оттам с „Изтрий като тестов“).'
         : 'Грешка при изтриване: ' + error.message)
       return
     }
@@ -206,7 +207,7 @@ export default function StudentStatusSection({
           {ores.length > 0 ? (
             <div className="space-y-2">
               {ores.map(o => {
-                const isActive = o.from_date <= today && (!o.to_date || o.to_date >= today)
+                const isActive = isOresActive(o as any, today)
                 return (
                   <div key={o.id} className={`group flex items-start justify-between p-2.5 rounded-xl border text-xs transition-colors ${
                     isActive ? 'bg-amber-50/60 border-amber-200' : 'bg-slate-50 border-slate-100'

@@ -9,6 +9,7 @@ import SharedFiles from './SharedFiles'
 import ExpiringDocsCard from './ExpiringDocsCard'
 import { Users, BookOpen, Calendar, Bell, ArrowRight, GraduationCap, Home, Wifi, Coffee, ShieldX, ShieldAlert, ClipboardList, Clock, AlertTriangle, UserSearch } from 'lucide-react'
 import { formatDate, getDaysUntil, getMonthName } from '@/lib/utils'
+import { isOresActive, todaySofia, ORES_ACTIVE_COLS } from '@/lib/ores'
 export default async function AdminDashboard({ profile, currentYearId }: any) {
   const supabase = await createClient()
   const now = new Date()
@@ -40,7 +41,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
     upcomingTasks(supabase, 6).then(data => ({ data })),   // от „График срокове“
     supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
     supabase.from('student_enrollments').select('education_form, student:students!inner(status)').eq('academic_year_id', currentYearId).eq('student.status', 'active'),
-    supabase.from('student_ores').select('student_id, from_date, to_date').lte('from_date', todayStr),
+    supabase.from('student_ores').select(ORES_ACTIVE_COLS).lte('from_date', todaySofia()),
     supabase.from('student_attachments').select('student_id, valid_until_year, doc_type'),
     supabase.from('student_enrollments')
       .select('student:students(id, status, external_class, sending_school_id, sending_school_other)')
@@ -50,7 +51,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
   ])
   const dailyCount = formStats?.filter(e => (e.education_form || 'daily') === 'daily').length || 0
   const ifoCount = formStats?.filter(e => e.education_form === 'ifo').length || 0
-  const oresCount = (oresActive || []).filter(o => !o.to_date || o.to_date >= todayStr).length
+  const oresCount = new Set((oresActive || []).filter((o: any) => isOresActive(o)).map((o: any) => o.student_id)).size
   // Документи — изтекли / изтичащи
   const baseYear = currentYearName ? parseInt(currentYearName.split('/')[0]) : currentYearNum
   const expiredStudents = new Set<string>()

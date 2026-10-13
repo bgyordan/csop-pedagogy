@@ -10,9 +10,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Loader2, Send, Link2, Paperclip, Copy, Check, MonitorSmartphone, X, ExternalLink, EyeOff, Eye, FileDown, Play, MessageCircle, CircleCheck, Square, RotateCcw, Library, Search } from 'lucide-react'
+import { Loader2, Send, Link2, Paperclip, Copy, Check, MonitorSmartphone, X, ExternalLink, EyeOff, Eye, FileDown, Play, MessageCircle, CircleCheck, Square, RotateCcw, Library, Search, Trash2 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { generateOresChronology } from '@/lib/docx-ores'
+import { isOresActive, todaySofia } from '@/lib/ores'
+import { deleteTestOres } from './actions'
 
 // Линкът за родителя — през основния адрес (is.csop-varna.bg работи и отвън през Cloudflare)
 const PUBLIC_BASE = process.env.NEXT_PUBLIC_PUBLIC_URL || 'https://is.csop-varna.bg'
@@ -26,11 +28,11 @@ type Msg = { id: string; post_id: string; from_parent: boolean; author_id: strin
 const fmt = (d: string) => d.split('-').reverse().join('.')
 const when = (d: string) => new Date(d).toLocaleString('bg-BG', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 
-export default function OnlineRoomTab({ studentId, studentName, oresList, meId, isManager, canStart }: {
-  studentId: string; studentName: string; oresList: OresRow[]; meId: string; isManager: boolean; canStart: boolean
+export default function OnlineRoomTab({ studentId, studentName, oresList, meId, isManager, canStart, isAdmin = false }: {
+  studentId: string; studentName: string; oresList: OresRow[]; meId: string; isManager: boolean; canStart: boolean; isAdmin?: boolean
 }) {
-  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })
-  const isActive = (o: OresRow) => !o.room_closed_at && o.from_date <= today && (!o.to_date || o.to_date >= today)
+  const today = todaySofia()
+  const isActive = (o: OresRow) => isOresActive(o, today)
   const periods = useMemo(() => [...oresList].filter(o => o.room_token).sort((a, b) => b.from_date.localeCompare(a.from_date)), [oresList])
   const active = periods.find(isActive) || null
   const [selId, setSelId] = useState<string | null>(active?.id || periods[0]?.id || null)
@@ -51,7 +53,7 @@ export default function OnlineRoomTab({ studentId, studentName, oresList, meId, 
         </div>
       )}
 
-      {sel && <Room key={sel.id} studentId={studentId} studentName={studentName} ores={sel} live={isActive(sel)} meId={meId} isManager={isManager} />}
+      {sel && <Room key={sel.id} studentId={studentId} studentName={studentName} ores={sel} live={isActive(sel)} meId={meId} isManager={isManager} isAdmin={isAdmin} />}
     </div>
   )
 }
@@ -110,8 +112,8 @@ function StartOres({ studentId, canStart, hasPast }: { studentId: string; canSta
 }
 
 // ── Стаята за един ОРЕС период ──
-function Room({ studentId, studentName, ores, live, meId, isManager }: {
-  studentId: string; studentName: string; ores: OresRow; live: boolean; meId: string; isManager: boolean
+function Room({ studentId, studentName, ores, live, meId, isManager, isAdmin }: {
+  studentId: string; studentName: string; ores: OresRow; live: boolean; meId: string; isManager: boolean; isAdmin: boolean
 }) {
   const supabase = createClient()
   const router = useRouter()
@@ -254,6 +256,18 @@ function Room({ studentId, studentName, ores, live, meId, isManager }: {
     router.refresh()
   }
 
+  // само за администратор: тестов ОРЕС се маха изцяло (истинските се приключват, не се трият)
+  async function removeTest() {
+    const period = `${fmt(ores.from_date)}${ores.to_date ? ` – ${fmt(ores.to_date)}` : ''}`
+    if (!confirm(`Изтриване на ТЕСТОВ ОРЕС на ${studentName} (${period})?\n\nТрият се и всички публикации, въпроси на родителя и файлове в стаята. Не може да се върне.\n\nЗа истински ОРЕС използвайте „Приключи ОРЕС“.`)) return
+    setClosing(true)
+    const res = await deleteTestOres(ores.id)
+    setClosing(false)
+    if (res.error) { toast(res.error, 'error'); return }
+    toast('Тестовият ОРЕС е изтрит')
+    router.refresh()
+  }
+
   async function exportChronology() {
     if (!posts) return
     setExporting(true)
@@ -301,6 +315,12 @@ function Room({ studentId, studentName, ores, live, meId, isManager }: {
             <button type="button" onClick={reopenRoom} disabled={closing}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 text-[13px] text-slate-700 hover:border-[#0f2240] disabled:opacity-50">
               {closing ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />} Отвори отново
+            </button>
+          )}
+          {isAdmin && (
+            <button type="button" onClick={removeTest} disabled={closing} title="Само за тестови записи — изтрива ОРЕС и цялата стая"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] text-slate-400 hover:text-rose-700 hover:bg-rose-50 disabled:opacity-50">
+              <Trash2 size={13} /> Изтрий като тестов
             </button>
           )}
         </div>

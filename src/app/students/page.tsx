@@ -6,6 +6,7 @@ import { Plus, Users, GraduationCap, Home, Coffee, Wifi, X, LayoutGrid, Sparkles
 import { getFullName } from '@/lib/utils'
 import { StudentsFilter } from './StudentsFilter'
 import StudentsTable from './StudentsTable'
+import { isOresActive, todaySofia, ORES_ACTIVE_COLS } from '@/lib/ores'
 
 const FILTER_LABELS: Record<string, string> = {
   'incomplete': 'Непълни данни',
@@ -112,11 +113,11 @@ export default async function StudentsPage({
   // ОРЕС филтър — активни днес
   let oresStudentIds: Set<string> | null = null
   if (params.ores === '1') {
-    const today = new Date().toISOString().split('T')[0]
+    const today = todaySofia()
     const { data: oresData } = await supabase
-      .from('student_ores').select('student_id, from_date, to_date').lte('from_date', today)
+      .from('student_ores').select(ORES_ACTIVE_COLS).lte('from_date', today)
     oresStudentIds = new Set(
-      (oresData || []).filter(o => !o.to_date || o.to_date >= today).map(o => o.student_id)
+      (oresData || []).filter((o: any) => isOresActive(o, today)).map((o: any) => o.student_id)
     )
   }
 
