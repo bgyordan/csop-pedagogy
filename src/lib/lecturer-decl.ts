@@ -71,7 +71,8 @@ function monthly(list: DeclItem[], slotOf: (it: DeclItem) => Slot, joinBlocks = 
     })
     const m = MONTHS[Number(ym.slice(5, 7)) - 1]
     const head: Row = { iso: `${ym}-00`, date: '', group: '', subject: '', hours: 0, heading: `${m[0].toUpperCase()}${m.slice(1)}` }
-    return [head, ...out.map(g => ({
+    // един месец (от ноември нататък) — месецът е в периода горе, ред-заглавие не трябва
+    return [...(months.length > 1 ? [head] : []), ...out.map(g => ({
       iso: g.dates[0], date: g.prefix + g.dates.map(x => String(Number(x.slice(8, 10)))).join(', '), group: g.group, subject: g.subject, hours: g.hours,
     }))]
   })
