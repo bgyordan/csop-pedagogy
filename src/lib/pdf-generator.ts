@@ -308,11 +308,19 @@ export async function generateTherapyListPDF(rows: TherapyListRow[], roleLabel: 
   doc.text(`Изготвил: ${teacherName}`, pageW - 14, endY, { align: 'right' })
   doc.save(`Списък_терапия_${yearName.replace('/', '-')}.pdf`)
 }
-// ═══ УЧЕНИЦИ ПО УЧИЛИЩА (справка PDF) ═══
-export interface BySchoolStudent { name: string; className: string; classTeacher: string }
-export interface BySchoolGroup { school: string; externalClass: string; students: BySchoolStudent[] }
-export async function generateStudentsBySchoolPDF(groups: BySchoolGroup[], yearName: string) {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+// ═══ УЧЕНИЦИ ПО УЧИЛИЩА (справка PDF) — следва избраното на екрана ═══
+export interface StudentsReportData {
+  title: string
+  subtitle: string          // напр. "Учебна 2026/2027 г. · групирани по училище · азбучно"
+  headers: string[]         // без "№"
+  widths: number[]          // относителни ширини на колоните (без "№")
+  groups: { title: string; meta: string; cells: string[][] }[]  // title '' = без групиране
+  total: number
+  landscape: boolean
+  fileName: string
+}
+export async function generateStudentsReportPDF(d: StudentsReportData) {
+  const doc = new jsPDF({ orientation: d.landscape ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' })
   const hasFont = await loadCyrillicFont(doc)
   const FONT = hasFont ? 'Roboto' : 'helvetica'
   const logo = await loadLogo()
@@ -322,27 +330,35 @@ export async function generateStudentsBySchoolPDF(groups: BySchoolGroup[], yearN
   doc.setFont(FONT, 'bold'); doc.setFontSize(11); doc.setTextColor(...NAVY)
   doc.text('Център за специална образователна подкрепа – гр. Варна', pageW / 2, 13, { align: 'center' })
   doc.setFont(FONT, 'normal'); doc.setFontSize(9); doc.setTextColor(...SLATE)
-  doc.text('бул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 0888 490 771', pageW / 2, 18, { align: 'center' })
+  doc.text('ул. „Петко Стайнов" №7, e-mail: info-400052@edu.mon.bg, тел. 052 619 456', pageW / 2, 18, { align: 'center' })
   doc.setDrawColor(...NAVY); doc.setLineWidth(0.4); doc.line(14, 26, pageW - 14, 26)
 
   doc.setFont(FONT, 'bold'); doc.setFontSize(13); doc.setTextColor(...NAVY)
-  doc.text('Ученици по изпращащи училища', pageW / 2, 35, { align: 'center' })
+  doc.text(d.title, pageW / 2, 35, { align: 'center' })
   doc.setFont(FONT, 'normal'); doc.setFontSize(9); doc.setTextColor(...SLATE)
-  doc.text(`Учебна ${yearName} г.`, pageW / 2, 41, { align: 'center' })
+  doc.text(d.subtitle, pageW / 2, 41, { align: 'center' })
 
+  const n = d.headers.length + 1
   const body: any[] = []
-  groups.forEach(g => {
-    body.push([{ content: `${g.school}  —  ${g.externalClass} клас`, colSpan: 3, styles: { fillColor: [237, 242, 247], textColor: NAVY, fontStyle: 'normal', halign: 'left', fontSize: 9 } }])
-g.students.forEach(s => body.push([{ content: s.name, styles: { textColor: [50, 50, 50] } }, s.className || '—', s.classTeacher || '—']))
+  d.groups.forEach(g => {
+    if (g.title) body.push([{ content: `${g.title}${g.meta ? '   ·   ' + g.meta : ''}`, colSpan: n, styles: { fillColor: [237, 242, 247], textColor: NAVY, fontStyle: 'bold', halign: 'left', fontSize: 9 } }])
+    g.cells.forEach((c, i) => body.push([String(i + 1), ...c.map(v => v || '—')]))
   })
+  const usable = pageW - 28 - 10
+  const sum = d.widths.reduce((a, b) => a + b, 0) || 1
+  const columnStyles: Record<number, any> = { 0: { cellWidth: 10, halign: 'center' } }
+  d.widths.forEach((w, i) => { columnStyles[i + 1] = { cellWidth: (w / sum) * usable } })
   autoTable(doc, {
-    head: [['Ученик', 'Паралелка', 'Класен ръководител']],
+    head: [['№', ...d.headers]],
     body,
     startY: 47,
-    styles: { font: FONT, fontSize: 9, cellPadding: 1.8, textColor: SLATE, lineColor: [120, 130, 145], lineWidth: 0.1 },
+    styles: { font: FONT, fontSize: 9, cellPadding: 1.6, textColor: SLATE, lineColor: [120, 130, 145], lineWidth: 0.1 },
     headStyles: { font: FONT, fontStyle: 'bold', fillColor: [237, 242, 247], textColor: NAVY, fontSize: 9, halign: 'left' },
-    columnStyles: { 1: { cellWidth: 30, halign: 'center' }, 2: { cellWidth: 55 } },
+    columnStyles,
     margin: { left: 14, right: 14 },
   })
-  doc.save(`Ученици_по_училища_${yearName.replace('/', '-')}.pdf`)
+  const endY = (doc as any).lastAutoTable.finalY + 8
+  doc.setFont(FONT, 'bold'); doc.setFontSize(10); doc.setTextColor(...NAVY)
+  doc.text(`Общо: ${d.total} ученици`, 14, endY)
+  doc.save(`${d.fileName}.pdf`)
 }
