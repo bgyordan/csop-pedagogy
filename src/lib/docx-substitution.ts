@@ -487,7 +487,8 @@ export interface LecturerDeclData {
   position: string         // "Учител/старши учител на ДУИ"
   periodLabel: string      // "01.09 – 31.10" или месец
   orderRef: string         // "Заповед № …"
-  rows: { date: string; group: string; subject: string; hours: number }[]
+  /** heading — ред-заглавие през цялата ширина (логопед: „Септември 2026“) */
+  rows: { date: string; group: string; subject: string; hours: number; heading?: string }[]
   totalHours: number
   rate?: number            // ставка €/час (lecturer_rates) — попълва реда; без нея — празните редове по образец
   /** „По Образец 3“ (над норматив, по подразбиране) или „По Образец 1“ (ИФО) */
@@ -512,7 +513,7 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
   const DOW = ['нед', 'пон', 'вт', 'ср', 'чет', 'пет', 'съб']
   const dow = (dt: string) => { const [dd, mm, yy] = dt.split('.').map(Number); return yy ? DOW[new Date(yy, mm - 1, dd).getDay()] : '' }
   // ширините: над норматив — тясна „Група“ (само паралелката); ИФО — по-широка (името на детето); логопед — часът
-  const WIDTHS: Record<string, number[]> = { over: [900, 2250, 1050, 4900, 1000], ifo: [900, 2250, 2300, 3650, 1000], speech: [800, 3000, 2900, 2400, 1000] }
+  const WIDTHS: Record<string, number[]> = { over: [900, 2250, 1050, 4900, 1000], ifo: [900, 2250, 2300, 3650, 1000], speech: [800, 2100, 2800, 3400, 1000] }
   // подписите — с табулация, за да стоят на едно място
   const SIG = [{ type: TabStopType.LEFT, position: 5600 }]
 
@@ -549,15 +550,26 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
     verticalMerge: first ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE,
     children: first ? paras(t, c) : [new Paragraph({ children: [] })],
   })
+  let n = 0
   d.rows.forEach((r, i) => {
-    const prev = d.rows[i - 1]
+    // ред-заглавие (месец) — през цялата ширина; сливането почва наново под него
+    if (r.heading) {
+      rows.push(new TableRow({ children: [new TableCell({
+        width: { size: W.reduce((a, x) => a + x, 0), type: WidthType.DXA }, columnSpan: 5, borders: cellB(i > 0),
+        shading: { type: ShadingType.CLEAR, fill: 'F2F2F2', color: 'auto' },
+        children: [new Paragraph({ children: [bold(r.heading, 20)] })],
+      })] }))
+      return
+    }
+    n++
+    const prev = d.rows[i - 1]?.heading ? undefined : d.rows[i - 1]
     const newGroup = !prev || prev.group !== r.group
     // логопед: часът се сменя ред по ред, а предметът е един — слива се сам
     const newSubject = layout === 'speech' ? !prev || prev.subject !== r.subject : newGroup || prev.subject !== r.subject
-    const sep = i > 0 && layout !== 'speech' && newSubject
+    const sep = !!prev && layout !== 'speech' && newSubject
     const dt = layout === 'speech' ? r.date : `${r.date} ${dow(r.date)}`.trim()
     rows.push(new TableRow({ children: [
-      cell(String(i + 1), true, sep, 0), cell(dt, true, sep, 1), merged(r.group, newGroup, true, sep && newGroup, 2), merged(r.subject, newSubject, false, sep, 3), cell(String(r.hours), true, sep, 4),
+      cell(String(n), true, sep, 0), cell(dt, true, sep, 1), merged(r.group, newGroup, true, sep && newGroup, 2), merged(r.subject, newSubject, false, sep, 3), cell(String(r.hours), true, sep, 4),
     ] }))
   })
   children.push(new Table({ width: { size: W.reduce((a, x) => a + x, 0), type: WidthType.DXA }, layout: TableLayoutType.FIXED, columnWidths: W, rows }))
