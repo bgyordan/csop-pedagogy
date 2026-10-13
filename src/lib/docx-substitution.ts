@@ -501,7 +501,7 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
 
   children.push(new Paragraph({ children: [normal('Долуподписаният/та ', 22), bold(d.teacherName, 22), normal(' ' + dots(20), 22)], spacing: { after: 10 } }))
   children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '(име, презиме, фамилия)', italics: true, size: 20 })], spacing: { after: 60 } }))
-  children.push(new Paragraph({ children: [normal(`${d.position || 'Учител/старши учител на ДУИ'}, образование ${dots(20)}`, 22)], spacing: { after: 120 } }))
+  children.push(new Paragraph({ children: [normal(d.position || 'Учител/старши учител на ДУИ', 22)], spacing: { after: 120 } }))
 
   children.push(new Paragraph({ children: [
     bold('ДЕКЛАРИРАМ, че ', 22),
@@ -522,7 +522,9 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
   children.push(new Paragraph({ text: '', spacing: { after: 60 } }))
 
   children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [normal('Общ брой учебни часове: ', 22), bold(String(d.totalHours), 22)], spacing: { after: 160 } }))
-  rateLines(d.totalHours, d.rate, '-').forEach((l, i, a) => children.push(new Paragraph({ children: [normal(l, 22)], spacing: i === a.length - 1 ? { after: 200 } : undefined })))
+  // един попълнен ред по ставката за над норматив (от „Проверка лекторски“; иначе 6,29 €)
+  const rate = d.rate && d.rate > 0 ? d.rate : DEFAULT_RATES.over
+  children.push(new Paragraph({ children: [normal(`${d.totalHours} часа по ${eurD(rate)} евро на час - ${eurD(d.totalHours * rate)} евро;`, 22)], spacing: { after: 200 } }))
 
   children.push(new Paragraph({ children: [normal('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося наказателна отговорност съгласно законите на Република България.', 20)], spacing: { after: 200 } }))
 
