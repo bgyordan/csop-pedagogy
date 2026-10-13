@@ -204,7 +204,7 @@ export async function getLecturerFrameworkData(staffId?: string) {
     .select(`staff_id, day, period, holder_label, date_from, date_to,
       subject:subjects(name),
       staff:staff_profiles!lecturer_slots_staff_id_fkey(first_name, last_name, position, role)`)
-    .eq('academic_year_id', cy?.id)
+    .eq('academic_year_id', cy?.id).or('holder_type.is.null,holder_type.neq.ifo')   // ИФО са по отделна заповед
   if (staffId) sq = sq.eq('staff_id', staffId)
   const { data: slots } = await sq
   if (!slots || slots.length === 0) return { error: 'Няма определени лекторски часове' }
@@ -388,7 +388,7 @@ export async function autoDistribute(staffId: string, w1: number | null, w2: num
 
   // ръчно сложените часове остават; разпределя се само остатъкът
   const { data: man, error: manErr } = await m.supabase.from('lecturer_slots').select('day, period, date_from, date_to')
-    .eq('staff_id', staffId).eq('academic_year_id', m.yearId).eq('is_manual', true)
+    .eq('staff_id', staffId).eq('academic_year_id', m.yearId).eq('is_manual', true).or('holder_type.is.null,holder_type.neq.ifo')
   if (manErr) return { error: manErr.message.includes('is_manual') ? 'Пуснете SQL файла 2026-10-04_lecturer_manual.sql' : manErr.message }
   const manual = man || []
   const manualHours = manual.reduce((a: number, x: any) => a + slotHours(dates, x.day, x.date_from, x.date_to, ends), 0)

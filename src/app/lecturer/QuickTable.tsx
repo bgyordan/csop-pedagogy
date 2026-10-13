@@ -31,7 +31,7 @@ export type QTRow = {
   /** вързаните заповеди от регистъра за годината (над норматив / ИФО) */
   orders?: StaffLecturerOrders
 }
-export type QTMarked = { staffId: string; day: number; dateFrom: string; dateTo: string }
+export type QTMarked = { staffId: string; day: number; dateFrom: string; dateTo: string; holderType?: string }
 export type Method = 'simple' | 'mixed'
 
 const METHOD_KEY = 'eis.lecturer.method'
@@ -60,7 +60,14 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
   // разпределени часове по човек — точно по календара
   const placed = useMemo(() => {
     const m: Record<string, number> = {}
-    marked.forEach(x => { m[x.staffId] = (m[x.staffId] || 0) + slotHours(schoolDates, x.day, x.dateFrom, x.dateTo, ends) })
+    // ИФО (сложени на ръка в „График“) не са лекторски над норматив — броят се отделно в колона ИЧ
+    marked.filter(x => x.holderType !== 'ifo').forEach(x => { m[x.staffId] = (m[x.staffId] || 0) + slotHours(schoolDates, x.day, x.dateFrom, x.dateTo, ends) })
+    return m
+  }, [marked, schoolDates, ends])
+  // ИФО часовете в графика (по ИФО заповедта) — по човек
+  const placedIfo = useMemo(() => {
+    const m: Record<string, number> = {}
+    marked.filter(x => x.holderType === 'ifo').forEach(x => { m[x.staffId] = (m[x.staffId] || 0) + slotHours(schoolDates, x.day, x.dateFrom, x.dateTo, ends) })
     return m
   }, [marked, schoolDates, ends])
 
@@ -228,6 +235,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                         <div>{r.ichYear - r.ichFill || <span className="text-slate-300">0</span>}</div>
                         {r.ichFill > 0 && <div className="text-[10.5px] text-violet-400 whitespace-nowrap">{r.ichFill} в нормата · общо {r.ichYear}</div>}
                       </>}
+                      {(placedIfo[r.id] || 0) > 0 && <div className="text-[10.5px] text-violet-500 whitespace-nowrap" title="ИФО часове, сложени в „График“ — за ИФО декларацията">в графика {placedIfo[r.id]}</div>}
                     </td>
                     <td className="px-2 py-2 text-center tabular-nums bg-teal-50/30"
                       title={`0,7 постоянно: ${r.yearS || 0} · 0,7 до нормата, после 1: ${r.yearM || 0}`}>
@@ -258,7 +266,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                             <FileDown size={13} />
                           </button>
                         )}
-                        {p > 0 && (
+                        {(p > 0 || r.ichYear > 0) && (
                           <button onClick={() => onEdit(r.id)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-slate-200 text-slate-700 hover:border-[#0f2240]">
                             <Pencil size={12} /> График
