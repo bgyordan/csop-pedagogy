@@ -496,6 +496,8 @@ export interface LecturerDeclData {
   fileTag?: string
   /** вид: над норматив (по подразбиране), ИФО или логопед — ширини на колоните и денят към датата */
   layout?: 'over' | 'ifo' | 'speech'
+  /** без колона „Предмет“ (логопед с един предмет — той е в текста, в workNote) */
+  noSubject?: boolean
   /** ИФО: детето — удебелено в текста („…в индивидуална форма на обучение (ИФО) – Име Фамилия“) */
   ifoStudent?: string
   /** заглавие на 3-тата колона — „Група“ (по подразбиране) или „Учебен час“ (логопеди) */
@@ -541,11 +543,13 @@ function lecturerDeclSection(d: LecturerDeclData) {
   const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
   // ширините са фиксирани (в DXA) — иначе Word ги разпределя сам и дългите дати изяждат колоната с часа
-  const W = WIDTHS[layout] || WIDTHS.over
+  // логопед с един предмет — без колона „Предмет“ (предметът е в текста)
+  const W = d.noSubject ? [1000, 4200, 3300, 1600] : (WIDTHS[layout] || WIDTHS.over)
+  const subjCol = d.noSubject ? -1 : 3, hoursCol = d.noSubject ? 3 : 4
   const wOf = (col: number) => ({ size: W[col], type: WidthType.DXA })
   const th = (t: string, col: number) => new TableCell({ width: wOf(col), borders: CELLS, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(t, 20)] })] })
   const td = (t: string, c = false) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 20)] })] })
-  const rows: TableRow[] = [ new TableRow({ children: [th('№ по ред', 0), th('Дата', 1), th(d.groupHeader || 'Група', 2), th('Предмет', 3), th('Брой часове', 4)] }) ]
+  const rows: TableRow[] = [ new TableRow({ children: [th('№ по ред', 0), th('Дата', 1), th(d.groupHeader || 'Група', 2), ...(subjCol < 0 ? [] : [th('Предмет', subjCol)]), th('Брой часове', hoursCol)] }) ]
   // логопед — само датата (иначе не се събира); над норматив и ИФО — с деня на същия ред
   // еднаквите поредни клетки в „Група“ и „Предмет“ се сливат (предметът — само в рамките на една група)
   // на смяна на предмет/група — по-дебела линия отгоре през реда (без слятата клетка на групата, ако тя продължава)
@@ -564,7 +568,7 @@ function lecturerDeclSection(d: LecturerDeclData) {
     // ред-заглавие (месец) — през цялата ширина; сливането почва наново под него
     if (r.heading) {
       rows.push(new TableRow({ children: [new TableCell({
-        width: { size: W.reduce((a, x) => a + x, 0), type: WidthType.DXA }, columnSpan: 5, borders: cellB(i > 0),
+        width: { size: W.reduce((a, x) => a + x, 0), type: WidthType.DXA }, columnSpan: W.length, borders: cellB(i > 0),
         shading: { type: ShadingType.CLEAR, fill: 'F2F2F2', color: 'auto' },
         children: [new Paragraph({ children: [bold(r.heading, 20)] })],
       })] }))
@@ -583,7 +587,7 @@ function lecturerDeclSection(d: LecturerDeclData) {
       const sepD = !!prev && newDate
       rows.push(new TableRow({ children: [
         cell(String(n), true, sepD, 0), merged(dt, newDate, true, sepD, 1), cell(r.group, true, sepD, 2),
-        merged(r.subject, newSubj, false, sepD && newSubj, 3), cell(String(r.hours), true, sepD, 4),
+        ...(subjCol < 0 ? [] : [merged(r.subject, newSubj, false, sepD && newSubj, subjCol)]), cell(String(r.hours), true, sepD, hoursCol),
       ] }))
       return
     }

@@ -59,12 +59,13 @@ function monthly(list: DeclItem[], slotOf: (it: DeclItem) => Slot, joinBlocks = 
       .map(g => ({ ...g, dates: Array.from(new Set(g.dates)).sort() }))
       .sort((a, b) => a.sort.localeCompare(b.sort, 'bg', { numeric: true }))
     // блок от поредни часове → един ред, часовете се сумират
-    const out: (typeof slots[number] & { last?: number })[] = []
+    const out: (typeof slots[number] & { last?: number; span?: number })[] = []
     slots.forEach(g => {
       const p = out[out.length - 1]
       if (joinBlocks && p && p.dow === g.dow && p.subject === g.subject && p.last !== undefined && g.period === p.last + 1
           && p.dates.join() === g.dates.join()) {
-        p.group = `${p.group.split('–')[0]}–${g.group.split('–')[1]}`
+        p.span = (p.span || 1) + 1
+        p.group = `${p.group.split('–')[0]}–${g.group.split('–')[1].split(' ')[0]} (${p.span})`
         p.hours += g.hours; p.last = g.period
       } else out.push({ ...g, last: g.period })
     })
@@ -98,11 +99,15 @@ export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over
           return { key: `${it.holderLabel}|${it.subject}|${dw}`, sort: `${it.holderLabel}|${it.subject}|${dw}`,
             group: it.holderLabel, subject: it.subject, prefix: `${DAYS_SHORT[dw]}: ` }
         })
+    // логопед: ако предметът е един (обикновено „Рехабилитация на комуникативните нарушения“) — той е в текста, колоната отпада
+    const speechSubjects = Array.from(new Set(rows.filter(r => !r.heading).map(r => r.subject)))
+    const oneSubject = d.isSpeech && speechSubjects.length === 1 ? speechSubjects[0] : ''
     docs.push({
       teacherName: d.teacherName, position: d.position, periodLabel: d.periodLabel, orderRef: d.orderOver,
       rows, totalHours: overItems.length, rate: d.rate,
       ...(d.isSpeech
-        ? { form: 'По Образец 1', groupHeader: 'Учебен час', workNote: ' за допълнителна подкрепа', layout: 'speech' as const, fileTag: `лекторски${tag}` }
+        ? { form: 'По Образец 1', groupHeader: 'Учебен час', layout: 'speech' as const, fileTag: `лекторски${tag}`,
+            workNote: ` за допълнителна подкрепа${oneSubject ? ` – ${oneSubject.toLowerCase()}` : ''}`, noSubject: !!oneSubject }
         : { fileTag: `лекторски${tag}` }),
     })
   }
