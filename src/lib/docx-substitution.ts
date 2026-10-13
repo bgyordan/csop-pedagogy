@@ -514,7 +514,7 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
   // ИФО и логопед — ред на седмичен слот с колона „Учебен час“ (ден / час)
   const slotLayout = layout === 'speech' || layout === 'ifo'
   // ширините: над норматив — тясна „Група“ (само паралелката); ИФО — по-широка (името на детето); логопед — часът
-  const WIDTHS: Record<string, number[]> = { over: [900, 2250, 1050, 4900, 1000], ifo: [800, 2100, 2800, 3400, 1000], speech: [800, 2100, 2800, 3400, 1000] }
+  const WIDTHS: Record<string, number[]> = { over: [900, 2250, 1050, 4900, 1000], ifo: [800, 2300, 1600, 4400, 1000], speech: [800, 2300, 1600, 4400, 1000] }
   // подписите — с табулация, за да стоят на едно място
   const SIG = [{ type: TabStopType.LEFT, position: 5600 }]
 
@@ -568,9 +568,21 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
     const prev = d.rows[i - 1]?.heading ? undefined : d.rows[i - 1]
     const newGroup = !prev || prev.group !== r.group
     // логопед: часът се сменя ред по ред, а предметът е един — слива се сам
-    const newSubject = slotLayout ? !prev || prev.subject !== r.subject : newGroup || prev.subject !== r.subject
-    const sep = !!prev && !slotLayout && newSubject
-    const dt = r.date   // вече форматирана: само дните („21, 28“ / „чет: 17, 24“)
+    const dt = r.date   // вече форматирана: само дните („понеделник / 21, 28“ / „чет: 17, 24“)
+    if (slotLayout) {
+      // ИФО и логопед: денят с датите — една слята клетка за всички часове от този ден; часът е сам на ред;
+      // дебела линия на смяна на деня; предметът се слива в рамките на деня (логопедът — за целия месец)
+      const newDate = !prev || prev.date !== r.date
+      const newSubj = !prev || prev.subject !== r.subject || (layout === 'ifo' && newDate)
+      const sepD = !!prev && newDate
+      rows.push(new TableRow({ children: [
+        cell(String(n), true, sepD, 0), merged(dt, newDate, true, sepD, 1), cell(r.group, true, sepD, 2),
+        merged(r.subject, newSubj, false, sepD && newSubj, 3), cell(String(r.hours), true, sepD, 4),
+      ] }))
+      return
+    }
+    const newSubject = newGroup || prev!.subject !== r.subject
+    const sep = !!prev && newSubject
     rows.push(new TableRow({ children: [
       cell(String(n), true, sep, 0), cell(dt, true, sep, 1), merged(r.group, newGroup, true, sep && newGroup, 2), merged(r.subject, newSubject, false, sep, 3), cell(String(r.hours), true, sep, 4),
     ] }))
