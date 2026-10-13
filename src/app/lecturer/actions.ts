@@ -449,3 +449,18 @@ export async function setLecturerOrder(staffId: string, kind: 'over' | 'ifo', or
   revalidatePath('/lecturer'); revalidatePath('/my-lecturer')
   return { success: true }
 }
+
+/** Сменя срока на всички часове на учителя с даден период (група) — без да се трият и маркират наново.
+ *  Стават „ръчни“ (катинарче), за да не ги пипа „Наново“. */
+export async function changeLecturerPeriod(staffId: string, term: number, oldFrom: string, oldTo: string, newFrom: string, newTo: string) {
+  const m = await manager()
+  if (!m) return { error: 'Нямате права' }
+  if (!newFrom || !newTo || newTo < newFrom) return { error: 'Невалиден срок' }
+  const { data, error } = await m.supabase.from('lecturer_slots')
+    .update({ date_from: newFrom, date_to: newTo, is_manual: true })
+    .eq('staff_id', staffId).eq('academic_year_id', m.yearId).eq('term', term)
+    .eq('date_from', oldFrom).eq('date_to', oldTo)
+    .select('id')
+  if (error) return { error: error.message }
+  return { success: true, count: (data || []).length }
+}

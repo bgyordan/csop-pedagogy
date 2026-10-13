@@ -17,8 +17,9 @@ export default function LecturerTabs({ academicYearId, teachers, marked, schoolD
   const router = useRouter()
   const [tab, setTab] = useState<'table' | 'grid'>('table')
   const [editId, setEditId] = useState<string | undefined>()
-  // при ново разпределение — презареждаме изгледа с разписанието
-  const gridKey = `${marked.length}:${marked.map(m => m.id).join('').slice(0, 64)}:${editId || ''}`
+  // графикът НЕ се презарежда при всяко записване/изтриване (иначе губи избрания учител) — сам пази промените;
+  // при връщане от бързата таблица се показва наново
+  const gridKey = editId || 'grid'
 
   const T = (k: 'table' | 'grid', label: string, Icon: any) => (
     <button type="button" onClick={() => { setTab(k); if (k === 'table') { setEditId(undefined); router.refresh() } }}
