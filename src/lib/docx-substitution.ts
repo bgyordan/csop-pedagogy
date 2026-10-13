@@ -1,7 +1,7 @@
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   WidthType, AlignmentType, BorderStyle, ShadingType, ImageRun,
-  Tab, TabStopType, LeaderType, VerticalAlign, TableLayoutType, LineRuleType, HeightRule,
+  Tab, TabStopType, LeaderType, VerticalAlign, TableLayoutType, LineRuleType, HeightRule, VerticalMergeType,
 } from 'docx'
 import { CSOP_LOGO_B64 } from './docx-generator'
 import { saveAs } from 'file-saver'
@@ -535,9 +535,19 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
   const rows: TableRow[] = [ new TableRow({ children: [th('№ по ред'), th('Дата'), th(d.groupHeader || 'Група'), th('Предмет'), th('Брой часове')] }) ]
   // логопед — само датата (иначе не се събира); над норматив и ИФО — с деня на същия ред
   const dateCell = (dt: string) => layout === 'speech' ? td(dt, true) : td(`${dt} ${dow(dt)}`.trim(), true)
+  // еднаквите поредни клетки в „Група“ и „Предмет“ се сливат (предметът — само в рамките на една група)
+  const merged = (t: string, first: boolean, c = false) => new TableCell({
+    borders: CELLS, verticalAlign: VerticalAlign.CENTER,
+    verticalMerge: first ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE,
+    children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: first ? [normal(t, 20)] : [] })],
+  })
   d.rows.forEach((r, i) => {
+    const prev = d.rows[i - 1]
+    const newGroup = !prev || prev.group !== r.group
+    // логопед: часът се сменя ред по ред, а предметът е един — слива се сам
+    const newSubject = layout === 'speech' ? !prev || prev.subject !== r.subject : newGroup || prev.subject !== r.subject
     rows.push(new TableRow({ children: [
-      td(String(i + 1), true), dateCell(r.date), td(r.group, true), td(r.subject), td(String(r.hours), true),
+      td(String(i + 1), true), dateCell(r.date), merged(r.group, newGroup, true), merged(r.subject, newSubject), td(String(r.hours), true),
     ] }))
   })
   children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: WIDTHS[layout] || WIDTHS.over, rows }))

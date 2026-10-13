@@ -44,17 +44,19 @@ export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over
     })
   })
   const byDate = (a: Row, b: Row) => a.iso.localeCompare(b.iso) || a.subject.localeCompare(b.subject, 'bg')
+  // обобщено: паралелка → предмет → датите подред (така еднаквите клетки се сливат в декларацията)
+  const byGroup = (a: Row, b: Row) => a.group.localeCompare(b.group, 'bg', { numeric: true }) || a.subject.localeCompare(b.subject, 'bg') || a.iso.localeCompare(b.iso)
   const tag = d.tagSuffix || ''
   if (over.length) await generateLecturerDeclaration({
     teacherName: d.teacherName, position: d.position, periodLabel: d.periodLabel, orderRef: d.orderOver,
-    rows: over.sort(byDate), totalHours: over.length, rate: d.rate,
+    rows: over.sort(d.isSpeech ? byDate : byGroup), totalHours: over.length, rate: d.rate,
     ...(d.isSpeech
       ? { form: 'По Образец 1', groupHeader: 'Учебен час', workNote: ' за допълнителна подкрепа', layout: 'speech' as const, fileTag: `лекторски${tag}` }
       : { fileTag: `лекторски${tag}` }),
   })
   if (ifo.length) await generateLecturerDeclaration({
     teacherName: d.teacherName, position: d.position, periodLabel: d.periodLabel, orderRef: d.orderIfo,
-    rows: ifo.sort(byDate), totalHours: ifo.length, rate: d.rate, form: 'По Образец 1', fileTag: `ИФО${tag}`, layout: 'ifo',
+    rows: ifo.sort(byGroup), totalHours: ifo.length, rate: d.rate, form: 'По Образец 1', fileTag: `ИФО${tag}`, layout: 'ifo',
   })
   return { over: over.length, ifo: ifo.length }
 }
