@@ -496,6 +496,8 @@ export interface LecturerDeclData {
   fileTag?: string
   /** вид: над норматив (по подразбиране), ИФО или логопед — ширини на колоните и денят към датата */
   layout?: 'over' | 'ifo' | 'speech'
+  /** ИФО: детето — удебелено в текста („…в индивидуална форма на обучение (ИФО) – Име Фамилия“) */
+  ifoStudent?: string
   /** заглавие на 3-тата колона — „Група“ (по подразбиране) или „Учебен час“ (логопеди) */
   groupHeader?: string
   /** след „задължителна преподавателска работа“ — напр. „ за допълнителна подкрепа“ (логопеди) */
@@ -509,11 +511,10 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
   // „септември – октомври (15.09.2026 – 30.10.2026)“ вече носи годината
   const yearPart = /\d{4}/.test(d.periodLabel) ? '' : ` ${Y}`
   const layout = d.layout || 'over'
-  // денят от седмицата към датата („17.09.2026“ → „чет“)
-  const DOW = ['нед', 'пон', 'вт', 'ср', 'чет', 'пет', 'съб']
-  const dow = (dt: string) => { const [dd, mm, yy] = dt.split('.').map(Number); return yy ? DOW[new Date(yy, mm - 1, dd).getDay()] : '' }
+  // ИФО и логопед — ред на седмичен слот с колона „Учебен час“ (ден / час)
+  const slotLayout = layout === 'speech' || layout === 'ifo'
   // ширините: над норматив — тясна „Група“ (само паралелката); ИФО — по-широка (името на детето); логопед — часът
-  const WIDTHS: Record<string, number[]> = { over: [900, 2250, 1050, 4900, 1000], ifo: [900, 2250, 2300, 3650, 1000], speech: [800, 2100, 2800, 3400, 1000] }
+  const WIDTHS: Record<string, number[]> = { over: [900, 2250, 1050, 4900, 1000], ifo: [800, 2100, 2800, 3400, 1000], speech: [800, 2100, 2800, 3400, 1000] }
   // подписите — с табулация, за да стоят на едно място
   const SIG = [{ type: TabStopType.LEFT, position: 5600 }]
 
@@ -526,7 +527,9 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
 
   children.push(new Paragraph({ children: [
     bold('ДЕКЛАРИРАМ, че ', 22),
-    normal(`за периода ${d.periodLabel}${yearPart} година, съм взел/а следните часове над минималната норма задължителна преподавателска работа${d.workNote || ''}, съгласно ${d.orderRef}`, 22),
+    normal(`за периода ${d.periodLabel}${yearPart} година, съм взел/а следните часове над минималната норма задължителна преподавателска работа${d.workNote || ''}`, 22),
+    ...(d.ifoStudent ? [normal(' в индивидуална форма на обучение (ИФО) – ', 22), bold(d.ifoStudent, 22)] : []),
+    normal(`, съгласно ${d.orderRef}`, 22),
   ], spacing: { after: 160 } }))
 
   const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
@@ -565,9 +568,9 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
     const prev = d.rows[i - 1]?.heading ? undefined : d.rows[i - 1]
     const newGroup = !prev || prev.group !== r.group
     // логопед: часът се сменя ред по ред, а предметът е един — слива се сам
-    const newSubject = layout === 'speech' ? !prev || prev.subject !== r.subject : newGroup || prev.subject !== r.subject
-    const sep = !!prev && layout !== 'speech' && newSubject
-    const dt = layout === 'speech' ? r.date : `${r.date} ${dow(r.date)}`.trim()
+    const newSubject = slotLayout ? !prev || prev.subject !== r.subject : newGroup || prev.subject !== r.subject
+    const sep = !!prev && !slotLayout && newSubject
+    const dt = r.date   // вече форматирана: само дните („21, 28“ / „чет: 17, 24“)
     rows.push(new TableRow({ children: [
       cell(String(n), true, sep, 0), cell(dt, true, sep, 1), merged(r.group, newGroup, true, sep && newGroup, 2), merged(r.subject, newSubject, false, sep, 3), cell(String(r.hours), true, sep, 4),
     ] }))
