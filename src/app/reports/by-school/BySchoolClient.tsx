@@ -7,7 +7,8 @@ import { generateStudentsReportDocx } from '@/lib/docx-students-report'
 export type StudentRow = {
   id: string
   name: string
-  school: string
+  schoolId: string
+  school: string     // „име, населено място“
   schoolType: string
   city: string
   ext: string        // клас в училището, с буквата: "V а"
@@ -73,7 +74,7 @@ function buildGroups(rows: StudentRow[], groupBy: GroupBy, sortBy: SortBy): Grou
   }
   const keyOf = (r: StudentRow): string => {
     switch (groupBy) {
-      case 'school': return r.school
+      case 'school': return r.schoolId
       case 'type': return r.schoolType
       case 'city': return r.city
       case 'class': return r.className
@@ -86,12 +87,11 @@ function buildGroups(rows: StudentRow[], groupBy: GroupBy, sortBy: SortBy): Grou
 
   const groups: Group[] = Array.from(map.entries()).map(([k, rs]) => {
     rs.sort(inner)
-    const nSchools = new Set(rs.map(r => r.school).filter(Boolean)).size
+    const nSchools = new Set(rs.map(r => r.schoolId).filter(Boolean)).size
     let title = k, meta = kids(rs.length)
     if (groupBy === 'school') {
-      title = k || 'Без изпращащо училище'
-      const f = rs[0]
-      meta = [f.schoolType, f.city, kids(rs.length)].filter(Boolean).join(' · ')
+      title = rs[0].school || 'Без изпращащо училище'
+      meta = [rs[0].schoolType, kids(rs.length)].filter(Boolean).join(' · ')
     } else if (groupBy === 'type') {
       title = k || 'Без посочен вид'
       meta = `${kids(rs.length)} · ${schoolsWord(nSchools)}`
@@ -117,6 +117,7 @@ function buildGroups(rows: StudentRow[], groupBy: GroupBy, sortBy: SortBy): Grou
     if (groupBy === 'grade') return Number(a.key) - Number(b.key)
     if (last(a.key) !== last(b.key)) return last(a.key) - last(b.key)
     if (groupBy === 'type') return typeOrder(a.key) - typeOrder(b.key) || cmp(a.key, b.key)
+    if (groupBy === 'school') return cmp(a.title, b.title)
     if (groupBy === 'class') return (parseInt(a.key) || 999) - (parseInt(b.key) || 999) || cmp(a.key, b.key)
     return cmp(a.key, b.key)
   })
@@ -164,7 +165,7 @@ export default function BySchoolClient({ rows, yearName }: { rows: StudentRow[];
 
   const groups = useMemo(() => buildGroups(filtered, groupBy, sortBy), [filtered, groupBy, sortBy])
   const shownCols = COLS.filter(c => cols.includes(c.v) && !(IMPLIED[groupBy] || []).includes(c.v))
-  const nSchools = new Set(filtered.map(r => r.school).filter(Boolean)).size
+  const nSchools = new Set(filtered.map(r => r.schoolId).filter(Boolean)).size
 
   function toggleCol(c: Col) {
     setCols(cs => (cs.includes(c) ? cs.filter(x => x !== c) : [...cs, c]))
