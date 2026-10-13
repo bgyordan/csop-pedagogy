@@ -12,6 +12,7 @@ import AddStudentsSection from './AddStudentsSection'
 import ClassScheduleWord from './ClassScheduleWord'
 import CurriculumPlan from '@/components/curriculum/CurriculumPlan'
 import { loadCurriculum } from '@/lib/curriculum'
+import { isOresActive, todaySofia, ORES_ACTIVE_COLS } from '@/lib/ores'
 export default async function ClassDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
@@ -63,9 +64,9 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
   const staffName = new Map<string, string>((allStaff || []).map((s: any) => [s.id, `${s.first_name} ${s.last_name}`]))
   const todayStr = new Date().toISOString().slice(0, 10)
   const { data: oresRows } = studentIds.length
-    ? await supabase.from('student_ores').select('student_id, to_date').in('student_id', studentIds).lte('from_date', todayStr)
+    ? await supabase.from('student_ores').select(ORES_ACTIVE_COLS).in('student_id', studentIds).lte('from_date', todaySofia())
     : { data: [] as any[] }
-  const oresSet = new Set((oresRows || []).filter((o: any) => !o.to_date || o.to_date >= todayStr).map((o: any) => o.student_id))
+  const oresSet = new Set((oresRows || []).filter((o: any) => isOresActive(o)).map((o: any) => o.student_id))
   if (studentIds.length > 0) {
     const { data: coudEnr } = await supabase
       .from('coud_enrollments')
