@@ -84,7 +84,7 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
       })
       over = r.over; ifo = r.ifo
     } catch (e) { /* noop */ }
-    toast(over && ifo ? 'Подадено — изтеглени са две декларации: над норматив и ИФО' : 'Декларацията е подадена и изтеглена')
+    toast(over && ifo ? 'Подадено — изтеглен е един файл с две декларации: над норматив и ИФО' : 'Декларацията е подадена и изтеглена')
     setDeclarations(prev => [{ id: res.id || `tmp-${Date.now()}`, periodFrom: from, periodTo: to, totalHours: over + ifo, status: 'submitted' }, ...prev.filter(d => !(d.status === 'submitted' && from <= d.periodTo && to >= d.periodFrom))])
     setSaving(false)
     setExpanded(null); setChecked({})
