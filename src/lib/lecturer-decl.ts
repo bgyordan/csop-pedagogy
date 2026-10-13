@@ -70,8 +70,8 @@ export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over
       // логопед: „понеделник / 09:15–09:50“, предметът по учебния план
       ? monthly(overItems, it => {
           const dw = dowOf(it.iso)
-          return { key: `${dw}|${it.period}`, sort: `${dw}|${pad(it.period)}`, group: `${DAYS[dw]}\n${slotTime(it.period)}`,
-            subject: !it.subject || it.subject === 'Терапия' ? SPEECH_SUBJECT : it.subject, prefix: '' }
+          return { key: `${dw}|${it.period}`, sort: `${dw}|${pad(it.period)}`, group: slotTime(it.period),
+            subject: !it.subject || it.subject === 'Терапия' ? SPEECH_SUBJECT : it.subject, prefix: `${DAYS[dw]}\n` }
         })
       // над норматив: паралелка → предмет → ден от седмицата; в „Дата“ „чет: 17, 24“
       : monthly(overItems, it => {
@@ -94,7 +94,7 @@ export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over
     const rows = monthly(ifoItems, it => {
       const dw = dowOf(it.iso)
       return { key: `${dw}|${it.period}|${it.subject}`, sort: `${dw}|${pad(it.period)}|${it.subject}`,
-        group: `${DAYS[dw]}\n${slotTime(it.period)}`, subject: it.subject, prefix: '' }
+        group: slotTime(it.period), subject: it.subject, prefix: `${DAYS[dw]}\n` }
     })
     await generateLecturerDeclaration({
       teacherName: d.teacherName, position: d.position, periodLabel: d.periodLabel, orderRef: d.orderIfo,
