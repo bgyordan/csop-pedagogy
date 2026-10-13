@@ -6,7 +6,8 @@
 //  • логопед — „По Образец 1“, „…за допълнителна подкрепа“, колона „Учебен час“, предмет по учебния план.
 // И трите — по месеци: ред-заглавие „Септември“ (годината е в периода горе), под него ред на седмичен слот, в „Дата“ само дните.
 
-import { generateLecturerDeclaration } from './docx-substitution'
+import { generateLecturerDeclarations } from './docx-substitution'
+type DeclData = Parameters<typeof generateLecturerDeclarations>[0][number]
 import { PERIOD_TIMES } from './periods'
 
 export type DeclItem = { iso: string; period: number; subject: string; holderType?: string; holderLabel: string }
@@ -64,6 +65,8 @@ export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over
   const overItems = d.items.filter(it => it.holderType !== 'ifo')
   const ifoItems = d.items.filter(it => it.holderType === 'ifo')
   const tag = d.tagSuffix || ''
+  // над норматив и ИФО — в ЕДИН файл, всяка на своя страница (браузърът не се стряска от два файла)
+  const docs: DeclData[] = []
 
   if (overItems.length) {
     const rows = d.isSpeech
@@ -79,7 +82,7 @@ export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over
           return { key: `${it.holderLabel}|${it.subject}|${dw}|${it.period}`, sort: `${it.holderLabel}|${it.subject}|${dw}|${pad(it.period)}`,
             group: it.holderLabel, subject: it.subject, prefix: `${DAYS_SHORT[dw]}: ` }
         })
-    await generateLecturerDeclaration({
+    docs.push({
       teacherName: d.teacherName, position: d.position, periodLabel: d.periodLabel, orderRef: d.orderOver,
       rows, totalHours: overItems.length, rate: d.rate,
       ...(d.isSpeech
@@ -96,11 +99,13 @@ export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over
       return { key: `${dw}|${it.period}|${it.subject}`, sort: `${dw}|${pad(it.period)}|${it.subject}`,
         group: slotTime(it.period), subject: it.subject, prefix: `${DAYS[dw]}\n` }
     })
-    await generateLecturerDeclaration({
+    docs.push({
       teacherName: d.teacherName, position: d.position, periodLabel: d.periodLabel, orderRef: d.orderIfo,
       rows, totalHours: ifoItems.length, rate: d.rate, form: 'По Образец 1', fileTag: `ИФО${tag}`, layout: 'ifo',
       groupHeader: 'Учебен час', ifoStudent: student,
     })
   }
+  const kinds = [overItems.length ? 'лекторски' : '', ifoItems.length ? 'ИФО' : ''].filter(Boolean).join('_и_')
+  await generateLecturerDeclarations(docs, `декларация_${kinds}${tag}_${d.teacherName.replace(/\s+/g, '_')}.docx`)
   return { over: overItems.length, ifo: ifoItems.length }
 }

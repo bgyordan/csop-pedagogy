@@ -178,7 +178,7 @@ export default function CheckClient({ rates }: { rates: LecturerRates }) {
       const n = await downloadLecturerDeclarations({ ...d, periodLabel: declPeriodLabel(over.label, c.from, c.to), tagSuffix: '_ПРЕГЛЕД' })
       const miss = [n.over && d.missingOrder.over ? 'над норматив' : '', n.ifo && d.missingOrder.ifo ? 'ИФО' : ''].filter(Boolean)
       if (miss.length) toast(`Няма вързана заповед за ${miss.join(' и ')} — в декларацията е „Заповед № …“`, 'error')
-      else toast(`${n.over && n.ifo ? 'Две декларации' : 'Декларацията'} · ${d.fromDecl ? 'по подадените дати' : 'по графика (още не е подадена)'}`)
+      else toast(`${n.over && n.ifo ? 'Един файл с две декларации (над норматив + ИФО)' : 'Декларацията'} · ${d.fromDecl ? 'по подадените дати' : 'по графика (още не е подадена)'}`)
     } catch { toast('Грешка при генериране', 'error') }
     setDeclBusy(null)
   }

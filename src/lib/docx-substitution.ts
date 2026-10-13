@@ -504,7 +504,8 @@ export interface LecturerDeclData {
   workNote?: string
 }
 
-export async function generateLecturerDeclaration(d: LecturerDeclData) {
+/** Една декларация като раздел (страница) — за общ файл с няколко декларации */
+function lecturerDeclSection(d: LecturerDeclData) {
   const children: any[] = []
   const dots = (n: number) => '.'.repeat(n)
   const Y = String(new Date().getFullYear())
@@ -608,9 +609,19 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
   // в същата колона като „ДЕКЛАРАТОР“ и „Проверил“
   children.push(new Paragraph({ tabStops: SIG, children: [new TextRun({ children: [new Tab()] }), bold('Счетоводител: ', 22), normal(dots(20), 22)] }))
 
-  const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
-  const blob = await Packer.toBlob(doc)
+  return { properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }
+}
+
+export async function generateLecturerDeclaration(d: LecturerDeclData) {
+  const blob = await Packer.toBlob(new Document({ sections: [lecturerDeclSection(d)] }))
   saveAs(blob, `декларация_${d.fileTag || 'лекторски'}_${d.teacherName.replace(/\s+/g, '_')}.docx`)
+}
+
+/** Няколко декларации в един Word файл — всяка на нова страница (напр. над норматив + ИФО) */
+export async function generateLecturerDeclarations(list: LecturerDeclData[], fileName: string) {
+  if (!list.length) return
+  const blob = await Packer.toBlob(new Document({ sections: list.map(lecturerDeclSection) }))
+  saveAs(blob, fileName)
 }
 // ═══ МЕСЕЧНА справка-декларация за ЗАМЕСТВАНЕ ═══
 export interface MonthlyDeclData {
