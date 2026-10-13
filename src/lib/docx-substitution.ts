@@ -520,11 +520,17 @@ function lecturerDeclSection(d: LecturerDeclData) {
   const SIG = [{ type: TabStopType.LEFT, position: 5600 }]
 
   children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: d.form || 'По Образец 3', bold: true, size: 20, underline: {} })], spacing: { after: 120 } }))
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Д Е К Л А Р А Ц И Я', bold: true, size: 26 })], spacing: { after: 160 } }))
+  // шапката на ЦСОП — като в НП бланката, без поясненията в скоби
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('Център за специална образователна подкрепа – гр. Варна', 22)], spacing: { after: 40 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal('ПК 9000, гр. Варна, община Варна, област Варна', 20)], spacing: { after: 20 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal('ул. „Петко Стайнов“ № 7, тел.: 052 619 456, e-mail: info-400052@edu.mon.bg', 20)],
+    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '000000', space: 4 } }, spacing: { after: 240 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Д Е К Л А Р А Ц И Я', bold: true, size: 26 })], spacing: { after: 200 } }))
 
-  children.push(new Paragraph({ children: [normal('Долуподписаният/та ', 22), bold(d.teacherName, 22)], spacing: { after: 10 } }))
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '(име, фамилия)', italics: true, size: 20 })], spacing: { after: 60 } }))
-  children.push(new Paragraph({ children: [normal('Длъжност: ', 22), normal(d.position || 'Учител/старши учител на ДУИ', 22)], spacing: { after: 120 } }))
+  // встъпителните полета — като в НП бланката, без поясненията
+  children.push(new Paragraph({ children: [normal('Долуподписаният (ата) ', 22), bold(d.teacherName, 22)], spacing: { after: 60 } }))
+  children.push(new Paragraph({ children: [normal('заемащ (а) длъжността ', 22), bold(d.position || 'Учител/старши учител на ДУИ', 22)], spacing: { after: 60 } }))
+  children.push(new Paragraph({ children: [normal('в ', 22), bold('ЦСОП – гр. Варна', 22)], spacing: { after: 160 } }))
 
   children.push(new Paragraph({ children: [
     bold('ДЕКЛАРИРАМ, че ', 22),
