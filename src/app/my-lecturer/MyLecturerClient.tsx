@@ -86,7 +86,7 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
       Array.from(checked[sl.slotId] || []).forEach(dt => (isIfo ? ifo : over).push({
         iso: dt, date: fmt(dt), hours: 1,
         group: speech ? hourText(sl.period) : sl.holderLabel,
-        subject: isIfo ? `${sl.subject} · ${sl.period}. час` : speech && (!sl.subject || sl.subject === 'Терапия') ? SPEECH_SUBJECT : sl.subject,
+        subject: isIfo ? `${sl.subject} · ${hourText(sl.period)}` : speech && (!sl.subject || sl.subject === 'Терапия') ? SPEECH_SUBJECT : sl.subject,
       }))
     })
     const byDate = (a: Row, b: Row) => a.iso.localeCompare(b.iso) || a.subject.localeCompare(b.subject, 'bg')
