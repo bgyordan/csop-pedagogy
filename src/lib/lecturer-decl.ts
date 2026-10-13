@@ -23,12 +23,14 @@ export const hourText = (p: number) => (PERIOD_TIMES[p] || `${p}. час`).split
 export const SPEECH_SUBJECT = 'Рехабилитация на комуникативните нарушения'
 const fmt = (d: string) => d.split('-').reverse().join('.')
 
-/** „септември – октомври 2026 (15.09.2026 – 31.10.2026)“ — началото е не по-рано от 15.09 (началото на учебната година) */
-export function declPeriodLabel(label: string, from: string, to: string) {
-  const y = Number(from.slice(0, 4)), m = Number(from.slice(5, 7))
-  const start = m === 9 && from < `${y}-09-15` ? `${y}-09-15` : from
-  return `${label} (${fmt(start)} – ${fmt(to)})`
+/** „за периода септември – октомври 2026 година“ — само месеците, без датите */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function declPeriodLabel(label: string, _from?: string, _to?: string) {
+  return label
 }
+// „21.09.2026“ → „21.IX“ (римски месец — кратко и не се слива при изброяване)
+const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
+const shortDate = (iso: string) => `${iso.slice(8, 10)}.${ROMAN[Number(iso.slice(5, 7))]}`
 
 /** Тегли една или две декларации; връща колко часа влязоха във всяка */
 export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over: number; ifo: number }> {
@@ -59,7 +61,7 @@ export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over
       .sort((a, b) => a.dow - b.dow || a.time.localeCompare(b.time))
       .map(g => {
         const ds = g.dates.sort()
-        return { iso: ds[0], date: ds.map(x => fmt(x).slice(0, 5)).join(', '), group: `${DAYS[g.dow]}\n${g.time}`, subject: g.subject, hours: ds.length }
+        return { iso: ds[0], date: ds.map(shortDate).join('; '), group: `${DAYS[g.dow]}\n${g.time}`, subject: g.subject, hours: ds.length }
       })
   }
   if (over.length) await generateLecturerDeclaration({
