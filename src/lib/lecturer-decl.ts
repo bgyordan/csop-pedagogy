@@ -107,7 +107,7 @@ export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over
       rows, totalHours: overItems.length, rate: d.rate,
       ...(d.isSpeech
         ? { form: 'По Образец 1', groupHeader: 'Учебен час', layout: 'speech' as const, fileTag: `лекторски${tag}`,
-            workNote: ` за допълнителна подкрепа${oneSubject ? ` – ${oneSubject.toLowerCase()}` : ''}`, noSubject: !!oneSubject }
+            workNote: ' за допълнителна подкрепа', speechSubject: oneSubject ? oneSubject.toLowerCase() : undefined, noSubject: !!oneSubject }
         : { fileTag: `лекторски${tag}` }),
     })
   }
