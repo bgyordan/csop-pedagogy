@@ -520,17 +520,16 @@ function lecturerDeclSection(d: LecturerDeclData) {
   const SIG = [{ type: TabStopType.LEFT, position: 5600 }]
 
   children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: d.form || 'По Образец 3', bold: true, size: 20, underline: {} })], spacing: { after: 120 } }))
-  // шапката на ЦСОП — като в НП бланката, без поясненията в скоби
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [bold('Център за специална образователна подкрепа – гр. Варна', 22)], spacing: { after: 40 } }))
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal('ПК 9000, гр. Варна, община Варна, област Варна', 20)], spacing: { after: 20 } }))
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal('ул. „Петко Стайнов“ № 7, тел.: 052 619 456, e-mail: info-400052@edu.mon.bg', 20)],
+  // шапката — само името на ЦСОП
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal('Център за специална образователна подкрепа – гр. Варна', 22)],
     border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '000000', space: 4 } }, spacing: { after: 240 } }))
   children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Д Е К Л А Р А Ц И Я', bold: true, size: 26 })], spacing: { after: 200 } }))
 
-  // встъпителните полета — като в НП бланката, без поясненията
-  children.push(new Paragraph({ children: [normal('Долуподписаният (ата) ', 22), bold(d.teacherName, 22)], spacing: { after: 60 } }))
-  children.push(new Paragraph({ children: [normal('заемащ (а) длъжността ', 22), bold(d.position || 'Учител/старши учител на ДУИ', 22)], spacing: { after: 60 } }))
-  children.push(new Paragraph({ children: [normal('в ', 22), bold('ЦСОП – гр. Варна', 22)], spacing: { after: 160 } }))
+  // встъпителните полета — на един ред; удебелено е само името
+  children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, children: [
+    normal('Долуподписаният (ата) ', 22), bold(d.teacherName, 22),
+    normal(`, заемащ (а) длъжността ${d.position || 'Учител/старши учител на ДУИ'} в ЦСОП – гр. Варна,`, 22),
+  ], spacing: { after: 120 } }))
 
   children.push(new Paragraph({ children: [
     bold('ДЕКЛАРИРАМ, че ', 22),
@@ -550,8 +549,8 @@ function lecturerDeclSection(d: LecturerDeclData) {
   // логопед — само датата (иначе не се събира); над норматив и ИФО — с деня на същия ред
   // еднаквите поредни клетки в „Група“ и „Предмет“ се сливат (предметът — само в рамките на една група)
   // на смяна на предмет/група — по-дебела линия отгоре през реда (без слятата клетка на групата, ако тя продължава)
-  const THICK = { style: BorderStyle.SINGLE, size: 14, color: '000000' }
-  const cellB = (sep: boolean) => sep ? { ...CELLS, top: THICK } : CELLS
+  // без дебели линии — всички граници еднакво тънки
+  const cellB = (_sep: boolean) => CELLS
   // „\n“ в текста — нов ред в клетката (логопед: „понеделник“ / „09:15 – 09:50“)
   const paras = (t: string, c: boolean) => t.split('\n').map(x => new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(x, 20)] }))
   const cell = (t: string, c: boolean, sep: boolean, col: number) => new TableCell({ width: wOf(col), borders: cellB(sep), verticalAlign: VerticalAlign.CENTER, children: paras(t, c) })
