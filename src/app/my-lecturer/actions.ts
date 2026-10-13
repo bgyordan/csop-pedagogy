@@ -14,12 +14,12 @@ export async function getMyLecturerSlots() {
 
   const { data } = await supabase
     .from('lecturer_slots')
-    .select('id, day, period, holder_label, date_from, date_to, order_number, subject:subjects(name)')
+    .select('id, day, period, holder_type, holder_label, date_from, date_to, order_number, subject:subjects(name)')
     .eq('staff_id', me.id).eq('academic_year_id', cy?.id)
     .order('day').order('period')
   const slots = (data || []).map((r: any) => ({
     id: r.id, day: r.day, period: r.period, subject: r.subject?.name || '',
-    holderLabel: r.holder_label || '', dateFrom: r.date_from, dateTo: r.date_to, orderNumber: r.order_number || '',
+    holderType: r.holder_type || '', holderLabel: r.holder_label || '', dateFrom: r.date_from, dateTo: r.date_to, orderNumber: r.order_number || '',
   }))
   return { slots }
 }
@@ -62,7 +62,7 @@ export async function getMyLecturerDates(periodFrom: string, periodTo: string) {
     const dates = schoolDates
       .filter((c: any) => c.day_of_week === s.day && c.date >= lo && c.date <= hi)
       .map((c: any) => c.date)
-    return { slotId: s.id, day: s.day, period: s.period, subject: s.subject, holderLabel: s.holderLabel, dates, absent: dates.filter((d: string) => absent.has(d)) }
+    return { slotId: s.id, day: s.day, period: s.period, subject: s.subject, holderType: s.holderType, holderLabel: s.holderLabel, dates, absent: dates.filter((d: string) => absent.has(d)) }
   })
   return { rows }
 }

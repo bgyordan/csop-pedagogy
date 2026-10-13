@@ -5,8 +5,13 @@ import { useToast } from '@/components/ui/Toast'
 import { getMyLecturerDates, submitLecturerDeclaration, deleteMyDeclaration } from './actions'
 import { generateLecturerDeclaration } from '@/lib/docx-substitution'
 import { declarationPeriods, defaultPeriod } from '@/lib/declaration-periods'
+import { PERIOD_TIMES } from '@/lib/periods'
 
-type Slot = { id: string; day: number; period: number; subject: string; holderLabel: string; dateFrom: string; dateTo: string; orderNumber: string }
+// „9:15–9:50“ → „09:15 – 09:50“ (като в бланката на логопедите)
+const hourText = (p: number) => (PERIOD_TIMES[p] || `${p}. час`).split('–').map(x => x.padStart(5, '0')).join(' – ')
+const SPEECH_SUBJECT = 'Рехабилитация на комуникативните нарушения'
+
+type Slot = { id: string; day: number; period: number; subject: string; holderType?: string; holderLabel: string; dateFrom: string; dateTo: string; orderNumber: string }
 type Decl = { id: string; periodFrom: string; periodTo: string; totalHours: number; status: string }
 const DAY_L = ['', 'понеделник', 'вторник', 'сряда', 'четвъртък', 'петък']
 function fmt(d: string) { return d ? d.split('-').reverse().join('.') : '' }
@@ -16,8 +21,12 @@ const STATUS: Record<string, { l: string; c: string }> = {
   paid: { l: 'Изплатена', c: 'bg-slate-100 text-slate-500' },
 }
 
-export default function MyLecturerClient({ teacherName, position, slots, declarations: initialDecls, suggestFrom = '', rate }: {
+export default function MyLecturerClient({ teacherName, position, slots, declarations: initialDecls, suggestFrom = '', rate, orderOver = 'Заповед № …', orderIfo = 'Заповед № …', isSpeech = false }: {
   teacherName: string; position: string; slots: Slot[]; declarations: Decl[]; suggestFrom?: string
+  /** „Заповед № 80/10.10.2025г.“ — от регистъра (над норматив / ИФО) */
+  orderOver?: string; orderIfo?: string
+  /** логопед: колона „Учебен час“ (часът от графика) вместо паралелката, предметът — по учебния план */
+  isSpeech?: boolean
   rate?: number   // ставка €/час над норматив (lecturer_rates) — попълва реда в декларацията
 }) {
   const { toast } = useToast()
@@ -32,7 +41,7 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
   const period = periods.find(p => p.key === periodKey) || periods[0]
   const from = period.from
   const to = period.to
-  const [expanded, setExpanded] = useState<{ slotId: string; day: number; period: number; subject: string; holderLabel: string; dates: string[]; absent?: string[] }[] | null>(null)
+  const [expanded, setExpanded] = useState<{ slotId: string; day: number; period: number; subject: string; holderType?: string; holderLabel: string; dates: string[]; absent?: string[] }[] | null>(null)
   const [checked, setChecked] = useState<Record<string, Set<string>>>({}) // slotId -> Set(dates)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -68,23 +77,33 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
     const res: any = await submitLecturerDeclaration(from, to, entries)
     if (res.error) { toast(res.error, 'error'); setSaving(false); return }
 
-    // генерираме Word
-    const rows: { date: string; group: string; subject: string; hours: number }[] = []
+    // генерираме Word — две отделни декларации: над норматив (Образец 3) и ИФО (Образец 1), всяка по своята заповед
+    type Row = { iso: string; date: string; group: string; subject: string; hours: number }
+    const over: Row[] = [], ifo: Row[] = []
     ;(expanded || []).forEach(sl => {
-      const dates = Array.from(checked[sl.slotId] || []).sort()
-      dates.forEach(dt => rows.push({ date: fmt(dt), group: sl.holderLabel, subject: sl.subject, hours: 1 }))
+      const isIfo = sl.holderType === 'ifo'
+      const speech = isSpeech && !isIfo
+      Array.from(checked[sl.slotId] || []).forEach(dt => (isIfo ? ifo : over).push({
+        iso: dt, date: fmt(dt), hours: 1,
+        group: speech ? hourText(sl.period) : sl.holderLabel,
+        subject: isIfo ? `${sl.subject} · ${sl.period}. час` : speech && (!sl.subject || sl.subject === 'Терапия') ? SPEECH_SUBJECT : sl.subject,
+      }))
     })
-    rows.sort((a, b) => a.date.split('.').reverse().join('').localeCompare(b.date.split('.').reverse().join('')))
+    const byDate = (a: Row, b: Row) => a.iso.localeCompare(b.iso) || a.subject.localeCompare(b.subject, 'bg')
+    const periodLabel = `${period.label} (${fmt(from)} – ${fmt(to)})`
     try {
-      await generateLecturerDeclaration({
-        teacherName, position,
-        periodLabel: `${period.label} (${fmt(from)} – ${fmt(to)})`,
-        orderRef: slots[0]?.orderNumber ? `Заповед № ${slots[0].orderNumber}` : 'Заповед № …',
-        rows, totalHours: rows.length, rate,
+      if (over.length) await generateLecturerDeclaration({
+        teacherName, position, periodLabel, orderRef: orderOver,
+        rows: over.sort(byDate), totalHours: over.length, rate,
+        ...(isSpeech ? { form: 'По Образец 1', groupHeader: 'Учебен час', workNote: ' за допълнителна подкрепа' } : {}),
+      })
+      if (ifo.length) await generateLecturerDeclaration({
+        teacherName, position, periodLabel, orderRef: orderIfo,
+        rows: ifo.sort(byDate), totalHours: ifo.length, rate, form: 'По Образец 1', fileTag: 'ИФО',
       })
     } catch (e) { /* noop */ }
-            toast('Декларацията е подадена и изтеглена')
-    setDeclarations(prev => [{ id: res.id || `tmp-${Date.now()}`, periodFrom: from, periodTo: to, totalHours: rows.length, status: 'submitted' }, ...prev.filter(d => !(d.status === 'submitted' && from <= d.periodTo && to >= d.periodFrom))])
+    toast(over.length && ifo.length ? 'Подадено — изтеглени са две декларации: над норматив и ИФО' : 'Декларацията е подадена и изтеглена')
+    setDeclarations(prev => [{ id: res.id || `tmp-${Date.now()}`, periodFrom: from, periodTo: to, totalHours: over.length + ifo.length, status: 'submitted' }, ...prev.filter(d => !(d.status === 'submitted' && from <= d.periodTo && to >= d.periodFrom))])
     setSaving(false)
     setExpanded(null); setChecked({})
   }

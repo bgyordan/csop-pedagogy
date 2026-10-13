@@ -490,29 +490,36 @@ export interface LecturerDeclData {
   rows: { date: string; group: string; subject: string; hours: number }[]
   totalHours: number
   rate?: number            // ставка €/час (lecturer_rates) — попълва реда; без нея — празните редове по образец
+  /** „По Образец 3“ (над норматив, по подразбиране) или „По Образец 1“ (ИФО) */
+  form?: string
+  fileTag?: string
+  /** заглавие на 3-тата колона — „Група“ (по подразбиране) или „Учебен час“ (логопеди) */
+  groupHeader?: string
+  /** след „задължителна преподавателска работа“ — напр. „ за допълнителна подкрепа“ (логопеди) */
+  workNote?: string
 }
 
 export async function generateLecturerDeclaration(d: LecturerDeclData) {
   const children: any[] = []
   const dots = (n: number) => '.'.repeat(n)
 
-  children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: 'По Образец 3', bold: true, size: 20 })], spacing: { after: 120 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: d.form || 'По Образец 3', bold: true, size: 20, underline: {} })], spacing: { after: 120 } }))
   children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Д Е К Л А Р А Ц И Я', bold: true, size: 26 })], spacing: { after: 160 } }))
 
   children.push(new Paragraph({ children: [normal('Долуподписаният/та ', 22), bold(d.teacherName, 22), normal(' ' + dots(20), 22)], spacing: { after: 10 } }))
   children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '(име, презиме, фамилия)', italics: true, size: 20 })], spacing: { after: 60 } }))
-  children.push(new Paragraph({ children: [normal(`${d.position || 'Учител/старши учител на ДУИ'}, образование ${dots(20)}`, 22)], spacing: { after: 120 } }))
+  children.push(new Paragraph({ children: [normal(d.position || 'Учител/старши учител на ДУИ', 22)], spacing: { after: 120 } }))
 
   children.push(new Paragraph({ children: [
     bold('ДЕКЛАРИРАМ, че ', 22),
-    normal(`за периода ${d.periodLabel} 2026 година, съм взел/а следните часове над минималната норма задължителна преподавателска работа, съгласно ${d.orderRef}`, 22),
+    normal(`за периода ${d.periodLabel} 2026 година, съм взел/а следните часове над минималната норма задължителна преподавателска работа${d.workNote || ''}, съгласно ${d.orderRef}`, 22),
   ], spacing: { after: 160 } }))
 
   const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
   const th = (t: string) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(t, 20)] })] })
   const td = (t: string, c = false) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 20)] })] })
-  const rows: TableRow[] = [ new TableRow({ children: [th('№ по ред'), th('Дата'), th('Група'), th('Предмет'), th('Брой часове')] }) ]
+  const rows: TableRow[] = [ new TableRow({ children: [th('№ по ред'), th('Дата'), th(d.groupHeader || 'Група'), th('Предмет'), th('Брой часове')] }) ]
   d.rows.forEach((r, i) => {
     rows.push(new TableRow({ children: [
       td(String(i + 1), true), td(r.date, true), td(r.group, true), td(r.subject), td(String(r.hours), true),
@@ -522,7 +529,9 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
   children.push(new Paragraph({ text: '', spacing: { after: 60 } }))
 
   children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [normal('Общ брой учебни часове: ', 22), bold(String(d.totalHours), 22)], spacing: { after: 160 } }))
-  rateLines(d.totalHours, d.rate, '-').forEach((l, i, a) => children.push(new Paragraph({ children: [normal(l, 22)], spacing: i === a.length - 1 ? { after: 200 } : undefined })))
+  // един попълнен ред по ставката за над норматив (от „Проверка лекторски“; иначе 6,29 €)
+  const rate = d.rate && d.rate > 0 ? d.rate : DEFAULT_RATES.over
+  children.push(new Paragraph({ children: [normal(`${d.totalHours} часа по ${eurD(rate)} евро на час - ${eurD(d.totalHours * rate)} евро;`, 22)], spacing: { after: 200 } }))
 
   children.push(new Paragraph({ children: [normal('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося наказателна отговорност съгласно законите на Република България.', 20)], spacing: { after: 200 } }))
 
@@ -538,7 +547,7 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
 
   const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] })
   const blob = await Packer.toBlob(doc)
-  saveAs(blob, `декларация_лекторски_${d.teacherName.replace(/\\s+/g, '_')}.docx`)
+  saveAs(blob, `декларация_${d.fileTag || 'лекторски'}_${d.teacherName.replace(/\s+/g, '_')}.docx`)
 }
 // ═══ МЕСЕЧНА справка-декларация за ЗАМЕСТВАНЕ ═══
 export interface MonthlyDeclData {

@@ -13,6 +13,8 @@ import { autoDistribute, saveYearEnds, clearAllLecturerSlots } from './actions'
 import { downloadLecturerOrder } from './OrderButton'
 import { slotHours, GROUPS } from './distribute'
 import type { Ends, Grp } from './distribute'
+import { OrderChip } from './OrderPicker'
+import type { StaffLecturerOrders } from '@/lib/lecturer-orders'
 
 export type QTRow = {
   id: string; name: string; position: string; hasPlan: boolean
@@ -26,6 +28,8 @@ export type QTRow = {
   ichYear: number; ichFill: number
   /** лекторски за годината по учебния план — 0,7 постоянно / 0,7 до нормата, после 1 */
   yearS: number; yearM: number
+  /** вързаните заповеди от регистъра за годината (над норматив / ИФО) */
+  orders?: StaffLecturerOrders
 }
 export type QTMarked = { staffId: string; day: number; dateFrom: string; dateTo: string }
 export type Method = 'simple' | 'mixed'
@@ -194,6 +198,16 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
                     <td className="px-5 py-2">
                       <div className="text-slate-800">{r.name}</div>
                       <div className="text-[11px] text-slate-400">{r.position}{r.ownClass && <span className="text-teal-700"> · класен на {r.ownClass}</span>}</div>
+                      {(wanted(r) || p > 0 || r.ichYear > 0 || r.orders?.over || r.orders?.ifo) && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          <OrderChip staffId={r.id} staffName={r.name} kind="over" current={r.orders?.over} needed={wanted(r) || p > 0}
+                            onSaved={o => setRows(prev => prev.map(x => x.id === r.id ? { ...x, orders: { ...x.orders, over: o } } : x))} />
+                          {(r.ichYear > 0 || r.orders?.ifo) && (
+                            <OrderChip staffId={r.id} staffName={r.name} kind="ifo" current={r.orders?.ifo} needed={r.ichYear - r.ichFill > 0}
+                              onSaved={o => setRows(prev => prev.map(x => x.id === r.id ? { ...x, orders: { ...x.orders, ifo: o } } : x))} />
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-[13px]">
                       {r.classes.length ? (
