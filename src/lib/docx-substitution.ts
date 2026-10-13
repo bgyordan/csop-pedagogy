@@ -534,10 +534,13 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
   const td = (t: string, c = false) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 20)] })] })
   const rows: TableRow[] = [ new TableRow({ children: [th('№ по ред'), th('Дата'), th(d.groupHeader || 'Група'), th('Предмет'), th('Брой часове')] }) ]
   // логопед — само датата (иначе не се събира); над норматив и ИФО — с деня на същия ред
-  const dateCell = (dt: string) => layout === 'speech' ? td(dt, true) : td(`${dt} ${dow(dt)}`.trim(), true)
   // еднаквите поредни клетки в „Група“ и „Предмет“ се сливат (предметът — само в рамките на една група)
-  const merged = (t: string, first: boolean, c = false) => new TableCell({
-    borders: CELLS, verticalAlign: VerticalAlign.CENTER,
+  // на смяна на предмет/група — по-дебела линия отгоре през реда (без слятата клетка на групата, ако тя продължава)
+  const THICK = { style: BorderStyle.SINGLE, size: 14, color: '000000' }
+  const cellB = (sep: boolean) => sep ? { ...CELLS, top: THICK } : CELLS
+  const cell = (t: string, c: boolean, sep: boolean) => new TableCell({ borders: cellB(sep), children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 20)] })] })
+  const merged = (t: string, first: boolean, c: boolean, sep: boolean) => new TableCell({
+    borders: cellB(sep), verticalAlign: VerticalAlign.CENTER,
     verticalMerge: first ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE,
     children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: first ? [normal(t, 20)] : [] })],
   })
@@ -546,8 +549,10 @@ export async function generateLecturerDeclaration(d: LecturerDeclData) {
     const newGroup = !prev || prev.group !== r.group
     // логопед: часът се сменя ред по ред, а предметът е един — слива се сам
     const newSubject = layout === 'speech' ? !prev || prev.subject !== r.subject : newGroup || prev.subject !== r.subject
+    const sep = i > 0 && layout !== 'speech' && newSubject
+    const dt = layout === 'speech' ? r.date : `${r.date} ${dow(r.date)}`.trim()
     rows.push(new TableRow({ children: [
-      td(String(i + 1), true), dateCell(r.date), merged(r.group, newGroup, true), merged(r.subject, newSubject), td(String(r.hours), true),
+      cell(String(i + 1), true, sep), cell(dt, true, sep), merged(r.group, newGroup, true, sep && newGroup), merged(r.subject, newSubject, false, sep), cell(String(r.hours), true, sep),
     ] }))
   })
   children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: WIDTHS[layout] || WIDTHS.over, rows }))
