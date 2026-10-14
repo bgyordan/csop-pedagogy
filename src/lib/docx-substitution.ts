@@ -776,7 +776,6 @@ function budgetDeclSection(d: MonthlyDeclData) {
   const F = 'Times New Roman'
   const TEXT_W = 11906 - 1417 - 707          // 9782 — полетата от бланката
   const t = (text: string, o: any = {}) => new TextRun({ text, font: F, size: 20, ...o })
-  const small = (text: string, o: any = {}) => new TextRun({ text, font: F, size: 20, ...o })
   const tab = () => new TextRun({ font: F, size: 20, children: [new Tab()] })
   const DOTS = [{ type: TabStopType.RIGHT, position: TEXT_W, leader: LeaderType.DOT }]
   const P = (children: any[], o: any = {}) => new Paragraph({ children, spacing: { after: 0, line: 276 }, ...o })
@@ -792,8 +791,7 @@ function budgetDeclSection(d: MonthlyDeclData) {
   children.push(P([t('По заместване', { bold: true, underline: {} })], { alignment: AlignmentType.RIGHT, spacing: { after: 360 } }))
   children.push(P([new TextRun({ text: 'Д Е К Л А Р А Ц И Я', font: F, size: 24, bold: true })], { alignment: AlignmentType.CENTER, spacing: { after: 240 } }))
 
-  children.push(P([t('Долуподписаният/та '), t(d.substituteName, { bold: true })]))
-  children.push(P([small('(име, презиме, фамилия)')], { alignment: AlignmentType.CENTER }))
+  children.push(P([t('Долуподписаният/та '), t(d.substituteName, { bold: true })], { spacing: { after: 60 } }))
   children.push(P([t('заемащ длъжността '), t(d.substitutePosition || 'учител', { bold: true })], { spacing: { after: 60 } }))
   children.push(P([t('ДЕКЛАРИРАМ', { bold: true }), t(', '), t('че', { bold: true })], { spacing: { after: 60 } }))
   // заповедта и отсъстващият — на всеки ред в таблицата (като при НП)
@@ -851,10 +849,12 @@ function budgetDeclSection(d: MonthlyDeclData) {
   ] }))
   children.push(new Table({ width: { size: TEXT_W, type: WidthType.DXA }, columnWidths: COLS, layout: TableLayoutType.FIXED, rows: trows }))
 
-  children.push(P([t('Общ брой учебни часове: '), t(String(total), { bold: true })], { alignment: AlignmentType.RIGHT, spacing: { before: 240, after: 160 } }))
-  // един попълнен ред по ставката за заместване (от „Проверка лекторски“; иначе 6,29 €)
+  // общо по ставката + словом — като при НП (ставката за заместване от „Проверка лекторски“; иначе 6,29 €)
   const rate = d.rate && d.rate > 0 ? d.rate : DEFAULT_RATES.sub
-  children.push(P([t(`${total} часа по ${eurD(rate)} евро на час - ${eurD(total * rate)} евро;`)], { spacing: { after: 160 } }))
+  children.push(P([t('Общ брой учебни часове: '), t(String(total), { bold: true }), t(' х '), t(eurD(rate), { bold: true }),
+    t(' EUR = '), t(eurD(total * rate), { bold: true }), t(' EUR')], { spacing: { before: 240, after: 0 } }))
+  children.push(P([t(eurWords(total * rate))], { alignment: AlignmentType.CENTER, spacing: { before: 120, after: 0 } }))
+  children.push(P([t('(цифром, словом)', { italics: true })], { alignment: AlignmentType.CENTER, spacing: { after: 200 } }))
 
   children.push(P([t('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося наказателна отговорност съгласно законите на Република България.')], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 480 } }))
 
