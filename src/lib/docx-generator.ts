@@ -37,6 +37,7 @@ class Table extends DocxTable {
 import { saveAs } from 'file-saver'
 import { DocumentType, StaffProfile, Student } from '@/types'
 import { formatDate, getFullName } from './utils'
+import { PERIOD_TIMES, PERIOD_BY_N, PERIOD_LABEL } from './periods'
 
 
 // Лого на ЦСОП Варна
@@ -2330,19 +2331,10 @@ export async function generateStaffSchedule(
   classSlots: StaffScheduleSlot[],
   ifoSlots: StaffScheduleSlot[],
 ) {
-  const CLASS_TIMES: Record<number, string> = {
-    1: '8:30 – 9:05', 2: '9:15 – 9:50', 3: '10:20 – 10:55',
-    4: '11:05 – 11:40', 5: '11:50 – 12:25', 6: '12:35 – 13:05', 7: '13:15 – 13:50',
-  }
-  const IFO_TIMES: Record<number, string> = {
-    1: '12:00 – 12:35', 2: '12:30 – 13:05', 3: '13:10 – 13:45', 4: '13:20 – 13:55',
-    5: '13:40 – 14:15', 6: '13:50 – 14:25', 7: '14:30 – 15:05', 8: '15:10 – 15:45',
-  }
-  function startMin(source: 'class' | 'ifo', period: number): number {
-    const t = source === 'class' ? CLASS_TIMES[period] : IFO_TIMES[period]
-    if (!t) return 9999
-    const [h, m] = t.split('–')[0].trim().split(':').map(Number)
-    return h * 60 + m
+  // часовете — от общата карта (periods.ts): 1–7 сутрешни, 8–13 = „ИФО 1“–„ИФО 6“
+  const timeOf = (period: number) => (PERIOD_TIMES[period] || '').replace('–', ' – ')
+  function startMin(_source: 'class' | 'ifo', period: number): number {
+    return PERIOD_BY_N[period]?.start ?? 9999
   }
   const B = { style: BorderStyle.SINGLE, size: 4, color: SCH_BORDER }
   const CELLS = { top: B, bottom: B, left: B, right: B }
@@ -2385,13 +2377,13 @@ export async function generateStaffSchedule(
       })),
     }))
     filled.forEach(s => {
-      const time = s.source === 'class' ? CLASS_TIMES[s.period] : IFO_TIMES[s.period]
+      const time = timeOf(s.period)
       const src = s.source === 'class' ? `Паралелка ${s.label}` : `ИФО · ${s.label}`
       rows.push(new TableRow({
         cantSplit: true,
         children: [
           new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 60, right: 60 },
-            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(s.period), size: 20 })] })] }),
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: PERIOD_LABEL[s.period] || String(s.period), size: 20 })] })] }),
           new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 60, right: 60 },
             children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: time || '', size: 20 })] })] }),
           new TableCell({ borders: CELLS, margins: { top: 30, bottom: 30, left: 80, right: 80 },
