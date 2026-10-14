@@ -788,7 +788,9 @@ function budgetDeclSection(d: MonthlyDeclData) {
     monthLabel = m1 === m2 ? m1 : `${m1} – ${m2}`
   }
   const children: any[] = []
-  children.push(P([t('По заместване', { bold: true, underline: {} })], { alignment: AlignmentType.RIGHT, spacing: { after: 360 } }))
+  // хедър — само името на центъра (като при НП)
+  children.push(P([new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', font: F, size: 24, bold: true })], { alignment: AlignmentType.CENTER, spacing: { after: 240 } }))
+  children.push(P([t('По заместване', { bold: true, underline: {} })], { alignment: AlignmentType.RIGHT, spacing: { after: 240 } }))
   children.push(P([new TextRun({ text: 'Д Е К Л А Р А Ц И Я', font: F, size: 24, bold: true })], { alignment: AlignmentType.CENTER, spacing: { after: 240 } }))
 
   children.push(P([t('Долуподписаният/та '), t(d.substituteName, { bold: true })], { spacing: { after: 60 } }))
