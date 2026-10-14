@@ -487,6 +487,8 @@ export interface LecturerDeclData {
   position: string         // "Учител/старши учител на ДУИ"
   periodLabel: string      // "01.09 – 31.10" или месец
   orderRef: string         // "Заповед № …"
+  /** „в сила от 15.09.2026 до 23.12.2026“ — срокът на часовете от графика, след заповедта */
+  orderValidity?: string
   /** heading — ред-заглавие през цялата ширина (логопед: „Септември 2026“) */
   rows: { date: string; group: string; subject: string; hours: number; heading?: string }[]
   totalHours: number
@@ -520,8 +522,6 @@ function lecturerDeclSection(d: LecturerDeclData) {
   const slotLayout = layout === 'speech' || layout === 'ifo'
   // ширините: над норматив — тясна „Група“ (само паралелката); ИФО — по-широка (името на детето); логопед — часът
   const WIDTHS: Record<string, number[]> = { over: [900, 2250, 1050, 4900, 1000], ifo: [800, 2300, 1600, 4400, 1000], speech: [800, 2300, 1600, 4400, 1000] }
-  // подписите — с табулация, за да стоят на едно място
-  const SIG = [{ type: TabStopType.LEFT, position: 5600 }]
 
   children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: d.form || 'По Образец 3', bold: true, size: 20, underline: {} })], spacing: { after: 120 } }))
   // шапката — само името на ЦСОП
@@ -540,7 +540,7 @@ function lecturerDeclSection(d: LecturerDeclData) {
     normal(`за периода ${d.periodLabel}${yearPart} година, съм взел/а следните часове над минималната норма задължителна преподавателска работа${d.workNote || ''}`, 22),
     ...(d.speechSubject ? [normal(' – ', 22), bold(d.speechSubject, 22)] : []),
     ...(d.ifoStudent ? [normal(' в индивидуална форма на обучение (ИФО) – ', 22), bold(d.ifoStudent, 22)] : []),
-    normal(`, съгласно ${d.orderRef}`, 22),
+    normal(`, съгласно ${d.orderRef}${d.orderValidity ? `, ${d.orderValidity}` : ''}`, 22),
   ], spacing: { after: 160 } }))
 
   const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
@@ -604,23 +604,36 @@ function lecturerDeclSection(d: LecturerDeclData) {
   children.push(new Table({ width: { size: W.reduce((a, x) => a + x, 0), type: WidthType.DXA }, layout: TableLayoutType.FIXED, columnWidths: W, rows }))
   children.push(new Paragraph({ text: '', spacing: { after: 60 } }))
 
-  children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [normal('Общ брой учебни часове: ', 22), bold(String(d.totalHours), 22)], spacing: { after: 160 } }))
-  // един попълнен ред по ставката за над норматив (от „Проверка лекторски“; иначе 6,29 €)
+  // общо по ставката + словом — като в декларациите за заместване (ставката от „Проверка лекторски“; иначе 6,29 €)
   const rate = d.rate && d.rate > 0 ? d.rate : DEFAULT_RATES.over
-  children.push(new Paragraph({ children: [normal(`${d.totalHours} часа по ${eurD(rate)} евро на час - ${eurD(d.totalHours * rate)} евро;`, 22)], spacing: { after: 200 } }))
+  children.push(new Paragraph({ children: [normal('Общ брой учебни часове: ', 22), bold(String(d.totalHours), 22), normal(' х ', 22), bold(eurD(rate), 22),
+    normal(' EUR = ', 22), bold(eurD(d.totalHours * rate), 22), normal(' EUR', 22)], spacing: { before: 120, after: 0 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [normal(eurWords(d.totalHours * rate), 22)], spacing: { before: 100, after: 0 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '(цифром, словом)', italics: true, size: 20 })], spacing: { after: 200 } }))
 
-  children.push(new Paragraph({ children: [normal('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося наказателна отговорност съгласно законите на Република България.', 20)], spacing: { after: 200 } }))
+  children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, children: [normal('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося наказателна отговорност съгласно законите на Република България.', 20)], spacing: { after: 480 } }))
 
-  children.push(new Paragraph({ tabStops: SIG, children: [normal(`Дата: ${dots(18)} ${Y} г.`, 22), new TextRun({ children: [new Tab()] }), bold('ДЕКЛАРАТОР: ', 22), normal(dots(20), 22)], spacing: { after: 10 } }))
-  children.push(new Paragraph({ tabStops: SIG, children: [new TextRun({ children: [new Tab()] }), new TextRun({ text: '                        /подпис/', italics: true, size: 20 })], spacing: { after: 160 } }))
+  // подписи — вляво датата, вдясно в една колона ролята с точки до края; пояснението — центрирано под точките
+  const TEXT_W = 11906 - 900 - 900
+  const SIG_X = 5900
+  const SIGT = [{ type: TabStopType.LEFT, position: SIG_X }, { type: TabStopType.RIGHT, position: TEXT_W, leader: LeaderType.DOT }]
+  const CAP = [{ type: TabStopType.CENTER, position: Math.round((SIG_X + 1400 + TEXT_W) / 2) }]
+  const KEEP = { keepNext: true, keepLines: true }
+  const tabR = () => new TextRun({ children: [new Tab()], size: 22 })
+  const sign = (role: string, caption: string, after = 0) => {
+    children.push(new Paragraph({ tabStops: SIGT, children: [normal(`Дата: ${'…'.repeat(14)} ${Y} г.`, 22), tabR(), normal(role + ' ', 22), tabR()], spacing: { after: 40 }, ...KEEP }))
+    children.push(new Paragraph({ tabStops: CAP, children: [tabR(), new TextRun({ text: caption, italics: true, size: 18, color: '595959' })], spacing: { after }, ...(after ? {} : KEEP) }))
+  }
+  // фина сива линия — отделя частта на декларатора от проверката
+  const divider = () => children.push(new Paragraph({ children: [], border: { top: { style: BorderStyle.SINGLE, size: 2, color: 'A6A6A6', space: 1 } }, spacing: { before: 360, after: 200 } }))
 
-  children.push(new Paragraph({ children: [normal('Посочените часове са действително проведени и са вписани в дневника на класа.', 20)], spacing: { after: 80 } }))
-  children.push(new Paragraph({ tabStops: SIG, children: [normal(`Дата: ${dots(18)} ${Y} г.`, 22), new TextRun({ children: [new Tab()] }), bold('Проверил: ', 22), normal(dots(20), 22)], spacing: { after: 10 } }))
-  children.push(new Paragraph({ tabStops: SIG, children: [new TextRun({ children: [new Tab()] }), new TextRun({ text: '                        (ЗДУД)', italics: true, size: 20 })], spacing: { after: 200 } }))
-
-  children.push(new Paragraph({ children: [normal(`Сумата е проверена, начислена и изплатена по ведомост за месец ${dots(15)} ${Y} г.`, 20)], spacing: { after: 80 } }))
-  // в същата колона като „ДЕКЛАРАТОР“ и „Проверил“
-  children.push(new Paragraph({ tabStops: SIG, children: [new TextRun({ children: [new Tab()] }), bold('Счетоводител: ', 22), normal(dots(20), 22)] }))
+  sign('Декларатор:', '(подпис)')
+  divider()
+  children.push(new Paragraph({ children: [normal('Посочените часове са действително проведени и са вписани в дневника на класа.', 20)], spacing: { after: 280 }, ...KEEP }))
+  sign('Проверил:', '(ЗДУД)')
+  divider()
+  children.push(new Paragraph({ children: [normal(`Сумата е проверена, начислена и изплатена по ведомост за месец ${'…'.repeat(12)} ${Y} г.`, 20)], spacing: { after: 280 }, ...KEEP }))
+  sign('Счетоводител:', '(подпис)')
 
   return { properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }
 }

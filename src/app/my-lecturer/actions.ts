@@ -62,7 +62,7 @@ export async function getMyLecturerDates(periodFrom: string, periodTo: string) {
     const dates = schoolDates
       .filter((c: any) => c.day_of_week === s.day && c.date >= lo && c.date <= hi)
       .map((c: any) => c.date)
-    return { slotId: s.id, day: s.day, period: s.period, subject: s.subject, holderType: s.holderType, holderLabel: s.holderLabel, dates, absent: dates.filter((d: string) => absent.has(d)) }
+    return { slotId: s.id, day: s.day, period: s.period, subject: s.subject, holderType: s.holderType, holderLabel: s.holderLabel, validFrom: s.dateFrom, validTo: s.dateTo, dates, absent: dates.filter((d: string) => absent.has(d)) }
   })
   return { rows }
 }

@@ -10,7 +10,8 @@ import { generateLecturerDeclarations } from './docx-substitution'
 type DeclData = Parameters<typeof generateLecturerDeclarations>[0][number]
 import { PERIOD_TIMES } from './periods'
 
-export type DeclItem = { iso: string; period: number; subject: string; holderType?: string; holderLabel: string }
+/** validFrom/validTo — срокът на часа от графика (за „в сила от … до …“ до заповедта) */
+export type DeclItem = { iso: string; period: number; subject: string; holderType?: string; holderLabel: string; validFrom?: string; validTo?: string }
 export type DeclInput = {
   teacherName: string; position: string; periodLabel: string
   orderOver: string; orderIfo: string
@@ -78,6 +79,15 @@ function monthly(list: DeclItem[], slotOf: (it: DeclItem) => Slot, joinBlocks = 
   })
 }
 
+const dmy = (iso: string) => iso.split('-').reverse().join('.')
+/** „в сила от 15.09.2026 до 23.12.2026“ — срокът на часовете в декларацията; различни срокове — изброени */
+function validityText(list: DeclItem[]) {
+  const ranges = Array.from(new Set(list.filter(x => x.validFrom && x.validTo).map(x => `${x.validFrom}|${x.validTo}`))).sort()
+  if (!ranges.length) return ''
+  const txt = ranges.map(r => { const [a, b] = r.split('|'); return `от ${dmy(a)} до ${dmy(b)}` })
+  return `в сила ${txt.length > 1 ? txt.slice(0, -1).join(', ') + ' и ' + txt[txt.length - 1] : txt[0]}`
+}
+
 /** Тегли една или две декларации; връща колко часа влязоха във всяка */
 export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over: number; ifo: number }> {
   const overItems = d.items.filter(it => it.holderType !== 'ifo')
@@ -104,7 +114,7 @@ export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over
     const speechSubjects = Array.from(new Set(rows.filter(r => !r.heading).map(r => r.subject)))
     const oneSubject = d.isSpeech && speechSubjects.length === 1 ? speechSubjects[0] : ''
     docs.push({
-      teacherName: d.teacherName, position: d.position, periodLabel: d.periodLabel, orderRef: d.orderOver,
+      teacherName: d.teacherName, position: d.position, periodLabel: d.periodLabel, orderRef: d.orderOver, orderValidity: validityText(overItems),
       rows, totalHours: overItems.length, rate: d.rate,
       ...(d.isSpeech
         ? { form: 'По Образец 1', groupHeader: 'Учебен час', layout: 'speech' as const, fileTag: `лекторски${tag}`,
@@ -122,7 +132,7 @@ export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over
         group: slotTime(it.period), subject: it.subject, prefix: `${DAYS[dw]}\n` }
     }, true)
     docs.push({
-      teacherName: d.teacherName, position: d.position, periodLabel: d.periodLabel, orderRef: d.orderIfo,
+      teacherName: d.teacherName, position: d.position, periodLabel: d.periodLabel, orderRef: d.orderIfo, orderValidity: validityText(ifoItems),
       rows, totalHours: ifoItems.length, rate: d.rate, form: 'По Образец 1', fileTag: `ИФО${tag}`, layout: 'ifo',
       groupHeader: 'Учебен час', ifoStudent: student,
     })
