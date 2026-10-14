@@ -708,10 +708,14 @@ export async function deleteSubstitution(substitutionId: string) {
 
   let orderNote = ''
   if (sub.substitution_order_id) {
-    const { data: o } = await supabase.from('orders').select('id, number, file_url').eq('id', sub.substitution_order_id).maybeSingle()
+    const { data: o } = await supabase.from('orders').select('id, number, file_url, title').eq('id', sub.substitution_order_id).maybeSingle()
     const { error: uErr } = await supabase.from('substitutions').update({ substitution_order_id: null }).eq('id', substitutionId)
     if (uErr) return { error: 'Заповедта не се отвърза: ' + uErr.message }
-    if (o && !o.file_url) {
+    // освобождаваме номера само ако заповедта е генерирана от заместванията и не е вързана към друго заместване
+    // (избрана от регистъра заповед — напр. обща за няколко замествания — остава непокътната)
+    const { count: others } = await supabase.from('substitutions').select('id', { count: 'exact', head: true }).eq('substitution_order_id', sub.substitution_order_id)
+    const generated = !!o?.title?.startsWith('Заповед за заместване')
+    if (o && !o.file_url && generated && !others) {
       const who = sub.absent ? `${(sub.absent as any).first_name} ${(sub.absent as any).last_name}` : ''
       const d = (x: string) => x.split('-').reverse().join('.')
       await supabase.from('orders').update({
@@ -720,7 +724,7 @@ export async function deleteSubstitution(substitutionId: string) {
       }).eq('id', o.id)
       orderNote = `Заповед № ${o.number} е освободена като резервиран номер.`
     } else if (o) {
-      orderNote = `Заповед № ${o.number} остава в регистъра (има качен файл).`
+      orderNote = `Заповед № ${o.number} остава в регистъра${o.file_url ? ' (има качен файл)' : ''}.`
     }
   }
 
@@ -756,4 +760,36 @@ function orderRefText(number: string, date?: string | null) {
   if (!n || n.includes('/') || !date) return n
   const [y, m, d] = String(date).slice(0, 10).split('-')
   return y && m && d ? `${n}/${d}.${m}.${y}г.` : n
+}
+
+// ── Заповед от регистъра за заместване („Вече е издадена“) ──
+async function subManager() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data: me } = await supabase.from('staff_profiles').select('role').eq('user_id', user.id).single()
+  return ['admin', 'zdud', 'director', 'secretary'].includes(me?.role || '') ? supabase : null
+}
+export type RegistryOrder = { id: string; number: string; date: string; title: string }
+
+/** Търсене в регистъра на заповедите по номер или заглавие — най-новите първо */
+export async function searchSubstitutionOrders(q: string): Promise<{ list: RegistryOrder[]; error?: string }> {
+  const supabase = await subManager()
+  if (!supabase) return { error: 'Нямате права', list: [] }
+  let qq = supabase.from('orders').select('id, number, date, title').not('is_reserved', 'is', true).order('date', { ascending: false }).order('seq', { ascending: false, nullsFirst: false }).limit(30)
+  const s = q.trim().replace(/[%,()]/g, ' ').trim()
+  if (s) qq = qq.or(`number.ilike.%${s}%,title.ilike.%${s}%`)
+  const { data, error } = await qq
+  if (error) return { error: error.message, list: [] }
+  return { list: (data || []).map((o: any) => ({ id: o.id, number: o.number || '', date: o.date || '', title: o.title || '' })) }
+}
+
+/** Вързаната към заместването заповед (за редакцията) */
+export async function getSubstitutionOrder(substitutionId: string): Promise<{ order: RegistryOrder | null }> {
+  const supabase = await subManager()
+  if (!supabase) return { order: null }
+  const { data: sub } = await supabase.from('substitutions').select('substitution_order_id').eq('id', substitutionId).maybeSingle()
+  if (!sub?.substitution_order_id) return { order: null }
+  const { data: o } = await supabase.from('orders').select('id, number, date, title').eq('id', sub.substitution_order_id).maybeSingle()
+  return { order: o ? { id: o.id, number: o.number || '', date: o.date || '', title: o.title || '' } : null }
 }

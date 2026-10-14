@@ -4,7 +4,8 @@ import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Pencil, Trash2, ChevronDown, Download } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { generateSubstitution, getAssignments, saveAssignments, checkSubstituteOverlap, deleteSubstitution, getAbsentHours, getKtParts, saveKtParts } from './actions'
+import { generateSubstitution, getAssignments, saveAssignments, checkSubstituteOverlap, deleteSubstitution, getAbsentHours, getKtParts, saveKtParts, getSubstitutionOrder, type RegistryOrder } from './actions'
+import RegistryOrderPick from './RegistryOrderPick'
 import KtPartsEditor, { ktPartsError } from '@/components/KtPartsEditor'
 import type { KtPart } from '@/lib/kt'
 import { generateSubstitutionOrder } from '@/lib/docx-substitution'
@@ -199,6 +200,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [orderMode, setOrderMode] = useState<'create' | 'manual' | 'none'>('create')
   const [nManualNumber, setNManualNumber] = useState('')
   const [nManualDate, setNManualDate] = useState('')
+  const [nLinked, setNLinked] = useState<RegistryOrder | null>(null)
   const [nOverNorm, setNOverNorm] = useState(true)
   const [absentId, setAbsentId] = useState('')
   const [subId, setSubId] = useState('')
@@ -223,6 +225,9 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [eManualNumber, setEManualNumber] = useState('')
   const [eManualDate, setEManualDate] = useState('')
   const [eNoOrder, setENoOrder] = useState(false)
+  // заповед от регистъра: undefined — не е пипана (не се записва), null — без, иначе избраната
+  const [eLinked, setELinked] = useState<RegistryOrder | null>(null)
+  const [eLinkedTouched, setELinkedTouched] = useState(false)
   const [eOverNorm, setEOverNorm] = useState(true)
   const [eSaving, setESaving] = useState(false)
 
@@ -373,8 +378,10 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     const { data, error } = await supabase.from('substitutions').insert({
       absent_staff_id: absentId, substitute_staff_id: primary || null,
       date_from: from, date_to: to, reason: reasonFromKt(ktArticle), bsch_eligible: bsch, kt_article: ktArticle,
-      manual_order_number: orderMode === 'manual' ? (nManualNumber.trim() || null) : null,
-      manual_order_date: orderMode === 'manual' ? (nManualDate || null) : null,
+      // „Вече е издадена“: избрана от регистъра → връзваме я; иначе ръчен номер
+      ...(orderMode === 'manual' && nLinked ? { substitution_order_id: nLinked.id } : {}),
+      manual_order_number: orderMode === 'manual' && !nLinked ? (nManualNumber.trim() || null) : null,
+      manual_order_date: orderMode === 'manual' && !nLinked ? (nManualDate || null) : null,
       no_order_needed: orderMode === 'none',
       over_norm: bsch ? true : nOverNorm,
     }).select(selectCols).single()
@@ -399,7 +406,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     setRows(prev => [newRow, ...prev])
     setOverNormMap(p => ({ ...p, [newRow.id]: newRow.overNorm }))
     toast('Заместването е добавено')
-    setAbsentId(''); setSubId(''); setFrom(''); setTo(''); setReason('sick'); setBsch(false); setKtArticle('155'); setKtParts([]); setOrderMode('create'); setNManualNumber(''); setNManualDate(''); setNOverNorm(true); setShowNew(false); setSaving(false)
+    setAbsentId(''); setSubId(''); setFrom(''); setTo(''); setReason('sick'); setBsch(false); setKtArticle('155'); setKtParts([]); setOrderMode('create'); setNManualNumber(''); setNManualDate(''); setNLinked(null); setNOverNorm(true); setShowNew(false); setSaving(false)
     resetMulti()
   }
 
@@ -418,6 +425,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     setEFrom(r.dateFrom); setETo(r.dateTo); setEReason(r.reason); setEBsch(!!(r as any).bsch); setEKtArticle((r as any).ktArticle || '155')
     setEKtParts([]); getKtParts(r.id).then((x: any) => setEKtParts(x?.data || []))
     setEManualNumber((r as any).manualNumber || ''); setEManualDate((r as any).manualDate || ''); setENoOrder(!!(r as any).noOrder)
+    setELinked(null); setELinkedTouched(false)
+    if (r.hasOrder) getSubstitutionOrder(r.id).then(x => setELinked(x.order))
     setEOverNorm(overNormMap[r.id] !== false)
   }
   // за редакция трябва absent_staff_id — карта id->absentId от initial (page подава absentStaffId в SubRow)
@@ -440,7 +449,10 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     const { data, error } = await supabase.from('substitutions').update({
       absent_staff_id: eAbsent, substitute_staff_id: primary || null,
       date_from: eFrom, date_to: eTo, reason: reasonFromKt(eKtArticle), bsch_eligible: eBsch, kt_article: eKtArticle,
-      manual_order_number: eManualNumber.trim() || null, manual_order_date: eManualDate || null, no_order_needed: eNoOrder,
+      ...(eLinkedTouched ? { substitution_order_id: eNoOrder ? null : (eLinked?.id || null) } : {}),
+      manual_order_number: eLinked && !eNoOrder ? null : (eManualNumber.trim() || null),
+      manual_order_date: eLinked && !eNoOrder ? null : (eManualDate || null),
+      no_order_needed: eNoOrder,
       over_norm: eBsch ? true : eOverNorm,
     }).eq('id', editId).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setESaving(false); return }
@@ -579,11 +591,17 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               </div>
             )}
             {orderMode === 'manual' && (
-              <div key="manual" className="reveal-panel grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-2">
-                <input value={nManualNumber} onChange={e => setNManualNumber(e.target.value)} placeholder="№ на издадената заповед"
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
-                <input type="date" value={nManualDate} onChange={e => setNManualDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
+              <div key="manual" className="reveal-panel space-y-2">
+                <RegistryOrderPick value={nLinked} onChange={setNLinked} />
+                {!nLinked && <>
+                  <p className="text-[11px] text-slate-400">или — ако не е заведена в регистъра — номер и дата на ръка:</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-2">
+                    <input value={nManualNumber} onChange={e => setNManualNumber(e.target.value)} placeholder="№ на издадената заповед"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
+                    <input type="date" value={nManualDate} onChange={e => setNManualDate(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
+                  </div>
+                </>}
               </div>
             )}
           </div>
@@ -761,9 +779,15 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                 Без заповед (напр. вътрешно заместване)
               </label>
               {!eNoOrder && (
+                <div>
+                  <label className="block text-[10px] text-slate-400 uppercase tracking-wide mb-1">Заповед от регистъра</label>
+                  <RegistryOrderPick value={eLinked} onChange={o => { setELinked(o); setELinkedTouched(true) }} />
+                </div>
+              )}
+              {!eNoOrder && !eLinked && (
                 <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-2">
                   <div>
-                    <label className="block text-[10px] text-slate-400 uppercase tracking-wide mb-1">№ на издадена заповед</label>
+                    <label className="block text-[10px] text-slate-400 uppercase tracking-wide mb-1">или № на ръка (не е в регистъра)</label>
                     <input value={eManualNumber} onChange={e => setEManualNumber(e.target.value)} placeholder="ако вече е издадена ръчно"
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
                   </div>
@@ -774,7 +798,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                   </div>
                 </div>
               )}
-              <p className="text-[11px] text-slate-400">Въведеш ли номер, заместването се води с тази (ръчна) заповед и не се генерира нова.</p>
+              <p className="text-[11px] text-slate-400">Изберете заповедта от регистъра — номерът и датата в декларациите се вземат оттам. Ръчен номер — само ако не е заведена.</p>
             </div>
 
             {/* Няколко заместника */}
