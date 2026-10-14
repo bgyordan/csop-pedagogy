@@ -326,7 +326,7 @@ export async function getDeclarationData(substitutionId: string) {
 
   const { data: sub } = await supabase
     .from('substitutions')
-    .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, bsch_eligible, substitution_order_id,
+    .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, bsch_eligible, substitution_order_id, manual_order_number, manual_order_date,
       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name),
       sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name, position)`)
     .eq('id', substitutionId).single()
@@ -337,8 +337,10 @@ export async function getDeclarationData(substitutionId: string) {
   // заповедта за заместване (ако е издадена) — за orderRef
   let orderRef = 'Заповед № …'
   if (sub.substitution_order_id) {
-    const { data: o } = await supabase.from('orders').select('number').eq('id', sub.substitution_order_id).single()
-    if (o?.number) orderRef = `Заповед № ${o.number}`
+    const { data: o } = await supabase.from('orders').select('number, date').eq('id', sub.substitution_order_id).single()
+    if (o?.number) orderRef = `Заповед № ${orderRefText(o.number, o.date)}`
+  } else if ((sub as any).manual_order_number) {
+    orderRef = `Заповед № ${orderRefText((sub as any).manual_order_number, (sub as any).manual_order_date)}`
   }
 
   // часовете на отсъстващия — по срокове
@@ -445,7 +447,7 @@ async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_na
   const asIds = Array.from(new Set((myAs || []).map((a: any) => a.substitution_id)))
   let q = supabase
     .from('substitutions')
-    .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, bsch_eligible, kt_article, over_norm, substitution_order_id, manual_order_number,
+    .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, bsch_eligible, kt_article, over_norm, substitution_order_id, manual_order_number, manual_order_date,
       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name)`)
     .lte('date_from', last).gte('date_to', first)
   q = asIds.length > 0 ? q.or(`substitute_staff_id.eq.${me.id},id.in.(${asIds.join(',')})`) : q.eq('substitute_staff_id', me.id)
@@ -461,13 +463,13 @@ async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_na
     // само моите дни в това заместване
     const myRanges = coverageOf(sub as any, assignMap[sub.id])[me.id] || []
     if (myRanges.length === 0) continue
-    // orderRef
+    // orderRef — „011/18.09.2026г.“; ръчният номер е без дата → добавяме датата на заповедта
     let orderRef = '—'
     if (sub.substitution_order_id) {
-      const { data: o } = await supabase.from('orders').select('number').eq('id', sub.substitution_order_id).single()
-      if (o?.number) orderRef = o.number
+      const { data: o } = await supabase.from('orders').select('number, date').eq('id', sub.substitution_order_id).single()
+      if (o?.number) orderRef = orderRefText(o.number, o.date)
     } else if (sub.manual_order_number) {
-      orderRef = sub.manual_order_number
+      orderRef = orderRefText(sub.manual_order_number, sub.manual_order_date)
     }
     // часовете на отсъстващия — по срокове
     const byTerm = await slotsByTerm(supabase, sub.absent_staff_id, cy?.id)
@@ -706,10 +708,14 @@ export async function deleteSubstitution(substitutionId: string) {
 
   let orderNote = ''
   if (sub.substitution_order_id) {
-    const { data: o } = await supabase.from('orders').select('id, number, file_url').eq('id', sub.substitution_order_id).maybeSingle()
+    const { data: o } = await supabase.from('orders').select('id, number, file_url, title').eq('id', sub.substitution_order_id).maybeSingle()
     const { error: uErr } = await supabase.from('substitutions').update({ substitution_order_id: null }).eq('id', substitutionId)
     if (uErr) return { error: 'Заповедта не се отвърза: ' + uErr.message }
-    if (o && !o.file_url) {
+    // освобождаваме номера само ако заповедта е генерирана от заместванията и не е вързана към друго заместване
+    // (избрана от регистъра заповед — напр. обща за няколко замествания — остава непокътната)
+    const { count: others } = await supabase.from('substitutions').select('id', { count: 'exact', head: true }).eq('substitution_order_id', sub.substitution_order_id)
+    const generated = !!o?.title?.startsWith('Заповед за заместване')
+    if (o && !o.file_url && generated && !others) {
       const who = sub.absent ? `${(sub.absent as any).first_name} ${(sub.absent as any).last_name}` : ''
       const d = (x: string) => x.split('-').reverse().join('.')
       await supabase.from('orders').update({
@@ -718,7 +724,7 @@ export async function deleteSubstitution(substitutionId: string) {
       }).eq('id', o.id)
       orderNote = `Заповед № ${o.number} е освободена като резервиран номер.`
     } else if (o) {
-      orderNote = `Заповед № ${o.number} остава в регистъра (има качен файл).`
+      orderNote = `Заповед № ${o.number} остава в регистъра${o.file_url ? ' (има качен файл)' : ''}.`
     }
   }
 
@@ -745,4 +751,45 @@ export async function getAbsentHours(absentId: string, from: string, to: string)
       .map(s => ({ period: s.period, label: `${PERIOD_LABEL[s.period] ?? s.period}${s.period <= 7 ? '. час' : ''} · ${s.cls}${s.subject ? ' — ' + s.subject : ''}` }))
   })
   return { data: out }
+}
+
+/** Номерът на заповедта за декларацията: „011/18.09.2026г.“. Ако номерът вече е с дата (регистъра) — както е;
+ *  иначе (ръчен номер „1222“) добавяме датата на заповедта. */
+function orderRefText(number: string, date?: string | null) {
+  const n = (number || '').trim()
+  if (!n || n.includes('/') || !date) return n
+  const [y, m, d] = String(date).slice(0, 10).split('-')
+  return y && m && d ? `${n}/${d}.${m}.${y}г.` : n
+}
+
+// ── Заповед от регистъра за заместване („Вече е издадена“) ──
+async function subManager() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data: me } = await supabase.from('staff_profiles').select('role').eq('user_id', user.id).single()
+  return ['admin', 'zdud', 'director', 'secretary'].includes(me?.role || '') ? supabase : null
+}
+export type RegistryOrder = { id: string; number: string; date: string; title: string }
+
+/** Търсене в регистъра на заповедите по номер или заглавие — най-новите първо */
+export async function searchSubstitutionOrders(q: string): Promise<{ list: RegistryOrder[]; error?: string }> {
+  const supabase = await subManager()
+  if (!supabase) return { error: 'Нямате права', list: [] }
+  let qq = supabase.from('orders').select('id, number, date, title').not('is_reserved', 'is', true).order('date', { ascending: false }).order('seq', { ascending: false, nullsFirst: false }).limit(30)
+  const s = q.trim().replace(/[%,()]/g, ' ').trim()
+  if (s) qq = qq.or(`number.ilike.%${s}%,title.ilike.%${s}%`)
+  const { data, error } = await qq
+  if (error) return { error: error.message, list: [] }
+  return { list: (data || []).map((o: any) => ({ id: o.id, number: o.number || '', date: o.date || '', title: o.title || '' })) }
+}
+
+/** Вързаната към заместването заповед (за редакцията) */
+export async function getSubstitutionOrder(substitutionId: string): Promise<{ order: RegistryOrder | null }> {
+  const supabase = await subManager()
+  if (!supabase) return { order: null }
+  const { data: sub } = await supabase.from('substitutions').select('substitution_order_id').eq('id', substitutionId).maybeSingle()
+  if (!sub?.substitution_order_id) return { order: null }
+  const { data: o } = await supabase.from('orders').select('id, number, date, title').eq('id', sub.substitution_order_id).maybeSingle()
+  return { order: o ? { id: o.id, number: o.number || '', date: o.date || '', title: o.title || '' } : null }
 }
