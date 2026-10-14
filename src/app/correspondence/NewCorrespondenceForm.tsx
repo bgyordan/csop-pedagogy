@@ -551,7 +551,7 @@ export default function NewCorrespondenceForm({
                     {separateDays ? (
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2">
-                          <input type="date" value={dayPick} min={new Date(Date.now() - 7 * 864e5).toISOString().split('T')[0]} onChange={e => setDayPick(e.target.value)} className="input flex-1 text-xs" />
+                          <input type="date" value={dayPick} onChange={e => setDayPick(e.target.value)} className="input flex-1 text-xs" />
                           <button type="button" disabled={!dayPick}
                             onClick={() => { if (dayPick && !leaveDays.includes(dayPick)) setLeaveDays(prev => [...prev, dayPick].sort()); setDayPick('') }}
                             className="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 text-[#0f2240] hover:bg-slate-50 disabled:opacity-40">+ Добави</button>
@@ -571,11 +571,11 @@ export default function NewCorrespondenceForm({
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
                         <label className="block text-[10px] text-slate-400 mb-0.5">От</label>
-                        <input type="date" value={subFrom} min={new Date(Date.now() - 7 * 864e5).toISOString().split('T')[0]} onChange={e => { setSubFrom(e.target.value); if (subTo && e.target.value > subTo) setSubTo('') }} className="input w-full text-xs" />
+                        <input type="date" value={subFrom} onChange={e => { setSubFrom(e.target.value); if (subTo && e.target.value > subTo) setSubTo('') }} className="input w-full text-xs" />
                       </div>
                       <div className="flex-1">
                         <label className="block text-[10px] text-slate-400 mb-0.5">До</label>
-                        <input type="date" value={subTo} min={subFrom || new Date(Date.now() - 7 * 864e5).toISOString().split('T')[0]} onChange={e => setSubTo(e.target.value)} className="input w-full text-xs" />
+                        <input type="date" value={subTo} min={subFrom || undefined} onChange={e => setSubTo(e.target.value)} className="input w-full text-xs" />
                       </div>
                     </div>
                     )}

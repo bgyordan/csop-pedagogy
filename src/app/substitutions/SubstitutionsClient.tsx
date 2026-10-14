@@ -32,8 +32,6 @@ function statusOf(r: SubRow): { label: string; cls: string } {
   if (r.substituteId) return { label: 'Готово за заповед', cls: 'bg-blue-50 text-blue-600' }
   return { label: 'Чака заместник', cls: 'bg-amber-50 text-amber-600' }
 }
-const BACK_DAYS = 7 // колко календарни дни назад може да се въвежда заместване
-const todayStr = () => { const d = new Date(); d.setDate(d.getDate() - BACK_DAYS); return d.toISOString().split('T')[0] }
 function isWeekend(d: string) { const day = new Date(d + 'T00:00').getDay(); return day === 0 || day === 6 }
 
 // Ключовете „ISO|час“ — ден, разделен по часове (всеки час/ИЧ от различен заместник)
@@ -526,11 +524,12 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">От *</label>
-              <DateField value={from} min={todayStr()} toast={toast} onChange={v => { setFrom(v); if (to && v > to) setTo('') }} />
+              {/* без ограничение назад — замествания се въвеждат и със закъснение (напр. за миналия месец) */}
+              <DateField value={from} toast={toast} onChange={v => { setFrom(v); if (to && v > to) setTo('') }} />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">До *</label>
-              <DateField value={to} min={from || todayStr()} toast={toast} onChange={setTo} />
+              <DateField value={to} min={from || undefined} toast={toast} onChange={setTo} />
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs text-slate-500 mb-1">Вид отпуск / член от КТ на титуляря</label>
