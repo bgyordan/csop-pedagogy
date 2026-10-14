@@ -16,6 +16,7 @@ import IntakeCard from './IntakeCard'
 import TherapistHistory from './TherapistHistory'
 import StudentDocuments from './StudentDocuments'
 import MoreMenu from './MoreMenu'
+import DeleteStudentButton from './DeleteStudentButton'
 import DevelopmentTab from './development/DevelopmentTab'
 import PassportTab from './passport/PassportTab'
 import OnlineRoomTab from './room/OnlineRoomTab'
@@ -303,6 +304,7 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
                     {canManage && <Link href={`/students/${id}/transfer`} className={menuItem}><ArrowRightLeft size={14} /> Прехвърли</Link>}
                     {canManage && <div className="my-1 border-t border-slate-100" />}
                     {canManage && <Link href={`/students/${id}/archive`} className={`${menuItem} !text-rose-700 hover:!bg-rose-50`}><Archive size={14} /> Архивирай</Link>}
+                    {profile?.role === 'admin' && <DeleteStudentButton studentId={id} fullName={getFullName(student)} lastName={(student as any).last_name || ''} />}
                   </MoreMenu>}
               </div>
             )}
