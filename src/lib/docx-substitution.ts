@@ -814,7 +814,7 @@ function budgetDeclSection(d: MonthlyDeclData) {
     cell(0, ['Дата'], { bold: true }), cell(1, ['Заповед №… от…'], { bold: true }), cell(2, ['Паралелка /', 'група'], { bold: true }),
     cell(3, ['Предмет'], { bold: true }), cell(4, ['Брой', 'часове'], { bold: true }), cell(5, ['Име на отсъстващия', 'учител'], { bold: true }),
   ] })]
-  // всеки час на отделен ред (по реда в деня), с предмета му
+  // часовете по реда в деня, с предмета им
   const perHour = rows.flatMap(r => {
     const its = (r.items || []).slice().sort((a, b) => a.period - b.period)
     if (its.length === r.hours) return its.map(it => ({ r, subject: it.subject || r.subject }))
@@ -826,17 +826,22 @@ function budgetDeclSection(d: MonthlyDeclData) {
   })
   // еднаквите поредни стойности се обединяват — всяка колона в рамките на колоните вляво
   // (датата → заповедта → паралелката → предметът); отсъстващият — в рамките на датата и заповедта
-  const grp = perHour.map(({ r, subject }) => {
+  // поредните часове по един и същ предмет (същия ден, заповед, паралелка, отсъстващ) — един ред, часовете сумирани
+  const grp: { r: typeof rows[number]; subject: string; cls: string; hours: number; keys: string[] }[] = []
+  perHour.forEach(({ r, subject }) => {
     const cls = /^\d+$/.test(r.cls.trim()) ? `№${r.cls.trim()}` : r.cls
-    return { r, subject, cls, keys: [r.date, `${r.date}|${r.orderRef}`, `${r.date}|${r.orderRef}|${cls}`, `${r.date}|${r.orderRef}|${cls}|${subject}`, `${r.date}|${r.orderRef}|${r.absentName}`] }
+    const keys = [r.date, `${r.date}|${r.orderRef}`, `${r.date}|${r.orderRef}|${cls}`, `${r.date}|${r.orderRef}|${cls}|${subject}`, `${r.date}|${r.orderRef}|${r.absentName}`]
+    const p = grp[grp.length - 1]
+    if (p && p.keys[3] === keys[3] && p.keys[4] === keys[4]) p.hours++
+    else grp.push({ r, subject, cls, hours: 1, keys })
   })
   const m = (k: number, i: number): 'start' | 'cont' => (i > 0 && grp[i - 1].keys[k] === grp[i].keys[k] ? 'cont' : 'start')
-  grp.forEach(({ r, subject, cls }, i) => trows.push(new TableRow({ cantSplit: true, height: { value: 420, rule: HeightRule.ATLEAST }, children: [
+  grp.forEach(({ r, subject, cls, hours }, i) => trows.push(new TableRow({ cantSplit: true, height: { value: 420, rule: HeightRule.ATLEAST }, children: [
     cell(0, m(0, i) === 'cont' ? [''] : [r.date], { merge: m(0, i) }),
     cell(1, m(1, i) === 'cont' ? [''] : [r.orderRef], { merge: m(1, i) }),
     cell(2, m(2, i) === 'cont' ? [''] : [cls], { merge: m(2, i) }),
     cell(3, m(3, i) === 'cont' ? [''] : subjectLines(subject), { merge: m(3, i) }),
-    cell(4, ['1']),
+    cell(4, [String(hours)]),
     cell(5, m(4, i) === 'cont' ? [''] : [r.absentName], { merge: m(4, i), align: AlignmentType.LEFT }),
   ] })))
   trows.push(new TableRow({ children: [
