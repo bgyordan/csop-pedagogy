@@ -709,8 +709,9 @@ function npDeclSection(d: MonthlyDeclData) {
   const COLS = [1300, 1850, 1150, 2330, 820, 1764]   // сума 9214 — датата и „014/12.10.2026г.“ се побират на един ред
   const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
-  const cell = (i: number, lines: string[], bold = false, center = true) => new TableCell({
+  const cell = (i: number, lines: string[], bold = false, center = true, merge?: 'start' | 'cont') => new TableCell({
     borders: CELLS, width: { size: COLS[i], type: WidthType.DXA }, verticalAlign: VerticalAlign.CENTER,
+    ...(merge ? { verticalMerge: merge === 'start' ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE } : {}),
     margins: { top: 40, bottom: 40, left: 60, right: 60 },
     children: lines.map(l => new Paragraph({ alignment: center ? AlignmentType.CENTER : AlignmentType.LEFT, spacing: { after: 0, line: 252 }, children: [t(l, { size: 20, ...(bold ? { bold: true } : {}) })] })),
   })
@@ -723,9 +724,16 @@ function npDeclSection(d: MonthlyDeclData) {
     const its = (r.items || []).slice().sort((a, b) => a.period - b.period)
     return its.length === r.hours ? its.map(it => ({ r, subject: it.subject })) : Array.from({ length: r.hours }, () => ({ r, subject: r.subject }))
   })
-  const body = perHour.map(({ r }) => new TableRow({ cantSplit: true, height: { value: 420, rule: HeightRule.ATLEAST }, children: [
-    cell(0, [r.date]), cell(1, [r.orderRef]), cell(2, [/^\d+$/.test(r.cls.trim()) ? `паралелка №${r.cls.trim()}` : r.cls]),
-    cell(3, ['']), cell(4, ['1']), cell(5, [r.absentName], false, false),
+  // „Тема“ и „Брой часове“ — на всеки ред (темата се пише за всеки час); останалите колони се обединяват,
+  // всяка в рамките на колоните вляво: дата → заповед → клас; отсъстващият — в рамките на датата и заповедта
+  const keys = perHour.map(({ r }) => [r.date, `${r.date}|${r.orderRef}`, `${r.date}|${r.orderRef}|${r.cls}`, `${r.date}|${r.orderRef}|${r.absentName}`])
+  const mg = (k: number, i: number): 'start' | 'cont' => (i > 0 && keys[i - 1][k] === keys[i][k] ? 'cont' : 'start')
+  const body = perHour.map(({ r }, i) => new TableRow({ cantSplit: true, height: { value: 420, rule: HeightRule.ATLEAST }, children: [
+    cell(0, mg(0, i) === 'cont' ? [''] : [r.date], false, true, mg(0, i)),
+    cell(1, mg(1, i) === 'cont' ? [''] : [r.orderRef], false, true, mg(1, i)),
+    cell(2, mg(2, i) === 'cont' ? [''] : [/^\d+$/.test(r.cls.trim()) ? `паралелка №${r.cls.trim()}` : r.cls], false, true, mg(2, i)),
+    cell(3, ['']), cell(4, ['1']),
+    cell(5, mg(3, i) === 'cont' ? [''] : [r.absentName], false, false, mg(3, i)),
   ] }))
   children.push(new Table({ width: { size: TEXT_W, type: WidthType.DXA }, columnWidths: COLS, layout: TableLayoutType.FIXED, rows: [head, ...body] }))
 
