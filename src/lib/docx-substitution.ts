@@ -856,6 +856,17 @@ export async function generateMonthlyBudgetDeclaration(d: MonthlyDeclData) {
   saveAs(blob, `декларация_бюджет_${stem}_${d.substituteName.replace(/\s+/g, '_')}.docx`)
 }
 
+/** Декларациите по заместване на ЕДИН колега за месеца — в един файл: НП и бюджет, всяка на своя страница
+ *  (само тези, по които има часове). Шрифтовете са изрично в секциите, затова стиловете не се бият. */
+export async function generateMonthlySubstitutionDeclarations(d: MonthlyDeclData) {
+  const hasNp = d.rows.some(r => r.bsch), hasBudget = d.rows.some(r => !r.bsch)
+  const parts = [...(hasNp ? [npDeclSection(d)] : []), ...(hasBudget ? [budgetDeclSection(d)] : [])]
+  if (!parts.length) return
+  const blob = await Packer.toBlob(new Document({ styles: BUDGET_STYLES, sections: parts.map(p => p.section) }))
+  const kinds = [hasNp ? 'НП' : '', hasBudget ? 'бюджет' : ''].filter(Boolean).join('_и_')
+  saveAs(blob, `декларация_заместване_${kinds}_${parts[0].stem}_${d.substituteName.replace(/\s+/g, '_')}.docx`)
+}
+
 /** Декларациите на няколко колеги в един файл — всяка на нова страница (за печат наведнъж) */
 export async function generateMonthlyDeclarationsBatch(list: MonthlyDeclData[], kind: 'np' | 'budget', label: string) {
   const parts = list.map(d => (kind === 'np' ? npDeclSection(d) : budgetDeclSection(d)).section)
