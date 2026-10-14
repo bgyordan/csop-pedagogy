@@ -160,7 +160,7 @@ export default function SubstituteDayCanvas({ schoolDays, staff, value, onChange
         </button>
       </div>}
 
-      {!readOnly && !activeId && <p className="text-xs text-slate-500">Първо избери заместник, после цъкай дните, които той покрива. С „ч.“ в ъгъла денят се разделя по часове (напр. всеки ИЧ от различен колега).</p>}
+      {!readOnly && !activeId && <p className="text-xs text-slate-500">Първо избери заместник, после цъкай дните, които той покрива. С „ч.“ в ъгъла денят се разделя по часове (напр. всеки ИЧ от различен колега). Ден, оставен без заместник, остава <b className="font-medium">без заместник</b> (напр. първия ден).</p>}
 
       {/* Календар */}
       <div className="space-y-1.5">
