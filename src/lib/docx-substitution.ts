@@ -630,8 +630,7 @@ function lecturerDeclSection(d: LecturerDeclData) {
   sign('Декларатор:', '(подпис)')
   divider()
   children.push(new Paragraph({ children: [normal('Посочените часове са действително проведени и са вписани в дневника на класа.', 20)], spacing: { after: 280 }, ...KEEP }))
-  sign('Проверил:', '(ЗДУД)')
-  divider()
+  sign('Проверил:', '(ЗДУД)', 360)
   children.push(new Paragraph({ children: [normal(`Сумата е проверена, начислена и изплатена по ведомост за месец ${'…'.repeat(12)} ${Y} г.`, 20)], spacing: { after: 280 }, ...KEEP }))
   sign('Счетоводител:', '(подпис)')
 
@@ -806,12 +805,12 @@ function budgetDeclSection(d: MonthlyDeclData) {
   children.push(P([t('По заместване', { bold: true, underline: {} })], { alignment: AlignmentType.RIGHT, spacing: { after: 240 } }))
   children.push(P([new TextRun({ text: 'Д Е К Л А Р А Ц И Я', font: F, size: 24, bold: true })], { alignment: AlignmentType.CENTER, spacing: { after: 240 } }))
 
-  children.push(P([t('Долуподписаният/та '), t(d.substituteName, { bold: true })], { spacing: { after: 60 } }))
-  children.push(P([t('заемащ длъжността '), t(d.substitutePosition || 'учител', { bold: true })], { spacing: { after: 60 } }))
-  children.push(P([t('ДЕКЛАРИРАМ', { bold: true }), t(', '), t('че', { bold: true })], { spacing: { after: 60 } }))
+  // един абзац за декларатора, втори — „ДЕКЛАРИРАМ, че…“ (без излишни нови редове)
+  children.push(P([t('Долуподписаният/та '), t(d.substituteName, { bold: true }), t(', заемащ длъжността '), t(d.substitutePosition || 'учител', { bold: true }), t(' в ЦСОП – гр. Варна,')],
+    { alignment: AlignmentType.JUSTIFIED, spacing: { after: 120 } }))
   // заповедта и отсъстващият — на всеки ред в таблицата (като при НП)
   children.push(P([
-    t('за месец '), t(monthLabel, { bold: true }), t(' 2026 година, съм взел/а следните часове над минималната норма задължителна преподавателска работа за заместване на отсъстващ учител:'),
+    t('ДЕКЛАРИРАМ, че ', { bold: true }), t('за месец '), t(monthLabel, { bold: true }), t(' 2026 година, съм взел/а следните часове над минималната норма задължителна преподавателска работа за заместване на отсъстващ учител:'),
   ], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 160 } }))
 
   // таблица — като при НП (заповедта на всеки ред), „Тема“ → „Предмет“
@@ -822,8 +821,8 @@ function budgetDeclSection(d: MonthlyDeclData) {
     borders: CELLS, columnSpan: o.span, verticalAlign: VerticalAlign.CENTER,
     ...(o.merge ? { verticalMerge: o.merge === 'start' ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE } : {}),
     width: { size: o.span ? COLS.slice(i, i + o.span).reduce((a, x) => a + x, 0) : COLS[i], type: WidthType.DXA },
-    margins: { top: 40, bottom: 40, left: 60, right: 60 },
-    children: lines.map(l => new Paragraph({ alignment: o.align ?? AlignmentType.CENTER, spacing: { after: 0, line: 252 }, children: [t(l, { bold: !!o.bold })] })),
+    margins: { top: 20, bottom: 20, left: 60, right: 60 },
+    children: lines.map(l => new Paragraph({ alignment: o.align ?? AlignmentType.CENTER, spacing: { after: 0, line: 240 }, children: [t(l, { bold: !!o.bold })] })),
   })
   const trows: TableRow[] = [new TableRow({ tableHeader: true, children: [
     cell(0, ['Дата'], { bold: true }), cell(1, ['Заповед №… от…'], { bold: true }), cell(2, ['Паралелка /', 'група'], { bold: true }),
@@ -851,7 +850,7 @@ function budgetDeclSection(d: MonthlyDeclData) {
     else grp.push({ r, subject, cls, hours: 1, keys })
   })
   const m = (k: number, i: number): 'start' | 'cont' => (i > 0 && grp[i - 1].keys[k] === grp[i].keys[k] ? 'cont' : 'start')
-  grp.forEach(({ r, subject, cls, hours }, i) => trows.push(new TableRow({ cantSplit: true, height: { value: 420, rule: HeightRule.ATLEAST }, children: [
+  grp.forEach(({ r, subject, cls, hours }, i) => trows.push(new TableRow({ cantSplit: true, children: [
     cell(0, m(0, i) === 'cont' ? [''] : [r.date], { merge: m(0, i) }),
     cell(1, m(1, i) === 'cont' ? [''] : [r.orderRef], { merge: m(1, i) }),
     cell(2, m(2, i) === 'cont' ? [''] : [cls], { merge: m(2, i) }),
@@ -888,8 +887,7 @@ function budgetDeclSection(d: MonthlyDeclData) {
   sign('Дата: ………………… 2026 г.', 'Декларатор:', '(подпис)')
   divider()
   children.push(P([t('Посочените часове са действително проведени и са вписани в дневника на класа.')], { spacing: { after: 280 }, ...KEEP }))
-  sign('Дата: ………………… 2026 г.', 'Проверил:', '(ЗДУД)')
-  divider()
+  sign('Дата: ………………… 2026 г.', 'Проверил:', '(ЗДУД)', 360)
   children.push(P([t('Сумата е проверена, начислена и изплатена по ведомост за месец ……………………… 2026 г.')], { spacing: { after: 280 }, ...KEEP }))
   sign('Дата: ………………… 2026 г.', 'Счетоводител:', '(подпис)')
 
