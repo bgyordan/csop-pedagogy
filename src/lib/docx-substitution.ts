@@ -777,7 +777,6 @@ function budgetDeclSection(d: MonthlyDeclData) {
   const tab = () => new TextRun({ font: F, size: 20, children: [new Tab()] })
   const DOTS = [{ type: TabStopType.RIGHT, position: TEXT_W, leader: LeaderType.DOT }]
   const P = (children: any[], o: any = {}) => new Paragraph({ children, spacing: { after: 0, line: 276 }, ...o })
-  const RULE = { bottom: { style: BorderStyle.SINGLE, size: 6, color: '000000', space: 4 } }
 
   // месец: един месец → „септември“; повече → „септември – октомври“
   const MONTHS = ['януари','февруари','март','април','май','юни','юли','август','септември','октомври','ноември','декември']
@@ -854,18 +853,27 @@ function budgetDeclSection(d: MonthlyDeclData) {
   const rate = d.rate && d.rate > 0 ? d.rate : DEFAULT_RATES.sub
   children.push(P([t(`${total} часа по ${eurD(rate)} евро на час - ${eurD(total * rate)} евро;`)], { spacing: { after: 160 } }))
 
-  children.push(P([t('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося наказателна отговорност съгласно законите на Република България.')], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 200 } }))
+  children.push(P([t('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося наказателна отговорност съгласно законите на Република България.')], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 480 } }))
 
-  // подписи — ляво дата, дясно роля (като бланката)
-  const RIGHT_COL = [{ type: TabStopType.LEFT, position: 5500 }]
-  children.push(P([t('………………………… 2026 година'), tab(), t('ДЕКЛАРАТОР:', { bold: true }), t('……………………')], { tabStops: RIGHT_COL, spacing: { after: 60 } }))
-  children.push(P([tab(), t('         /подпис/')], { tabStops: RIGHT_COL, border: RULE, spacing: { after: 160 } }))
-  children.push(P([t('Посочените часове са действително проведени и са вписани в дневника на класа.')], { spacing: { after: 160 } }))
-  children.push(P([t('Дата: …………………2026г.'), tab(), t('Проверил:', { bold: true }), t('……………………')], { tabStops: RIGHT_COL, spacing: { after: 60 } }))
-  children.push(P([tab(), t('         ЗДУД')], { tabStops: RIGHT_COL, spacing: { after: 360 } }))
-  children.push(P([t('Сумата е проверена, начислена и изплатена по ведомост за месец ……………………… 2026г.')], { spacing: { after: 160 } }))
-  children.push(P([t('………………………… 2026 година')], { border: RULE, spacing: { after: 120 } }))
-  children.push(P([tab(), t('Счетоводител: ', { italics: true }), t('……………………')], { tabStops: [{ type: TabStopType.LEFT, position: 4500 }] }))
+  // подписи — вляво датата, вдясно в една колона ролята с точки до края; пояснението — центрирано под точките
+  const SIG_X = 5600
+  const SIG = [{ type: TabStopType.LEFT, position: SIG_X }, { type: TabStopType.RIGHT, position: TEXT_W, leader: LeaderType.DOT }]
+  const CAP = [{ type: TabStopType.CENTER, position: Math.round((SIG_X + 1300 + TEXT_W) / 2) }]
+  const KEEP = { keepNext: true, keepLines: true }
+  const sign = (left: string, role: string, caption: string, after = 0) => {
+    children.push(P([t(left), tab(), t(role + ' '), tab()], { tabStops: SIG, spacing: { before: 0, after: 40 }, ...KEEP }))
+    children.push(P([tab(), t(caption, { italics: true, size: 18, color: '595959' })], { tabStops: CAP, spacing: { after }, ...(after ? {} : KEEP) }))
+  }
+  // фина сива линия между частите
+  const divider = () => children.push(P([], { border: { top: { style: BorderStyle.SINGLE, size: 2, color: 'A6A6A6', space: 1 } }, spacing: { before: 360, after: 200 } }))
+
+  sign('Дата: ………………… 2026 г.', 'Декларатор:', '(подпис)')
+  divider()
+  children.push(P([t('Посочените часове са действително проведени и са вписани в дневника на класа.')], { spacing: { after: 280 }, ...KEEP }))
+  sign('Дата: ………………… 2026 г.', 'Проверил:', '(ЗДУД)')
+  divider()
+  children.push(P([t('Сумата е проверена, начислена и изплатена по ведомост за месец ……………………… 2026 г.')], { spacing: { after: 280 }, ...KEEP }))
+  sign('Дата: ………………… 2026 г.', 'Счетоводител:', '(подпис)')
 
   return {
     section: { properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 709, right: 707, bottom: 851, left: 1417 } } }, children },
