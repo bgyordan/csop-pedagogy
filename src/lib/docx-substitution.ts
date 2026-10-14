@@ -778,7 +778,6 @@ function budgetDeclSection(d: MonthlyDeclData) {
   const DOTS = [{ type: TabStopType.RIGHT, position: TEXT_W, leader: LeaderType.DOT }]
   const P = (children: any[], o: any = {}) => new Paragraph({ children, spacing: { after: 0, line: 276 }, ...o })
   const RULE = { bottom: { style: BorderStyle.SINGLE, size: 6, color: '000000', space: 4 } }
-  const uniq = (xs: string[]) => [...new Set(xs.filter(Boolean))]
 
   // месец: един месец → „септември“; повече → „септември – октомври“
   const MONTHS = ['януари','февруари','март','април','май','юни','юли','август','септември','октомври','ноември','декември']
@@ -787,9 +786,6 @@ function budgetDeclSection(d: MonthlyDeclData) {
     const m1 = MONTHS[new Date(d.periodFrom + 'T00:00').getMonth()], m2 = MONTHS[new Date(d.periodTo + 'T00:00').getMonth()]
     monthLabel = m1 === m2 ? m1 : `${m1} – ${m2}`
   }
-  const orders = uniq(rows.map(r => r.orderRef)).join(', ')
-  const absent = uniq(rows.map(r => r.absentName)).join(', ')
-
   const children: any[] = []
   children.push(P([t('По заместване', { bold: true, underline: {} })], { alignment: AlignmentType.RIGHT, spacing: { after: 360 } }))
   children.push(P([new TextRun({ text: 'Д Е К Л А Р А Ц И Я', font: F, size: 24, bold: true })], { alignment: AlignmentType.CENTER, spacing: { after: 240 } }))
@@ -798,31 +794,41 @@ function budgetDeclSection(d: MonthlyDeclData) {
   children.push(P([small('(име, презиме, фамилия)')], { alignment: AlignmentType.CENTER }))
   children.push(P([t('заемащ длъжността '), t(d.substitutePosition || 'учител', { bold: true })], { spacing: { after: 60 } }))
   children.push(P([t('ДЕКЛАРИРАМ', { bold: true }), t(', '), t('че', { bold: true })], { spacing: { after: 60 } }))
+  // заповедта и отсъстващият — на всеки ред в таблицата (като при НП)
   children.push(P([
-    t('за месец '), t(monthLabel, { bold: true }), t(' 2026 година, съм взел/а следните часове над минималната норма задължителна преподавателска работа, съгласно Заповед № '),
-    t(orders || '…………………', { bold: true }), t(' за заместване на отсъстващ учител '), t(absent || '…………………', { bold: true }), t('.'),
+    t('за месец '), t(monthLabel, { bold: true }), t(' 2026 година, съм взел/а следните часове над минималната норма задължителна преподавателска работа за заместване на отсъстващ учител:'),
   ], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 160 } }))
 
-  // таблица — колоните от бланката
-  const COLS = [554, 1850, 2000, 3064, 2314]
+  // таблица — като при НП (заповедта на всеки ред), „Тема“ → „Предмет“
+  const COLS = [1250, 1800, 1500, 2500, 900, 1832]   // сума 9782 — „паралелка №11“ на един ред
   const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
   const cell = (i: number, lines: string[], o: { bold?: boolean; align?: any; span?: number } = {}) => new TableCell({
     borders: CELLS, columnSpan: o.span, verticalAlign: VerticalAlign.CENTER,
     width: { size: o.span ? COLS.slice(i, i + o.span).reduce((a, x) => a + x, 0) : COLS[i], type: WidthType.DXA },
-    margins: { top: 30, bottom: 30, left: 60, right: 60 },
-    children: lines.map(l => new Paragraph({ alignment: o.align ?? AlignmentType.CENTER, spacing: { after: 0 }, children: [t(l, { size: 18, bold: !!o.bold })] })),
+    margins: { top: 40, bottom: 40, left: 60, right: 60 },
+    children: lines.map(l => new Paragraph({ alignment: o.align ?? AlignmentType.CENTER, spacing: { after: 0, line: 252 }, children: [t(l, { bold: !!o.bold })] })),
   })
   const trows: TableRow[] = [new TableRow({ tableHeader: true, children: [
-    cell(0, ['№', 'по', 'ред']), cell(1, ['Дата']), cell(2, ['Паралелка / група']), cell(3, ['Предмет']), cell(4, ['Брой', 'часове']),
+    cell(0, ['Дата'], { bold: true }), cell(1, ['Заповед №… от…'], { bold: true }), cell(2, ['Клас'], { bold: true }),
+    cell(3, ['Предмет'], { bold: true }), cell(4, ['Брой', 'часове'], { bold: true }), cell(5, ['Име на отсъстващия', 'учител'], { bold: true }),
   ] })]
-  rows.forEach((r, i) => trows.push(new TableRow({ children: [
-    cell(0, [String(i + 1)]), cell(1, [r.date]), cell(2, [/^\d+$/.test(r.cls.trim()) ? `№${r.cls.trim()}` : r.cls]), cell(3, subjectLines(r.subject), { align: AlignmentType.LEFT }), cell(4, [String(r.hours)]),
+  // всеки час на отделен ред (по реда в деня), с предмета му
+  const perHour = rows.flatMap(r => {
+    const its = (r.items || []).slice().sort((a, b) => a.period - b.period)
+    if (its.length === r.hours) return its.map(it => ({ r, subject: it.subject || r.subject }))
+    // без часовете поотделно: „Математика (2); БЕЛ (3)“ → 2 реда математика, 3 реда БЕЛ
+    const parts = r.subject.split(/;\s*/).map(x => x.match(/^(.*?)\s*\((\d+)\)$/)).filter(Boolean) as RegExpMatchArray[]
+    if (parts.length && parts.reduce((a, m) => a + Number(m[2]), 0) === r.hours)
+      return parts.flatMap(m => Array.from({ length: Number(m[2]) }, () => ({ r, subject: m[1] })))
+    return Array.from({ length: r.hours }, () => ({ r, subject: r.subject }))
+  })
+  perHour.forEach(({ r, subject }) => trows.push(new TableRow({ cantSplit: true, height: { value: 420, rule: HeightRule.ATLEAST }, children: [
+    cell(0, [r.date]), cell(1, [r.orderRef]), cell(2, [/^\d+$/.test(r.cls.trim()) ? `паралелка №${r.cls.trim()}` : r.cls]),
+    cell(3, subjectLines(subject)), cell(4, ['1']), cell(5, [r.absentName], { align: AlignmentType.LEFT }),
   ] })))
-  // празни редове до минимум 5 — като в бланката
-  for (let i = rows.length; i < 5; i++) trows.push(new TableRow({ children: [0, 1, 2, 3, 4].map(k => cell(k, [''])) }))
   trows.push(new TableRow({ children: [
-    cell(0, [''], { span: 3 }), cell(3, ['Всичко:'], { align: AlignmentType.RIGHT }), cell(4, [String(total)], { bold: true }),
+    cell(0, ['Всичко:'], { span: 4, align: AlignmentType.RIGHT, bold: true }), cell(4, [String(total)], { bold: true }), cell(5, ['']),
   ] }))
   children.push(new Table({ width: { size: TEXT_W, type: WidthType.DXA }, columnWidths: COLS, layout: TableLayoutType.FIXED, rows: trows }))
 
