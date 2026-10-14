@@ -661,7 +661,6 @@ function npDeclSection(d: MonthlyDeclData) {
   const dotTab = () => new TextRun({ font: F, size: 24, children: [new Tab()] })
   const DOTS = [{ type: TabStopType.RIGHT, position: TEXT_W, leader: LeaderType.DOT }]
   const P = (children: any[], o: any = {}) => new Paragraph({ children, spacing: { after: 0, line: 276 }, ...o })
-  const hint = (text: string) => P([it(text)], { alignment: AlignmentType.CENTER })
 
   const period = d.periodFrom && d.periodTo
     ? `${formatDate(d.periodFrom)} – ${formatDate(d.periodTo)}`
@@ -674,7 +673,6 @@ function npDeclSection(d: MonthlyDeclData) {
 
   // институция
   children.push(P([t('Център за специална образователна подкрепа – гр. Варна', { bold: true })], { alignment: AlignmentType.CENTER }))
-  children.push(hint('( детска градина/училище/ЦСОП/ЦПЛР)'))
   children.push(P([t('ПК 9000, гр. Варна, община Варна, област Варна')], { spacing: { before: 120, after: 0 } }))
   children.push(P([t('ул. „Петко Стайнов“ № 7, тел.: 052 619 456, e-mail: info-400052@edu.mon.bg')], { spacing: { before: 120, after: 280 } }))
 
@@ -684,14 +682,11 @@ function npDeclSection(d: MonthlyDeclData) {
   children.push(P([t('по Националната програма „Без свободен час“ за 2026 г.,')], { alignment: AlignmentType.CENTER, spacing: { after: 60 } }))
   children.push(P([t('модул „Без свободен час в училище“')], { alignment: AlignmentType.CENTER, spacing: { after: 280 } }))
 
-  // долуподписаният — редове с точки до края + пояснения
+  // долуподписаният — без поясненията в скоби
   // попълнените автоматично полета — без точки след тях
-  children.push(P([t('Долуподписаният (ата) '), t(d.substituteName, { bold: true })]))
-  children.push(hint('(име, презиме, фамилия)'))
-  children.push(P([t('заемащ (а) длъжността '), t(d.substitutePosition || 'учител', { bold: true })]))
-  children.push(hint('(наименование на длъжността)'))
+  children.push(P([t('Долуподписаният (ата) '), t(d.substituteName, { bold: true })], { spacing: { after: 80 } }))
+  children.push(P([t('заемащ (а) длъжността '), t(d.substitutePosition || 'учител', { bold: true })], { spacing: { after: 80 } }))
   children.push(P([t('в '), t('ЦСОП – гр. Варна', { bold: true })]))
-  children.push(hint('(училище/ЦСОП/ДГ/ЦПЛР)'))
 
   children.push(P([t('Д Е К Л А Р И Р А М ,', { bold: true })], { alignment: AlignmentType.CENTER, spacing: { before: 240, after: 240 } }))
   // месец: един месец → „септември 2026 г.“; повече → „септември – октомври 2026 г.“
