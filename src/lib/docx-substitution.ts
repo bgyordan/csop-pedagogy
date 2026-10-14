@@ -800,17 +800,18 @@ function budgetDeclSection(d: MonthlyDeclData) {
   ], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 160 } }))
 
   // таблица — като при НП (заповедта на всеки ред), „Тема“ → „Предмет“
-  const COLS = [1250, 1800, 1500, 2500, 900, 1832]   // сума 9782 — „паралелка №11“ на един ред
+  const COLS = [1250, 1850, 1250, 2700, 900, 1832]   // сума 9782
   const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
-  const cell = (i: number, lines: string[], o: { bold?: boolean; align?: any; span?: number } = {}) => new TableCell({
+  const cell = (i: number, lines: string[], o: { bold?: boolean; align?: any; span?: number; merge?: 'start' | 'cont' } = {}) => new TableCell({
     borders: CELLS, columnSpan: o.span, verticalAlign: VerticalAlign.CENTER,
+    ...(o.merge ? { verticalMerge: o.merge === 'start' ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE } : {}),
     width: { size: o.span ? COLS.slice(i, i + o.span).reduce((a, x) => a + x, 0) : COLS[i], type: WidthType.DXA },
     margins: { top: 40, bottom: 40, left: 60, right: 60 },
     children: lines.map(l => new Paragraph({ alignment: o.align ?? AlignmentType.CENTER, spacing: { after: 0, line: 252 }, children: [t(l, { bold: !!o.bold })] })),
   })
   const trows: TableRow[] = [new TableRow({ tableHeader: true, children: [
-    cell(0, ['Дата'], { bold: true }), cell(1, ['Заповед №… от…'], { bold: true }), cell(2, ['Клас'], { bold: true }),
+    cell(0, ['Дата'], { bold: true }), cell(1, ['Заповед №… от…'], { bold: true }), cell(2, ['Паралелка /', 'група'], { bold: true }),
     cell(3, ['Предмет'], { bold: true }), cell(4, ['Брой', 'часове'], { bold: true }), cell(5, ['Име на отсъстващия', 'учител'], { bold: true }),
   ] })]
   // всеки час на отделен ред (по реда в деня), с предмета му
@@ -823,9 +824,20 @@ function budgetDeclSection(d: MonthlyDeclData) {
       return parts.flatMap(m => Array.from({ length: Number(m[2]) }, () => ({ r, subject: m[1] })))
     return Array.from({ length: r.hours }, () => ({ r, subject: r.subject }))
   })
-  perHour.forEach(({ r, subject }) => trows.push(new TableRow({ cantSplit: true, height: { value: 420, rule: HeightRule.ATLEAST }, children: [
-    cell(0, [r.date]), cell(1, [r.orderRef]), cell(2, [/^\d+$/.test(r.cls.trim()) ? `паралелка №${r.cls.trim()}` : r.cls]),
-    cell(3, subjectLines(subject)), cell(4, ['1']), cell(5, [r.absentName], { align: AlignmentType.LEFT }),
+  // еднаквите поредни стойности се обединяват — всяка колона в рамките на колоните вляво
+  // (датата → заповедта → паралелката → предметът); отсъстващият — в рамките на датата и заповедта
+  const grp = perHour.map(({ r, subject }) => {
+    const cls = /^\d+$/.test(r.cls.trim()) ? `№${r.cls.trim()}` : r.cls
+    return { r, subject, cls, keys: [r.date, `${r.date}|${r.orderRef}`, `${r.date}|${r.orderRef}|${cls}`, `${r.date}|${r.orderRef}|${cls}|${subject}`, `${r.date}|${r.orderRef}|${r.absentName}`] }
+  })
+  const m = (k: number, i: number): 'start' | 'cont' => (i > 0 && grp[i - 1].keys[k] === grp[i].keys[k] ? 'cont' : 'start')
+  grp.forEach(({ r, subject, cls }, i) => trows.push(new TableRow({ cantSplit: true, height: { value: 420, rule: HeightRule.ATLEAST }, children: [
+    cell(0, m(0, i) === 'cont' ? [''] : [r.date], { merge: m(0, i) }),
+    cell(1, m(1, i) === 'cont' ? [''] : [r.orderRef], { merge: m(1, i) }),
+    cell(2, m(2, i) === 'cont' ? [''] : [cls], { merge: m(2, i) }),
+    cell(3, m(3, i) === 'cont' ? [''] : subjectLines(subject), { merge: m(3, i) }),
+    cell(4, ['1']),
+    cell(5, m(4, i) === 'cont' ? [''] : [r.absentName], { merge: m(4, i), align: AlignmentType.LEFT }),
   ] })))
   trows.push(new TableRow({ children: [
     cell(0, ['Всичко:'], { span: 4, align: AlignmentType.RIGHT, bold: true }), cell(4, [String(total)], { bold: true }), cell(5, ['']),
