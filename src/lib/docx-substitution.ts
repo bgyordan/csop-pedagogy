@@ -661,7 +661,6 @@ function npDeclSection(d: MonthlyDeclData) {
   const dotTab = () => new TextRun({ font: F, size: 24, children: [new Tab()] })
   const DOTS = [{ type: TabStopType.RIGHT, position: TEXT_W, leader: LeaderType.DOT }]
   const P = (children: any[], o: any = {}) => new Paragraph({ children, spacing: { after: 0, line: 276 }, ...o })
-  const hint = (text: string) => P([it(text)], { alignment: AlignmentType.CENTER })
 
   const period = d.periodFrom && d.periodTo
     ? `${formatDate(d.periodFrom)} – ${formatDate(d.periodTo)}`
@@ -674,7 +673,6 @@ function npDeclSection(d: MonthlyDeclData) {
 
   // институция
   children.push(P([t('Център за специална образователна подкрепа – гр. Варна', { bold: true })], { alignment: AlignmentType.CENTER }))
-  children.push(hint('( детска градина/училище/ЦСОП/ЦПЛР)'))
   children.push(P([t('ПК 9000, гр. Варна, община Варна, област Варна')], { spacing: { before: 120, after: 0 } }))
   children.push(P([t('ул. „Петко Стайнов“ № 7, тел.: 052 619 456, e-mail: info-400052@edu.mon.bg')], { spacing: { before: 120, after: 280 } }))
 
@@ -684,14 +682,11 @@ function npDeclSection(d: MonthlyDeclData) {
   children.push(P([t('по Националната програма „Без свободен час“ за 2026 г.,')], { alignment: AlignmentType.CENTER, spacing: { after: 60 } }))
   children.push(P([t('модул „Без свободен час в училище“')], { alignment: AlignmentType.CENTER, spacing: { after: 280 } }))
 
-  // долуподписаният — редове с точки до края + пояснения
+  // долуподписаният — без поясненията в скоби
   // попълнените автоматично полета — без точки след тях
-  children.push(P([t('Долуподписаният (ата) '), t(d.substituteName, { bold: true })]))
-  children.push(hint('(име, презиме, фамилия)'))
-  children.push(P([t('заемащ (а) длъжността '), t(d.substitutePosition || 'учител', { bold: true })]))
-  children.push(hint('(наименование на длъжността)'))
+  children.push(P([t('Долуподписаният (ата) '), t(d.substituteName, { bold: true })], { spacing: { after: 80 } }))
+  children.push(P([t('заемащ (а) длъжността '), t(d.substitutePosition || 'учител', { bold: true })], { spacing: { after: 80 } }))
   children.push(P([t('в '), t('ЦСОП – гр. Варна', { bold: true })]))
-  children.push(hint('(училище/ЦСОП/ДГ/ЦПЛР)'))
 
   children.push(P([t('Д Е К Л А Р И Р А М ,', { bold: true })], { alignment: AlignmentType.CENTER, spacing: { before: 240, after: 240 } }))
   // месец: един месец → „септември 2026 г.“; повече → „септември – октомври 2026 г.“
@@ -709,8 +704,9 @@ function npDeclSection(d: MonthlyDeclData) {
   const COLS = [1300, 1850, 1150, 2330, 820, 1764]   // сума 9214 — датата и „014/12.10.2026г.“ се побират на един ред
   const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
-  const cell = (i: number, lines: string[], bold = false, center = true) => new TableCell({
+  const cell = (i: number, lines: string[], bold = false, center = true, merge?: 'start' | 'cont') => new TableCell({
     borders: CELLS, width: { size: COLS[i], type: WidthType.DXA }, verticalAlign: VerticalAlign.CENTER,
+    ...(merge ? { verticalMerge: merge === 'start' ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE } : {}),
     margins: { top: 40, bottom: 40, left: 60, right: 60 },
     children: lines.map(l => new Paragraph({ alignment: center ? AlignmentType.CENTER : AlignmentType.LEFT, spacing: { after: 0, line: 252 }, children: [t(l, { size: 20, ...(bold ? { bold: true } : {}) })] })),
   })
@@ -723,9 +719,16 @@ function npDeclSection(d: MonthlyDeclData) {
     const its = (r.items || []).slice().sort((a, b) => a.period - b.period)
     return its.length === r.hours ? its.map(it => ({ r, subject: it.subject })) : Array.from({ length: r.hours }, () => ({ r, subject: r.subject }))
   })
-  const body = perHour.map(({ r }) => new TableRow({ cantSplit: true, height: { value: 420, rule: HeightRule.ATLEAST }, children: [
-    cell(0, [r.date]), cell(1, [r.orderRef]), cell(2, [/^\d+$/.test(r.cls.trim()) ? `паралелка №${r.cls.trim()}` : r.cls]),
-    cell(3, ['']), cell(4, ['1']), cell(5, [r.absentName], false, false),
+  // „Тема“ и „Брой часове“ — на всеки ред (темата се пише за всеки час); останалите колони се обединяват,
+  // всяка в рамките на колоните вляво: дата → заповед → клас; отсъстващият — в рамките на датата и заповедта
+  const keys = perHour.map(({ r }) => [r.date, `${r.date}|${r.orderRef}`, `${r.date}|${r.orderRef}|${r.cls}`, `${r.date}|${r.orderRef}|${r.absentName}`])
+  const mg = (k: number, i: number): 'start' | 'cont' => (i > 0 && keys[i - 1][k] === keys[i][k] ? 'cont' : 'start')
+  const body = perHour.map(({ r }, i) => new TableRow({ cantSplit: true, height: { value: 420, rule: HeightRule.ATLEAST }, children: [
+    cell(0, mg(0, i) === 'cont' ? [''] : [r.date], false, true, mg(0, i)),
+    cell(1, mg(1, i) === 'cont' ? [''] : [r.orderRef], false, true, mg(1, i)),
+    cell(2, mg(2, i) === 'cont' ? [''] : [/^\d+$/.test(r.cls.trim()) ? `паралелка №${r.cls.trim()}` : r.cls], false, true, mg(2, i)),
+    cell(3, ['']), cell(4, ['1']),
+    cell(5, mg(3, i) === 'cont' ? [''] : [r.absentName], false, false, mg(3, i)),
   ] }))
   children.push(new Table({ width: { size: TEXT_W, type: WidthType.DXA }, columnWidths: COLS, layout: TableLayoutType.FIXED, rows: [head, ...body] }))
 
@@ -773,12 +776,9 @@ function budgetDeclSection(d: MonthlyDeclData) {
   const F = 'Times New Roman'
   const TEXT_W = 11906 - 1417 - 707          // 9782 — полетата от бланката
   const t = (text: string, o: any = {}) => new TextRun({ text, font: F, size: 20, ...o })
-  const small = (text: string, o: any = {}) => new TextRun({ text, font: F, size: 20, ...o })
   const tab = () => new TextRun({ font: F, size: 20, children: [new Tab()] })
   const DOTS = [{ type: TabStopType.RIGHT, position: TEXT_W, leader: LeaderType.DOT }]
   const P = (children: any[], o: any = {}) => new Paragraph({ children, spacing: { after: 0, line: 276 }, ...o })
-  const RULE = { bottom: { style: BorderStyle.SINGLE, size: 6, color: '000000', space: 4 } }
-  const uniq = (xs: string[]) => [...new Set(xs.filter(Boolean))]
 
   // месец: един месец → „септември“; повече → „септември – октомври“
   const MONTHS = ['януари','февруари','март','април','май','юни','юли','август','септември','октомври','ноември','декември']
@@ -787,62 +787,98 @@ function budgetDeclSection(d: MonthlyDeclData) {
     const m1 = MONTHS[new Date(d.periodFrom + 'T00:00').getMonth()], m2 = MONTHS[new Date(d.periodTo + 'T00:00').getMonth()]
     monthLabel = m1 === m2 ? m1 : `${m1} – ${m2}`
   }
-  const orders = uniq(rows.map(r => r.orderRef)).join(', ')
-  const absent = uniq(rows.map(r => r.absentName)).join(', ')
-
   const children: any[] = []
-  children.push(P([t('По заместване', { bold: true, underline: {} })], { alignment: AlignmentType.RIGHT, spacing: { after: 360 } }))
+  // хедър — само името на центъра (като при НП)
+  children.push(P([new TextRun({ text: 'Център за специална образователна подкрепа – гр. Варна', font: F, size: 24, bold: true })], { alignment: AlignmentType.CENTER, spacing: { after: 240 } }))
+  children.push(P([t('По заместване', { bold: true, underline: {} })], { alignment: AlignmentType.RIGHT, spacing: { after: 240 } }))
   children.push(P([new TextRun({ text: 'Д Е К Л А Р А Ц И Я', font: F, size: 24, bold: true })], { alignment: AlignmentType.CENTER, spacing: { after: 240 } }))
 
-  children.push(P([t('Долуподписаният/та '), t(d.substituteName, { bold: true })]))
-  children.push(P([small('(име, презиме, фамилия)')], { alignment: AlignmentType.CENTER }))
+  children.push(P([t('Долуподписаният/та '), t(d.substituteName, { bold: true })], { spacing: { after: 60 } }))
   children.push(P([t('заемащ длъжността '), t(d.substitutePosition || 'учител', { bold: true })], { spacing: { after: 60 } }))
   children.push(P([t('ДЕКЛАРИРАМ', { bold: true }), t(', '), t('че', { bold: true })], { spacing: { after: 60 } }))
+  // заповедта и отсъстващият — на всеки ред в таблицата (като при НП)
   children.push(P([
-    t('за месец '), t(monthLabel, { bold: true }), t(' 2026 година, съм взел/а следните часове над минималната норма задължителна преподавателска работа, съгласно Заповед № '),
-    t(orders || '…………………', { bold: true }), t(' за заместване на отсъстващ учител '), t(absent || '…………………', { bold: true }), t('.'),
+    t('за месец '), t(monthLabel, { bold: true }), t(' 2026 година, съм взел/а следните часове над минималната норма задължителна преподавателска работа за заместване на отсъстващ учител:'),
   ], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 160 } }))
 
-  // таблица — колоните от бланката
-  const COLS = [554, 1850, 2000, 3064, 2314]
+  // таблица — като при НП (заповедта на всеки ред), „Тема“ → „Предмет“
+  const COLS = [1250, 1850, 1250, 2700, 900, 1832]   // сума 9782
   const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
   const CELLS = { top: B, bottom: B, left: B, right: B }
-  const cell = (i: number, lines: string[], o: { bold?: boolean; align?: any; span?: number } = {}) => new TableCell({
+  const cell = (i: number, lines: string[], o: { bold?: boolean; align?: any; span?: number; merge?: 'start' | 'cont' } = {}) => new TableCell({
     borders: CELLS, columnSpan: o.span, verticalAlign: VerticalAlign.CENTER,
+    ...(o.merge ? { verticalMerge: o.merge === 'start' ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE } : {}),
     width: { size: o.span ? COLS.slice(i, i + o.span).reduce((a, x) => a + x, 0) : COLS[i], type: WidthType.DXA },
-    margins: { top: 30, bottom: 30, left: 60, right: 60 },
-    children: lines.map(l => new Paragraph({ alignment: o.align ?? AlignmentType.CENTER, spacing: { after: 0 }, children: [t(l, { size: 18, bold: !!o.bold })] })),
+    margins: { top: 40, bottom: 40, left: 60, right: 60 },
+    children: lines.map(l => new Paragraph({ alignment: o.align ?? AlignmentType.CENTER, spacing: { after: 0, line: 252 }, children: [t(l, { bold: !!o.bold })] })),
   })
   const trows: TableRow[] = [new TableRow({ tableHeader: true, children: [
-    cell(0, ['№', 'по', 'ред']), cell(1, ['Дата']), cell(2, ['Паралелка / група']), cell(3, ['Предмет']), cell(4, ['Брой', 'часове']),
+    cell(0, ['Дата'], { bold: true }), cell(1, ['Заповед №… от…'], { bold: true }), cell(2, ['Паралелка /', 'група'], { bold: true }),
+    cell(3, ['Предмет'], { bold: true }), cell(4, ['Брой', 'часове'], { bold: true }), cell(5, ['Име на отсъстващия', 'учител'], { bold: true }),
   ] })]
-  rows.forEach((r, i) => trows.push(new TableRow({ children: [
-    cell(0, [String(i + 1)]), cell(1, [r.date]), cell(2, [/^\d+$/.test(r.cls.trim()) ? `№${r.cls.trim()}` : r.cls]), cell(3, subjectLines(r.subject), { align: AlignmentType.LEFT }), cell(4, [String(r.hours)]),
+  // часовете по реда в деня, с предмета им
+  const perHour = rows.flatMap(r => {
+    const its = (r.items || []).slice().sort((a, b) => a.period - b.period)
+    if (its.length === r.hours) return its.map(it => ({ r, subject: it.subject || r.subject }))
+    // без часовете поотделно: „Математика (2); БЕЛ (3)“ → 2 реда математика, 3 реда БЕЛ
+    const parts = r.subject.split(/;\s*/).map(x => x.match(/^(.*?)\s*\((\d+)\)$/)).filter(Boolean) as RegExpMatchArray[]
+    if (parts.length && parts.reduce((a, m) => a + Number(m[2]), 0) === r.hours)
+      return parts.flatMap(m => Array.from({ length: Number(m[2]) }, () => ({ r, subject: m[1] })))
+    return Array.from({ length: r.hours }, () => ({ r, subject: r.subject }))
+  })
+  // еднаквите поредни стойности се обединяват — всяка колона в рамките на колоните вляво
+  // (датата → заповедта → паралелката → предметът); отсъстващият — в рамките на датата и заповедта
+  // поредните часове по един и същ предмет (същия ден, заповед, паралелка, отсъстващ) — един ред, часовете сумирани
+  const grp: { r: typeof rows[number]; subject: string; cls: string; hours: number; keys: string[] }[] = []
+  perHour.forEach(({ r, subject }) => {
+    const cls = /^\d+$/.test(r.cls.trim()) ? `№${r.cls.trim()}` : r.cls
+    const keys = [r.date, `${r.date}|${r.orderRef}`, `${r.date}|${r.orderRef}|${cls}`, `${r.date}|${r.orderRef}|${cls}|${subject}`, `${r.date}|${r.orderRef}|${r.absentName}`]
+    const p = grp[grp.length - 1]
+    if (p && p.keys[3] === keys[3] && p.keys[4] === keys[4]) p.hours++
+    else grp.push({ r, subject, cls, hours: 1, keys })
+  })
+  const m = (k: number, i: number): 'start' | 'cont' => (i > 0 && grp[i - 1].keys[k] === grp[i].keys[k] ? 'cont' : 'start')
+  grp.forEach(({ r, subject, cls, hours }, i) => trows.push(new TableRow({ cantSplit: true, height: { value: 420, rule: HeightRule.ATLEAST }, children: [
+    cell(0, m(0, i) === 'cont' ? [''] : [r.date], { merge: m(0, i) }),
+    cell(1, m(1, i) === 'cont' ? [''] : [r.orderRef], { merge: m(1, i) }),
+    cell(2, m(2, i) === 'cont' ? [''] : [cls], { merge: m(2, i) }),
+    cell(3, m(3, i) === 'cont' ? [''] : subjectLines(subject), { merge: m(3, i) }),
+    cell(4, [String(hours)]),
+    cell(5, m(4, i) === 'cont' ? [''] : [r.absentName], { merge: m(4, i), align: AlignmentType.LEFT }),
   ] })))
-  // празни редове до минимум 5 — като в бланката
-  for (let i = rows.length; i < 5; i++) trows.push(new TableRow({ children: [0, 1, 2, 3, 4].map(k => cell(k, [''])) }))
   trows.push(new TableRow({ children: [
-    cell(0, [''], { span: 3 }), cell(3, ['Всичко:'], { align: AlignmentType.RIGHT }), cell(4, [String(total)], { bold: true }),
+    cell(0, ['Всичко:'], { span: 4, align: AlignmentType.RIGHT, bold: true }), cell(4, [String(total)], { bold: true }), cell(5, ['']),
   ] }))
   children.push(new Table({ width: { size: TEXT_W, type: WidthType.DXA }, columnWidths: COLS, layout: TableLayoutType.FIXED, rows: trows }))
 
-  children.push(P([t('Общ брой учебни часове: '), t(String(total), { bold: true })], { alignment: AlignmentType.RIGHT, spacing: { before: 240, after: 160 } }))
-  // един попълнен ред по ставката за заместване (от „Проверка лекторски“; иначе 6,29 €)
+  // общо по ставката + словом — като при НП (ставката за заместване от „Проверка лекторски“; иначе 6,29 €)
   const rate = d.rate && d.rate > 0 ? d.rate : DEFAULT_RATES.sub
-  children.push(P([t(`${total} часа по ${eurD(rate)} евро на час - ${eurD(total * rate)} евро;`)], { spacing: { after: 160 } }))
+  children.push(P([t('Общ брой учебни часове: '), t(String(total), { bold: true }), t(' х '), t(eurD(rate), { bold: true }),
+    t(' EUR = '), t(eurD(total * rate), { bold: true }), t(' EUR')], { spacing: { before: 240, after: 0 } }))
+  children.push(P([t(eurWords(total * rate))], { alignment: AlignmentType.CENTER, spacing: { before: 120, after: 0 } }))
+  children.push(P([t('(цифром, словом)', { italics: true })], { alignment: AlignmentType.CENTER, spacing: { after: 200 } }))
 
-  children.push(P([t('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося наказателна отговорност съгласно законите на Република България.')], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 200 } }))
+  children.push(P([t('Известно ми е, че при деклариране на неверни данни в настоящата декларация, нося наказателна отговорност съгласно законите на Република България.')], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 480 } }))
 
-  // подписи — ляво дата, дясно роля (като бланката)
-  const RIGHT_COL = [{ type: TabStopType.LEFT, position: 5500 }]
-  children.push(P([t('………………………… 2026 година'), tab(), t('ДЕКЛАРАТОР:', { bold: true }), t('……………………')], { tabStops: RIGHT_COL, spacing: { after: 60 } }))
-  children.push(P([tab(), t('         /подпис/')], { tabStops: RIGHT_COL, border: RULE, spacing: { after: 160 } }))
-  children.push(P([t('Посочените часове са действително проведени и са вписани в дневника на класа.')], { spacing: { after: 160 } }))
-  children.push(P([t('Дата: …………………2026г.'), tab(), t('Проверил:', { bold: true }), t('……………………')], { tabStops: RIGHT_COL, spacing: { after: 60 } }))
-  children.push(P([tab(), t('         ЗДУД')], { tabStops: RIGHT_COL, spacing: { after: 360 } }))
-  children.push(P([t('Сумата е проверена, начислена и изплатена по ведомост за месец ……………………… 2026г.')], { spacing: { after: 160 } }))
-  children.push(P([t('………………………… 2026 година')], { border: RULE, spacing: { after: 120 } }))
-  children.push(P([tab(), t('Счетоводител: ', { italics: true }), t('……………………')], { tabStops: [{ type: TabStopType.LEFT, position: 4500 }] }))
+  // подписи — вляво датата, вдясно в една колона ролята с точки до края; пояснението — центрирано под точките
+  const SIG_X = 5600
+  const SIG = [{ type: TabStopType.LEFT, position: SIG_X }, { type: TabStopType.RIGHT, position: TEXT_W, leader: LeaderType.DOT }]
+  const CAP = [{ type: TabStopType.CENTER, position: Math.round((SIG_X + 1300 + TEXT_W) / 2) }]
+  const KEEP = { keepNext: true, keepLines: true }
+  const sign = (left: string, role: string, caption: string, after = 0) => {
+    children.push(P([t(left), tab(), t(role + ' '), tab()], { tabStops: SIG, spacing: { before: 0, after: 40 }, ...KEEP }))
+    children.push(P([tab(), t(caption, { italics: true, size: 18, color: '595959' })], { tabStops: CAP, spacing: { after }, ...(after ? {} : KEEP) }))
+  }
+  // фина сива линия между частите
+  const divider = () => children.push(P([], { border: { top: { style: BorderStyle.SINGLE, size: 2, color: 'A6A6A6', space: 1 } }, spacing: { before: 360, after: 200 } }))
+
+  sign('Дата: ………………… 2026 г.', 'Декларатор:', '(подпис)')
+  divider()
+  children.push(P([t('Посочените часове са действително проведени и са вписани в дневника на класа.')], { spacing: { after: 280 }, ...KEEP }))
+  sign('Дата: ………………… 2026 г.', 'Проверил:', '(ЗДУД)')
+  divider()
+  children.push(P([t('Сумата е проверена, начислена и изплатена по ведомост за месец ……………………… 2026 г.')], { spacing: { after: 280 }, ...KEEP }))
+  sign('Дата: ………………… 2026 г.', 'Счетоводител:', '(подпис)')
 
   return {
     section: { properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 709, right: 707, bottom: 851, left: 1417 } } }, children },
