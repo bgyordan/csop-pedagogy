@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { Loader2, FileDown, UserX, CalendarClock, IdCard, AlertTriangle } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { getMonthlyDeclaration } from '../substitutions/actions'
-import { generateMonthlyNPDeclaration, generateMonthlyBudgetDeclaration } from '@/lib/docx-substitution'
+import { generateMonthlySubstitutionDeclarations } from '@/lib/docx-substitution'
 import type { MySubRow } from './page'
 import { declarationPeriods, defaultPeriod, sofiaTodayIso } from '@/lib/declaration-periods'
 
@@ -22,7 +22,7 @@ export default function MySubstitutionsClient({ rows }: { rows: MySubRow[] }) {
   const periods = declarationPeriods('sub')
   const [periodKey, setPeriodKey] = useState(() => defaultPeriod(periods).key)
   const period = periods.find(p => p.key === periodKey) || periods[0]
-  const [busy, setBusy] = useState<'np' | 'budget' | null>(null)
+  const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(false)
   const [decl, setDecl] = useState<any | null>(null)
 
@@ -54,15 +54,15 @@ export default function MySubstitutionsClient({ rows }: { rows: MySubRow[] }) {
   // текущи и предстоящи — с паспортите на децата
   const current = rows.filter(r => r.dateTo >= today).sort((a, b) => a.dateFrom.localeCompare(b.dateFrom))
 
-  async function gen(kind: 'np' | 'budget') {
+  // една декларация за месеца — НП и бюджет в един файл, всяка на своя страница (без избор)
+  async function gen() {
     if (!decl) return
-    setBusy(kind)
+    setBusy(true)
     try {
-      if (kind === 'np') await generateMonthlyNPDeclaration(decl)
-      else await generateMonthlyBudgetDeclaration(decl)
-      toast('Декларацията е изтеглена')
+      await generateMonthlySubstitutionDeclarations(decl)
+      toast(npHours > 0 && budgetHours > 0 ? 'Изтеглен е един файл: НП и бюджет — всяка декларация на своя страница' : 'Декларацията е изтеглена')
     } catch (e) { toast('Грешка при генериране', 'error') }
-    setBusy(null)
+    setBusy(false)
   }
 
   return (
@@ -103,13 +103,10 @@ export default function MySubstitutionsClient({ rows }: { rows: MySubRow[] }) {
             </select>
           </div>
           <div className="flex gap-2 ml-auto">
-            <button onClick={() => gen('np')} disabled={busy !== null || loading || npHours === 0}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-medium hover:opacity-90 disabled:opacity-40" style={{ backgroundColor: '#059669' }}>
-              {busy === 'np' ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />} Декларация НП{npHours > 0 ? ` · ${npHours} ч.` : ''}
-            </button>
-            <button onClick={() => gen('budget')} disabled={busy !== null || loading || budgetHours === 0}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-medium hover:opacity-90 disabled:opacity-40" style={{ backgroundColor: '#0f2240' }}>
-              {busy === 'budget' ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />} Декларация бюджет{budgetHours > 0 ? ` · ${budgetHours} ч.` : ''}
+            <button onClick={gen} disabled={busy || loading || npHours + budgetHours === 0}
+              title={npHours > 0 && budgetHours > 0 ? `Един файл: НП (${npHours} ч.) и бюджет (${budgetHours} ч.) — всяка на своя страница` : undefined}
+              className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-white text-sm font-medium hover:opacity-90 disabled:opacity-40" style={{ backgroundColor: '#0f2240' }}>
+              {busy ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />} Декларация{npHours + budgetHours > 0 ? ` · ${npHours + budgetHours} ч.` : ''}
             </button>
           </div>
         </div>
