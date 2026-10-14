@@ -487,10 +487,9 @@ export interface LecturerDeclData {
   position: string         // "Учител/старши учител на ДУИ"
   periodLabel: string      // "01.09 – 31.10" или месец
   orderRef: string         // "Заповед № …"
-  /** „в сила от 15.09.2026 до 23.12.2026“ — срокът на часовете от графика, след заповедта */
-  orderValidity?: string
   /** heading — ред-заглавие през цялата ширина (логопед: „Септември 2026“) */
-  rows: { date: string; group: string; subject: string; hours: number; heading?: string }[]
+  /** time — учебният час (над норматив — отделна колона); valid — срокът на часа, в курсив под предмета */
+  rows: { date: string; group: string; subject: string; hours: number; heading?: string; time?: string; valid?: string }[]
   totalHours: number
   rate?: number            // ставка €/час (lecturer_rates) — попълва реда; без нея — празните редове по образец
   /** „По Образец 3“ (над норматив, по подразбиране) или „По Образец 1“ (ИФО) */
@@ -521,7 +520,9 @@ function lecturerDeclSection(d: LecturerDeclData) {
   // ИФО и логопед — ред на седмичен слот с колона „Учебен час“ (ден / час)
   const slotLayout = layout === 'speech' || layout === 'ifo'
   // ширините: над норматив — тясна „Група“ (само паралелката); ИФО — по-широка (името на детето); логопед — часът
-  const WIDTHS: Record<string, number[]> = { over: [900, 2250, 1050, 4900, 1000], ifo: [800, 2300, 1600, 4400, 1000], speech: [800, 2300, 1600, 4400, 1000] }
+  // над норматив с часа: № | Дата | Учебен час | Група | Предмет | Брой
+  const overTime = layout === 'over' && d.rows.some(r => r.time)
+  const WIDTHS: Record<string, number[]> = { over: overTime ? [800, 1900, 1550, 1000, 3850, 1000] : [900, 2250, 1050, 4900, 1000], ifo: [800, 2300, 1600, 4400, 1000], speech: [800, 2300, 1600, 4400, 1000] }
 
   children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: d.form || 'По Образец 3', bold: true, size: 20, underline: {} })], spacing: { after: 120 } }))
   // шапката — само името на ЦСОП
@@ -540,7 +541,7 @@ function lecturerDeclSection(d: LecturerDeclData) {
     normal(`за периода ${d.periodLabel}${yearPart} година, съм взел/а следните часове над минималната норма задължителна преподавателска работа${d.workNote || ''}`, 22),
     ...(d.speechSubject ? [normal(' – ', 22), bold(d.speechSubject, 22)] : []),
     ...(d.ifoStudent ? [normal(' в индивидуална форма на обучение (ИФО) – ', 22), bold(d.ifoStudent, 22)] : []),
-    normal(`, съгласно ${d.orderRef}${d.orderValidity ? `, ${d.orderValidity}` : ''}`, 22),
+    normal(`, съгласно ${d.orderRef}`, 22),
   ], spacing: { after: 160 } }))
 
   const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
@@ -548,11 +549,13 @@ function lecturerDeclSection(d: LecturerDeclData) {
   // ширините са фиксирани (в DXA) — иначе Word ги разпределя сам и дългите дати изяждат колоната с часа
   // логопед с един предмет — без колона „Предмет“ (предметът е в текста)
   const W = d.noSubject ? [1000, 4800, 2700, 1600] : (WIDTHS[layout] || WIDTHS.over)
-  const subjCol = d.noSubject ? -1 : 3, hoursCol = d.noSubject ? 3 : 4
+  const subjCol = d.noSubject ? -1 : overTime ? 4 : 3, hoursCol = d.noSubject ? 3 : overTime ? 5 : 4
   const wOf = (col: number) => ({ size: W[col], type: WidthType.DXA })
   const th = (t: string, col: number) => new TableCell({ width: wOf(col), borders: CELLS, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(t, 20)] })] })
   const td = (t: string, c = false) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 20)] })] })
-  const rows: TableRow[] = [ new TableRow({ children: [th('№ по ред', 0), th('Дата', 1), th(d.groupHeader || 'Група', 2), ...(subjCol < 0 ? [] : [th('Предмет', subjCol)]), th('Брой часове', hoursCol)] }) ]
+  const rows: TableRow[] = [ new TableRow({ tableHeader: true, children: overTime
+    ? [th('№ по ред', 0), th('Дата', 1), th('Учебен час', 2), th(d.groupHeader || 'Група', 3), th('Предмет', 4), th('Брой часове', 5)]
+    : [th('№ по ред', 0), th('Дата', 1), th(d.groupHeader || 'Група', 2), ...(subjCol < 0 ? [] : [th('Предмет', subjCol)]), th('Брой часове', hoursCol)] }) ]
   // логопед — само датата (иначе не се събира); над норматив и ИФО — с деня на същия ред
   // еднаквите поредни клетки в „Група“ и „Предмет“ се сливат (предметът — само в рамките на една група)
   // на смяна на предмет/група — по-дебела линия отгоре през реда (без слятата клетка на групата, ако тя продължава)
@@ -560,11 +563,14 @@ function lecturerDeclSection(d: LecturerDeclData) {
   const cellB = (_sep: boolean) => CELLS
   // „\n“ в текста — нов ред в клетката (логопед: „понеделник“ / „09:15 – 09:50“)
   const paras = (t: string, c: boolean) => t.split('\n').map(x => new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(x, 20)] }))
-  const cell = (t: string, c: boolean, sep: boolean, col: number) => new TableCell({ width: wOf(col), borders: cellB(sep), verticalAlign: VerticalAlign.CENTER, children: paras(t, c) })
-  const merged = (t: string, first: boolean, c: boolean, sep: boolean, col: number) => new TableCell({
+  // срокът на часа — малко, в курсив, под текста на клетката
+  const withValid = (ps: Paragraph[], valid: string | undefined, c: boolean) => valid
+    ? [...ps, new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [new TextRun({ text: valid, italics: true, size: 16, color: '404040' })] })] : ps
+  const cell = (t: string, c: boolean, sep: boolean, col: number, valid?: string) => new TableCell({ width: wOf(col), borders: cellB(sep), verticalAlign: VerticalAlign.CENTER, children: withValid(paras(t, c), valid, c) })
+  const merged = (t: string, first: boolean, c: boolean, sep: boolean, col: number, valid?: string) => new TableCell({
     width: wOf(col), borders: cellB(sep), verticalAlign: VerticalAlign.CENTER,
     verticalMerge: first ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE,
-    children: first ? paras(t, c) : [new Paragraph({ children: [] })],
+    children: first ? withValid(paras(t, c), valid, c) : [new Paragraph({ children: [] })],
   })
   let n = 0
   d.rows.forEach((r, i) => {
@@ -587,18 +593,28 @@ function lecturerDeclSection(d: LecturerDeclData) {
       // ИФО и логопед: денят с датите — една слята клетка за всички часове от този ден; часът е сам на ред;
       // дебела линия на смяна на деня; предметът се слива в рамките на деня (логопедът — за целия месец)
       const newDate = !prev || prev.date !== r.date
-      const newSubj = !prev || prev.subject !== r.subject || (layout === 'ifo' && newDate)
+      const newSubj = !prev || prev.subject !== r.subject || prev.valid !== r.valid || (layout === 'ifo' && newDate)
       const sepD = !!prev && newDate
+      // без колона „Предмет“ (логопед) — срокът е под часа
       rows.push(new TableRow({ children: [
-        cell(String(n), true, sepD, 0), merged(dt, newDate, true, sepD, 1), cell(r.group, true, sepD, 2),
-        ...(subjCol < 0 ? [] : [merged(r.subject, newSubj, false, sepD && newSubj, subjCol)]), cell(String(r.hours), true, sepD, hoursCol),
+        cell(String(n), true, sepD, 0), merged(dt, newDate, true, sepD, 1), cell(r.group, true, sepD, 2, subjCol < 0 ? r.valid : undefined),
+        ...(subjCol < 0 ? [] : [merged(r.subject, newSubj, false, sepD && newSubj, subjCol, r.valid)]), cell(String(r.hours), true, sepD, hoursCol),
       ] }))
       return
     }
-    const newSubject = newGroup || prev!.subject !== r.subject
+    const newSubject = newGroup || prev!.subject !== r.subject || prev!.valid !== r.valid
     const sep = !!prev && newSubject
+    if (overTime) {
+      // денят с датите — слят за поредните часове в същия ден (същата група и предмет)
+      const newDate = newSubject || prev!.date !== r.date
+      rows.push(new TableRow({ children: [
+        cell(String(n), true, sep, 0), merged(dt, newDate, true, sep, 1), cell(r.time || '', true, sep, 2),
+        merged(r.group, newGroup, true, sep && newGroup, 3), merged(r.subject, newSubject, false, sep, 4, r.valid), cell(String(r.hours), true, sep, 5),
+      ] }))
+      return
+    }
     rows.push(new TableRow({ children: [
-      cell(String(n), true, sep, 0), cell(dt, true, sep, 1), merged(r.group, newGroup, true, sep && newGroup, 2), merged(r.subject, newSubject, false, sep, 3), cell(String(r.hours), true, sep, 4),
+      cell(String(n), true, sep, 0), cell(dt, true, sep, 1), merged(r.group, newGroup, true, sep && newGroup, 2), merged(r.subject, newSubject, false, sep, 3, r.valid), cell(String(r.hours), true, sep, 4),
     ] }))
   })
   children.push(new Table({ width: { size: W.reduce((a, x) => a + x, 0), type: WidthType.DXA }, layout: TableLayoutType.FIXED, columnWidths: W, rows }))

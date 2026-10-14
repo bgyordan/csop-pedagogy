@@ -38,9 +38,10 @@ const pad = (n: number) => String(n).padStart(2, '0')
 const dowOf = (iso: string) => new Date(iso + 'T00:00').getDay()
 const slotTime = (p: number) => hourText(p).replace(' – ', '–')
 
-type Row = { iso: string; date: string; group: string; subject: string; hours: number; heading?: string }
+/** time — учебният час („13:30–14:05“, блок „13:30–14:45 (2)“); valid — срокът на часа от графика */
+type Row = { iso: string; date: string; group: string; subject: string; hours: number; heading?: string; time?: string; valid?: string }
 /** dow/period — за сливане на поредни часове (блок от 2 часа) в един ред */
-type Slot = { key: string; sort: string; group: string; subject: string; prefix: string; dow?: number; period?: number }
+type Slot = { key: string; sort: string; group: string; subject: string; prefix: string; dow?: number; period?: number; time?: string; valid?: string }
 
 /**
  * По месеци: ред-заглавие за месеца, под него ред на слот с дните от месеца („21, 28“) и часовете.
@@ -63,10 +64,10 @@ function monthly(list: DeclItem[], slotOf: (it: DeclItem) => Slot, joinBlocks = 
     const out: (typeof slots[number] & { last?: number; span?: number })[] = []
     slots.forEach(g => {
       const p = out[out.length - 1]
-      if (joinBlocks && p && p.dow === g.dow && p.subject === g.subject && p.last !== undefined && g.period === p.last + 1
-          && p.dates.join() === g.dates.join()) {
+      if (joinBlocks && p && p.dow === g.dow && p.subject === g.subject && p.group === g.group && p.valid === g.valid
+          && p.last !== undefined && g.period === p.last + 1 && p.dates.join() === g.dates.join() && p.time && g.time) {
         p.span = (p.span || 1) + 1
-        p.group = `${p.group.split('–')[0]}–${g.group.split('–')[1].split(' ')[0]} (${p.span})`
+        p.time = `${p.time.split('–')[0]}–${g.time.split('–')[1].split(' ')[0]} (${p.span})`
         p.hours += g.hours; p.last = g.period
       } else out.push({ ...g, last: g.period })
     })
@@ -74,19 +75,16 @@ function monthly(list: DeclItem[], slotOf: (it: DeclItem) => Slot, joinBlocks = 
     const head: Row = { iso: `${ym}-00`, date: '', group: '', subject: '', hours: 0, heading: `${m[0].toUpperCase()}${m.slice(1)}` }
     // един месец (от ноември нататък) — месецът е в периода горе, ред-заглавие не трябва
     return [...(months.length > 1 ? [head] : []), ...out.map(g => ({
-      iso: g.dates[0], date: g.prefix + g.dates.map(x => String(Number(x.slice(8, 10)))).join(', '), group: g.group, subject: g.subject, hours: g.hours,
+      iso: g.dates[0], date: g.prefix + g.dates.map(x => String(Number(x.slice(8, 10)))).join(', '),
+      // ИФО и логопед: колоната „Учебен час“ е самият час (group празно); над норматив — отделна колона
+      group: g.group || g.time || '', time: g.group ? g.time : undefined, subject: g.subject, hours: g.hours, valid: g.valid,
     }))]
   })
 }
 
 const dmy = (iso: string) => iso.split('-').reverse().join('.')
-/** „в сила от 15.09.2026 до 23.12.2026“ — срокът на часовете в декларацията; различни срокове — изброени */
-function validityText(list: DeclItem[]) {
-  const ranges = Array.from(new Set(list.filter(x => x.validFrom && x.validTo).map(x => `${x.validFrom}|${x.validTo}`))).sort()
-  if (!ranges.length) return ''
-  const txt = ranges.map(r => { const [a, b] = r.split('|'); return `от ${dmy(a)} до ${dmy(b)}` })
-  return `в сила ${txt.length > 1 ? txt.slice(0, -1).join(', ') + ' и ' + txt[txt.length - 1] : txt[0]}`
-}
+/** срокът на часа от графика — „15.09.2026 – 23.12.2026“ (в таблицата, в курсив под предмета) */
+const validOf = (it: DeclItem) => (it.validFrom && it.validTo ? `${dmy(it.validFrom)} – ${dmy(it.validTo)}` : '')
 
 /** Тегли една или две декларации; връща колко часа влязоха във всяка */
 export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over: number; ifo: number }> {
@@ -101,20 +99,21 @@ export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over
       // логопед: „понеделник / 09:15–09:50“, предметът по учебния план
       ? monthly(overItems, it => {
           const dw = dowOf(it.iso)
-          return { key: `${dw}|${it.period}`, sort: `${dw}|${pad(it.period)}`, group: slotTime(it.period), dow: dw, period: it.period,
+          const v = validOf(it)
+          return { key: `${dw}|${it.period}|${v}`, sort: `${dw}|${pad(it.period)}|${v}`, group: '', time: slotTime(it.period), dow: dw, period: it.period, valid: v,
             subject: !it.subject || it.subject === 'Терапия' ? SPEECH_SUBJECT : it.subject, prefix: `${DAYS[dw]}\n` }
         }, true)
-      // над норматив: паралелка → предмет → ден от седмицата; в „Дата“ „чет: 17, 24“
+      // над норматив: паралелка → предмет → ден → учебен час; в „Дата“ „чет: 17, 24“; поредните часове — блок
       : monthly(overItems, it => {
-          const dw = dowOf(it.iso)
-          return { key: `${it.holderLabel}|${it.subject}|${dw}`, sort: `${it.holderLabel}|${it.subject}|${dw}`,
-            group: it.holderLabel, subject: it.subject, prefix: `${DAYS_SHORT[dw]}: ` }
-        })
+          const dw = dowOf(it.iso), v = validOf(it)
+          return { key: `${it.holderLabel}|${it.subject}|${dw}|${it.period}|${v}`, sort: `${it.holderLabel}|${it.subject}|${v}|${dw}|${pad(it.period)}`,
+            group: it.holderLabel, subject: it.subject, time: slotTime(it.period), dow: dw, period: it.period, valid: v, prefix: `${DAYS_SHORT[dw]}: ` }
+        }, true)
     // логопед: ако предметът е един (обикновено „Рехабилитация на комуникативните нарушения“) — той е в текста, колоната отпада
     const speechSubjects = Array.from(new Set(rows.filter(r => !r.heading).map(r => r.subject)))
     const oneSubject = d.isSpeech && speechSubjects.length === 1 ? speechSubjects[0] : ''
     docs.push({
-      teacherName: d.teacherName, position: d.position, periodLabel: d.periodLabel, orderRef: d.orderOver, orderValidity: validityText(overItems),
+      teacherName: d.teacherName, position: d.position, periodLabel: d.periodLabel, orderRef: d.orderOver,
       rows, totalHours: overItems.length, rate: d.rate,
       ...(d.isSpeech
         ? { form: 'По Образец 1', groupHeader: 'Учебен час', layout: 'speech' as const, fileTag: `лекторски${tag}`,
@@ -128,11 +127,12 @@ export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over
     const student = Array.from(new Set(ifoItems.map(it => it.holderLabel.replace(/^ИФО\s*/, '').trim()).filter(Boolean))).join(', ')
     const rows = monthly(ifoItems, it => {
       const dw = dowOf(it.iso)
-      return { key: `${dw}|${it.period}|${it.subject}`, sort: `${dw}|${pad(it.period)}|${it.subject}`, dow: dw, period: it.period,
-        group: slotTime(it.period), subject: it.subject, prefix: `${DAYS[dw]}\n` }
+      const v = validOf(it)
+      return { key: `${dw}|${it.period}|${it.subject}|${v}`, sort: `${dw}|${pad(it.period)}|${it.subject}|${v}`, dow: dw, period: it.period,
+        group: '', time: slotTime(it.period), subject: it.subject, valid: v, prefix: `${DAYS[dw]}\n` }
     }, true)
     docs.push({
-      teacherName: d.teacherName, position: d.position, periodLabel: d.periodLabel, orderRef: d.orderIfo, orderValidity: validityText(ifoItems),
+      teacherName: d.teacherName, position: d.position, periodLabel: d.periodLabel, orderRef: d.orderIfo,
       rows, totalHours: ifoItems.length, rate: d.rate, form: 'По Образец 1', fileTag: `ИФО${tag}`, layout: 'ifo',
       groupHeader: 'Учебен час', ifoStudent: student,
     })
