@@ -161,7 +161,7 @@ export async function getOverDeclPreview(staffId: string, from: string, to: stri
     const dates = fromDecl
       ? (declared[s.id] || [])
       : (cal || []).filter((c: any) => c.day_of_week === s.day && c.date >= s.date_from && c.date <= s.date_to && !isAbsent(c.date)).map((c: any) => c.date)
-    return dates.map((iso: string) => ({ iso, period: s.period, subject: s.subject?.name || '', holderType: s.holder_type || '', holderLabel: s.holder_label || '' }))
+    return dates.map((iso: string) => ({ iso, period: s.period, subject: s.subject?.name || '', holderType: s.holder_type || '', holderLabel: s.holder_label || '', validFrom: s.date_from, validTo: s.date_to }))
   })
   if (!items.length) return { error: 'Няма часове над норматив за този период' }
 

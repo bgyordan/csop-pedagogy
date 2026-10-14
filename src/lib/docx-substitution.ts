@@ -487,6 +487,8 @@ export interface LecturerDeclData {
   position: string         // "Учител/старши учител на ДУИ"
   periodLabel: string      // "01.09 – 31.10" или месец
   orderRef: string         // "Заповед № …"
+  /** „в сила от 15.09.2026 до 23.12.2026“ — срокът на часовете от графика, след заповедта */
+  orderValidity?: string
   /** heading — ред-заглавие през цялата ширина (логопед: „Септември 2026“) */
   rows: { date: string; group: string; subject: string; hours: number; heading?: string }[]
   totalHours: number
@@ -538,7 +540,7 @@ function lecturerDeclSection(d: LecturerDeclData) {
     normal(`за периода ${d.periodLabel}${yearPart} година, съм взел/а следните часове над минималната норма задължителна преподавателска работа${d.workNote || ''}`, 22),
     ...(d.speechSubject ? [normal(' – ', 22), bold(d.speechSubject, 22)] : []),
     ...(d.ifoStudent ? [normal(' в индивидуална форма на обучение (ИФО) – ', 22), bold(d.ifoStudent, 22)] : []),
-    normal(`, съгласно ${d.orderRef}`, 22),
+    normal(`, съгласно ${d.orderRef}${d.orderValidity ? `, ${d.orderValidity}` : ''}`, 22),
   ], spacing: { after: 160 } }))
 
   const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' }

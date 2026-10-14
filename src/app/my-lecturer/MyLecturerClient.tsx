@@ -36,7 +36,7 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
   const period = periods.find(p => p.key === periodKey) || periods[0]
   const from = period.from
   const to = period.to
-  const [expanded, setExpanded] = useState<{ slotId: string; day: number; period: number; subject: string; holderType?: string; holderLabel: string; dates: string[]; absent?: string[] }[] | null>(null)
+  const [expanded, setExpanded] = useState<{ slotId: string; day: number; period: number; subject: string; holderType?: string; holderLabel: string; validFrom?: string; validTo?: string; dates: string[]; absent?: string[] }[] | null>(null)
   const [checked, setChecked] = useState<Record<string, Set<string>>>({}) // slotId -> Set(dates)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -79,7 +79,7 @@ export default function MyLecturerClient({ teacherName, position, slots, declara
         teacherName, position, periodLabel: declPeriodLabel(period.label, from, to),
         orderOver, orderIfo, isSpeech, rate,
         items: (expanded || []).flatMap(sl => Array.from(checked[sl.slotId] || []).map(iso => ({
-          iso, period: sl.period, subject: sl.subject, holderType: sl.holderType, holderLabel: sl.holderLabel,
+          iso, period: sl.period, subject: sl.subject, holderType: sl.holderType, holderLabel: sl.holderLabel, validFrom: sl.validFrom, validTo: sl.validTo,
         }))),
       })
       over = r.over; ifo = r.ifo
