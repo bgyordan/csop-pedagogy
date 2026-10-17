@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { smartMatch } from '@/lib/search'
 import OutreachBadge from '@/components/OutreachBadge'
 import Link from 'next/link'
-import { HeartPulse, Users, FileText, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
+import { HeartPulse, Users, FileText, FolderOpen, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
 import StudentWorkDocs from '@/app/students/[id]/StudentWorkDocs'
 import { fetchDocCounts } from '@/lib/doc-counts-client'
 interface TherapyRow {
@@ -67,11 +67,12 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
             {eplrRows.length}
           </span>
         </button>
+        {/* „Моите документи“ — личната папка; отделена вдясно като овално копче, за да не се губи сред децата */}
         <button onClick={() => setTab('mine')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-            tab === 'mine' ? 'bg-white shadow-sm text-sky-700 border border-sky-100' : 'text-slate-500 hover:text-slate-700'
+          className={`ml-auto flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-all ${
+            tab === 'mine' ? 'bg-sky-100 text-sky-900 border-sky-300 shadow-sm ring-2 ring-sky-100' : 'bg-sky-50 text-sky-800 border-sky-200 hover:bg-sky-100 hover:shadow-sm'
           }`}>
-          <FileText size={15} />
+          <FolderOpen size={15} />
           Моите документи
         </button>
       </div>
