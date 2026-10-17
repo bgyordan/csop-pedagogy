@@ -285,6 +285,9 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
             Противодействие на тормоза и насилието
           </p>
         </div>
+        <a href="/incidents" className="ml-auto inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white hover:opacity-90 shrink-0" style={{ backgroundColor: '#b91c1c' }}>
+          <ShieldAlert size={16} /> Дневник на случаите
+        </a>
       </div>
 
       {/* Състав */}
