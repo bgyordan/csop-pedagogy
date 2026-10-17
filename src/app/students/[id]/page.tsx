@@ -23,6 +23,7 @@ import OnlineRoomTab from './room/OnlineRoomTab'
 import PecsTab from './pecs/PecsTab'
 import RemelkaTab from './remelka/RemelkaTab'
 import StudentIncidents from './StudentIncidents'
+import StudentAbsencesCard from './StudentAbsencesCard'
 import FillEplrButton from './FillEplrButton'
 import { isOresActive, todaySofia, ORES_ACTIVE_COLS } from '@/lib/ores'
 
@@ -181,6 +182,18 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
     else if (d !== null && d <= 30) alerts.push({ level: 'amber', icon: CalendarClock, tab: 'data', text: `${lbl} — изтича след ${d} дни` })
   }
   if (student.status === 'active' && !eplr) alerts.push({ level: 'amber', icon: Users, tab: 'team', text: 'Няма назначен ЕПЛР екип' })
+  // отсъства сега / до 7 дни (отразено от класния)
+  {
+    const t = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })
+    const h = new Date(Date.now() + 7 * 86400000).toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })
+    const { data: abs } = await supabase.from('student_absences').select('date_from, date_to, reason').eq('student_id', id).gte('date_to', t).lte('date_from', h).order('date_from').limit(1)
+    const a: any = abs?.[0]
+    if (a) {
+      const dm = (x: string) => x.split('-').reverse().slice(0, 2).join('.')
+      const why = a.reason === 'medical' ? 'медицинска бележка' : a.reason === 'family' ? 'семейни причини' : 'друго'
+      alerts.push({ level: 'info', icon: CalendarClock, tab: 'overview', text: a.date_from <= t ? `Отсъства до ${dm(a.date_to)} · ${why}` : `Ще отсъства ${dm(a.date_from)} – ${dm(a.date_to)} · ${why}` })
+    }
+  }
   if (activeOres) alerts.push({ level: 'info', icon: Sparkles, tab: !['secretary', 'support'].includes(profile?.role || '') ? 'room' : 'data', text: `ОРЕС от ${formatDate(activeOres.from_date)}${activeOres.to_date ? ` до ${formatDate(activeOres.to_date)}` : ''}` })
 
   const tabHref = (t: Tab) => t === 'docs' ? `/students/${id}` : `/students/${id}?tab=${t}`
@@ -399,6 +412,8 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
               </div>)}
 
             </div>
+            {/* отсъствия по период (семейни / медицинска бележка) — отразява класният */}
+            {showDev && <StudentAbsencesCard studentId={id} />}
             {/* случаи от „Дневник на случаите“ — само за съвета, ръководството и класния */}
             {showDev && <StudentIncidents studentId={id} />}
           </div>

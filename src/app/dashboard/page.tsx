@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { IMP_COOKIE } from '@/lib/impersonate'
 import AdminDashboard from './components/AdminDashboard'
 import SpecialistDashboard from './components/SpecialistDashboard'
+import StudentAbsentStrip from './components/StudentAbsentStrip'
 import ClassTeacherDashboard from './components/ClassTeacherDashboard'
 import EducatorDashboard from './components/EducatorDashboard'
 import SecretaryDashboard from './components/SecretaryDashboard'
@@ -134,6 +135,9 @@ export default async function DashboardPage() {
 
       {/* Онлайн стаи — децата на ОРЕС, с които работя */}
       <OnlineRoomStrip profile={profile} currentYearId={currentYear.id} />
+
+      {/* Отсъстващи деца — класният отразява, терапевтите и учителите на детето виждат */}
+      {!isSecretary && profile.role !== 'support' && <StudentAbsentStrip profile={profile} currentYearId={currentYear.id} />}
 
       {/* Днес отсъстват — за всички колеги (управата го има в оперативния панел) */}
       {!isAdmin && !isDirector && <TodayAbsentStrip />}
