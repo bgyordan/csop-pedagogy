@@ -522,7 +522,7 @@ function lecturerDeclSection(d: LecturerDeclData) {
   // ширините: над норматив — тясна „Група“ (само паралелката); ИФО — по-широка (името на детето); логопед — часът
   // над норматив с часа: № | Дата | Учебен час | Група | Предмет | Брой
   const overTime = layout === 'over' && d.rows.some(r => r.time)
-  const WIDTHS: Record<string, number[]> = { over: overTime ? [800, 1900, 1550, 1000, 3850, 1000] : [900, 2250, 1050, 4900, 1000], ifo: [800, 2300, 1600, 4400, 1000], speech: [800, 2300, 1600, 4400, 1000] }
+  const WIDTHS: Record<string, number[]> = { over: overTime ? [800, 1950, 1650, 1250, 3450, 1000] : [900, 2250, 1050, 4900, 1000], ifo: [800, 2300, 1600, 4400, 1000], speech: [800, 2300, 1600, 4400, 1000] }
 
   children.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: d.form || 'По Образец 3', bold: true, size: 20, underline: {} })], spacing: { after: 120 } }))
   // шапката — само името на ЦСОП
@@ -554,8 +554,8 @@ function lecturerDeclSection(d: LecturerDeclData) {
   const th = (t: string, col: number) => new TableCell({ width: wOf(col), borders: CELLS, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [bold(t, 20)] })] })
   const td = (t: string, c = false) => new TableCell({ borders: CELLS, children: [new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(t, 20)] })] })
   const rows: TableRow[] = [ new TableRow({ tableHeader: true, children: overTime
-    ? [th('№ по ред', 0), th('Дата', 1), th('Учебен час', 2), th(d.groupHeader || 'Група', 3), th('Предмет', 4), th('Брой часове', 5)]
-    : [th('№ по ред', 0), th('Дата', 1), th(d.groupHeader || 'Група', 2), ...(subjCol < 0 ? [] : [th('Предмет', subjCol)]), th('Брой часове', hoursCol)] }) ]
+    ? [th('№ по ред', 0), th('Дата', 1), th('Учебен час', 2), th(d.groupHeader || 'Паралелка', 3), th('Предмет', 4), th('Брой часове', 5)]
+    : [th('№ по ред', 0), th('Дата', 1), th(d.groupHeader || (layout === 'over' ? 'Паралелка' : 'Група'), 2), ...(subjCol < 0 ? [] : [th('Предмет', subjCol)]), th('Брой часове', hoursCol)] }) ]
   // логопед — само датата (иначе не се събира); над норматив и ИФО — с деня на същия ред
   // еднаквите поредни клетки в „Група“ и „Предмет“ се сливат (предметът — само в рамките на една група)
   // на смяна на предмет/група — по-дебела линия отгоре през реда (без слятата клетка на групата, ако тя продължава)
@@ -564,13 +564,21 @@ function lecturerDeclSection(d: LecturerDeclData) {
   // „\n“ в текста — нов ред в клетката (логопед: „понеделник“ / „09:15 – 09:50“)
   const paras = (t: string, c: boolean) => t.split('\n').map(x => new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [normal(x, 20)] }))
   // срокът на часа — малко, в курсив, под текста на клетката
-  const withValid = (ps: Paragraph[], valid: string | undefined, c: boolean) => valid
-    ? [...ps, new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [new TextRun({ text: valid, italics: true, size: 16, color: '404040' })] })] : ps
-  const cell = (t: string, c: boolean, sep: boolean, col: number, valid?: string) => new TableCell({ width: wOf(col), borders: cellB(sep), verticalAlign: VerticalAlign.CENTER, children: withValid(paras(t, c), valid, c) })
+  // ако се побира — на същия ред след текста („Математика  12.10.2026 – 30.06.2027“), иначе на нов ред
+  const vRun = (valid: string, lead = '') => new TextRun({ text: lead + valid, italics: true, size: 16, color: '404040' })
+  const withValid = (t: string, c: boolean, valid: string | undefined, col: number) => {
+    if (!valid) return paras(t, c)
+    const lines = t.split('\n'), last = lines[lines.length - 1]
+    // ~100 DXA на знак (10 pt), ~80 DXA на знак за срока (8 pt); минус отстъпите в клетката
+    const fits = !c && last.length * 100 + (valid.length + 2) * 80 <= W[col] - 160
+    if (!fits) return [...paras(t, c), new Paragraph({ alignment: c ? AlignmentType.CENTER : AlignmentType.LEFT, children: [vRun(valid)] })]
+    return lines.map((x, i) => new Paragraph({ alignment: AlignmentType.LEFT, children: [normal(x, 20), ...(i === lines.length - 1 ? [vRun(valid, '  ')] : [])] }))
+  }
+  const cell = (t: string, c: boolean, sep: boolean, col: number, valid?: string) => new TableCell({ width: wOf(col), borders: cellB(sep), verticalAlign: VerticalAlign.CENTER, children: withValid(t, c, valid, col) })
   const merged = (t: string, first: boolean, c: boolean, sep: boolean, col: number, valid?: string) => new TableCell({
     width: wOf(col), borders: cellB(sep), verticalAlign: VerticalAlign.CENTER,
     verticalMerge: first ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE,
-    children: first ? withValid(paras(t, c), valid, c) : [new Paragraph({ children: [] })],
+    children: first ? withValid(t, c, valid, col) : [new Paragraph({ children: [] })],
   })
   let n = 0
   d.rows.forEach((r, i) => {
@@ -581,6 +589,7 @@ function lecturerDeclSection(d: LecturerDeclData) {
         shading: { type: ShadingType.CLEAR, fill: 'F2F2F2', color: 'auto' },
         children: [new Paragraph({ children: [bold(r.heading, 20)] })],
       })] }))
+      n = 0   // номерацията почва отначало за всеки месец
       return
     }
     n++
