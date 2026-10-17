@@ -421,7 +421,7 @@ export async function getMonthlyDeclaration(first: string, last: string) {
   const { data: me } = await supabase.from('staff_profiles').select('id, first_name, middle_name, last_name, position').eq('user_id', user.id).single()
   if (!me) return { error: 'Профил не е намерен' }
 
-  // само приключил месец (септември — от 01.10, октомври — от 01.11, …)
+  // колегата генерира една седмица: 5-то – 11-то число след периода (сеп.–окт. заедно, после по месеци)
   const pc = checkDeclarablePeriod(first, last, 'sub')
   if (!pc.ok) return { error: pc.error }
   return buildMonthlyDeclaration(supabase, me, first, last)

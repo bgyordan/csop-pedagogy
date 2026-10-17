@@ -77,7 +77,7 @@ export async function submitLecturerDeclaration(
   if (!user) return { error: 'Не сте влезли' }
   const { data: me } = await supabase.from('staff_profiles').select('id').eq('user_id', user.id).single()
   if (!me) return { error: 'Няма профил' }
-  // само приключил период: септември–октомври заедно (от 01.11), после по месеци
+  // седмицата за генериране: 5-то – 11-то число след периода (сеп.–окт. заедно, после по месеци)
   const pc = checkDeclarablePeriod(periodFrom, periodTo, 'over')
   if (!pc.ok) return { error: pc.error }
   const { data: cy } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
@@ -129,4 +129,26 @@ export async function deleteMyDeclaration(declId: string) {
   await supabase.from('lecturer_declarations').delete().eq('id', declId)
   revalidatePath('/my-lecturer')
   return { success: true }
+}
+
+// Данните на колегата за декларациите (име, длъжност, заповеди, ставка) — за бутона „Моите декларации“
+export async function getMyDeclContext() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+  const { data: me } = await supabase.from('staff_profiles').select('id, first_name, last_name, position, role, therapy_role').eq('user_id', user.id).single()
+  if (!me) return { error: 'Няма профил' }
+  const { data: cy } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
+  const { loadLecturerOrders, orderText } = await import('@/lib/lecturer-orders')
+  const { loadLecturerRates, effectiveRates } = await import('@/lib/lecturer-rates')
+  const orders = (await loadLecturerOrders(supabase, cy?.id, me.id))[me.id] || {}
+  const { count } = await supabase.from('lecturer_slots').select('id', { count: 'exact', head: true }).eq('staff_id', me.id).eq('academic_year_id', cy?.id)
+  return {
+    teacherName: `${me.first_name} ${me.last_name}`,
+    position: me.position || 'Учител/старши учител на ДУИ',
+    orderOver: orderText(orders.over), orderIfo: orderText(orders.ifo),
+    rate: effectiveRates(await loadLecturerRates(supabase)).over,
+    isSpeech: me.role === 'speech_therapist' || (me as any).therapy_role === 'speech_therapist',
+    hasSlots: (count || 0) > 0,
+  }
 }

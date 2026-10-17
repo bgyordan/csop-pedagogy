@@ -145,7 +145,7 @@ export default function OverviewClient({ archive, rates }: { archive: ArchiveRow
             </select>
           </div>
           {!period.open && (
-            <div className="text-xs text-amber-700 pb-1.5">Периодът не е приключил — декларациите се подават от {fmt(period.opensOn)}.</div>
+            <div className="text-xs text-amber-700 pb-1.5">Колегите генерират декларациите от {fmt(period.opensOn)} до {fmt(period.closesOn)}.</div>
           )}
           <button onClick={paymentOrder} disabled={genning || loading || !all.length}
             className="ml-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-white text-sm hover:opacity-90 disabled:opacity-40" style={{ backgroundColor: '#0f2240' }}

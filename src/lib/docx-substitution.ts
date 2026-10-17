@@ -835,7 +835,7 @@ function budgetDeclSection(d: MonthlyDeclData) {
     { alignment: AlignmentType.JUSTIFIED, spacing: { after: 120 } }))
   // заповедта и отсъстващият — на всеки ред в таблицата (като при НП)
   children.push(P([
-    t('ДЕКЛАРИРАМ, че ', { bold: true }), t('за месец '), t(monthLabel, { bold: true }), t(' 2026 година, съм взел/а следните часове над минималната норма задължителна преподавателска работа за заместване на отсъстващ учител:'),
+    t('ДЕКЛАРИРАМ, че ', { bold: true }), t(monthLabel.includes('–') ? 'за периода ' : 'за месец '), t(monthLabel, { bold: true }), t(` ${d.year || new Date().getFullYear()} година, съм взел/а следните часове над минималната норма задължителна преподавателска работа за заместване на отсъстващ учител:`),
   ], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 160 } }))
 
   // таблица — като при НП (заповедта на всеки ред), „Тема“ → „Предмет“
@@ -937,6 +937,20 @@ export async function generateMonthlySubstitutionDeclarations(d: MonthlyDeclData
   const blob = await Packer.toBlob(new Document({ styles: BUDGET_STYLES, sections: parts.map(p => p.section) }))
   const kinds = [hasNp ? 'НП' : '', hasBudget ? 'бюджет' : ''].filter(Boolean).join('_и_')
   saveAs(blob, `декларация_заместване_${kinds}_${parts[0].stem}_${d.substituteName.replace(/\s+/g, '_')}.docx`)
+}
+
+/** ВСИЧКИ декларации на един колега за периода — един файл, всяка на своя страница:
+ *  заместване НП, заместване бюджет, над норматив, ИФО / логопед (само тези, по които има часове).
+ *  Без общ стил на документа — всяка секция си носи шрифта, както в отделните файлове. */
+export async function generateAllMyDeclarations(sub: MonthlyDeclData | null, lect: LecturerDeclData[], fileName: string) {
+  const sections: any[] = []
+  if (sub && sub.rows.some(r => r.bsch)) sections.push(npDeclSection(sub).section)
+  if (sub && sub.rows.some(r => !r.bsch)) sections.push(budgetDeclSection(sub).section)
+  lect.forEach(l => sections.push(lecturerDeclSection(l)))
+  if (!sections.length) return 0
+  const blob = await Packer.toBlob(new Document({ sections }))
+  saveAs(blob, fileName)
+  return sections.length
 }
 
 /** Декларациите на няколко колеги в един файл — всяка на нова страница (за печат наведнъж) */

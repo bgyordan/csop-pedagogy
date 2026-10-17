@@ -53,7 +53,7 @@ export default async function MyLecturerPage() {
         </div>
         <div>
           <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">Лекторски — над норматив</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Отчетете реално взетите часове и изтеглете декларация</p>
+          <p className="text-sm text-slate-500 mt-0.5">Определените ви часове и декларациите за периода</p>
         </div>
       </header>
       <MyLecturerClient

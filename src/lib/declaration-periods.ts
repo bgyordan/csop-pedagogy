@@ -1,8 +1,8 @@
-// Периоди за деклариране на лекторски (над норматив и заместване).
-// Декларира се САМО приключил период.
-//  • Над норматив ('over'): септември + октомври заедно (от 01.11), после всеки месец (ноември — от 01.12 …).
-//  • Заместване ('sub'): всеки месец отделно, и септември (от 01.10) — НП „Без свободен час“ отчита до края на септември.
-//  • Проверка ('review'): и двете — „септември – октомври“, „септември“, „октомври“, после по месеци.
+// Периоди за деклариране на лекторски (над норматив и заместване) — еднакви за двата вида:
+// първият е от началото на учебната година (15.09) до края на октомври, после всеки месец.
+// Колегата генерира декларациите си една седмица: от 5-то до 11-то число на следващия месец
+// (сеп.–окт. → 05.11 – 11.11, ноември → 05.12 – 11.12 …). Хартията се предава до 10-то.
+// Управата (Отчитане лекторски) може да генерира и извън тази седмица.
 // Нереализираните часове не се прехвърлят към друг период — графикът си е график.
 
 export type DeclPeriod = {
@@ -10,12 +10,18 @@ export type DeclPeriod = {
   from: string       // ISO
   to: string         // ISO
   label: string      // „септември 2026“, „ноември 2026“
-  opensOn: string    // ISO — денят, от който може да се декларира
-  open: boolean      // периодът е приключил → може да се декларира
+  opensOn: string    // ISO — денят, от който може да се декларира (5-то число на следващия месец)
+  closesOn: string   // ISO — последният ден, в който колегата може да генерира (11-то число)
+  open: boolean      // от opensOn нататък (управата — и след closesOn)
+  genOpen: boolean   // колегата може да генерира сега (opensOn ≤ днес ≤ closesOn)
   current: boolean   // днес е в периода
   overOpen?: boolean // (review) може ли за него да има декларация над норматив — само ако съвпада с периодите 'over'
 }
 export type DeclKind = 'over' | 'sub' | 'review'
+
+/** Седмицата за генериране от колегите: от GEN_FROM_DAY до GEN_TO_DAY число на месеца след периода (вкл.) */
+export const GEN_FROM_DAY = 5
+export const GEN_TO_DAY = 11
 
 const MONTHS = ['януари', 'февруари', 'март', 'април', 'май', 'юни', 'юли', 'август', 'септември', 'октомври', 'ноември', 'декември']
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -35,25 +41,32 @@ export function declarationPeriods(kind: DeclKind = 'over', today = sofiaTodayIs
     const from = `${fy}-${pad(fm)}-01`
     const to = `${ty}-${pad(tm)}-${pad(lastDay(ty, tm))}`
     const ny = tm === 12 ? ty + 1 : ty, nm = tm === 12 ? 1 : tm + 1
-    const opensOn = `${ny}-${pad(nm)}-01`
-    return { key: from, from, to, label, opensOn, open: today >= opensOn, current: today >= from && today <= to }
+    const opensOn = `${ny}-${pad(nm)}-${pad(GEN_FROM_DAY)}`
+    const closesOn = `${ny}-${pad(nm)}-${pad(GEN_TO_DAY)}`
+    return { key: from, from, to, label, opensOn, closesOn, open: today >= opensOn, genOpen: today >= opensOn && today <= closesOn, current: today >= from && today <= to }
   }
   const month = (mm: number) => { const yy = mm >= 9 ? sy : sy + 1; return mk(yy, mm, yy, mm, `${MONTHS[mm - 1]} ${yy}`) }
+  // ключът остава 01.09 (така са записани проверките); учебните часове започват от 15.09
   const sepOct = mk(sy, 9, sy, 10, `септември – октомври ${sy}`)
   const rest = [11, 12, 1, 2, 3, 4, 5, 6].map(month)
-  if (kind === 'over') return [sepOct, ...rest]
-  if (kind === 'sub') return [month(9), month(10), ...rest]
-  // проверка: над норматив се гледа за септември–октомври; отделните септември/октомври са за заместванията
-  return [{ ...sepOct, overOpen: sepOct.open }, { ...month(9), overOpen: false }, { ...month(10), overOpen: false },
-    ...rest.map(p => ({ ...p, overOpen: p.open }))]
+  if (kind === 'review') return [sepOct, ...rest].map(p => ({ ...p, overOpen: p.open }))
+  return [sepOct, ...rest]
 }
 
-/** Периодът [from, to], ако е от списъка и вече може да се декларира; иначе — причината */
+const dmy = (iso: string) => iso.split('-').reverse().join('.')
+
+/** Периодът [from, to], ако е от списъка и колегата може да генерира сега (седмицата 5-то – 11-то); иначе — причината */
 export function checkDeclarablePeriod(from: string, to: string, kind: Exclude<DeclKind, 'review'> = 'over', today = sofiaTodayIso()): { ok: true; period: DeclPeriod } | { ok: false; error: string } {
   const p = declarationPeriods(kind, today).find(x => x.from === from && x.to === to)
-  if (!p) return { ok: false, error: kind === 'over' ? 'Декларира се за цял период: септември – октомври заедно, после по месеци' : 'Декларира се за цял месец' }
-  if (!p.open) return { ok: false, error: `Периодът „${p.label}“ още не е приключил — декларацията се подава от ${p.opensOn.split('-').reverse().join('.')}` }
+  if (!p) return { ok: false, error: 'Декларира се за цял период: септември – октомври заедно, после по месеци' }
+  if (!p.open) return { ok: false, error: `Декларациите за „${p.label}“ се генерират от ${dmy(p.opensOn)} до ${dmy(p.closesOn)}` }
+  if (!p.genOpen) return { ok: false, error: `Седмицата за генериране (${dmy(p.opensOn)} – ${dmy(p.closesOn)}) мина — обърнете се към ЗДУД или ЗАС` }
   return { ok: true, period: p }
+}
+
+/** За колегата: периодът, чиято седмица за генериране е сега; иначе следващият; иначе последният */
+export function genPeriod(periods: DeclPeriod[]) {
+  return periods.find(p => p.genOpen) || periods.find(p => !p.open) || periods[periods.length - 1]
 }
 
 /** Последният приключил период (за подразбиране), иначе текущият */

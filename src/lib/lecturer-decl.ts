@@ -7,7 +7,7 @@
 // И трите — по месеци: ред-заглавие „Септември“ (годината е в периода горе), под него ред на седмичен слот, в „Дата“ само дните.
 
 import { generateLecturerDeclarations } from './docx-substitution'
-type DeclData = Parameters<typeof generateLecturerDeclarations>[0][number]
+export type DeclData = Parameters<typeof generateLecturerDeclarations>[0][number]
 import { PERIOD_TIMES } from './periods'
 
 /** validFrom/validTo — срокът на часа от графика (за „в сила от … до …“ до заповедта) */
@@ -88,6 +88,13 @@ const validOf = (it: DeclItem) => (it.validFrom && it.validTo ? `${dmy(it.validF
 
 /** Тегли една или две декларации; връща колко часа влязоха във всяка */
 export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over: number; ifo: number }> {
+  const b = buildLecturerDecls(d)
+  await generateLecturerDeclarations(b.docs, `декларация_${b.kinds}${d.tagSuffix || ''}_${d.teacherName.replace(/\s+/g, '_')}.docx`)
+  return { over: b.over, ifo: b.ifo }
+}
+
+/** Данните за декларациите над норматив / ИФО / логопед — без да тегли файл (за общия файл „всички мои декларации“) */
+export function buildLecturerDecls(d: DeclInput): { docs: DeclData[]; over: number; ifo: number; kinds: string } {
   const overItems = d.items.filter(it => it.holderType !== 'ifo')
   const ifoItems = d.items.filter(it => it.holderType === 'ifo')
   const tag = d.tagSuffix || ''
@@ -138,6 +145,5 @@ export async function downloadLecturerDeclarations(d: DeclInput): Promise<{ over
     })
   }
   const kinds = [overItems.length ? 'лекторски' : '', ifoItems.length ? 'ИФО' : ''].filter(Boolean).join('_и_')
-  await generateLecturerDeclarations(docs, `декларация_${kinds}${tag}_${d.teacherName.replace(/\s+/g, '_')}.docx`)
-  return { over: overItems.length, ifo: ifoItems.length }
+  return { docs, over: overItems.length, ifo: ifoItems.length, kinds }
 }
