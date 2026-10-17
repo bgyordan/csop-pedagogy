@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { studentDocCounts } from '@/app/dashboard/components/class-drive-actions'
+import { fetchDocCounts } from '@/lib/doc-counts-client'
 import Link from 'next/link'
 import OutreachBadge from '@/components/OutreachBadge'
 import { getFullName } from '@/lib/utils'
@@ -26,7 +26,7 @@ export default function StudentsTable({ rows }: { rows: Row[] }) {
   useEffect(() => {
     const ids = rows.map(r => r.student?.id).filter(Boolean)
     if (!ids.length) { setDocs({}); return }
-    studentDocCounts(ids).then(setDocs).catch(() => setDocs({}))
+    fetchDocCounts(ids).then(setDocs)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows.length])
 

@@ -1,7 +1,7 @@
 'use client'
 // Брой документи в Drive за деца — много клетки на една страница правят ЕДНА заявка (събират се за 30 ms)
 import { useEffect, useState } from 'react'
-import { studentDocCounts } from '@/app/dashboard/components/class-drive-actions'
+import { fetchDocCounts } from '@/lib/doc-counts-client'
 
 let queue = new Set<string>()
 let waiters: ((m: Record<string, number>) => void)[] = []
@@ -16,7 +16,7 @@ function load(ids: string[]): Promise<Record<string, number>> {
       const all = [...queue], w = waiters
       queue = new Set(); waiters = []; timer = null
       let m: Record<string, number> = {}
-      try { m = await studentDocCounts(all) } catch { /* няма връзка с Drive */ }
+      m = await fetchDocCounts(all)   // при грешка — {}
       w.forEach(f => f(m))
     }, 30)
   })

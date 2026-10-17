@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { studentDocCounts } from './class-drive-actions'
+import { fetchDocCounts } from '@/lib/doc-counts-client'
 
 // „Без документи в Drive“ — брои се след зареждането на таблото (Drive е по-бавен)
 export default function NoDocsCount({ students }: { students: { id: string; name: string }[] }) {
@@ -9,9 +9,8 @@ export default function NoDocsCount({ students }: { students: { id: string; name
   const [open, setOpen] = useState(false)
   useEffect(() => {
     if (!students.length) { setMissing([]); return }
-    studentDocCounts(students.map(s => s.id))
+    fetchDocCounts(students.map(s => s.id))
       .then(c => setMissing(Object.keys(c).length ? students.filter(s => !c[s.id]) : []))
-      .catch(() => setMissing([]))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   return (
