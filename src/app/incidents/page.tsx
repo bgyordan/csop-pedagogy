@@ -5,7 +5,8 @@ import { redirect } from 'next/navigation'
 import IncidentsClient from './IncidentsClient'
 export const dynamic = 'force-dynamic'
 
-export default async function IncidentsPage() {
+export default async function IncidentsPage({ searchParams }: { searchParams: Promise<{ open?: string; year?: string }> }) {
+  const sp = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
@@ -21,14 +22,25 @@ export default async function IncidentsPage() {
   )
   const isCouncil = !!council
 
-  const [{ data: cases }, { data: studentsRaw }, { data: enr }, { data: staff }, { data: protocols }] = await Promise.all([
-    supabase.from('incident_cases').select('*').eq('academic_year_id', cy?.id).order('occurred_on', { ascending: false }),
+  // година: текущата по подразбиране; „all“ — всички (дирята остава и след края на годината)
+  const { data: years } = await supabase.from('academic_years').select('id, name').order('name', { ascending: false })
+  const yearSel = sp.year === 'all' ? 'all' : (years || []).some((y: any) => y.id === sp.year) ? sp.year! : (cy?.id || '')
+  let cq = supabase.from('incident_cases').select('*').order('occurred_on', { ascending: false })
+  if (yearSel !== 'all') cq = cq.eq('academic_year_id', yearSel)
+  const [{ data: casesRaw }, { data: studentsRaw }, { data: enr }, { data: staff }, { data: protocols }] = await Promise.all([
+    cq,
     supabase.from('students').select('id, first_name, last_name').eq('status', 'active').order('first_name'),
     supabase.from('student_enrollments').select('student_id, class:classes(name)').eq('academic_year_id', cy?.id),
     supabase.from('staff_profiles').select('id, first_name, last_name'),
     isCouncil ? supabase.from('bullying_protocols').select('id, number, date').eq('academic_year_id', cy?.id).order('number', { ascending: false }) : Promise.resolve({ data: [] as any[] }),
   ])
-  const ids = (cases || []).map((c: any) => c.id)
+  // отворен от досието случай от друга година — добавяме го
+  let cases = casesRaw || []
+  if (sp.open && !cases.some((c: any) => c.id === sp.open)) {
+    const { data: one } = await supabase.from('incident_cases').select('*').eq('id', sp.open).maybeSingle()
+    if (one) cases = [one, ...cases]
+  }
+  const ids = cases.map((c: any) => c.id)
   const [{ data: parts }, { data: events }] = ids.length
     ? await Promise.all([
         supabase.from('incident_participants').select('*').in('case_id', ids),
@@ -47,7 +59,8 @@ export default async function IncidentsPage() {
     <IncidentsClient
       meId={me.id} isCouncil={isCouncil} isAdmin={['admin', 'zdud', 'director'].includes(me.role)}
       yearId={cy?.id || null} yearName={cy?.name || ''}
-      cases={(cases || []) as any} parts={(parts || []) as any} events={(events || []) as any}
+      cases={cases as any} initialOpen={sp.open || null}
+      years={(years || []).map((y: any) => ({ id: y.id, name: y.name }))} yearSel={yearSel} parts={(parts || []) as any} events={(events || []) as any}
       students={students}
       studentNames={Object.fromEntries((old || []).map((s: any) => [s.id, `${s.first_name} ${s.last_name}`]))}
       staffNames={Object.fromEntries((staff || []).map((s: any) => [s.id, `${s.first_name} ${s.last_name}`]))}

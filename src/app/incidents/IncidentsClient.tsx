@@ -18,6 +18,7 @@ type Props = {
   cases: Case[]; parts: Participant[]; events: Event[]
   students: { id: string; name: string; cls?: string }[]; staffNames: Record<string, string>; studentNames: Record<string, string>
   protocols: { id: string; number: number; date: string }[]
+  initialOpen: string | null; years: { id: string; name: string }[]; yearSel: string
 }
 
 const MONTHS = ['септември', 'октомври', 'ноември', 'декември', 'януари', 'февруари', 'март', 'април', 'май', 'юни', 'юли', 'август']
@@ -35,7 +36,7 @@ export default function IncidentsClient(p: Props) {
   const [month, setMonth] = useState('')
   const [q, setQ] = useState('')
   const [form, setForm] = useState<Case | 'new' | null>(null)
-  const [openId, setOpenId] = useState<string | null>(null)
+  const [openId, setOpenId] = useState<string | null>(p.initialOpen)
   const [busy, setBusy] = useState(false)
   const studentNames = { ...p.studentNames, ...Object.fromEntries(p.students.map(s => [s.id, s.name])) }
 
@@ -76,7 +77,7 @@ export default function IncidentsClient(p: Props) {
       id = data.id
       setCases(x => [data as Case, ...x])
     }
-    const { data: ps, error: e2 } = await supabase.from('incident_participants').insert(v.participants.map(x => ({ ...x, case_id: id }))).select('*')
+    const { data: ps, error: e2 } = await supabase.from('incident_participants').insert(v.participants.map(x => ({ ...x, name: x.name || (x.student_id ? studentNames[x.student_id] || null : null), case_id: id }))).select('*')
     if (e2) { toast(e2.message, 'error'); return }
     setParts(x => [...x.filter(y => y.case_id !== id), ...((ps || []) as Participant[])])
     if (editing) setCases(x => x.map(c => c.id === id ? { ...c, ...row } as Case : c))
@@ -138,6 +139,10 @@ export default function IncidentsClient(p: Props) {
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
         {p.isCouncil && <div className="inline-flex gap-0.5 p-1 rounded-xl bg-slate-100">{tabBtn('list', 'Дневник', List)}{tabBtn('analysis', 'Анализ', BarChart3)}</div>}
+        <select value={p.yearSel} onChange={e => router.push(`/incidents?year=${e.target.value}`)} className={sel}>
+          {p.years.map(y => <option key={y.id} value={y.id}>{y.name}</option>)}
+          <option value="all">Всички години</option>
+        </select>
         <select value={kind} onChange={e => setKind(e.target.value as any)} className={sel}>
           <option value="">Всички видове</option>{(Object.keys(KINDS) as Kind[]).map(k => <option key={k} value={k}>{KINDS[k].label}</option>)}
         </select>
