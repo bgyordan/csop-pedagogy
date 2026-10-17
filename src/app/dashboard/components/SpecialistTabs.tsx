@@ -5,7 +5,7 @@ import OutreachBadge from '@/components/OutreachBadge'
 import Link from 'next/link'
 import { HeartPulse, Users, FileText, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
 import StudentWorkDocs from '@/app/students/[id]/StudentWorkDocs'
-import { studentDocCounts } from './class-drive-actions'
+import { fetchDocCounts } from '@/lib/doc-counts-client'
 interface TherapyRow {
   id: string
   name: string
@@ -40,7 +40,7 @@ export default function SpecialistTabs({ therapyRows, eplrRows }: { therapyRows:
   const [counts, setCounts] = useState<Record<string, number> | null>(null)
   useEffect(() => {
     if (!therapyRows.length) return
-    studentDocCounts(therapyRows.map(r => r.id)).then(setCounts).catch(() => setCounts({}))
+    fetchDocCounts(therapyRows.map(r => r.id)).then(setCounts)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   return (

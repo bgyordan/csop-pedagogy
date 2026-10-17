@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Users, HeartPulse, CalendarClock, Home, GraduationCap, FolderOpen, FileText } from 'lucide-react'
 import StudentWorkDocs from '@/app/students/[id]/StudentWorkDocs'
-import { classDocCounts } from './class-drive-actions'
+import { fetchDocCounts } from '@/lib/doc-counts-client'
 interface ParalelkaRow {
   id: string
   name: string
@@ -48,7 +48,7 @@ export default function ClassTeacherTabs({
   const [counts, setCounts] = useState<Record<string, number> | null>(null)
   useEffect(() => {
     if (!paralelkaRows.length) return
-    classDocCounts(classId, paralelkaRows.map(r => r.id)).then(setCounts).catch(() => setCounts({}))
+    fetchDocCounts(paralelkaRows.map(r => r.id), classId).then(setCounts)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classId])
   const DAY_NAMES: Record<number, string> = { 1: 'Понеделник', 2: 'Вторник', 3: 'Сряда', 4: 'Четвъртък', 5: 'Петък' }

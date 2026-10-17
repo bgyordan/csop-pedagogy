@@ -6,9 +6,9 @@ import { DocViewer } from '@/components/registry/DocViewer'
 import {
   Upload, FilePlus2, Loader2, X, FolderOpen, Download, FileDown, Pencil, Trash2, Check, FileText, Share2,
   Folder, FolderPlus, ChevronRight, ChevronDown, Copy, Eye } from 'lucide-react'
-import { listStudentDocs, createBlankDoc, renameDoc, trashDocs, listDocTemplates, createFromTemplate, listDocYears, copyFromYear } from './drive-actions'
-import { listClassDocs, createBlankClassDoc, renameClassDoc, trashClassDocs, createClassFolder, moveClassDoc } from '@/app/dashboard/components/class-drive-actions'
-import { listStaffDocs, createBlankStaffDoc, renameStaffDoc, trashStaffDocs, shareStaffDoc, createStaffFolder, moveStaffDoc } from '@/app/my-files/staff-drive-actions'
+import { createBlankDoc, renameDoc, trashDocs, listDocTemplates, createFromTemplate, copyFromYear } from './drive-actions'
+import { createBlankClassDoc, renameClassDoc, trashClassDocs, createClassFolder, moveClassDoc } from '@/app/dashboard/components/class-drive-actions'
+import { createBlankStaffDoc, renameStaffDoc, trashStaffDocs, shareStaffDoc, createStaffFolder, moveStaffDoc } from '@/app/my-files/staff-drive-actions'
 
 type Item = { id: string; name: string; mimeType: string; modifiedTime: string; modifiedBy: string; url: string; shared?: boolean }
 
@@ -80,10 +80,10 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
   const noTplKind = kind !== 'student'      // бланките са само за деца
   const ownerId = (classId || studentId || 'me') as string
   const api = kind === 'staff'
-    ? { list: listStaffDocs, blank: createBlankStaffDoc, rename: renameStaffDoc, trash: trashStaffDocs, folder: createStaffFolder, move: moveStaffDoc, base: '/api/staff-docs', key: 'owner' }
+    ? { blank: createBlankStaffDoc, rename: renameStaffDoc, trash: trashStaffDocs, folder: createStaffFolder, move: moveStaffDoc, base: '/api/staff-docs', key: 'owner' }
     : isClass
-    ? { list: listClassDocs, blank: createBlankClassDoc, rename: renameClassDoc, trash: trashClassDocs, folder: createClassFolder, move: moveClassDoc, base: '/api/class-docs', key: 'classId' }
-    : { list: listStudentDocs, blank: createBlankDoc, rename: renameDoc, trash: trashDocs, folder: null, move: null, base: '/api/student-docs', key: 'studentId' }
+    ? { blank: createBlankClassDoc, rename: renameClassDoc, trash: trashClassDocs, folder: createClassFolder, move: moveClassDoc, base: '/api/class-docs', key: 'classId' }
+    : { blank: createBlankDoc, rename: renameDoc, trash: trashDocs, folder: null, move: null, base: '/api/student-docs', key: 'studentId' }
   const withFolders = kind !== 'student'   // папки (едно ниво) — само в „Моите документи“ и при паралелката
   const [files, setFiles] = useState<Item[]>([])
   // учебна година на документите на детето ('' = текущата); минали години — за пренасяне на стари документи
@@ -115,8 +115,10 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
   const [templates, setTemplates] = useState<{ id: string; name: string; mimeType: string }[] | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // списъкът — през fetch (/api/drive-list), не server action: иначе бавен първи отговор връщаше навигацията назад
   async function load() {
-    const r = await (api.list as any)(ownerId, yr)
+    const q = new URLSearchParams({ kind, owner: ownerId || '', ...(yr ? { year: yr } : {}) })
+    const r: any = await fetch(`/api/drive-list?${q}`).then(x => x.json()).catch(() => ({ error: 'Няма връзка с Drive', files: [] }))
     if (r.error) setError(r.error)
     setFiles(r.files ?? [])
     setFolders(((r as any).folders ?? []) as Group[])
@@ -132,7 +134,7 @@ export default function StudentWorkDocs({ studentId, classId, staff }: { student
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownerId, year])
   useEffect(() => {
-    if (kind === 'student') listDocYears().then(setYears).catch(() => {})
+    if (kind === 'student') fetch('/api/drive-list?years=1').then(x => x.json()).then(y => { if (y && Array.isArray(y.years)) setYears(y) }).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

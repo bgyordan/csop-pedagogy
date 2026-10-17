@@ -1,6 +1,6 @@
 'use server'
 
-import { listForClass, createBlankForClass, renameForClass, trashForClass, docCountsForClass, createFolderForClass, moveForClass, docCountsForStudents } from '@/lib/class-drive'
+import { listForClass, createBlankForClass, renameForClass, trashForClass, createFolderForClass, moveForClass } from '@/lib/class-drive'
 
 // Таб „Документи на паралелката“ в таблото на класния
 export async function listClassDocs(classId: string) {
@@ -27,10 +27,4 @@ export async function moveClassDoc(classId: string, fileId: string, toFolderId?:
   return moveForClass(classId, fileId, toFolderId)
 }
 
-export async function classDocCounts(classId: string, studentIds: string[]) {
-  return docCountsForClass(classId, studentIds)
-}
-
-export async function studentDocCounts(studentIds: string[]) {
-  return docCountsForStudents(studentIds)
-}
+// Броят документи НЕ е тук, а в /api/doc-counts (fetch) — server action при зареждане връщаше навигацията назад.
