@@ -161,62 +161,53 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
       <OnlineNow />
       {/* ── ОПЕРАТИВНО: днес · реализация на ИУП · ЕПЛР ── */}
       <OpsPanel currentYearId={currentYearId} />
-      {/* ── ИЗИСКВА ВНИМАНИЕ + Срокове/Съобщения/Файлове (една карта с табове) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      {/* ── ИЗИСКВА ВНИМАНИЕ (сбито, вляво) + Срокове/Съобщения/Файлове (по-широко, вдясно) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6 items-start">
       <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
-        <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-100 bg-slate-50/50">
-          <AlertTriangle size={16} className="text-slate-500" />
-          <h2 className="font-semibold text-slate-700 text-sm">Изисква внимание</h2>
-          {alerts.length > 0 && (
-            <span className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{alerts.length}</span>
-          )}
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-100">
+          <AlertTriangle size={14} className="text-slate-400" />
+          <h2 className="text-[13px] text-slate-700">Изисква внимание</h2>
+          {alerts.length > 0 && <span className="ml-auto text-[11px] text-slate-400 tabular-nums">{alerts.length}</span>}
         </div>
         {alerts.length === 0 ? (
-          <div className="px-5 py-8 text-center">
-            <div className="inline-flex items-center gap-2 text-sm text-slate-400">
-              <ShieldAlert size={16} className="text-emerald-400" />
-              Всичко е наред — няма спешни задачи
-            </div>
+          <div className="px-4 py-4 text-[13px] text-slate-400 flex items-center gap-2">
+            <ShieldAlert size={14} className="text-emerald-400" /> Всичко е наред
           </div>
         ) : (
           <div className="divide-y divide-slate-50">
             {alerts.map((a, i) => {
-              const iconBox = <span className={`flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 ${
-                a.type === 'error' ? 'bg-red-50 text-red-500' : a.type === 'warning' ? 'bg-amber-50 text-amber-500' : 'bg-blue-50 text-blue-500'
-              }`}>{a.icon}</span>
-              const badge = a.badge && <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg ${
-                a.type === 'error' ? 'bg-red-50 text-red-600' : a.type === 'warning' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500'
-              }`}>{a.badge}</span>
+              // цветна точка вместо голяма икона: червена — просрочено/изтекло, жълта — скоро, синя — за сведение
+              const dot = <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${a.type === 'error' ? 'bg-rose-400' : a.type === 'warning' ? 'bg-amber-400' : 'bg-sky-400'}`} />
+              const badge = a.badge && <span className={`shrink-0 text-[11px] tabular-nums ${a.type === 'error' ? 'text-rose-600' : a.type === 'warning' ? 'text-amber-700' : 'text-slate-500'}`}>{a.badge}</span>
               // с деца → разгъва се на място (имената водят към досието), без да отваря целия списък
               if (a.people?.length) return (
                 <details key={i} className="group">
-                  <summary className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors cursor-pointer list-none">
-                    {iconBox}
-                    <span className="text-sm text-slate-700 flex-1 font-medium">{a.text}</span>
+                  <summary className="flex items-center gap-2.5 px-4 py-2 hover:bg-slate-50 transition-colors cursor-pointer list-none">
+                    {dot}
+                    <span className="text-[13px] text-slate-700 flex-1 min-w-0 truncate">{a.text}</span>
                     {badge}
-                    <ArrowRight size={15} className="text-slate-300 group-open:rotate-90 transition-transform" />
+                    <ArrowRight size={13} className="shrink-0 text-slate-300 group-open:rotate-90 transition-transform" />
                   </summary>
-                  <div className="flex flex-wrap gap-1.5 px-5 pb-3 pl-16">
+                  <div className="flex flex-wrap gap-1 px-4 pb-2.5 pl-8">
                     {a.people.map(p => (
-                      <Link key={p.id} href={`/students/${p.id}`} className="px-2 py-0.5 rounded-md bg-slate-50 border border-slate-100 text-[12px] text-slate-600 hover:border-sky-200 hover:text-[#0f2240]">{p.name}</Link>
+                      <Link key={p.id} href={`/students/${p.id}`} className="px-1.5 py-0.5 rounded-md bg-slate-50 text-[11.5px] text-slate-600 hover:text-[#0f2240]">{p.name}</Link>
                     ))}
                   </div>
                 </details>
               )
               return (
-                <Link key={i} href={a.href}
-                  className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors group">
-                  {iconBox}
-                  <span className="text-sm text-slate-700 flex-1 font-medium">{a.text}</span>
+                <Link key={i} href={a.href} className="flex items-center gap-2.5 px-4 py-2 hover:bg-slate-50 transition-colors group">
+                  {dot}
+                  <span className="text-[13px] text-slate-700 flex-1 min-w-0 truncate" title={a.text}>{a.text}</span>
                   {badge}
-                  <ArrowRight size={15} className="text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all" />
+                  <ArrowRight size={13} className="shrink-0 text-slate-300 group-hover:text-slate-500 transition-colors" />
                 </Link>
               )
             })}
           </div>
         )}
       </div>
-      <div>
+      <div className="lg:col-span-3">
         <ClassTeacherSide
           deadlines={(deadlines || []) as any}
           announcements={(announcements || []) as any}

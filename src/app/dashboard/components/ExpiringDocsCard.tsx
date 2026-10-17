@@ -3,10 +3,10 @@ import Link from 'next/link'
 import { CalendarClock, ArrowRight } from 'lucide-react'
 import { DOC_TYPES, todaySofia, daysTo, fmt } from '@/lib/student-docs'
 
-// Карта „Документи със срок“ — по една картичка на дете: инициали, име, паралелка
-// и етикет за всеки изтекъл / изтичащ документ. Най-спешните първи; останалото — в справката.
+// Карта „Документи със срок“ — сбит списък, по един ред на дете: цветна точка, име, паралелка
+// и документите (до 2, останалите като +N). Най-спешните първи; останалото — в справката.
 // studentIds подаден → само тези деца (класен); липсва → всички (управа).
-const MAX = 11
+const MAX = 10
 const SHORT: Record<string, string> = Object.fromEntries(DOC_TYPES.map(d => [d.key, d.short]))
 
 export default async function ExpiringDocsCard({ studentIds, windowDays = 30 }: { studentIds?: string[]; windowDays?: number }) {
@@ -44,64 +44,58 @@ export default async function ExpiringDocsCard({ studentIds, windowDays = 30 }: 
   const list = Array.from(kids.values()).sort((a, b) => a.worst - b.worst || a.last.localeCompare(b.last, 'bg'))
   const expired = rows.filter((r: any) => daysTo(r.valid_until, today) < 0).length
   const soon = rows.length - expired
-  const shown = list.slice(0, list.length > MAX + 1 ? MAX : MAX + 1)
+  const shown = list.slice(0, MAX)
   const rest = list.length - shown.length
   const href = studentIds ? '/reports/documents?mine=1' : '/reports/documents'
   const statusHref = (s: string) => `${href}${href.includes('?') ? '&' : '?'}status=${s}`
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
-      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl">
-        <CalendarClock size={15} className="text-slate-500" />
-        <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider mr-1">Документи със срок</span>
+    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 border-b border-slate-100">
+        <CalendarClock size={14} className="text-slate-400" />
+        <span className="text-[13px] text-slate-700">Документи със срок</span>
         {expired > 0 && (
-          <Link href={statusHref('expired')} className="inline-flex items-center gap-1.5 text-[11.5px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />{expired} изтекли
+          <Link href={statusHref('expired')} className="inline-flex items-center gap-1.5 text-[12px] text-slate-600 hover:text-[#0f2240]">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />{expired} изтекли
           </Link>
         )}
         {soon > 0 && (
-          <Link href={statusHref('soon')} className="inline-flex items-center gap-1.5 text-[11.5px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />{soon} до {windowDays} дни
+          <Link href={statusHref('soon')} className="inline-flex items-center gap-1.5 text-[12px] text-slate-600 hover:text-[#0f2240]">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />{soon} до {windowDays} дни
           </Link>
         )}
-        <Link href={href} className="ml-auto inline-flex items-center gap-1 text-[11.5px] text-[#0f2240] hover:underline">Справка <ArrowRight size={12} /></Link>
+        <Link href={href} className="ml-auto inline-flex items-center gap-1 text-[12px] text-slate-500 hover:text-[#0f2240]">Справка <ArrowRight size={12} /></Link>
       </div>
 
-      <div className="grid gap-2 p-3 grid-cols-[repeat(auto-fill,minmax(170px,1fr))]">
-        {shown.map(k => {
-          const bad = k.worst < 0
-          const initials = `${k.first[0] || ''}${k.last[0] || ''}`.toUpperCase()
-          return (
-            <Link key={k.id} href={`/students/${k.id}?tab=data`}
-              className={`group relative rounded-xl border bg-white p-2.5 pl-3 hover:shadow-md hover:-translate-y-px transition overflow-hidden ${bad ? 'border-rose-200' : 'border-amber-200'}`}>
-              <span className={`absolute left-0 top-0 bottom-0 w-1 ${bad ? 'bg-rose-500' : 'bg-amber-400'}`} />
-              <div className="flex items-center gap-2.5">
-                <span className={`shrink-0 w-9 h-9 rounded-full grid place-items-center text-[13px] font-semibold tracking-wide ${bad ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'}`}>{initials}</span>
-                <div className="min-w-0">
-                  <div className="text-[12.5px] font-medium text-slate-800 truncate leading-tight" title={`${k.first} ${k.last}`}>{k.first} {k.last}</div>
-                  {k.cls && <div className="text-[11px] text-slate-500 truncate mt-0.5">{k.cls}</div>}
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-1 mt-2">
-                {k.docs.sort((a, b) => a.days - b.days).map(d => (
-                  <span key={d.type} title={`${SHORT[d.type] || d.type} — валиден до ${fmt(d.until)}`}
-                    className={`text-[10.5px] font-medium px-1.5 py-0.5 rounded-md border whitespace-nowrap ${d.days < 0 ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-800 border-amber-200'}`}>
-                    {SHORT[d.type] || d.type} · {d.days < 0 ? 'изтекъл' : d.days === 0 ? 'днес' : d.days === 1 ? 'утре' : `${d.days} дни`}
-                  </span>
-                ))}
-              </div>
-            </Link>
-          )
-        })}
-        {rest > 0 && (
-          <Link href={href} className="rounded-xl border border-dashed border-slate-300 p-2.5 grid place-items-center text-center text-slate-500 hover:text-[#0f2240] hover:border-slate-400 hover:bg-slate-50 transition">
-            <div>
-              <div className="text-lg font-semibold tabular-nums">+{rest}</div>
-              <div className="text-[11px]">още деца · справка</div>
-            </div>
-          </Link>
-        )}
+      {/* по едно дете на ред: точка (червена — изтекъл, жълта — скоро), име, паралелка, документите */}
+      <div className="grid md:grid-cols-2 md:divide-x divide-slate-100">
+        {[shown.slice(0, Math.ceil(shown.length / 2)), shown.slice(Math.ceil(shown.length / 2))].map((col, ci) => (
+          <div key={ci} className="divide-y divide-slate-50">
+            {col.map(k => (
+              <Link key={k.id} href={`/students/${k.id}?tab=data`}
+                className="flex items-center gap-2.5 px-4 py-1.5 hover:bg-slate-50 transition-colors">
+                <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${k.worst < 0 ? 'bg-rose-400' : 'bg-amber-400'}`} />
+                <span className="text-[13px] text-slate-800 truncate">{k.first} {k.last}</span>
+                {k.cls && <span className="shrink-0 text-[11px] text-slate-400">{k.cls}</span>}
+                <span className="ml-auto flex items-center gap-1 min-w-0 overflow-hidden">
+                  {k.docs.sort((a, b) => a.days - b.days).slice(0, 2).map(d => (
+                    <span key={d.type} title={`${SHORT[d.type] || d.type} — валиден до ${fmt(d.until)}`}
+                      className="text-[11px] text-slate-500 whitespace-nowrap">
+                      {SHORT[d.type] || d.type} · <span className={d.days < 0 ? 'text-rose-600' : 'text-amber-700'}>{d.days < 0 ? 'изтекъл' : d.days === 0 ? 'днес' : d.days === 1 ? 'утре' : `${d.days} дни`}</span>
+                    </span>
+                  ))}
+                  {k.docs.length > 2 && <span className="text-[11px] text-slate-400">+{k.docs.length - 2}</span>}
+                </span>
+              </Link>
+            ))}
+          </div>
+        ))}
       </div>
+      {rest > 0 && (
+        <Link href={href} className="block px-4 py-2 border-t border-slate-100 text-[12px] text-slate-500 hover:text-[#0f2240] hover:bg-slate-50 rounded-b-2xl">
+          + още {rest} {rest === 1 ? 'дете' : 'деца'} — в справката
+        </Link>
+      )}
     </div>
   )
 }
