@@ -27,7 +27,7 @@ export default async function IntakeCard({ student, enrollment, guardiansCount, 
     { done: hasTeam, label: 'ЕПЛР екип', hint: hasTeam ? 'определен' : 'не е определен', href: `/students/${id}/eplr` },
     { done: hasTherapist, label: 'Терапевти', hint: hasTherapist ? 'разпределено' : 'не е разпределено', href: canManage ? '/admin/therapists' : undefined },
     { done: survey?.status === 'completed', label: 'Анкета (оценка)', hint: survey?.status === 'completed' ? 'завършена' : survey?.status === 'in_progress' ? 'започната' : 'непопълнена', href: `/students/${id}/survey` },
-    { done: (docsCount || 0) > 0, label: 'ТЕЛК / ЕР / документи', hint: (docsCount || 0) > 0 ? `${docsCount} въведени` : 'таб „Данни“' },
+    { done: (docsCount || 0) > 0, label: 'ТЕЛК/ЛКК / документи', hint: (docsCount || 0) > 0 ? `${docsCount} въведени` : 'таб „Данни“' },
     { done: true, info: true, label: 'ЦОУД', hint: coudEnrolled ? 'записан в група' : 'не е в ЦОУД (решава КЕ)' },
   ]
   const required = steps.filter(s => !s.info)

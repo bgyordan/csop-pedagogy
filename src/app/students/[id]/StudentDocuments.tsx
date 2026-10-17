@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Check, X, Loader2, Trash2, Pencil, Stethoscope, ShieldCheck, Utensils } from 'lucide-react'
+import DateInput from '@/components/ui/DateInput'
 
 interface DocRow {
   doc_type: string
@@ -12,12 +13,13 @@ interface DocRow {
   support_type: string | null
   diagnosis: string | null
   indefinite?: boolean   // безсрочен (напр. ТЕЛК без срок) — различно от „срокът не е въведен“
+  valid_label?: string | null   // РЦПППО: „до края на IV клас“ / „до края на начален етап“
 }
-interface Props { studentId: string; canManage: boolean }
+interface Props { studentId: string; canManage: boolean; externalClass?: string | null }
 
 // hasSupport = поле „интензивност" (само РЦПППО); hasDiagnosis = „Диагноза" (само ТЕЛК).
 const DOC_TYPES: { key: string; label: string; icon: any; notePlaceholder?: string; hasSupport?: boolean; hasDiagnosis?: boolean }[] = [
-  { key: 'telk',    label: 'ТЕЛК / решение на МЕ',                     icon: Stethoscope, hasDiagnosis: true },
+  { key: 'telk',    label: 'ТЕЛК/ЛКК',                                 icon: Stethoscope, hasDiagnosis: true },
   { key: 'rcpppo',  label: 'Заповед за насочване (РЦПППО)',            icon: ShieldCheck, hasSupport: true },
   { key: 'allergy', label: 'Документ за алергии / специално хранене',  icon: Utensils, notePlaceholder: 'напр. без глутен и млечни продукти' },
 ]
@@ -29,18 +31,43 @@ const INTENSITY_OPTIONS = ['висока', 'средна', 'ниска']
 const LEGACY_SUPPORT: Record<string, string> = { short: 'краткосрочна', long: 'дългосрочна' }
 const supportLabel = (v?: string | null) => (v ? (LEGACY_SUPPORT[v] || v) : '')
 
-function fmtDate(d: string) { return new Date(d).toLocaleDateString('bg-BG') }
+// без часови зони: „2026-09-12“ → „12.09.2026“
+function fmtDate(d: string) { return d.slice(0, 10).split('-').reverse().join('.') }
+
+// Заповед РЦПППО — „валидна до края на клас / етап“; датата се изчислява (30.06 на съответната година)
+const ROMAN = ['ПГ', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
+const STAGES: { key: string; label: string; last: number }[] = [
+  { key: 'pg', label: 'предучилищно образование', last: 0 },
+  { key: 'nach', label: 'начален етап', last: 4 },
+  { key: 'progim', label: 'прогимназиален етап', last: 7 },
+  { key: 'gim1', label: 'първи гимназиален етап', last: 10 },
+  { key: 'gim2', label: 'втори гимназиален етап', last: 12 },
+]
+function gradeOf(ext?: string | null): number | null {
+  const t = (ext || '').trim().toUpperCase()
+  if (!t) return null
+  if (t.startsWith('ПГ')) return 0
+  const rm = t.match(/^(XII|XI|X|IX|VIII|VII|VI|V|IV|III|II|I)\b/)
+  if (rm) return ROMAN.indexOf(rm[1])
+  const m = t.match(/\d+/); return m ? parseInt(m[0]) : null
+}
+/** 30.06 на учебната година, в която детето завършва дадения клас (по сегашния му клас в училището) */
+function endOfGrade(target: number, current: number | null): string {
+  if (current === null || target < current) return ''
+  const now = new Date(), y = now.getFullYear(), endYear = now.getMonth() >= 8 ? y + 1 : y
+  return `${endYear + (target - current)}-06-30`
+}
 
 function hasAnyData(row?: DocRow) {
   if (!row) return false
-  return !!(row.valid_until || row.indefinite || (row.note && row.note.trim()) || (row.doc_number && row.doc_number.trim())
+  return !!(row.valid_until || row.indefinite || row.valid_label || (row.note && row.note.trim()) || (row.doc_number && row.doc_number.trim())
     || row.issued_on || row.support_type || (row.diagnosis && row.diagnosis.trim()))
 }
 
 function statusOf(row?: DocRow) {
   if (!hasAnyData(row)) return { kind: 'none' as const }
   if (row!.indefinite) return { kind: 'indefinite' as const }
-  if (!row!.valid_until) return { kind: 'nodate' as const }
+  if (!row!.valid_until) return row!.valid_label ? { kind: 'label' as const } : { kind: 'nodate' as const }
   const validUntil = new Date(row!.valid_until)
   const now = new Date()
   const daysLeft = Math.ceil((validUntil.getTime() - now.getTime()) / (1000 * 3600 * 24))
@@ -49,7 +76,7 @@ function statusOf(row?: DocRow) {
   return { kind: 'valid' as const, date: row!.valid_until }
 }
 
-export default function StudentDocuments({ studentId, canManage }: Props) {
+export default function StudentDocuments({ studentId, canManage, externalClass }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<Record<string, DocRow>>({})
   const [loading, setLoading] = useState(true)
@@ -63,6 +90,11 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
   const [dNote, setDNote] = useState('')
   const [dSupport, setDSupport] = useState('')
   const [dDiagnosis, setDDiagnosis] = useState('')
+  // РЦПППО: валидна до — дата / края на клас / края на етап
+  const [vMode, setVMode] = useState<'date' | 'class' | 'stage'>('date')
+  const [vClass, setVClass] = useState(4)
+  const [vStage, setVStage] = useState('nach')
+  const curGrade = gradeOf(externalClass)
 
   useEffect(() => {
     let active = true
@@ -89,18 +121,31 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
     setDNote(r?.note || '')
     setDSupport(r?.support_type || '')
     setDDiagnosis(r?.diagnosis || '')
+    const lbl = r?.valid_label || ''
+    const st = STAGES.find(x => lbl.includes(x.label))
+    const cl = lbl.match(/края на (\S+) клас/)
+    if (st) { setVMode('stage'); setVStage(st.key) }
+    else if (cl && ROMAN.includes(cl[1])) { setVMode('class'); setVClass(ROMAN.indexOf(cl[1])) }
+    else { setVMode('date'); setVClass(Math.max(curGrade ?? 4, 0)); setVStage(STAGES.find(x => x.last >= (curGrade ?? 1))?.key || 'nach') }
     setEditing(key)
   }
 
   async function save(key: string) {
     const t = DOC_TYPES.find(x => x.key === key)
     setSaving(true)
+    // РЦПППО до края на клас/етап → текст + изчислена дата
+    let validLabel: string | null = null, validDate = dValid || null
+    if (t?.hasSupport && !dIndef && vMode !== 'date') {
+      if (vMode === 'class') { validLabel = vClass === 0 ? 'до края на подготвителната група' : `до края на ${ROMAN[vClass]} клас`; validDate = endOfGrade(vClass, curGrade) || null }
+      else { const st = STAGES.find(x => x.key === vStage)!; validLabel = `до края на ${st.label}`; validDate = endOfGrade(st.last, curGrade) || null }
+    }
     const row: DocRow = {
       doc_type: key,
       doc_number: dNumber.trim() || null,
       issued_on: dIssued || null,
-      valid_until: dIndef ? null : (dValid || null),
+      valid_until: dIndef ? null : validDate,
       indefinite: dIndef,
+      valid_label: validLabel,
       note: dNote.trim() || null,
       support_type: t?.hasSupport ? (dSupport || null) : null,
       diagnosis: t?.hasDiagnosis ? (dDiagnosis.trim() || null) : null,
@@ -110,10 +155,12 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
       setRows(prev => { const n = { ...prev }; delete n[key]; return n })
     } else {
       // indefinite само ако е отбелязано (без миграцията колоната я няма)
-      const { indefinite, ...base } = row
+      const { indefinite, valid_label, ...base } = row
       const { error } = await supabase.from('student_documents')
-        .upsert({ student_id: studentId, ...base, ...(indefinite || rows[key]?.indefinite ? { indefinite } : {}), updated_at: new Date().toISOString() }, { onConflict: 'student_id,doc_type' })
+        .upsert({ student_id: studentId, ...base, ...(indefinite || rows[key]?.indefinite ? { indefinite } : {}),
+          ...(valid_label || rows[key]?.valid_label ? { valid_label } : {}), updated_at: new Date().toISOString() }, { onConflict: 'student_id,doc_type' })
       if (error && /indefinite/.test(error.message)) alert('За „безсрочен“ пуснете SQL файла 2026-10-09_student_documents_indefinite.sql')
+      if (error && /valid_label/.test(error.message)) alert('За „до края на клас/етап“ пуснете SQL файла 2026-10-17_student_documents_valid_label.sql')
       if (!error) setRows(prev => ({ ...prev, [key]: row }))
     }
     setSaving(false)
@@ -134,11 +181,14 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
     if (st.kind === 'indefinite') return (
       <span className="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-md border text-emerald-700 bg-emerald-50 border-emerald-200">Безсрочен</span>
     )
+    if (st.kind === 'label') return (
+      <span className="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-md border text-emerald-700 bg-emerald-50 border-emerald-200">Валидна {row!.valid_label}</span>
+    )
     if (st.kind === 'nodate') return (
       <span className="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-md border bg-blue-50 text-blue-700 border-blue-200">Въведено</span>
     )
     const map = {
-      valid:   { cls: 'text-emerald-700 bg-emerald-50 border-emerald-200', txt: `Валиден до ${fmtDate(st.date!)}` },
+      valid:   { cls: 'text-emerald-700 bg-emerald-50 border-emerald-200', txt: row?.valid_label ? `Валидна ${row.valid_label} · ${fmtDate(st.date!)}` : `Валиден до ${fmtDate(st.date!)}` },
       soon:    { cls: 'text-amber-700 bg-amber-50 border-amber-200',       txt: `Изтича след ${(st as any).daysLeft} дни · ${fmtDate(st.date!)}` },
       expired: { cls: 'text-rose-700 bg-rose-50 border-rose-200',          txt: `Изтекъл · ${fmtDate(st.date!)}` },
     }[st.kind]
@@ -203,11 +253,34 @@ export default function StudentDocuments({ studentId, canManage }: Props) {
                   </div>
                   <div>
                     <label className={labelCls}>Дата на издаване</label>
-                    <input type="date" value={dIssued} onChange={e => setDIssued(e.target.value)} className={inputCls} />
+                    <DateInput value={dIssued} onChange={setDIssued} />
                   </div>
                   <div>
-                    <label className={labelCls}>Валиден до</label>
-                    <input type="date" value={dIndef ? '' : dValid} disabled={dIndef} onChange={e => setDValid(e.target.value)} className={inputCls + ' disabled:bg-slate-100 disabled:text-slate-400'} />
+                    <label className={labelCls}>{t.hasSupport ? 'Валидна до' : 'Валиден до'}</label>
+                    {t.hasSupport && !dIndef && (
+                      <div className="flex gap-1 mb-1.5">
+                        {([['date', 'дата'], ['class', 'края на клас'], ['stage', 'края на етап']] as const).map(([m, l]) => (
+                          <button key={m} type="button" onClick={() => setVMode(m)}
+                            className={`px-2.5 py-0.5 rounded-full text-[11.5px] border ${vMode === m ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-300'}`}>{l}</button>
+                        ))}
+                      </div>
+                    )}
+                    {(!t.hasSupport || dIndef || vMode === 'date') && <DateInput value={dIndef ? '' : dValid} disabled={dIndef} onChange={setDValid} />}
+                    {t.hasSupport && !dIndef && vMode === 'class' && (
+                      <select value={vClass} onChange={e => setVClass(Number(e.target.value))} className={inputCls}>
+                        {ROMAN.map((r, i) => <option key={r} value={i}>{i === 0 ? 'края на подготвителната група' : `края на ${r} клас`}</option>)}
+                      </select>
+                    )}
+                    {t.hasSupport && !dIndef && vMode === 'stage' && (
+                      <select value={vStage} onChange={e => setVStage(e.target.value)} className={inputCls}>
+                        {STAGES.map(x => <option key={x.key} value={x.key}>края на {x.label}</option>)}
+                      </select>
+                    )}
+                    {t.hasSupport && !dIndef && vMode !== 'date' && (() => {
+                      const g = vMode === 'class' ? vClass : STAGES.find(x => x.key === vStage)!.last
+                      const d = endOfGrade(g, curGrade)
+                      return <p className="mt-1 text-[11px] text-slate-500">{d ? `≈ ${fmtDate(d)} (сега: ${externalClass} клас) — за напомнянето` : curGrade === null ? 'Класът в училището не е въведен — без дата за напомняне' : 'Детето вече е след този клас'}</p>
+                    })()}
                     <label className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
                       <input type="checkbox" checked={dIndef} onChange={e => { setDIndef(e.target.checked); if (e.target.checked) setDValid('') }}
                         className="w-3.5 h-3.5 rounded border-slate-300 accent-[#0f2240]" />
