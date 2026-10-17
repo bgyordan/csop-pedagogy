@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3, FileSpreadsheet,
-  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare
+  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare, Calculator
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
@@ -50,6 +50,7 @@ const navItems: NavItem[] = [
       // обща библиотека: работни листове, табла, игри — търсене и печат
       { href: '/materials', label: 'Материали', icon: <Library size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator'] },
       { href: '/pecs', label: 'PECS', icon: <MessagesSquare size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator'] },
+      { href: '/remelka', label: 'РЕМЕЛКА', icon: <Calculator size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator'] },
       { href: '/visual-schedule', label: 'Визуален график', icon: <Images size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
     ],
   },
@@ -92,6 +93,7 @@ const navItems: NavItem[] = [
       { href: '/passports', label: 'Паспорти', icon: <IdCard size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/materials', label: 'Материали', icon: <Library size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/pecs', label: 'PECS', icon: <MessagesSquare size={14} />, roles: ['admin', 'zdud', 'director'] },
+      { href: '/remelka', label: 'РЕМЕЛКА', icon: <Calculator size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/visual-schedule', label: 'Визуален график', icon: <Images size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
   },

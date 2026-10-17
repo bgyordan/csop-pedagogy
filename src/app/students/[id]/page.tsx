@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import OutreachBadge from '@/components/OutreachBadge'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Heart, CalendarClock, ClipboardList, Sparkles, FolderOpen, LayoutGrid, AlertTriangle, Phone, ChevronDown, ChevronRight, Bus, Utensils, Sprout, Mail, IdCard, MonitorSmartphone, MessagesSquare } from 'lucide-react'
+import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Heart, CalendarClock, ClipboardList, Sparkles, FolderOpen, LayoutGrid, AlertTriangle, Phone, ChevronDown, ChevronRight, Bus, Utensils, Sprout, Mail, IdCard, MonitorSmartphone, MessagesSquare, Calculator } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
 import { DOCUMENT_TYPE_LABELS, DocumentType, STATUS_LABELS, DocumentStatus } from '@/types'
 import { AttachmentsSection } from './AttachmentsSection'
@@ -21,6 +21,7 @@ import DevelopmentTab from './development/DevelopmentTab'
 import PassportTab from './passport/PassportTab'
 import OnlineRoomTab from './room/OnlineRoomTab'
 import PecsTab from './pecs/PecsTab'
+import RemelkaTab from './remelka/RemelkaTab'
 import FillEplrButton from './FillEplrButton'
 import { isOresActive, todaySofia, ORES_ACTIVE_COLS } from '@/lib/ores'
 
@@ -52,7 +53,7 @@ function getInitials(firstName: string, lastName: string): string {
 
 // Досие: Документи (Drive — по подразбиране, ползват го най-много) · Обзор · Паспорт · Данни (вкл. външните документи) · Екип · Развитие
 // (старите адреси ?tab=eplr/therapy/files водят към новите)
-const TABS = ['docs', 'overview', 'room', 'passport', 'pecs', 'data', 'team', 'dev'] as const
+const TABS = ['docs', 'overview', 'room', 'passport', 'pecs', 'remelka', 'data', 'team', 'dev'] as const
 type Tab = typeof TABS[number]
 const LEGACY_TAB: Record<string, Tab> = { eplr: 'team', therapy: 'team', files: 'docs' }
 
@@ -201,6 +202,7 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
     ...(showRoom ? [{ key: 'room' as Tab, label: activeOres ? 'Онлайн стая ●' : 'Онлайн стая', icon: MonitorSmartphone }] : []),
     ...(showDev ? [{ key: 'passport' as Tab, label: 'Паспорт', icon: IdCard }] : []),
     ...(showDev ? [{ key: 'pecs' as Tab, label: 'PECS', icon: MessagesSquare }] : []),
+    ...(showDev ? [{ key: 'remelka' as Tab, label: 'РЕМЕЛКА', icon: Calculator }] : []),
     { key: 'data', label: 'Данни', icon: ClipboardList },
     { key: 'team', label: 'Екип', icon: Users },
     ...(showDev ? [{ key: 'dev' as Tab, label: 'Развитие', icon: Sprout }] : []),
@@ -570,6 +572,13 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
           <div className="animate-in fade-in duration-300">
             <PecsTab studentId={id} childName={getFullName(student as any)} firstName={(student as any).first_name || ''} meId={meId}
               isManager={canManage || profile?.role === 'director'} />
+          </div>
+        )}
+
+        {/* РЕМЕЛКА — смятане и социални умения: диагностика → програма → занимания */}
+        {tab === 'remelka' && showDev && (
+          <div className="animate-in fade-in duration-300">
+            <RemelkaTab studentId={id} firstName={(student as any).first_name || ''} meId={meId} isManager={canManage || profile?.role === 'director'} />
           </div>
         )}
 
