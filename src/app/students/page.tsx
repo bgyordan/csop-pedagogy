@@ -47,6 +47,8 @@ export default async function StudentsPage({
     .select('*, student:students(*), class:classes(*)')
     .eq('academic_year_id', currentYear?.id)
   let visibleClasses = allClasses || []
+  // за терапевтите: защо детето е в списъка им — ЕПЛР екип и/или терапия
+  const myLinks: Record<string, ('eplr' | 'therapy')[]> = {}
    if (isClassTeacher) {
     const { data: assignments } = await supabase
       .from('class_teacher_assignments').select('class_id')
@@ -63,13 +65,21 @@ export default async function StudentsPage({
     query = query.in('class_id', allMyClassIds.length > 0 ? allMyClassIds : ['no-results'])
     visibleClasses = allClasses?.filter(c => allMyClassIds.includes(c.id)) || []
   } else if (isSpecialist && !isCoordinator) {
+    // Терапевт: децата от ДВАТА списъка — ЕПЛР екипа (официалния за годината) И терапията (кой реално работи с детето).
+    // Двата не се наливат един в друг, затова тук се обединяват, а до името стои етикет защо детето е „мое“.
+    const me = profileData!.id
     const roleField = role === 'psychologist' ? 'psychologist_id'
       : role === 'speech_therapist' ? 'speech_therapist_id' : 'rehabilitator_id'
-    const { data: eplrTeams } = await supabase
-      .from('eplr_teams').select('student_id')
-      .eq(roleField, profileData!.id).eq('academic_year_id', currentYear?.id)
-    const studentIds = eplrTeams?.map(t => t.student_id) || []
-      query = query.in('student_id', studentIds.length > 0 ? studentIds : ['no-results'])
+    const [{ data: eplrTeams }, { data: therapyKids }] = await Promise.all([
+      supabase.from('eplr_teams').select('student_id')
+        .eq(roleField, me).eq('academic_year_id', currentYear?.id),
+      supabase.from('students').select('id')
+        .or(`therapist_psychologist_id.eq.${me},therapist_speech_id.eq.${me},therapist_rehab_id.eq.${me},therapist_rehab2_id.eq.${me}`),
+    ])
+    ;(eplrTeams || []).forEach((t: any) => { (myLinks[t.student_id] = myLinks[t.student_id] || []).push('eplr') })
+    ;(therapyKids || []).forEach((t: any) => { (myLinks[t.id] = myLinks[t.id] || []).push('therapy') })
+    const studentIds = Object.keys(myLinks)
+    query = query.in('student_id', studentIds.length > 0 ? studentIds : ['no-results'])
   } else if (role === 'educator' && !isCoordinator) {
     // Възпитател — само децата от неговите ЦОУД групи
     const { data: myGroups } = await supabase
@@ -95,7 +105,7 @@ export default async function StudentsPage({
     .from('coud_enrollments').select('student_id').eq('academic_year_id', currentYear?.id)
   const coudEnrolledIds = new Set((coudEnrRows || []).map((c: any) => c.student_id))
 
-  type Row = { key: string; student: any; className: string | null; outreach?: string | null; unassigned: boolean; educationForm: string | null; coudEnrolled: boolean }
+  type Row = { key: string; student: any; className: string | null; outreach?: string | null; unassigned: boolean; educationForm: string | null; coudEnrolled: boolean; links?: ('eplr' | 'therapy')[] }
   let unassignedRows: Row[] = []
   if (canSeeUnassigned) {
     // ВСИЧКИ записани за годината (без филтъра по паралелка) — иначе филтърът лъже кой е "неразпределен"
@@ -132,6 +142,7 @@ export default async function StudentsPage({
       unassigned: false,
       educationForm: e.education_form || 'daily',
       coudEnrolled: coudEnrolledIds.has(e.student?.id),
+      links: myLinks[e.student?.id],
     }))
 
   // Обединяваме. Ако е избрана конкретна паралелка от падащото меню — неразпределените нямат паралелка, скриваме ги.

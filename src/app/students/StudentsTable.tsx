@@ -16,6 +16,7 @@ interface Row {
   unassigned: boolean
   educationForm?: string | null
   coudEnrolled?: boolean
+  links?: ('eplr' | 'therapy')[]   // само при терапевтите: защо детето е в списъка им
 }
 
 export default function StudentsTable({ rows }: { rows: Row[] }) {
@@ -88,6 +89,12 @@ export default function StudentsTable({ rows }: { rows: Row[] }) {
                 <span className="text-sm text-slate-800 truncate">{getFullName(r.student)}</span>
                 {r.unassigned && (
                   <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-100">без паралелка</span>
+                )}
+                {r.links?.includes('eplr') && (
+                  <span title="Член сте на ЕПЛР екипа на детето" className="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-100">ЕПЛР</span>
+                )}
+                {r.links?.includes('therapy') && (
+                  <span title="Водите детето на терапия" className="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">терапия</span>
                 )}
                 <ChevronRight size={15} className="md:hidden ml-auto text-slate-300 group-hover:text-slate-500 transition-colors" />
               </div>
