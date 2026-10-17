@@ -51,7 +51,7 @@ export default function CheckClient({ rates }: { rates: LecturerRates }) {
   const overPeriods = useMemo(() => declarationPeriods('over'), [])
   const [monthKey, setMonthKey] = useState(() => defaultPeriod(months).key)
   const month = months.find(m => m.key === monthKey) || months[0]
-  const over = overPeriods.find(p => p.to === month.to) || null   // окт. → септ.–окт.; септ. → няма
+  const over = overPeriods.find(p => p.to === month.to) || null   // периодите са еднакви за двата вида
 
   const [tab, setTab] = useState<Tab>('sub')
   const [filter, setFilter] = useState<Filter>('all')
@@ -217,7 +217,7 @@ export default function CheckClient({ rates }: { rates: LecturerRates }) {
     <div className="space-y-5">
       {/* ── ПЕРИОД (главен) ── */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-        <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-2">Месец</div>
+        <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-2">Период</div>
         <div className="flex flex-wrap gap-1.5">
           {months.map(m => (
             <button key={m.key} onClick={() => setMonthKey(m.key)}
@@ -243,15 +243,6 @@ export default function CheckClient({ rates }: { rates: LecturerRates }) {
         {bigTab('sub', 'Заместване', subCount)}
         {bigTab('over', 'Над норматив', overCount)}
       </div>
-
-      {tab === 'over' && !over && (
-        <div className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-500 font-light">
-          Над норматив за септември се декларира заедно с октомври — избери <b className="font-medium">октомври</b>.
-        </div>
-      )}
-      {tab === 'over' && over && over.from !== month.from && (
-        <div className="text-xs text-slate-400 font-light -mt-2">Периодът за над норматив е {over.label} (септември и октомври заедно).</div>
-      )}
 
       {(tab === 'sub' || over) && (
         <>
