@@ -175,7 +175,15 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
   const daysTo = (d?: string | null) => d ? Math.ceil((new Date(d).getTime() - Date.now()) / 864e5) : null
   type Alert = { level: 'red' | 'amber' | 'info'; text: string; tab: Tab; icon: any }
   const alerts: Alert[] = []
-  if (sDoc.allergy) alerts.push({ level: 'red', icon: Utensils, tab: 'data', text: `Алергии / специално хранене${sDoc.allergy.note ? `: ${sDoc.allergy.note}` : ''}` })
+  // алергии: известие само при „Има“ (или стар запис с текст); „Няма“ не тревожи
+  {
+    const a = sDoc.allergy
+    const has = a && (a.allergy_status === 'has' || (!a.allergy_status && (a.note || '').trim()))
+    if (has) {
+      const what = [...(a.allergens || []), ...(!(a.allergens || []).length && a.note ? [a.note] : [])].join(', ')
+      alerts.push({ level: 'red', icon: Utensils, tab: 'data', text: `Алергия / специално хранене${what ? `: ${what}` : ''}${a.emergency_med ? ' · има лекарство за спешна помощ' : ''}` })
+    }
+  }
   for (const [k, lbl] of [['rcpppo', 'Заповед РЦПППО'], ['telk', 'ТЕЛК/ЛКК']] as const) {
     const d = daysTo(sDoc[k]?.valid_until)
     if (d !== null && d < 0) alerts.push({ level: 'red', icon: AlertTriangle, tab: 'data', text: `${lbl} — изтекла на ${formatDate(sDoc[k].valid_until)}` })
@@ -396,7 +404,8 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
                 {[['rcpppo', 'Заповед РЦПППО'], ['telk', 'ТЕЛК/ЛКК'], ['allergy', 'Алергии / хранене']].map(([k, lbl]) => {
                   const d = sDoc[k]; const left = daysTo(d?.valid_until)
                   return <div key={k}>{row(lbl, !d ? <span className="text-slate-300">няма</span>
-                    : k === 'allergy' ? <span className="text-rose-700">{d.note || 'да'}</span>
+                    : k === 'allergy' ? (d.allergy_status === 'none' ? <span className="text-emerald-700">няма</span>
+                      : <span className="text-rose-700">{(d.allergens || []).join(', ') || d.note || 'има'}</span>)
                     : d.indefinite ? 'безсрочен'
                     : !d.valid_until ? <span className="text-slate-400">без въведен срок</span>
                     : <span className={left! < 0 ? 'text-rose-700' : left! <= 30 ? 'text-amber-700' : 'text-slate-800'}>до {formatDate(d.valid_until)}</span>)}</div>

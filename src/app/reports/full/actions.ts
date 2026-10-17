@@ -88,7 +88,7 @@ export async function getFullReport(): Promise<{ error: string } | { headers: st
       g.names.join('; '), g.phones.join('; '),
       rc ? 'Да' : 'Не', rc?.doc_number || '', rc?.issued_on || '', rc?.indefinite ? 'безсрочен' : rc?.valid_until || '', (rc?.support_type ? (SUPPORT_LABEL[rc.support_type] || rc.support_type) : ''),
       tk ? 'Да' : 'Не', tk?.doc_number || '', tk?.issued_on || '', tk?.indefinite ? 'безсрочен' : tk?.valid_until || '', tk?.diagnosis || '',
-      al ? 'Да' : 'Не', al?.valid_until || '', al?.note || '',
+      !al ? 'не е попълнено' : al.allergy_status === 'none' ? 'Няма' : `Има${(al.allergens || []).length ? ': ' + al.allergens.join(', ') : ''}`, al?.valid_until || '', [al?.reaction_plan ? `при реакция: ${al.reaction_plan}` : '', al?.emergency_med ? 'спешно лекарство' : '', al?.note || ''].filter(Boolean).join('; '),
     ]
   })
 

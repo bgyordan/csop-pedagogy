@@ -4,7 +4,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Search, Printer, FileText, Loader2, X } from 'lucide-react'
+import { Search, Printer, FileText, Loader2, X, Utensils } from 'lucide-react'
 import { generateStudentsReportPDF, type StudentsReportData } from '@/lib/pdf-generator'
 import { generateStudentsReportDocx } from '@/lib/docx-students-report'
 import { DOC_TYPES, STATUS, docStatus, fmt } from '@/lib/student-docs'
@@ -13,7 +13,7 @@ import type { DocStatus, DocType, DocRow } from '@/lib/student-docs'
 export type Kid = { id: string; name: string; className: string; classTeacher: string; form: string; docs: Record<string, DocRow & { diagnosis?: string | null; support_type?: string | null }> }
 
 const coll = new Intl.Collator('bg', { numeric: true })
-const STATUSES: DocStatus[] = ['expired', 'soon', 'missing', 'nodate', 'valid', 'indefinite']
+const STATUSES: DocStatus[] = ['expired', 'soon', 'missing', 'has', 'no', 'nodate', 'valid', 'indefinite']
 
 function Seg<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { v: T; l: string }[] }) {
   return (
@@ -55,6 +55,8 @@ export default function DocsReportClient({ kids, yearName, initialDoc, initialSt
   const cellText = (k: Kid, t: DocType) => {
     const r = st(k, t), d = k.docs[t]
     if (r.s === 'missing') return '—'
+    if (r.s === 'no') return 'няма'
+    if (r.s === 'has') return `има${d?.allergens?.length ? ': ' + d.allergens.join(', ') : d?.note ? ': ' + d.note : ''}${d?.valid_until ? ` · до ${fmt(d.valid_until)}` : ''}`
     if (r.s === 'indefinite') return 'безсрочен'
     if (r.s === 'nodate') return d?.valid_label ? `валидна ${d.valid_label}` : 'без срок'
     const date = fmt(d!.valid_until!)
@@ -104,6 +106,29 @@ export default function DocsReportClient({ kids, yearName, initialDoc, initialSt
       total, landscape: headers.length >= 5, fileName: `Документи_на_децата_${yearName.replace('/', '-')}`,
     }
   }
+  // „Списък за столовата“ — децата с алергии/диети по паралелки: към какво, вид, какво да се прави при реакция
+  const allergyKids = kids.filter(k => { const s0 = docStatus(k.docs.allergy, horizon).s; return k.docs.allergy && !['no', 'missing'].includes(s0) })
+    .filter(k => !cls || k.className === cls)
+  async function kitchen(kind: 'pdf' | 'docx') {
+    setBusy(kind)
+    const by = new Map<string, Kid[]>()
+    allergyKids.forEach(k => { const g = k.className || 'Без паралелка'; (by.get(g) || by.set(g, []).get(g)!).push(k) })
+    const d: StudentsReportData = {
+      title: 'Алергии и специално хранене — списък за столовата', subtitle: `Учебна ${yearName} г.${cls ? ` · паралелка ${cls}` : ''} · към ${fmt(new Date().toISOString())}`,
+      headers: ['Име, презиме, фамилия', 'Към какво', 'Вид', 'При реакция'], widths: [26, 26, 20, 28],
+      groups: Array.from(by.entries()).sort((a, b) => coll.compare(a[0], b[0])).map(([g, ks]) => ({
+        title: g === 'Без паралелка' ? g : `Паралелка ${g}`, meta: String(ks.length),
+        cells: ks.sort((a, b) => coll.compare(a.name, b.name)).map(k => {
+          const a = k.docs.allergy!
+          return [k.name, (a.allergens || []).join(', ') || a.note || '—', (a.allergy_kinds || []).join(', '),
+            [a.reaction_plan || '', a.emergency_med ? 'има лекарство за спешна помощ' : ''].filter(Boolean).join(' · ')]
+        }),
+      })),
+      total: allergyKids.length, landscape: true, fileName: `Алергии_столова_${yearName.replace('/', '-')}`,
+    }
+    try { kind === 'pdf' ? await generateStudentsReportPDF(d) : await generateStudentsReportDocx(d) } finally { setBusy('') }
+  }
+
   async function download(kind: 'pdf' | 'docx') {
     setBusy(kind)
     try { kind === 'pdf' ? await generateStudentsReportPDF(reportData()) : await generateStudentsReportDocx(reportData()) } finally { setBusy('') }
@@ -176,6 +201,9 @@ export default function DocsReportClient({ kids, yearName, initialDoc, initialSt
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm text-slate-600"><b className="text-slate-800">{total}</b> {view === 'matrix' ? 'деца' : 'реда'}{group !== 'none' && <> · {groups.length} групи</>}</div>
         <div className="flex gap-2">
+          <button onClick={() => kitchen('pdf')} disabled={!!busy || !allergyKids.length} title="Децата с алергии и диети по паралелки — за столовата"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-800 text-sm hover:bg-rose-100 disabled:opacity-50">
+            <Utensils size={15} /> Списък за столовата ({allergyKids.length})</button>
           <button onClick={() => download('pdf')} disabled={!!busy || !total} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm hover:bg-slate-50 disabled:opacity-50">
             {busy === 'pdf' ? <Loader2 size={15} className="animate-spin" /> : <Printer size={15} />} PDF</button>
           <button onClick={() => download('docx')} disabled={!!busy || !total} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-medium disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>

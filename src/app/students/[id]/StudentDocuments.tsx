@@ -14,6 +14,12 @@ interface DocRow {
   diagnosis: string | null
   indefinite?: boolean   // безсрочен (напр. ТЕЛК без срок) — различно от „срокът не е въведен“
   valid_label?: string | null   // РЦПППО: „до края на IV клас“ / „до края на начален етап“
+  // Алергии / хранене: ясно „Няма“ или „Има“ (+ вид, към какво, какво да се прави)
+  allergy_status?: 'none' | 'has' | null
+  allergy_kinds?: string[] | null
+  allergens?: string[] | null
+  reaction_plan?: string | null
+  emergency_med?: boolean | null
 }
 interface Props { studentId: string; canManage: boolean; externalClass?: string | null }
 
@@ -21,8 +27,12 @@ interface Props { studentId: string; canManage: boolean; externalClass?: string 
 const DOC_TYPES: { key: string; label: string; icon: any; notePlaceholder?: string; hasSupport?: boolean; hasDiagnosis?: boolean }[] = [
   { key: 'telk',    label: 'ТЕЛК/ЛКК',                                 icon: Stethoscope, hasDiagnosis: true },
   { key: 'rcpppo',  label: 'Заповед за насочване (РЦПППО)',            icon: ShieldCheck, hasSupport: true },
-  { key: 'allergy', label: 'Документ за алергии / специално хранене',  icon: Utensils, notePlaceholder: 'напр. без глутен и млечни продукти' },
+  { key: 'allergy', label: 'Алергии / специално хранене',              icon: Utensils, notePlaceholder: 'допълнително (незадължително)' },
 ]
+
+// Алергии — само медицинско
+const ALLERGY_KINDS = ['хранителна алергия', 'непоносимост (глутен, лактоза…)', 'диета по медицински причини', 'друга алергия (лекарства, ужилване…)']
+const ALLERGENS = ['мляко', 'яйца', 'глутен', 'ядки', 'фъстъци', 'риба', 'морски дарове', 'соя', 'сусам', 'плодове', 'какао', 'мед']
 
 // Интензивност на подкрепата (от заповедта/становището на РЦПППО). Пази се като текст;
 // бутоните са бързи стойности, а полето позволява и свободен текст.
@@ -60,12 +70,14 @@ function endOfGrade(target: number, current: number | null): string {
 
 function hasAnyData(row?: DocRow) {
   if (!row) return false
-  return !!(row.valid_until || row.indefinite || row.valid_label || (row.note && row.note.trim()) || (row.doc_number && row.doc_number.trim())
+  return !!(row.allergy_status || row.valid_until || row.indefinite || row.valid_label || (row.note && row.note.trim()) || (row.doc_number && row.doc_number.trim())
     || row.issued_on || row.support_type || (row.diagnosis && row.diagnosis.trim()))
 }
 
 function statusOf(row?: DocRow) {
   if (!hasAnyData(row)) return { kind: 'none' as const }
+  if (row!.allergy_status === 'none') return { kind: 'no_allergy' as const }
+  if (row!.allergy_status === 'has' && !row!.valid_until) return { kind: 'has' as const }
   if (row!.indefinite) return { kind: 'indefinite' as const }
   if (!row!.valid_until) return row!.valid_label ? { kind: 'label' as const } : { kind: 'nodate' as const }
   const validUntil = new Date(row!.valid_until)
@@ -95,6 +107,13 @@ export default function StudentDocuments({ studentId, canManage, externalClass }
   const [vClass, setVClass] = useState(4)
   const [vStage, setVStage] = useState('nach')
   const curGrade = gradeOf(externalClass)
+  // алергии
+  const [aStatus, setAStatus] = useState<'' | 'none' | 'has'>('')
+  const [aKinds, setAKinds] = useState<string[]>([])
+  const [aAllergens, setAAllergens] = useState<string[]>([])
+  const [aOther, setAOther] = useState('')
+  const [aPlan, setAPlan] = useState('')
+  const [aMed, setAMed] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -121,6 +140,13 @@ export default function StudentDocuments({ studentId, canManage, externalClass }
     setDNote(r?.note || '')
     setDSupport(r?.support_type || '')
     setDDiagnosis(r?.diagnosis || '')
+    // алергии: стар запис с текст без статус → „Има“ за преглед
+    setAStatus(r?.allergy_status || (r && (r.note || '').trim() ? 'has' : ''))
+    setAKinds(r?.allergy_kinds || [])
+    setAAllergens((r?.allergens || []).filter(x => ALLERGENS.includes(x)))
+    setAOther((r?.allergens || []).filter(x => !ALLERGENS.includes(x)).join(', '))
+    setAPlan(r?.reaction_plan || '')
+    setAMed(!!r?.emergency_med)
     const lbl = r?.valid_label || ''
     const st = STAGES.find(x => lbl.includes(x.label))
     const cl = lbl.match(/края на (\S+) клас/)
@@ -139,6 +165,8 @@ export default function StudentDocuments({ studentId, canManage, externalClass }
       if (vMode === 'class') { validLabel = vClass === 0 ? 'до края на подготвителната група' : `до края на ${ROMAN[vClass]} клас`; validDate = endOfGrade(vClass, curGrade) || null }
       else { const st = STAGES.find(x => x.key === vStage)!; validLabel = `до края на ${st.label}`; validDate = endOfGrade(st.last, curGrade) || null }
     }
+    const isAllergy = key === 'allergy'
+    const aNone = isAllergy && aStatus === 'none'
     const row: DocRow = {
       doc_type: key,
       doc_number: dNumber.trim() || null,
@@ -149,7 +177,16 @@ export default function StudentDocuments({ studentId, canManage, externalClass }
       note: dNote.trim() || null,
       support_type: t?.hasSupport ? (dSupport || null) : null,
       diagnosis: t?.hasDiagnosis ? (dDiagnosis.trim() || null) : null,
+      ...(isAllergy ? {
+        allergy_status: aStatus || null,
+        allergy_kinds: aStatus === 'has' ? aKinds : [],
+        allergens: aStatus === 'has' ? [...aAllergens, ...aOther.split(',').map(x => x.trim()).filter(Boolean)] : [],
+        reaction_plan: aStatus === 'has' ? (aPlan.trim() || null) : null,
+        emergency_med: aStatus === 'has' && aMed,
+      } : {}),
     }
+    // „Няма алергии“ — без срок, номер и бележки
+    if (aNone) Object.assign(row, { doc_number: null, issued_on: null, valid_until: null, indefinite: false, note: null })
     if (!hasAnyData(row)) {
       await supabase.from('student_documents').delete().eq('student_id', studentId).eq('doc_type', key)
       setRows(prev => { const n = { ...prev }; delete n[key]; return n })
@@ -161,6 +198,7 @@ export default function StudentDocuments({ studentId, canManage, externalClass }
           ...(valid_label || rows[key]?.valid_label ? { valid_label } : {}), updated_at: new Date().toISOString() }, { onConflict: 'student_id,doc_type' })
       if (error && /indefinite/.test(error.message)) alert('За „безсрочен“ пуснете SQL файла 2026-10-09_student_documents_indefinite.sql')
       if (error && /valid_label/.test(error.message)) alert('За „до края на клас/етап“ пуснете SQL файла 2026-10-17_student_documents_valid_label.sql')
+      if (error && /allerg|reaction_plan|emergency_med/.test(error.message)) alert('За „Няма / Има“ при алергиите пуснете SQL файла 2026-10-17_student_allergy_status.sql')
       if (!error) setRows(prev => ({ ...prev, [key]: row }))
     }
     setSaving(false)
@@ -178,6 +216,12 @@ export default function StudentDocuments({ studentId, canManage, externalClass }
   function StatusPill({ row }: { row?: DocRow }) {
     const st = statusOf(row)
     if (st.kind === 'none') return <span className="text-xs text-slate-400">Не е въведено</span>
+    if (st.kind === 'no_allergy') return (
+      <span className="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-md border text-emerald-700 bg-emerald-50 border-emerald-200">Няма</span>
+    )
+    if (st.kind === 'has') return (
+      <span className="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-md border text-rose-700 bg-rose-50 border-rose-200">Има{row?.emergency_med ? ' · спешно лекарство' : ''}</span>
+    )
     if (st.kind === 'indefinite') return (
       <span className="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-md border text-emerald-700 bg-emerald-50 border-emerald-200">Безсрочен</span>
     )
@@ -199,6 +243,12 @@ export default function StudentDocuments({ studentId, canManage, externalClass }
 
   function metaLine(t: typeof DOC_TYPES[number], row: DocRow) {
     const parts: string[] = []
+    if (row.allergy_status === 'none') return 'няма алергии и специален режим'
+    if (row.allergy_status === 'has') {
+      if (row.allergens?.length) parts.push(row.allergens.join(', '))
+      if (row.allergy_kinds?.length) parts.push(row.allergy_kinds.join(', '))
+      if (row.reaction_plan) parts.push(`при реакция: ${row.reaction_plan}`)
+    }
     if (row.doc_number) parts.push(`№ ${row.doc_number}`)
     if (row.issued_on) parts.push(`изд. ${fmtDate(row.issued_on)}`)
     if (t.hasSupport && row.support_type) parts.push(`интензивност: ${supportLabel(row.support_type)}`)
@@ -246,6 +296,50 @@ export default function StudentDocuments({ studentId, canManage, externalClass }
 
             {isEditing && (
               <div className="px-3 pb-3 pt-1 border-t border-slate-100 bg-slate-50/60 rounded-b-xl space-y-2.5">
+                {t.key === 'allergy' && (
+                  <div className="mt-2.5 space-y-2.5">
+                    <div className="grid grid-cols-2 gap-2">
+                      {([['none', 'Няма алергии и специален режим', 'по декларация на родителя'], ['has', 'Има', 'алергия, непоносимост или диета по медицински причини']] as const).map(([v, l, h]) => (
+                        <button key={v} type="button" onClick={() => setAStatus(v)}
+                          className={`text-left px-3 py-2 rounded-xl border ${aStatus === v ? (v === 'none' ? 'border-emerald-500 bg-emerald-50' : 'border-rose-500 bg-rose-50') : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                          <span className={`block text-sm font-medium ${aStatus === v ? (v === 'none' ? 'text-emerald-800' : 'text-rose-800') : 'text-slate-700'}`}>{l}</span>
+                          <span className="block text-[11px] text-slate-500">{h}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {aStatus === 'has' && (
+                      <div className="space-y-2.5">
+                        <div>
+                          <label className={labelCls}>Вид</label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {ALLERGY_KINDS.map(k => { const on = aKinds.includes(k); return (
+                              <button key={k} type="button" onClick={() => setAKinds(x => on ? x.filter(y => y !== k) : [...x, k])}
+                                className={`px-2.5 py-1 rounded-full text-xs border ${on ? 'bg-rose-600 text-white border-rose-600' : 'bg-white text-slate-600 border-slate-300'}`}>{k}</button>) })}
+                          </div>
+                        </div>
+                        <div>
+                          <label className={labelCls}>Към какво</label>
+                          <div className="flex flex-wrap gap-1.5 mb-1.5">
+                            {ALLERGENS.map(k => { const on = aAllergens.includes(k); return (
+                              <button key={k} type="button" onClick={() => setAAllergens(x => on ? x.filter(y => y !== k) : [...x, k])}
+                                className={`px-2.5 py-1 rounded-full text-xs border ${on ? 'bg-rose-600 text-white border-rose-600' : 'bg-white text-slate-600 border-slate-300'}`}>{k}</button>) })}
+                          </div>
+                          <input type="text" value={aOther} onChange={e => setAOther(e.target.value)} placeholder="друго — изредете със запетая (напр. пеницилин, ягоди)" className={inputCls} />
+                        </div>
+                        <div>
+                          <label className={labelCls}>Какво да се прави при реакция</label>
+                          <input type="text" value={aPlan} onChange={e => setAPlan(e.target.value)} placeholder="напр. антихистамин, обаждане на родител, 112" className={inputCls} />
+                          <label className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer select-none">
+                            <input type="checkbox" checked={aMed} onChange={e => setAMed(e.target.checked)} className="w-3.5 h-3.5 rounded border-slate-300 accent-rose-600" />
+                            детето има лекарство за спешна помощ
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                    {aStatus === 'has' && <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wide pt-1">Документ (ако има)</div>}
+                  </div>
+                )}
+                {(t.key !== 'allergy' || aStatus === 'has') && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2.5">
                   <div>
                     <label className={labelCls}>№ на документа</label>
@@ -315,6 +409,7 @@ export default function StudentDocuments({ studentId, canManage, externalClass }
                     <input type="text" value={dNote} onChange={e => setDNote(e.target.value)} placeholder={t.notePlaceholder || 'незадължително'} className={inputCls} />
                   </div>
                 </div>
+                )}
                 <div className="flex items-center justify-between">
                   {row ? (
                     <button type="button" onClick={() => clear(t.key)} disabled={saving}
@@ -327,7 +422,7 @@ export default function StudentDocuments({ studentId, canManage, externalClass }
                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors">
                       <X size={12} /> Отказ
                     </button>
-                    <button type="button" onClick={() => save(t.key)} disabled={saving}
+                    <button type="button" onClick={() => save(t.key)} disabled={saving || (t.key === 'allergy' && !aStatus)}
                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-60 transition-opacity hover:opacity-90"
                       style={{ backgroundColor: '#0f2240' }}>
                       {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Запази
