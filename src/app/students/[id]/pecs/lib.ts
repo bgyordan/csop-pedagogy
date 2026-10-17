@@ -192,7 +192,7 @@ export function insights(p: Profile, items: Item[], sessions: Session[], trials:
     const people = new Set(recent.map(s => s.staff_id))
     const places = new Set(recent.map(s => s.place || ''))
     if (people.size === 1) out.push({ tone: 'warn', title: 'Само с един човек', text: `Последните занимания са само с ${names[last?.staff_id || ''] || 'един колега'}. Детето трябва да общува с всеки — нека опита и друг колега.` })
-    else if (places.size === 1 && p.phase >= 2) out.push({ tone: 'warn', title: 'Само на едно място', text: 'Опитайте в столовата, на двора или в друга стая — етап II е точно за това.' })
+    else if (places.size === 1 && p.phase >= 2) out.push({ tone: 'warn', title: 'Само на едно място', text: 'Опитайте в друга стая, на двора или в коридора — етап II е точно за това.' })
   }
 
   // помощта не намалява
