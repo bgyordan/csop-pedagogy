@@ -25,6 +25,7 @@ interface NavItem {
   roles?: UserRole[]
   coordinatorOnly?: boolean
   councilOnly?: boolean
+  incidentsTeam?: boolean   // Координационен съвет + координиращ екип + управата
    hideFromCoordinator?: boolean
   requiresClass?: boolean
   section?: string
@@ -142,8 +143,8 @@ const navItems: NavItem[] = [
   // Материална база — за управата отделен ред (колегите я имат в „Сграда“, деловодството — в своята секция)
   { href: '/facilities', label: 'Материална база', icon: <Wrench size={16} />, roles: ['admin', 'zdud', 'director'] },
   { href: '/bullying-council', label: 'К. Съвет', icon: <Shield size={16} />, councilOnly: true },
-  // дневник на случаите (тормоз и поведение) — записва всеки служител, вижда съветът/управата
-  { href: '/incidents', label: 'Дневник случаи', icon: <ShieldAlert size={16} /> },
+  // дневник на случаите (тормоз и поведение) — само Координационният съвет, координиращият екип и управата
+  { href: '/incidents', label: 'Дневник случаи', icon: <ShieldAlert size={16} />, incidentsTeam: true },
   { href: '/reports/hub', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['admin', 'zdud', 'director'] },
   {
     href: '#lecturer-mgmt',
@@ -285,6 +286,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
     if (item.requiresClass && !hasClass) return false
     if (item.coordinatorOnly && isCoordinator) return true
     // К. съвет: за админ/ЗДУД е в „Администрация“; в менюто остава за членовете на съвета и директора
+    if (item.incidentsTeam) return isCouncil || isCoordinator || ['admin', 'zdud', 'director'].includes(userRole)
     if (item.councilOnly) return (isCouncil || userRole === 'director') && !['admin', 'zdud'].includes(userRole)
     if (therapyRole && THERAPY_ITEMS.includes(item.href) && item.roles?.includes(therapyRole as UserRole)) return true
     if (!item.roles) return true

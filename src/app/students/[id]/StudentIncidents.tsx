@@ -1,7 +1,7 @@
 'use client'
 // Случаите на детето от „Дневник на случаите“ — всички години, в досието.
-// Вижда се само от тези, които базата пуска (съветът, ръководството, класният, колегата констатирал случая);
-// за останалите картата изобщо не се показва.
+// Вижда се само от тези, които базата пуска: екипът (съвет, координиращ екип, управа) — с връзка към дневника;
+// класният — случаите на децата от паралелката си, само за четене. За останалите картата не се показва.
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -15,13 +15,17 @@ type Row = { role: Role; c: Case }
 export default function StudentIncidents({ studentId }: { studentId: string }) {
   const supabase = createClient()
   const [rows, setRows] = useState<Row[] | null>(null)
+  const [team, setTeam] = useState(false)   // екипът отваря случая в дневника; класният — само чете
 
   useEffect(() => {
     let alive = true
     ;(async () => {
-      const { data, error } = await supabase.from('incident_participants')
-        .select('role, c:incident_cases(*)').eq('student_id', studentId)
+      const [{ data, error }, { data: isTeam }] = await Promise.all([
+        supabase.from('incident_participants').select('role, c:incident_cases(*)').eq('student_id', studentId),
+        supabase.rpc('incident_is_council'),
+      ])
       if (!alive) return
+      setTeam(!!isTeam)
       if (error) { setRows([]); return }
       setRows(((data || []) as any[]).filter(r => r.c).map(r => ({ role: r.role, c: r.c }))
         .sort((a, b) => b.c.occurred_on.localeCompare(a.c.occurred_on)))
@@ -44,24 +48,27 @@ export default function StudentIncidents({ studentId }: { studentId: string }) {
         </span>
         {active.length >= 3 && <span className="text-[11.5px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200">за план за подкрепа / ЕПЛР</span>}
         <span className="flex-1" />
-        <span className="text-[11px] text-slate-400">виждат съветът, ръководството и класният</span>
+        <span className="text-[11px] text-slate-400">виждат екипът на съвета, управата и класният</span>
       </div>
       <div className="divide-y divide-slate-100">
-        {rows.slice(0, 12).map(({ role, c }) => {
+        {rows.slice(0, team ? 12 : rows.length).map(({ role, c }) => {
           const lvl = LEVELS[c.kind].find(l => l.n === c.level)
-          return (
-            <Link key={c.id} href={`/incidents?open=${c.id}`} className="flex flex-wrap items-center gap-3 px-4 py-2.5 hover:bg-slate-50">
+          const body = (
+            <>
               <span className="w-20 text-[12.5px] text-slate-700 tabular-nums">{fmtDate(c.occurred_on)}</span>
               <span className="text-[11px] px-1.5 py-0.5 rounded font-medium" style={{ background: KINDS[c.kind].bg, color: KINDS[c.kind].color }}>{KINDS[c.kind].short}{lvl ? ` · ${lvl.label}` : ''}</span>
               <span className="text-[12px] text-slate-500">{ROLE_LABEL[role]}</span>
-              <span className="flex-1 min-w-[160px] text-[13px] text-slate-700 truncate">{c.description}</span>
+              <span className={`flex-1 min-w-[160px] text-[13px] text-slate-700 ${team ? 'truncate' : 'whitespace-pre-wrap'}`}>{c.description}</span>
               <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: STATUS[c.status].bg, color: STATUS[c.status].color }}>{STATUS[c.status].label}</span>
-              <ChevronRight size={14} className="text-slate-300" />
-            </Link>
+              {team && <ChevronRight size={14} className="text-slate-300" />}
+            </>
           )
+          return team
+            ? <Link key={c.id} href={`/incidents?open=${c.id}`} className="flex flex-wrap items-center gap-3 px-4 py-2.5 hover:bg-slate-50">{body}</Link>
+            : <div key={c.id} className="flex flex-wrap items-start gap-3 px-4 py-2.5">{body}</div>
         })}
       </div>
-      {rows.length > 12 && <Link href="/incidents" className="block px-4 py-2 text-[12px] text-slate-500 hover:text-slate-800 border-t border-slate-100">Всички случаи →</Link>}
+      {team && rows.length > 12 && <Link href="/incidents" className="block px-4 py-2 text-[12px] text-slate-500 hover:text-slate-800 border-t border-slate-100">Всички случаи →</Link>}
     </section>
   )
 }
