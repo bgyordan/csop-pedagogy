@@ -22,6 +22,7 @@ import PassportTab from './passport/PassportTab'
 import OnlineRoomTab from './room/OnlineRoomTab'
 import PecsTab from './pecs/PecsTab'
 import RemelkaTab from './remelka/RemelkaTab'
+import StudentIncidents from './StudentIncidents'
 import FillEplrButton from './FillEplrButton'
 import { isOresActive, todaySofia, ORES_ACTIVE_COLS } from '@/lib/ores'
 
@@ -398,6 +399,8 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
               </div>)}
 
             </div>
+            {/* случаи от „Дневник на случаите“ — само за съвета, ръководството и класния */}
+            {showDev && <StudentIncidents studentId={id} />}
           </div>
         )}
 
