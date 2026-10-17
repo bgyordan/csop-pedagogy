@@ -28,7 +28,7 @@ export default async function BySchoolReportPage() {
   // активни ученици + изпращащо училище (име, град, вид) + клас в училището
   const { data: students } = await supabase
     .from('students')
-    .select('id, first_name, middle_name, last_name, external_class, external_class_letter, sending_school:sending_schools(name, city, type)')
+    .select('id, first_name, middle_name, last_name, external_class, external_class_letter, sending_school_id, sending_school:sending_schools(id, name, city, type)')
     .eq('status', 'active')
 
   // паралелка + форма по ученик
@@ -53,6 +53,7 @@ export default async function BySchoolReportPage() {
     return {
       id: s.id,
       name: getFullName(s),
+      schoolId: s.sending_school?.id || s.sending_school_id || '',
       school: s.sending_school?.name || '',
       schoolType: s.sending_school?.type || '',
       city: s.sending_school?.city || '',

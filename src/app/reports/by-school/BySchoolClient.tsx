@@ -7,6 +7,8 @@ import { generateStudentsReportDocx } from '@/lib/docx-students-report'
 export type StudentRow = {
   id: string
   name: string
+  /** училището се различава по id — има еднакви имена в различни градове */
+  schoolId: string
   school: string
   schoolType: string
   city: string
@@ -59,21 +61,27 @@ const typeOrder = (t: string) => { const i = SCHOOL_TYPES.indexOf(t); return i <
 const kids = (n: number) => `${n} ${n === 1 ? 'дете' : 'деца'}`
 const schoolsWord = (n: number) => `${n} ${n === 1 ? 'училище' : 'училища'}`
 
-type Group = { key: string; title: string; meta: string; rows: StudentRow[] }
+type Group = { key: string; title: string; meta: string; rows: StudentRow[]; sortKey?: string }
 
+// училищата с еднакво име — показваме и града („ОУ „Христо Ботев“, Аксаково“)
+let DUP_NAMES = new Set<string>()
+function schoolLabel(r: StudentRow) {
+  return r.school && DUP_NAMES.has(r.school) && r.city ? `${r.school}, ${r.city}` : r.school
+}
 function value(r: StudentRow, c: Col): string {
+  if (c === 'school') return schoolLabel(r)
   return r[c] || ''
 }
 
 function buildGroups(rows: StudentRow[], groupBy: GroupBy, sortBy: SortBy): Group[] {
   const inner = (a: StudentRow, b: StudentRow) => {
     if (sortBy === 'grade') return a.grade - b.grade || cmp(a.ext, b.ext) || cmp(a.name, b.name)
-    if (sortBy === 'school') return cmp(a.school || 'я', b.school || 'я') || cmp(a.name, b.name)
+    if (sortBy === 'school') return cmp(schoolLabel(a) || 'я', schoolLabel(b) || 'я') || cmp(a.name, b.name)
     return cmp(a.name, b.name)
   }
   const keyOf = (r: StudentRow): string => {
     switch (groupBy) {
-      case 'school': return r.school
+      case 'school': return r.schoolId || (r.school ? `name:${r.school}` : '')
       case 'type': return r.schoolType
       case 'city': return r.city
       case 'class': return r.className
@@ -86,11 +94,11 @@ function buildGroups(rows: StudentRow[], groupBy: GroupBy, sortBy: SortBy): Grou
 
   const groups: Group[] = Array.from(map.entries()).map(([k, rs]) => {
     rs.sort(inner)
-    const nSchools = new Set(rs.map(r => r.school).filter(Boolean)).size
+    const nSchools = new Set(rs.map(r => r.schoolId || r.school).filter(Boolean)).size
     let title = k, meta = kids(rs.length)
     if (groupBy === 'school') {
-      title = k || 'Без изпращащо училище'
       const f = rs[0]
+      title = k ? schoolLabel(f) : 'Без изпращащо училище'
       meta = [f.schoolType, f.city, kids(rs.length)].filter(Boolean).join(' · ')
     } else if (groupBy === 'type') {
       title = k || 'Без посочен вид'
@@ -109,7 +117,7 @@ function buildGroups(rows: StudentRow[], groupBy: GroupBy, sortBy: SortBy): Grou
       title = ''
       meta = ''
     }
-    return { key: k, title, meta, rows: rs }
+    return { key: k, title, meta, rows: rs, sortKey: groupBy === 'school' ? title : k }
   })
 
   const last = (k: string) => (k ? 0 : 1) // празните групи отиват накрая
@@ -118,7 +126,7 @@ function buildGroups(rows: StudentRow[], groupBy: GroupBy, sortBy: SortBy): Grou
     if (last(a.key) !== last(b.key)) return last(a.key) - last(b.key)
     if (groupBy === 'type') return typeOrder(a.key) - typeOrder(b.key) || cmp(a.key, b.key)
     if (groupBy === 'class') return (parseInt(a.key) || 999) - (parseInt(b.key) || 999) || cmp(a.key, b.key)
-    return cmp(a.key, b.key)
+    return cmp(a.sortKey ?? a.key, b.sortKey ?? b.key)
   })
   return groups
 }
@@ -147,24 +155,38 @@ export default function BySchoolClient({ rows, yearName }: { rows: StudentRow[];
   const [q, setQ] = useState('')
   const [type, setType] = useState('')
   const [city, setCity] = useState('')
+  const [schoolId, setSchoolId] = useState('')
   const [form, setForm] = useState<FormFilter>('all')
   const [busy, setBusy] = useState<'' | 'docx' | 'pdf'>('')
 
   const types = useMemo(() => Array.from(new Set(rows.map(r => r.schoolType).filter(Boolean))).sort((a, b) => typeOrder(a) - typeOrder(b) || cmp(a, b)), [rows])
   const cities = useMemo(() => Array.from(new Set(rows.map(r => r.city).filter(Boolean))).sort(cmp), [rows])
+  // еднаквите имена на различни училища (по id) — за да се показва и градът
+  DUP_NAMES = useMemo(() => {
+    const ids: Record<string, Set<string>> = {}
+    rows.forEach(r => { if (r.school) (ids[r.school] ||= new Set()).add(r.schoolId || r.city) })
+    return new Set(Object.keys(ids).filter(n => ids[n].size > 1))
+  }, [rows])
+  // списък на училищата за филтъра — всяко отделно, с града при еднакво име
+  const schools = useMemo(() => {
+    const m = new Map<string, string>()
+    rows.forEach(r => { if (r.schoolId && !m.has(r.schoolId)) m.set(r.schoolId, schoolLabel(r)) })
+    return Array.from(m.entries()).sort((a, b) => cmp(a[1], b[1]))
+  }, [rows])
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase()
     return rows.filter(r =>
       (!type || r.schoolType === type) &&
       (!city || r.city === city) &&
+      (!schoolId || r.schoolId === schoolId) &&
       (form === 'all' || r.form === form) &&
       (!s || r.name.toLowerCase().includes(s) || r.school.toLowerCase().includes(s)))
-  }, [rows, q, type, city, form])
+  }, [rows, q, type, city, schoolId, form])
 
   const groups = useMemo(() => buildGroups(filtered, groupBy, sortBy), [filtered, groupBy, sortBy])
   const shownCols = COLS.filter(c => cols.includes(c.v) && !(IMPLIED[groupBy] || []).includes(c.v))
-  const nSchools = new Set(filtered.map(r => r.school).filter(Boolean)).size
+  const nSchools = new Set(filtered.map(r => r.schoolId || r.school).filter(Boolean)).size
 
   function toggleCol(c: Col) {
     setCols(cs => (cs.includes(c) ? cs.filter(x => x !== c) : [...cs, c]))
@@ -176,7 +198,7 @@ export default function BySchoolClient({ rows, yearName }: { rows: StudentRow[];
     const parts = [`Учебна ${yearName} г.`]
     if (g.t) parts.push(`групирани ${g.t}`)
     parts.push(`подредени ${so.t}`)
-    const flt = [type, city, form !== 'all' ? form : '', q.trim() ? `„${q.trim()}“` : ''].filter(Boolean)
+    const flt = [type, city, schoolId ? schools.find(x => x[0] === schoolId)?.[1] || '' : '', form !== 'all' ? form : '', q.trim() ? `„${q.trim()}“` : ''].filter(Boolean)
     if (flt.length) parts.push(`филтър: ${flt.join(', ')}`)
     return {
       title: 'Ученици по изпращащи училища',
@@ -224,6 +246,10 @@ export default function BySchoolClient({ rows, yearName }: { rows: StudentRow[];
             <select value={city} onChange={e => setCity(e.target.value)} className={sel}>
               <option value="">Всички градове</option>
               {cities.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <select value={schoolId} onChange={e => setSchoolId(e.target.value)} className={`${sel} max-w-[280px]`}>
+              <option value="">Всички училища</option>
+              {schools.filter(([id]) => !city || rows.some(r => r.schoolId === id && r.city === city)).map(([id, l]) => <option key={id} value={id}>{l}</option>)}
             </select>
             <Seg value={form} onChange={setForm} options={[{ v: 'all', l: 'Всички' }, { v: 'Дневна', l: 'Дневна' }, { v: 'ИФО', l: 'ИФО' }]} />
           </div>
