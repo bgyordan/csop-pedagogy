@@ -124,36 +124,3 @@ export default function SharedFilesTab({ canShare, rows, err }: { canShare: bool
     </div>
   )
 }
-
-/** Лента с последните споделени файлове — горе на стената, за да не остават незабелязани */
-export function SharedFilesStrip({ rows, onAll }: { rows: FileRow[]; onAll: () => void }) {
-  const [viewing, setViewing] = useState<{ id: string; name: string } | null>(null)
-  if (!rows.length) return null
-  const fresh = rows.filter(r => isFresh(r.at)).length
-  return (
-    <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-3">
-      <div className="flex items-center gap-2 px-1 mb-2">
-        <Share2 size={14} className="text-[#0f2240]" />
-        <span className="text-[11px] font-semibold uppercase tracking-widest text-[#0f2240]">Споделени файлове</span>
-        {fresh > 0 && <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">{fresh} нови</span>}
-        <button type="button" onClick={onAll} className="ml-auto text-xs text-slate-500 hover:text-[#0f2240]">Всички ({rows.length}) →</button>
-      </div>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
-        {rows.slice(0, 4).map(r => {
-          const k = ICON[kindOf(r.name, r.mime)]
-          return (
-            <button key={r.id} type="button" onClick={() => setViewing({ id: r.id, name: r.name })} title="Преглед"
-              className={`flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left border transition-colors hover:border-slate-400 ${isFresh(r.at) ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200'}`}>
-              <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${k.bg}`}><k.I size={16} className={k.cls} /></span>
-              <span className="min-w-0">
-                <span className="block text-[13px] text-slate-900 truncate">{r.name}</span>
-                <span className="block text-[11px] text-slate-500 truncate">{r.owner} · {fmt(r.at)}</span>
-              </span>
-            </button>
-          )
-        })}
-      </div>
-      <DocViewer file={viewing} onClose={() => setViewing(null)} />
-    </div>
-  )
-}

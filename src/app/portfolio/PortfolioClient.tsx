@@ -7,7 +7,7 @@ import { Plus, Search, LayoutGrid, UserRound, Globe, Share2, FileDown, Loader2, 
 import PostCard, { Avatar } from './PostCard'
 import PostReader from './PostReader'
 import PostEditor from './PostEditor'
-import SharedFilesTab, { SharedFilesStrip, loadSharedFiles } from './SharedFilesTab'
+import SharedFilesTab, { loadSharedFiles } from './SharedFilesTab'
 import type { FileRow } from './SharedFilesTab'
 import { KINDS, MANAGERS, isImage, isDraft, isDrive, trashVideos } from './lib'
 import { createClient } from '@/lib/supabase/client'
@@ -207,8 +207,6 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
           </div>
         </div>
       </div>
-
-      {tab === 'wall' && kind === 'all' && !author && !needle && files && <SharedFilesStrip rows={files} onAll={() => setTab('files')} />}
 
       {/* Покана за публикуване */}
       {canPost && tab !== 'site' && (tab === 'mine' ? mine.length === 0 : wall.length < 4) && !needle && (
