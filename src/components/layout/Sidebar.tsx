@@ -76,8 +76,8 @@ const navItems: NavItem[] = [
     label: 'Лекторски',
     icon: <GraduationCap size={16} />,
     children: [
-      { href: '/my-substitutions', label: 'Заместване', icon: <UserX size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
-      { href: '/my-lecturer', label: 'Над норматив', icon: <GraduationCap size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
+      // едно място: бутонът за декларациите (един файл с всички видове) + моите замествания и часове над норматив
+      { href: '/my-lecturer', label: 'Моите лекторски', icon: <GraduationCap size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
       // заявление за отпуск по НП „Без свободен час“ (Приложение № 1)
       { href: '/leave-np', label: 'Отпуск по НП', icon: <FileText size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
     ],

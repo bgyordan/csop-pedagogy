@@ -5,8 +5,12 @@ import { GraduationCap } from 'lucide-react'
 import MyLecturerClient from './MyLecturerClient'
 import { loadLecturerRates, effectiveRates } from '@/lib/lecturer-rates'
 import { loadLecturerOrders, orderText } from '@/lib/lecturer-orders'
+import { loadMySubstitutions } from '@/lib/my-substitutions'
 export const dynamic = 'force-dynamic'
 
+// „Моите лекторски“ — едно място за колегата: бутонът за декларациите за периода (един файл с всички видове),
+// под него моите замествания и моите часове над норматив, накрая подадените декларации.
+// Старият адрес /my-substitutions води тук.
 export default async function MyLecturerPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -25,6 +29,8 @@ export default async function MyLecturerPage() {
     id: r.id, day: r.day, period: r.period, subject: r.subject?.name || '',
     holderType: r.holder_type || '', holderLabel: r.holder_label || '', dateFrom: r.date_from, dateTo: r.date_to, orderNumber: r.order_number || '',
   }))
+  // моите замествания (основен заместник или по дни)
+  const subs = await loadMySubstitutions(supabase, me.id)
   // заповедите от регистъра, вързани в „Лекторски часове“ (над норматив / ИФО)
   const myOrders = (await loadLecturerOrders(supabase, cy?.id, me.id))[me.id] || {}
 
@@ -52,14 +58,15 @@ export default async function MyLecturerPage() {
           <GraduationCap size={22} strokeWidth={2} />
         </div>
         <div>
-          <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">Лекторски — над норматив</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Определените ви часове и декларациите за периода</p>
+          <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">Моите лекторски</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Декларациите за периода — заместване и над норматив в един файл</p>
         </div>
       </header>
       <MyLecturerClient
         teacherName={`${me.first_name} ${me.last_name}`}
         position={me.position || 'Учител/старши учител на ДУИ'}
         slots={mySlots}
+        subs={subs}
         declarations={declarations}
         suggestFrom={suggestFrom}
         rate={effectiveRates(await loadLecturerRates(supabase)).over}
