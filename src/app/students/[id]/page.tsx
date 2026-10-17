@@ -168,7 +168,7 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
   const classTeachers = (ctRows || []).map((r: any) => r.staff).filter((t: any) => t && t.is_active !== false)
   const age = student.birth_date ? calculateAge(student.birth_date) : null
   
-  // Документи със срок (РЦПППО, ТЕЛК, алергии) — за „Внимание“ и обзора
+  // Документи със срок (РЦПППО, ТЕЛК/ЛКК, алергии) — за „Внимание“ и обзора
   const { data: sDocs } = await supabase
     .from('student_documents').select('*').eq('student_id', id)
   const sDoc = Object.fromEntries((sDocs || []).map((d: any) => [d.doc_type, d])) as Record<string, any>
@@ -176,7 +176,7 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
   type Alert = { level: 'red' | 'amber' | 'info'; text: string; tab: Tab; icon: any }
   const alerts: Alert[] = []
   if (sDoc.allergy) alerts.push({ level: 'red', icon: Utensils, tab: 'data', text: `Алергии / специално хранене${sDoc.allergy.note ? `: ${sDoc.allergy.note}` : ''}` })
-  for (const [k, lbl] of [['rcpppo', 'Заповед РЦПППО'], ['telk', 'ТЕЛК']] as const) {
+  for (const [k, lbl] of [['rcpppo', 'Заповед РЦПППО'], ['telk', 'ТЕЛК/ЛКК']] as const) {
     const d = daysTo(sDoc[k]?.valid_until)
     if (d !== null && d < 0) alerts.push({ level: 'red', icon: AlertTriangle, tab: 'data', text: `${lbl} — изтекла на ${formatDate(sDoc[k].valid_until)}` })
     else if (d !== null && d <= 30) alerts.push({ level: 'amber', icon: CalendarClock, tab: 'data', text: `${lbl} — изтича след ${d} дни` })
@@ -393,7 +393,7 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
                   ))}</div>)}
 
               {overviewCard('Срокове', CalendarClock, 'data', <div>
-                {[['rcpppo', 'Заповед РЦПППО'], ['telk', 'ТЕЛК'], ['allergy', 'Алергии / хранене']].map(([k, lbl]) => {
+                {[['rcpppo', 'Заповед РЦПППО'], ['telk', 'ТЕЛК/ЛКК'], ['allergy', 'Алергии / хранене']].map(([k, lbl]) => {
                   const d = sDoc[k]; const left = daysTo(d?.valid_until)
                   return <div key={k}>{row(lbl, !d ? <span className="text-slate-300">няма</span>
                     : k === 'allergy' ? <span className="text-rose-700">{d.note || 'да'}</span>
@@ -467,7 +467,7 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
               <CalendarClock size={16} className="text-amber-500" />
               <h2 className="font-semibold text-slate-800 text-sm">Документи и срокове</h2>
             </div>
-            <StudentDocuments studentId={id} canManage={canEditDossier} />
+            <StudentDocuments studentId={id} canManage={canEditDossier} externalClass={student.external_class} />
           </div>
 
           <div className={`${cardCls} !h-auto mb-4`}>

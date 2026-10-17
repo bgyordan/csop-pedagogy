@@ -5,7 +5,7 @@ import { getFullName } from '@/lib/utils'
 
 // Кратки етикети за таблото (пълните са в StudentDocuments)
 const DOC_LABELS: Record<string, string> = {
-  telk: 'ТЕЛК / МЕ',
+  telk: 'ТЕЛК/ЛКК',
   rcpppo: 'Заповед РЦПППО',
   allergy: 'Алергии / хранене',
 }
