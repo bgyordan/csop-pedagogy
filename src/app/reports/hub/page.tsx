@@ -22,6 +22,7 @@ const GROUPS: Group[] = [
       { href: '/reports/full', title: 'Пълна справка', desc: 'Всички ученици с всички данни — Excel', icon: <FileSpreadsheet size={18} />, roles: M },
       { href: '/reports/by-class', title: 'Ученици по клас', desc: 'Групиране по клас за планиране на паралелки', icon: <GraduationCap size={18} />, roles: MS },
       { href: '/reports/by-school', title: 'Ученици по училища', desc: 'По изпращащо училище и клас — за печат', icon: <School size={18} />, roles: MS },
+      { href: '/reports/documents', title: 'Документи на децата', desc: 'ТЕЛК/ЛКК, РЦПППО, алергии — изтичащи, липсващи; печат', icon: <HeartPulse size={18} />, roles: MS },
       { href: '/reports/guardians', title: 'Родители и контакти', desc: 'Ученик, паралелка, родител и телефон — за печат', icon: <Phone size={18} />, roles: MS },
       { href: '/reports/traveling', title: 'Пътуващи ученици', desc: 'Деца от друго населено място', icon: <Bus size={18} />, roles: MS },
       { href: '/reports/enrollments', title: 'Заявления за прием и ЦОУД', desc: 'Подадени заявления с подателите', icon: <FileText size={18} />, roles: MS },
