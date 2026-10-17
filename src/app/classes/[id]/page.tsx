@@ -6,7 +6,8 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { BackButton } from '@/components/ui/BackButton'
 import { getFullName } from '@/lib/utils'
-import { Users, Coffee, FolderOpen, IdCard } from 'lucide-react'
+import { Users, Coffee, FolderOpen, IdCard, MonitorSmartphone, ArrowRight } from 'lucide-react'
+import { isClassRoomActive } from '@/lib/class-rooms'
 import ClassTeachersSection from './ClassTeachersSection'
 import AddStudentsSection from './AddStudentsSection'
 import ClassScheduleWord from './ClassScheduleWord'
@@ -97,6 +98,9 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
       if (sl.period === 7) scheduleMaxPeriod = 7
     })
   }
+  // ── Онлайн стая на паралелката (грипна ваканция) — ако е отворена, бутон към нея ──
+  const { data: roomRows } = await supabase.from('class_rooms').select('id, from_date, to_date, closed_at, reason').eq('class_id', id)
+  const liveRoom = (roomRows || []).find((r: any) => isClassRoomActive(r)) as any
   // ── Учебен план от НЕИСПУО (справочно) ──
   const plan = await loadCurriculum(supabase, currentYear?.id, { classId: id })
   return (
@@ -124,6 +128,14 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
           </div>
         </div>
       </div>
+      {liveRoom && !['secretary', 'support'].includes(myProfile?.role || '') && (
+        <Link href={`/rooms/${liveRoom.id}`}
+          className="group flex items-center gap-3 mb-5 px-5 py-3 rounded-2xl border border-sky-200 bg-sky-50/60 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
+          <MonitorSmartphone size={18} className="text-sky-700" />
+          <span className="text-sm text-slate-800">Онлайн стаята на паралелката е отворена до {liveRoom.to_date.split('-').reverse().join('.')}{liveRoom.reason ? ` · ${liveRoom.reason}` : ''}</span>
+          <span className="ml-auto inline-flex items-center gap-1 text-[13px] text-sky-800">Влез <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" /></span>
+        </Link>
+      )}
       <ClassTeachersSection
         classId={id}
         academicYearId={currentYear?.id || ''}

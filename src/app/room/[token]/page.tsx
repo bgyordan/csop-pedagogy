@@ -6,42 +6,25 @@
 
 import type { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { MonitorSmartphone, ExternalLink, Paperclip, Lock } from 'lucide-react'
-import { activeOresByToken, MSG_LABEL } from './lib'
+import { ExternalLink, Paperclip, Users } from 'lucide-react'
+import { activeOresByToken, activeMemberByToken, MSG_LABEL } from './lib'
 import ParentReply from './ParentReply'
+import { Shell, Closed } from './Shell'
+import ClassRoomParent from './ClassRoomParent'
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Онлайн стая — ЦСОП Варна', robots: { index: false, follow: false } }
 
-function Closed() {
-  return (
-    <Shell>
-      <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
-        <Lock size={28} className="mx-auto mb-3 text-slate-300" />
-        <p className="text-slate-700">Стаята не е активна.</p>
-        <p className="text-sm text-slate-500 mt-1">Линкът е изтекъл или е грешен. Обърнете се към класния ръководител.</p>
-      </div>
-    </Shell>
-  )
-}
-
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="max-w-2xl mx-auto px-4 py-6 md:py-10">
-        <div className="flex items-center gap-2 text-[12px] uppercase tracking-widest text-slate-500 mb-4">
-          <MonitorSmartphone size={15} /> ЦСОП Варна · Онлайн стая
-        </div>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-export default async function RoomPage({ params }: { params: Promise<{ token: string }> }) {
+export default async function RoomPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ s?: string }> }) {
   const { token } = await params
+  const sp = await searchParams
   const db = createAdminClient()
   const ores = await activeOresByToken(db, token)
-  if (!ores) return <Closed />
+  if (!ores) {
+    // линк от стаята на паралелката (по един за всяко дете)
+    const member = await activeMemberByToken(db, token)
+    if (member) return <ClassRoomParent db={db} token={token} member={member} subject={(sp.s || '').slice(0, 100)} />
+    return <Closed />
+  }
 
   // посещение (за „видяно от родителя“) — не по-често от веднъж на 10 минути
   const tenMin = new Date(Date.now() - 10 * 60 * 1000).toISOString()
@@ -80,6 +63,12 @@ export default async function RoomPage({ params }: { params: Promise<{ token: st
   const thread: Record<string, any[]> = {}
   ;(msgs || []).forEach((m: any) => { (thread[m.post_id] = thread[m.post_id] || []).push(m) })
   const fmt = (d: string) => d.split('-').reverse().join('.')
+  // детето е и в отворена стая на паралелката (грипна ваканция) — бутон към нея
+  let classToken: string | null = null
+  const { data: cm } = await db.from('class_room_members').select('token, revoked_at, room:class_rooms(from_date, to_date, closed_at)').eq('student_id', ores.studentId)
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })
+  const live = (cm || []).find((m: any) => !m.revoked_at && m.room && !m.room.closed_at && m.room.from_date <= today && m.room.to_date >= today)
+  if (live) classToken = (live as any).token
   const when = (d: string) => new Date(d).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
 
   return (
@@ -87,6 +76,11 @@ export default async function RoomPage({ params }: { params: Promise<{ token: st
       <h1 className="text-2xl font-normal text-[#0f2240]">Материали за {ores.firstName}</h1>
       <p className="text-sm text-slate-500 mt-1">Обучение от разстояние · от {fmt(ores.from_date)}{ores.to_date ? ` до ${fmt(ores.to_date)}` : ''}. Най-новото е най-горе.</p>
       <p className="text-[13px] text-sky-800 bg-sky-50 border border-sky-100 rounded-xl px-3 py-2 mt-3 mb-6">Запазете този линк (в Viber, като отметка или на началния екран) — с него влизате всеки път, без регистрация.</p>
+      {classToken && (
+        <a href={`/room/${classToken}`} className="-mt-3 mb-6 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-50 border border-sky-200 text-sky-800 text-[15px]">
+          <Users size={16} /> Материали за цялата паралелка
+        </a>
+      )}
 
       {(posts || []).length === 0 ? (
         <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-8 text-center text-slate-500">Учителите още не са публикували материали. Проверете отново по-късно.</div>

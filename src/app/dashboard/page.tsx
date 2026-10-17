@@ -22,6 +22,7 @@ import NonSchoolDayStrip from './components/NonSchoolDayStrip'
 import DutyStrip from './components/DutyStrip'
 import FacilitiesStrip from './components/FacilitiesStrip'
 import OnlineRoomStrip from './components/OnlineRoomStrip'
+import ClassRoomStrip from './components/ClassRoomStrip'
 export const dynamic = 'force-dynamic'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -135,6 +136,9 @@ export default async function DashboardPage() {
 
       {/* Онлайн стаи — децата на ОРЕС, с които работя */}
       <OnlineRoomStrip profile={profile} currentYearId={currentYear.id} />
+
+      {/* Онлайн стаи на паралелките (грипна ваканция) — отворените стаи и въпросите от родители */}
+      <ClassRoomStrip profile={profile} currentYearId={currentYear.id} />
 
       {/* Отсъстващи деца — класният отразява, терапевтите и учителите на детето виждат */}
       {!isSecretary && profile.role !== 'support' && <StudentAbsentStrip profile={profile} currentYearId={currentYear.id} />}

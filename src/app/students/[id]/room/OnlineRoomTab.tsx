@@ -417,7 +417,7 @@ function Room({ studentId, studentName, ores, live, meId, isManager, isAdmin }: 
 }
 
 // ── „От библиотеката“: само материали от източници, разрешени за родители и неизтекли ──
-function LibraryPicker({ onPick, onClose }: { onPick: (m: any) => Promise<void>; onClose: () => void }) {
+export function LibraryPicker({ onPick, onClose }: { onPick: (m: any) => Promise<void>; onClose: () => void }) {
   const supabase = createClient()
   const [list, setList] = useState<any[] | null>(null)
   const [q, setQ] = useState('')
