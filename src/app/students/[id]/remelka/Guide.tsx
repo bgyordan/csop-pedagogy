@@ -61,7 +61,7 @@ export default function Guide({ onClose }: { onClose: () => void }) {
                 </div>
               ))}
             </div>
-            <p className="text-[12px] text-slate-500 mt-2">Работни листове, табла и пиктограми — в „Материали“; дневният режим — във „Визуален график“.</p>
+            <p className="text-[12px] text-slate-500 mt-2">Готови тематични листове за печат по всяко умение и ниво — „РЕМЕЛКА“ → „Работни листове“ (или бутона „Лист“ до умението в програмата). Пиктограми — в „Материали“; дневният режим — във „Визуален график“.</p>
           </section>
 
           <p className="text-[11.5px] text-slate-400 border-t border-slate-100 pt-3">
