@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3, FileSpreadsheet,
-  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare, Calculator
+  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare, Calculator, ShieldAlert
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
@@ -142,6 +142,8 @@ const navItems: NavItem[] = [
   // Материална база — за управата отделен ред (колегите я имат в „Сграда“, деловодството — в своята секция)
   { href: '/facilities', label: 'Материална база', icon: <Wrench size={16} />, roles: ['admin', 'zdud', 'director'] },
   { href: '/bullying-council', label: 'К. Съвет', icon: <Shield size={16} />, councilOnly: true },
+  // дневник на случаите (тормоз и поведение) — записва всеки служител, вижда съветът/управата
+  { href: '/incidents', label: 'Дневник случаи', icon: <ShieldAlert size={16} /> },
   { href: '/reports/hub', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['admin', 'zdud', 'director'] },
   {
     href: '#lecturer-mgmt',
