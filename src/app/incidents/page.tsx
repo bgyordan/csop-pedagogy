@@ -1,5 +1,5 @@
 // Дневник на случаите — тормоз и инциденти с поведение (вместо хартиената книга).
-// Записва всеки служител; вижда — съветът и ръководството всички, авторът своите, класният — с децата от паралелката му.
+// Само за екипа: Координационният съвет, координиращият екип и управата. Класният вижда случаите на своите деца в досието.
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import IncidentsClient from './IncidentsClient'
@@ -21,6 +21,7 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
     </div>
   )
   const isCouncil = !!council
+  if (!isCouncil) redirect('/dashboard')
 
   // година: текущата по подразбиране; „all“ — всички (дирята остава и след края на годината)
   const { data: years } = await supabase.from('academic_years').select('id, name').order('name', { ascending: false })
