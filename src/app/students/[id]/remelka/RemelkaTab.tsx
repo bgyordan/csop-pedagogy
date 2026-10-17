@@ -7,8 +7,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Loader2, Lock, Play, ClipboardCheck, BookOpen, Sparkles, AlertTriangle, Info, Plus, Check, Pause, Trash2, Calculator,
-  Pencil, Settings2, X, Trophy,
+  Pencil, Settings2, X, Trophy, Printer,
 } from 'lucide-react'
+import Link from 'next/link'
+import { gensForSkill } from '@/lib/sheets'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 import {
@@ -203,6 +205,7 @@ export default function RemelkaTab({ studentId, firstName, meId, isManager }: { 
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>
               {busy ? <Loader2 size={15} className="animate-spin" /> : <Play size={15} />} Започни с входяща диагностика
             </button>
+            <Link href={`/remelka/sheets?student=${studentId}`} className={btn}><Printer size={15} /> Работни листове</Link>
             <button type="button" onClick={() => setModal('guide')} className={btn}><BookOpen size={15} /> Наръчник</button>
           </div>
         </div>
@@ -233,7 +236,7 @@ export default function RemelkaTab({ studentId, firstName, meId, isManager }: { 
         {parts.map(p => <span key={p} className="text-[11.5px] px-2 py-0.5 rounded-full" style={{ background: PARTS[p].bg, color: PARTS[p].color }}>{PARTS[p].short}</span>)}
         <span className="text-[12px] text-slate-400">от {fmtDate(profile.started_at)}{!profile.active ? ' · спряна' : ''}</span>
         <div className="flex-1" />
-        <button type="button" onClick={() => setModal('guide')} className={btn}><BookOpen size={15} /> Наръчник</button>
+            <button type="button" onClick={() => setModal('guide')} className={btn}><BookOpen size={15} /> Наръчник</button>
         <button type="button" onClick={() => { setEditA(null); setModal('assess') }} className={btn}><ClipboardCheck size={15} /> Диагностика</button>
         <button type="button" onClick={() => setModal('session')} disabled={!activeGoals.length}
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>
@@ -287,6 +290,10 @@ export default function RemelkaTab({ studentId, firstName, meId, isManager }: { 
                       <span key={k} className="w-5 h-5 rounded-full text-[10px] font-semibold flex items-center justify-center" style={{ background: SUPPORT[i.support].bg, color: SUPPORT[i.support].color }}>{i.level}</span>
                     ))}
                   </div>
+                  {gensForSkill(s.code).length > 0 && (
+                    <Link href={`/remelka/sheets?student=${studentId}&skill=${encodeURIComponent(s.code)}&level=${lv}`} title="Работен лист за това умение, на нивото на детето"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-800 text-[12px] hover:bg-indigo-100"><Printer size={13} /> Лист</Link>
+                  )}
                   <select value={g.target_level} onChange={e => setGoal(g, { target_level: Number(e.target.value) })} title="Целево ниво"
                     className="px-2 py-1 rounded-lg border border-slate-200 text-[12px] bg-white">
                     {[1, 2, 3, 4].map(n => <option key={n} value={n}>цел {n}</option>)}
