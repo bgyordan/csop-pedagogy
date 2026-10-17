@@ -1,7 +1,7 @@
 'use client'
 import { useState, useTransition, useMemo } from 'react'
 import { smartMatch } from '@/lib/search'
-import { Save, Loader2, Info, Download, Copy, X, Search } from 'lucide-react'
+import { Save, Loader2, Info, Download, Copy, X, Search, Pencil } from 'lucide-react'
 import { saveTherapistSchedule, copyTherapistFromTerm1 } from './actions'
 import { generateTherapistSchedule } from '@/lib/docx-generator'
 import { createClient } from '@/lib/supabase/client'
@@ -59,6 +59,15 @@ export function TherapistScheduleGrid({
     existingSlots.forEach(s => { if (s.student_id) { const k = `${s.day}-${s.period}`; (g[k] = g[k] || []).push(s.student_id) } })
     return g
   })
+  // Преглед или редакция: по подразбиране се показва подреденият график; цветните полета — само при „Редактирай“.
+  // Празен график се отваря направо за редакция (няма какво да се гледа).
+  const [editing, setEditing] = useState(existingSlots.length === 0)
+  const [saved, setSaved] = useState<Record<string, string[]>>(grid)   // последно запазеното — за „Откажи“
+  const dirty = JSON.stringify(grid) !== JSON.stringify(saved)
+  function cancelEdit() {
+    if (dirty && !confirm('Да се откажат ли промените? Графикът остава както е запазен.')) return
+    setGrid(saved); setActiveId(''); setMsg(null); setEditing(false)
+  }
   function addToCell(day: number, period: number, studentId: string) {
     if (!studentId) return
     setGrid(prev => {
@@ -162,8 +171,84 @@ export function TherapistScheduleGrid({
     const res = await saveTherapistSchedule(academicYearId, term, slots, targetStaffId)
     setSaving(false)
     if (res.error) { setMsg({ type: 'err', text: res.error }); return }
+    setSaved(grid); setActiveId(''); setEditing(false)
     setMsg({ type: 'ok', text: 'Графикът е запазен.' })
   }
+  // ── ПРЕГЛЕД: подреден график, без цветни полета и бутони за махане ──
+  if (!editing) {
+    const viewPeriods = (Object.keys(grid).some(k => Number(k.split('-')[1]) >= 7) ? [1, 2, 0, 3, 4, 5, 6, 7, 8] : [1, 2, 0, 3, 4, 5, 6])
+    const todayDow = new Date().getDay()
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl">
+            <a href={`?term=1${staffQ}`} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 1 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+              style={term === 1 ? { backgroundColor: ACCENT } : {}}>I срок</a>
+            <a href={`?term=2${staffQ}`} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${term === 2 ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+              style={term === 2 ? { backgroundColor: ACCENT } : {}}>II срок</a>
+          </div>
+          <span className="text-xs text-slate-500">Заети часове: <span className="font-semibold text-slate-700">{filledCount}</span></span>
+          <div className="ml-auto flex items-center gap-2">
+            <button onClick={handleDownload} disabled={filledCount === 0}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+              <Download size={13} /> Изтегли Word
+            </button>
+            <button onClick={() => { setMsg(null); setEditing(true) }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-xs font-semibold hover:opacity-90" style={{ backgroundColor: ACCENT }}>
+              <Pencil size={13} /> Редактирай
+            </button>
+          </div>
+        </div>
+        {msg && msg.type === 'ok' && (
+          <div className="px-4 py-2.5 rounded-xl text-sm bg-emerald-50 border border-emerald-200 text-emerald-800">{msg.text}</div>
+        )}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider w-24">Час</th>
+                {DAYS.map(d => (
+                  <th key={d.n} className={`text-left px-2 py-2.5 text-[10px] font-semibold uppercase tracking-wider ${d.n === todayDow ? 'text-teal-700' : 'text-slate-500'}`}>
+                    <span className="hidden sm:inline">{d.label}</span><span className="sm:hidden">{d.short}</span>
+                    {d.n === todayDow && <span className="ml-1 normal-case tracking-normal font-normal text-teal-600">· днес</span>}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {viewPeriods.map((period, i) => (
+                <tr key={period} className={`border-b border-slate-100 last:border-0 ${i % 2 ? 'bg-slate-50/40' : ''}`}>
+                  <td className="px-3 py-2 align-top">
+                    <div className="text-slate-700 text-sm">{PERIOD_LABEL[period] || `${period}.`}</div>
+                    <div className="text-[10px] text-slate-400">{PERIOD_TIMES[period]}</div>
+                  </td>
+                  {DAYS.map(d => {
+                    const arr = grid[`${d.n}-${period}`] || []
+                    return (
+                      <td key={d.n} className={`px-1.5 py-1.5 align-top min-w-[130px] ${d.n === todayDow ? 'bg-teal-50/40' : ''}`}>
+                        <div className="space-y-1">
+                          {arr.map(sid => {
+                            const st = students.find(x => x.id === sid)
+                            return (
+                              <div key={sid} className="px-2 py-1 rounded-lg bg-white border border-slate-200 shadow-[0_1px_2px_rgba(15,34,64,0.05)]">
+                                <div className="text-[12px] text-slate-800 truncate">{st?.name || '—'}</div>
+                                {st && (st.form === 'ifo' || st.className) && <div className="text-[10px] text-slate-400">{st.form === 'ifo' ? 'ИФО' : `паралелка ${st.className}`}</div>}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       {students.length === 0 && (
@@ -328,6 +413,12 @@ export function TherapistScheduleGrid({
           className="ml-auto flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50">
           <Download size={13} /> Изтегли Word
         </button>
+        {Object.keys(saved).length > 0 && (
+          <button onClick={cancelEdit} disabled={saving}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50">
+            Откажи
+          </button>
+        )}
         <button onClick={handleSave} disabled={saving || students.length === 0}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold disabled:opacity-60"
           style={{ backgroundColor: ACCENT }}>
