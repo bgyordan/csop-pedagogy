@@ -22,8 +22,11 @@ export default async function DutyStrip({ staffId }: { staffId: string }) {
   return (
     <div className={`rounded-2xl border px-5 py-3 flex flex-wrap items-center gap-x-3 gap-y-1 ${mine ? 'border-sky-200 bg-sky-50/70' : 'border-slate-200/70 bg-white shadow-sm'}`}>
       <ShieldCheck size={15} className={mine ? 'text-sky-600' : 'text-slate-400'} />
-      {mine && <span className="text-sm text-sky-900">{dow === 0 || dow === 6 ? 'Следващата седмица си дежурен.' : 'Тази седмица си дежурен.'}</span>}
-      <span className="text-sm text-slate-600">{label}: <span className="text-slate-800">{data.map((d: any) => short(d.p)).filter(Boolean).join(', ')}</span></span>
+      {mine ? (() => {
+        // аз съм дежурен: едно изречение, без да се повтаря „дежурни“
+        const others = data.filter((d: any) => d.staff_id !== staffId).map((d: any) => short(d.p)).filter(Boolean)
+        return <span className="text-sm text-sky-900">{dow === 0 || dow === 6 ? 'Следващата седмица си дежурен' : 'Тази седмица си дежурен'}{others.length ? <span className="text-slate-600"> · заедно с {others.join(', ')}</span> : '.'}</span>
+      })() : <span className="text-sm text-slate-600">{label}: <span className="text-slate-800">{data.map((d: any) => short(d.p)).filter(Boolean).join(', ')}</span></span>}
     </div>
   )
 }

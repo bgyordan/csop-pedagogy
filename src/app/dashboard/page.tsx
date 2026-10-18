@@ -125,26 +125,30 @@ export default async function DashboardPage() {
       {/* Спонтанен неучебен ден — днес или в следващите дни */}
       <NonSchoolDayStrip />
 
-      {/* Дежурни тази седмица */}
-      {!viewing && <DutyStrip staffId={profile.id} />}
+      {/* Кратките ленти — по две на ред, за да не са дълги през целия екран */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start empty:hidden">
+        {/* Дежурни тази седмица */}
+        {!viewing && <DutyStrip staffId={profile.id} />}
 
-      {/* За съгласуване — материали за предстоящ съвет, с които още не съм се запознал */}
-      {!viewing && <CouncilStrip staffId={profile.id} />}
+        {/* За съгласуване — материали за предстоящ съвет, с които още не съм се запознал */}
+        {!viewing && <CouncilStrip staffId={profile.id} />}
 
-      {/* Материална база — нови сигнали (управа/деловодство) или отговори по моите сигнали */}
-      {!viewing && <FacilitiesStrip profile={profile} />}
+        {/* Материална база — нови сигнали (управа/деловодство) или отговори по моите сигнали */}
+        {!viewing && <FacilitiesStrip profile={profile} />}
 
-      {/* Онлайн стаи — децата на ОРЕС, с които работя */}
-      <OnlineRoomStrip profile={profile} currentYearId={currentYear.id} />
+        {/* Онлайн стаи — децата на ОРЕС, с които работя */}
+        <OnlineRoomStrip profile={profile} currentYearId={currentYear.id} />
 
-      {/* Онлайн стаи на паралелките (грипна ваканция) — отворените стаи и въпросите от родители */}
-      <ClassRoomStrip profile={profile} currentYearId={currentYear.id} />
+        {/* Онлайн стаи на паралелките (грипна ваканция) — отворените стаи и въпросите от родители */}
+        <ClassRoomStrip profile={profile} currentYearId={currentYear.id} />
 
-      {/* Отсъстващи деца — класният отразява, терапевтите и учителите на детето виждат */}
-      {!isSecretary && profile.role !== 'support' && <StudentAbsentStrip profile={profile} currentYearId={currentYear.id} />}
+        {/* Отсъстващи деца — класният отразява, терапевтите и учителите на детето виждат */}
+        {!isSecretary && profile.role !== 'support' && <StudentAbsentStrip profile={profile} currentYearId={currentYear.id} />}
 
-      {/* Днес отсъстват — за всички колеги (управата го има в оперативния панел) */}
-      {!isAdmin && !isDirector && <TodayAbsentStrip />}
+        {/* Днес отсъстват — за всички колеги (управата го има в оперативния панел) */}
+        {!isAdmin && !isDirector && <TodayAbsentStrip />}
+
+      </div>
 
       {/* Dashboard по роля */}
       <div className="transition-all duration-500">
