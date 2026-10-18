@@ -109,7 +109,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
       <div className="mb-6">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
-            <h1 className="text-xl md:text-2xl font-semibold text-slate-800 flex items-center gap-2 flex-wrap">Паралелка {cls.name}{cls.outreach_location && <OutreachBadge location={cls.outreach_location} />}</h1>
+            <h1 className="text-xl md:text-2xl font-semibold text-slate-800 flex items-center gap-2 flex-wrap">Паралелка {cls.name}{cls.outreach_location && <OutreachBadge location={cls.outreach_location} />}{cls.eplr_class_teacher_only && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-sky-100 text-sky-700" title="ЕПЛР екипът е само класният ръководител (отметка в Разпределение на ЕПЛР екипи)">ЕПЛР: само класен</span>}</h1>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
               <p className="text-slate-500 text-sm">{students.length} ученика · {currentYear?.name}</p>
               {teachers.length > 0 && (

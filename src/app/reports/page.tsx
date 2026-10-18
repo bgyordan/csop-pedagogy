@@ -150,9 +150,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       parentProgram: statusLabel(docs.get('parent_program')),
       docsCompleted: DOC_TYPES.filter(dt => docs.get(dt) === 'completed').length,
       docsTotal: DOC_TYPES.length,
-      missingPsychologist: !eplr?.psychologist_id,
-      missingSpeechTherapist: !eplr?.speech_therapist_id,
-      missingRehabilitator: !eplr?.rehabilitator_id,
+      // „ЕПЛР само класен“ — паралелката няма специалисти по решение, не е „без екип“
+      teacherOnly: cls?.eplr_class_teacher_only === true,
+      missingPsychologist: cls?.eplr_class_teacher_only ? false : !eplr?.psychologist_id,
+      missingSpeechTherapist: cls?.eplr_class_teacher_only ? false : !eplr?.speech_therapist_id,
+      missingRehabilitator: cls?.eplr_class_teacher_only ? false : !eplr?.rehabilitator_id,
     }
   })
   // Натовареност по РЕАЛНИ ТЕРАПИИ (от графика): колко деца води + общо сесии седмично

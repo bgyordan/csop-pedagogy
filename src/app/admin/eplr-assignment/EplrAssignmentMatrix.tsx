@@ -3,8 +3,9 @@
 import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { getFullName } from '@/lib/utils'
-import { Save, Users, AlertCircle, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Save, Users, AlertCircle, CheckCircle2, ChevronDown, ChevronUp, UserCheck } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
+import { Confirm } from '@/components/ui/Confirm'
 
 interface StaffMember {
   id: string
@@ -42,6 +43,13 @@ export function EplrAssignmentMatrix({
   const [saving, setSaving] = useState(false)
   const [expandedClass, setExpandedClass] = useState<string | null>(classes[0]?.id || null)
   const [filter, setFilter] = useState<'all' | 'complete' | 'incomplete'>('all')
+  // Паралелки, в които ЕПЛР е само класният ръководител (отметка от ЗДУД/Координиращия екип — не автоматично)
+  const [teacherOnly, setTeacherOnly] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(classes.map(c => [c.id, c.eplr_class_teacher_only === true])))
+  const [pendingOnly, setPendingOnly] = useState<{ id: string; name: string; n: number } | null>(null)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const classOf = useMemo(() => new Map(enrollments.map(e => [e.student_id, e.class_id])), [enrollments])
+  const isOnly = (studentId: string) => teacherOnly[classOf.get(studentId) || ''] === true
 
   // Карта класен → паралелка
   const classTeacherMap = useMemo(() => {
@@ -84,11 +92,54 @@ export function EplrAssignmentMatrix({
   }, [assignments])
 
   // Статистика
-  const totalStudents = enrollments.length
-  const completeCount = Object.values(assignments).filter(
-    a => a.psychologist_id || a.speech_therapist_id
-  ).length
-  const incompleteCount = totalStudents - completeCount
+  // децата в паралелки „само класен“ не се броят нито като разпределени, нито като „без екип“
+  const counted = Object.values(assignments).filter(a => !isOnly(a.student_id))
+  const completeCount = counted.filter(a => a.psychologist_id || a.speech_therapist_id).length
+  const incompleteCount = counted.length - completeCount
+  const onlyCount = Object.values(assignments).length - counted.length
+
+  // Отметка „само класен“: при включване специалистите в паралелката се махат веднага (с потвърждение, ако има такива)
+  function askToggle(cls: any) {
+    const next = !teacherOnly[cls.id]
+    if (next) {
+      const n = enrollments.filter(e => e.class_id === cls.id).filter(e => {
+        const a = assignments[e.student_id]
+        return a?.psychologist_id || a?.speech_therapist_id || a?.rehabilitator_id
+      }).length
+      if (n > 0) { setPendingOnly({ id: cls.id, name: cls.name, n }); return }
+    }
+    applyToggle(cls.id, next)
+  }
+
+  async function applyToggle(classId: string, value: boolean) {
+    setTogglingId(classId)
+    const { error } = await supabase.rpc('set_class_eplr_teacher_only', { p_class: classId, p_value: value })
+    if (error) {
+      toast('Грешка: ' + error.message, 'error')
+      setTogglingId(null); setPendingOnly(null)
+      return
+    }
+    if (value) {
+      const ids = enrollments.filter(e => e.class_id === classId).map(e => e.student_id)
+      const cleared = ids.map(sid => ({
+        student_id: sid, academic_year_id: currentYearId,
+        psychologist_id: null, speech_therapist_id: null, rehabilitator_id: null,
+        class_teacher_id: classTeacherMap.get(classId) || null,
+      }))
+      if (cleared.length) {
+        const { error: e2 } = await supabase.from('eplr_teams').upsert(cleared, { onConflict: 'student_id,academic_year_id' })
+        if (e2) toast('Отметката е сложена, но специалистите не се изчистиха: ' + e2.message, 'error')
+      }
+      setAssignments(prev => {
+        const next = { ...prev }
+        ids.forEach(sid => { next[sid] = { ...next[sid], psychologist_id: null, speech_therapist_id: null, rehabilitator_id: null } })
+        return next
+      })
+    }
+    setTeacherOnly(prev => ({ ...prev, [classId]: value }))
+    toast(value ? 'ЕПЛР: само класен ръководител' : 'ЕПЛР в пълен състав')
+    setTogglingId(null); setPendingOnly(null)
+  }
 
   function updateAssignment(studentId: string, field: keyof Assignment, value: string | null) {
     setAssignments(prev => ({
@@ -111,14 +162,17 @@ export function EplrAssignmentMatrix({
 
   async function handleSave() {
     setSaving(true)
-    const toUpsert = Object.values(assignments).map(a => ({
-      student_id: a.student_id,
-      academic_year_id: currentYearId,
-      psychologist_id: a.psychologist_id,
-      speech_therapist_id: a.speech_therapist_id,
-      rehabilitator_id: a.rehabilitator_id,
-      class_teacher_id: a.class_teacher_id,
-    }))
+    const toUpsert = Object.values(assignments).map(a => {
+      const only = isOnly(a.student_id)
+      return {
+        student_id: a.student_id,
+        academic_year_id: currentYearId,
+        psychologist_id: only ? null : a.psychologist_id,
+        speech_therapist_id: only ? null : a.speech_therapist_id,
+        rehabilitator_id: only ? null : a.rehabilitator_id,
+        class_teacher_id: a.class_teacher_id,
+      }
+    })
 
     const { error } = await supabase
       .from('eplr_teams')
@@ -143,7 +197,7 @@ export function EplrAssignmentMatrix({
   const filteredClasses = classes.filter(cls => {
     if (filter === 'all') return true
     const students = enrollments.filter(e => e.class_id === cls.id)
-    const hasIncomplete = students.some(e => !assignments[e.student_id]?.psychologist_id && !assignments[e.student_id]?.speech_therapist_id)
+    const hasIncomplete = !teacherOnly[cls.id] && students.some(e => !assignments[e.student_id]?.psychologist_id && !assignments[e.student_id]?.speech_therapist_id)
     if (filter === 'incomplete') return hasIncomplete
     if (filter === 'complete') return !hasIncomplete
     return true
@@ -231,6 +285,13 @@ export function EplrAssignmentMatrix({
             <AlertCircle size={13} />
             {incompleteCount} без екип
           </span>
+          {onlyCount > 0 && (
+            <span className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-sky-100 text-sky-700"
+              title="Деца в паралелки, където ЕПЛР е само класният ръководител">
+              <UserCheck size={13} />
+              {onlyCount} само с класен
+            </span>
+          )}
         </div>
 
         {/* Филтри */}
@@ -259,7 +320,8 @@ export function EplrAssignmentMatrix({
         {filteredClasses.map(cls => {
           const classStudents = enrollments.filter(e => e.class_id === cls.id)
           const classTeacherId = classTeacherMap.get(cls.id)
-          const classIncomplete = classStudents.filter(e =>
+          const only = teacherOnly[cls.id] === true
+          const classIncomplete = only ? 0 : classStudents.filter(e =>
             !assignments[e.student_id]?.psychologist_id && !assignments[e.student_id]?.speech_therapist_id
           ).length
           const isExpanded = expandedClass === cls.id
@@ -279,12 +341,36 @@ export function EplrAssignmentMatrix({
                       {classIncomplete} без екип
                     </span>
                   )}
+                  {only && (
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 inline-flex items-center gap-1">
+                      <UserCheck size={12} /> само класен
+                    </span>
+                  )}
                 </div>
                 {isExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
               </div>
 
-              {/* Bulk actions */}
+              {/* ЕПЛР режим на паралелката */}
               {isExpanded && (
+                <label className="px-4 py-2.5 border-t border-slate-100 flex items-start gap-3 cursor-pointer select-none">
+                  <input type="checkbox" className="sr-only peer" checked={only}
+                    disabled={togglingId === cls.id} onChange={() => askToggle(cls)} />
+                  <span className={`mt-0.5 relative w-9 h-5 rounded-full flex-shrink-0 transition-colors ${only ? 'bg-sky-500' : 'bg-slate-300'} peer-focus-visible:ring-2 peer-focus-visible:ring-sky-300 ${togglingId === cls.id ? 'opacity-50' : ''}`}>
+                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${only ? 'translate-x-4' : ''}`} />
+                  </span>
+                  <span className="text-xs leading-snug">
+                    <span className="font-medium text-slate-700">ЕПЛР само класен ръководител</span>
+                    <span className="block text-slate-400">
+                      {only
+                        ? 'С децата работи само класният — без психолог, логопед и рехабилитатор. Паралелката не се брои в „без екип“.'
+                        : 'Включи, ако в тази паралелка няма специалисти от ЕПЛР (напр. изнесена група).'}
+                    </span>
+                  </span>
+                </label>
+              )}
+
+              {/* Bulk actions */}
+              {isExpanded && !only && (
                 <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 flex flex-wrap gap-2 items-center">
                   <span className="text-xs text-slate-500 font-medium">Приложи за цялата паралелка:</span>
                   <select className="input text-xs py-1 w-40"
@@ -314,8 +400,20 @@ export function EplrAssignmentMatrix({
                 </div>
               )}
 
+              {/* Само класен — списък на децата без избор на специалисти */}
+              {isExpanded && only && (
+                <div className="px-4 py-3 border-t border-slate-100 bg-sky-50/40 text-xs text-slate-600">
+                  <div className="mb-1.5 text-slate-500">
+                    ЕПЛР: <strong className="text-slate-700">{(() => { const st = classTeachers.find((ct: any) => ct.class_id === cls.id && ct.staff)?.staff; return st ? getFullName(st) : 'няма определен класен' })()}</strong>
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1">
+                    {classStudents.map(e => <span key={e.student_id}>{getFullName(e.student)}</span>)}
+                  </div>
+                </div>
+              )}
+
               {/* Таблица с ученици */}
-              {isExpanded && (
+              {isExpanded && !only && (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -387,6 +485,17 @@ export function EplrAssignmentMatrix({
           )
         })}
       </div>
+
+      <Confirm
+        open={!!pendingOnly}
+        onClose={() => setPendingOnly(null)}
+        onConfirm={() => pendingOnly && applyToggle(pendingOnly.id, true)}
+        loading={!!togglingId}
+        title={`Паралелка ${pendingOnly?.name || ''}: само класен`}
+        message={`${pendingOnly?.n || 0} деца в паралелката имат разпределени специалисти. Те ще бъдат премахнати от ЕПЛР екипа им за годината. Продължаваш ли?`}
+        confirmLabel="Да, само класен"
+        danger
+      />
     </div>
   )
 }

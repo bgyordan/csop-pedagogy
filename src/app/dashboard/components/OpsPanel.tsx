@@ -34,7 +34,7 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
     isSummer ? Promise.resolve({ data: [] as any[] })
       : supabase.from('monthly_absences').select('class_id').eq('month', reportMonth).eq('year', reportYear),
     supabase.from('student_enrollments')
-      .select('class:classes(outreach_location), student:students!inner(id, first_name, middle_name, last_name, status)').eq('academic_year_id', currentYearId).eq('student.status', 'active'),
+      .select('class:classes(outreach_location, eplr_class_teacher_only), student:students!inner(id, first_name, middle_name, last_name, status)').eq('academic_year_id', currentYearId).eq('student.status', 'active'),
     supabase.from('eplr_teams').select('student_id').eq('academic_year_id', currentYearId),
     supabase.from('students').select('id').eq('is_new', true).eq('status', 'active'),
   ])
@@ -47,7 +47,8 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
     .sort((a: any, b: any) => a.raw.localeCompare(b.raw, 'bg', { numeric: true }))
 
   // ЕПЛР
-  const students = (enr || []).map((e: any) => e.student).filter(Boolean)
+  // паралелките „ЕПЛР само класен“ не се броят в „Деца без ЕПЛР екип“
+  const students = (enr || []).filter((e: any) => !e.class?.eplr_class_teacher_only).map((e: any) => e.student).filter(Boolean)
   const withTeam = new Set((teams || []).map((t: any) => t.student_id))
   const noTeam = students.filter((s: any) => !withTeam.has(s.id)).length
   const newIds = (newKids || []).map((k: any) => k.id)
