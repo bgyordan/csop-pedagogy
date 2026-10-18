@@ -8,7 +8,7 @@ import { getFullName, getMonthName, formatDate } from '@/lib/utils'
 import SharedFiles from './SharedFiles'
 import ClassTeacherTabs from './ClassTeacherTabs'
 import ExpiringDocsCard from './ExpiringDocsCard'
-import ClassTeacherSide from './ClassTeacherSide'
+import ClassTeacherSide, { NewsCard, DeadlinesCard } from './ClassTeacherSide'
 // "01" → "I паралелка"; нечислови имена остават както са
 function paralelkaTitle(name: string) {
   const m = (name || '').trim().match(/^0*(\d+)$/)
@@ -215,17 +215,18 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
         </Link>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* лявата част: децата, а под тях — файловете (справочни, не за всеки ден) */}
+        {/* лявата част: децата, а под тях — учебните планове и сроковете */}
         <div className="lg:col-span-2 space-y-6">
           <ClassTeacherTabs paralelkaRows={paralelkaRows} eplrRows={eplrRows} therapyRows={therapyRows} className={myClasses[0].name} classId={myClasses[0].id} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
             <SchoolFilesCard profileId={profile.id} currentYearId={currentYearId} bare />
-            <SharedFiles bare />
+            <DeadlinesCard deadlines={deadlines || []} />
           </div>
         </div>
-        {/* дясната колона: това, което се гледа всеки ден */}
-        <div>
-          <ClassTeacherSide deadlines={deadlines || []} announcements={announcements || []} />
+        {/* дясната колона: съобщенията и споделеното от колегите */}
+        <div className="space-y-4">
+          <NewsCard announcements={announcements || []} />
+          <SharedFiles bare />
         </div>
       </div>
     </div>

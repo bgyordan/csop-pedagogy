@@ -31,49 +31,63 @@ export function SideCard({ icon, title, right, empty, children }: { icon: ReactN
   )
 }
 
+type Ann = { id: string; title: string; body: string; created_at?: string }
+type Dl = { id: string; title: string; deadline_date: string }
+const manage = (href: string) => <a href={href} className="text-[11px] text-slate-400 hover:text-[#0f2240]">управление →</a>
+
+// Съобщения: заглавие + 1 ред, клик разгръща; зелена точка — новите (3 дни)
+export function NewsCard({ announcements, newsHref }: { announcements: Ann[]; newsHref?: string }) {
+  const [openNews, setOpenNews] = useState<string | null>(null)
+  const newsFresh = (a: { created_at?: string }) => !!a.created_at && Date.now() - new Date(a.created_at).getTime() < 3 * 864e5
+  return (
+    <SideCard icon={<Bell size={14} />} title="Съобщения" right={newsHref ? manage(newsHref) : undefined} empty={announcements.length ? undefined : 'няма активни'}>
+      {announcements.map(a => {
+        const open = openNews === a.id
+        return (
+          <button key={a.id} type="button" onClick={() => setOpenNews(open ? null : a.id)}
+            className="w-full text-left px-1 py-1.5 rounded-lg hover:bg-slate-50 transition-colors">
+            <div className="flex items-center gap-1.5">
+              {newsFresh(a) && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" title="ново" />}
+              <span className="text-[13px] text-slate-800 truncate">{a.title}</span>
+            </div>
+            <p className={`text-xs text-slate-500 mt-0.5 whitespace-pre-line ${open ? '' : 'line-clamp-1'}`}>{a.body}</p>
+          </button>
+        )
+      })}
+    </SideCard>
+  )
+}
+
+// Срокове: „днес / утре / след N дни“, кехлибарено при ≤ 3 дни
+export function DeadlinesCard({ deadlines, deadlinesHref }: { deadlines: Dl[]; deadlinesHref?: string }) {
+  return (
+    <SideCard icon={<Calendar size={14} />} title="Срокове" right={deadlinesHref ? manage(deadlinesHref) : undefined} empty={deadlines.length ? undefined : 'няма предстоящи'}>
+      {deadlines.map(d => {
+        const n = daysLeft(d.deadline_date)
+        return (
+          <div key={d.id} className="flex items-center gap-2 px-1 py-1.5">
+            <div className="flex-1 min-w-0 text-[13px] text-slate-700 truncate" title={`${d.title} — ${formatDate(d.deadline_date)}`}>{d.title}</div>
+            <span title={formatDate(d.deadline_date)}
+              className={`text-[11px] flex-shrink-0 tabular-nums ${n <= 3 ? 'text-amber-700' : 'text-slate-400'}`}>{leftLabel(n)}</span>
+          </div>
+        )
+      })}
+    </SideCard>
+  )
+}
+
 export default function ClassTeacherSide({ deadlines, announcements, files, deadlinesHref, newsHref, layout = 'stack' }: {
-  deadlines: { id: string; title: string; deadline_date: string }[]
-  announcements: { id: string; title: string; body: string; created_at?: string }[]
+  deadlines: Dl[]
+  announcements: Ann[]
   files?: ReactNode
   deadlinesHref?: string   // „управление →“ (за управата)
   newsHref?: string
   layout?: 'stack' | 'row'
 }) {
-  const [openNews, setOpenNews] = useState<string | null>(null)
-  const newsFresh = (a: { created_at?: string }) => !!a.created_at && Date.now() - new Date(a.created_at).getTime() < 3 * 864e5
-  const manage = (href: string) => <a href={href} className="text-[11px] text-slate-400 hover:text-[#0f2240]">управление →</a>
-
   return (
     <div className={layout === 'row' ? 'grid grid-cols-1 md:grid-cols-3 gap-4 items-start' : 'space-y-4'}>
-      <SideCard icon={<Bell size={14} />} title="Съобщения" right={newsHref ? manage(newsHref) : undefined} empty={announcements.length ? undefined : 'няма активни'}>
-        {announcements.map(a => {
-            const open = openNews === a.id
-            return (
-              <button key={a.id} type="button" onClick={() => setOpenNews(open ? null : a.id)}
-                className="w-full text-left px-1 py-1.5 rounded-lg hover:bg-slate-50 transition-colors">
-                <div className="flex items-center gap-1.5">
-                  {newsFresh(a) && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" title="ново" />}
-                  <span className="text-[13px] text-slate-800 truncate">{a.title}</span>
-                </div>
-                <p className={`text-xs text-slate-500 mt-0.5 whitespace-pre-line ${open ? '' : 'line-clamp-1'}`}>{a.body}</p>
-              </button>
-            )
-          })}
-      </SideCard>
-
-      <SideCard icon={<Calendar size={14} />} title="Срокове" right={deadlinesHref ? manage(deadlinesHref) : undefined} empty={deadlines.length ? undefined : 'няма предстоящи'}>
-        {deadlines.map(d => {
-            const n = daysLeft(d.deadline_date)
-            return (
-              <div key={d.id} className="flex items-center gap-2 px-1 py-1.5">
-                <div className="flex-1 min-w-0 text-[13px] text-slate-700 truncate" title={`${d.title} — ${formatDate(d.deadline_date)}`}>{d.title}</div>
-                <span title={formatDate(d.deadline_date)}
-                  className={`text-[11px] flex-shrink-0 tabular-nums ${n <= 3 ? 'text-amber-700' : 'text-slate-400'}`}>{leftLabel(n)}</span>
-              </div>
-            )
-          })}
-      </SideCard>
-
+      <NewsCard announcements={announcements} newsHref={newsHref} />
+      <DeadlinesCard deadlines={deadlines} deadlinesHref={deadlinesHref} />
       {/* файловете (споделено, учебни планове) — всеки списък е своя карта */}
       {files}
     </div>
