@@ -18,16 +18,33 @@ const SLOTS = [
 // Двете снимки до текста „Над 150 деца учат при нас…“ (под първия екран) — по желание.
 // Пазят се в page_photos['nachalna-pod']; докато са празни, сайтът слага последните снимки от Галерията.
 const ABOUT_KEY = 'nachalna-pod'
-// същата форма „цвете“ като на сайта (lib/flower.ts там): 7 и 8 листа
-function flower(petals: number, depth: number, rot: number) {
+// същата неправилна „маргаритка“ като на сайта (lib/flower.ts там) — същите листенца и seed-ове
+function rng(seed: number) {
+  let a = seed >>> 0
+  return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
+}
+function daisy(petals: number, seed: number, depth = 0.27, steps = 240) {
+  const r = rng(seed)
+  const amp = Array.from({ length: petals }, () => 0.78 + r() * 0.22)
+  const wid = Array.from({ length: petals }, () => 0.8 + r() * 0.45)
+  const tilt = Array.from({ length: petals }, () => (r() - 0.5) * 0.35)
+  const cuts = Array.from({ length: petals }, (_, i) => ((i + (r() - 0.5) * 0.35) / petals) * Math.PI * 2)
+  const wob = r() * Math.PI * 2
   const pts: string[] = []
-  for (let i = 0; i < 180; i++) {
-    const t = (i / 180) * Math.PI * 2; const r = 1 - depth + depth * Math.pow(Math.abs(Math.cos((petals * t) / 2)), 0.7)
-    pts.push(`${(50 + 50 * r * Math.cos(t + rot)).toFixed(2)}% ${(50 + 50 * r * Math.sin(t + rot)).toFixed(2)}%`)
+  for (let s = 0; s < steps; s++) {
+    const t = (s / steps) * Math.PI * 2
+    let k = petals - 1, a0 = cuts[petals - 1] - Math.PI * 2, a1 = cuts[0]
+    for (let i = 0; i < petals; i++) if (t >= cuts[i]) { k = i; a0 = cuts[i]; a1 = i + 1 < petals ? cuts[i + 1] : cuts[0] + Math.PI * 2 }
+    let u = (t - a0) / (a1 - a0)
+    u = Math.min(1, Math.max(0, u + tilt[k] * Math.sin(Math.PI * u)))
+    const shape = Math.pow(Math.sin(Math.PI * u), 1 / wid[k])
+    const rad = (1 - depth + depth * amp[k] * shape) * (1 + 0.03 * Math.sin(2 * t + wob))
+    pts.push(`${(50 + 48 * rad * Math.cos(t)).toFixed(2)}% ${(50 + 48 * rad * Math.sin(t)).toFixed(2)}%`)
   }
   return `polygon(${pts.join(', ')})`
 }
-const FLOWERS = [flower(7, 0.17, -0.2), flower(8, 0.15, 0.25)]
+const FLOWERS = [daisy(9, 7), daisy(11, 21)]
+const FLOWERS_BACK = [daisy(9, 1007), daisy(11, 1021)]
 const PETAL = ['#FBD9AE', '#D3EBB4']
 
 /* ═══════════════ НАЧАЛНА СТРАНИЦА: 3-те снимки ═══════════════ */
@@ -121,14 +138,14 @@ export default function HomeManager({ albums, photos, initialSelected, initialAb
           {/* 4 и 5 — по желание */}
           <div className="pt-3 border-t border-slate-100">
             <h3 className="text-[15px] font-semibold tracking-tight" style={{ color: ACCENT }}>До текста „Над 150 деца учат при нас…“</h3>
-            <p className="text-[12.5px] text-slate-500 mt-1">Две снимки, изрязани като цветя. По желание — ако са празни, сайтът слага последните снимки от Галерията.</p>
+            <p className="text-[12.5px] text-slate-500 mt-1">Две снимки, изрязани като неправилни маргаритки. По желание — ако са празни, сайтът слага последните снимки от Галерията.</p>
             <div className="grid grid-cols-2 gap-3 mt-3 max-w-[340px]">
               {[0, 1].map((i) => {
                 const url = about[i]
                 return (
                   <div key={i} className="relative" style={{ marginTop: i === 1 ? 28 : 0 }}>
                     <div className="relative w-full aspect-square">
-                      <span className="absolute inset-0" style={{ clipPath: FLOWERS[i], background: PETAL[i], transform: 'translate(5%,5%) rotate(12deg)' }} />
+                      <span className="absolute inset-0" style={{ clipPath: FLOWERS_BACK[i], background: PETAL[i], transform: 'translate(4%,5%) rotate(14deg) scale(1.03)' }} />
                       <button onClick={() => setPickFor(3 + i)} title={url ? 'Смени снимката' : 'Избери снимка'}
                         className="group absolute inset-0 overflow-hidden bg-slate-100 flex items-center justify-center" style={{ clipPath: FLOWERS[i] }}>
                         {url ? <img src={url} alt="" className="w-full h-full object-cover" /> : <span className="flex flex-col items-center gap-1 text-slate-400"><ImagePlus size={20} /><span className="text-[11px]">от Галерията</span></span>}
