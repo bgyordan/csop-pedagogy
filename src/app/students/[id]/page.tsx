@@ -23,6 +23,7 @@ import OnlineRoomTab from './room/OnlineRoomTab'
 import PecsTab from './pecs/PecsTab'
 import RemelkaTab from './remelka/RemelkaTab'
 import AbaTab from './aba/AbaTab'
+import StudentNav, { type NavKid } from './StudentNav'
 import StudentIncidents from './StudentIncidents'
 import StudentAbsencesCard from './StudentAbsencesCard'
 import FillEplrButton from './FillEplrButton'
@@ -168,6 +169,47 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
     : { data: [] as any[] }
   const classTeachers = (ctRows || []).map((r: any) => r.staff).filter((t: any) => t && t.is_active !== false)
   const age = student.birth_date ? calculateAge(student.birth_date) : null
+
+  // ── Бърз преход между децата: „моят“ списък според ролята ──
+  //   терапевт → децата ми (ЕПЛР екип + терапия) · възпитател → ЦОУД групите ми · останалите → паралелката на детето
+  const role = profile?.role || ''
+  const isTherapist = ['psychologist', 'speech_therapist', 'rehabilitator'].includes(role) && !isCoordinator
+  const isEducator = role === 'educator' && !isCoordinator
+  let navIds: string[] = []
+  let navLabel = ''
+  if (profile?.id && isTherapist) {
+    const roleField = role === 'psychologist' ? 'psychologist_id' : role === 'speech_therapist' ? 'speech_therapist_id' : 'rehabilitator_id'
+    const me = profile.id
+    const [{ data: et }, { data: tk }] = await Promise.all([
+      supabase.from('eplr_teams').select('student_id').eq(roleField, me).eq('academic_year_id', currentYear?.id),
+      supabase.from('students').select('id').or(`therapist_psychologist_id.eq.${me},therapist_speech_id.eq.${me},therapist_rehab_id.eq.${me},therapist_rehab2_id.eq.${me}`),
+    ])
+    navIds = Array.from(new Set([...(et || []).map((r: any) => r.student_id), ...(tk || []).map((r: any) => r.id)]))
+    navLabel = 'Моите деца'
+  } else if (profile?.id && isEducator) {
+    const { data: gs } = await supabase.from('coud_groups').select('id').eq('teacher_id', profile.id).eq('academic_year_id', currentYear?.id)
+    const gIds = (gs || []).map((g: any) => g.id)
+    const { data: ce } = gIds.length
+      ? await supabase.from('coud_enrollments').select('student_id').in('coud_group_id', gIds).eq('academic_year_id', currentYear?.id)
+      : { data: [] as any[] }
+    navIds = (ce || []).map((r: any) => r.student_id)
+    navLabel = 'ЦОУД'
+  } else if (enrollment?.class_id) {
+    const { data: mates } = await supabase.from('student_enrollments').select('student_id')
+      .eq('class_id', enrollment.class_id).eq('academic_year_id', currentYear?.id)
+    navIds = (mates || []).map((r: any) => r.student_id)
+    navLabel = `Паралелка ${className}`
+  }
+  let navKids: NavKid[] = []
+  if (navIds.length > 1) {
+    const { data: ks } = await supabase.from('students').select('id, first_name, middle_name, last_name, status').in('id', navIds)
+    navKids = (ks || []).filter((k: any) => k.status === 'active' || k.id === id)
+      .map((k: any) => ({ id: k.id, name: getFullName(k) }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'bg'))
+  }
+  // Назад: терапевтът и възпитателят — към своя списък; останалите — към паралелката на детето
+  const backHref = !isTherapist && !isEducator && enrollment?.class_id ? `/classes/${enrollment.class_id}` : '/students'
+  const backLabel = !isTherapist && !isEducator && enrollment?.class_id && className ? `Паралелка ${className}` : (isTherapist ? 'Моите деца' : 'Ученици')
   
   // Документи със срок (РЦПППО, ТЕЛК/ЛКК, алергии) — за „Внимание“ и обзора
   const { data: sDocs } = await supabase
@@ -264,9 +306,15 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8 animate-in fade-in duration-500">
-      <Link href="/students" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-4 transition-colors">
-        <ArrowLeft size={15} /> Назад към учениците
-      </Link>
+      <div className="flex items-center gap-1.5 text-sm text-slate-500 mb-4 flex-wrap">
+        <Link href={backHref} className="inline-flex items-center gap-1.5 hover:text-slate-800 transition-colors">
+          <ArrowLeft size={15} /> {backLabel}
+        </Link>
+        {backHref !== '/students' && <>
+          <span className="text-slate-300">·</span>
+          <Link href="/students" className="hover:text-slate-800 transition-colors">Всички ученици</Link>
+        </>}
+      </div>
 
       {/* ЛЕНТА С ДЕТЕТО — остава видима при скролване */}
       <div className="sticky top-0 z-20 -mx-4 md:-mx-8 px-4 md:px-8 pt-2 pb-3 bg-slate-50/95 backdrop-blur">
@@ -349,8 +397,9 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
           )}
         </div>
 
-        {/* ТАБОВЕ — помнят се в адреса */}
-        <div className="flex flex-wrap gap-1 p-1 mt-3 bg-slate-100 rounded-xl w-fit">
+        {/* ТАБОВЕ — помнят се в адреса; вдясно — бърз преход към друго дете */}
+        <div className="flex items-start justify-between gap-2 mt-3">
+        <div className="flex flex-wrap gap-1 p-1 bg-slate-100 rounded-xl w-fit">
           {TAB_DEFS.map(t => (
             <Link key={t.key} href={tabHref(t.key)} scroll={false}
               className={`px-3.5 py-1.5 rounded-lg text-sm transition-all flex items-center gap-1.5 ${
@@ -359,6 +408,8 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
               <t.icon size={15} /> {t.label}
             </Link>
           ))}
+        </div>
+        <StudentNav kids={navKids} currentId={id} label={navLabel} tab={tab !== 'docs' ? tab : undefined} />
         </div>
       </div>
 
