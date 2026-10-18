@@ -5,7 +5,7 @@ import { listSharedStaffDocs } from '@/app/my-files/staff-drive-actions'
 import { Share2, Download, ArrowRight, File, FileText, FileSpreadsheet, FileImage, Eye, Globe, DoorOpen, Lightbulb, PartyPopper, BookOpen } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { DocViewer } from '@/components/registry/DocViewer'
-import { useReportNewFiles, isFreshFile } from './ClassTeacherSide'
+import { SideCard, isFreshFile } from './ClassTeacherSide'
 
 type Row = {
   id: string
@@ -102,9 +102,6 @@ export default function SharedFiles({ bare = false, limit = 5, portfolio = false
     })()
   }, [])
 
-  // броят на новите → числото на таба „Файлове“ (само в картата с табове)
-  useReportNewFiles('shared', bare ? rows.filter(r => isFreshFile(r.created_at)).length : 0)
-
   function download(r: Row) {
     window.location.href = `/api/staff-docs/download?fileId=${r.id}&as=office`
   }
@@ -174,13 +171,14 @@ export default function SharedFiles({ bare = false, limit = 5, portfolio = false
     )
   }
 
-  // Във „Файлове“ на таблото (bare): тънки редове като учебните планове
+  // На таблото (bare): своя карта с тънки редове — като учебните планове
+  const freshN = rows.filter(r => isFreshFile(r.created_at)).length
   return (
-    <div>
-      <div className="flex items-center gap-2 px-1 mb-1">
-        <h3 className="text-[11px] text-slate-400 uppercase tracking-widest flex-1">Споделено от колеги</h3>
+    <SideCard icon={<Share2 size={14} />} title="Споделено от колеги"
+      right={<span className="inline-flex items-center gap-2">
+        {freshN > 0 && <span className="text-[10.5px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700">{freshN} нови</span>}
         <Link href="/portfolio?tab=files" className="text-[11px] text-slate-400 hover:text-[#0f2240] inline-flex items-center gap-0.5">Всички <ArrowRight size={11} /></Link>
-      </div>
+      </span>}>
       {loading ? (
         <p className="px-1 py-1 text-[12.5px] text-slate-400">Зареждане…</p>
       ) : rows.length === 0 ? (
@@ -203,6 +201,6 @@ export default function SharedFiles({ bare = false, limit = 5, portfolio = false
         </div>
       )}
       <DocViewer file={viewing} onClose={() => setViewing(null)} />
-    </div>
+    </SideCard>
   )
 }
