@@ -101,7 +101,7 @@ export default function SiteDocsClient({
         <Overview news={news} docs={docs} events={events} albums={albums} photos={photos}
           heroPhotos={heroPhotos} pagePhotos={pagePhotos} jobs={jobs} audit={audit} go={go} />
       )}
-      {tab === 'news' && <NewsManager key={jump.n} initial={news} authorId={authorId} openId={jump.newsId} openNewSignal={jump.newNews} />}
+      {tab === 'news' && <NewsManager key={jump.n} initial={news} authorId={authorId} openId={jump.newsId} openNewSignal={jump.newNews} albums={albums} photos={photos} />}
       {tab === 'docs' && <DocumentsManager key={jump.n} initial={docs} defaultYear={defaultYear} startSection={jump.section} />}
       {tab === 'events' && <EventsManager initial={events} />}
       {tab === 'gallery' && <GalleryManager initialAlbums={albums} initialPhotos={photos} />}

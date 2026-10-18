@@ -3,9 +3,14 @@
 import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { Plus, ArrowLeft, Upload, Star, Trash2, Pencil, Check, X, Images, ExternalLink, GripVertical, MessageSquare, CheckSquare } from 'lucide-react'
+import { Plus, ArrowLeft, Upload, Star, Trash2, Pencil, Check, X, Images, ExternalLink, GripVertical, MessageSquare, CheckSquare, FolderOpen } from 'lucide-react'
 import { ACCENT, SITE_URL, Field, INPUT, Toast, Drawer, Spinner, useFlash, fmtDate, moveItem, shrinkImage, mediaPath } from './shared'
 import type { Album, Photo } from './shared'
+import PhotoPicker, { useLibrary } from './PhotoPicker'
+
+// Изтриваме от хранилището само файловете, качени директно в албума (gallery/…).
+// Снимка, избрана от „Снимки за сайта“, новина или портфолио, се ползва и другаде — нея не пипаме.
+const ownPath = (url: string) => { const p = mediaPath(url); return p && p.startsWith('gallery/') ? p : null }
 
 /* ═══════════════ ГАЛЕРИЯ ═══════════════ */
 export default function GalleryManager({ initialAlbums, initialPhotos }: { initialAlbums: Album[]; initialPhotos: Photo[] }) {
@@ -20,6 +25,7 @@ export default function GalleryManager({ initialAlbums, initialPhotos }: { initi
   const [dragAlbum, setDragAlbum] = useState<string | null>(null); const [dragPhoto, setDragPhoto] = useState<string | null>(null)
   const [dropFiles, setDropFiles] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  const library = useLibrary(); const [picker, setPicker] = useState(false)
   // редакция на албума
   const [editing, setEditing] = useState(false); const [eTitle, setETitle] = useState(''); const [eDate, setEDate] = useState('')
   const [confirmDel, setConfirmDel] = useState<string | null>(null)
@@ -55,7 +61,7 @@ export default function GalleryManager({ initialAlbums, initialPhotos }: { initi
     await supabase.from('gallery_photos').delete().eq('album_id', a.id)
     const { error } = await supabase.from('gallery_albums').delete().eq('id', a.id)
     if (error) { flash(error.message, true); return }
-    const paths = own.map((p) => mediaPath(p.photo_url)).filter((x): x is string => !!x)
+    const paths = own.map((p) => ownPath(p.photo_url)).filter((x): x is string => !!x)
     if (paths.length) await supabase.storage.from('public-media').remove(paths)
     setAlbums((p) => p.filter((x) => x.id !== a.id)); setPhotos((p) => p.filter((x) => x.album_id !== a.id))
     setConfirmDel(null); setOpenId(null); flash('Албумът е изтрит.'); router.refresh()
@@ -96,6 +102,19 @@ export default function GalleryManager({ initialAlbums, initialPhotos }: { initi
     if (added.length && !album.cover_url) await setCover(added[0].photo_url)
     flash(`Качени ${added.length} снимки.`); router.refresh()
   }
+  // добавяне на вече качени снимки (снимки за сайта, друг албум, новини, портфолио) — без ново качване
+  async function addPicked(urls: string[]) {
+    if (!album || !urls.length) return
+    const have = new Set(albumPhotos.map((p) => p.photo_url))
+    const fresh = urls.filter((u) => !have.has(u)); if (!fresh.length) return
+    const base = albumPhotos.reduce((m, p) => Math.max(m, p.sort_order || 0), 0)
+    const { data, error } = await supabase.from('gallery_photos').insert(fresh.map((u, i) => ({ album_id: album.id, photo_url: u, sort_order: base + i + 1 }))).select('*')
+    if (error) { flash(error.message, true); return }
+    const added = (data || []) as Photo[]
+    setPhotos((p) => [...p, ...added])
+    if (added.length && !album.cover_url) await setCover(added[0].photo_url)
+    flash(`Добавени ${added.length} снимки.`); router.refresh()
+  }
   async function dropPhoto(targetId: string) {
     if (!dragPhoto || dragPhoto === targetId) return
     const from = albumPhotos.findIndex((p) => p.id === dragPhoto); const to = albumPhotos.findIndex((p) => p.id === targetId)
@@ -108,7 +127,7 @@ export default function GalleryManager({ initialAlbums, initialPhotos }: { initi
     const ids = list.map((p) => p.id)
     const { error } = await supabase.from('gallery_photos').delete().in('id', ids)
     if (error) { flash(error.message, true); return }
-    const paths = list.map((p) => mediaPath(p.photo_url)).filter((x): x is string => !!x)
+    const paths = list.map((p) => ownPath(p.photo_url)).filter((x): x is string => !!x)
     if (paths.length) await supabase.storage.from('public-media').remove(paths)
     setPhotos((p) => p.filter((x) => !ids.includes(x.id))); setSel(new Set()); setSelecting(false); setConfirmDel(null)
     if (album && list.some((p) => p.photo_url === album.cover_url)) {
@@ -163,6 +182,9 @@ export default function GalleryManager({ initialAlbums, initialPhotos }: { initi
                     <CheckSquare size={14} /> {selecting ? 'Готово' : 'Избери няколко'}
                   </button>
                 )}
+                <button onClick={() => setPicker(true)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-[13px] text-slate-600 hover:bg-slate-50">
+                  <FolderOpen size={14} /> Добави от качените
+                </button>
                 <label className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-white text-[13px] font-medium cursor-pointer hover:opacity-90 ${progress ? 'pointer-events-none opacity-70' : ''}`} style={{ backgroundColor: ACCENT }}>
                   {progress ? <Spinner /> : <Upload size={15} />} {progress ? `${Math.min(progress.done + 1, progress.total)} от ${progress.total}…` : 'Качи снимки'}
                   <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { upload(Array.from(e.target.files || [])); e.currentTarget.value = '' }} />
@@ -303,6 +325,8 @@ export default function GalleryManager({ initialAlbums, initialPhotos }: { initi
         <Field label="Дата на събитието (по избор)"><input type="date" value={evDate} onChange={(e) => setEvDate(e.target.value)} className={INPUT} /></Field>
         <p className="text-[12px] text-slate-400">Новият албум излиза най-отпред в галерията.</p>
       </Drawer>
+      <PhotoPicker open={picker} onClose={() => setPicker(false)} onDone={addPicked} albums={albums} photos={photos} library={library}
+        title="Добави снимки в албума" taken={albumPhotos.map((p) => p.photo_url)} />
     </div>
   )
 }
