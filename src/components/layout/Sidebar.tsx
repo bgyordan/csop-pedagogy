@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, cloneElement, isValidElement } from 'react'
 import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
@@ -31,9 +31,28 @@ interface NavItem {
   section?: string
   children?: NavItem[]
   defaultOpen?: boolean   // групата е отворена по подразбиране
+  notMgmt?: boolean       // не за управата (тя го има в своя група)
 }
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Начало', icon: <LayoutDashboard size={16} /> },
+  // ── УПРАВАТА: основните регистри в една група, отворена по подразбиране ──
+  // (инструментите за децата — PECS, РЕМЕЛКА, материали… — са в „Децата“, както при колегите)
+  {
+    href: '#school',
+    label: 'Училище',
+    icon: <School size={16} />,
+    roles: ['admin', 'zdud', 'director'],
+    defaultOpen: true,
+    children: [
+      { href: '/students', label: 'Ученици', icon: <Users size={14} />, roles: ['admin', 'zdud', 'director'] },
+      { href: '/classes', label: 'Паралелки', icon: <BookOpen size={14} />, roles: ['admin', 'director', 'zdud'] },
+      { href: '/staff', label: 'Служители', icon: <UserCircle size={14} />, roles: ['admin', 'director', 'zdud'] },
+      { href: '/reports/hub', label: 'Справки', icon: <BarChart3 size={14} />, roles: ['admin', 'zdud', 'director'] },
+      // дневник на случаите (тормоз и поведение)
+      { href: '/incidents', label: 'Дневник случаи', icon: <ShieldAlert size={14} />, roles: ['admin', 'zdud', 'director'] },
+      { href: '/facilities', label: 'Материална база', icon: <Wrench size={14} />, roles: ['admin', 'zdud', 'director'] },
+    ],
+  },
   // ── КОЛЕГИТЕ (учители, възпитатели, терапевти): групи по това, за какво ползват менюто ──
   // Децата: учениците, паспортите, развитието, анкетите
   {
@@ -43,18 +62,18 @@ const navItems: NavItem[] = [
     children: [
       { href: '/students', label: 'Ученици', icon: <Users size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'support'] },
       // паспортите на децата, с които работя — за печат
-      { href: '/passports', label: 'Паспорти', icon: <IdCard size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator'] },
+      { href: '/passports', label: 'Паспорти', icon: <IdCard size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
       { href: '/development', label: 'Развитие', icon: <Sprout size={14} />, roles: ['psychologist'] },
       // двигателна оценка (ФВС) — групова карта; индивидуалната е в досието → Развитие
-      { href: '/development/motor', label: 'Двигателна оценка', icon: <Activity size={14} />, roles: ['class_teacher', 'teacher', 'educator', 'rehabilitator', 'psychologist', 'speech_therapist'] },
+      { href: '/development/motor', label: 'Двигателна оценка', icon: <Activity size={14} />, roles: ['class_teacher', 'teacher', 'educator', 'rehabilitator', 'psychologist', 'speech_therapist', 'admin', 'zdud', 'director'] },
       { href: '/surveys', label: 'Анкети на новите деца', icon: <ClipboardList size={14} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
       // обща библиотека: работни листове, табла, игри — търсене и печат
-      { href: '/materials', label: 'Материали', icon: <Library size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator'] },
-      { href: '/pecs', label: 'PECS', icon: <MessagesSquare size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator'] },
-      { href: '/remelka', label: 'РЕМЕЛКА', icon: <Calculator size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator'] },
-      { href: '/visual-schedule', label: 'Визуален график', icon: <Images size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
+      { href: '/materials', label: 'Материали', icon: <Library size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
+      { href: '/pecs', label: 'PECS', icon: <MessagesSquare size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
+      { href: '/remelka', label: 'РЕМЕЛКА', icon: <Calculator size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
+      { href: '/visual-schedule', label: 'Визуален график', icon: <Images size={14} />, roles: ['class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
       // стаите на паралелките (грипна ваканция) — материали за родителите по личен линк
-      { href: '/rooms', label: 'Онлайн стаи', icon: <MonitorSmartphone size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator'] },
+      { href: '/rooms', label: 'Онлайн стаи', icon: <MonitorSmartphone size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
     ],
   },
   // Моята работа: разписание, ИУП, терапии
@@ -80,25 +99,6 @@ const navItems: NavItem[] = [
       { href: '/my-lecturer', label: 'Моите лекторски', icon: <GraduationCap size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
       // заявление за отпуск по НП „Без свободен час“ (Приложение № 1)
       { href: '/leave-np', label: 'Отпуск по НП', icon: <FileText size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
-    ],
-  },
-  // ── УПРАВАТА: основните регистри в една група, отворена по подразбиране ──
-  {
-    href: '#school',
-    label: 'Училище',
-    icon: <School size={16} />,
-    roles: ['admin', 'zdud', 'director'],
-    defaultOpen: true,
-    children: [
-      { href: '/students', label: 'Ученици', icon: <Users size={14} />, roles: ['admin', 'zdud', 'director'] },
-      { href: '/classes', label: 'Паралелки', icon: <BookOpen size={14} />, roles: ['admin', 'director', 'zdud'] },
-      { href: '/rooms', label: 'Онлайн стаи', icon: <MonitorSmartphone size={14} />, roles: ['admin', 'zdud', 'director'] },
-      { href: '/staff', label: 'Служители', icon: <UserCircle size={14} />, roles: ['admin', 'director', 'zdud'] },
-      { href: '/passports', label: 'Паспорти', icon: <IdCard size={14} />, roles: ['admin', 'zdud', 'director'] },
-      { href: '/materials', label: 'Материали', icon: <Library size={14} />, roles: ['admin', 'zdud', 'director'] },
-      { href: '/pecs', label: 'PECS', icon: <MessagesSquare size={14} />, roles: ['admin', 'zdud', 'director'] },
-      { href: '/remelka', label: 'РЕМЕЛКА', icon: <Calculator size={14} />, roles: ['admin', 'zdud', 'director'] },
-      { href: '/visual-schedule', label: 'Визуален график', icon: <Images size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
   },
   // Документи — за всички (Портфолио — без помощния персонал)
@@ -143,12 +143,9 @@ const navItems: NavItem[] = [
       { href: '/gym-schedule', label: 'Физк. салон', icon: <Dumbbell size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
   },
-  // Материална база — за управата отделен ред (колегите я имат в „Сграда“, деловодството — в своята секция)
-  { href: '/facilities', label: 'Материална база', icon: <Wrench size={16} />, roles: ['admin', 'zdud', 'director'] },
   { href: '/bullying-council', label: 'К. Съвет', icon: <Shield size={16} />, councilOnly: true },
   // дневник на случаите (тормоз и поведение) — само Координационният съвет, координиращият екип и управата
-  { href: '/incidents', label: 'Дневник случаи', icon: <ShieldAlert size={16} />, incidentsTeam: true },
-  { href: '/reports/hub', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['admin', 'zdud', 'director'] },
+  { href: '/incidents', label: 'Дневник случаи', icon: <ShieldAlert size={16} />, incidentsTeam: true, notMgmt: true },
   {
     href: '#lecturer-mgmt',
     label: 'Лекторски',
@@ -177,7 +174,6 @@ const navItems: NavItem[] = [
       { href: '/surveys', label: 'Анкети на новите деца', icon: <ClipboardList size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
       { href: '/admin/eplr-schedule', label: 'График ЕПЛР', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
       { href: '/development', label: 'Развитие на децата', icon: <Sprout size={14} />, roles: ['admin', 'zdud', 'director'], coordinatorOnly: true },
-      { href: '/development/motor', label: 'Двигателна оценка', icon: <Activity size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
   },
   // Администрация (рядко: структура, предмети, училища, съобщения, нова година…) — един ред най-долу
@@ -220,6 +216,10 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
    const [mobileOpen, setMobileOpen] = useState(false)
   // Акордеон: отворена е само една група наведнъж
   const [openKey, setOpenKey] = useState<string | null>(null)
+  // Колегите (учители, възпитатели, терапевти) имат малко редове — групите им са отворени по подразбиране,
+  // за да виждат какво могат със системата; всяка група може да се свие поотделно. Управата и деловодството — акордеон.
+  const allOpen = !['admin', 'zdud', 'director', 'secretary'].includes(userRole)
+  const [closed, setClosed] = useState<Set<string>>(new Set())
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   // Свит сайдбар (само иконки) — помни се в браузъра
   const [mini, setMini] = useState(false)
@@ -263,6 +263,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
     router.push('/auth/login')
   }
   const isSecretary = userRole === 'secretary'
+  const isMgmt = ['admin', 'zdud', 'director'].includes(userRole)
   // Втора, терапевтична роля (напр. ЗДУД + логопед): добавят се само терапевтичните пунктове,
   // без да се дублира останалото меню на основната роля
   // therapyRoleProp — подаден от страницата (напр. при „Виж като…“ — на гледания служител); иначе — моята
@@ -286,6 +287,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
     if (item.href === '/dashboard') return true
     if (isSecretary) return item.section === 'delo' || item.section === 'settings'
      if (item.hideFromCoordinator && isCoordinator) return false
+    if (item.notMgmt && isMgmt) return false
     if (item.requiresClass && !hasClass) return false
     if (item.coordinatorOnly && isCoordinator) return true
     // К. съвет: за админ/ЗДУД е в „Администрация“; в менюто остава за членовете на съвета и директора
@@ -315,13 +317,17 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   function NavGroup({ item }: { item: NavItem }) {
     const kids = item.children || []
     const hasActiveChild = kids.some(k => pathname === k.href || pathname.startsWith(k.href + '/'))
-    const open = openKey === item.href && !isMini
+    const open = (allOpen ? !closed.has(item.href) : openKey === item.href) && !isMini
     return (
       <div id={`nav-${item.href}`}>
         <button
           type="button"
           title={isMini ? item.label : undefined}
-          onClick={() => { if (isMini) { toggleMini(); setOpenKey(item.href) } else toggleKey(item.href) }}
+          onClick={() => {
+            if (isMini) { toggleMini(); setOpenKey(item.href); setClosed(c => { const n = new Set(c); n.delete(item.href); return n }) }
+            else if (allOpen) setClosed(c => { const n = new Set(c); n.has(item.href) ? n.delete(item.href) : n.add(item.href); return n })
+            else toggleKey(item.href)
+          }}
           className={cn(itemCls(hasActiveChild && !open), 'w-full text-left')}
         >
           <span className={iconCls(hasActiveChild)}>{item.icon}</span>
@@ -346,12 +352,17 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   }
   const mainItems = visibleItems.filter(item => !item.section)
   const deloItems = visibleItems.filter(item => item.section === 'delo')
+  // управата: деловодството е една група „Деловодство“ (секретарят го има плоско)
+  const deloGroup: NavItem | null = isMgmt && deloItems.length
+    ? { href: '#delo', label: 'Деловодство', icon: <Inbox size={16} />,
+        children: deloItems.map(i => ({ ...i, icon: isValidElement(i.icon) ? cloneElement(i.icon as React.ReactElement<any>, { size: 14 }) : i.icon })) }
+    : null
   const settingsItems = visibleItems.filter(item => item.section === 'settings')
   const settingsActive = settingsItems.some(i => pathname === i.href || pathname.startsWith(i.href + '/'))
   const isActive = (h: string) => pathname === h || pathname.startsWith(h + '/')
   // При смяна на страницата — отвори групата/секцията, в която е тя (останалите се свиват)
   useEffect(() => {
-    const grp = mainItems.find(i => i.children?.some(k => isActive(k.href)))
+    const grp = [...mainItems, ...(deloGroup ? [deloGroup] : [])].find(i => i.children?.some(k => isActive(k.href)))
     if (grp) setOpenKey(grp.href)
     else if (deloItems.some(i => isActive(i.href)) || settingsActive) setOpenKey(null)
     else setOpenKey(k => k ?? (mainItems.find(i => i.defaultOpen && i.children)?.href ?? null))
@@ -392,7 +403,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
         {/* Деловодство и „Още“ — без надписи, само тънка черта */}
         {deloItems.length > 0 && (<>
           {mainItems.length > 0 && divider}
-          <div className="space-y-0.5">{deloItems.map(item => <NavLink key={item.href} item={item} />)}</div>
+          <div className="space-y-0.5">{deloGroup ? <NavGroup item={deloGroup} /> : deloItems.map(item => <NavLink key={item.href} item={item} />)}</div>
         </>)}
         {settingsItems.length > 0 && (<>
           {divider}
