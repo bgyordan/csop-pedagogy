@@ -131,7 +131,8 @@ export default async function ClassesPage({
       teachers: teachersByClass.get(c.id) || [], teacherId: teacherIdByClass.get(c.id) || null,
       studentIds: ids, count: countByClass.get(c.id) || 0, ifo: ifoByClass.get(c.id) || 0,
       coud: n(coudSet), isNew: n(newSet), ores: n(oresSet), absentToday: n(absSet),
-      noEplr: ids.filter(i => !eplrSet.has(i)).length,
+      // „само класен“ (отметка в ЕПЛР разпределението) — не се брои като липсващ екип
+      noEplr: c.eplr_class_teacher_only ? 0 : ids.filter(i => !eplrSet.has(i)).length,
       hasSchedule: hasSchedule.has(c.id), iup: iupState(c.id),
     }
   })
