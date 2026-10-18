@@ -215,18 +215,17 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
         </Link>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-         <ClassTeacherTabs paralelkaRows={paralelkaRows} eplrRows={eplrRows} therapyRows={therapyRows} className={myClasses[0].name} classId={myClasses[0].id} />
+        {/* лявата част: децата, а под тях — файловете (справочни, не за всеки ден) */}
+        <div className="lg:col-span-2 space-y-6">
+          <ClassTeacherTabs paralelkaRows={paralelkaRows} eplrRows={eplrRows} therapyRows={therapyRows} className={myClasses[0].name} classId={myClasses[0].id} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            <SchoolFilesCard profileId={profile.id} currentYearId={currentYearId} bare />
+            <SharedFiles bare />
+          </div>
         </div>
+        {/* дясната колона: това, което се гледа всеки ден */}
         <div>
-          <ClassTeacherSide
-            deadlines={deadlines || []}
-            announcements={announcements || []}
-            files={<>
-              <SchoolFilesCard profileId={profile.id} currentYearId={currentYearId} bare />
-              <SharedFiles bare />
-            </>}
-          />
+          <ClassTeacherSide deadlines={deadlines || []} announcements={announcements || []} />
         </div>
       </div>
     </div>

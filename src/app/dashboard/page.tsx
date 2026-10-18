@@ -126,7 +126,7 @@ export default async function DashboardPage() {
       <NonSchoolDayStrip />
 
       {/* Кратките ленти — по две на ред, за да не са дълги през целия екран */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start empty:hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 empty:hidden">
         {/* Дежурни тази седмица */}
         {!viewing && <DutyStrip staffId={profile.id} />}
 
