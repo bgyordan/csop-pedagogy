@@ -105,7 +105,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
   const plan = await loadCurriculum(supabase, currentYear?.id, { classId: id })
   return (
     <div className="p-4 md:p-8">
-      <BackButton />
+      <BackButton href="/classes" label="Паралелки" />
       <div className="mb-6">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>

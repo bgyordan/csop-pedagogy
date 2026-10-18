@@ -40,7 +40,7 @@ export default async function ClassScheduleViewPage({
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto animate-in fade-in duration-500">
-      <BackButton />
+      <BackButton href={`/classes/${id}`} label={`Паралелка ${cls.name}`} />
       <header className="mt-2 mb-6">
         <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Разписание · Паралелка {cls.name}</h1>
         <p className="text-slate-500 text-sm mt-0.5">{cy?.name} · сглобено от разписанията на учителите</p>
