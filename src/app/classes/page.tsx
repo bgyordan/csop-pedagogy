@@ -7,7 +7,8 @@ import { BackButton } from '@/components/ui/BackButton'
 import { getFullName } from '@/lib/utils'
 import CoudTabs from './CoudTabs'
 import { iupPeriod } from '@/lib/iup-period'
-import { NoDocsBadge } from '@/components/DocCounts'
+import ClassesTable, { type ClassRow } from './ClassesTable'
+import { isOresActive, todaySofia, ORES_ACTIVE_COLS } from '@/lib/ores'
 export default async function ClassesPage({
   searchParams,
 }: {
@@ -26,10 +27,36 @@ export default async function ClassesPage({
   const isManager = ['admin', 'zdud', 'director'].includes(myProfile?.role || '') || myProfile?.is_coordinator === true
   let myClassIds: string[] | null = null
   if (!isManager && myProfile?.id) {
+    // моите паралелки: класен + където имам часове по разписание + паралелките на „моите“ деца (терапевт / възпитател)
+    const me = myProfile.id, role = myProfile.role || ''
+    const ids = new Set<string>()
     const { data: myCta } = await supabase
       .from('class_teacher_assignments').select('class_id')
-      .eq('staff_id', myProfile.id).eq('academic_year_id', currentYear?.id)
-    myClassIds = (myCta || []).map(a => a.class_id)
+      .eq('staff_id', me).eq('academic_year_id', currentYear?.id)
+    ;(myCta || []).forEach((a: any) => ids.add(a.class_id))
+    const { data: mySlots } = await supabase.from('schedule_slots').select('schedule:class_schedules(class_id, academic_year_id)').eq('staff_id', me)
+    ;(mySlots || []).forEach((sl: any) => { if (sl.schedule?.class_id && sl.schedule.academic_year_id === currentYear?.id) ids.add(sl.schedule.class_id) })
+    let kidIds: string[] = []
+    if (['psychologist', 'speech_therapist', 'rehabilitator'].includes(role)) {
+      const f = role === 'psychologist' ? 'psychologist_id' : role === 'speech_therapist' ? 'speech_therapist_id' : 'rehabilitator_id'
+      const [{ data: et }, { data: tk }] = await Promise.all([
+        supabase.from('eplr_teams').select('student_id').eq(f, me).eq('academic_year_id', currentYear?.id),
+        supabase.from('students').select('id').or(`therapist_psychologist_id.eq.${me},therapist_speech_id.eq.${me},therapist_rehab_id.eq.${me},therapist_rehab2_id.eq.${me}`),
+      ])
+      kidIds = [...(et || []).map((r: any) => r.student_id), ...(tk || []).map((r: any) => r.id)]
+    } else if (role === 'educator') {
+      const { data: gs } = await supabase.from('coud_groups').select('id').eq('teacher_id', me).eq('academic_year_id', currentYear?.id)
+      const gIds = (gs || []).map((g: any) => g.id)
+      if (gIds.length) {
+        const { data: ce } = await supabase.from('coud_enrollments').select('student_id').in('coud_group_id', gIds).eq('academic_year_id', currentYear?.id)
+        kidIds = (ce || []).map((r: any) => r.student_id)
+      }
+    }
+    if (kidIds.length) {
+      const { data: ke } = await supabase.from('student_enrollments').select('class_id').in('student_id', kidIds).eq('academic_year_id', currentYear?.id)
+      ;(ke || []).forEach((e: any) => ids.add(e.class_id))
+    }
+    myClassIds = Array.from(ids)
   }
   let classesQuery = supabase
     .from('classes').select('*').eq('academic_year_id', currentYear?.id).order('name')
@@ -37,11 +64,10 @@ export default async function ClassesPage({
     classesQuery = classesQuery.in('id', myClassIds.length > 0 ? myClassIds : ['no-results'])
   }
   const { data: classesAll } = await classesQuery
-  const classes = onlyOutreach ? (classesAll || []).filter((c: any) => c.outreach_location) : classesAll
-  const outreachCount = (classesAll || []).filter((c: any) => c.outreach_location).length
+  const classes = classesAll
   const { data: allEnrollmentsRaw } = await supabase
     .from('student_enrollments')
-    .select('class_id, student_id, education_form, student:students(id, status)')
+    .select('class_id, student_id, education_form, student:students(id, status, is_new)')
     .eq('academic_year_id', currentYear?.id)
   const enrollments = (allEnrollmentsRaw || []).filter((e: any) => e.student?.status === 'active')
   const { data: assignments } = await supabase
@@ -82,6 +108,34 @@ export default async function ClassesPage({
       if (!teacherIdByClass.has(a.class_id)) teacherIdByClass.set(a.class_id, a.staff.id)
     }
   })
+  // ── Редовете на таблицата: децата с полезното за тях + какво иска внимание ──
+  const activeIds = enrollments.map((e: any) => e.student_id)
+  const today = todaySofia()
+  const [{ data: coudYear }, { data: eplrYear }, { data: oresRows }, { data: absRows }] = await Promise.all([
+    supabase.from('coud_enrollments').select('student_id').eq('academic_year_id', currentYear?.id),
+    supabase.from('eplr_teams').select('student_id').eq('academic_year_id', currentYear?.id),
+    activeIds.length ? supabase.from('student_ores').select(ORES_ACTIVE_COLS).in('student_id', activeIds).lte('from_date', today) : Promise.resolve({ data: [] as any[] }),
+    supabase.from('student_absences').select('student_id').lte('date_from', today).gte('date_to', today),
+  ])
+  const coudSet = new Set((coudYear || []).map((r: any) => r.student_id))
+  const eplrSet = new Set((eplrYear || []).map((r: any) => r.student_id))
+  const oresSet = new Set((oresRows || []).filter((o: any) => isOresActive(o, today)).map((o: any) => o.student_id))
+  const absSet = new Set((absRows || []).map((r: any) => r.student_id))
+  const newSet = new Set(enrollments.filter((e: any) => e.student?.is_new).map((e: any) => e.student_id))
+  const iupState = (id: string): ClassRow['iup'] => P.offSeason ? 'off' : iupSet.has(id) ? 'done' : (P.open || P.overdue) ? 'due' : 'later'
+  const classRows: ClassRow[] = (classes || []).map((c: any) => {
+    const ids = idsByClass.get(c.id) || []
+    const n = (set: Set<string>) => ids.filter(i => set.has(i)).length
+    return {
+      id: c.id, name: c.name, outreach: c.outreach_location || null,
+      teachers: teachersByClass.get(c.id) || [], teacherId: teacherIdByClass.get(c.id) || null,
+      studentIds: ids, count: countByClass.get(c.id) || 0, ifo: ifoByClass.get(c.id) || 0,
+      coud: n(coudSet), isNew: n(newSet), ores: n(oresSet), absentToday: n(absSet),
+      noEplr: ids.filter(i => !eplrSet.has(i)).length,
+      hasSchedule: hasSchedule.has(c.id), iup: iupState(c.id),
+    }
+  })
+
   // ── ЦОУД данни ──
   const { data: coudGroups } = await supabase
     .from('coud_groups')
@@ -129,7 +183,7 @@ export default async function ClassesPage({
   const coudStudentCount = (coudEnrollments || []).length
   const coudApplCount = applSet.size
   return (
-    <div className="p-4 md:p-8">
+    <div className="max-w-6xl mx-auto p-4 md:p-8">
       <BackButton />
       <div className="mb-5">
         <h1 className="text-xl md:text-2xl font-semibold text-slate-800">
@@ -138,7 +192,7 @@ export default async function ClassesPage({
         <p className="text-slate-500 text-sm mt-1">
           {tab === 'coud'
             ? `${coudGroups?.length || 0} групи · ${coudStudentCount} ученика · ${coudApplCount} със заявление · ${currentYear?.name}`
-            : `${classes?.length || 0} паралелки${onlyOutreach ? ' (изнесени)' : ''} · ${currentYear?.name}`}
+            : `${classes?.length || 0} паралелки · ${currentYear?.name}${!isManager ? ' · моите' : ''}`}
         </p>
       </div>
       {/* ТАБОВЕ */}
@@ -157,14 +211,6 @@ export default async function ClassesPage({
           ЦОУД групи
         </Link>
       </div>
-      {tab === 'classes' && outreachCount > 0 && (
-        <Link href={onlyOutreach ? '/classes' : '/classes?out=1'}
-          className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
-            onlyOutreach ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-teal-700 border-teal-200 hover:bg-teal-50'
-          }`}>
-          Изнесени · {outreachCount}
-        </Link>
-      )}
      {isManager && (
         <Link href={tab === 'coud' ? '/admin/coud' : '/admin/years'}
           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 shadow-sm transition-all">
@@ -177,101 +223,7 @@ export default async function ClassesPage({
         /* ── ЦОУД ГРУПИ (табове) ── */
         <CoudTabs groups={coudData} showPassports={!['secretary', 'support'].includes(myProfile?.role || '')} />
       ) : (
-        <>
-          {/* ДЕСКТОП: таблица — чиста (Паралелка · Класен · Уч. · Разписание) */}
-          <div className="hidden md:block bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border-collapse">
-                <thead className="bg-slate-50/70 border-b border-slate-200">
-                  <tr className="[&>th]:border-r [&>th]:border-slate-100 [&>th:last-child]:border-r-0">
-                    <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Паралелка</th>
-                    <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Класен ръководител</th>
-                    <th className="text-center px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Ученици</th>
-                    <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Състояние</th>
-                    <th className="text-center px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Разписание</th>
-                  </tr>
-                </thead>
-                <tbody className="zebra">
-                  {classes?.map((cls, idx) => {
-                    const count = countByClass.get(cls.id) || 0
-                    const teachers = teachersByClass.get(cls.id) || []
-                    return (
-                      <tr key={cls.id}
-                          className={`border-b border-slate-100 hover:bg-blue-50/40 transition-colors [&>td]:border-r [&>td]:border-slate-100 [&>td:last-child]:border-r-0 ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
-                        <td className="px-4 py-2.5">
-                          <Link href={`/classes/${cls.id}`} className="font-semibold text-slate-800 hover:text-blue-700 hover:underline transition-colors">
-                            {cls.name}
-                          </Link>
-                          {cls.outreach_location && <span className="ml-2"><OutreachBadge location={cls.outreach_location} /></span>}
-                        </td>
-                        <td className="px-4 py-2.5 text-slate-600 text-xs">{teachers.join(', ') || '—'}</td>
-                        <td className="text-center px-4 py-2.5">
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600">
-                            <Users size={13} className="text-slate-400" />{count}
-                          </span>
-                          {(ifoByClass.get(cls.id) || 0) > 0 && <div className="text-[10px] text-slate-400">{ifoByClass.get(cls.id)} ИФО</div>}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className={`px-2 py-0.5 rounded-full text-[11px] ${hasSchedule.has(cls.id) ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}
-                              title={hasSchedule.has(cls.id) ? `Разписанието за ${term} срок е въведено` : `Няма разписание за ${term} срок`}>
-                              {hasSchedule.has(cls.id) ? '✓' : '✗'} разп.
-                            </span>
-                            {!P.offSeason && (
-                              <span className={`px-2 py-0.5 rounded-full text-[11px] ${iupSet.has(cls.id) ? 'bg-emerald-50 text-emerald-700' : P.open || P.overdue ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'}`}
-                                title={`Реализация на ИУП за ${P.label}`}>
-                                {iupSet.has(cls.id) ? '✓' : '✗'} ИУП
-                              </span>
-                            )}
-                            <NoDocsBadge ids={idsByClass.get(cls.id) || []} />
-                          </div>
-                        </td>
-                        <td className="text-center px-4 py-2.5">
-                          <Link href={teacherIdByClass.get(cls.id) ? `/my-schedule/edit?staff=${teacherIdByClass.get(cls.id)}` : `/classes/${cls.id}`} className="inline-flex items-center justify-center text-teal-600 hover:text-teal-700 hover:bg-teal-50 rounded-lg p-1.5 transition-colors" title="Разписание (редакция)">
-                            <CalendarClock size={16} />
-                          </Link>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-            {!classes?.length && <div className="text-center py-12 text-slate-400 text-sm">Няма паралелки</div>}
-          </div>
-          {/* МОБИЛЕН: карти — чисти */}
-          <div className="md:hidden space-y-3">
-            {!classes?.length && <div className="text-center py-12 text-slate-400 text-sm">Няма паралелки</div>}
-            {classes?.map((cls) => {
-              const count = countByClass.get(cls.id) || 0
-              const teachers = teachersByClass.get(cls.id) || []
-              return (
-                <div key={cls.id} className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-sm transition-shadow">
-                  <div className="flex items-start justify-between gap-3">
-                    <Link href={`/classes/${cls.id}`} className="min-w-0 flex-1">
-                      <div className="font-semibold text-slate-800 text-base hover:text-blue-700 transition-colors">Паралелка {cls.name} {cls.outreach_location && <OutreachBadge location={cls.outreach_location} />}</div>
-                      <div className="text-xs text-slate-500 mt-0.5">{teachers.join(', ') || 'Без класен'}</div>
-                    </Link>
-
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      <span className="inline-flex items-center gap-1 text-sm font-semibold text-slate-700">
-                        <Users size={14} className="text-slate-400" />{count}
-                      </span>
-                      <Link href={teacherIdByClass.get(cls.id) ? `/my-schedule/edit?staff=${teacherIdByClass.get(cls.id)}` : `/classes/${cls.id}`} className="text-teal-600 hover:text-teal-700 p-1" title="Разписание">
-                        <CalendarClock size={18} />
-                      </Link>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                    <span className={`px-2 py-0.5 rounded-full text-[11px] ${hasSchedule.has(cls.id) ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{hasSchedule.has(cls.id) ? '✓' : '✗'} разп.</span>
-                    {!P.offSeason && <span className={`px-2 py-0.5 rounded-full text-[11px] ${iupSet.has(cls.id) ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{iupSet.has(cls.id) ? '✓' : '✗'} ИУП</span>}
-                    <NoDocsBadge ids={idsByClass.get(cls.id) || []} />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </>
+        <ClassesTable rows={classRows} term={term} iupLabel={P.label} initialFilter={onlyOutreach ? 'outreach' : 'all'} />
       )}
     </div>
   )
