@@ -105,7 +105,7 @@ export default function SiteDocsClient({
       {tab === 'docs' && <DocumentsManager key={jump.n} initial={docs} defaultYear={defaultYear} startSection={jump.section} />}
       {tab === 'events' && <EventsManager initial={events} />}
       {tab === 'gallery' && <GalleryManager initialAlbums={albums} initialPhotos={photos} />}
-      {tab === 'hero' && <HomeManager photos={photos} albums={albums} initialSelected={heroPhotos} />}
+      {tab === 'hero' && <HomeManager photos={photos} albums={albums} initialSelected={heroPhotos} initialAbout={pagePhotos['nachalna-pod'] || []} />}
       {tab === 'site-images' && <PagePhotosManager key={jump.n} albums={albums} photos={photos} initialPages={pagePhotos} startPage={jump.page} />}
       {tab === 'team' && <TeamManager staff={staff} initial={team} ready={teamReady} />}
       {tab === 'settings' && <SettingsManager initial={info} ready={infoReady} />}
