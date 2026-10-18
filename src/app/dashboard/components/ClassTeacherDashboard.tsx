@@ -48,45 +48,10 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
             <Users size={16} className="text-slate-400" /> Моите ученици
           </Link>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100/80">
-              <Calendar size={18} className="text-slate-400" />
-              <h2 className="font-semibold text-slate-800 text-sm">Предстоящи срокове</h2>
-            </div>
-            {!dls?.length ? <p className="text-sm text-slate-400">Няма предстоящи срокове</p> : (
-              <div className="space-y-3">
-                {dls.map((d: any) => (
-                  <div key={d.id} className="flex justify-between items-center gap-2">
-                    <div className="text-sm text-slate-700 truncate">{d.title}</div>
-                    <span className="text-[10px] font-semibold bg-slate-100 px-2 py-1 rounded flex-shrink-0">{formatDate(d.deadline_date)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          {anns && anns.length > 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100/80">
-                <Bell size={18} className="text-indigo-400" />
-                <h2 className="font-semibold text-slate-800 text-sm">Съобщения</h2>
-              </div>
-              <div className="space-y-4">
-                {anns.map((a: any) => (
-                  <div key={a.id} className="relative pl-3 before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:bg-indigo-300 before:rounded-full">
-                    <div className="text-sm font-semibold text-slate-700">{a.title}</div>
-                    <p className="text-xs text-slate-500 mt-1 line-clamp-3">{a.body}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm flex items-center justify-center text-sm text-slate-400">
-              Няма активни съобщения
-            </div>
-          )}
+        {/* същата карта като при класните: Срокове · Съобщения · Файлове */}
+        <div className="max-w-xl">
+          <ClassTeacherSide deadlines={dls || []} announcements={anns || []} files={<SharedFiles bare />} />
         </div>
-    <SharedFiles />
       </div>
     )
   }

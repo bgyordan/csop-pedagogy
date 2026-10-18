@@ -1,13 +1,26 @@
 'use client'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { School, FileText, Download, ChevronDown, ChevronUp, Paperclip } from 'lucide-react'
+import { FileText, ChevronDown, ChevronRight } from 'lucide-react'
+import { useReportNewFiles, isFreshFile } from './ClassTeacherSide'
 
-type Group = { name: string; files: { id: string; name: string; path: string }[] }
+type FileRow = { id: string; name: string; path: string; created_at: string }
+type Group = { name: string; kids: string[]; files: FileRow[] }
 
+// Началото на учебната година (15 септември) — по-старите файлове са зад „по-стари“
+function yearStart() {
+  const d = new Date(), y = d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1
+  return `${y}-09-15`
+}
+
+// Учебните планове от изпращащите училища на децата: един тънък ред на училище, клик — файловете
 export default function SchoolFilesCardClient({ groups, bare = false }: { groups: Group[]; bare?: boolean }) {
   const supabase = createClient()
   const [openIdx, setOpenIdx] = useState<number | null>(null)
+  const [showOld, setShowOld] = useState<Record<number, boolean>>({})
+  const from = yearStart()
+  const freshCount = useMemo(() => groups.reduce((s, g) => s + g.files.filter(f => isFreshFile(f.created_at)).length, 0), [groups])
+  useReportNewFiles('school-plans', freshCount)
 
   // Отваряне в нов таб с временна връзка (5 мин.): работи на всеки браузър, вкл. телефон/Safari,
   // където тегленето „на заден план“ (blob) тихо се блокира. PDF и снимки се показват, останалото се тегли.
@@ -26,33 +39,46 @@ export default function SchoolFilesCardClient({ groups, bare = false }: { groups
   }
 
   return (
-    <div className={bare ? '' : 'bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm'}>
-      <div className={`flex items-center gap-2 ${bare ? 'mb-2' : 'mb-4 pb-3 border-b border-slate-100'}`}>
-        <School size={bare ? 14 : 18} className="text-blue-500" />
-        <h2 className={bare ? 'text-xs font-medium text-slate-500' : 'font-semibold text-slate-800 text-sm'}>Училищни учебни планове</h2>
+    <div className={bare ? '' : 'bg-white rounded-2xl border border-slate-200/70 p-4 shadow-sm'}>
+      <div className="flex items-center gap-2 px-1 mb-1">
+        <h3 className="text-[11px] text-slate-400 uppercase tracking-widest flex-1">Учебни планове от училищата</h3>
       </div>
-      <div className="space-y-1.5">
+      <div>
         {groups.map((g, i) => {
           const open = openIdx === i
+          const cur = g.files.filter(f => f.created_at >= from)
+          const old = g.files.filter(f => f.created_at < from)
+          const fresh = g.files.filter(f => isFreshFile(f.created_at)).length
+          const list = showOld[i] ? g.files : cur
           return (
-            <div key={i} className="rounded-xl border border-slate-200 overflow-hidden">
-              <button onClick={() => setOpenIdx(open ? null : i)}
-                className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-slate-50 transition-colors">
-                <School size={14} className="text-slate-400 shrink-0" />
-                <span className="text-[13px] text-slate-700 truncate flex-1">{g.name}</span>
-                <span className="inline-flex items-center gap-1 text-[11px] text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded-full shrink-0"><Paperclip size={10} />{g.files.length}</span>
-                {open ? <ChevronUp size={14} className="text-slate-400 shrink-0" /> : <ChevronDown size={14} className="text-slate-300 shrink-0" />}
+            <div key={i}>
+              <button type="button" onClick={() => setOpenIdx(open ? null : i)}
+                className="w-full flex items-center gap-2 px-1 py-1.5 rounded-lg text-left hover:bg-slate-50 transition-colors">
+                {open ? <ChevronDown size={14} className="text-slate-400 shrink-0" /> : <ChevronRight size={14} className="text-slate-300 shrink-0" />}
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[13px] text-slate-700 truncate">{g.name}</span>
+                  {g.kids.length > 0 && <span className="block text-[11px] text-slate-400 truncate">{g.kids.join(', ')}</span>}
+                </span>
+                {fresh > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 shrink-0">ново</span>}
+                <span className="text-[11px] text-slate-400 tabular-nums shrink-0">{cur.length || (old.length ? `0 · ${old.length} стари` : 0)}</span>
               </button>
               {open && (
-                <div className="px-2 pb-2 space-y-1 bg-slate-50/50 border-t border-slate-100 pt-2">
-                  {g.files.map(f => (
-                    <button key={f.id} onClick={() => download(f.path, f.name)}
-                      className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white border border-slate-100 hover:border-blue-200 hover:bg-blue-50/40 text-left group transition-colors">
-                      <FileText size={13} className="text-blue-500 shrink-0" />
-                      <span className="text-[12px] text-slate-700 flex-1 group-hover:text-[#0f2240] break-words">{f.name}</span>
-                      <Download size={12} className="text-slate-300 group-hover:text-[#0f2240] shrink-0" />
+                <div className="ml-5 mb-1 border-l border-slate-100 pl-2">
+                  {list.length === 0 && <p className="px-1 py-1 text-[12px] text-slate-400">Няма файлове от тази учебна година.</p>}
+                  {list.map(f => (
+                    <button key={f.id} type="button" onClick={() => download(f.path, f.name)} title="Отвори"
+                      className="w-full flex items-center gap-1.5 px-1.5 py-1 rounded-md text-left hover:bg-slate-50 group">
+                      <FileText size={13} className="text-sky-500 shrink-0" />
+                      <span className={`text-[12.5px] flex-1 min-w-0 truncate group-hover:text-[#0f2240] ${f.created_at < from ? 'text-slate-400' : 'text-slate-700'}`}>{f.name}</span>
+                      {isFreshFile(f.created_at) && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 shrink-0">ново</span>}
                     </button>
                   ))}
+                  {old.length > 0 && (
+                    <button type="button" onClick={() => setShowOld(s => ({ ...s, [i]: !s[i] }))}
+                      className="px-1.5 py-1 text-[11px] text-slate-400 hover:text-slate-700">
+                      {showOld[i] ? 'Само тази година' : `По-стари (${old.length})`}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
