@@ -6,12 +6,13 @@ import { useRouter } from 'next/navigation'
 import { smartMatch } from '@/lib/search'
 import {
   Newspaper, Upload, Trash2, Plus, X, Search, Pencil, EyeOff, Star, ExternalLink, ChevronLeft, ChevronRight,
-  Bold, List, Link2, Heading2, CalendarClock, Send, Save, GripVertical,
+  Bold, List, Link2, Heading2, CalendarClock, Send, Save, GripVertical, FolderOpen,
 } from 'lucide-react'
 import {
   ACCENT, SITE_URL, NEWS_CATS, Field, INPUT, Toast, Drawer, Spinner, useFlash, fmtDate, fmtDateTime, shrinkImage, moveItem, renderRich,
 } from './shared'
-import type { News } from './shared'
+import type { News, Album, Photo } from './shared'
+import PhotoPicker, { useLibrary } from './PhotoPicker'
 
 type Img = { key: string; url?: string; file?: File; preview: string }
 type Status = 'draft' | 'scheduled' | 'published'
@@ -23,7 +24,7 @@ const LABEL: Record<Status, string> = { draft: 'Чернова', scheduled: 'Н�
 const toLocalInput = (iso: string | null) => { const d = iso ? new Date(iso) : new Date(); const p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}` }
 
 /* ═══════════════ НОВИНИ ═══════════════ */
-export default function NewsManager({ initial, authorId, openId, openNewSignal }: { initial: News[]; authorId: string | null; openId?: string | null; openNewSignal?: number }) {
+export default function NewsManager({ initial, authorId, openId, openNewSignal, albums = [], photos = [] }: { initial: News[]; authorId: string | null; openId?: string | null; openNewSignal?: number; albums?: Album[]; photos?: Photo[] }) {
   const supabase = createClient(); const router = useRouter()
   const { notice, flash } = useFlash()
   const [list, setList] = useState<News[]>(initial)
@@ -38,6 +39,7 @@ export default function NewsManager({ initial, authorId, openId, openNewSignal }
   const [when, setWhen] = useState(''); const [dirty, setDirty] = useState(false)
   const [dragKey, setDragKey] = useState<string | null>(null)
   const textRef = useRef<HTMLTextAreaElement>(null)
+  const library = useLibrary(); const [picker, setPicker] = useState(false)
 
   const counts = useMemo(() => { const c = { all: list.length, draft: 0, scheduled: 0, published: 0 }; list.forEach((n) => { c[statusOf(n)]++ }); return c }, [list])
   const shown = useMemo(() => list
@@ -85,6 +87,12 @@ export default function NewsManager({ initial, authorId, openId, openNewSignal }
   /* ---------- снимки ---------- */
   function addFiles(files: File[]) {
     const add = files.filter((f) => f.type.startsWith('image/')).map((f) => ({ key: `new-${Date.now()}-${Math.random()}`, file: f, preview: URL.createObjectURL(f) }))
+    setImgs((p) => [...p, ...add]); if (!coverKey && add[0]) setCoverKey(add[0].key); setDirty(true)
+  }
+  // снимки, избрани от „Снимки за сайта“, галерията, други новини или портфолиото — вече са с публичен адрес
+  function addPicked(urls: string[]) {
+    const have = new Set(imgs.map((x) => x.url).filter(Boolean))
+    const add = urls.filter((u) => !have.has(u)).map((u) => ({ key: u, url: u, preview: u }))
     setImgs((p) => [...p, ...add]); if (!coverKey && add[0]) setCoverKey(add[0].key); setDirty(true)
   }
   function removeImg(k: string) { setImgs((p) => p.filter((x) => x.key !== k)); if (coverKey === k) setCoverKey(null); setDirty(true) }
@@ -284,12 +292,18 @@ export default function NewsManager({ initial, authorId, openId, openNewSignal }
               <span className="block text-[13px] font-medium text-slate-700">Добавете снимки (може много наведнъж)</span>
               <span className="block text-[12px] text-slate-400 mt-0.5">Снимките от телефон се смаляват автоматично</span>
             </label>
+            <button type="button" onClick={() => setPicker(true)}
+              className="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-[13px] text-slate-700 hover:bg-slate-50">
+              <FolderOpen size={15} /> Избери от вече качените — снимки за сайта, галерия, новини, портфолио
+            </button>
           </Field>
           {editing && statusOf(editing) === 'published' && (
             <p className="text-[12px] text-slate-500">Публикувана на {fmtDateTime(editing.published_at)}. Датата може да се смени от полето долу и „Запази промените“.</p>
           )}
         </>)}
       </Drawer>
+      <PhotoPicker open={picker} onClose={() => setPicker(false)} onDone={addPicked} albums={albums} photos={photos} library={library}
+        title="Снимки за новината" taken={imgs.map((x) => x.url).filter((u): u is string => !!u)} />
     </div>
   )
 }
