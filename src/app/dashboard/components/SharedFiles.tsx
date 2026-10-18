@@ -5,6 +5,7 @@ import { listSharedStaffDocs } from '@/app/my-files/staff-drive-actions'
 import { Share2, Download, ArrowRight, File, FileText, FileSpreadsheet, FileImage, Eye, Globe, DoorOpen, Lightbulb, PartyPopper, BookOpen } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { DocViewer } from '@/components/registry/DocViewer'
+import { useReportNewFiles, isFreshFile } from './ClassTeacherSide'
 
 type Row = {
   id: string
@@ -101,6 +102,9 @@ export default function SharedFiles({ bare = false, limit = 5, portfolio = false
     })()
   }, [])
 
+  // броят на новите → числото на таба „Файлове“ (само в картата с табове)
+  useReportNewFiles('shared', bare ? rows.filter(r => isFreshFile(r.created_at)).length : 0)
+
   function download(r: Row) {
     window.location.href = `/api/staff-docs/download?fileId=${r.id}&as=office`
   }
@@ -170,30 +174,30 @@ export default function SharedFiles({ bare = false, limit = 5, portfolio = false
     )
   }
 
+  // Във „Файлове“ на таблото (bare): тънки редове като учебните планове
   return (
-    <div className={bare ? '' : 'bg-white rounded-2xl border border-slate-200/70 p-6 shadow-sm'}>
-      <div className={`flex items-center justify-between ${bare ? 'mb-2' : 'mb-4 pb-3 border-b border-slate-100'}`}>
-        <div className="flex items-center gap-2">
-          <Share2 size={bare ? 14 : 18} className="text-slate-400" />
-          <h2 className={bare ? 'text-xs font-medium text-slate-500' : 'font-bold text-slate-800 text-sm uppercase tracking-wider'}>Споделено от колеги</h2>
-        </div>
-        <Link href="/portfolio?tab=files" className="text-[10px] font-bold text-blue-600 uppercase tracking-wider hover:text-blue-800 flex items-center gap-1">
-          Виж всички <ArrowRight size={12} />
-        </Link>
+    <div>
+      <div className="flex items-center gap-2 px-1 mb-1">
+        <h3 className="text-[11px] text-slate-400 uppercase tracking-widest flex-1">Споделено от колеги</h3>
+        <Link href="/portfolio?tab=files" className="text-[11px] text-slate-400 hover:text-[#0f2240] inline-flex items-center gap-0.5">Всички <ArrowRight size={11} /></Link>
       </div>
       {loading ? (
-        <p className="text-sm text-slate-400">Зареждане…</p>
+        <p className="px-1 py-1 text-[12.5px] text-slate-400">Зареждане…</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-slate-400">Няма споделени файлове</p>
+        <p className="px-1 py-1 text-[12.5px] text-slate-400">Няма споделени файлове</p>
       ) : (
-        <div className="divide-y divide-slate-50">
+        <div>
           {rows.map(r => (
-            <div key={r.id} className="flex items-center gap-3 py-2 group">
-              {icon(r.name, r.mime_type)}
-              <span className="text-sm font-medium text-slate-700 truncate flex-1">{r.name}</span>
-              <span className="text-[11px] text-slate-400 shrink-0 hidden sm:block">{r.owner ? `${r.owner.first_name} ${r.owner.last_name}`.trim() : '—'}</span>
-              <button onClick={() => setViewing({ id: r.id, name: r.name })} title="Преглед" className="p-1 rounded hover:bg-slate-200 text-slate-400 shrink-0"><Eye size={15} /></button>
-              <button onClick={() => download(r)} title="Изтегли" className="p-1 rounded hover:bg-slate-200 text-slate-400 shrink-0"><Download size={15} /></button>
+            <div key={r.id} onClick={() => setViewing({ id: r.id, name: r.name })} title="Преглед"
+              className="flex items-center gap-2 px-1 py-1.5 rounded-lg cursor-pointer hover:bg-slate-50 group">
+              <span className="shrink-0 [&>svg]:w-[14px] [&>svg]:h-[14px]">{icon(r.name, r.mime_type)}</span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-[13px] text-slate-700 truncate group-hover:text-[#0f2240]">{r.name}</span>
+                <span className="block text-[11px] text-slate-400 truncate">{r.owner ? `${r.owner.first_name} ${r.owner.last_name}`.trim() : '—'} · {when(r.created_at)}</span>
+              </span>
+              {isFreshFile(r.created_at) && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 shrink-0">ново</span>}
+              <button onClick={e => { e.stopPropagation(); download(r) }} title="Изтегли"
+                className="p-1 rounded-md text-slate-300 hover:text-[#0f2240] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"><Download size={14} /></button>
             </div>
           ))}
         </div>
