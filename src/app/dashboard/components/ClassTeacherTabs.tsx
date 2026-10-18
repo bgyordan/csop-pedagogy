@@ -60,7 +60,7 @@ export default function ClassTeacherTabs({
       {/* Табове */}
       <div className="flex flex-wrap items-center gap-1 p-1.5 border-b border-slate-100 bg-slate-50/50">
         <button onClick={() => setTab('paralelka')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm transition-all ${
             tab === 'paralelka' ? 'bg-white shadow-sm text-blue-700 border border-blue-100' : 'text-slate-500 hover:text-slate-700'
           }`}>
           <Users size={15} />
@@ -69,29 +69,29 @@ export default function ClassTeacherTabs({
             {paralelkaRows.length}
           </span>
         </button>
-        <button onClick={() => setTab('docs')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+        <button onClick={() => setTab('docs')} title="Общите документи на паралелката (Drive)"
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm transition-all ${
             tab === 'docs' ? 'bg-white shadow-sm text-sky-700 border border-sky-100' : 'text-slate-500 hover:text-slate-700'
           }`}>
           <FolderOpen size={15} />
-          Документи на паралелката
+          Документи
         </button>
-        <button onClick={() => setTab('mine')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+        <button onClick={() => setTab('mine')} title="Моите лични документи (Drive)"
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm transition-all ${
             tab === 'mine' ? 'bg-white shadow-sm text-sky-700 border border-sky-100' : 'text-slate-500 hover:text-slate-700'
           }`}>
           <FileText size={15} />
-          Моите документи
+          Мои файлове
         </button>
-        <button onClick={() => setTab('eplr')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+        <button onClick={() => setTab('eplr')} title="ЕПЛР екипите на децата"
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm transition-all ${
             tab === 'eplr' ? 'bg-white shadow-sm text-teal-700 border border-teal-100' : 'text-slate-500 hover:text-slate-700'
           }`}>
           <HeartPulse size={15} />
-          ЕПЛР екипи
+          ЕПЛР
         </button>
         <button onClick={() => setTab('therapy')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm transition-all ${
             tab === 'therapy' ? 'bg-white shadow-sm text-violet-700 border border-violet-100' : 'text-slate-500 hover:text-slate-700'
           }`}>
           <CalendarClock size={15} />

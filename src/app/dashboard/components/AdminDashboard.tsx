@@ -214,6 +214,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
           deadlinesHref="/admin/tasks"
           newsHref="/admin/announcements"
           files={<SharedFiles bare />}
+          layout="row"
         />
       </div>
       </div>

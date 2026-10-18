@@ -48,10 +48,8 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
             <Users size={16} className="text-slate-400" /> Моите ученици
           </Link>
         </div>
-        {/* същата карта като при класните: Срокове · Съобщения · Файлове */}
-        <div className="max-w-xl">
-          <ClassTeacherSide deadlines={dls || []} announcements={anns || []} files={<SharedFiles bare />} />
-        </div>
+        {/* същите карти като при класните: Съобщения · Срокове · Файлове */}
+        <ClassTeacherSide deadlines={dls || []} announcements={anns || []} files={<SharedFiles bare />} layout="row" />
       </div>
     )
   }
