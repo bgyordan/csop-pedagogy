@@ -8,6 +8,7 @@ import { DOCUMENT_TYPE_LABELS, DocumentType, STATUS_LABELS, DocumentStatus } fro
 import { AttachmentsSection } from './AttachmentsSection'
 import StudentWorkDocs from './StudentWorkDocs'
 import GuardiansSection from './GuardiansSection'
+import StudentPersonalCard from './StudentPersonalCard'
 import StudentStatusSection from './StudentStatusSection'
 import { GraduationCap, Home, Wifi } from 'lucide-react'
 import { EplrDocumentsSection } from './EplrDocumentsSection'
@@ -365,9 +366,9 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
             {/* Действия: Редактирай + Още ▾ */}
             {(canManage || canEditDossier || canEditTeam) && student.status === 'active' && (
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                {canManage && (
-                  <Link href={`/students/${id}/edit`} className="inline-flex items-center gap-1.5 text-xs font-medium text-[#0f2240] border border-slate-300 px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors">
-                    <Pencil size={13} /> <span className="hidden sm:inline">Редактирай</span>
+                {canEditDossier && (
+                  <Link href={tabHref('data')} scroll={false} className="inline-flex items-center gap-1.5 text-xs font-medium text-[#0f2240] border border-slate-300 px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors">
+                    <Pencil size={13} /> <span className="hidden sm:inline">Данни</span>
                   </Link>
                 )}
                 {(canManage || canEditTeam || educationForm === 'ifo' || (student as any).is_new || hasSurvey) && <MoreMenu>
@@ -505,6 +506,25 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
         {tab === 'data' && (
           <div className="animate-in fade-in duration-300">
 
+          {/* Лични данни и родители — показват се и се редактират ТУК (бутон „Редактирай“ на всяка карта) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start mb-4">
+            <div className={cardCls}>
+              <StudentPersonalCard studentId={id}
+                firstName={(student as any).first_name || ''} middleName={(student as any).middle_name || null} lastName={(student as any).last_name || ''}
+                birthDate={student.birth_date || null}
+                school={student.sending_school_id && sendingSchool ? { id: student.sending_school_id, name: sendingSchool.name, city: sendingSchool.city || null } : null}
+                externalClass={student.external_class || null} externalClassLetter={(student as any).external_class_letter || null}
+                isTraveling={!!student.is_traveling} canEdit={canEditDossier && student.status === 'active'} />
+            </div>
+            <div className={cardCls}>
+              <div className={cardHead}>
+                <Heart size={16} className="text-rose-400" />
+                <h2 className="font-semibold text-slate-800 text-sm">Родители / Настойници</h2>
+              </div>
+              <GuardiansSection studentId={id} guardians={guardians || []} canManage={canEditDossier} />
+            </div>
+          </div>
+
           <div className={`${cardCls} !h-auto mb-4`}>
             <div className={cardHead}>
               <GraduationCap size={16} className="text-blue-500" />
@@ -543,14 +563,6 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-            <div className={cardCls}>
-              <div className={cardHead}>
-                <Heart size={16} className="text-rose-400" />
-                <h2 className="font-semibold text-slate-800 text-sm">Родители / Настойници</h2>
-              </div>
-              <GuardiansSection studentId={id} guardians={guardians || []} canManage={canEditDossier} />
-            </div>
-            
             <div className={cardCls}>
               <div className={cardHead}>
                 <History size={16} className="text-indigo-400" />
