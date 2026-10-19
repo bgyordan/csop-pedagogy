@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ShieldAlert, Plus, Search, BarChart3, List, FileText, Loader2, X } from 'lucide-react'
+import { ShieldAlert, Plus, Search, BarChart3, List, FileText, Loader2, X, ScrollText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 import { smartMatch } from '@/lib/search'
@@ -12,12 +12,14 @@ import type { Case, Event, Participant, Status, Kind } from '@/lib/incidents'
 import IncidentForm, { type FormValue } from './IncidentForm'
 import IncidentDetail from './IncidentDetail'
 import IncidentAnalysis from './IncidentAnalysis'
+import IncidentGuide from './IncidentGuide'
 
 type Props = {
   meId: string; isCouncil: boolean; isAdmin: boolean; yearId: string | null; yearName: string
   cases: Case[]; parts: Participant[]; events: Event[]
   students: { id: string; name: string; cls?: string }[]; staffNames: Record<string, string>; studentNames: Record<string, string>
   protocols: { id: string; number: number; date: string }[]
+  members: { name: string; position: string | null; is_chair: boolean }[]
   initialOpen: string | null; years: { id: string; name: string }[]; yearSel: string
 }
 
@@ -54,6 +56,7 @@ export default function IncidentsClient(p: Props) {
   ).sort((a, b) => b.occurred_on.localeCompare(a.occurred_on) || b.number - a.number), [cases, kind, status, month, q, byCase]) // eslint-disable-line react-hooks/exhaustive-deps
   const analysis = useMemo(() => analyze(filtered, parts, studentNames, todaySofia()), [filtered, parts]) // eslint-disable-line react-hooks/exhaustive-deps
   const open = cases.find(c => c.id === openId) || null
+  const yearLabel = p.yearSel === 'all' ? 'всички години' : p.years.find(y => y.id === p.yearSel)?.name || p.yearName
   const monthLabel = (ym: string) => `${MONTHS[(Number(ym.slice(5, 7)) + 3) % 12]} ${ym.slice(0, 4)}`
 
   // ── запис ──
@@ -114,7 +117,16 @@ export default function IncidentsClient(p: Props) {
     setBusy(true)
     try {
       const { generateIncidentRegister } = await import('@/lib/docx-incidents')
-      await generateIncidentRegister({ yearName: p.yearName, periodLabel: month ? monthLabel(month) : '', cases: filtered, parts, students: studentNames, staff: p.staffNames })
+      await generateIncidentRegister({ yearName: yearLabel, periodLabel: month ? monthLabel(month) : '', cases: filtered, parts, students: studentNames, staff: p.staffNames })
+    } finally { setBusy(false) }
+  }
+  // годишният доклад на съвета — от филтрираните случаи (обикновено цялата година)
+  async function exportReport() {
+    setBusy(true)
+    try {
+      const { generateIncidentReport } = await import('@/lib/docx-incidents')
+      const extra = [month ? monthLabel(month) : '', kind ? `само ${KINDS[kind].label.toLowerCase()}` : '', status ? 'филтър по статус' : '', q.trim() ? `търсене „${q.trim()}“` : ''].filter(Boolean).join(', ')
+      await generateIncidentReport({ yearName: yearLabel, periodLabel: extra, a: analysis, cases: filtered, parts, students: studentNames, members: p.members, meetings: p.protocols.length })
     } finally { setBusy(false) }
   }
 
@@ -129,13 +141,15 @@ export default function IncidentsClient(p: Props) {
         <div className="w-12 h-12 rounded-xl bg-rose-50 border border-rose-100 text-rose-700 flex items-center justify-center shrink-0"><ShieldAlert size={22} /></div>
         <div className="flex-1 min-w-[220px]">
           <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">Дневник на случаите</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Тормоз и инциденти с поведение · {p.yearName} · {p.isCouncil ? 'всички случаи' : 'констатираните от вас и с деца от вашата паралелка'}</p>
+          <p className="text-sm text-slate-500 mt-0.5">Тормоз (II и III ниво) и инциденти с поведение · {p.yearName} · води го Координационният съвет</p>
         </div>
         <button type="button" onClick={() => setForm('new')}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white hover:opacity-90" style={{ backgroundColor: '#b91c1c' }}>
           <Plus size={16} /> Констатирай случай
         </button>
       </header>
+
+      <IncidentGuide />
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
         {p.isCouncil && <div className="inline-flex gap-0.5 p-1 rounded-xl bg-slate-100">{tabBtn('list', 'Дневник', List)}{tabBtn('analysis', 'Анализ', BarChart3)}</div>}
@@ -162,6 +176,12 @@ export default function IncidentsClient(p: Props) {
         {p.isCouncil && (
           <button type="button" onClick={exportWord} disabled={busy || !filtered.length} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-[13px] text-slate-700 hover:bg-slate-50 disabled:opacity-50">
             {busy ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} Дневник (Word)
+          </button>
+        )}
+        {p.isCouncil && view === 'analysis' && (
+          <button type="button" onClick={exportReport} disabled={busy || !filtered.length} title="Докладът на Координационния съвет до директора — сглобен от дневника; съветът допълва изводите и подписва"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] text-white hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <ScrollText size={14} />} Годишен доклад (Word)
           </button>
         )}
       </div>
