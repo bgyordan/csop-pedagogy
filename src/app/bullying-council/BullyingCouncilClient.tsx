@@ -10,10 +10,16 @@ import {
   Users, UserCog, CheckCircle2, AlertCircle
 } from 'lucide-react'
 import { generateBullyingProtocol } from '@/lib/docx-generator'
+import { KINDS, LEVELS } from '@/lib/incidents'
+import IncidentGuide from '../incidents/IncidentGuide'
 
 interface Member { id: string; staff_id: string | null; name: string; position: string | null; is_chair: boolean; sort: number }
 interface Staff { id: string; first_name: string; last_name: string; position: string | null }
 interface StudentOpt { id: string; name: string }
+interface CaseOpt {
+  id: string; number: number; occurred_on: string; kind: 'bullying' | 'behavior'; level: number | null; forms: string[]; description: string
+  status: string; protocol_id: string | null; studentId: string; cls: string; who: string
+}
 interface Protocol {
   id: string; number: number; date: string; kind: string
   agenda: string | null; decisions: string | null
@@ -103,8 +109,8 @@ function fmtSize(b?: number | null) { if (!b) return ''; return b > 1048576 ? (b
 
 interface DocRow { id: string; category: string; name: string; description: string | null; path: string; size: number | null; mime_type: string | null }
 
-export default function BullyingCouncilClient({ meId, isManager, members, staff, protocols, students, documents, academicYearId, yearName }: {
-  meId: string; isManager: boolean; members: Member[]; staff: Staff[]; protocols: Protocol[]; students: StudentOpt[]; documents: DocRow[]; academicYearId: string | null; yearName: string
+export default function BullyingCouncilClient({ meId, isManager, members, staff, protocols, students, documents, cases, academicYearId, yearName }: {
+  meId: string; isManager: boolean; members: Member[]; staff: Staff[]; protocols: Protocol[]; students: StudentOpt[]; documents: DocRow[]; cases: CaseOpt[]; academicYearId: string | null; yearName: string
 }) {
   const supabase = createClient()
   const router = useRouter()
@@ -123,6 +129,32 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
   const [pDate, setPDate] = useState(new Date().toISOString().split('T')[0])
   const [pAgenda, setPAgenda] = useState(''); const [pDecisions, setPDecisions] = useState('')
   const [pStudentId, setPStudentId] = useState(''); const [pGroup, setPGroup] = useState(''); const [pLevel, setPLevel] = useState(''); const [pMeasures, setPMeasures] = useState('')
+  // случай от дневника, който протоколът разглежда (връзката е incident_cases.protocol_id)
+  const [caseList, setCaseList] = useState<CaseOpt[]>(cases)
+  const [pCaseId, setPCaseId] = useState('')
+  function pickCase(id: string) {
+    setPCaseId(id)
+    const c = caseList.find(x => x.id === id)
+    if (!c) return
+    const lvl = LEVELS[c.kind].find(l => l.n === c.level)?.label
+    if (c.studentId) setPStudentId(c.studentId)
+    setPGroup(c.cls)
+    setPLevel([KINDS[c.kind].short, lvl, c.forms.join(', ')].filter(Boolean).join(' – '))
+    setPAgenda(`Случай № ${c.number} от ${fmtDate(c.occurred_on)} от дневника на случаите${c.who ? ` (${c.who})` : ''}.\n${c.description}`)
+  }
+  async function linkCase(protocolId: string, number: number, date: string) {
+    const prev = caseList.find(c => c.protocol_id === protocolId && c.id !== pCaseId)
+    if (prev) await supabase.from('incident_cases').update({ protocol_id: null }).eq('id', prev.id)
+    const c = caseList.find(x => x.id === pCaseId)
+    if (c && c.protocol_id !== protocolId) {
+      const toReview = c.status === 'new'
+      await supabase.from('incident_cases').update({ protocol_id: protocolId, ...(toReview ? { status: 'review' } : {}), updated_at: new Date().toISOString() }).eq('id', c.id)
+      if (toReview) await supabase.from('incident_events').insert({ case_id: c.id, kind: 'status', text: 'Нов → Разглежда се', staff_id: meId })
+      await supabase.from('incident_events').insert({ case_id: c.id, kind: 'protocol', text: `Разгледан в протокол № ${number} от ${fmtDate(date)}`, staff_id: meId })
+    }
+    setCaseList(xs => xs.map(x => x.id === prev?.id ? { ...x, protocol_id: null }
+      : x.id === pCaseId ? { ...x, protocol_id: protocolId, status: x.status === 'new' ? 'review' : x.status } : x))
+  }
 
   const usedStaff = new Set(list.map(m => m.staff_id).filter(Boolean))
   const freeStaff = staff.filter(s => !usedStaff.has(s.id))
@@ -152,7 +184,7 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
     await reloadMembers(); setBusy(false); router.refresh()
   }
 
-  function resetForm() { setKind('general'); setPDate(new Date().toISOString().split('T')[0]); setPAgenda(''); setPDecisions(''); setPStudentId(''); setPGroup(''); setPLevel(''); setPMeasures('') }
+  function resetForm() { setPCaseId(''); setKind('general'); setPDate(new Date().toISOString().split('T')[0]); setPAgenda(''); setPDecisions(''); setPStudentId(''); setPGroup(''); setPLevel(''); setPMeasures('') }
 
   function openEdit(p: Protocol) {
     setEditId(p.id)
@@ -161,6 +193,7 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
     setPAgenda(p.agenda || ''); setPDecisions(p.decisions || '')
     setPStudentId(students.find(s => s.name === p.student_name)?.id || '')
     setPGroup(p.group_name || ''); setPLevel(p.level || ''); setPMeasures(p.measures || '')
+    setPCaseId(caseList.find(c => c.protocol_id === p.id)?.id || '')
     setShowForm(true)
   }
   async function saveMeeting() {
@@ -178,12 +211,14 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
       setSaving(false)
       if (error || !data) { alert('Грешка при запис: ' + (error?.message || '')); return }
       setProts(prev => prev.map(p => p.id === editId ? (data as Protocol) : p))
+      if (kind === 'case') await linkCase(data.id, data.number, data.date)
     } else {
       const nextNum = (prots.reduce((m, p) => Math.max(m, p.number), 0)) + 1
       const { data, error } = await supabase.from('bullying_protocols').insert({ ...common, academic_year_id: academicYearId, number: nextNum, created_by: meId }).select('*').single()
       setSaving(false)
       if (error || !data) { alert('Грешка при запис: ' + (error?.message || '')); return }
       setProts(prev => [data as Protocol, ...prev])
+      if (kind === 'case') await linkCase(data.id, data.number, data.date)
     }
     setShowForm(false); setEditId(null); resetForm(); router.refresh()
   }
@@ -289,6 +324,8 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
           <ShieldAlert size={16} /> Дневник на случаите
         </a>
       </div>
+
+      <IncidentGuide compact />
 
       {/* Състав */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all duration-300">
@@ -437,6 +474,18 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
               {kind === 'case' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5 p-5 bg-white rounded-xl border border-rose-100 shadow-sm relative overflow-hidden">
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-400"></div>
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><ShieldAlert size={12} className="text-rose-400"/> Случай от дневника</label>
+                    <select value={pCaseId} onChange={e => pickCase(e.target.value)} className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:border-[#0f2240]">
+                      <option value="">— без връзка със случай —</option>
+                      {caseList.map(c => (
+                        <option key={c.id} value={c.id}>
+                          № {c.number} · {fmtDate(c.occurred_on)} · {KINDS[c.kind].short}{c.who ? ` · ${c.who}` : ''}{c.protocol_id && c.id !== pCaseId ? ' (вече има протокол)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[11.5px] text-slate-400 mt-1">Изберете случая — ученикът, паралелката, нивото и описанието се попълват от дневника. Протоколът се връзва към случая.</p>
+                  </div>
                   <div>
                     <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><User size={12} className="text-rose-400"/> Ученик</label>
                     <StudentCombo students={students} value={pStudentId} onChange={setPStudentId} />
@@ -503,6 +552,9 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
                     <span className="text-base font-extrabold text-slate-800">Протокол № {p.number}</span>
                     <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md flex items-center gap-1.5"><CalendarDays size={12} /> {fmtDate(p.date)}</span>
                     <span className={`text-[10px] uppercase font-extrabold tracking-wider px-2.5 py-1 rounded-md ${p.kind === 'case' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-500'}`}>{p.kind === 'case' ? 'По казус' : 'Общо заседание'}</span>
+                    {caseList.filter(c => c.protocol_id === p.id).map(c => (
+                      <a key={c.id} href={`/incidents?open=${c.id}`} className="text-[11px] px-2 py-0.5 rounded-md border border-rose-200 text-rose-700 hover:bg-rose-50">Случай № {c.number}</a>
+                    ))}
                   </div>
                   
                   {p.kind === 'case' && p.student_name ? (

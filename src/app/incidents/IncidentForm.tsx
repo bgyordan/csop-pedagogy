@@ -42,7 +42,7 @@ export default function IncidentForm({ students, initial, initialParts, onClose,
     actions: initial.actions || [], parents_notified: initial.parents_notified,
     participants: (initialParts || []).map(p => ({ student_id: p.student_id, name: p.name, role: p.role })),
   } : {
-    kind: 'bullying', occurred_on: todaySofia(), occurred_time: nowTime(), place: '', forms: [], level: 1, description: '',
+    kind: 'bullying', occurred_on: todaySofia(), occurred_time: nowTime(), place: '', forms: [], level: 2, description: '',
     antecedents: [], antecedent_note: '', consequences: [], consequence_note: '', actions: [], parents_notified: false, participants: [],
   })
   const [q, setQ] = useState('')

@@ -28,12 +28,14 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
   const yearSel = sp.year === 'all' ? 'all' : (years || []).some((y: any) => y.id === sp.year) ? sp.year! : (cy?.id || '')
   let cq = supabase.from('incident_cases').select('*').order('occurred_on', { ascending: false })
   if (yearSel !== 'all') cq = cq.eq('academic_year_id', yearSel)
-  const [{ data: casesRaw }, { data: studentsRaw }, { data: enr }, { data: staff }, { data: protocols }] = await Promise.all([
+  const [{ data: casesRaw }, { data: studentsRaw }, { data: enr }, { data: staff }, { data: protocols }, { data: members }] = await Promise.all([
     cq,
     supabase.from('students').select('id, first_name, last_name').eq('status', 'active').order('first_name'),
     supabase.from('student_enrollments').select('student_id, class:classes(name)').eq('academic_year_id', cy?.id),
     supabase.from('staff_profiles').select('id, first_name, last_name'),
     isCouncil ? supabase.from('bullying_protocols').select('id, number, date').eq('academic_year_id', cy?.id).order('number', { ascending: false }) : Promise.resolve({ data: [] as any[] }),
+    // съставът на съвета — за подписите в годишния доклад
+    supabase.from('bullying_council_members').select('name, position, is_chair, sort').eq('academic_year_id', cy?.id).order('is_chair', { ascending: false }).order('sort').order('name'),
   ])
   // отворен от досието случай от друга година — добавяме го
   let cases = casesRaw || []
@@ -66,6 +68,7 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
       studentNames={Object.fromEntries((old || []).map((s: any) => [s.id, `${s.first_name} ${s.last_name}`]))}
       staffNames={Object.fromEntries((staff || []).map((s: any) => [s.id, `${s.first_name} ${s.last_name}`]))}
       protocols={(protocols || []) as any}
+      members={(members || []) as any}
     />
   )
 }
