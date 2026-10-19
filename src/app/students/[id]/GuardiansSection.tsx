@@ -30,6 +30,12 @@ interface Props {
 const LBL = 'block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1'
 const INP = 'w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm focus:outline-none focus:border-[#0f2240] focus:ring-4 focus:ring-[#0f2240]/10'
 const okEmail = (e: string) => !e || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)
+// Грешките от базата — на разбираем български
+function errText(m: string) {
+  if (/row-level security|permission denied|violates row-level/i.test(m)) return 'Нямате права да редактирате родителите на това дете. Редактират класният на паралелката, ЗДУД и деловодството.'
+  if (/email/i.test(m)) return 'Полето за имейл още не е добавено в базата (SQL файлът 2026-10-03_guardian_email.sql).'
+  return 'Записът не стана: ' + m
+}
 
 export default function GuardiansSection({ studentId, guardians: initial, canManage }: Props) {
   const supabase = createClient()
@@ -67,7 +73,7 @@ export default function GuardiansSection({ studentId, guardians: initial, canMan
       : await supabase.from('student_guardians').insert({ student_id: studentId, ...payload }).select().single()
     setSaving(false)
     if (res.error) {
-      setErr(res.error.message.includes('email') ? 'Полето за имейл още не е добавено в базата (SQL файлът 2026-10-03_guardian_email.sql).' : res.error.message)
+      setErr(errText(/0 rows|multiple \(or no\) rows|PGRST116/i.test(res.error.message + ' ' + (res.error as any).code) ? 'permission denied' : res.error.message))
       return
     }
     if (editId) setGuardians(prev => prev.map(g => g.id === editId ? res.data : g))
@@ -78,8 +84,13 @@ export default function GuardiansSection({ studentId, guardians: initial, canMan
 
   async function handleDelete(id: string) {
     if (!confirm('Изтриване на родителя?')) return
-    await supabase.from('student_guardians').delete().eq('id', id)
+    setSaving(true); setErr('')
+    // .select() — при липса на права базата не дава грешка, а просто не трие нищо
+    const { data, error } = await supabase.from('student_guardians').delete().eq('id', id).select('id')
+    setSaving(false)
+    if (error || !data || data.length === 0) { setErr(errText(error?.message || 'permission denied')); return }
     setGuardians(prev => prev.filter(g => g.id !== id))
+    cancel()
     router.refresh()
   }
 
@@ -108,7 +119,13 @@ export default function GuardiansSection({ studentId, guardians: initial, canMan
         </div>
       </div>
       {err && <p className="text-xs text-rose-700">{err}</p>}
-      <div className="flex gap-2 justify-end">
+      <div className="flex gap-2 justify-end items-center">
+        {editId && (
+          <button type="button" onClick={() => handleDelete(editId)} disabled={saving}
+            className="mr-auto inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-rose-600 hover:bg-rose-50 disabled:opacity-50">
+            <Trash2 size={14} /> Изтрий
+          </button>
+        )}
         <button type="button" onClick={cancel} className="px-4 py-2 rounded-xl text-sm text-slate-600 hover:bg-slate-100">Отказ</button>
         <button type="button" onClick={handleSave} disabled={saving || !formName.trim()}
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white bg-[#0f2240] hover:bg-[#1a3560] disabled:opacity-50">
@@ -120,7 +137,7 @@ export default function GuardiansSection({ studentId, guardians: initial, canMan
 
   return (
     <div className="space-y-2.5">
-      {guardians.length === 0 && !showAdd && <p className="text-sm text-slate-400">Няма данни</p>}
+      {guardians.length === 0 && !showAdd && <p className="text-sm text-slate-500">Няма въведени родители.</p>}
 
       {guardians.map(g => (
         <div key={g.id}>
@@ -132,19 +149,19 @@ export default function GuardiansSection({ studentId, guardians: initial, canMan
                   <div className="text-[15px] font-medium text-slate-900 mt-0.5">{g.full_name}</div>
                 </div>
                 {canManage && (
-                  <div className="flex gap-0.5">
-                    <button type="button" onClick={() => startEdit(g)} title="Редактирай" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100"><Pencil size={14} /></button>
-                    <button type="button" onClick={() => handleDelete(g.id)} title="Изтрий" className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"><Trash2 size={14} /></button>
-                  </div>
+                  <button type="button" onClick={() => startEdit(g)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-medium text-[#0f2240] hover:bg-slate-50 hover:border-[#0f2240] shrink-0">
+                    <Pencil size={13} /> Редактирай
+                  </button>
                 )}
               </div>
               <div className="flex flex-wrap gap-2 mt-2">
                 {g.phone
                   ? <a href={`tel:${g.phone.replace(/\s/g, '')}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm tabular-nums hover:bg-emerald-100"><Phone size={14} /> {g.phone}</a>
-                  : canManage && <button type="button" onClick={() => startEdit(g)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-slate-300 text-slate-400 text-sm hover:text-slate-700"><Phone size={14} /> добави телефон</button>}
+                  : canManage && <button type="button" onClick={() => startEdit(g)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-[#0f2240]/40 text-[#0f2240] text-sm hover:bg-slate-50 hover:border-[#0f2240]"><Plus size={13} /><Phone size={14} /> добави телефон</button>}
                 {g.email
                   ? <a href={`mailto:${g.email}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-50 border border-sky-200 text-sky-900 text-sm hover:bg-sky-100 break-all"><Mail size={14} /> {g.email}</a>
-                  : canManage && <button type="button" onClick={() => startEdit(g)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-slate-300 text-slate-400 text-sm hover:text-slate-700"><Mail size={14} /> добави имейл</button>}
+                  : canManage && <button type="button" onClick={() => startEdit(g)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-[#0f2240]/40 text-[#0f2240] text-sm hover:bg-slate-50 hover:border-[#0f2240]"><Plus size={13} /><Mail size={14} /> добави имейл</button>}
               </div>
             </div>
           )}
@@ -152,9 +169,10 @@ export default function GuardiansSection({ studentId, guardians: initial, canMan
       ))}
 
       {showAdd && formRow}
+      {err && !showAdd && editId === null && <p className="text-xs text-rose-700">{err}</p>}
 
       {canManage && !showAdd && editId === null && (
-        <button type="button" onClick={startAdd} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-300 text-sm text-slate-700 hover:border-[#0f2240]">
+        <button type="button" onClick={startAdd} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#0f2240]/40 text-sm font-medium text-[#0f2240] hover:bg-slate-50 hover:border-[#0f2240]">
           <Plus size={14} /> Добави родител
         </button>
       )}
