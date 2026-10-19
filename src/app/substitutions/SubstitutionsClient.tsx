@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, Fragment } from 'react'
 import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Pencil, Trash2, ChevronDown, Download } from 'lucide-react'
@@ -28,6 +28,16 @@ const KT_ARTICLES: { v: string; l: string }[] = [
   { v: '176', l: 'чл. 176 – отпуск по други причини' },
 ]
 function fmt(d: string) { return d ? d.split('-').reverse().join('.') : '—' }
+// Номерът на заповедта за колоната: „041/12.10.2026г.“ → { n: '041', d: '12.10' }; ръчен номер → с неговата дата
+function orderRef(r: SubRow): { n: string; d: string; full: string } | null {
+  const raw = (r.orderNumber || r.manualNumber || '').trim()
+  if (!raw) return null
+  const [n, rest] = raw.split('/')
+  const dm = (rest || '').match(/(\d{2})\.(\d{2})/)
+  const d = dm ? `${dm[1]}.${dm[2]}` : (r.manualDate ? r.manualDate.slice(5, 10).split('-').reverse().join('.') : '')
+  return { n: n.trim(), d, full: raw }
+}
+const MONTHS_BG = ['Януари','Февруари','Март','Април','Май','Юни','Юли','Август','Септември','Октомври','Ноември','Декември']
 function statusOf(r: SubRow): { label: string; cls: string } {
   if (r.hasOrder) return { label: 'Заповед издадена', cls: 'bg-emerald-50 text-emerald-600' }
   if (r.substituteId) return { label: 'Готово за заповед', cls: 'bg-blue-50 text-blue-600' }
@@ -319,7 +329,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     if (res.error) { toast(res.error, 'error'); setGenId(null); return }
     try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ }
     const wasIssued = !!row?.hasOrder || !!(row as any)?.manualNumber
-    if (!(row as any)?.manualNumber) setRows(prev => prev.map(r => r.id === id ? { ...r, hasOrder: true, noHours: !!res.data?.noHours } : r))
+    if (!(row as any)?.manualNumber) setRows(prev => prev.map(r => r.id === id ? { ...r, hasOrder: true, noHours: !!res.data?.noHours, orderNumber: res.data?.orderNumber || r.orderNumber } : r))
     const tail = res.data?.noHours ? ` — БЕЗ часове: разписанието на отсъстващия е ${String(res.data.placedHours ?? res.data.weekHours).replace('.', ',')} от ${String(res.data.targetHours ?? 20).replace('.', ',')} ч. (изтегли я пак, когато е пълно)` : ''
     toast((wasIssued ? 'Заповедта е изтеглена отново (същият номер)' : 'Заповедта е създадена и изтеглена') + tail)
     setGenId(null)
@@ -335,6 +345,23 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       return true
     })
   }, [rows, search, npOnly, periodIdx])
+
+  // групи по месец на началото, най-новият месец отгоре
+  const groups = useMemo(() => {
+    const sorted = [...filtered].sort((a, b) => b.dateFrom.localeCompare(a.dateFrom))
+    const out: { key: string; label: string; items: SubRow[] }[] = []
+    sorted.forEach(r => {
+      const key = r.dateFrom.slice(0, 7)
+      let g = out[out.length - 1]
+      if (!g || g.key !== key) {
+        const [y, m] = key.split('-').map(Number)
+        g = { key, label: `${MONTHS_BG[m - 1]} ${y}`, items: [] }
+        out.push(g)
+      }
+      g.items.push(r)
+    })
+    return out
+  }, [filtered])
 
   function mapRow(r: any): SubRow {
     return {
@@ -395,13 +422,14 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       if (ar?.error) toast(ar.error, 'error')
     }
     let newRow: any = mapRow(data)
+    if (orderMode === 'manual' && nLinked) newRow.orderNumber = nLinked.number
     if (multiOpen) newRow.assigns = toAssigns(mapToRows(dayMap, schoolDays))
     // „Създай заповед" при запис: генерира Word + завежда номер (само ако има заместник)
     if (orderMode === 'create' && primary) {
       const overNorm = bsch ? true : nOverNorm
       const res: any = await generateSubstitution(data.id, overNorm, true)
       if (res.error) { toast(res.error, 'error') }
-      else { try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ } newRow = { ...newRow, hasOrder: true, noHours: !!res.data?.noHours } }
+      else { try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ } newRow = { ...newRow, hasOrder: true, noHours: !!res.data?.noHours, orderNumber: res.data?.orderNumber || null } }
     }
     setRows(prev => [newRow, ...prev])
     setOverNormMap(p => ({ ...p, [newRow.id]: newRow.overNorm }))
@@ -459,6 +487,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     const kr: any = await saveKtParts(editId, eKtParts)
     if (kr?.error) { toast(kr.error, 'error'); setESaving(false); return }
     const mapped: any = mapRow(data); mapped.absentStaffId = eAbsent
+    mapped.orderNumber = (data as any).substitution_order_id ? (eLinked?.number || rows.find(x => x.id === editId)?.orderNumber || null) : null
     const eRanges = multiOpen ? mapToRows(dayMap, schoolDays) : []
     const ar: any = await saveAssignments(editId, eRanges)
     if (ar?.error) { toast(ar.error, 'error'); setESaving(false); return }
@@ -618,14 +647,14 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       )}
 
       {/* Заглавен ред */}
-      <div className="hidden md:grid grid-cols-[24px_minmax(0,1.3fr)_minmax(0,1.3fr)_66px_66px_262px] gap-3 px-4 py-2.5 rounded-xl bg-slate-100 border-b border-slate-200">
-        {['№', 'Отсъстващ', 'Заместник', 'От', 'До', ''].map((h, i) => (
+      <div className="hidden md:grid grid-cols-[88px_minmax(0,1.3fr)_minmax(0,1.3fr)_66px_66px_262px] gap-3 px-4 py-2.5 rounded-xl bg-slate-100 border-b border-slate-200">
+        {['Заповед', 'Отсъстващ', 'Заместник', 'От', 'До', ''].map((h, i) => (
           <span key={i} className="text-[11px] font-medium uppercase tracking-wider text-slate-500">{h}</span>
         ))}
       </div>
 
       {/* Редове като карти */}
-      <div className="space-y-1.5 zebra">
+      <div className="space-y-1.5">
         {filtered.length === 0 ? (
           <div className="bg-white border border-slate-200 rounded-2xl px-6 py-14 text-center shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
             <div className="mx-auto mb-3 w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400"><CalendarClock size={20} /></div>
@@ -639,7 +668,15 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               </button>
             )}
           </div>
-        ) : filtered.map((r, idx) => {
+        ) : groups.map(g => (
+          <Fragment key={g.key}>
+          <div className="flex items-center gap-3 px-1 pt-3 pb-0.5">
+            <span className="text-[11px] uppercase tracking-widest text-slate-500">{g.label}</span>
+            <span className="text-[11px] text-slate-400 tabular-nums">· {g.items.length} {g.items.length === 1 ? 'заместване' : 'замествания'}</span>
+            <span className="flex-1 h-px bg-slate-200" />
+          </div>
+          <div className="space-y-1.5 zebra">
+          {g.items.map((r, idx) => {
           const multi = r.assigns.length > 0
           const subs = multi ? uniqueSubs(r.assigns) : []
           const isOpen = openId === r.id
@@ -647,8 +684,10 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
             <div key={r.id} className={`bg-white border rounded-2xl transition-all group shadow-[0_1px_4px_rgba(15,34,64,0.06)] ${isOpen ? 'border-slate-400 shadow-[0_2px_8px_rgba(15,34,64,0.10)]' : 'border-slate-200 hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)]'} ${idx % 2 === 1 && !isOpen ? 'bg-slate-50/40' : ''}`}>
             <div onClick={multi ? () => toggleOpen(r) : undefined}
               title={multi ? 'Покажи кой кои дни замества' : undefined}
-              className={`px-4 py-2 grid grid-cols-1 md:grid-cols-[24px_minmax(0,1.3fr)_minmax(0,1.3fr)_66px_66px_262px] gap-2 md:gap-3 md:items-center ${multi ? 'cursor-pointer' : ''}`}>
-              <span className="text-xs text-slate-400">{idx + 1}</span>
+              className={`px-4 py-2 grid grid-cols-1 md:grid-cols-[88px_minmax(0,1.3fr)_minmax(0,1.3fr)_66px_66px_262px] gap-2 md:gap-3 md:items-center ${multi ? 'cursor-pointer' : ''}`}>
+              {(() => { const o = orderRef(r); return o
+                ? <span className="text-xs tabular-nums whitespace-nowrap" title={`Заповед № ${o.full}`}><span className="text-slate-700">№ {o.n}</span>{o.d && <span className="text-slate-400"> / {o.d}</span>}</span>
+                : <span className="text-xs text-slate-300" title={r.noOrder ? 'Без заповед' : 'Заповедта не е издадена'}>—</span> })()}
               <span className="text-sm text-slate-800 bg-rose-50/50 rounded-md px-2 py-1">{r.absentName}</span>
               {multi ? (
                 <span className="flex items-center gap-1 flex-wrap min-w-0">
@@ -724,7 +763,10 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
             )}
             </div>
           )
-        })}
+          })}
+          </div>
+          </Fragment>
+        ))}
       </div>
 
       {/* Модал редакция */}

@@ -15,6 +15,7 @@ export interface SubRow {
   dateTo: string
   reason: string
   hasOrder: boolean
+  orderNumber?: string | null   // номер на заповедта РД-08 от регистъра („041/12.10.2026г.“)
   noHours?: boolean   // заповедта е издадена без часове (разписанието беше непълно)
   bsch: boolean
   manualNumber: string | null
@@ -58,6 +59,14 @@ export default async function SubstitutionsPage() {
   const { data: nh } = await supabase.from('orders').select('id').eq('without_hours', true)
   const noHoursIds = new Set((nh || []).map((o: any) => o.id))
 
+  // номерата на заповедите — за колона „Заповед“ в списъка
+  const orderIds = Array.from(new Set((data || []).map((r: any) => r.substitution_order_id).filter(Boolean))) as string[]
+  const orderNum: Record<string, string> = {}
+  for (let i = 0; i < orderIds.length; i += 200) {
+    const { data: os } = await supabase.from('orders').select('id, number').in('id', orderIds.slice(i, i + 200))
+    ;(os || []).forEach((o: any) => { orderNum[o.id] = o.number || '' })
+  }
+
   const rows: SubRow[] = (data || []).map((r: any) => ({
     id: r.id,
     absentName: r.absent ? `${r.absent.first_name} ${r.absent.last_name}` : '—',
@@ -69,6 +78,7 @@ export default async function SubstitutionsPage() {
     dateTo: r.date_to,
     reason: r.reason,
     hasOrder: !!r.substitution_order_id,
+    orderNumber: r.substitution_order_id ? (orderNum[r.substitution_order_id] || null) : null,
     noHours: !!r.substitution_order_id && noHoursIds.has(r.substitution_order_id),
     bsch: r.bsch_eligible === true,
     manualNumber: r.manual_order_number || null,
