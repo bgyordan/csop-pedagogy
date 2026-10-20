@@ -236,9 +236,12 @@ export default function NewCorrespondenceForm({
   }
   // отсъстващият може ли да бъде заместван (учител / възпитател или всеки с часове — разписание / ИЧ / план)
   const absentCanBeSubstituted = canBeSubstituted(staff.find(x => x.id === staffId))
-  // всеки отпуск (без помощния персонал) влиза в регистъра „Замествания“ → вижда се в „Днес отсъстват“
-  const absentRole = staff.find(x => x.id === staffId)?.role
-  const absentInRegister = !!staffId && absentRole !== 'support'
+  // всеки отпуск влиза в регистъра „Замествания“ → вижда се в „Днес отсъстват“;
+  // от помощния персонал — само помощниците на учителя (с тях класните планират деня), не хигиенистите и др.
+  const absentProfile: any = staff.find(x => x.id === staffId)
+  const absentRole = absentProfile?.role
+  const absentIsAssistant = absentRole === 'support' && String(absentProfile?.position || '').toLowerCase().includes('помощник')
+  const absentInRegister = !!staffId && (absentRole !== 'support' || absentIsAssistant)
   function handleStaffSelect(id: string) {
     setStaffId(id)
     const s = staff.find(x => x.id === id)

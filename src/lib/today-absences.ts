@@ -15,6 +15,7 @@ export type TodayAbsence = {
   by: string              // заместник(ци) за днес, „“ ако няма
   np: boolean
   to: string              // ISO — до кога отсъства
+  from?: string           // ISO — от кога (само при { all: true })
 }
 
 const full = (p: any) => (p ? `${p.first_name} ${p.last_name}` : '')
@@ -35,7 +36,8 @@ const addDays = (iso: string, n: number) => {
 //  • в събота, неделя и неучебни дни — никой (денят не е работен);
 //  • със заместник за днес — всеки учебен ден (колегите да знаят кой поема);
 //  • без заместник (не се замества / дълъг отпуск) — само в ПЪРВИЯ учебен ден от отсъствието, после се скрива.
-export async function getTodayAbsences(supabase: any): Promise<TodayAbsence[]> {
+// { all: true } — всички отсъстващи днес (за листчето на колегите: то само помни кое е видяно).
+export async function getTodayAbsences(supabase: any, opts: { all?: boolean } = {}): Promise<TodayAbsence[]> {
   const today = sofiaToday()
   const [{ data: subs }, { data: assigns }, teaching] = await Promise.all([
     supabase.from('substitutions')
@@ -75,8 +77,8 @@ export async function getTodayAbsences(supabase: any): Promise<TodayAbsence[]> {
       to: s.date_to,
       from: s.date_from as string,
     }))
-    .filter((r: TodayAbsence & { from: string }) => !!r.by || firstSchoolDayIsToday(r.from))
-    .map(({ from, ...r }: TodayAbsence & { from: string }) => r)
+    .filter((r: TodayAbsence & { from: string }) => opts.all || !!r.by || firstSchoolDayIsToday(r.from))
+    .map(({ from, ...r }: TodayAbsence & { from: string }) => (opts.all ? { ...r, from } : r))
     .sort((a: TodayAbsence, b: TodayAbsence) => a.absent.localeCompare(b.absent, 'bg'))
 }
 
