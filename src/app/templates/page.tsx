@@ -11,23 +11,28 @@ export default async function TemplatesPage() {
   const { data: profile } = await supabase
     .from('staff_profiles').select('id, role, is_coordinator').eq('user_id', user.id).single()
   const canManage = ['admin', 'zdud','secretary'].includes(profile?.role || '') || profile?.is_coordinator === true
-  const { data: templates } = await supabase
-    .from('document_templates')
-    .select('*')
-    .order('created_at', { ascending: false })
+  const [{ data: templates }, { data: collections, error: colErr }, { data: favs }] = await Promise.all([
+    supabase.from('document_templates').select('*').order('created_at', { ascending: false }),
+    supabase.from('template_collections').select('id, name, icon, sort').order('sort').order('name'),
+    supabase.from('template_favorites').select('template_id').eq('staff_id', profile?.id || ''),
+  ])
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto animate-in fade-in duration-500">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto animate-in fade-in duration-500">
       <BackButton />
       <header className="flex items-center gap-4 mt-2 mb-7 pb-5 border-b border-slate-100">
         <div className="flex items-center justify-center shrink-0 w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 shadow-sm text-blue-600">
           <FolderOpen size={22} strokeWidth={2} />
         </div>
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Образци на документи</h1>
+          <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">Образци на документи</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Търси или избери ситуация · ★ отделя твоите образци</p>
         </div>
       </header>
       <TemplatesClient
         templates={templates || []}
+        collections={collections || []}
+        favorites={(favs || []).map((f: any) => f.template_id)}
+        ready={!colErr}
         canManage={canManage}
         staffId={profile?.id || ''}
       />
