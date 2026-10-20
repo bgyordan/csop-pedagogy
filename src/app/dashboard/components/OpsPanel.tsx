@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { UserX, ClipboardList, HeartPulse, ArrowRight, CalendarClock } from 'lucide-react'
 import { getFullName, getMonthName } from '@/lib/utils'
 import NoDocsCount from './NoDocsCount'
-import { getTodayAbsences, countWaiting, getReturningSoon } from '@/lib/today-absences'
+import { getTodayAbsences, countWaiting, getReturningSoon, sofiaToday } from '@/lib/today-absences'
+import AbsentNote from './AbsentNote'
 
 // "01" → "I"
 function roman(name: string) {
@@ -25,8 +26,9 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
   const reportMonth = P.month
   const reportYear = P.year
 
-  const [todayRows, waiting, returning, { data: cta }, { data: iup }, { data: enr }, { data: teams }, { data: newKids }] = await Promise.all([
+  const [todayRows, allToday, waiting, returning, { data: cta }, { data: iup }, { data: enr }, { data: teams }, { data: newKids }] = await Promise.all([
     getTodayAbsences(supabase),
+    getTodayAbsences(supabase, { all: true }),   // за листчето — всички отсъстващи днес
     countWaiting(supabase),
     getReturningSoon(supabase),
     supabase.from('class_teacher_assignments')
@@ -114,6 +116,7 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
           <UserX size={16} className="text-rose-500" />
           <h2 className="text-sm font-medium text-slate-800">Днес отсъстват</h2>
           <span className="ml-auto text-xs text-slate-400">{todayRows.length}</span>
+          {allToday.length > 0 && <AbsentNote rows={allToday} today={sofiaToday()} compact />}
         </div>
         {todayRows.length === 0 ? (
           <p className="text-sm text-slate-400 font-light">Няма отсъстващи.</p>
