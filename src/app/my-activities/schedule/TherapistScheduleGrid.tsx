@@ -110,6 +110,33 @@ export function TherapistScheduleGrid({
     return { level: 'warn' as const, text: `Учебен час: ${cell.name}` }
   }
   const filledCount = Object.values(grid).reduce((a, arr) => a + arr.length, 0)
+  // Баланс на седмицата за активното дете — САМО ПРЕПОРЪКА, нищо не се спира:
+  // идеално е по една терапия на ден (при всички специалисти) и не в ден с ФВС.
+  // Препоръчва се денят с най-малко терапии; при равен брой — денят без ФВС.
+  // (Ако терапиите са повече от дните без ФВС, препоръката сама минава и към дни с ФВС.)
+  const dayBalance = useMemo(() => {
+    if (!activeId) return null
+    const isFvs = (name: string) => /фвс|физическ|спорт/i.test(name)
+    const sched = studentSchedule[activeId] || {}
+    const info = DAYS.map(d => {
+      let count = 0
+      const others = new Set<string>()
+      Object.entries(takenByOthers).forEach(([k, who]) => {
+        if (k.startsWith(`${activeId}-${d.n}-`)) { count++; others.add(who) }
+      })
+      Object.entries(grid).forEach(([k, arr]) => { if (k.startsWith(`${d.n}-`) && arr.includes(activeId)) count++ })
+      const fvs = Object.entries(sched).some(([k, c]) => k.startsWith(`${d.n}-`) && isFvs(c.name))
+      return { day: d.n, count, others: Array.from(others), fvs }
+    })
+    const score = (x: { count: number; fvs: boolean }) => x.count * 2 + (x.fvs ? 1 : 0)
+    const best = Math.min(...info.map(score))
+    const byDay: Record<number, (typeof info)[number] & { recommended: boolean }> = {}
+    info.forEach(x => { byDay[x.day] = { ...x, recommended: score(x) === best } })
+    return byDay
+  }, [activeId, grid, takenByOthers, studentSchedule])
+  const recommendedLabel = dayBalance
+    ? DAYS.filter(d => dayBalance[d.n].recommended).map(d => d.label).join(', ')
+    : ''
   // брой заети часове за всяко дете (за етикета в лентата)
   const countByStudent = useMemo(() => {
     const c: Record<string, number> = {}
@@ -286,7 +313,8 @@ export function TherapistScheduleGrid({
                 className="w-full text-xs pl-8 pr-2 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-300" />
             </div>
             {activeStudent
-              ? <span className="text-[11px] text-slate-500">Активно: <span className="font-semibold" style={{ color: ACCENT }}>{studentLabel(activeStudent)}</span> — кликай в таблицата</span>
+              ? <span className="text-[11px] text-slate-500">Активно: <span className="font-semibold" style={{ color: ACCENT }}>{studentLabel(activeStudent)}</span> — кликай в таблицата
+                  {recommendedLabel && <span className="ml-2 text-emerald-700">· препоръчани дни: {recommendedLabel}</span>}</span>
               : <span className="text-[11px] text-slate-400">Избери дете, за да оцветиш свободните часове</span>}
           </div>
           <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
@@ -319,6 +347,7 @@ export function TherapistScheduleGrid({
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-100 border border-amber-300"></span> учебен час (предупреждение)</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-100 border border-red-300"></span> взето от друг</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-slate-100 border border-slate-300"></span> пълно (3 деца)</span>
+        {activeId && <span className="flex items-center gap-1 text-emerald-700"><span className="w-3 h-3 rounded-full bg-emerald-500"></span> препоръчан ден (по-малко терапии, без ФВС)</span>}
       </div>
       {msg && (
         <div className={`px-4 py-2.5 rounded-xl text-sm ${
@@ -333,12 +362,25 @@ export function TherapistScheduleGrid({
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
               <th className="text-left px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-24">Час</th>
-              {DAYS.map(d => (
-                <th key={d.n} className="text-left px-2 py-2.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                  <span className="hidden sm:inline">{d.label}</span>
-                  <span className="sm:hidden">{d.short}</span>
-                </th>
-              ))}
+              {DAYS.map(d => {
+                const b = dayBalance?.[d.n]
+                return (
+                  <th key={d.n} className={`text-left px-2 py-2.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider align-top ${b?.recommended ? 'bg-emerald-50' : ''}`}>
+                    <span className="hidden sm:inline">{d.label}</span>
+                    <span className="sm:hidden">{d.short}</span>
+                    {b && (
+                      <div className="mt-1 flex flex-wrap items-center gap-1 normal-case tracking-normal font-normal"
+                        title={b.others.length ? `Терапии при: ${b.others.join(', ')}` : ''}>
+                        {b.recommended && <span className="w-2 h-2 rounded-full bg-emerald-500" />}
+                        <span className={b.count > 0 ? 'text-amber-700' : 'text-slate-400'}>
+                          {b.count === 0 ? 'без терапия' : b.count === 1 ? '1 терапия' : `${b.count} терапии`}
+                        </span>
+                        {b.fvs && <span className="px-1 rounded bg-sky-50 border border-sky-200 text-sky-700">ФВС</span>}
+                      </div>
+                    )}
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>
@@ -366,7 +408,7 @@ export function TherapistScheduleGrid({
                     <td key={d.n} className="px-1.5 py-1.5 align-top min-w-[130px]">
                       <div
                         onClick={() => paintable && toggleActiveInCell(d.n, period)}
-                        title={ev?.text || ''}
+                        title={[ev?.text, !activeHere && dayBalance?.[d.n]?.count ? 'В този ден детето вече има терапия' : '', !activeHere && dayBalance?.[d.n]?.fvs ? 'В този ден има ФВС' : ''].filter(Boolean).join(' · ')}
                         className={`rounded-lg border min-h-[32px] p-1 space-y-1 transition ${
                           activeHere ? 'border-transparent bg-emerald-50' : paintCls || 'border-transparent'}`}
                         style={activeHere ? { boxShadow: `0 0 0 2px ${ACCENT}` } : {}}>
