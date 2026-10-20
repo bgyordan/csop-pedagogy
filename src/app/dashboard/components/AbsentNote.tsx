@@ -3,6 +3,7 @@
 // • Изскача само когато има нещо НОВО за този колега: ново отсъствие или сменен/нов заместник.
 // • „Видях“ го прибира; видяното се помни в браузъра (за днес и за тези отсъствия).
 // • Остава малка бележка „Днес отсъстват · N“ — клик я отваря отново с всички.
+// • compact — за картата на управата: само карфица в заглавието (картата си показва списъка).
 import '@fontsource/caveat/500.css'
 import '@fontsource/caveat/700.css'
 import { useEffect, useState } from 'react'
@@ -16,7 +17,7 @@ const dm = (iso: string) => iso.split('-').reverse().slice(0, 2).join('.')
 // ключ: отсъствието + кой го замества → нов заместник = ново за колегите
 const keyOf = (r: TodayAbsence) => `${r.id}|${r.by}`
 
-export default function AbsentNote({ rows, today }: { rows: TodayAbsence[]; today: string }) {
+export default function AbsentNote({ rows, today, compact = false }: { rows: TodayAbsence[]; today: string; compact?: boolean }) {
   const [seen, setSeen] = useState<Set<string> | null>(null)
   const [open, setOpen] = useState(false)
 
@@ -39,14 +40,20 @@ export default function AbsentNote({ rows, today }: { rows: TodayAbsence[]; toda
 
   return (
     <>
-      {/* малката бележка — винаги в таблото */}
-      <button type="button" onClick={() => setOpen(true)}
+      {/* малката бележка — винаги в таблото (при управата — само карфица в заглавието на картата) */}
+      {compact ? (
+        <button type="button" onClick={() => setOpen(true)} title="Покажи листчето"
+          className="relative p-1 -m-1 rounded-lg text-rose-500 hover:bg-rose-50">
+          <Pin size={14} className="rotate-[25deg]" />
+          {newCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-rose-500" />}
+        </button>
+      ) : <button type="button" onClick={() => setOpen(true)}
         className="group inline-flex items-center gap-2 self-start pl-3 pr-4 py-2 rounded-xl border border-amber-200/80 bg-[#fffbea] shadow-[0_1px_3px_rgba(120,90,20,0.12)] hover:shadow-md hover:-translate-y-0.5 transition-all -rotate-[0.6deg]">
         <Pin size={14} className="text-rose-500 rotate-[25deg]" />
         <span style={{ fontFamily: HAND }} className="text-[20px] leading-none text-slate-800">Днес отсъстват · {rows.length}</span>
         <span className="text-[12px] text-slate-500 truncate max-w-[340px]">{rows.map(r => short(r.absent)).join(', ')}</span>
         {newCount > 0 && <span className="text-[10.5px] px-1.5 py-0.5 rounded-full bg-rose-500 text-white">{newCount} ново</span>}
-      </button>
+      </button>}
 
       {/* листчето */}
       {open && (
