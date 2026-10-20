@@ -51,7 +51,7 @@ export default async function CorrespondencePage({
   ])
   const [{ data: students }, { data: staffRaw }, { data: nomenclature }, teaching] = await Promise.all([
     supabase.from('students').select('id, first_name, last_name').eq('status', 'active').order('last_name'),
-    supabase.from('staff_profiles').select('id, first_name, last_name, role').eq('is_active', true).order('last_name'),
+    supabase.from('staff_profiles').select('id, first_name, last_name, role, position').eq('is_active', true).order('last_name'),
     supabase.from('nomenclature_items').select('*').eq('for_correspondence', true).order('section_code').order('item_code'),
     teachingStaffIds(supabase),
   ])
