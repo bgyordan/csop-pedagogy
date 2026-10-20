@@ -17,6 +17,7 @@ type Campaign = {
   id: string; title: string; focus_subject: string | null; note: string | null; date_from: string; date_to: string
   excluded_dates: string[]; per_day: number; use_schedule: boolean; roles: string[]; is_open: boolean
   slot_periods?: number[] | null   // фиксирани часове за всички (напр. [3, 4]); празно — всеки избира свой час
+  excluded_staff?: string[] | null // не подлежат (изнесени групи, вече посетени)
 }
 type Booking = {
   id: string; campaign_id: string; staff_id: string; date: string; period: number; class_name: string | null
@@ -80,7 +81,7 @@ export default function VisitsClient(p: {
       {c && (p.isMgmt ? <Board {...p} campaign={c} onEdit={() => setForm(c)} /> : <Pick {...p} campaign={c} />)}
       {!c && !p.isMgmt && <p className="text-sm text-slate-500">Няма отворена проверка.</p>}
 
-      {form && <CampaignForm initial={form === 'new' ? null : form} meId={p.me.id} onClose={() => setForm(null)}
+      {form && <CampaignForm initial={form === 'new' ? null : form} meId={p.me.id} people={p.people} onClose={() => setForm(null)}
         onSaved={id => { setForm(null); router.push(`/visits?c=${id}`); router.refresh() }} />}
     </div>
   )
@@ -342,7 +343,18 @@ function Board({ campaign: c, bookings, people, calendar, onEdit }: Parameters<t
   const [busy, setBusy] = useState(false)
   const today = todayIso()
   const booked = new Set(bookings.map(b => b.staff_id))
-  const missing = people.filter(x => !booked.has(x.id))
+  const ex = new Set(c.excluded_staff || [])
+  const inScope = people.filter(x => (c.roles || []).includes(x.role))
+  const participants = inScope.filter(x => !ex.has(x.id))
+  const missing = participants.filter(x => !booked.has(x.id))
+  const excludedPeople = inScope.filter(x => ex.has(x.id))
+  const [openDay, setOpenDay] = useState<string | null>(null)
+  const clsShort = (s: string | null) => (s || '').replace(/^паралелка\s*/i, '').replace(/^ИФО\s+.*/i, 'ИФО').trim()
+  async function setExcluded(ids: string[]) {
+    const { error } = await supabase.from('visit_campaigns').update({ excluded_staff: ids }).eq('id', c.id)
+    if (error) { toast(error.message.includes('excluded_staff') ? 'Пуснете SQL файла 2026-10-20_class_visits_exclude.sql' : error.message, 'error'); return }
+    router.refresh()
+  }
   const byDay = (d: string) => bookings.filter(b => b.date === d).sort((a, b) => byStartTime(a.period, b.period))
   const name = (b: Booking) => b.staff ? `${b.staff.first_name} ${b.staff.last_name}` : '—'
   const usable = days.filter(d => !d.excluded && !d.nonSchool)
@@ -382,7 +394,7 @@ function Board({ campaign: c, bookings, people, calendar, onEdit }: Parameters<t
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-4 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <span className="text-sm text-slate-600"><span className="text-xl font-semibold text-slate-800">{bookings.length}</span> / {people.length} избрали</span>
+          <span className="text-sm text-slate-600"><span className="text-xl font-semibold text-slate-800">{bookings.length}</span> / {participants.length} избрали</span>
           <span className="w-px h-6 bg-slate-200" />
           <span className="text-sm text-slate-600">{usable.length} дни × {c.per_day} = {usable.length * c.per_day} места{fixedOf(c).length ? ` · ${fixedOf(c).map(x => `${PERIOD_LABEL[x]}. час`).join(', ')}` : ''}</span>
         </div>
@@ -403,21 +415,22 @@ function Board({ campaign: c, bookings, people, calendar, onEdit }: Parameters<t
           const off = d.excluded || d.nonSchool
           const isToday = d.date === today
           return (
-            <div key={d.date} className={`rounded-2xl border p-3 min-h-[120px] ${off ? 'bg-slate-50 border-slate-100' : isToday ? 'bg-white border-indigo-300 shadow-sm ring-1 ring-indigo-100' : 'bg-white border-slate-200 shadow-[0_1px_2px_rgba(15,34,64,0.04)]'}`}>
+            <div key={d.date} onClick={() => !off && list.length > 0 && setOpenDay(d.date)}
+              className={`rounded-2xl border p-3 min-h-[96px] transition-all ${off ? 'bg-slate-50 border-slate-100' : `${list.length ? 'cursor-pointer hover:shadow-md hover:-translate-y-0.5' : ''} ${isToday ? 'bg-white border-indigo-300 shadow-sm ring-1 ring-indigo-100' : 'bg-white border-slate-200 shadow-[0_1px_2px_rgba(15,34,64,0.04)]'}`}`}>
               <div className="flex items-baseline gap-2 mb-2">
                 <span className={`text-lg font-semibold ${off ? 'text-slate-300' : 'text-slate-800'}`}>{parse(d.date).getDate()}</span>
                 <span className={`text-[12px] ${off ? 'text-slate-300' : 'text-slate-500'}`}>{MONTHS[parse(d.date).getMonth()]} · {WD[parse(d.date).getDay()]}</span>
                 {!off && <span className={`ml-auto text-[11px] px-1.5 py-0.5 rounded-full ${list.length >= c.per_day ? 'bg-emerald-50 text-emerald-700' : list.length ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>{list.length}/{c.per_day}</span>}
               </div>
               {off ? <div className="text-[12px] text-slate-400">{d.excluded ? 'без посещения' : 'неучебен ден'}</div> : (
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   {list.map(b => (
-                    <div key={b.id} className="group relative rounded-xl bg-indigo-50/50 border border-indigo-100 px-2.5 py-1.5">
-                      <div className="flex items-center gap-1.5 text-[11.5px] text-indigo-700"><Clock size={11} /> {periodText(b.period)}</div>
-                      <div className="text-[13px] text-slate-800 leading-snug">{name(b)}</div>
-                      <div className="text-[11.5px] text-slate-500 leading-snug">{[b.class_name, b.subject].filter(Boolean).join(' · ')}</div>
-                      {b.topic && <div className="text-[11.5px] text-slate-500 leading-snug line-clamp-2" title={b.topic}>„{b.topic}“</div>}
-                      <button type="button" onClick={() => removeBooking(b)} className="absolute top-1 right-1 p-1 rounded-md text-slate-300 hover:text-rose-600 opacity-0 group-hover:opacity-100"><X size={12} /></button>
+                    <div key={b.id}
+                      title={[periodText(b.period), name(b), b.class_name, b.subject, b.topic ? `„${b.topic}“` : ''].filter(Boolean).join('\n')}
+                      className="flex items-center gap-2 rounded-lg bg-indigo-50/60 px-2 py-1">
+                      <span className="w-5 h-5 rounded-md bg-indigo-600 text-white text-[11px] flex items-center justify-center shrink-0">{PERIOD_LABEL[b.period] || b.period}</span>
+                      <span className="text-[12.5px] text-slate-800 truncate flex-1">{name(b)}</span>
+                      {clsShort(b.class_name) && <span className="text-[11.5px] text-slate-500 tabular-nums shrink-0">{clsShort(b.class_name)}</span>}
                     </div>
                   ))}
                   {!list.length && <div className="text-[12px] text-slate-300">свободен</div>}
@@ -436,16 +449,67 @@ function Board({ campaign: c, bookings, people, calendar, onEdit }: Parameters<t
         </div>
         {missing.length ? (
           <div className="flex flex-wrap gap-1.5">
-            {missing.map(x => <span key={x.id} className="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-100 text-[12.5px] text-amber-900">{x.first_name} {x.last_name}</span>)}
+            {missing.map(x => (
+              <span key={x.id} className="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-lg bg-amber-50 border border-amber-100 text-[12.5px] text-amber-900">
+                {x.first_name} {x.last_name}
+                <button type="button" title="Не подлежи — изключи" onClick={() => setExcluded([...(c.excluded_staff || []), x.id])}
+                  className="p-0.5 rounded text-amber-300 hover:text-rose-600"><X size={12} /></button>
+              </span>
+            ))}
           </div>
         ) : <p className="text-sm text-emerald-700">Всички са избрали.</p>}
+        {missing.length > 0 && <p className="text-[11.5px] text-slate-400 mt-2">× — не подлежи (изнесена група, вече посетен)</p>}
+        {excludedPeople.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-slate-100">
+            <div className="text-[12px] text-slate-400 mb-1.5">Изключени · {excludedPeople.length} — клик връща</div>
+            <div className="flex flex-wrap gap-1.5">
+              {excludedPeople.map(x => (
+                <button key={x.id} type="button" title="Върни в проверката" onClick={() => setExcluded((c.excluded_staff || []).filter(i => i !== x.id))}
+                  className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[12.5px] text-slate-400 line-through hover:no-underline hover:text-slate-700">
+                  {x.first_name} {x.last_name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
+
+      {openDay && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setOpenDay(null)}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex flex-col items-center justify-center leading-none">
+                <span className="text-[10px] uppercase opacity-80">{WD[parse(openDay).getDay()]}</span>
+                <span className="text-lg font-semibold">{parse(openDay).getDate()}</span>
+              </div>
+              <h3 className="flex-1 text-base text-slate-800">{WD_LONG[parse(openDay).getDay()]}, {dm(openDay)}</h3>
+              <button type="button" onClick={() => setOpenDay(null)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+            </div>
+            <div className="p-4 space-y-2.5">
+              {byDay(openDay).map(b => (
+                <div key={b.id} className="relative rounded-2xl border border-slate-200 p-3.5 pr-10">
+                  <div className="flex items-center gap-1.5 text-[12px] text-indigo-700"><Clock size={12} /> {periodText(b.period)}</div>
+                  <div className="text-[15px] text-slate-800 mt-0.5">{name(b)}</div>
+                  <div className="text-[13px] text-slate-500">{[b.class_name, b.subject].filter(Boolean).join(' · ')}</div>
+                  {b.topic && <div className="text-[13px] text-slate-700 mt-1">Тема: {b.topic}</div>}
+                  <button type="button" onClick={() => removeBooking(b)} title="Махни — ще може да избере отново"
+                    className="absolute top-2.5 right-2.5 p-1.5 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50"><Trash2 size={14} /></button>
+                </div>
+              ))}
+              {!byDay(openDay).length && <p className="text-sm text-slate-400">Няма записани.</p>}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 // ═══════════════ НАСТРОЙКИ НА ПРОВЕРКАТА ═══════════════
-function CampaignForm({ initial, meId, onClose, onSaved }: { initial: Campaign | null; meId: string; onClose: () => void; onSaved: (id: string) => void }) {
+function CampaignForm({ initial, meId, people, onClose, onSaved }: {
+  initial: Campaign | null; meId: string; people: { id: string; first_name: string; last_name: string; role: string }[]
+  onClose: () => void; onSaved: (id: string) => void
+}) {
   const supabase = createClient()
   const { toast } = useToast()
   const [title, setTitle] = useState(initial?.title || 'Посещение на час')
@@ -457,6 +521,7 @@ function CampaignForm({ initial, meId, onClose, onSaved }: { initial: Campaign |
   const [perDay, setPerDay] = useState(initial?.per_day || 2)
   const [useSchedule, setUseSchedule] = useState(initial?.use_schedule ?? true)
   const [roles, setRoles] = useState<string[]>(initial?.roles || ['class_teacher', 'teacher'])
+  const [exStaff, setExStaff] = useState<string[]>(initial?.excluded_staff || [])
   const [slots, setSlots] = useState<number[]>(initial ? (initial.slot_periods || []) : [3, 4])   // фиксирани часове; празно — всеки свой
   const [announce, setAnnounce] = useState(!initial)
   const [busy, setBusy] = useState(false)
@@ -471,6 +536,7 @@ function CampaignForm({ initial, meId, onClose, onSaved }: { initial: Campaign |
       title: title.trim(), focus_subject: focus.trim() || null, note: note.trim() || null, date_from: from, date_to: to,
       excluded_dates: excluded.filter(d => d >= from && d <= to), per_day: slots.length || perDay, use_schedule: slots.length ? false : useSchedule, roles,
       slot_periods: [...slots].sort(byStartTime),
+      excluded_staff: exStaff,
     }
     const res = initial
       ? await supabase.from('visit_campaigns').update(row).eq('id', initial.id).select('id').single()
@@ -547,6 +613,22 @@ function CampaignForm({ initial, meId, onClose, onSaved }: { initial: Campaign |
               })}
             </div>
           </div>
+          {people.some(x => roles.includes(x.role)) && (
+            <div>
+              <span className={lbl}>Участници — цъкнете, за да изключите (изнесени групи, вече посетени){exStaff.length ? ` · изключени ${exStaff.length}` : ''}</span>
+              <div className="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto p-0.5">
+                {people.filter(x => roles.includes(x.role)).map(x => {
+                  const off = exStaff.includes(x.id)
+                  return (
+                    <button key={x.id} type="button" onClick={() => setExStaff(off ? exStaff.filter(i => i !== x.id) : [...exStaff, x.id])}
+                      className={`px-2.5 py-1 rounded-lg border text-[12.5px] ${off ? 'bg-slate-50 border-slate-200 text-slate-400 line-through' : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'}`}>
+                      {x.first_name} {x.last_name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
           <div>
             <span className={lbl}>Часове за посещение — еднакви всеки ден{slots.length ? ` · ${slots.length} на ден` : ''}</span>
             <div className="flex flex-wrap gap-1.5">

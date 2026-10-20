@@ -33,10 +33,12 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
       ])
     : [{ data: [] as any[] }, { data: [] as any[] }]
 
-  // управата: кой участва (за „Още не са избрали“)
-  const { data: people } = isMgmt && campaign
-    ? await supabase.from('staff_profiles').select('id, first_name, last_name, role').in('role', campaign.roles || []).eq('is_active', true).not('user_id', 'is', null).order('first_name')
+  // управата: всички възможни участници (за „Още не са избрали“ и изключванията в настройките)
+  const { data: people } = isMgmt
+    ? await supabase.from('staff_profiles').select('id, first_name, last_name, role').in('role', ['class_teacher', 'teacher', 'educator']).eq('is_active', true).not('user_id', 'is', null).order('first_name')
     : { data: [] as any[] }
+  // учителят, изключен от проверката (изнесена група, вече посетен) — не избира
+  if (!isMgmt && campaign && (campaign.excluded_staff || []).includes(me.id)) redirect('/dashboard')
 
   // учителят: неговите часове от седмичното разписание (I и II срок) — за избора на час
   let lessons: { term: number; day: number; period: number; label: string; subject: string }[] = []
