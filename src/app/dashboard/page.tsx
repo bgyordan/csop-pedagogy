@@ -17,6 +17,7 @@ import ViewAsPicker from './view-as/ViewAsPicker'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { loginTime } from '@/lib/login-time'
 import TodayAbsentStrip from './components/TodayAbsentStrip'
+import VisitStrip from './components/VisitStrip'
 import CouncilStrip from './components/CouncilStrip'
 import NonSchoolDayStrip from './components/NonSchoolDayStrip'
 import DutyStrip from './components/DutyStrip'
@@ -127,6 +128,9 @@ export default async function DashboardPage() {
 
       {/* Кратките ленти — по две на ред, за да не са дълги през целия екран */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 empty:hidden">
+        {/* Посещение на час — избор на ден (учителите в отворена проверка) */}
+        {!viewing && <VisitStrip profile={profile} />}
+
         {/* Дежурни тази седмица */}
         {!viewing && <DutyStrip staffId={profile.id} />}
 
