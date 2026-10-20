@@ -24,7 +24,7 @@ export async function generateVisitSchedule(d: {
     cell(0, String(n + 1)), cell(1, r.date), cell(2, r.period), cell(3, r.teacher), cell(4, r.cls), cell(5, r.subject), cell(6, r.topic),
   ] }))
   const doc = new Document({ sections: [{
-    properties: { page: { size: { orientation: PageOrientation.LANDSCAPE, width: 16838, height: 11906 }, margin: { top: 720, bottom: 720, left: 720, right: 720 } } },
+    properties: { page: { size: { orientation: PageOrientation.LANDSCAPE }, margin: { top: 720, bottom: 720, left: 720, right: 720 } } },
     children: [
       new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Център за специална образователна подкрепа – гр. Варна')] }),
       new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 160 }, children: [t(`ГРАФИК — ${d.title.toUpperCase()}`, { bold: true, size: 26 })] }),

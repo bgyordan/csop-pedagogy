@@ -11,10 +11,10 @@ export default async function VisitStrip({ profile }: { profile: any }) {
   if (!['class_teacher', 'teacher', 'educator'].includes(profile.role)) return null
   const supabase = await createClient()
   const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })
-  const { data: camps, error } = await supabase.from('visit_campaigns').select('id, title, focus_subject, date_to, roles, is_open')
+  const { data: camps, error } = await supabase.from('visit_campaigns').select('*')
     .gte('date_to', today).order('date_from')
   if (error) return null
-  const c = (camps || []).find((x: any) => (x.roles || []).includes(profile.role))
+  const c = (camps || []).find((x: any) => (x.roles || []).includes(profile.role) && !(x.excluded_staff || []).includes(profile.id))
   if (!c) return null
   const { data: mine } = await supabase.from('visit_bookings').select('date, period, subject, class_name').eq('campaign_id', c.id).eq('staff_id', profile.id).maybeSingle()
   if (!mine && !c.is_open) return null

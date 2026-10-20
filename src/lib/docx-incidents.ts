@@ -32,7 +32,7 @@ export async function generateIncidentRegister(d: { yearName: string; periodLabe
     ] })
   })
   const doc = new Document({ sections: [{
-    properties: { page: { size: { orientation: PageOrientation.LANDSCAPE, width: 16838, height: 11906 }, margin: { top: 720, bottom: 720, left: 720, right: 720 } } },
+    properties: { page: { size: { orientation: PageOrientation.LANDSCAPE }, margin: { top: 720, bottom: 720, left: 720, right: 720 } } },
     children: [
       new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Център за специална образователна подкрепа – гр. Варна', { size: 22 })] }),
       new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [t('ДНЕВНИК НА СЛУЧАИТЕ НА ТОРМОЗ И ИНЦИДЕНТИ С ПОВЕДЕНИЕ', { bold: true, size: 24 })] }),
