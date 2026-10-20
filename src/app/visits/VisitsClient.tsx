@@ -16,6 +16,7 @@ import { PERIOD_LABEL, PERIOD_TIMES, MORNING_PERIODS, AFTERNOON_PERIODS, byStart
 type Campaign = {
   id: string; title: string; focus_subject: string | null; note: string | null; date_from: string; date_to: string
   excluded_dates: string[]; per_day: number; use_schedule: boolean; roles: string[]; is_open: boolean
+  slot_periods?: number[] | null   // фиксирани часове за всички (напр. [3, 4]); празно — всеки избира свой час
 }
 type Booking = {
   id: string; campaign_id: string; staff_id: string; date: string; period: number; class_name: string | null
@@ -33,6 +34,8 @@ const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 const parse = (s: string) => new Date(s + 'T00:00')
 const dm = (s: string) => s.split('-').reverse().slice(0, 2).join('.')
 const todayIso = () => iso(new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Sofia' })))
+const fixedOf = (c: Campaign) => [...(c.slot_periods || [])].sort(byStartTime)
+const timeOf = (p: number) => (PERIOD_TIMES[p] || '').split('–')
 const periodText = (p: number) => `${PERIOD_LABEL[p] ? (Number(PERIOD_LABEL[p]) ? `${PERIOD_LABEL[p]}. час` : PERIOD_LABEL[p]) : `${p}. час`}${PERIOD_TIMES[p] ? ` · ${PERIOD_TIMES[p]}` : ''}`
 function weekdays(from: string, to: string) {
   const out: string[] = []
@@ -59,7 +62,7 @@ export default function VisitsClient(p: {
           <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">{c?.title || 'Посещение на час'}</h1>
           {c && <p className="text-sm text-slate-500 mt-0.5">
             {dm(c.date_from)} – {dm(c.date_to)}{c.focus_subject ? <> · основна тема: <span className="text-slate-700">{c.focus_subject}</span></> : null}
-            {' · '}{c.per_day} на ден{!c.is_open && <span className="ml-2 text-[12px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">затворено за избор</span>}
+            {' · '}{fixedOf(c).length ? fixedOf(c).map(x => `${PERIOD_LABEL[x]}. час`).join(' и ') : `${c.per_day} на ден`}{!c.is_open && <span className="ml-2 text-[12px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">затворено за избор</span>}
           </p>}
         </div>
         {p.isMgmt && p.campaigns.length > 1 && (
@@ -113,6 +116,9 @@ function Pick({ me, campaign: c, bookings, slots, lessons, calendar }: Parameter
   const [manual, setManual] = useState(!c.use_schedule)
   const [busy, setBusy] = useState(false)
   const today = todayIso()
+  const fixed = fixedOf(c)
+  // паралелките/групите на учителя от разписанието — за бърз избор при фиксираните часове
+  const myGroups = useMemo(() => Array.from(new Set(lessons.map(l => l.label).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'bg', { numeric: true })), [lessons])
 
   // заетост без имената на другите (своят запис не се брои — може да го смени)
   const others = slots.filter(s => !s.mine)
@@ -132,7 +138,9 @@ function Pick({ me, campaign: c, bookings, slots, lessons, calendar }: Parameter
   }, [day, dayInfo, lessons, c.focus_subject])
 
   function pickDay(d: string) {
-    setDay(d); setPeriod(null); setCls(''); setSubject(c.focus_subject || '')
+    setDay(d); setPeriod(null); setSubject(c.focus_subject || '')
+    if (!fixed.length) setCls('')
+    else if (!cls && myGroups.length === 1) setCls(myGroups[0])
     setManual(!c.use_schedule)
   }
   function pickLesson(l: Lesson) {
@@ -214,7 +222,41 @@ function Pick({ me, campaign: c, bookings, slots, lessons, calendar }: Parameter
             </div>
           </section>
 
-          {day && (
+          {day && fixed.length > 0 && (
+            <section className="animate-in fade-in slide-in-from-top-1 duration-300">
+              <h2 className="text-[13px] uppercase tracking-wide text-slate-500 mb-2.5">2 · Час — {WD_LONG[parse(day).getDay()]}, {dm(day)}</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {fixed.map(per => {
+                  const taken = takenPeriod(day, per)
+                  const sel = period === per
+                  const [a, b] = timeOf(per)
+                  return (
+                    <button key={per} type="button" disabled={taken} onClick={() => setPeriod(per)}
+                      className={`rounded-2xl border p-3 text-left transition-all ${sel ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-600/25' : taken ? 'bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border-slate-200 hover:border-indigo-300 hover:-translate-y-0.5'}`}>
+                      <div className={`text-[12px] ${sel ? 'text-white/80' : 'text-slate-500'}`}>{PERIOD_LABEL[per]}. час</div>
+                      <div className="text-xl font-semibold leading-tight tabular-nums">{a}<span className={`text-sm font-normal ${sel ? 'text-white/70' : 'text-slate-400'}`}> – {b}</span></div>
+                      <div className={`text-[11px] mt-0.5 ${sel ? 'text-white/80' : taken ? 'text-rose-300' : 'text-emerald-600'}`}>{taken ? 'зает' : 'свободен'}</div>
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="mt-3">
+                <span className="block text-[12px] text-slate-500 mb-1.5">Паралелка / група</span>
+                {myGroups.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {myGroups.map(g => (
+                      <button key={g} type="button" onClick={() => setCls(g)}
+                        className={`px-2.5 py-1 rounded-full text-[12.5px] border ${cls === g ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}>{g}</button>
+                    ))}
+                  </div>
+                )}
+                <input value={cls} onChange={e => setCls(e.target.value)} placeholder="напр. паралелка 05"
+                  className="w-full sm:w-80 px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+              </div>
+            </section>
+          )}
+
+          {day && fixed.length === 0 && (
             <section className="animate-in fade-in slide-in-from-top-1 duration-300">
               <div className="flex items-center gap-3 mb-2.5">
                 <h2 className="text-[13px] uppercase tracking-wide text-slate-500">2 · Час — {WD_LONG[parse(day).getDay()]}, {dm(day)}</h2>
@@ -342,7 +384,7 @@ function Board({ campaign: c, bookings, people, calendar, onEdit }: Parameters<t
         <div className="flex items-center gap-4 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm">
           <span className="text-sm text-slate-600"><span className="text-xl font-semibold text-slate-800">{bookings.length}</span> / {people.length} избрали</span>
           <span className="w-px h-6 bg-slate-200" />
-          <span className="text-sm text-slate-600">{usable.length} дни × {c.per_day} = {usable.length * c.per_day} места</span>
+          <span className="text-sm text-slate-600">{usable.length} дни × {c.per_day} = {usable.length * c.per_day} места{fixedOf(c).length ? ` · ${fixedOf(c).map(x => `${PERIOD_LABEL[x]}. час`).join(', ')}` : ''}</span>
         </div>
         <span className="flex-1" />
         <button type="button" onClick={toggleOpen} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-[13px] text-slate-700 hover:bg-slate-50">
@@ -415,6 +457,7 @@ function CampaignForm({ initial, meId, onClose, onSaved }: { initial: Campaign |
   const [perDay, setPerDay] = useState(initial?.per_day || 2)
   const [useSchedule, setUseSchedule] = useState(initial?.use_schedule ?? true)
   const [roles, setRoles] = useState<string[]>(initial?.roles || ['class_teacher', 'teacher'])
+  const [slots, setSlots] = useState<number[]>(initial ? (initial.slot_periods || []) : [3, 4])   // фиксирани часове; празно — всеки свой
   const [announce, setAnnounce] = useState(!initial)
   const [busy, setBusy] = useState(false)
   const days = from && to && to >= from ? weekdays(from, to) : []
@@ -426,7 +469,8 @@ function CampaignForm({ initial, meId, onClose, onSaved }: { initial: Campaign |
     setBusy(true)
     const row = {
       title: title.trim(), focus_subject: focus.trim() || null, note: note.trim() || null, date_from: from, date_to: to,
-      excluded_dates: excluded.filter(d => d >= from && d <= to), per_day: perDay, use_schedule: useSchedule, roles,
+      excluded_dates: excluded.filter(d => d >= from && d <= to), per_day: slots.length || perDay, use_schedule: slots.length ? false : useSchedule, roles,
+      slot_periods: [...slots].sort(byStartTime),
     }
     const res = initial
       ? await supabase.from('visit_campaigns').update(row).eq('id', initial.id).select('id').single()
@@ -437,7 +481,9 @@ function CampaignForm({ initial, meId, onClose, onSaved }: { initial: Campaign |
       const body = [
         `Изберете ден и час, в който да бъдете посетени${focus.trim() ? ` — основна тема: ${focus.trim()}` : ''}.`,
         `- Период: ${dm(from)} – ${dm(to)}${skip ? ` (без ${skip})` : ''}`,
-        `- По ${perDay} посещения на ден — кой първи избере`,
+        slots.length
+          ? `- Часове: ${[...slots].sort(byStartTime).map(x => `${PERIOD_LABEL[x]}. час (${PERIOD_TIMES[x]})`).join(' и ')} — кой първи избере`
+          : `- По ${perDay} посещения на ден — кой първи избере`,
         `- Таблото → „Посещение на час“ → ден → час → тема`,
         ...(note.trim() ? ['', note.trim()] : []),
       ].join('\n')
@@ -467,11 +513,13 @@ function CampaignForm({ initial, meId, onClose, onSaved }: { initial: Campaign |
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div><span className={lbl}>От</span><input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" /></div>
             <div><span className={lbl}>До</span><input type="date" value={to} min={from} onChange={e => setTo(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" /></div>
-            <div><span className={lbl}>На ден</span>
-              <div className="inline-flex p-1 rounded-xl bg-slate-100">{[1, 2, 3, 4].map(n => (
-                <button key={n} type="button" onClick={() => setPerDay(n)} className={`w-9 py-1 rounded-lg text-sm ${perDay === n ? 'bg-white shadow-sm text-[#0f2240]' : 'text-slate-500'}`}>{n}</button>
-              ))}</div>
-            </div>
+            {!slots.length && (
+              <div><span className={lbl}>На ден</span>
+                <div className="inline-flex p-1 rounded-xl bg-slate-100">{[1, 2, 3, 4].map(n => (
+                  <button key={n} type="button" onClick={() => setPerDay(n)} className={`w-9 py-1 rounded-lg text-sm ${perDay === n ? 'bg-white shadow-sm text-[#0f2240]' : 'text-slate-500'}`}>{n}</button>
+                ))}</div>
+              </div>
+            )}
           </div>
           {days.length > 0 && (
             <div>
@@ -499,12 +547,28 @@ function CampaignForm({ initial, meId, onClose, onSaved }: { initial: Campaign |
               })}
             </div>
           </div>
-          <label className="flex items-center gap-3 cursor-pointer">
+          <div>
+            <span className={lbl}>Часове за посещение — еднакви всеки ден{slots.length ? ` · ${slots.length} на ден` : ''}</span>
+            <div className="flex flex-wrap gap-1.5">
+              {MORNING_PERIODS.map(per => {
+                const on = slots.includes(per)
+                return (
+                  <button key={per} type="button" onClick={() => setSlots(on ? slots.filter(x => x !== per) : [...slots, per])}
+                    className={`px-3 py-1.5 rounded-xl border text-left leading-tight ${on ? 'bg-indigo-50 border-indigo-300 text-indigo-800' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}>
+                    <span className="block text-[13px]">{PERIOD_LABEL[per]}. час</span>
+                    <span className="block text-[10.5px] tabular-nums opacity-80">{PERIOD_TIMES[per]}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-[12px] text-slate-400 mt-1.5">{slots.length ? 'Всички избират само между тези часове.' : 'Без избрани часове — всеки избира свой час (по разписанието или друг).'}</p>
+          </div>
+          {!slots.length && <label className="flex items-center gap-3 cursor-pointer">
             <button type="button" onClick={() => setUseSchedule(v => !v)} className={`relative w-10 h-6 rounded-full transition-colors ${useSchedule ? 'bg-indigo-600' : 'bg-slate-300'}`}>
               <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${useSchedule ? 'left-5' : 'left-1'}`} />
             </button>
             <span className="text-sm text-slate-700"><BookOpen size={14} className="inline mr-1 text-slate-400" />Предлагай часовете от седмичното разписание <span className="text-slate-400">(винаги може и „друг час“)</span></span>
-          </label>
+          </label>}
           <div><span className={lbl}>Пояснение към учителите</span>
             <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} placeholder="напр. Посещението е в рамките на контролната дейност на директора…" className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
           </div>

@@ -40,7 +40,7 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
 
   // учителят: неговите часове от седмичното разписание (I и II срок) — за избора на час
   let lessons: { term: number; day: number; period: number; label: string; subject: string }[] = []
-  if (!isMgmt && campaign?.use_schedule && cy?.id) {
+  if (!isMgmt && campaign && cy?.id) {   // и при фиксирани часове — за бързия избор на паралелка
     const { data: scheds } = await supabase.from('class_schedules').select('id, term, class:classes(name)').eq('academic_year_id', cy.id)
     const byId: Record<string, any> = {}
     ;(scheds || []).forEach((s: any) => { byId[s.id] = s })
