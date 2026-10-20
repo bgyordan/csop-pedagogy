@@ -1,7 +1,7 @@
 'use client'
 import { useState, useTransition, useMemo } from 'react'
 import { smartMatch } from '@/lib/search'
-import { Save, Loader2, Info, Download, Copy, X, Search, Pencil } from 'lucide-react'
+import { Save, Loader2, Info, Download, Copy, X, Search, Pencil, Check, AlertTriangle, Ban, Undo2 } from 'lucide-react'
 import { saveTherapistSchedule, copyTherapistFromTerm1 } from './actions'
 import { generateTherapistSchedule } from '@/lib/docx-generator'
 import { createClient } from '@/lib/supabase/client'
@@ -66,26 +66,49 @@ export function TherapistScheduleGrid({
   const dirty = JSON.stringify(grid) !== JSON.stringify(saved)
   function cancelEdit() {
     if (dirty && !confirm('Да се откажат ли промените? Графикът остава както е запазен.')) return
-    setGrid(saved); setActiveId(''); setMsg(null); setEditing(false)
+    setGrid(saved); setActiveId(''); setMsg(null); setEditing(false); setHistory([])
+  }
+  // Всяка промяна се помни (до 20 стъпки) → „Отмени“ връща предишното състояние
+  const [history, setHistory] = useState<{ grid: Record<string, string[]>; text: string }[]>([])
+  const slotLabel = (day: number, period: number) =>
+    `${DAYS.find(d => d.n === day)?.label || ''}, ${PERIOD_LABEL[period] || `${period}. час`}`
+  const nameOf = (id: string) => students.find(x => x.id === id)?.name || 'Дете'
+  function applyChange(next: Record<string, string[]>, text: string) {
+    setHistory(h => [...h.slice(-19), { grid, text }])
+    setGrid(next)
+  }
+  function undo() {
+    const last = history[history.length - 1]
+    if (!last) return
+    setGrid(last.grid)
+    setHistory(h => h.slice(0, -1))
   }
   function addToCell(day: number, period: number, studentId: string) {
     if (!studentId) return
-    setGrid(prev => {
-      const key = `${day}-${period}`
-      const arr = prev[key] || []
-      if (arr.includes(studentId)) return prev
-      if (arr.length >= 3) { setMsg({ type: 'err', text: 'Максимум 3 деца в един час.' }); return prev }
-      return { ...prev, [key]: [...arr, studentId] }
-    })
+    const key = `${day}-${period}`
+    const arr = grid[key] || []
+    if (arr.includes(studentId)) return
+    if (arr.length >= 3) { setMsg({ type: 'err', text: 'Максимум 3 деца в един час.' }); return }
+    applyChange({ ...grid, [key]: [...arr, studentId] }, `Добавено: ${nameOf(studentId)} — ${slotLabel(day, period)}`)
   }
   function removeFromCell(day: number, period: number, studentId: string) {
-    setGrid(prev => {
-      const key = `${day}-${period}`
-      const arr = (prev[key] || []).filter(id => id !== studentId)
-      const next = { ...prev }
-      if (arr.length > 0) next[key] = arr; else delete next[key]
-      return next
+    const key = `${day}-${period}`
+    const arr = (grid[key] || []).filter(id => id !== studentId)
+    const next = { ...grid }
+    if (arr.length > 0) next[key] = arr; else delete next[key]
+    applyChange(next, `Махнато: ${nameOf(studentId)} — ${slotLabel(day, period)}`)
+  }
+  // Промените спрямо последното запазване (за маркировката и проверката преди запис)
+  function changes() {
+    const added: string[] = [], removed: string[] = []
+    const keys = new Set([...Object.keys(grid), ...Object.keys(saved)])
+    keys.forEach(key => {
+      const [day, period] = key.split('-').map(Number)
+      const now = grid[key] || [], before = saved[key] || []
+      now.filter(id => !before.includes(id)).forEach(id => added.push(`${nameOf(id)} — ${slotLabel(day, period)}`))
+      before.filter(id => !now.includes(id)).forEach(id => removed.push(`${nameOf(id)} — ${slotLabel(day, period)}`))
     })
+    return { added, removed }
   }
   // Клик върху клетка → добавя/маха активното дете
   function toggleActiveInCell(day: number, period: number) {
@@ -110,6 +133,33 @@ export function TherapistScheduleGrid({
     return { level: 'warn' as const, text: `Учебен час: ${cell.name}` }
   }
   const filledCount = Object.values(grid).reduce((a, arr) => a + arr.length, 0)
+  // Баланс на седмицата за активното дете — САМО ПРЕПОРЪКА, нищо не се спира:
+  // идеално е по една терапия на ден (при всички специалисти) и не в ден с ФВС.
+  // Препоръчва се денят с най-малко терапии; при равен брой — денят без ФВС.
+  // (Ако терапиите са повече от дните без ФВС, препоръката сама минава и към дни с ФВС.)
+  const dayBalance = useMemo(() => {
+    if (!activeId) return null
+    const isFvs = (name: string) => /фвс|физическ|спорт/i.test(name)
+    const sched = studentSchedule[activeId] || {}
+    const info = DAYS.map(d => {
+      let count = 0
+      const others = new Set<string>()
+      Object.entries(takenByOthers).forEach(([k, who]) => {
+        if (k.startsWith(`${activeId}-${d.n}-`)) { count++; others.add(who) }
+      })
+      Object.entries(grid).forEach(([k, arr]) => { if (k.startsWith(`${d.n}-`) && arr.includes(activeId)) count++ })
+      const fvs = Object.entries(sched).some(([k, c]) => k.startsWith(`${d.n}-`) && isFvs(c.name))
+      return { day: d.n, count, others: Array.from(others), fvs }
+    })
+    const score = (x: { count: number; fvs: boolean }) => x.count * 2 + (x.fvs ? 1 : 0)
+    const best = Math.min(...info.map(score))
+    const byDay: Record<number, (typeof info)[number] & { recommended: boolean }> = {}
+    info.forEach(x => { byDay[x.day] = { ...x, recommended: score(x) === best } })
+    return byDay
+  }, [activeId, grid, takenByOthers, studentSchedule])
+  const recommendedLabel = dayBalance
+    ? DAYS.filter(d => dayBalance[d.n].recommended).map(d => d.label).join(', ')
+    : ''
   // брой заети часове за всяко дете (за етикета в лентата)
   const countByStudent = useMemo(() => {
     const c: Record<string, number> = {}
@@ -129,7 +179,7 @@ export function TherapistScheduleGrid({
       if (res.slots) {
         const g: Record<string, string[]> = {}
         res.slots.forEach((s: any) => { if (s.student_id) { const k = `${s.day}-${s.period}`; (g[k] = g[k] || []).push(s.student_id) } })
-        setGrid(g)
+        setGrid(g); setHistory([])
         if (res.slots.some((s: any) => s.period >= 7)) setShowAfternoon(true)
         setMsg({ type: 'ok', text: 'Копирано от I срок. Не забравяй да запазиш.' })
       }
@@ -162,6 +212,14 @@ export function TherapistScheduleGrid({
       setMsg({ type: 'err', text: `Не може да се запази — тези деца са при друг специалист по същото време: ${conflicts.join('; ')}. Премахни ги първо.` })
       return
     }
+    const ch = changes()
+    if (ch.added.length || ch.removed.length) {
+      const lines = [
+        ch.added.length ? `Добавени (${ch.added.length}):\n  ${ch.added.join('\n  ')}` : '',
+        ch.removed.length ? `Махнати (${ch.removed.length}):\n  ${ch.removed.join('\n  ')}` : '',
+      ].filter(Boolean).join('\n\n')
+      if (!confirm(`${lines}\n\nДа се запази ли графикът?`)) return
+    }
     setSaving(true); setMsg(null)
     const slots: { day: number; period: number; studentId: string }[] = []
     Object.entries(grid).forEach(([key, arr]) => {
@@ -171,7 +229,7 @@ export function TherapistScheduleGrid({
     const res = await saveTherapistSchedule(academicYearId, term, slots, targetStaffId)
     setSaving(false)
     if (res.error) { setMsg({ type: 'err', text: res.error }); return }
-    setSaved(grid); setActiveId(''); setEditing(false)
+    setSaved(grid); setActiveId(''); setEditing(false); setHistory([])
     setMsg({ type: 'ok', text: 'Графикът е запазен.' })
   }
   // ── ПРЕГЛЕД: подреден график, без цветни полета и бутони за махане ──
@@ -286,7 +344,8 @@ export function TherapistScheduleGrid({
                 className="w-full text-xs pl-8 pr-2 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-300" />
             </div>
             {activeStudent
-              ? <span className="text-[11px] text-slate-500">Активно: <span className="font-semibold" style={{ color: ACCENT }}>{studentLabel(activeStudent)}</span> — кликай в таблицата</span>
+              ? <span className="text-[11px] text-slate-500">Активно: <span className="font-semibold" style={{ color: ACCENT }}>{studentLabel(activeStudent)}</span> — кликай в таблицата
+                  {recommendedLabel && <span className="ml-2 text-emerald-700">· препоръчани дни: {recommendedLabel}</span>}</span>
               : <span className="text-[11px] text-slate-400">Избери дете, за да оцветиш свободните часове</span>}
           </div>
           <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
@@ -315,11 +374,22 @@ export function TherapistScheduleGrid({
 
       {/* Легенда */}
       <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300"></span> свободен / терапевтичен</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-100 border border-amber-300"></span> учебен час (предупреждение)</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-100 border border-red-300"></span> взето от друг</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-slate-100 border border-slate-300"></span> пълно (3 деца)</span>
+        <span className="flex items-center gap-1"><Check size={13} className="text-emerald-600" /> свободен / терапевтичен</span>
+        <span className="flex items-center gap-1"><AlertTriangle size={12} className="text-amber-500" /> учебен час (предупреждение)</span>
+        <span className="flex items-center gap-1"><Ban size={12} className="text-rose-500" /> взето от друг</span>
+        <span className="flex items-center gap-1"><span className="text-[10px] text-slate-400">3/3</span> пълно</span>
+        <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ново / <span className="line-through">зачеркнато</span> — още незапазено</span>
+        {activeId && <span className="flex items-center gap-1 text-emerald-700"><span className="w-3 h-3 rounded-full bg-emerald-500"></span> препоръчан ден (по-малко терапии, без ФВС)</span>}
       </div>
+      {history.length > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2 rounded-xl text-[12px] bg-white border border-slate-200 shadow-sm text-slate-600">
+          <span className="truncate">{history[history.length - 1].text}</span>
+          <button type="button" onClick={undo}
+            className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 shrink-0">
+            <Undo2 size={12} /> Отмени
+          </button>
+        </div>
+      )}
       {msg && (
         <div className={`px-4 py-2.5 rounded-xl text-sm ${
           msg.type === 'ok' ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
@@ -333,12 +403,25 @@ export function TherapistScheduleGrid({
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
               <th className="text-left px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-24">Час</th>
-              {DAYS.map(d => (
-                <th key={d.n} className="text-left px-2 py-2.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                  <span className="hidden sm:inline">{d.label}</span>
-                  <span className="sm:hidden">{d.short}</span>
-                </th>
-              ))}
+              {DAYS.map(d => {
+                const b = dayBalance?.[d.n]
+                return (
+                  <th key={d.n} className={`text-left px-2 py-2.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider align-top ${b?.recommended ? 'bg-emerald-50' : ''}`}>
+                    <span className="hidden sm:inline">{d.label}</span>
+                    <span className="sm:hidden">{d.short}</span>
+                    {b && (
+                      <div className="mt-1 flex flex-wrap items-center gap-1 normal-case tracking-normal font-normal"
+                        title={b.others.length ? `Терапии при: ${b.others.join(', ')}` : ''}>
+                        {b.recommended && <span className="w-2 h-2 rounded-full bg-emerald-500" />}
+                        <span className={b.count > 0 ? 'text-amber-700' : 'text-slate-400'}>
+                          {b.count === 0 ? 'без терапия' : b.count === 1 ? '1 терапия' : `${b.count} терапии`}
+                        </span>
+                        {b.fvs && <span className="px-1 rounded bg-sky-50 border border-sky-200 text-sky-700">ФВС</span>}
+                      </div>
+                    )}
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>
@@ -355,44 +438,53 @@ export function TherapistScheduleGrid({
                   const activeHere = !!activeId && arr.includes(activeId)
                   const ev = activeId ? evaluate(activeId, d.n, period) : null
                   const paintable = !!activeId && !activeHere && !full && ev?.level !== 'err'
+                  // Без цветни фонове: бяла клетка + малка отметка в ъгъла; цвят само под мишката
                   let paintCls = ''
+                  let mark: React.ReactNode = null
                   if (activeId && !activeHere) {
-                    if (ev?.level === 'err') paintCls = 'bg-red-50 border-red-200 cursor-not-allowed'
-                    else if (full) paintCls = 'bg-slate-100 border-slate-200 cursor-not-allowed'
-                    else if (ev?.level === 'ok') paintCls = 'bg-emerald-50 border-emerald-300 hover:bg-emerald-100 cursor-pointer'
-                    else paintCls = 'bg-amber-50 border-amber-300 hover:bg-amber-100 cursor-pointer'
+                    if (ev?.level === 'err') { paintCls = 'border-slate-100 cursor-not-allowed'; mark = <Ban size={12} className="text-rose-500" /> }
+                    else if (full) { paintCls = 'border-slate-100 cursor-not-allowed'; mark = <span className="text-[9px] text-slate-400">3/3</span> }
+                    else if (ev?.level === 'ok') { paintCls = 'border-slate-200 hover:bg-emerald-50 hover:border-emerald-300 cursor-pointer'; mark = <Check size={13} className="text-emerald-600" /> }
+                    else { paintCls = 'border-slate-200 hover:bg-amber-50 hover:border-amber-300 cursor-pointer'; mark = <AlertTriangle size={12} className="text-amber-500" /> }
                   }
+                  const removedHere = (saved[key] || []).filter(id => !arr.includes(id))
                   return (
                     <td key={d.n} className="px-1.5 py-1.5 align-top min-w-[130px]">
                       <div
                         onClick={() => paintable && toggleActiveInCell(d.n, period)}
-                        title={ev?.text || ''}
-                        className={`rounded-lg border min-h-[32px] p-1 space-y-1 transition ${
+                        title={[ev?.text, !activeHere && dayBalance?.[d.n]?.count ? 'В този ден детето вече има терапия' : '', !activeHere && dayBalance?.[d.n]?.fvs ? 'В този ден има ФВС' : ''].filter(Boolean).join(' · ')}
+                        className={`group relative rounded-lg border min-h-[32px] p-1 space-y-1 transition ${mark ? 'pr-5' : ''} ${
                           activeHere ? 'border-transparent bg-emerald-50' : paintCls || 'border-transparent'}`}
                         style={activeHere ? { boxShadow: `0 0 0 2px ${ACCENT}` } : {}}>
+                        {mark && <span className="absolute top-1 right-1 pointer-events-none">{mark}</span>}
                         {arr.map(sid => {
                           const st = students.find(x => x.id === sid)
                           const isActiveChip = sid === activeId
+                          const isNew = !(saved[key] || []).includes(sid)
                           return (
                             <div key={sid}
                               className={`flex items-center gap-1 text-[11px] py-0.5 px-1.5 rounded-md ${
                                 isActiveChip ? 'bg-white border border-emerald-300 font-semibold text-slate-700' : 'bg-slate-50 text-slate-500'}`}
                               onClick={e => e.stopPropagation()}>
+                              {isNew && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="Ново — още незапазено" />}
                               <span className="truncate flex-1">{st?.name || '—'}</span>
                               <button type="button" onClick={() => removeFromCell(d.n, period, sid)} className="text-slate-300 hover:text-rose-600 shrink-0"><X size={11} /></button>
                             </div>
                           )
                         })}
+                        {removedHere.map(sid => (
+                          <div key={`rm-${sid}`} title="Махнато — още незапазено" onClick={e => e.stopPropagation()}
+                            className="text-[11px] py-0.5 px-1.5 rounded-md text-slate-400 line-through truncate">
+                            {students.find(x => x.id === sid)?.name || '—'}
+                          </div>
+                        ))}
                         {paintable && (
                           <button type="button"
                             onClick={e => { e.stopPropagation(); toggleActiveInCell(d.n, period) }}
-                            className={`w-full text-left text-[10px] px-1 py-0.5 rounded truncate ${
+                            className={`hidden group-hover:block w-full text-left text-[10px] px-1 py-0.5 rounded truncate ${
                               ev?.level === 'ok' ? 'text-emerald-700 hover:bg-emerald-100' : 'text-amber-700 hover:bg-amber-100'}`}>
                             + {activeStudent?.name}
                           </button>
-                        )}
-                        {activeId && !activeHere && full && (
-                          <div className="text-[10px] text-slate-400 px-1">Пълно (3)</div>
                         )}
                       </div>
                     </td>
