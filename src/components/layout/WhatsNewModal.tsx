@@ -1,13 +1,17 @@
 'use client'
 
-// „Какво ново в JORDAN“ — изскача при влизане, по веднъж на човек.
-// Показва активните съобщения с show_popup, които този потребител още не е потвърдил с „Разбрах“.
-
+// Съобщенията до колегите — изскачат при влизане, по веднъж на човек, като листче от тетрадка
+// (като „Днес заместват“ и съобщението на сайта). Показва активните с show_popup, които този потребител
+// още не е потвърдил с „Видях“. Пишат ги управата и деловодството (Администрация / Деловодство → Съобщения).
+import '@fontsource/caveat/500.css'
+import '@fontsource/caveat/700.css'
 import { useEffect, useState } from 'react'
-import { Sparkles, Check, ArrowRight } from 'lucide-react'
+import { Check, ArrowRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
-type Ann = { id: string; title: string; body: string; created_at: string; target_roles: string[] | null }
+type Ann = { id: string; title: string; body: string; created_at: string; expires_at: string | null; target_roles: string[] | null; author?: { first_name: string; last_name: string } | null }
+const HAND = "'Caveat', cursive"
+const dmy = (iso: string) => iso.slice(0, 10).split('-').reverse().join('.')
 
 // Текст → абзаци и точки: редове с „-“, „•“ или „*“ стават списък
 function Body({ text }: { text: string }) {
@@ -23,13 +27,13 @@ function Body({ text }: { text: string }) {
     else blocks.push({ type, lines: [clean] })
   }
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {blocks.filter(b => b.lines.length).map((b, i) =>
         b.type === 'ul' ? (
           <ul key={i} className="space-y-2">
             {b.lines.map((l, j) => (
               <li key={j} className="flex gap-3">
-                <span className="mt-[9px] w-1.5 h-1.5 rounded-full bg-gradient-to-br from-teal-400 to-cyan-500 shrink-0" />
+                <span style={{ fontFamily: HAND }} className="text-[22px] leading-[28px] text-rose-500 shrink-0">–</span>
                 <span>{l}</span>
               </li>
             ))}
@@ -61,7 +65,7 @@ export default function WhatsNewModal() {
       const today = new Date().toISOString().slice(0, 10)
       const [{ data: anns }, { data: reads }] = await Promise.all([
         supabase.from('announcements')
-          .select('id, title, body, created_at, expires_at, target_roles')
+          .select('id, title, body, created_at, expires_at, target_roles, author:staff_profiles(first_name, last_name)')
           .eq('is_active', true).eq('show_popup', true)
           .order('created_at', { ascending: true }),
         supabase.from('announcement_reads').select('announcement_id').eq('user_id', user.id),
@@ -72,7 +76,7 @@ export default function WhatsNewModal() {
         (!a.expires_at || a.expires_at.slice(0, 10) >= today) &&
         (!a.target_roles?.length || a.target_roles.some((r: string) => roles.includes(r)))
       )
-      if (alive) setQueue(mine)
+      if (alive) setQueue(mine.map((a: any) => ({ ...a, author: Array.isArray(a.author) ? a.author[0] : a.author })) as Ann[])
     })()
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -106,49 +110,40 @@ export default function WhatsNewModal() {
         .eis-out { opacity: 0; transition: opacity .2s ease-in }
       `}</style>
 
-      <div key={current.id} className="eis-pop w-full max-w-lg bg-white rounded-3xl shadow-2xl shadow-slate-900/10 overflow-hidden border border-white">
-        {/* горна част */}
-        <div className="relative px-7 pt-7 pb-5 bg-gradient-to-br from-teal-50 via-cyan-50 to-sky-50 overflow-hidden">
-          <div className="absolute -top-16 -right-10 w-48 h-48 rounded-full bg-cyan-200/40 blur-3xl" />
-          <div className="absolute -bottom-20 -left-10 w-40 h-40 rounded-full bg-teal-200/40 blur-3xl" />
-          <div className="relative flex items-center gap-3">
-            <span className="w-11 h-11 rounded-2xl bg-white shadow-sm flex items-center justify-center">
-              <Sparkles size={20} className="text-teal-500" />
-            </span>
-            <span className="px-2.5 py-1 rounded-full bg-white/70 text-[11px] uppercase tracking-wider text-teal-700">
-              Ново в JORDAN
-            </span>
-            {queue.length > 1 && (
-              <span className="ml-auto flex items-center gap-1.5" aria-label={`${idx + 1} от ${queue.length}`}>
-                {queue.map((_, i) => (
-                  <span key={i} className={`h-1.5 rounded-full transition-all ${i === idx ? 'w-5 bg-teal-500' : 'w-1.5 bg-teal-200'}`} />
-                ))}
-              </span>
-            )}
+      <div key={current.id} className="eis-pop w-full max-w-lg">
+      <div className="relative -rotate-[0.8deg]" style={{ filter: 'drop-shadow(0 22px 34px rgba(60,40,10,0.22))' }}>
+        {/* тиксо */}
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 w-32 h-7 rotate-[-2deg] rounded-sm z-10"
+          style={{ background: 'rgba(255,255,255,0.6)', boxShadow: '0 1px 2px rgba(0,0,0,0.08)' }} />
+        <div className="rounded-[3px] pt-9 pb-6 pr-7 pl-16"
+          style={{
+            background: '#fffdf3',
+            backgroundImage: 'linear-gradient(90deg, transparent 46px, rgba(239,68,68,0.35) 46px, rgba(239,68,68,0.35) 47.5px, transparent 47.5px), repeating-linear-gradient(transparent, transparent 27px, rgba(59,130,246,0.16) 27px, rgba(59,130,246,0.16) 28px)',
+            backgroundPosition: '0 0, 0 22px',
+          }}>
+          <div className="flex items-center gap-2 text-[12px] text-slate-400">
+            <span>{new Date(current.created_at).toLocaleDateString('bg-BG', { day: 'numeric', month: 'long' })}</span>
+            {current.author && <span>· {current.author.first_name} {current.author.last_name}</span>}
+            {queue.length > 1 && <span className="ml-auto">{idx + 1} от {queue.length}</span>}
           </div>
-          <h2 id="whatsnew-title" className="relative mt-4 text-xl font-semibold leading-snug" style={{ color: '#0f2240' }}>
+          <h2 id="whatsnew-title" style={{ fontFamily: HAND, color: '#0f2240' }} className="mt-1 text-[34px] leading-[36px] font-bold">
             {current.title}
           </h2>
-          <p className="relative mt-1 text-xs text-slate-400 font-light">
-            {new Date(current.created_at).toLocaleDateString('bg-BG', { day: 'numeric', month: 'long', year: 'numeric' })}
-          </p>
-        </div>
-
-        {/* текст */}
-        <div className="px-7 py-5 text-[15px] leading-relaxed text-slate-600 font-light max-h-[50vh] overflow-y-auto">
-          <Body text={current.body} />
-        </div>
-
-        {/* бутон */}
-        <div className="px-7 pb-6 pt-1 flex items-center justify-end gap-3">
-          {queue.length > 1 && (
-            <span className="mr-auto text-xs text-slate-400 font-light">{idx + 1} от {queue.length}</span>
+          <div className="mt-3 text-[15px] leading-[28px] text-slate-700 max-h-[50vh] overflow-y-auto">
+            <Body text={current.body} />
+          </div>
+          {current.expires_at && (
+            <p style={{ fontFamily: HAND }} className="mt-3 text-[21px] text-rose-600 -rotate-1">важи до {dmy(current.expires_at)}</p>
           )}
-          <button type="button" onClick={ok} disabled={busy} autoFocus
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-500 shadow-md shadow-cyan-500/20 hover:shadow-lg hover:shadow-cyan-500/30 hover:-translate-y-0.5 transition disabled:opacity-60">
-            {last ? <><Check size={16} /> Разбрах</> : <>Разбрах <ArrowRight size={16} /></>}
-          </button>
+          <div className="mt-5 flex justify-end">
+            <button type="button" onClick={ok} disabled={busy} autoFocus
+              className="inline-flex items-center gap-1.5 px-5 py-1.5 rounded-full border-2 border-[#0f2240]/70 text-[#0f2240] hover:bg-[#0f2240] hover:text-white transition-colors -rotate-[1deg] disabled:opacity-60"
+              style={{ fontFamily: HAND, fontSize: 23 }}>
+              {last ? <><Check size={16} /> Видях</> : <>Видях <ArrowRight size={16} /></>}
+            </button>
+          </div>
         </div>
+      </div>
       </div>
     </div>
   )

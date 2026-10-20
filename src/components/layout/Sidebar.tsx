@@ -6,8 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3, FileSpreadsheet,
-  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare, Calculator, ShieldAlert, MonitorSmartphone
-} from 'lucide-react'
+  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare, Calculator, ShieldAlert, MonitorSmartphone, Bell } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
 import WhatsNewModal from './WhatsNewModal'
@@ -185,6 +184,8 @@ const navItems: NavItem[] = [
   // „Обществени поръчки“ — скрито: поръчките се водят в АОП (страницата /procurements и данните остават)
   // { href: '/procurements', label: 'Обществени поръчки', icon: <Package size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/site-docs', label: 'Сайт', icon: <Globe size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
+  // съобщения до колегите (изскачат веднъж като листче) — деловодството ги пише; управата ги има в „Администрация“
+  { href: '/admin/announcements', label: 'Съобщения', icon: <Bell size={16} />, roles: ['secretary'], section: 'delo' },
   { href: '/portfolio', label: 'Портфолио', icon: <Images size={16} />, roles: ['secretary'], section: 'delo' },
   { href: '/facilities', label: 'Материална база', icon: <Wrench size={16} />, roles: ['secretary'], section: 'delo' },
   // Секретар: „Още“ (под Деловодство, свито по подразбиране) — подредено по смисъл
