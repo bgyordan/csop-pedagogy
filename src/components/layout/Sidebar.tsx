@@ -144,7 +144,7 @@ const navItems: NavItem[] = [
     ],
   },
   { href: '/bullying-council', label: 'К. Съвет', icon: <Shield size={16} />, councilOnly: true },
-  // дневник на случаите (тормоз и поведение) — само Координационният съвет, координиращият екип и управата
+  // дневник на случаите (тормоз и поведение) — Координационният съвет, координиращият екип, управата и класните ръководители
   { href: '/incidents', label: 'Дневник случаи', icon: <ShieldAlert size={16} />, incidentsTeam: true, notMgmt: true },
   {
     href: '#lecturer-mgmt',
@@ -291,7 +291,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
     if (item.requiresClass && !hasClass) return false
     if (item.coordinatorOnly && isCoordinator) return true
     // К. съвет: за админ/ЗДУД е в „Администрация“; в менюто остава за членовете на съвета и директора
-    if (item.incidentsTeam) return isCouncil || isCoordinator || ['admin', 'zdud', 'director'].includes(userRole)
+    if (item.incidentsTeam) return isCouncil || isCoordinator || ['admin', 'zdud', 'director', 'class_teacher'].includes(userRole)
     if (item.councilOnly) return (isCouncil || userRole === 'director') && !['admin', 'zdud'].includes(userRole)
     if (therapyRole && THERAPY_ITEMS.includes(item.href) && item.roles?.includes(therapyRole as UserRole)) return true
     if (!item.roles) return true

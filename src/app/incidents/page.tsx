@@ -1,11 +1,12 @@
 // Дневник на случаите — тормоз и инциденти с поведение (вместо хартиената книга).
-// Само за екипа: Координационният съвет, координиращият екип и управата. Класният вижда случаите на своите деца в досието.
+// Екипът (Координационният съвет, координиращият екип, управата) вижда и движи всички случаи.
+// Класният ръководител вписва случаи и вижда своите и тези с деца от паралелката си (така пуска и базата).
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import IncidentsClient from './IncidentsClient'
 export const dynamic = 'force-dynamic'
 
-export default async function IncidentsPage({ searchParams }: { searchParams: Promise<{ open?: string; year?: string }> }) {
+export default async function IncidentsPage({ searchParams }: { searchParams: Promise<{ open?: string; year?: string; new?: string }> }) {
   const sp = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -21,7 +22,10 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
     </div>
   )
   const isCouncil = !!council
-  if (!isCouncil) redirect('/dashboard')
+  // класният ръководител (текущата година) също вписва случаи
+  const { data: myCls } = isCouncil ? { data: [] as any[] } : await supabase.from('class_teacher_assignments').select('class_id').eq('staff_id', me.id).eq('academic_year_id', cy?.id)
+  const isClassTeacher = (myCls || []).length > 0
+  if (!isCouncil && !isClassTeacher) redirect('/dashboard')
 
   // година: текущата по подразбиране; „all“ — всички (дирята остава и след края на годината)
   const { data: years } = await supabase.from('academic_years').select('id, name').order('name', { ascending: false })
@@ -62,7 +66,7 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
     <IncidentsClient
       meId={me.id} isCouncil={isCouncil} isAdmin={['admin', 'zdud', 'director'].includes(me.role)}
       yearId={cy?.id || null} yearName={cy?.name || ''}
-      cases={cases as any} initialOpen={sp.open || null}
+      cases={cases as any} initialOpen={sp.open || null} initialNewStudent={sp.new || null}
       years={(years || []).map((y: any) => ({ id: y.id, name: y.name }))} yearSel={yearSel} parts={(parts || []) as any} events={(events || []) as any}
       students={students}
       studentNames={Object.fromEntries((old || []).map((s: any) => [s.id, `${s.first_name} ${s.last_name}`]))}

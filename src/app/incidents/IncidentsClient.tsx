@@ -21,6 +21,7 @@ type Props = {
   protocols: { id: string; number: number; date: string }[]
   members: { name: string; position: string | null; is_chair: boolean }[]
   initialOpen: string | null; years: { id: string; name: string }[]; yearSel: string
+  initialNewStudent?: string | null   // от досието: „Констатирай случай“ с вече избрано дете
 }
 
 const MONTHS = ['септември', 'октомври', 'ноември', 'декември', 'януари', 'февруари', 'март', 'април', 'май', 'юни', 'юли', 'август']
@@ -37,7 +38,8 @@ export default function IncidentsClient(p: Props) {
   const [status, setStatus] = useState<'' | Status | 'open'>('')
   const [month, setMonth] = useState('')
   const [q, setQ] = useState('')
-  const [form, setForm] = useState<Case | 'new' | null>(null)
+  const [form, setForm] = useState<Case | 'new' | null>(p.initialNewStudent ? 'new' : null)
+  const [newStudent, setNewStudent] = useState<string | null>(p.initialNewStudent || null)
   const [openId, setOpenId] = useState<string | null>(p.initialOpen)
   const [busy, setBusy] = useState(false)
   const studentNames = { ...p.studentNames, ...Object.fromEntries(p.students.map(s => [s.id, s.name])) }
@@ -85,7 +87,7 @@ export default function IncidentsClient(p: Props) {
     setParts(x => [...x.filter(y => y.case_id !== id), ...((ps || []) as Participant[])])
     if (editing) setCases(x => x.map(c => c.id === id ? { ...c, ...row } as Case : c))
     toast(editing ? 'Случаят е обновен' : 'Случаят е записан — Координационният съвет го вижда')
-    setForm(null)
+    setForm(null); setNewStudent(null)
     router.refresh()
   }
   async function addEvent(caseId: string, k: Event['kind'], text: string) {
@@ -93,6 +95,9 @@ export default function IncidentsClient(p: Props) {
     if (error || !data) { toast(error?.message || 'Грешка', 'error'); return }
     setEvents(x => [...x, data as Event])
     if (k === 'parent') { await supabase.from('incident_cases').update({ parents_notified: true }).eq('id', caseId); setCases(x => x.map(c => c.id === caseId ? { ...c, parents_notified: true } : c)) }
+    // по-малко цъкане: записана мярка → статусът сам става „Взети мерки“ (статуса движи съветът)
+    const c = cases.find(i => i.id === caseId)
+    if (k === 'measure' && p.isCouncil && c && (c.status === 'new' || c.status === 'review')) await setCaseStatus(c, 'measures')
   }
   async function setCaseStatus(c: Case, s: Status, outcome?: string) {
     const patch: Partial<Case> = { status: s, closed_on: s === 'closed' ? todaySofia() : null, ...(s === 'closed' ? { outcome: outcome || null } : {}) }
@@ -107,6 +112,8 @@ export default function IncidentsClient(p: Props) {
     setCases(x => x.map(i => i.id === c.id ? { ...i, protocol_id: pid } : i))
     const pr = p.protocols.find(x => x.id === pid)
     if (pr) await addEvent(c.id, 'protocol', `Разгледан в протокол № ${pr.number} от ${fmtDate(pr.date)}`)
+    // вързан протокол → случаят „Разглежда се“ (ако още е нов)
+    if (pr && c.status === 'new') await setCaseStatus({ ...c, protocol_id: pid }, 'review')
   }
   async function remove(c: Case) {
     const { error } = await supabase.from('incident_cases').delete().eq('id', c.id)
@@ -141,7 +148,7 @@ export default function IncidentsClient(p: Props) {
         <div className="w-12 h-12 rounded-xl bg-rose-50 border border-rose-100 text-rose-700 flex items-center justify-center shrink-0"><ShieldAlert size={22} /></div>
         <div className="flex-1 min-w-[220px]">
           <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">Дневник на случаите</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Тормоз (II и III ниво) и инциденти с поведение · {p.yearName} · води го Координационният съвет</p>
+          <p className="text-sm text-slate-500 mt-0.5">Тормоз (II и III ниво) и инциденти с поведение · {p.yearName} · {p.isCouncil ? 'води го Координационният съвет' : 'вашите случаи и тези с деца от паралелката ви'}</p>
         </div>
         <button type="button" onClick={() => setForm('new')}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white hover:opacity-90" style={{ backgroundColor: '#b91c1c' }}>
@@ -205,12 +212,22 @@ export default function IncidentsClient(p: Props) {
                     <div className="text-[11.5px] text-slate-400">{c.occurred_time?.slice(0, 5)}{c.place ? ` · ${c.place}` : ''}</div>
                   </div>
                   <div className="flex-1 min-w-[220px]">
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 mb-1">
+                      {ps.length ? ps.map(x => {
+                        const st = x.student_id ? p.students.find(s => s.id === x.student_id) : null
+                        return (
+                          <span key={x.id} className="text-[14px] text-[#0f2240]">
+                            {x.student_id ? studentNames[x.student_id] || '—' : x.name}
+                            <span className="text-[11.5px] text-slate-400"> · {ROLE_LABEL[x.role]}{st?.cls ? ` · ${st.cls.replace('паралелка ', 'п. ')}` : ''}</span>
+                          </span>
+                        )
+                      }) : <span className="text-[13px] text-amber-700">без посочено дете</span>}
+                    </div>
                     <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
                       <span className="text-[11px] px-1.5 py-0.5 rounded font-medium" style={{ background: KINDS[c.kind].bg, color: KINDS[c.kind].color }}>{KINDS[c.kind].short}{lvl ? ` · ${lvl.label}` : ''}</span>
                       {c.forms.slice(0, 3).map(f => <span key={f} className="text-[11px] text-slate-500">{f}</span>)}
                     </div>
-                    <div className="text-[13.5px] text-slate-800 line-clamp-2">{c.description}</div>
-                    <div className="text-[12px] text-slate-500 mt-0.5">{ps.map(x => `${x.student_id ? studentNames[x.student_id] || '—' : x.name} (${ROLE_LABEL[x.role]})`).join(', ')}</div>
+                    <div className="text-[13px] text-slate-600 line-clamp-2">{c.description}</div>
                   </div>
                   <span className="text-[11.5px] px-2 py-0.5 rounded-full shrink-0" style={{ background: STATUS[c.status].bg, color: STATUS[c.status].color }}>{STATUS[c.status].label}</span>
                 </button>
@@ -221,7 +238,8 @@ export default function IncidentsClient(p: Props) {
       )}
 
       {form && <IncidentForm students={p.students} initial={form === 'new' ? undefined : form} initialParts={form === 'new' ? undefined : byCase[form.id]}
-        onClose={() => setForm(null)} onSave={save} />}
+        initialStudent={form === 'new' ? newStudent : null}
+        onClose={() => { setForm(null); setNewStudent(null) }} onSave={save} />}
       {open && (
         <IncidentDetail c={open} parts={byCase[open.id] || []} events={events.filter(e => e.case_id === open.id).sort((a, b) => a.at.localeCompare(b.at))}
           names={p.staffNames} studentNames={studentNames} protocols={p.protocols}

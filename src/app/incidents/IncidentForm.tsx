@@ -30,9 +30,10 @@ function Chips({ options, value, onChange, tone = 'slate' }: { options: string[]
   )
 }
 
-export default function IncidentForm({ students, initial, initialParts, onClose, onSave }: {
+export default function IncidentForm({ students, initial, initialParts, initialStudent, onClose, onSave }: {
   students: { id: string; name: string; cls?: string }[]
   initial?: Case; initialParts?: Participant[]
+  initialStudent?: string | null   // отворено от досието — детето е вече избрано
   onClose: () => void; onSave: (v: FormValue) => Promise<void>
 }) {
   const [v, setV] = useState<FormValue>(() => initial ? {
@@ -43,7 +44,8 @@ export default function IncidentForm({ students, initial, initialParts, onClose,
     participants: (initialParts || []).map(p => ({ student_id: p.student_id, name: p.name, role: p.role })),
   } : {
     kind: 'bullying', occurred_on: todaySofia(), occurred_time: nowTime(), place: '', forms: [], level: 2, description: '',
-    antecedents: [], antecedent_note: '', consequences: [], consequence_note: '', actions: [], parents_notified: false, participants: [],
+    antecedents: [], antecedent_note: '', consequences: [], consequence_note: '', actions: [], parents_notified: false,
+    participants: initialStudent && students.some(s => s.id === initialStudent) ? [{ student_id: initialStudent, name: null, role: 'victim' }] : [],
   })
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState(false)
