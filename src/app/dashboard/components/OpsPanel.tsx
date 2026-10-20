@@ -116,7 +116,7 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
           <UserX size={16} className="text-rose-500" />
           <h2 className="text-sm font-medium text-slate-800">Днес отсъстват</h2>
           <span className="ml-auto text-xs text-slate-400">{todayRows.length}</span>
-          {allToday.length > 0 && <AbsentNote rows={allToday} today={sofiaToday()} compact />}
+          {allToday.some(r => !!r.by) && <AbsentNote rows={allToday} today={sofiaToday()} compact />}
         </div>
         {todayRows.length === 0 ? (
           <p className="text-sm text-slate-400 font-light">Няма отсъстващи.</p>
