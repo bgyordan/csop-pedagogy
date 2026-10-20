@@ -183,6 +183,10 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [search, setSearch] = useState('')
   const [npOnly, setNpOnly] = useState(false)
   const [periodIdx, setPeriodIdx] = useState(-1)
+  // „само отсъства“ — отпуск на колега, който не се замества (специалист, помощник) и няма заместник:
+  // въвежда се, за да се вижда в „Днес отсъстват“; в таблицата по подразбиране е скрит
+  const [showAbsentOnly, setShowAbsentOnly] = useState(false)
+  const isAbsentOnly = (r: any) => !r.substituteName && !(r.assigns?.length) && !canSubstitute(r.absentRole) && !staff.find(s => s.id === r.absentStaffId)?.teaching
   const [genId, setGenId] = useState<string | null>(null)
   const [overNormMap, setOverNormMap] = useState<Record<string, boolean>>(() => Object.fromEntries(initial.map(r => [r.id, r.overNorm !== false])))
   const [registerMap, setRegisterMap] = useState<Record<string, boolean>>({})
@@ -340,11 +344,13 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     const per = periodIdx >= 0 ? SCHOOL_MONTHS_FILTER[periodIdx] : null
     return rows.filter(r => {
       if (npOnly && !r.bsch) return false
+      if (!showAbsentOnly && isAbsentOnly(r)) return false
       if (per && !(r.dateFrom <= per.last && r.dateTo >= per.first)) return false
       if (q && !(smartMatch(r.absentName, q) || smartMatch(r.substituteName || '', q))) return false
       return true
     })
-  }, [rows, search, npOnly, periodIdx])
+  }, [rows, search, npOnly, periodIdx, showAbsentOnly]) // eslint-disable-line react-hooks/exhaustive-deps
+  const absentOnlyCount = useMemo(() => rows.filter(isAbsentOnly).length, [rows]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // групи по месец на началото, най-новият месец отгоре
   const groups = useMemo(() => {
@@ -543,6 +549,17 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
             }`}>
             само НП
           </button>
+          {absentOnlyCount > 0 && (
+            <button onClick={() => setShowAbsentOnly(v => !v)} title="Колеги в отпуск, които не се заместват (специалисти, помощници) — за „Днес отсъстват“"
+              className={`inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border transition-colors whitespace-nowrap flex-shrink-0 ${
+                showAbsentOnly ? 'bg-slate-100 border-slate-300 text-slate-800 font-medium' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+              }`}>
+              <span className={`w-3 h-3 rounded-[4px] border flex items-center justify-center ${showAbsentOnly ? 'bg-[#0f2240] border-[#0f2240]' : 'border-slate-300'}`}>
+                {showAbsentOnly && <Check size={9} className="text-white" />}
+              </span>
+              и само отсъстващи <span className="text-slate-400">{absentOnlyCount}</span>
+            </button>
+          )}
         </div>
       </div>
 
