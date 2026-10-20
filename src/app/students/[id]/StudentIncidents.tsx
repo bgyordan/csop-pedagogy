@@ -1,7 +1,7 @@
 'use client'
 // Случаите на детето от „Дневник на случаите“ — всички години, в досието.
-// Вижда се само от тези, които базата пуска: екипът (съвет, координиращ екип, управа) — с връзка към дневника;
-// класният — случаите на децата от паралелката си, само за четене. За останалите картата не се показва.
+// Вижда се само от тези, които базата пуска: екипът (съвет, координиращ екип, управа) и класният на детето.
+// Всеки ред отваря случая в дневника (там се добавят бележки, мерки, разговори с родител).
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -12,20 +12,15 @@ import type { Case, Role } from '@/lib/incidents'
 
 type Row = { role: Role; c: Case }
 
-export default function StudentIncidents({ studentId }: { studentId: string }) {
+export default function StudentIncidents({ studentId, showEmpty = false }: { studentId: string; showEmpty?: boolean }) {
   const supabase = createClient()
   const [rows, setRows] = useState<Row[] | null>(null)
-  const [team, setTeam] = useState(false)   // екипът отваря случая в дневника; класният — само чете
 
   useEffect(() => {
     let alive = true
     ;(async () => {
-      const [{ data, error }, { data: isTeam }] = await Promise.all([
-        supabase.from('incident_participants').select('role, c:incident_cases(*)').eq('student_id', studentId),
-        supabase.rpc('incident_is_council'),
-      ])
+      const { data, error } = await supabase.from('incident_participants').select('role, c:incident_cases(*)').eq('student_id', studentId)
       if (!alive) return
-      setTeam(!!isTeam)
       if (error) { setRows([]); return }
       setRows(((data || []) as any[]).filter(r => r.c).map(r => ({ role: r.role, c: r.c }))
         .sort((a, b) => b.c.occurred_on.localeCompare(a.c.occurred_on)))
@@ -33,7 +28,10 @@ export default function StudentIncidents({ studentId }: { studentId: string }) {
     return () => { alive = false }
   }, [studentId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!rows || !rows.length) return null
+  if (!rows) return null
+  if (!rows.length) return showEmpty
+    ? <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-10 text-center text-sm text-slate-500">Няма записани случаи с това дете.</div>
+    : null
   const active = rows.filter(r => r.role !== 'witness')
   const open = rows.filter(r => r.c.status !== 'closed').length
   const roles = active.reduce<Record<string, number>>((m, r) => ({ ...m, [r.role]: (m[r.role] || 0) + 1 }), {})
@@ -51,24 +49,21 @@ export default function StudentIncidents({ studentId }: { studentId: string }) {
         <span className="text-[11px] text-slate-400">виждат екипът на съвета, управата и класният</span>
       </div>
       <div className="divide-y divide-slate-100">
-        {rows.slice(0, team ? 12 : rows.length).map(({ role, c }) => {
+        {rows.map(({ role, c }) => {
           const lvl = LEVELS[c.kind].find(l => l.n === c.level)
           const body = (
             <>
               <span className="w-20 text-[12.5px] text-slate-700 tabular-nums">{fmtDate(c.occurred_on)}</span>
               <span className="text-[11px] px-1.5 py-0.5 rounded font-medium" style={{ background: KINDS[c.kind].bg, color: KINDS[c.kind].color }}>{KINDS[c.kind].short}{lvl ? ` · ${lvl.label}` : ''}</span>
               <span className="text-[12px] text-slate-500">{ROLE_LABEL[role]}</span>
-              <span className={`flex-1 min-w-[160px] text-[13px] text-slate-700 ${team ? 'truncate' : 'whitespace-pre-wrap'}`}>{c.description}</span>
+              <span className="flex-1 min-w-[160px] text-[13px] text-slate-700 truncate">{c.description}</span>
               <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: STATUS[c.status].bg, color: STATUS[c.status].color }}>{STATUS[c.status].label}</span>
-              {team && <ChevronRight size={14} className="text-slate-300" />}
+              <ChevronRight size={14} className="text-slate-300" />
             </>
           )
-          return team
-            ? <Link key={c.id} href={`/incidents?open=${c.id}`} className="flex flex-wrap items-center gap-3 px-4 py-2.5 hover:bg-slate-50">{body}</Link>
-            : <div key={c.id} className="flex flex-wrap items-start gap-3 px-4 py-2.5">{body}</div>
+          return <Link key={c.id} href={`/incidents?open=${c.id}`} className="flex flex-wrap items-center gap-3 px-4 py-2.5 hover:bg-slate-50">{body}</Link>
         })}
       </div>
-      {team && rows.length > 12 && <Link href="/incidents" className="block px-4 py-2 text-[12px] text-slate-500 hover:text-slate-800 border-t border-slate-100">Всички случаи →</Link>}
     </section>
   )
 }

@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import OutreachBadge from '@/components/OutreachBadge'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Heart, CalendarClock, ClipboardList, Sparkles, FolderOpen, LayoutGrid, AlertTriangle, Phone, ChevronDown, ChevronRight, Bus, Utensils, Sprout, Mail, IdCard, MonitorSmartphone, MessagesSquare, Calculator, Target } from 'lucide-react'
+import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Heart, CalendarClock, ClipboardList, Sparkles, FolderOpen, LayoutGrid, AlertTriangle, Phone, ChevronDown, ChevronRight, Bus, Utensils, Sprout, Mail, IdCard, MonitorSmartphone, MessagesSquare, Calculator, Target, ShieldAlert, Plus } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
 import { DOCUMENT_TYPE_LABELS, DocumentType, STATUS_LABELS, DocumentStatus } from '@/types'
 import { AttachmentsSection } from './AttachmentsSection'
@@ -58,7 +58,7 @@ function getInitials(firstName: string, lastName: string): string {
 
 // Досие: Документи (Drive — по подразбиране, ползват го най-много) · Обзор · Паспорт · Данни (вкл. външните документи) · Екип · Развитие
 // (старите адреси ?tab=eplr/therapy/files водят към новите)
-const TABS = ['docs', 'overview', 'room', 'passport', 'pecs', 'remelka', 'aba', 'data', 'team', 'dev'] as const
+const TABS = ['docs', 'overview', 'room', 'passport', 'pecs', 'remelka', 'aba', 'cases', 'data', 'team', 'dev'] as const
 type Tab = typeof TABS[number]
 const LEGACY_TAB: Record<string, Tab> = { eplr: 'team', therapy: 'team', files: 'docs' }
 
@@ -262,6 +262,15 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
     || [(student as any).therapist_psychologist?.id, (student as any).therapist_speech?.id, (student as any).therapist_rehab?.id, (student as any).therapist_rehab2?.id].includes(meId)))
   // „Онлайн стая“ — винаги за педагогическите роли: оттук се започва ОРЕС и се виждат минали периоди
   const showRoom = showDev
+  // „Случаи“ (дневник на случаите) — за екипа на съвета/управата и класния на детето; другите — само ако базата им показва случаи
+  const [{ data: incTeam }, { count: incCount }] = showDev
+    ? await Promise.all([
+        supabase.rpc('incident_is_council'),
+        supabase.from('incident_participants').select('id', { count: 'exact', head: true }).eq('student_id', id),
+      ])
+    : [{ data: false }, { count: 0 }]
+  const canAddCase = showDev && (!!incTeam || isMyClass)
+  const showCases = canAddCase || (showDev && (incCount || 0) > 0)
   const TAB_DEFS: { key: Tab; label: string; icon: any }[] = [
     { key: 'docs', label: 'Документи', icon: FolderOpen },
     { key: 'overview', label: 'Обзор', icon: LayoutGrid },
@@ -270,6 +279,7 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
     ...(showDev ? [{ key: 'pecs' as Tab, label: 'PECS', icon: MessagesSquare }] : []),
     ...(showDev ? [{ key: 'remelka' as Tab, label: 'РЕМЕЛКА', icon: Calculator }] : []),
     ...(showDev ? [{ key: 'aba' as Tab, label: 'АБА', icon: Target }] : []),
+    ...(showCases ? [{ key: 'cases' as Tab, label: incCount ? `Случаи (${incCount})` : 'Случаи', icon: ShieldAlert }] : []),
     { key: 'data', label: 'Данни', icon: ClipboardList },
     { key: 'team', label: 'Екип', icon: Users },
     ...(showDev ? [{ key: 'dev' as Tab, label: 'Развитие', icon: Sprout }] : []),
@@ -477,8 +487,6 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
             </div>
             {/* отсъствия по период (семейни / медицинска бележка) — отразява класният */}
             {showDev && <StudentAbsencesCard studentId={id} />}
-            {/* случаи от „Дневник на случаите“ — само за съвета, ръководството и класния */}
-            {showDev && <StudentIncidents studentId={id} />}
           </div>
         )}
 
@@ -590,6 +598,21 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
         )}
 
         {/* ЕКИП — терапевтите и ЕПЛР екипът едно до друго */}
+        {/* СЛУЧАИ — от „Дневник на случаите“; оттук се вписва нов случай с вече избрано дете */}
+        {tab === 'cases' && showCases && (
+          <div className="animate-in fade-in duration-300 space-y-3">
+            {canAddCase && (
+              <div className="flex justify-end">
+                <Link href={`/incidents?new=${id}`}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm text-white hover:opacity-90" style={{ backgroundColor: '#b91c1c' }}>
+                  <Plus size={15} /> Констатирай случай
+                </Link>
+              </div>
+            )}
+            <StudentIncidents studentId={id} showEmpty />
+          </div>
+        )}
+
         {tab === 'team' && (
           <div className="animate-in fade-in duration-300 space-y-4">
             <div className={`${cardCls} !h-auto`}>
