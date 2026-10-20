@@ -1,8 +1,9 @@
 'use client'
-// Листчето „Днес отсъстват“ — като бележка, залепена с тиксо: ръкописен шрифт, редове от тетрадка.
+// Листчето „Днес заместват“ — като бележка, залепена с тиксо: ръкописен шрифт, редове от тетрадка.
+// Показва САМО заместванията: „Иван Г. замества Петър П.“ — без отсъстващите, които не се заместват или още нямат заместник.
 // • Изскача само когато има нещо НОВО за този колега: ново отсъствие или сменен/нов заместник.
 // • „Видях“ го прибира; видяното се помни в браузъра (за днес и за тези отсъствия).
-// • Остава малка бележка „Днес отсъстват · N“ — клик я отваря отново с всички.
+// • Остава малка бележка „Днес заместват · N“ — клик я отваря отново с всички.
 // • compact — за картата на управата: само карфица в заглавието (картата си показва списъка).
 import '@fontsource/caveat/500.css'
 import '@fontsource/caveat/700.css'
@@ -17,7 +18,8 @@ const dm = (iso: string) => iso.split('-').reverse().slice(0, 2).join('.')
 // ключ: отсъствието + кой го замества → нов заместник = ново за колегите
 const keyOf = (r: TodayAbsence) => `${r.id}|${r.by}`
 
-export default function AbsentNote({ rows, today, compact = false }: { rows: TodayAbsence[]; today: string; compact?: boolean }) {
+export default function AbsentNote({ rows: all, today, compact = false }: { rows: TodayAbsence[]; today: string; compact?: boolean }) {
+  const rows = all.filter(r => !!r.by)
   const [seen, setSeen] = useState<Set<string> | null>(null)
   const [open, setOpen] = useState(false)
 
@@ -37,6 +39,7 @@ export default function AbsentNote({ rows, today, compact = false }: { rows: Tod
   const isNew = (r: TodayAbsence) => !!seen && !seen.has(keyOf(r))
   const newCount = seen ? rows.filter(isNew).length : 0
   const startsToday = (r: TodayAbsence) => r.from === today
+  const subs = (r: TodayAbsence) => r.by.split(', ').map(short)
 
   return (
     <>
@@ -50,8 +53,8 @@ export default function AbsentNote({ rows, today, compact = false }: { rows: Tod
       ) : <button type="button" onClick={() => setOpen(true)}
         className="group inline-flex items-center gap-2 self-start pl-3 pr-4 py-2 rounded-xl border border-amber-200/80 bg-[#fffbea] shadow-[0_1px_3px_rgba(120,90,20,0.12)] hover:shadow-md hover:-translate-y-0.5 transition-all -rotate-[0.6deg]">
         <Pin size={14} className="text-rose-500 rotate-[25deg]" />
-        <span style={{ fontFamily: HAND }} className="text-[20px] leading-none text-slate-800">Днес отсъстват · {rows.length}</span>
-        <span className="text-[12px] text-slate-500 truncate max-w-[340px]">{rows.map(r => short(r.absent)).join(', ')}</span>
+        <span style={{ fontFamily: HAND }} className="text-[20px] leading-none text-slate-800">Днес заместват · {rows.length}</span>
+        <span className="text-[12px] text-slate-500 truncate max-w-[340px]">{rows.map(r => `${subs(r).join(', ')} → ${short(r.absent)}`).join(' · ')}</span>
         {newCount > 0 && <span className="text-[10.5px] px-1.5 py-0.5 rounded-full bg-rose-500 text-white">{newCount} ново</span>}
       </button>}
 
@@ -73,16 +76,14 @@ export default function AbsentNote({ rows, today, compact = false }: { rows: Tod
               }}>
               <button type="button" onClick={ack} className="absolute top-3 right-3 p-1 rounded-lg text-slate-400 hover:text-slate-700"><X size={16} /></button>
               <div className="pl-8">
-                <h2 style={{ fontFamily: HAND }} className="text-[34px] leading-[34px] text-[#0f2240] font-bold">Днес отсъстват</h2>
+                <h2 style={{ fontFamily: HAND }} className="text-[34px] leading-[34px] text-[#0f2240] font-bold">Днес заместват</h2>
                 <ul className="mt-[2px]">
                   {rows.map(r => (
                     <li key={r.id} className="min-h-[34px] leading-[34px] flex flex-wrap items-baseline gap-x-2">
+                      <span style={{ fontFamily: HAND }} className="text-[25px] text-emerald-800">{subs(r).join(', ')}</span>
+                      <span style={{ fontFamily: HAND }} className="text-[22px] text-slate-500">{subs(r).length > 1 ? 'заместват' : 'замества'}</span>
                       <span style={{ fontFamily: HAND }} className="text-[25px] text-slate-800">{r.absent}</span>
-                      {!r.substitutable && r.position && <span className="text-[12px] text-slate-500">{r.position.toLowerCase()}</span>}
-                      <span className="text-[12px] text-slate-500">{startsToday(r) ? 'от днес' : ''}{startsToday(r) ? ' · ' : ''}до {dm(r.to)}</span>
-                      {r.by
-                        ? <span style={{ fontFamily: HAND }} className="text-[23px] text-emerald-700">→ {r.by.split(', ').map(short).join(', ')}</span>
-                        : <span className="text-[12px] text-slate-400">{r.substitutable ? 'без заместник' : 'не се замества'}</span>}
+                      <span className="text-[12px] text-slate-500">{startsToday(r) ? 'от днес · ' : ''}до {dm(r.to)}</span>
                       {isNew(r) && <span style={{ fontFamily: HAND }} className="text-[19px] text-rose-600 -rotate-6">ново!</span>}
                     </li>
                   ))}
