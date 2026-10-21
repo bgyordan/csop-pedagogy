@@ -257,7 +257,7 @@ export default function CorrespondenceClient({
         ? <NewCorrespondenceForm reserved={editItem} totalCount={totalCount} currentUserId={currentUserId} students={students} staff={staff}
             nomenclature={nomenclature} direction={(editItem.direction || activeDir) as 'incoming' | 'outgoing'}
             onClose={() => setEditItem(null)} onSaved={() => { setEditItem(null); router.refresh() }} />
-        : <EditCorrespondenceModal item={editItem} onClose={() => setEditItem(null)} />)}
+        : <EditCorrespondenceModal item={editItem} staff={staff} onClose={() => setEditItem(null)} />)}
       {viewItem && <ViewCorrespondenceModal item={viewItem} students={students} staff={staff} onClose={() => setViewItem(null)} onPrev={goPrev} onNext={goNext} canEdit={canEdit} onEdit={() => setEditItem(viewItem)} />}
     </div>
   )
