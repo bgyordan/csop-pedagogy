@@ -25,9 +25,14 @@ interface NomItem { item_code: string; name: string; section_code: string }
 interface Props {
   item: any
   onClose: () => void
+  staff?: { first_name: string; last_name: string }[]   // колегите — подсказки за „От кого“ / „До кого“
 }
 
-export default function EditCorrespondenceModal({ item, onClose }: Props) {
+export default function EditCorrespondenceModal({ item, onClose, staff = [] }: Props) {
+  const personSuggestions = [
+    ...staff.map(x => `${x.first_name} ${x.last_name}`).sort((a, b) => a.localeCompare(b, 'bg')),
+    ...EXTERNAL_SUGGESTIONS,
+  ]
   const router = useRouter()
   const supabase = createClient()
 
@@ -124,7 +129,7 @@ export default function EditCorrespondenceModal({ item, onClose }: Props) {
                   <label className={LBL}>От кого</label>
                   <input type="text" list="from-list" value={fromWhom} onChange={e => setFromWhom(e.target.value)}
                     placeholder="институция или лице" className="input w-full" />
-                  <datalist id="from-list">{EXTERNAL_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
+                  <datalist id="from-list">{personSuggestions.map(s => <option key={s} value={s} />)}</datalist>
                 </div>
               )}
 
@@ -133,7 +138,7 @@ export default function EditCorrespondenceModal({ item, onClose }: Props) {
                   <label className={LBL}>До кого</label>
                   <input type="text" list="to-list" value={toWhom} onChange={e => setToWhom(e.target.value)}
                     placeholder="институция или лице" className="input w-full" />
-                  <datalist id="to-list">{EXTERNAL_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
+                  <datalist id="to-list">{personSuggestions.map(s => <option key={s} value={s} />)}</datalist>
                 </div>
               )}
 

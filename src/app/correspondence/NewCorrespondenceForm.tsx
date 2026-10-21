@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { smartMatch } from '@/lib/search'
 import { canSubstitute, canBeSubstituted } from '@/lib/pedagogues'
 import { useRouter } from 'next/navigation'
@@ -137,6 +137,11 @@ export default function NewCorrespondenceForm({
   const [scenario, setScenario] = useState<string | null>(null)
   const [folderIndex, setFolderIndex] = useState('')
   const [docDate, setDocDate] = useState(reserved?.date || new Date().toISOString().split('T')[0])
+  // подсказки за „От кого“ / „До кого“: колегите (по име) + институциите
+  const personSuggestions = useMemo<string[]>(() => [
+    ...staff.map(x => `${x.first_name} ${x.last_name}`).sort((a, b) => a.localeCompare(b, 'bg')),
+    ...EXTERNAL_SUGGESTIONS,
+  ], [staff])
   const [fromWhom, setFromWhom] = useState('')
   const [toWhom, setToWhom] = useState('')
   const [subject, setSubject] = useState('')
@@ -687,14 +692,14 @@ export default function NewCorrespondenceForm({
                     <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">От кого *</label>
                     <input autoFocus type="text" list="from-list" value={fromWhom} onChange={e => setFromWhom(e.target.value)}
                       required placeholder="институция или лице" className="input w-full" />
-                    <datalist id="from-list">{EXTERNAL_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
+                    <datalist id="from-list">{personSuggestions.map(s => <option key={s} value={s} />)}</datalist>
                   </div>
                 ) : (
                   <div>
                     <label className="block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5">До кого *</label>
                     <input autoFocus type="text" list="to-list" value={toWhom} onChange={e => setToWhom(e.target.value)}
                       required placeholder="институция или лице" className="input w-full" />
-                    <datalist id="to-list">{EXTERNAL_SUGGESTIONS.map(s => <option key={s} value={s} />)}</datalist>
+                    <datalist id="to-list">{personSuggestions.map(s => <option key={s} value={s} />)}</datalist>
                   </div>
                 )}
                 <div>
