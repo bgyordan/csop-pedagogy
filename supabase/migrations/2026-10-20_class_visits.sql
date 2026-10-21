@@ -24,7 +24,7 @@ create table if not exists public.visit_bookings (
   campaign_id uuid not null references public.visit_campaigns(id) on delete cascade,
   staff_id uuid not null references public.staff_profiles(id) on delete cascade,
   date date not null,
-  period int not null check (period between 0 and 13),
+  period int not null check (period between 0 and 26),   -- 1–7 сутрин, 8–13 ИФО, 21–26 ЦОУД
   class_name text,
   subject text,
   topic text,
