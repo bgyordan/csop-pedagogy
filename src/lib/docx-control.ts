@@ -37,13 +37,30 @@ const heading = (text: string) => P([t(text, { bold: true })], { spacing: { befo
 const multiline = (s: string | null | undefined) => (s || '').split('\n').filter(x => x.trim()).map(x => P([t(x)]))
 // „извършен/а/о“ според първата дума на предмета: проверка → а, наблюдение → о, контрол → —
 const genderEnd = (s: string) => { const w = s.trim().split(/\s+/)[0]?.toLowerCase() || ''; return /а$|я$/.test(w) ? 'а' : /[еоию]$/.test(w) ? 'о' : '' }
+/** Сваля файла или връща blob (за „Към ПС“). */
+async function out(doc: Document, file: string, asBlob?: boolean) {
+  const blob = await Packer.toBlob(doc)
+  if (!asBlob) saveAs(blob, file)
+  return { blob, file }
+}
+const footer = (size = 16) => ({ default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ font: F, size, children: ['стр. ', PageNumber.CURRENT, ' от ', PageNumber.TOTAL_PAGES] })] })] }) })
+const PORTRAIT = { page: { margin: { top: 1000, bottom: 1000, left: 1134, right: 1134 } } }
 const dots = '..................................................................................................................'
 
-export async function generateControlProtocol(d: {
+export type ProtocolDoc = {
   check: ControlCheck; staff: CheckStaff[]; recs: Recommendation[]
   inspectorName: string; responsibleNames?: Record<string, string>
   origin?: { book_no: number | null; signed_at?: string | null } | null
-}) {
+}
+
+export async function generateControlProtocol(d: ProtocolDoc) {
+  const c = d.check
+  const doc = new Document({ sections: [{ properties: PORTRAIT, footers: footer(), children: protocolChildren(d) }] })
+  const file = c.book_no ? `Протокол_${c.book_no}_${c.check_date}.docx` : `Протокол_чернова_${c.check_date}.docx`
+  return out(doc, file)
+}
+
+function protocolChildren(d: ProtocolDoc) {
   const c = d.check
   const draft = c.status === 'draft'
   const children: (Paragraph | Table)[] = []
@@ -119,19 +136,15 @@ export async function generateControlProtocol(d: {
   children.push(P([t(`${c.inspector_title || ''}: ........................................   / ${d.inspectorName} /`)]))
   children.push(P([t('Запознат/и с констативния протокол:', { bold: true })], { spacing: { before: 280 } }))
   d.staff.forEach(s => children.push(P([t(`${name(s.staff)}: ........................................   дата: ................`)], { spacing: { before: 160 } })))
-
-  const doc = new Document({ sections: [{
-    properties: { page: { margin: { top: 1000, bottom: 1000, left: 1134, right: 1134 } } },
-    footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ font: F, size: 16, children: ['стр. ', PageNumber.CURRENT, ' от ', PageNumber.TOTAL_PAGES] })] })] }) },
-    children,
-  }] })
-  const file = c.book_no ? `Протокол_${c.book_no}_${c.check_date}.docx` : `Протокол_чернова_${c.check_date}.docx`
-  saveAs(await Packer.toBlob(doc), file)
+  return children
 }
 
 export async function generateControlBook(d: {
   yearName: string
   rows: { no: number; signed: string; date: string; inspector: string; kind: string; subject: string; checked: string; summary: string; acked: string; voided: string | null }[]
+  /** При приключване на годината — всички протоколи като приложения след книгата */
+  protocols?: ProtocolDoc[]
+  closedAt?: string | null
 }) {
   const COLS = [600, 1200, 1400, 2000, 1700, 2800, 2200, 2400, 1100]   // A4 хоризонтално, сума 15400
   const head = ['№', 'Дата на КП', 'Дата на проверката', 'Проверяващ', 'Вид / форма', 'Предмет на проверката', 'Проверени', 'Кратки констатации / препоръки', 'Запознат']
@@ -143,24 +156,29 @@ export async function generateControlBook(d: {
       cell(COLS[6], r.checked), cell(COLS[7], r.summary), cell(COLS[8], r.acked, { center: true }),
     ] })),
   ]
+  const appendix = (d.protocols || []).map((pr, i) => ({
+    properties: PORTRAIT, footers: footer(),
+    children: [P([t(`Приложение № ${i + 1} към Книгата за контролната дейност`, { italics: true, size: 18 })], { alignment: AlignmentType.RIGHT }), ...protocolChildren(pr)],
+  }))
   const doc = new Document({ sections: [{
     properties: { page: { size: { orientation: PageOrientation.LANDSCAPE }, margin: { top: 720, bottom: 720, left: 720, right: 720 } } },
-    footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ font: F, size: 18, children: ['стр. ', PageNumber.CURRENT, ' от ', PageNumber.TOTAL_PAGES] })] })] }) },
+    footers: footer(18),
     children: [
       P([t(CENTER_NAME, { bold: true })], { alignment: AlignmentType.CENTER }),
       P([t('КНИГА ЗА КОНТРОЛНАТА ДЕЙНОСТ НА ДИРЕКТОРА (ЗАМЕСТНИК-ДИРЕКТОРА)', { bold: true, size: 26 })], { alignment: AlignmentType.CENTER, spacing: { before: 160 } }),
       P([t(`Учебна ${d.yearName.replace('-', '/')} година`)], { alignment: AlignmentType.CENTER, spacing: { after: 240 } }),
       table(COLS, rows),
-      P([t(`Книгата съдържа ${d.rows.length} записа. Констативните протоколи се съхраняват в класьора към книгата.`, { size: 20 })], { spacing: { before: 240 } }),
+      P([t(`Книгата съдържа ${d.rows.length} записа. ${d.protocols?.length ? `Констативните протоколи са приложени след книгата (${d.protocols.length} бр.).` : 'Констативните протоколи се съхраняват в класьора към книгата.'}`, { size: 20 })], { spacing: { before: 240 } }),
+      ...(d.closedAt ? [P([t(`Книгата е приключена на ${dmy(d.closedAt)} г.`, { size: 20 })])] : []),
       P([t('Директор: ........................................', {})], { spacing: { before: 360 } }),
     ],
-  }] })
-  saveAs(await Packer.toBlob(doc), `Книга_контролна_дейност_${d.yearName}.docx`)
+  }, ...appendix] })
+  return out(doc, d.protocols?.length ? `Книга_с_протоколите_${d.yearName}.docx` : `Книга_контролна_дейност_${d.yearName}.docx`)
 }
 
 // ── Годишен план ──────────────────────────────────────────────────────────────
 export async function generateControlPlan(d: {
-  plan: ControlPlan; items: PlanItem[]; yearName: string; ownerName: string; templates?: { id: string; name: string }[]
+  plan: ControlPlan; items: PlanItem[]; yearName: string; ownerName: string; templates?: { id: string; name: string }[]; asBlob?: boolean
 }) {
   const pl = d.plan
   const y = d.yearName.replace('-', '/')
@@ -199,16 +217,15 @@ export async function generateControlPlan(d: {
   children.push(P([t(`Изготвил: ${pl.owner_title || ''} ........................  / ${d.ownerName} /`)], { spacing: { before: 400 } }))
 
   const doc = new Document({ sections: [{
-    properties: { page: { margin: { top: 1000, bottom: 1000, left: 1134, right: 1134 } } },
-    footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ font: F, size: 16, children: ['стр. ', PageNumber.CURRENT, ' от ', PageNumber.TOTAL_PAGES] })] })] }) },
+    properties: PORTRAIT, footers: footer(),
     children,
   }] })
-  saveAs(await Packer.toBlob(doc), `План_контролна_дейност_${d.yearName}_${d.ownerName.replace(/\s+/g, '_')}.docx`)
+  return out(doc, `План_контролна_дейност_${d.yearName}_${d.ownerName.replace(/\s+/g, '_')}.docx`, d.asBlob)
 }
 
 // ── Анализ / доклад за ПС ──────────────────────────────────────────────────────
 export async function generateControlAnalysis(d: {
-  yearName: string; period: Period; who: string; analysis: Analysis; text: string; author: string; authorTitle?: string
+  yearName: string; period: Period; who: string; analysis: Analysis; text: string; author: string; authorTitle?: string; asBlob?: boolean
 }) {
   const a = d.analysis
   const y = d.yearName.replace('-', '/')
@@ -257,9 +274,71 @@ export async function generateControlAnalysis(d: {
 
   children.push(P([t(`Изготвил: ${d.authorTitle || ''} ........................  / ${d.author} /`)], { spacing: { before: 400 } }))
   const doc = new Document({ sections: [{
-    properties: { page: { margin: { top: 1000, bottom: 1000, left: 1134, right: 1134 } } },
-    footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ font: F, size: 16, children: ['стр. ', PageNumber.CURRENT, ' от ', PageNumber.TOTAL_PAGES] })] })] }) },
+    properties: PORTRAIT, footers: footer(),
     children,
   }] })
-  saveAs(await Packer.toBlob(doc), `Анализ_контролна_дейност_${d.yearName}_${d.period}.docx`)
+  return out(doc, `Анализ_контролна_дейност_${d.yearName}_${d.period}.docx`, d.asBlob)
+}
+
+// ── Заповеди (без номер — номерът се взема от „Заповеди“ при завеждането) ─────
+function orderHead(title: string) {
+  return [
+    P([t(CENTER_NAME, { bold: true })], { alignment: AlignmentType.CENTER }),
+    P([t('З А П О В Е Д', { bold: true, size: 28 })], { alignment: AlignmentType.CENTER, spacing: { before: 360, after: 40 } }),
+    P([t('№ РД-......... / ............... г.')], { alignment: AlignmentType.CENTER, spacing: { after: 240 } }),
+    ...(title ? [P([t(title, { italics: true })], { alignment: AlignmentType.CENTER, spacing: { after: 200 } })] : []),
+  ]
+}
+function orderTail(o: { control: string; acquaint: string; director?: string }) {
+  return [
+    P([t(o.control)], { alignment: AlignmentType.JUSTIFIED, spacing: { before: 160 } }),
+    P([t(o.acquaint)], { alignment: AlignmentType.JUSTIFIED }),
+    P([t('ДИРЕКТОР: ........................................', { bold: true })], { spacing: { before: 480 } }),
+    ...(o.director ? [P([t(`/ ${o.director} /`)], { indent: { left: 2400 } })] : []),
+  ]
+}
+
+export async function generatePlanOrder(d: { yearName: string; ownerTitle: string; ownerName: string; director?: string }) {
+  const y = d.yearName.replace('-', '/')
+  const children = [
+    ...orderHead('за утвърждаване на план за контролната дейност'),
+    P([t(`На основание чл. 259, ал. 1 от Закона за предучилищното и училищното образование, чл. 31, ал. 1, т. 3 от Наредба № 15 от 22.07.2019 г. за статута и професионалното развитие на учителите, директорите и другите педагогически специалисти и във връзка с организацията на контролната дейност през учебната ${y} година`)], { alignment: AlignmentType.JUSTIFIED }),
+    P([t('У Т В Ъ Р Ж Д А В А М:', { bold: true })], { alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 } }),
+    P([t(`План за контролната дейност на ${d.ownerTitle.toLowerCase()} ${d.ownerName} за учебната ${y} година, неразделна част от настоящата заповед.`)], { alignment: AlignmentType.JUSTIFIED }),
+    ...orderTail({
+      control: 'Контролът по изпълнението на заповедта оставям за себе си.',
+      acquaint: `Заповедта да се доведе до знанието на ${d.ownerName} и на педагогическите специалисти за сведение и изпълнение.`,
+      director: d.director,
+    }),
+  ]
+  const doc = new Document({ sections: [{ properties: PORTRAIT, children }] })
+  return out(doc, `Заповед_утвърждаване_план_КД_${d.yearName}.docx`)
+}
+
+export async function generateRemedyOrder(d: {
+  check: ControlCheck; recs: Recommendation[]; responsibleNames: Record<string, string>; inspectorName: string; director?: string
+}) {
+  const c = d.check
+  const recs = d.recs.filter(r => r.text.trim() && r.status !== 'done')
+  const COLS = [600, 5000, 1500, 2538]
+  const children: (Paragraph | Table)[] = [
+    ...orderHead('за отстраняване на констатирани пропуски'),
+    P([t(`На основание чл. 259, ал. 1 от Закона за предучилищното и училищното образование и във връзка с констатациите в констативен протокол № ${c.book_no} / ${dmy(c.signed_at)} г. от проверка на ${dmy(c.check_date)} г. (${c.subject})`)], { alignment: AlignmentType.JUSTIFIED }),
+    P([t('Н А Р Е Ж Д А М:', { bold: true })], { alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 } }),
+    P([t('Да се отстранят констатираните пропуски, както следва:')]),
+    table(COLS, [
+      new TableRow({ tableHeader: true, children: [cell(COLS[0], '№', { head: true, center: true }), cell(COLS[1], 'Мярка', { head: true }), cell(COLS[2], 'Срок', { head: true, center: true }), cell(COLS[3], 'Отговорник', { head: true })] }),
+      ...recs.map((r, i) => new TableRow({ cantSplit: true, children: [
+        cell(COLS[0], String(i + 1), { center: true }), cell(COLS[1], r.text), cell(COLS[2], dmy(r.due_date), { center: true }),
+        cell(COLS[3], (r.responsible_id && d.responsibleNames[r.responsible_id]) || ''),
+      ] })),
+    ]),
+    ...orderTail({
+      control: `Контролът по изпълнението на заповедта възлагам на ${c.inspector_title ? c.inspector_title.toLowerCase() + ' ' : ''}${d.inspectorName}. След изтичане на сроковете да се извърши последващ контрол.`,
+      acquaint: 'Заповедта да се доведе до знанието на отговорните лица срещу подпис.',
+      director: d.director,
+    }),
+  ]
+  const doc = new Document({ sections: [{ properties: PORTRAIT, children }] })
+  return out(doc, `Заповед_отстраняване_пропуски_КП_${c.book_no}.docx`)
 }

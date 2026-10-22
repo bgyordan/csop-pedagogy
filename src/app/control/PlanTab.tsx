@@ -13,7 +13,8 @@ import {
   SCHOOL_MONTHS, MONTH_LABEL, MONTH_SHORT, monthEnd, planRole, defaultPlanTexts, suggestedItems,
   analyzeControl, analysisText, type ControlPlan, type PlanItem,
 } from '@/lib/control-plan'
-import { generateControlPlan } from '@/lib/docx-control'
+import { generateControlPlan, generatePlanOrder } from '@/lib/docx-control'
+import CouncilSend from './CouncilSend'
 import type { ControlProps } from './ControlClient'
 
 const ACCENT = '#0f2240'
@@ -240,6 +241,14 @@ function PlanView(p: ControlProps & { plan: ControlPlan; items: PlanItem[]; owne
           <button type="button" onClick={word} disabled={!!busy} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border border-slate-200 hover:bg-slate-50">
             {busy === 'word' ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} Word
           </button>
+          <CouncilSend meId={p.me.id} desc="План за контролната дейност" make={() => generateControlPlan({ plan: { ...plan, ...texts }, items: p.items, yearName, ownerName: pname(p.owner), asBlob: true })} />
+          {p.isDirector && (
+            <button type="button" onClick={async () => {
+              const dir = p.people.find(x => x.role === 'director')
+              try { await generatePlanOrder({ yearName, ownerTitle: plan.owner_title || 'проверяващия', ownerName: pname(p.owner), director: dir ? pname(dir) : undefined }) }
+              catch (e: any) { toast(e.message || 'Грешка', 'error') }
+            }} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border border-slate-200 hover:bg-slate-50"><FileText size={14} /> Заповед за утвърждаване</button>
+          )}
           {canEdit && dirty && (
             <button type="button" onClick={saveTexts} disabled={!!busy} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-white" style={{ backgroundColor: ACCENT }}>
               {busy === 'save' ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Запази

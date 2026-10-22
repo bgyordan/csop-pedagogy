@@ -57,6 +57,11 @@ export default async function ControlPage({ searchParams }: { searchParams: Prom
     }
   }
 
+  const { data: closure } = isInspector && year
+    ? await supabase.from('control_book_closures').select('*').eq('academic_year_id', year.id).maybeSingle()
+    : { data: null }
+  const { data: selfRequests } = await supabase.rpc('control_self_requests')
+
   // протокол от посещение на час: ?visit=<booking id>
   let visit: any = null
   if (isInspector && sp.visit) {
@@ -87,6 +92,8 @@ export default async function ControlPage({ searchParams }: { searchParams: Prom
       planReady={planReady}
       itemParam={sp.item || null}
       ownerParam={sp.owner || null}
+      closure={(closure as any) || null}
+      selfRequests={(selfRequests as any) || []}
     />
   )
 }

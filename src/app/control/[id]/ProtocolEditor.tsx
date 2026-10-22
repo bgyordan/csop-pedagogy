@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, FileText, Loader2, Save, PenLine, Trash2, Plus, X, Upload, Ban, Check, Clock, MessageSquareWarning, Paperclip,
-  Repeat, Database, RefreshCw, Undo2,
+  Repeat, Database, RefreshCw, Undo2, ClipboardPen, Gavel,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
@@ -22,7 +22,7 @@ import {
   REC_STATUS_LABEL, REC_STATUS_TONE, recOverdue, followUpCriteria, inspectorTitle, defaultBasis,
   type ControlCheck, type CheckStaff, type Recommendation, type Finding,
 } from '@/lib/control'
-import { generateControlProtocol } from '@/lib/docx-control'
+import { generateControlProtocol, generateRemedyOrder } from '@/lib/docx-control'
 import { buildEvidence } from '@/lib/control-evidence'
 
 type Person = { id: string; first_name: string; last_name: string; role: string; position: string | null }
@@ -172,6 +172,21 @@ export default function ProtocolEditor(p: {
     router.push(`/control/${data.id}`)
   }
 
+  async function requestSelf(staffId: string, on: boolean) {
+    const { error } = await supabase.from('control_check_staff').update({ self_requested_at: on ? new Date().toISOString() : null }).eq('check_id', c.id).eq('staff_id', staffId)
+    if (error) { toast(error.message, 'error'); return }
+    toast(on ? 'Самооценката е поискана — служителят я вижда в „Контролна дейност“' : 'Отказано'); router.refresh()
+  }
+
+  async function remedyOrder() {
+    try {
+      const names: Record<string, string> = Object.fromEntries(p.recs.filter(r => r.responsible_id && r.responsible).map(r => [r.responsible_id!, pname(r.responsible)]))
+      p.people.forEach(x => { names[x.id] = pname(x) })
+      const dir = p.people.find(x => x.role === 'director')
+      await generateRemedyOrder({ check: c, recs: p.recs, responsibleNames: names, inspectorName: pname(c.inspector), director: dir ? pname(dir) : undefined })
+    } catch (e: any) { toast(e.message || 'Грешка', 'error') }
+  }
+
   async function remove() {
     setBusy('delete')
     const { error } = await supabase.from('control_checks').delete().eq('id', c.id)
@@ -180,6 +195,7 @@ export default function ProtocolEditor(p: {
     router.push('/control')
   }
 
+  const selfs = p.staff.filter(s => s.self_assessment && (edit || c.inspector_id === p.me.id || p.canManage))
   const found = p.people.filter(x => !staffIds.includes(x.id) && x.id !== c.inspector_id && q.trim() && `${x.first_name} ${x.last_name}`.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 8)
 
   return (
@@ -231,6 +247,9 @@ export default function ProtocolEditor(p: {
               {busy === 'follow' ? <Loader2 size={14} className="animate-spin" /> : <Repeat size={14} />} Последващ контрол
             </button>
           )}
+          {c.status === 'signed' && p.canManage && p.recs.some(r => r.status !== 'done') && (
+            <button type="button" onClick={remedyOrder} title="Заповед за отстраняване на пропуските — без номер, завежда се в „Заповеди“" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border border-slate-200 hover:bg-slate-50"><Gavel size={14} /> Заповед</button>
+          )}
           {p.scanUrl && <a href={p.scanUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-indigo-700 hover:bg-indigo-50"><Paperclip size={14} /> Подписаният протокол</a>}
         </div>
         {draft && c.inspector_id !== p.me.id && p.canEdit && <p className="text-[12.5px] text-slate-500 mt-2">Подписва само проверяващият ({pname(c.inspector)}).</p>}
@@ -273,6 +292,15 @@ export default function ProtocolEditor(p: {
                     </span>
                   ))}
                 </div>
+                {p.staff.filter(s => staffIds.includes(s.staff_id)).map(s => (
+                  <div key={s.staff_id} className="flex flex-wrap items-center gap-2 text-[12.5px] text-slate-600 mb-1.5">
+                    <ClipboardPen size={13} className="text-indigo-500" />
+                    <span>Самооценка — {pname(s.staff)}:</span>
+                    {s.self_assessed_at ? <span className="text-emerald-700">попълнена {dmy(s.self_assessed_at)}</span>
+                      : s.self_requested_at ? <><span className="text-amber-700">поискана, очаква се</span><button type="button" onClick={() => requestSelf(s.staff_id, false)} className="text-slate-400 hover:text-rose-600">отказ</button></>
+                      : <button type="button" onClick={() => requestSelf(s.staff_id, true)} className="text-indigo-700 hover:underline">поискай</button>}
+                  </div>
+                ))}
                 <input value={q} onChange={e => setQ(e.target.value)} placeholder="Добави служител…" className="input w-full" />
                 {found.length > 0 && (
                   <div className="mt-1 rounded-xl border border-slate-200 divide-y divide-slate-100">
@@ -346,6 +374,13 @@ export default function ProtocolEditor(p: {
                           </div>
                         ) : <span className="text-[12.5px] text-slate-600">{scoreLabel(f.s)}</span>}
                       </div>
+                      {selfs.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {selfs.map(x => { const v = x.self_assessment?.[it.k]?.s; return v === undefined ? null : (
+                            <span key={x.staff_id} className="text-[11.5px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-800">самооценка{selfs.length > 1 ? ` ${pname(x.staff).split(' ')[0]}` : ''}: {scoreLabel(v).toLowerCase()}</span>
+                          ) })}
+                        </div>
+                      )}
                       {edit ? <input className="input w-full mt-1.5 text-[13px]" value={f.n || ''} onChange={e => setFinding(it.k, { n: e.target.value })} placeholder="Бележка (по желание) — конкретен факт от наблюдението" />
                         : f.n ? <p className="text-[13px] text-slate-600 mt-1">{f.n}</p> : null}
                     </div>
@@ -353,6 +388,9 @@ export default function ProtocolEditor(p: {
                 })}
               </div>
             </div>
+          ))}
+          {selfs.filter(x => x.self_assessment?._note).map(x => (
+            <p key={x.staff_id} className="text-[13px] text-indigo-900 bg-indigo-50/60 rounded-xl px-3 py-2 mb-2"><b>Самооценка — коментар ({pname(x.staff)}):</b> {x.self_assessment!._note}</p>
           ))}
           {edit && (c.criteria || []).length > 0 && <p className="text-[12px] text-slate-400 mb-2">3 — изпълнено · 2 — частично · 1 — не е изпълнено · н/п — неприложимо</p>}
           <Field label={(c.criteria || []).length ? 'Други констатации' : 'Констатации'}>{edit ? <textarea className="input w-full" rows={4} value={c.findings_text || ''} onChange={e => set({ findings_text: e.target.value })} /> : <Pre s={c.findings_text} />}</Field>

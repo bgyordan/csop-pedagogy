@@ -15,10 +15,12 @@ import {
   REC_STATUS_LABEL, REC_STATUS_TONE, recOverdue,
   type ControlCheck, type ControlTemplate, type CheckStaff, type CriteriaGroup, type Recommendation,
 } from '@/lib/control'
-import { generateControlBook } from '@/lib/docx-control'
+import { generateControlBook, type ProtocolDoc } from '@/lib/docx-control'
 import { MONTH_LABEL, monthOrder, type ControlPlan, type PlanItem } from '@/lib/control-plan'
 import PlanTab from './PlanTab'
 import AnalysisTab from './AnalysisTab'
+import { Confirm } from '@/components/ui/Confirm'
+import SelfAssessments, { type SelfRequest } from './SelfAssessments'
 
 type Person = { id: string; first_name: string; last_name: string; role: string; position: string | null }
 type Row = ControlCheck & { staff: CheckStaff[] }
@@ -38,6 +40,8 @@ export default function ControlClient(p: {
   years: Year[]; year: Year | null; checks: Row[]; recs: RecRow[]; templates: ControlTemplate[]; people: Person[]
   inspectorIds: string[]; visit: any
   plans: ControlPlan[]; planItems: PlanItem[]; planReady: boolean; itemParam: string | null; ownerParam: string | null
+  closure: { academic_year_id: string; closed_at: string; records: number } | null
+  selfRequests: SelfRequest[]
 }) {
   const router = useRouter()
   const [creating, setCreating] = useState<boolean>(!!p.visit || !!p.itemParam)
@@ -86,6 +90,7 @@ export default function ControlClient(p: {
         </nav>
       )}
 
+      <SelfAssessments requests={p.selfRequests} />
       {!p.isInspector && <MyRecs recs={p.recs} />}
       {!p.isInspector && <MyProtocols me={p.me} checks={p.checks} />}
       {p.isInspector && p.tab === 'recs' && <Recs {...p} />}
@@ -95,6 +100,7 @@ export default function ControlClient(p: {
       {p.isInspector && p.tab === 'plan' && <PlanTab {...p} onStartCheck={id => { setStartItem(id); setCreating(true) }} />}
       {p.isInspector && p.tab === 'analysis' && <AnalysisTab {...p} />}
       {p.isInspector && p.tab === 'settings' && <SettingsTab {...p} />}
+      {p.isDirector && p.tab === 'settings' && <Retention {...p} />}
 
       {creating && p.year && <NewCheck {...p} itemParam={startItem} onClose={() => { setCreating(false); setStartItem(null); if (p.visit || p.itemParam) router.replace(`/control?tab=${p.tab}`) }} />}
     </div>
@@ -311,14 +317,30 @@ function MyRecs({ recs }: { recs: RecRow[] }) {
 // ── Книга ──────────────────────────────────────────────────────────────────
 function Book(p: Parameters<typeof ControlClient>[0]) {
   const { toast } = useToast()
-  const [busy, setBusy] = useState(false)
+  const router = useRouter()
+  const [busy, setBusy] = useState<string | false>(false)
+  const [confirmClose, setConfirmClose] = useState(false)
   const rows = p.checks.filter(c => c.book_no && (p.isDirector || c.inspector_id === p.me.id)).sort((a, b) => (a.book_no || 0) - (b.book_no || 0))
   const summary = (c: Row) => (c.conclusions || c.findings_text || '').replace(/\s+/g, ' ').slice(0, 220)
-  async function word() {
+  async function word(withProtocols = false) {
     if (!p.year) return
-    setBusy(true)
+    setBusy(withProtocols ? 'full' : 'book')
     try {
+      let protocols: ProtocolDoc[] | undefined
+      if (withProtocols) {
+        const supabase = createClient()
+        const { data: recs, error } = await supabase.from('control_recommendations').select('*, responsible:staff_profiles(first_name, last_name)').in('check_id', rows.map(c => c.id)).order('sort')
+        if (error) throw new Error(error.message)
+        const names: Record<string, string> = Object.fromEntries(p.people.map(x => [x.id, pname(x)]))
+        ;(recs || []).forEach((r: any) => { if (r.responsible_id && r.responsible) names[r.responsible_id] = pname(r.responsible) })
+        const byId = new Map(p.checks.map(c => [c.id, c]))
+        protocols = rows.map(c => ({
+          check: c, staff: c.staff, recs: (recs || []).filter((r: any) => r.check_id === c.id), inspectorName: pname(c.inspector), responsibleNames: names,
+          origin: c.follow_up_of && byId.get(c.follow_up_of) ? { book_no: byId.get(c.follow_up_of)!.book_no, signed_at: byId.get(c.follow_up_of)!.signed_at } : null,
+        }))
+      }
       await generateControlBook({
+        protocols, closedAt: p.closure?.closed_at || null,
         yearName: p.year.name,
         rows: rows.map(c => ({
           no: c.book_no || 0, signed: dmy(c.signed_at), date: dmy(c.check_date),
@@ -332,15 +354,37 @@ function Book(p: Parameters<typeof ControlClient>[0]) {
     } catch (e: any) { toast(e.message || 'Грешка при Word', 'error') }
     setBusy(false)
   }
+  async function closeBook(on: boolean) {
+    if (!p.year) return
+    setBusy('close')
+    const { error } = await createClient().rpc('control_close_book', { p_year: p.year.id, p_on: on })
+    setBusy(false); setConfirmClose(false)
+    if (error) { toast(error.message, 'error'); return }
+    toast(on ? 'Книгата за годината е приключена' : 'Книгата е отворена отново'); router.refresh()
+  }
   return (
     <div className="space-y-4">
+      {p.closure && (
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900">
+          <span className="flex-1">Книгата е приключена на {dmy(p.closure.closed_at)} ({p.closure.records} записа). В тази година не се подписват нови протоколи. Свалете „Книга + протоколи“, запазете като PDF и го подпишете в НЕИСПУО („Документи за дейността“).</span>
+          {p.isDirector && <button type="button" onClick={() => closeBook(false)} disabled={!!busy} className="text-[13px] text-emerald-800 underline">Отвори отново</button>}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <p className="text-sm text-slate-600 flex-1 min-w-[260px]">
           {p.isDirector ? 'Обща книга за центъра' : 'Вашите записи в книгата'} за {p.year?.name.replace('-', '/')} · {rows.length} записа. Номерът се дава при подписване и започва от № 1 всяка учебна година.
         </p>
-        <button type="button" onClick={word} disabled={busy || !rows.length} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm text-white disabled:opacity-50" style={{ backgroundColor: ACCENT }}>
-          {busy ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} Word за Книгата
+        <button type="button" onClick={() => word(false)} disabled={!!busy || !rows.length} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm text-white disabled:opacity-50" style={{ backgroundColor: ACCENT }}>
+          {busy === 'book' ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} Word за Книгата
         </button>
+        <button type="button" onClick={() => word(true)} disabled={!!busy || !rows.length} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50">
+          {busy === 'full' ? <Loader2 size={14} className="animate-spin" /> : <BookOpen size={14} />} Книга + протоколи
+        </button>
+        {p.isDirector && !p.closure && (
+          <button type="button" onClick={() => setConfirmClose(true)} disabled={!!busy} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm border border-emerald-200 text-emerald-800 bg-emerald-50/60 hover:bg-emerald-50">
+            <CheckCircle2 size={14} /> Приключи годината
+          </button>
+        )}
       </div>
       <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
         <table className="w-full text-[13px]">
@@ -364,6 +408,10 @@ function Book(p: Parameters<typeof ControlClient>[0]) {
           </tbody>
         </table>
       </div>
+      <Confirm open={confirmClose} onClose={() => setConfirmClose(false)} onConfirm={() => closeBook(true)} loading={busy === 'close'}
+        title={`Приключване на Книгата за ${p.year?.name.replace('-', '/')}`}
+        message="След приключване в тази учебна година не могат да се подписват нови протоколи (неподписаните чернови трябва първо да се подпишат или изтрият). Директорът може да отвори Книгата отново. После свалете „Книга + протоколи“, запазете като PDF и го подпишете в НЕИСПУО."
+        confirmLabel="Приключи" />
     </div>
   )
 }
@@ -595,6 +643,44 @@ function SettingsTab(p: Parameters<typeof ControlClient>[0]) {
         </div>
       )}
     </div>
+  )
+}
+
+// ── Съхранение 5 години: триене на протоколите от изтеклите години (само директорът) ──
+function Retention(p: Parameters<typeof ControlClient>[0]) {
+  const router = useRouter()
+  const { toast } = useToast()
+  const [target, setTarget] = useState<Year | null>(null)
+  const [busy, setBusy] = useState(false)
+  const now = todayIso()
+  // учебната година „2019-2020“ приключва на 14.09.2020; пази се 5 години
+  const expired = p.years.filter(y => { const s = parseInt(y.name, 10); return s && `${s + 6}-09-14` <= now })
+  async function purge() {
+    if (!target) return
+    setBusy(true)
+    const supabase = createClient()
+    const { data: scans } = await supabase.from('control_checks').select('scan_path').eq('academic_year_id', target.id).not('scan_path', 'is', null)
+    const paths = (scans || []).map((x: any) => x.scan_path).filter(Boolean)
+    if (paths.length) await supabase.storage.from('control').remove(paths)
+    const { data, error } = await supabase.rpc('control_purge_year', { p_year: target.id })
+    setBusy(false); setTarget(null)
+    if (error) { toast(error.message, 'error'); return }
+    toast(`Изтрити протоколи: ${data}`); router.refresh()
+  }
+  return (
+    <section className="mt-5 bg-white rounded-2xl border border-slate-200 p-4 space-y-2">
+      <h2 className="text-[13px] uppercase tracking-wide text-slate-500">Срок за съхранение</h2>
+      <p className="text-[13px] text-slate-600">Книгата и протоколите се пазят 5 години (Наредба № 8, Приложение № 2). След това личните данни на служителите в тях се изтриват.</p>
+      {expired.length ? (
+        <div className="flex flex-wrap gap-2">
+          {expired.map(y => <button key={y.id} type="button" onClick={() => setTarget(y)} className="px-3 py-1.5 rounded-xl text-[13px] border border-rose-200 text-rose-700 hover:bg-rose-50">Изтрий {y.name.replace('-', '/')}</button>)}
+        </div>
+      ) : <p className="text-[13px] text-slate-400">Няма години с изтекъл срок.</p>}
+      <Confirm open={!!target} onClose={() => setTarget(null)} onConfirm={purge} loading={busy} danger
+        title={`Изтриване на протоколите от ${target?.name.replace('-', '/')}`}
+        message="Всички протоколи, препоръки и сканирани файлове от тази учебна година ще бъдат изтрити окончателно. Действието не може да се отмени. Уверете се, че подписаният PDF на Книгата е в НЕИСПУО."
+        confirmLabel="Изтрий окончателно" />
+    </section>
   )
 }
 

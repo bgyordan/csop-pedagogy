@@ -7,6 +7,7 @@ import { useToast } from '@/components/ui/Toast'
 import { analyzeControl, analysisText, MONTH_LABEL, PERIOD_LABEL, type Period } from '@/lib/control-plan'
 import { generateControlAnalysis } from '@/lib/docx-control'
 import type { ControlProps } from './ControlClient'
+import CouncilSend from './CouncilSend'
 
 const ACCENT = '#0f2240'
 const pname = (p?: { first_name: string; last_name: string } | null) => (p ? `${p.first_name} ${p.last_name}` : '—')
@@ -61,6 +62,7 @@ export default function AnalysisTab(p: ControlProps) {
           </select>
         )}
         <span className="flex-1" />
+        {p.year && <CouncilSend meId={p.me.id} desc="Анализ на контролната дейност" make={() => generateControlAnalysis({ yearName: p.year!.name, period, who: whoName, analysis: a, text: body, author: p.me.name, authorTitle: p.me.position, asBlob: true })} />}
         <button type="button" onClick={word} disabled={busy} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm text-white" style={{ backgroundColor: ACCENT }}>
           {busy ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} Доклад за ПС (Word)
         </button>
