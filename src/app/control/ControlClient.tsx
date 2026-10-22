@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ClipboardCheck, Plus, X, Loader2, FileText, BookOpen, Settings, AlertTriangle, CheckCircle2, Clock,
-  MessageSquareWarning, Search, Check, ListChecks,
+  MessageSquareWarning, Search, Check, ListChecks, CalendarRange, BarChart3,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
@@ -16,6 +16,9 @@ import {
   type ControlCheck, type ControlTemplate, type CheckStaff, type CriteriaGroup, type Recommendation,
 } from '@/lib/control'
 import { generateControlBook } from '@/lib/docx-control'
+import { MONTH_LABEL, monthOrder, type ControlPlan, type PlanItem } from '@/lib/control-plan'
+import PlanTab from './PlanTab'
+import AnalysisTab from './AnalysisTab'
 
 type Person = { id: string; first_name: string; last_name: string; role: string; position: string | null }
 type Row = ControlCheck & { staff: CheckStaff[] }
@@ -34,13 +37,17 @@ export default function ControlClient(p: {
   isDirector: boolean; isInspector: boolean; tab: string
   years: Year[]; year: Year | null; checks: Row[]; recs: RecRow[]; templates: ControlTemplate[]; people: Person[]
   inspectorIds: string[]; visit: any
+  plans: ControlPlan[]; planItems: PlanItem[]; planReady: boolean; itemParam: string | null; ownerParam: string | null
 }) {
   const router = useRouter()
-  const [creating, setCreating] = useState<boolean>(!!p.visit)
+  const [creating, setCreating] = useState<boolean>(!!p.visit || !!p.itemParam)
+  const [startItem, setStartItem] = useState<string | null>(p.itemParam)
   const tabs = p.isInspector
     ? [{ k: 'checks', l: 'Проверки', i: <ClipboardCheck size={14} /> },
        { k: 'recs', l: 'Препоръки', i: <ListChecks size={14} />, n: p.recs.filter(r => (p.isDirector || r.check.inspector_id === p.me.id) && (r.status === 'reported' || recOverdue(r))).length },
+       { k: 'plan', l: 'План', i: <CalendarRange size={14} /> },
        { k: 'book', l: 'Книга', i: <BookOpen size={14} /> },
+       { k: 'analysis', l: 'Анализ', i: <BarChart3 size={14} /> },
        ...(['director', 'zdud'].includes(p.me.role) ? [{ k: 'settings', l: 'Настройки', i: <Settings size={14} /> }] : [])]
     : []
   const go = (tab: string) => router.push(`/control?tab=${tab}${p.year && !p.year.is_current ? `&y=${p.year.id}` : ''}`)
@@ -68,10 +75,10 @@ export default function ControlClient(p: {
       </header>
 
       {tabs.length > 0 && (
-        <nav className="flex gap-1.5 mb-5">
+        <nav className="flex gap-1.5 mb-5 overflow-x-auto pb-1">
           {tabs.map(t => (
             <button key={t.k} type="button" onClick={() => go(t.k)}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm ${p.tab === t.k ? 'bg-[#0f2240] text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+              className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm ${p.tab === t.k ? 'bg-[#0f2240] text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
               {t.i} {t.l}
               {'n' in t && !!t.n && <span className={`ml-0.5 text-[11px] min-w-5 px-1.5 rounded-full ${p.tab === t.k ? 'bg-white/20' : 'bg-rose-100 text-rose-700'}`}>{t.n}</span>}
             </button>
@@ -85,9 +92,11 @@ export default function ControlClient(p: {
       {p.isInspector && p.tab === 'checks' && <MyRecs recs={p.recs.filter(r => r.responsible_id === p.me.id)} />}
       {p.isInspector && p.tab === 'checks' && <Checks {...p} />}
       {p.isInspector && p.tab === 'book' && <Book {...p} />}
+      {p.isInspector && p.tab === 'plan' && <PlanTab {...p} onStartCheck={id => { setStartItem(id); setCreating(true) }} />}
+      {p.isInspector && p.tab === 'analysis' && <AnalysisTab {...p} />}
       {p.isInspector && p.tab === 'settings' && <SettingsTab {...p} />}
 
-      {creating && p.year && <NewCheck {...p} onClose={() => { setCreating(false); if (p.visit) router.replace('/control') }} />}
+      {creating && p.year && <NewCheck {...p} itemParam={startItem} onClose={() => { setCreating(false); setStartItem(null); if (p.visit || p.itemParam) router.replace(`/control?tab=${p.tab}`) }} />}
     </div>
   )
 }
@@ -365,11 +374,19 @@ function NewCheck(p: Parameters<typeof ControlClient>[0] & { onClose: () => void
   const { toast } = useToast()
   const active = p.templates.filter(t => t.is_active)
   const v = p.visit
-  const initialTpl = v ? (active.find(t => t.code === (v.period >= 21 ? 'coud' : 'lesson')) || active[0]) : active[0]
+  // редовете от моя план — първо тези за месеца на проверката
+  const myPlan = p.plans.find(x => x.owner_id === p.me.id)
+  const myItems = p.planItems.filter(i => i.plan_id === myPlan?.id)
+  const startDate = v?.date || todayIso()
+  const visitTpl = v ? active.find(t => t.code === (v.period >= 21 ? 'coud' : 'lesson')) : undefined
+  const startItem = (p.itemParam && myItems.find(i => i.id === p.itemParam))
+    || (visitTpl ? myItems.find(i => i.template_id === visitTpl.id && i.month === parseInt(startDate.slice(5, 7), 10)) : undefined)
+  const initialTpl = (startItem?.template_id && active.find(t => t.id === startItem.template_id)) || visitTpl || active[0]
   const [tplId, setTplId] = useState(initialTpl?.id || '')
-  const [date, setDate] = useState<string>(v?.date || todayIso())
+  const [itemId, setItemId] = useState<string>(startItem?.id || '')
+  const [date, setDate] = useState<string>(startDate)
   const [staffIds, setStaffIds] = useState<string[]>(v?.staff_id ? [v.staff_id] : [])
-  const [planned, setPlanned] = useState(true)
+  const [planned, setPlanned] = useState(myItems.length ? !!startItem : true)
   const [announced, setAnnounced] = useState(true)
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState(false)
@@ -386,10 +403,11 @@ function NewCheck(p: Parameters<typeof ControlClient>[0] & { onClose: () => void
       if (v.subject) details.subject = v.subject
       if (v.topic) details.topic = v.topic
     }
-    const subject = tpl.subject ? (v?.subject && tpl.code === 'lesson' ? `${tpl.subject} по ${v.subject}` : tpl.subject) : ''
+    const item = myItems.find(i => i.id === itemId)
+    const subject = tpl.subject ? (v?.subject && tpl.code === 'lesson' ? `${tpl.subject} по ${v.subject}` : tpl.subject) : (item?.subject.toLowerCase() || '')
     const { data, error } = await supabase.from('control_checks').insert({
       academic_year_id: p.year.id, inspector_id: p.me.id, inspector_title: inspectorTitle(p.me.role, p.me.position),
-      template_id: tpl.id, visit_booking_id: v?.id || null,
+      template_id: tpl.id, visit_booking_id: v?.id || null, plan_item_id: itemId || null,
       kind: tpl.kind, focus: tpl.focus, form: tpl.form, planned, announced, check_date: date,
       subject, purpose: tpl.purpose, method: tpl.method, basis: defaultBasis({ role: p.me.role, planned, yearName: p.year.name }),
       details, criteria: tpl.criteria,
@@ -422,6 +440,22 @@ function NewCheck(p: Parameters<typeof ControlClient>[0] & { onClose: () => void
               ))}
             </div>
           </div>
+          {myItems.length > 0 && (
+            <label className="block">
+              <span className="text-[12px] uppercase tracking-wide text-slate-500">По графика</span>
+              <select className="input w-full mt-1" value={itemId} onChange={e => {
+                const it = myItems.find(i => i.id === e.target.value)
+                setItemId(e.target.value); setPlanned(!!it)
+                if (it?.template_id && active.some(t => t.id === it.template_id)) setTplId(it.template_id)
+              }}>
+                <option value="">— извън графика (по сигнал, непланирана) —</option>
+                {[...myItems].sort((a, b) => {
+                  const m = parseInt(date.slice(5, 7), 10)
+                  return (b.month === m ? 1 : 0) - (a.month === m ? 1 : 0) || monthOrder(a.month) - monthOrder(b.month) || a.sort - b.sort
+                }).map(i => <option key={i.id} value={i.id}>{MONTH_LABEL[i.month]}: {i.subject}</option>)}
+              </select>
+            </label>
+          )}
           <div className="grid sm:grid-cols-2 gap-4">
             <label className="block">
               <span className="text-[12px] uppercase tracking-wide text-slate-500">Дата на проверката</span>
@@ -563,3 +597,5 @@ function SettingsTab(p: Parameters<typeof ControlClient>[0]) {
     </div>
   )
 }
+
+export type ControlProps = Parameters<typeof ControlClient>[0]

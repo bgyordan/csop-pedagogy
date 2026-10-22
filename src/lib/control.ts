@@ -39,7 +39,7 @@ export type ControlCheck = {
   findings_text: string | null; strengths: string | null; conclusions: string | null
   status: CheckStatus; book_no: number | null; signed_at: string | null; scan_path: string | null
   voided_reason: string | null; voided_at: string | null; created_at: string
-  follow_up_of?: string | null; evidence?: Evidence | null
+  follow_up_of?: string | null; evidence?: Evidence | null; plan_item_id?: string | null
   inspector?: { first_name: string; last_name: string; position: string | null } | null
 }
 
