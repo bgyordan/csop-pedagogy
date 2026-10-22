@@ -12,9 +12,14 @@ export default async function ProtocolPage({ params }: { params: Promise<{ id: s
   const { data: me } = await supabase.from('staff_profiles').select('id, role, first_name, last_name, position').eq('user_id', user.id).single()
   if (!me) redirect('/dashboard')
 
-  const { data: check } = await supabase.from('control_checks')
+  const { data: check, error: checkError } = await supabase.from('control_checks')
     .select('*, inspector:staff_profiles(first_name, last_name, position), year:academic_years(name), template:control_templates(details)')
     .eq('id', id).maybeSingle()
+  if (checkError) return (
+    <div className="p-8 max-w-3xl mx-auto">
+      <div className="bg-rose-50 border border-rose-200 text-rose-800 text-sm rounded-2xl px-4 py-3">Протоколът не може да се отвори: {checkError.message}</div>
+    </div>
+  )
   if (!check) notFound()
 
   const [{ data: staff }, { data: recs }, { data: followUps }, { data: origin }, { data: inspectors }, { data: currentYear }] = await Promise.all([
