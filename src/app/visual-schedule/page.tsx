@@ -1,5 +1,6 @@
 // Визуален график с пиктограми — денят на паралелката от разписанието, за екрана в класната стая и за печат.
 // Колегата вижда само своите паралелки (класен или има часове там); ръководството — всички.
+// Сменените картинки се пазят за паралелката (visual_schedule_pictos); ЗДУД и админ виждат „Промени от колегите“.
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
@@ -7,7 +8,7 @@ import { BackButton } from '@/components/ui/BackButton'
 import { Images } from 'lucide-react'
 import { PERIOD_BY_N } from '@/lib/periods'
 import VisualScheduleClient from './VisualScheduleClient'
-import type { Slot } from './VisualScheduleClient'
+import type { Slot, Override, ChangeRow } from './VisualScheduleClient'
 export const dynamic = 'force-dynamic'
 
 export default async function VisualSchedulePage({ searchParams }: { searchParams: Promise<{ c?: string; term?: string }> }) {
@@ -58,6 +59,25 @@ export default async function VisualSchedulePage({ searchParams }: { searchParam
     }).filter(s => s.subject && s.start)
   }
 
+  // картинките на паралелката
+  let overrides: Record<string, Override> = {}
+  if (current) {
+    const { data: ov } = await supabase.from('visual_schedule_pictos').select('subject_key, picto, label').eq('class_id', current.id)
+    ;(ov || []).forEach((r: any) => { overrides[r.subject_key] = { picto: r.picto || undefined, label: r.label || undefined } })
+  }
+
+  // ЗДУД и админ: какво са сменили колегите (последните 200)
+  let changes: ChangeRow[] | null = null
+  if (['admin', 'zdud'].includes(me.role)) {
+    const { data: ch } = await supabase.from('visual_schedule_pictos')
+      .select('id, class_id, subject_key, picto, label, updated_at, class:classes(name), who:staff_profiles(first_name, last_name)')
+      .order('updated_at', { ascending: false }).limit(200)
+    changes = (ch || []).map((r: any) => ({
+      id: r.id, classId: r.class_id, className: r.class?.name || '', subject: r.subject_key, picto: r.picto, label: r.label,
+      at: r.updated_at, who: r.who ? `${r.who.first_name || ''} ${r.who.last_name || ''}`.trim() : '—',
+    }))
+  }
+
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto animate-in fade-in duration-500">
       <div className="print:hidden">
@@ -78,7 +98,7 @@ export default async function VisualSchedulePage({ searchParams }: { searchParam
         </div>
       ) : (
         <VisualScheduleClient key={current.id + term} classes={classes} classId={current.id} className={current.name}
-          term={term} yearName={cy?.name || ''} slots={slots} />
+          term={term} yearName={cy?.name || ''} slots={slots} overrides={overrides} meId={me.id} changes={changes} />
       )}
     </div>
   )
