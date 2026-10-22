@@ -18,7 +18,6 @@ const short = (n: string) => { const [f, l] = n.trim().split(/\s+/); return l ? 
 const dm = (iso: string) => iso.split('-').reverse().slice(0, 2).join('.')
 // ключ: отсъствието + кой го замества → нов заместник = ново за колегите
 const keyOf = (r: TodayAbsence) => `${r.id}|${r.by}`
-const role = (r: TodayAbsence) => (r.position || '').toLowerCase().replace(/^учител на деца с .*$/, 'учител')
 
 export default function AbsentNote({ rows, today, compact = false }: { rows: TodayAbsence[]; today: string; compact?: boolean }) {
   const [seen, setSeen] = useState<Set<string> | null>(null)
@@ -71,7 +70,7 @@ export default function AbsentNote({ rows, today, compact = false }: { rows: Tod
                   <span className="text-slate-800">{short(r.absent)}</span>
                   {r.by
                     ? <span className="text-emerald-800"> ← {subs(r).join(', ')}</span>
-                    : <span className="text-slate-400 text-[17px]"> · {role(r) || 'не се замества'}</span>}
+                    : null}
                 </span>
                 <span className="text-slate-400 text-[17px] tabular-nums">до {dm(r.to)}</span>
               </div>
@@ -120,11 +119,10 @@ export default function AbsentNote({ rows, today, compact = false }: { rows: Tod
                 {awayRows.length > 0 && (
                   <>
                     <div className="leading-[34px] text-[21px] text-slate-500">— отсъстват:</div>
-                    <div className="grid grid-cols-[auto_1fr_auto] gap-x-2.5 items-baseline">
+                    <div className="grid grid-cols-[1fr_auto] gap-x-2.5 items-baseline">
                       {awayRows.map(r => (
                         <div key={r.id} className="contents">
-                          <span className="leading-[34px] text-[25px] text-slate-800">{r.absent}</span>
-                          <span className="leading-[34px] text-[20px] text-slate-400 truncate">{role(r)}{isNew(r) && <span className="ml-1.5 text-[19px] text-rose-600 inline-block -rotate-6">ново!</span>}</span>
+                          <span className="leading-[34px] text-[25px] text-slate-800">{r.absent}{isNew(r) && <span className="ml-1.5 text-[19px] text-rose-600 inline-block -rotate-6">ново!</span>}</span>
                           <span className="leading-[34px] text-[20px] text-slate-500 tabular-nums text-right whitespace-nowrap">{until(r)}</span>
                         </div>
                       ))}

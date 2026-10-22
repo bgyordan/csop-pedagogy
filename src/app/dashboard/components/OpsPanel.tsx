@@ -154,8 +154,7 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
               )}
               {away.length > 0 && (
                 <Group label="Отсъстват" tone="text-slate-400">
-                  {away.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)}
-                    sub={r.position ? <span className="text-[11.5px] text-slate-400 truncate">{r.position.toLowerCase()}</span> : null} />)}
+                  {away.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)} />)}
                 </Group>
               )}
             </div>
