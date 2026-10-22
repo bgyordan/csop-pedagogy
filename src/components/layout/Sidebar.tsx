@@ -51,6 +51,8 @@ const navItems: NavItem[] = [
       { href: '/incidents', label: 'Дневник случаи', icon: <ShieldAlert size={14} />, roles: ['admin', 'zdud', 'director'] },
       // посещения на час (контролна дейност) — учителите избират ден, управата вижда графика
       { href: '/visits', label: 'Посещения на час', icon: <CalendarCheck size={14} />, roles: ['admin', 'zdud', 'director'] },
+      // контролна дейност — проверки, констативни протоколи, Книга (ЗДАСД вижда, ако директорът го е определил за проверяващ)
+      { href: '/control', label: 'Контролна дейност', icon: <ClipboardCheck size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/facilities', label: 'Материална база', icon: <Wrench size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
   },
