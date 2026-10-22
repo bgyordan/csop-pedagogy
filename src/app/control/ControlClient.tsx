@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 import DateInput from '@/components/ui/DateInput'
 import {
-  KIND_LABEL, FORM_LABEL, FOCUS_LABEL, STATUS_LABEL, protocolDeadline, dmy, defaultBasis, inspectorTitle,
+  KIND_LABEL, FORM_LABEL, FOCUS_LABEL, STATUS_LABEL, protocolDeadline, dmy, defaultBasis, inspectorTitle, templatesFor,
   REC_STATUS_LABEL, REC_STATUS_TONE, recOverdue,
   type ControlCheck, type ControlTemplate, type CheckStaff, type CriteriaGroup, type Recommendation,
 } from '@/lib/control'
@@ -420,7 +420,7 @@ function Book(p: Parameters<typeof ControlClient>[0]) {
 function NewCheck(p: Parameters<typeof ControlClient>[0] & { onClose: () => void }) {
   const router = useRouter()
   const { toast } = useToast()
-  const active = p.templates.filter(t => t.is_active)
+  const active = templatesFor(p.templates.filter(t => t.is_active), p.me.role)
   const v = p.visit
   // редовете от моя план — първо тези за месеца на проверката
   const myPlan = p.plans.find(x => x.owner_id === p.me.id)
@@ -607,7 +607,7 @@ function SettingsTab(p: Parameters<typeof ControlClient>[0]) {
       </section>
       <section className="bg-white rounded-2xl border border-slate-200 p-4 h-fit">
         <h2 className="text-[13px] uppercase tracking-wide text-slate-500 mb-1">Проверяващи</h2>
-        <p className="text-[12.5px] text-slate-500 mb-3">Директорът и ЗДУД са проверяващи по роля. Тук директорът добавя и други, например ЗДАСД.</p>
+        <p className="text-[12.5px] text-slate-500 mb-3">Директорът и ЗДУД са проверяващи по роля. Тук директорът добавя и ЗДАСД. ЗДАСД вижда само своите проверки и само шаблоните за административно-стопанската дейност; проверките по учебната дейност не му се показват.</p>
         {candidates.map(x => (
           <label key={x.id} className="flex items-center gap-2 py-1.5 text-sm text-slate-700">
             <input type="checkbox" disabled={!p.isDirector} checked={p.inspectorIds.includes(x.id)} onChange={e => toggleInspector(x.id, e.target.checked)} />
