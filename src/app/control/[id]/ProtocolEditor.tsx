@@ -4,11 +4,14 @@
 // „Подпиши и впиши в Книгата“ дава пореден № за учебната година и заключва протокола.
 // След това: Word за подпис на хартия, прикачване на сканирания подписан протокол, анулиране с мотив.
 // Провереният: „Запознат съм“ и възражение до 7 дни.
+// Препоръките след подписа: отговорникът отчита изпълнението, проверяващият потвърждава; „Последващ контрол“ създава
+// нов протокол с препоръките като критерии. „Справка от системата“ — моментна снимка на данните за проверения.
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, FileText, Loader2, Save, PenLine, Trash2, Plus, X, Upload, Ban, Check, Clock, MessageSquareWarning, Paperclip,
+  Repeat, Database, RefreshCw, Undo2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
@@ -16,18 +19,23 @@ import DateInput from '@/components/ui/DateInput'
 import { Confirm } from '@/components/ui/Confirm'
 import {
   KIND_LABEL, FORM_LABEL, FOCUS_LABEL, STATUS_LABEL, SCORES, DETAIL_FIELDS, OBJECTION_DAYS, protocolDeadline, dmy, scoreLabel,
+  REC_STATUS_LABEL, REC_STATUS_TONE, recOverdue, followUpCriteria, inspectorTitle, defaultBasis,
   type ControlCheck, type CheckStaff, type Recommendation, type Finding,
 } from '@/lib/control'
 import { generateControlProtocol } from '@/lib/docx-control'
+import { buildEvidence } from '@/lib/control-evidence'
 
 type Person = { id: string; first_name: string; last_name: string; role: string; position: string | null }
 type Check = ControlCheck & { year?: { name: string } | null; template?: { details: string[] } | null }
+type Rec = Recommendation & { responsible?: { first_name: string; last_name: string } | null }
+type Linked = { id: string; book_no: number | null; status: string; check_date?: string; signed_at?: string | null; subject?: string }
 const ACCENT = '#0f2240'
 const pname = (p?: { first_name: string; last_name: string } | null) => (p ? `${p.first_name} ${p.last_name}` : '—')
 
 export default function ProtocolEditor(p: {
-  me: { id: string; role: string }; check: Check; staff: CheckStaff[]; recs: Recommendation[]; people: Person[]
-  canEdit: boolean; canManage: boolean; scanUrl: string | null
+  me: { id: string; role: string; position: string }; check: Check; staff: CheckStaff[]; recs: Rec[]; people: Person[]
+  canEdit: boolean; canManage: boolean; scanUrl: string | null; isInspector: boolean
+  followUps: Linked[]; origin: Linked | null; currentYear: { id: string; name: string } | null
 }) {
   const router = useRouter()
   const { toast } = useToast()
@@ -63,6 +71,7 @@ export default function ProtocolEditor(p: {
       check_date: c.check_date, subject: c.subject, purpose: c.purpose, basis: c.basis, method: c.method,
       kind: c.kind, focus: c.focus, form: c.form, planned: c.planned, announced: c.announced,
       details: c.details, findings: c.findings, findings_text: c.findings_text, strengths: c.strengths, conclusions: c.conclusions,
+      evidence: c.evidence ?? null,
     }).eq('id', c.id)
     let err = error?.message
     if (!err) {
@@ -99,8 +108,9 @@ export default function ProtocolEditor(p: {
   async function word() {
     setBusy('word')
     try {
-      const names = Object.fromEntries(p.people.map(x => [x.id, pname(x)]))
-      await generateControlProtocol({ check: c, staff: staffForDoc, recs, inspectorName: pname(c.inspector), responsibleNames: names })
+      const names: Record<string, string> = Object.fromEntries(p.recs.filter(r => r.responsible_id && r.responsible).map(r => [r.responsible_id!, pname(r.responsible)]))
+      p.people.forEach(x => { names[x.id] = pname(x) })
+      await generateControlProtocol({ check: c, staff: staffForDoc, recs, inspectorName: pname(c.inspector), responsibleNames: names, origin: p.origin })
     } catch (e: any) { toast(e.message || 'Грешка при Word', 'error') }
     setBusy(null)
   }
@@ -124,6 +134,42 @@ export default function ProtocolEditor(p: {
     setBusy(null)
     if (error) { toast(error.message, 'error'); return }
     setVoiding(false); router.refresh(); setC(prev => ({ ...prev, status: 'voided', voided_reason: voidReason.trim() }))
+  }
+
+  async function takeEvidence() {
+    const yearName = c.year?.name || p.currentYear?.name || ''
+    if (!c.academic_year_id || !yearName) { toast('Няма учебна година', 'error'); return }
+    if (!staffIds.length) { toast('Първо посочете проверения служител', 'error'); return }
+    setBusy('evidence')
+    try {
+      const staff = staffIds.map(id => ({ id, name: pname(peopleById[id] || p.staff.find(s => s.staff_id === id)?.staff) }))
+      const ev = await buildEvidence(supabase, { staff, yearId: c.academic_year_id, yearName, date: c.check_date, excludeCheck: c.id })
+      set({ evidence: ev })
+      toast('Справката е взета — запазете протокола')
+    } catch (e: any) { toast(e.message || 'Грешка при справката', 'error') }
+    setBusy(null)
+  }
+
+  async function startFollowUp() {
+    const year = p.currentYear
+    if (!year) { toast('Няма текуща учебна година', 'error'); return }
+    setBusy('follow')
+    const subject = `последващ контрол по изпълнението на препоръките от констативен протокол № ${c.book_no} / ${dmy(c.signed_at)}`
+    const { data, error } = await supabase.from('control_checks').insert({
+      academic_year_id: year.id, inspector_id: p.me.id, inspector_title: inspectorTitle(p.me.role, p.me.position),
+      kind: 'follow_up', focus: c.focus, form: 'current', planned: c.planned, announced: true,
+      subject, purpose: 'Установяване на изпълнението на препоръките, дадени при предходната проверка',
+      method: 'Проверка на изпълнението на препоръките; разговор с проверения служител; преглед на документацията.',
+      basis: defaultBasis({ role: p.me.role, planned: c.planned, yearName: year.name }),
+      details: c.details || {}, criteria: followUpCriteria(c.book_no, c.signed_at, p.recs), follow_up_of: c.id,
+    }).select('id').single()
+    if (error || !data) { toast(error?.message || 'Грешка', 'error'); setBusy(null); return }
+    const ids = p.staff.map(s => s.staff_id)
+    if (ids.length) {
+      const { error: e2 } = await supabase.from('control_check_staff').insert(ids.map(id => ({ check_id: data.id, staff_id: id })))
+      if (e2) toast(e2.message, 'error')
+    }
+    router.push(`/control/${data.id}`)
   }
 
   async function remove() {
@@ -151,6 +197,12 @@ export default function ProtocolEditor(p: {
             {STATUS_LABEL[c.status]}{draft ? ` · ${deadline.left < 0 ? `срокът изтече на ${dmy(deadline.due)}` : `до ${dmy(deadline.due)} (остават ${deadline.left} дни)`}` : ''}
           </span>
         </div>
+        {p.origin && (
+          <p className="mt-3 text-sm text-slate-600 inline-flex items-center gap-1.5"><Repeat size={14} className="text-indigo-600" /> Последващ контрол по <Link href={`/control/${p.origin.id}`} className="text-indigo-700 hover:underline">протокол № {p.origin.book_no} / {dmy(p.origin.signed_at)}</Link></p>
+        )}
+        {p.followUps.map(f => (
+          <p key={f.id} className="mt-3 text-sm text-slate-600 inline-flex items-center gap-1.5 mr-4"><Repeat size={14} className="text-indigo-600" /> <Link href={`/control/${f.id}`} className="text-indigo-700 hover:underline">Последващ контрол{f.book_no ? ` — протокол № ${f.book_no}` : ' (чернова)'}</Link>{f.check_date ? ` · ${dmy(f.check_date)}` : ''}</p>
+        ))}
         {c.status === 'voided' && <p className="mt-3 text-sm text-slate-600">Анулиран{c.voided_at ? ` на ${dmy(c.voided_at)}` : ''}: {c.voided_reason}</p>}
         <div className="flex flex-wrap gap-2 mt-4">
           <button type="button" onClick={word} disabled={!!busy} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border border-slate-200 hover:bg-slate-50">
@@ -174,6 +226,11 @@ export default function ProtocolEditor(p: {
             </label>
             <button type="button" onClick={() => setVoiding(true)} className="ml-auto inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-slate-500 hover:bg-slate-100"><Ban size={14} /> Анулирай</button>
           </>}
+          {c.status === 'signed' && p.isInspector && p.recs.some(r => r.status !== 'done') && !p.followUps.length && (
+            <button type="button" onClick={startFollowUp} disabled={!!busy} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border border-indigo-200 text-indigo-800 bg-indigo-50/60 hover:bg-indigo-50">
+              {busy === 'follow' ? <Loader2 size={14} className="animate-spin" /> : <Repeat size={14} />} Последващ контрол
+            </button>
+          )}
           {p.scanUrl && <a href={p.scanUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-indigo-700 hover:bg-indigo-50"><Paperclip size={14} /> Подписаният протокол</a>}
         </div>
         {draft && c.inspector_id !== p.me.id && p.canEdit && <p className="text-[12.5px] text-slate-500 mt-2">Подписва само проверяващият ({pname(c.inspector)}).</p>}
@@ -247,7 +304,29 @@ export default function ProtocolEditor(p: {
           <Field label="Проверката е осъществена чрез">{edit ? <textarea className="input w-full" rows={2} value={c.method || ''} onChange={e => set({ method: e.target.value })} /> : c.method}</Field>
         </Section>
 
+        {(edit || c.evidence) && (
+          <Section title="Справка от системата">
+            {c.evidence?.people?.length ? (
+              <div className="space-y-2">
+                {c.evidence.people.map(x => (
+                  <div key={x.staff_id}>
+                    {c.evidence!.people.length > 1 && <div className="text-[13px] font-medium text-slate-700">{x.name}</div>}
+                    <ul className="list-disc pl-5 text-[13.5px] text-slate-700 space-y-0.5">{x.lines.map((l, i) => <li key={i}>{l}</li>)}</ul>
+                  </div>
+                ))}
+                <p className="text-[12px] text-slate-400 inline-flex items-center gap-1"><Database size={12} /> Данни от системата към {dmy(c.evidence.taken_at)}</p>
+              </div>
+            ) : <p className="text-sm text-slate-500">Реализация на ИУП, ЕПЛР, посещения на часове и неприключени препоръки на проверения — взема се моментна снимка, която влиза в протокола.</p>}
+            {edit && (
+              <button type="button" onClick={takeEvidence} disabled={!!busy} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border border-slate-200 hover:bg-slate-50">
+                {busy === 'evidence' ? <Loader2 size={14} className="animate-spin" /> : c.evidence ? <RefreshCw size={14} /> : <Database size={14} />} {c.evidence ? 'Обнови справката' : 'Вземи справка от системата'}
+              </button>
+            )}
+          </Section>
+        )}
+
         <Section title="I. Констатации">
+          {c.follow_up_of && edit && <p className="text-[12.5px] text-indigo-800 bg-indigo-50/70 rounded-xl px-3 py-2">При подписването оценките обновяват препоръките от първия протокол: 3 — изпълнена, 2 — остава отворена, 1 — неизпълнена.</p>}
           {(c.criteria || []).filter(g => g.items?.length).map(g => (
             <div key={g.g} className="mb-4">
               <div className="text-[13px] font-medium text-slate-700 mb-1.5">{g.g}</div>
@@ -299,10 +378,10 @@ export default function ProtocolEditor(p: {
               ))}
               <button type="button" onClick={() => setRecs([...recs, { sort: recs.length, text: '', due_date: null, responsible_id: staffIds[0] || null }])} className="inline-flex items-center gap-1 text-sm text-indigo-700"><Plus size={14} /> Препоръка</button>
             </div>
-          ) : recs.length ? (
-            <ol className="list-decimal pl-5 space-y-1 text-[14px] text-slate-800">
-              {recs.map((r, i) => <li key={i}>{r.text}{r.due_date ? <span className="text-slate-500"> — срок {dmy(r.due_date)}</span> : null}</li>)}
-            </ol>
+          ) : p.recs.length ? (
+            <div className="space-y-2">
+              {p.recs.map((r, i) => <RecItem key={r.id || i} n={i + 1} r={r} signed={c.status === 'signed'} me={p.me.id} canReview={p.canManage} />)}
+            </div>
           ) : <p className="text-sm text-slate-400">Няма.</p>}
         </Section>
 
@@ -331,6 +410,66 @@ export default function ProtocolEditor(p: {
               <button type="button" onClick={() => setVoiding(false)} className="btn-secondary">Отказ</button>
               <button type="button" onClick={doVoid} disabled={!voidReason.trim() || busy === 'void'} className="btn-danger">Анулирай</button>
             </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RecItem({ n, r, signed, me, canReview }: { n: number; r: Rec; signed: boolean; me: string; canReview: boolean }) {
+  const router = useRouter()
+  const { toast } = useToast()
+  const [text, setText] = useState('')
+  const [note, setNote] = useState('')
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const status = r.status || 'open'
+  const late = recOverdue(r)
+  const canReport = signed && r.responsible_id === me && status !== 'done'
+  async function rpc(fn: string, args: Record<string, any>, ok: string) {
+    setBusy(true)
+    const { error } = await createClient().rpc(fn, args)
+    setBusy(false)
+    if (error) { toast(error.message, 'error'); return }
+    toast(ok); setOpen(false); setText(''); setNote(''); router.refresh()
+  }
+  return (
+    <div className={`rounded-xl border px-3 py-2.5 ${late ? 'border-rose-200 bg-rose-50/40' : 'border-slate-200'}`}>
+      <div className="flex flex-wrap items-start gap-2">
+        <span className="text-[13px] text-slate-400 w-5 shrink-0">{n}.</span>
+        <span className="flex-1 min-w-[200px] text-[14px] text-slate-800">{r.text}</span>
+        {signed && <span className={`text-[12px] px-2 py-0.5 rounded-full ${REC_STATUS_TONE[status]}`}>{REC_STATUS_LABEL[status]}</span>}
+      </div>
+      <div className="pl-7 text-[12.5px] text-slate-500 mt-0.5">
+        {r.responsible ? pname(r.responsible) : 'без отговорник'}{r.due_date ? <> · срок <span className={late ? 'text-rose-700 font-medium' : ''}>{dmy(r.due_date)}{late ? ' — изтекъл' : ''}</span></> : ''}
+      </div>
+      {r.report && <p className="pl-7 mt-1.5 text-[13px] text-slate-700"><span className="text-slate-500">Отчет{r.reported_at ? ` (${dmy(r.reported_at)})` : ''}:</span> {r.report}</p>}
+      {r.review_note && <p className="pl-7 mt-1 text-[13px] text-slate-700"><span className="text-slate-500">Бележка на проверяващия{r.reviewed_at ? ` (${dmy(r.reviewed_at)})` : ''}:</span> {r.review_note}</p>}
+      {r.verified_in && <p className="pl-7 mt-1 text-[12.5px]"><Link href={`/control/${r.verified_in}`} className="text-indigo-700 hover:underline">проверена при последващ контрол</Link></p>}
+      {signed && (canReport || canReview) && !open && (
+        <div className="pl-7 mt-2 flex flex-wrap gap-2">
+          {canReport && <button type="button" onClick={() => setOpen(true)} className="text-[12.5px] px-2.5 py-1 rounded-lg bg-indigo-600 text-white">{status === 'reported' ? 'Допълни отчета' : 'Отчети изпълнение'}</button>}
+          {canReview && status !== 'done' && <button type="button" disabled={busy} onClick={() => rpc('control_rec_review', { p_rec: r.id, p_status: 'done', p_note: null }, 'Отбелязана като изпълнена')} className="text-[12.5px] px-2.5 py-1 rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50 inline-flex items-center gap-1"><Check size={12} /> Изпълнена</button>}
+          {canReview && status !== 'not_done' && status !== 'done' && <button type="button" onClick={() => setOpen(true)} className="text-[12.5px] px-2.5 py-1 rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50">Неизпълнена…</button>}
+          {canReview && (status === 'done' || status === 'not_done') && <button type="button" disabled={busy} onClick={() => rpc('control_rec_review', { p_rec: r.id, p_status: 'open', p_note: null }, 'Препоръката е отново отворена')} className="text-[12.5px] px-2.5 py-1 rounded-lg text-slate-500 hover:bg-slate-100 inline-flex items-center gap-1"><Undo2 size={12} /> Отвори отново</button>}
+        </div>
+      )}
+      {open && canReport && (
+        <div className="pl-7 mt-2 space-y-2">
+          <textarea className="input w-full" rows={3} value={text} onChange={e => setText(e.target.value)} placeholder="Какво е направено — конкретно (напр. въведен визуален график за всички ученици от 03.11)" />
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setOpen(false)} className="btn-secondary">Отказ</button>
+            <button type="button" disabled={busy || !text.trim()} onClick={() => rpc('control_rec_report', { p_rec: r.id, p_report: text }, 'Отчетът е изпратен')} className="btn-primary">Изпрати отчета</button>
+          </div>
+        </div>
+      )}
+      {open && !canReport && canReview && (
+        <div className="pl-7 mt-2 space-y-2">
+          <textarea className="input w-full" rows={2} value={note} onChange={e => setNote(e.target.value)} placeholder="Какво не е изпълнено (по желание)" />
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setOpen(false)} className="btn-secondary">Отказ</button>
+            <button type="button" disabled={busy} onClick={() => rpc('control_rec_review', { p_rec: r.id, p_status: 'not_done', p_note: note }, 'Отбелязана като неизпълнена')} className="btn-danger">Неизпълнена</button>
           </div>
         </div>
       )}

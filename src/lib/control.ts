@@ -21,7 +21,14 @@ export type CheckStaff = {
   check_id: string; staff_id: string; acked_at: string | null; objection: string | null; objection_at: string | null
   staff?: { first_name: string; last_name: string; position: string | null } | null
 }
-export type Recommendation = { id?: string; sort: number; text: string; due_date: string | null; responsible_id: string | null }
+export type RecStatus = 'open' | 'reported' | 'done' | 'not_done'
+export type Recommendation = {
+  id?: string; check_id?: string; sort: number; text: string; due_date: string | null; responsible_id: string | null
+  status?: RecStatus; report?: string | null; reported_at?: string | null
+  review_note?: string | null; reviewed_at?: string | null; verified_in?: string | null
+}
+/** Справка от системата — моментна снимка към деня на проверката (заключва се с протокола). */
+export type Evidence = { taken_at: string; people: { staff_id: string; name: string; lines: string[] }[] }
 
 export type ControlCheck = {
   id: string; academic_year_id: string | null; inspector_id: string; inspector_title: string | null
@@ -32,6 +39,7 @@ export type ControlCheck = {
   findings_text: string | null; strengths: string | null; conclusions: string | null
   status: CheckStatus; book_no: number | null; signed_at: string | null; scan_path: string | null
   voided_reason: string | null; voided_at: string | null; created_at: string
+  follow_up_of?: string | null; evidence?: Evidence | null
   inspector?: { first_name: string; last_name: string; position: string | null } | null
 }
 
@@ -41,6 +49,20 @@ export const FORM_LABEL: Record<CheckForm, string> = {
   thematic: 'Тематична проверка', current: 'Текуща проверка', observation: 'Наблюдение', study: 'Проучване',
 }
 export const STATUS_LABEL: Record<CheckStatus, string> = { draft: 'Чернова', signed: 'Подписан', voided: 'Анулиран' }
+export const REC_STATUS_LABEL: Record<RecStatus, string> = { open: 'Отворена', reported: 'Отчетена', done: 'Изпълнена', not_done: 'Неизпълнена' }
+export const REC_STATUS_TONE: Record<RecStatus, string> = {
+  open: 'bg-slate-100 text-slate-600', reported: 'bg-indigo-50 text-indigo-700', done: 'bg-emerald-50 text-emerald-700', not_done: 'bg-rose-50 text-rose-700',
+}
+
+/** Просрочена ли е препоръката (отворена/неизпълнена и срокът е минал). */
+export const recOverdue = (r: { status?: RecStatus; due_date: string | null }) =>
+  !!r.due_date && (r.status === 'open' || r.status === 'not_done' || !r.status) && r.due_date < todayIso()
+
+/** Критериите на последващия контрол — по една точка за всяка неизпълнена препоръка. Ключът r_<id> свързва оценката с препоръката. */
+export function followUpCriteria(bookNo: number | null, signedAt: string | null, recs: Recommendation[]): CriteriaGroup[] {
+  const items = recs.filter(r => r.id && r.status !== 'done').map(r => ({ k: `r_${r.id}`, t: r.text + (r.due_date ? ` (срок ${dmy(r.due_date)})` : '') }))
+  return items.length ? [{ g: `Изпълнение на препоръките от констативен протокол № ${bookNo ?? '…'} / ${dmy(signedAt)}`, items }] : []
+}
 
 export const SCORES: { v: number; l: string; short: string }[] = [
   { v: 3, l: 'Изпълнено', short: '3' },

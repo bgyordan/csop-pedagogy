@@ -5,20 +5,25 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ClipboardCheck, Plus, X, Loader2, FileText, BookOpen, Settings, AlertTriangle, CheckCircle2, Clock,
-  MessageSquareWarning, Search, Check,
+  MessageSquareWarning, Search, Check, ListChecks,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 import DateInput from '@/components/ui/DateInput'
 import {
   KIND_LABEL, FORM_LABEL, FOCUS_LABEL, STATUS_LABEL, protocolDeadline, dmy, defaultBasis, inspectorTitle,
-  type ControlCheck, type ControlTemplate, type CheckStaff, type CriteriaGroup,
+  REC_STATUS_LABEL, REC_STATUS_TONE, recOverdue,
+  type ControlCheck, type ControlTemplate, type CheckStaff, type CriteriaGroup, type Recommendation,
 } from '@/lib/control'
 import { generateControlBook } from '@/lib/docx-control'
 
 type Person = { id: string; first_name: string; last_name: string; role: string; position: string | null }
 type Row = ControlCheck & { staff: CheckStaff[] }
 type Year = { id: string; name: string; is_current: boolean }
+type RecRow = Recommendation & {
+  responsible?: { first_name: string; last_name: string } | null
+  check: { id: string; book_no: number | null; subject: string; signed_at: string | null; status: string; inspector_id: string; academic_year_id: string | null }
+}
 
 const ACCENT = '#0f2240'
 const pname = (p?: { first_name: string; last_name: string } | null) => (p ? `${p.first_name} ${p.last_name}` : '—')
@@ -27,13 +32,15 @@ const todayIso = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europ
 export default function ControlClient(p: {
   me: { id: string; role: string; name: string; position: string }
   isDirector: boolean; isInspector: boolean; tab: string
-  years: Year[]; year: Year | null; checks: Row[]; templates: ControlTemplate[]; people: Person[]
+  years: Year[]; year: Year | null; checks: Row[]; recs: RecRow[]; templates: ControlTemplate[]; people: Person[]
   inspectorIds: string[]; visit: any
 }) {
   const router = useRouter()
   const [creating, setCreating] = useState<boolean>(!!p.visit)
   const tabs = p.isInspector
-    ? [{ k: 'checks', l: 'Проверки', i: <ClipboardCheck size={14} /> }, { k: 'book', l: 'Книга', i: <BookOpen size={14} /> },
+    ? [{ k: 'checks', l: 'Проверки', i: <ClipboardCheck size={14} /> },
+       { k: 'recs', l: 'Препоръки', i: <ListChecks size={14} />, n: p.recs.filter(r => (p.isDirector || r.check.inspector_id === p.me.id) && (r.status === 'reported' || recOverdue(r))).length },
+       { k: 'book', l: 'Книга', i: <BookOpen size={14} /> },
        ...(['director', 'zdud'].includes(p.me.role) ? [{ k: 'settings', l: 'Настройки', i: <Settings size={14} /> }] : [])]
     : []
   const go = (tab: string) => router.push(`/control?tab=${tab}${p.year && !p.year.is_current ? `&y=${p.year.id}` : ''}`)
@@ -66,12 +73,16 @@ export default function ControlClient(p: {
             <button key={t.k} type="button" onClick={() => go(t.k)}
               className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm ${p.tab === t.k ? 'bg-[#0f2240] text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
               {t.i} {t.l}
+              {'n' in t && !!t.n && <span className={`ml-0.5 text-[11px] min-w-5 px-1.5 rounded-full ${p.tab === t.k ? 'bg-white/20' : 'bg-rose-100 text-rose-700'}`}>{t.n}</span>}
             </button>
           ))}
         </nav>
       )}
 
+      {!p.isInspector && <MyRecs recs={p.recs} />}
       {!p.isInspector && <MyProtocols me={p.me} checks={p.checks} />}
+      {p.isInspector && p.tab === 'recs' && <Recs {...p} />}
+      {p.isInspector && p.tab === 'checks' && <MyRecs recs={p.recs.filter(r => r.responsible_id === p.me.id)} />}
       {p.isInspector && p.tab === 'checks' && <Checks {...p} />}
       {p.isInspector && p.tab === 'book' && <Book {...p} />}
       {p.isInspector && p.tab === 'settings' && <SettingsTab {...p} />}
@@ -179,7 +190,7 @@ function CheckRow({ c, showInspector }: { c: Row; showInspector: boolean }) {
 
 // ── За проверения служител ─────────────────────────────────────────────────
 function MyProtocols({ me, checks }: { me: { id: string }; checks: Row[] }) {
-  const list = checks.filter(c => c.status !== 'draft')
+  const list = checks.filter(c => c.status !== 'draft' && c.staff.some(x => x.staff_id === me.id))
   return (
     <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100">
       {list.map(c => {
@@ -202,11 +213,97 @@ function MyProtocols({ me, checks }: { me: { id: string }; checks: Row[] }) {
   )
 }
 
+// ── Препоръки ──────────────────────────────────────────────────────────────
+function Recs(p: Parameters<typeof ControlClient>[0]) {
+  const [who, setWho] = useState<string>(p.isDirector ? 'all' : p.me.id)
+  const [status, setStatus] = useState<string>('active')
+  const [q, setQ] = useState('')
+  const base = p.recs.filter(r => p.isDirector || r.check.inspector_id === p.me.id)
+  const inspectors = useMemo(() => {
+    const names = new Map(p.checks.map(c => [c.inspector_id, pname(c.inspector)]))
+    return Array.from(new Set(base.map(r => r.check.inspector_id))).map(id => [id, names.get(id) || (id === p.me.id ? p.me.name : 'Проверяващ')] as const)
+  }, [p.recs, p.checks])
+  const reported = base.filter(r => r.status === 'reported')
+  const overdue = base.filter(r => recOverdue(r))
+  const open = base.filter(r => r.status === 'open' || r.status === 'not_done')
+  const list = base.filter(r =>
+    (who === 'all' || r.check.inspector_id === who)
+    && (status === 'all' || (status === 'active' ? r.status !== 'done' : status === 'overdue' ? recOverdue(r) : r.status === status))
+    && (!q.trim() || `${r.text} ${pname(r.responsible)} ${r.check.subject}`.toLowerCase().includes(q.trim().toLowerCase())))
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Stat icon={<MessageSquareWarning size={16} />} n={reported.length} l="отчетени — очакват потвърждение" tone={reported.length ? 'amber' : 'slate'} />
+        <Stat icon={<AlertTriangle size={16} />} n={overdue.length} l="с изтекъл срок" tone={overdue.length ? 'rose' : 'slate'} />
+        <Stat icon={<Clock size={16} />} n={open.length} l="отворени или неизпълнени" tone="slate" />
+      </div>
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Търси по текст или служител" className="input pl-8 w-64" />
+        </div>
+        {p.isDirector && inspectors.length > 1 && (
+          <select value={who} onChange={e => setWho(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm">
+            <option value="all">Всички проверяващи</option>
+            {inspectors.map(([id, n]) => <option key={id} value={id}>{n}</option>)}
+          </select>
+        )}
+        <select value={status} onChange={e => setStatus(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm">
+          <option value="active">Неприключени</option>
+          <option value="reported">Отчетени</option>
+          <option value="overdue">С изтекъл срок</option>
+          <option value="done">Изпълнени</option>
+          <option value="not_done">Неизпълнени</option>
+          <option value="all">Всички</option>
+        </select>
+      </div>
+      <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100">
+        {list.map(r => <RecRowView key={r.id} r={r} />)}
+        {!list.length && <p className="p-6 text-sm text-slate-400 text-center">Няма препоръки по този филтър. Препоръките идват от подписаните протоколи.</p>}
+      </div>
+      <p className="text-[12.5px] text-slate-500">Отговорникът отчита изпълнението от своя профил; вие потвърждавате в протокола. За проверка на място — „Последващ контрол“ в протокола.</p>
+    </div>
+  )
+}
+
+function RecRowView({ r, mine }: { r: RecRow; mine?: boolean }) {
+  const status = r.status || 'open'
+  const late = recOverdue(r)
+  return (
+    <Link href={`/control/${r.check.id}`} className="flex flex-wrap items-start gap-3 px-4 py-3 hover:bg-slate-50">
+      <span className={`w-24 shrink-0 text-[13px] tabular-nums ${late ? 'text-rose-700 font-medium' : 'text-slate-500'}`}>{r.due_date ? dmy(r.due_date) : 'без срок'}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] text-slate-800">{r.text}</span>
+        <span className="block text-[12.5px] text-slate-500 truncate">
+          {mine ? '' : `${pname(r.responsible)} · `}КП № {r.check.book_no} / {dmy(r.check.signed_at)} · {r.check.subject}
+        </span>
+        {r.status === 'reported' && r.report && <span className="block text-[12.5px] text-indigo-800 mt-1">Отчет: {r.report}</span>}
+      </span>
+      <span className={`text-[12px] px-2 py-0.5 rounded-full ${late ? 'bg-rose-100 text-rose-700' : REC_STATUS_TONE[status]}`}>{late ? 'изтекъл срок' : REC_STATUS_LABEL[status]}</span>
+    </Link>
+  )
+}
+
+// За отговорника: препоръките към него (отчетът се прави в протокола)
+function MyRecs({ recs }: { recs: RecRow[] }) {
+  const active = recs.filter(r => r.status !== 'done')
+  if (!recs.length) return null
+  return (
+    <section className="mb-6">
+      <h2 className="text-[13px] uppercase tracking-wide text-slate-500 mb-2">Моите препоръки{active.length ? ` · ${active.length} неприключени` : ''}</h2>
+      <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100">
+        {(active.length ? active : recs).map(r => <RecRowView key={r.id} r={r} mine />)}
+      </div>
+      {active.length > 0 && <p className="text-[12.5px] text-slate-500 mt-2">Отворете препоръката и натиснете „Отчети изпълнение“, когато я изпълните.</p>}
+    </section>
+  )
+}
+
 // ── Книга ──────────────────────────────────────────────────────────────────
 function Book(p: Parameters<typeof ControlClient>[0]) {
   const { toast } = useToast()
   const [busy, setBusy] = useState(false)
-  const rows = p.checks.filter(c => c.book_no).sort((a, b) => (a.book_no || 0) - (b.book_no || 0))
+  const rows = p.checks.filter(c => c.book_no && (p.isDirector || c.inspector_id === p.me.id)).sort((a, b) => (a.book_no || 0) - (b.book_no || 0))
   const summary = (c: Row) => (c.conclusions || c.findings_text || '').replace(/\s+/g, ' ').slice(0, 220)
   async function word() {
     if (!p.year) return
