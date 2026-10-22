@@ -103,7 +103,17 @@ export function inspectorTitle(role: string, position: string | null | undefined
   if (position && position.trim()) return position.trim()
   if (role === 'director') return 'Директор'
   if (role === 'zdud') return 'Заместник-директор по учебната дейност'
-  return 'Заместник-директор'
+  return 'Заместник-директор по административно-стопанската дейност'
+}
+
+/** Шаблон за административно-стопанска проверка (ЗДАСД). */
+export const isAsdTemplate = (t: { code: string | null; focus: string }) =>
+  t.code ? t.code.startsWith('asd_') || t.code === 'discipline' : t.focus === 'administrative'
+/** Шаблоните, които вижда проверяващият: директорът — всички; ЗДУД — учебните; ЗДАСД — само административно-стопанските. */
+export function templatesFor<T extends { code: string | null; focus: string }>(list: T[], role: string): T[] {
+  if (role === 'director') return list
+  if (role === 'zdud') return list.filter(t => !t.code?.startsWith('asd_'))
+  return list.filter(isAsdTemplate)
 }
 
 /** Основанието по подразбиране — зависи от това кой проверява (директор или заместник). */

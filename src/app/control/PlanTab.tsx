@@ -8,7 +8,7 @@ import { Plus, Loader2, FileText, Save, Pencil, Trash2, X, CheckCircle2, Calenda
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 import { Confirm } from '@/components/ui/Confirm'
-import { KIND_LABEL, FORM_LABEL, FOCUS_LABEL, inspectorTitle, dmy, type CheckKind, type CheckFocus, type CheckForm } from '@/lib/control'
+import { KIND_LABEL, FORM_LABEL, FOCUS_LABEL, inspectorTitle, templatesFor, dmy, type CheckKind, type CheckFocus, type CheckForm } from '@/lib/control'
 import {
   SCHOOL_MONTHS, MONTH_LABEL, MONTH_SHORT, monthEnd, planRole, defaultPlanTexts, suggestedItems,
   analyzeControl, analysisText, type ControlPlan, type PlanItem,
@@ -387,7 +387,7 @@ function PlanView(p: ControlProps & { plan: ControlPlan; items: PlanItem[]; owne
             <label className="block text-[12px] text-slate-500">Протокол по шаблон
               <select className="input w-full mt-1" value={editing.template_id || ''} onChange={e => setEditing({ ...editing, template_id: e.target.value || null })}>
                 <option value="">— без шаблон —</option>
-                {p.templates.filter(t => t.is_active).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                {templatesFor(p.templates.filter(t => t.is_active), p.owner?.role || '').map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </label>
             <div className="flex gap-2 pt-1">
