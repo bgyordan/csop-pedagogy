@@ -7,7 +7,7 @@ import { KIND_LABEL, FORM_LABEL, REC_STATUS_LABEL, REC_STATUS_TONE, recOverdue, 
 export default async function StaffControlSection({ supabase, staffId }: { supabase: any; staffId: string }) {
   const [{ data: rows, error }, { data: recs }] = await Promise.all([
     supabase.from('control_check_staff')
-      .select('acked_at, objection, check:control_checks!inner(id, book_no, check_date, signed_at, subject, status, kind, form, inspector:staff_profiles(first_name, last_name))')
+      .select('acked_at, objection, check:control_checks!inner(id, book_no, check_date, signed_at, subject, status, kind, form, inspector:staff_profiles!control_checks_inspector_id_fkey(first_name, last_name))')
       .eq('staff_id', staffId).neq('check.status', 'draft'),
     supabase.from('control_recommendations')
       .select('id, text, due_date, status, check:control_checks!control_recommendations_check_id_fkey!inner(id, book_no, status)')

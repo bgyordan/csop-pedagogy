@@ -27,7 +27,7 @@ export default async function ControlPage({ searchParams }: { searchParams: Prom
   const year: any = (years || []).find((y: any) => y.id === sp.y) || (years || []).find((y: any) => y.is_current) || (years || [])[0] || null
 
   let q = supabase.from('control_checks')
-    .select('*, inspector:staff_profiles(first_name, last_name, position), staff:control_check_staff(staff_id, acked_at, objection, objection_at, staff:staff_profiles(first_name, last_name, position))')
+    .select('*, inspector:staff_profiles!control_checks_inspector_id_fkey(first_name, last_name, position), staff:control_check_staff(staff_id, acked_at, objection, objection_at, staff:staff_profiles(first_name, last_name, position))')
     .order('check_date', { ascending: false })
   if (year) q = q.eq('academic_year_id', year.id)
   const { data: checks } = await q
