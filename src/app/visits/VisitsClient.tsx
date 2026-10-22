@@ -508,6 +508,10 @@ function Board({ campaign: c, bookings, people, calendar, onEdit }: Parameters<t
                   <div className="text-[15px] text-slate-800 mt-0.5">{name(b)}</div>
                   <div className="text-[13px] text-slate-500">{[b.class_name, b.subject].filter(Boolean).join(' · ')}</div>
                   {b.topic && <div className="text-[13px] text-slate-700 mt-1">Тема: {b.topic}</div>}
+                  {/* констативен протокол от посещението (контролна дейност) */}
+                  <a href={`/control?visit=${b.id}`} className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-lg text-[12.5px] bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
+                    <FileText size={13} /> Протокол
+                  </a>
                   <button type="button" onClick={() => removeBooking(b)} title="Махни — ще може да избере отново"
                     className="absolute top-2.5 right-2.5 p-1.5 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50"><Trash2 size={14} /></button>
                 </div>

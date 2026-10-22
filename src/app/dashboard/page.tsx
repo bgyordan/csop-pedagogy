@@ -18,6 +18,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { loginTime } from '@/lib/login-time'
 import TodayAbsentStrip from './components/TodayAbsentStrip'
 import VisitStrip from './components/VisitStrip'
+import ControlStrip from './components/ControlStrip'
 import CouncilStrip from './components/CouncilStrip'
 import NonSchoolDayStrip from './components/NonSchoolDayStrip'
 import DutyStrip from './components/DutyStrip'
@@ -130,6 +131,9 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 empty:hidden">
         {/* Посещение на час — избор на ден (учителите в отворена проверка) */}
         {!viewing && <VisitStrip profile={profile} />}
+
+        {/* Контролна дейност — протокол за запознаване / черновите изтичат */}
+        {!viewing && <ControlStrip profile={profile} />}
 
         {/* Дежурни тази седмица */}
         {!viewing && <DutyStrip staffId={profile.id} />}
