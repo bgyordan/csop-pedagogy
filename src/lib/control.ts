@@ -19,6 +19,7 @@ export type ControlTemplate = {
 
 export type CheckStaff = {
   check_id: string; staff_id: string; acked_at: string | null; objection: string | null; objection_at: string | null
+  self_requested_at?: string | null; self_assessment?: (Record<string, Finding> & { _note?: string }) | null; self_assessed_at?: string | null
   staff?: { first_name: string; last_name: string; position: string | null } | null
 }
 export type RecStatus = 'open' | 'reported' | 'done' | 'not_done'

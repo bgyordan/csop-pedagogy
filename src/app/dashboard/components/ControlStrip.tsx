@@ -19,6 +19,9 @@ export default async function ControlStrip({ profile }: { profile: any }) {
     .eq('responsible_id', profile.id).eq('check.status', 'signed').in('status', ['open', 'not_done'])
     .lte('due_date', addDays(today, 3))
 
+  const { data: selfReq } = await supabase.rpc('control_self_requests')
+  const selfOpen = ((selfReq || []) as any[]).filter(r => !r.self_assessed_at).length
+
   let late = 0, toReview = 0
   if (['director', 'zdud', 'admin'].includes(profile.role)) {
     const [{ count }, { count: rc }] = await Promise.all([
@@ -44,6 +47,7 @@ export default async function ControlStrip({ profile }: { profile: any }) {
       : `${recs.length === 1 ? 'Препоръка със срок' : `${recs.length} препоръки със срок`} до 3 дни`,
     href: recs.length === 1 ? `/control/${recs[0].check_id}` : '/control', tone: overdue ? 'rose' : 'amber',
   })
+  if (selfOpen) items.push({ text: selfOpen === 1 ? 'Поискана е самооценка преди проверка' : `Поискани са ${selfOpen} самооценки преди проверка`, href: '/control', tone: 'indigo' })
   if (toReview) items.push({ text: `${toReview} ${toReview === 1 ? 'отчетена препоръка чака' : 'отчетени препоръки чакат'} потвърждение`, href: '/control?tab=recs', tone: 'indigo' })
   if (late) items.push({ text: `${late} ${late === 1 ? 'протокол изтича' : 'протокола изтичат'} — срокът е ${PROTOCOL_DAYS} дни от проверката`, href: '/control', tone: 'amber' })
   if (!items.length) return null
