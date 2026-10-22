@@ -17,10 +17,17 @@ export default async function ProtocolPage({ params }: { params: Promise<{ id: s
     .eq('id', id).maybeSingle()
   if (!check) notFound()
 
-  const [{ data: staff }, { data: recs }] = await Promise.all([
+  const [{ data: staff }, { data: recs }, { data: followUps }, { data: origin }, { data: inspectors }, { data: currentYear }] = await Promise.all([
     supabase.from('control_check_staff').select('*, staff:staff_profiles(first_name, last_name, position)').eq('check_id', id),
-    supabase.from('control_recommendations').select('*').eq('check_id', id).order('sort'),
+    supabase.from('control_recommendations').select('*, responsible:staff_profiles(first_name, last_name)').eq('check_id', id).order('sort'),
+    supabase.from('control_checks').select('id, book_no, status, check_date').eq('follow_up_of', id).neq('status', 'voided').order('created_at'),
+    check.follow_up_of
+      ? supabase.from('control_checks').select('id, book_no, signed_at, subject').eq('id', check.follow_up_of).maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase.from('control_inspectors').select('staff_id'),
+    supabase.from('academic_years').select('id, name').eq('is_current', true).maybeSingle(),
   ])
+  const isInspector = ['director', 'zdud'].includes(me.role) || (inspectors || []).some((i: any) => i.staff_id === me.id)
   const canEdit = check.status === 'draft' && (check.inspector_id === me.id || me.role === 'director')
   const canManage = check.inspector_id === me.id || me.role === 'director'
   const { data: people } = canManage
@@ -35,7 +42,11 @@ export default async function ProtocolPage({ params }: { params: Promise<{ id: s
 
   return (
     <ProtocolEditor
-      me={{ id: me.id, role: me.role }}
+      me={{ id: me.id, role: me.role, position: me.position || '' }}
+      isInspector={isInspector}
+      followUps={(followUps || []) as any}
+      origin={origin as any}
+      currentYear={currentYear as any}
       check={check as any}
       staff={(staff || []) as any}
       recs={(recs || []) as any}

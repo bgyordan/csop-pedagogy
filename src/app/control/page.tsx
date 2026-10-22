@@ -32,6 +32,12 @@ export default async function ControlPage({ searchParams }: { searchParams: Prom
   if (year) q = q.eq('academic_year_id', year.id)
   const { data: checks } = await q
 
+  // препоръките от подписаните протоколи (всички години — неприключените се пренасят)
+  const recSel = '*, responsible:staff_profiles(first_name, last_name), check:control_checks!control_recommendations_check_id_fkey!inner(id, book_no, subject, signed_at, status, inspector_id, academic_year_id)'
+  const { data: recs } = isInspector
+    ? await supabase.from('control_recommendations').select(recSel).eq('check.status', 'signed').order('due_date', { ascending: true, nullsFirst: false })
+    : await supabase.from('control_recommendations').select(recSel).eq('check.status', 'signed').eq('responsible_id', me.id).order('due_date', { ascending: true, nullsFirst: false })
+
   const [{ data: templates }, { data: people }] = isInspector
     ? await Promise.all([
         supabase.from('control_templates').select('*').order('sort'),
@@ -59,6 +65,7 @@ export default async function ControlPage({ searchParams }: { searchParams: Prom
       years={(years || []) as any}
       year={year}
       checks={(checks || []) as any}
+      recs={(recs || []) as any}
       templates={(templates || []) as any}
       people={(people || []) as any}
       inspectorIds={(inspectors || []).map((i: any) => i.staff_id)}

@@ -5,6 +5,7 @@ import { ArrowLeft, Users, BookOpen, ChevronRight, Mail, CalendarClock } from 'l
 import { ROLE_LABELS } from '@/types'
 import { getFullName } from '@/lib/utils'
 import StaffClassesSection from './StaffClassesSection'
+import StaffControlSection from './StaffControlSection'
 import CurriculumPlan from '@/components/curriculum/CurriculumPlan'
 import { loadCurriculum, scheduleHoursByClass, TEACHER_NORM } from '@/lib/curriculum'
 export const dynamic = 'force-dynamic'
@@ -224,6 +225,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
           <p className="text-slate-400 text-sm">Няма назначени ученици за {currentYear?.name}</p>
         </div>
       )}
+      <div className="mt-5"><StaffControlSection supabase={supabase} staffId={id} /></div>
     </div>
   )
 }

@@ -41,6 +41,7 @@ const dots = '..................................................................
 export async function generateControlProtocol(d: {
   check: ControlCheck; staff: CheckStaff[]; recs: Recommendation[]
   inspectorName: string; responsibleNames?: Record<string, string>
+  origin?: { book_no: number | null; signed_at?: string | null } | null
 }) {
   const c = d.check
   const draft = c.status === 'draft'
@@ -52,15 +53,25 @@ export async function generateControlProtocol(d: {
 
   const what = c.subject ? c.subject : '..............................'
   children.push(P([
-    t(`На ${dmy(c.check_date)} г. на основание ${c.basis || '..............................'} е извършен${c.form === 'observation' || c.form === 'study' ? 'о' : 'а'} `),
+    t(`На ${dmy(c.check_date)} г. на основание ${c.basis || '..............................'} е извършен${c.subject ? genderEnd(c.subject) : c.form === 'observation' || c.form === 'study' ? 'о' : 'а'} `),
     t(what, { bold: true }), t('.'),
   ], { alignment: AlignmentType.JUSTIFIED }))
   children.push(P([t('Вид контрол: ', { bold: true }), t(`${KIND_LABEL[c.kind]}, ${FOCUS_LABEL[c.focus].toLowerCase()}; форма: ${FORM_LABEL[c.form].toLowerCase()}; ${c.planned ? 'по плана за контролната дейност' : 'извън плана'}; ${c.announced ? 'предварително оповестена' : 'без предварително уведомяване'}.`)]))
+  if (d.origin && !c.subject.includes(`№ ${d.origin.book_no}`)) children.push(P([t('Последващ контрол ', { bold: true }), t(`по изпълнението на препоръките от констативен протокол № ${d.origin.book_no ?? '…'} / ${dmy(d.origin.signed_at)} г.`)]))
   if (c.purpose) children.push(P([t('Цел: ', { bold: true }), t(c.purpose)]))
   const checked = d.staff.map(s => `${name(s.staff)}${s.staff?.position ? ` — ${s.staff.position}` : ''}`).join('; ')
   children.push(P([t('Проверен/и: ', { bold: true }), t(checked || '..............................')]))
   DETAIL_FIELDS.forEach(f => { const v = c.details?.[f.k]; if (v) children.push(P([t(`${f.l}: `, { bold: true }), t(v)])) })
   if (c.method) children.push(P([t('Проверката е осъществена чрез: ', { bold: true }), t(c.method)]))
+
+  const ev = c.evidence?.people?.filter(x => x.lines.length) || []
+  if (ev.length) {
+    children.push(P([t(`Справка от системата към ${dmy(c.evidence!.taken_at)} г.:`, { bold: true })], { spacing: { before: 120, after: 40 } }))
+    ev.forEach(x => {
+      if (ev.length > 1) children.push(P([t(x.name, { italics: true })], { spacing: { after: 20 } }))
+      x.lines.forEach(l => children.push(P([t('– ' + l, { size: 20 })], { spacing: { after: 20 }, indent: { left: 280 } })))
+    })
+  }
 
   children.push(heading('I. Констатации'))
   const groups = (c.criteria || []).filter(g => g.items?.length)
