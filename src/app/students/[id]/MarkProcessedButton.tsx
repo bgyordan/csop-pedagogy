@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Check, Loader2, Sparkles } from 'lucide-react'
+import { confirmDialog } from '@/components/ui/Toast'
 
 export default function MarkProcessedButton({ studentId }: { studentId: string }) {
   const supabase = createClient()
@@ -10,7 +11,7 @@ export default function MarkProcessedButton({ studentId }: { studentId: string }
   const [saving, setSaving] = useState(false)
 
   async function markProcessed() {
-    if (!confirm('Ученикът вече няма да е маркиран като нов. Продължаване?')) return
+    if (!await confirmDialog('Ученикът вече няма да е маркиран като нов. Продължаване?')) return
     setSaving(true)
     await supabase.from('students').update({ is_new: false }).eq('id', studentId)
     setSaving(false)

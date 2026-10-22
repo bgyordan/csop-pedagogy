@@ -10,6 +10,7 @@ import MotorEditor from './MotorEditor'
 import type { MotorInput } from './MotorEditor'
 import { DOMAINS, ITEMS, STAGES, DETAIL, MOTOR_ROLES, GAS_LABEL, itemOf, resultText, compare, sortSessions, fmtD } from '@/lib/motor'
 import type { MotorSession, MotorResult, MotorGoal } from '@/lib/motor'
+import { notify, confirmDialog } from '@/components/ui/Toast'
 
 const MANAGERS = ['admin', 'zdud', 'director']
 
@@ -243,12 +244,12 @@ function GoalsPanel({ goals, canEdit, onChange, studentId, meId }: { goals: Moto
     const it = f.item ? itemOf(Number(f.item)) : undefined
     const { error } = await supabase.from('motor_goals').insert({ student_id: studentId, item: it?.no ?? null, domain: it?.domain ?? null, goal: text, due: f.due || null, set_by: meId })
     setBusy(false)
-    if (error) { alert(error.message); return }
+    if (error) { notify(error.message); return }
     setF({ item: '', situation: '', action: '', criterion: '', help: '', due: '' }); setOpen(false)
     await onChange()
   }
   async function patch(id: string, p: Partial<MotorGoal>) { await supabase.from('motor_goals').update(p).eq('id', id); await onChange() }
-  async function del(id: string) { if (!confirm('Да изтрия ли целта?')) return; await supabase.from('motor_goals').delete().eq('id', id); await onChange() }
+  async function del(id: string) { if (!await confirmDialog('Да изтрия ли целта?')) return; await supabase.from('motor_goals').delete().eq('id', id); await onChange() }
   const inp = 'w-full px-3 py-2 rounded-xl border border-slate-300 text-[13px] focus:outline-none focus:border-[#0f2240]'
 
   return (

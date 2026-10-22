@@ -1,7 +1,7 @@
 'use client'
 import { useState, useMemo } from 'react'
 import { Loader2, Check, Plus, X, Save, AlertTriangle, Copy, Lock, Unlock } from 'lucide-react'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { saveMySchedule, checkClassCollision, checkIfoCollision, addSubjectQuick, releaseClassSlot, copyMyScheduleFromTerm1, linkCurriculumSubject, type MyCell } from './actions'
 import { PERIOD_TIMES, PERIOD_LABEL, periodsOverlap, AFTERNOON_PERIODS } from '@/lib/periods'
 import { settlePlan, subjectCanon, type PlanCard } from '@/lib/curriculum'
@@ -178,7 +178,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
 
   async function save() {
     const n = Object.keys(allCollisions).length
-    if (n > 0 && !confirm(`Има ${n} колизии (виж червеното каре). Да запазя ли все пак?`)) return
+    if (n > 0 && !await confirmDialog(`Има ${n} колизии (виж червеното каре). Да запазя ли все пак?`)) return
     setSaving(true)
     const cells: MyCell[] = Object.entries(grid).map(([key, v]) => {
       const [day, period] = key.split('-').map(Number)
@@ -253,7 +253,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
   async function release(day: number, period: number) {
     const key = `${day}-${period}`
     const b = takenHere[key]
-    if (!b || !confirm(`Да се освободи ${period}. час (${b.by}${b.subject ? ' · ' + b.subject : ''})? Часът ще изчезне от разписанието на ${b.by}.`)) return
+    if (!b || !await confirmDialog(`Да се освободи ${period}. час (${b.by}${b.subject ? ' · ' + b.subject : ''})? Часът ще изчезне от разписанието на ${b.by}.`)) return
     setReleasing(true)
     const res: any = await releaseClassSlot(activeClassId, academicYearId, term, day, period, targetStaffId)
     setReleasing(false)

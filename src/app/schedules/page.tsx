@@ -230,7 +230,7 @@ export default async function SchedulesPage({
       {/* ── Паралелки ── */}
       {tab === 'classes' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left [&>th]:px-4 [&>th]:py-2.5 [&>th]:font-semibold [&>th]:text-slate-500 [&>th]:text-xs [&>th]:uppercase [&>th]:tracking-wider">
                 <th>Паралелка</th><th>Класен ръководител</th><th className="text-center">Ученици</th><th className="text-right">Разписание</th>
@@ -249,7 +249,7 @@ export default async function SchedulesPage({
               ))}
               {classes.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Няма паралелки</td></tr>}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
 
@@ -275,7 +275,7 @@ export default async function SchedulesPage({
             <span className="text-xs text-slate-400 ml-auto">{term === 1 ? 'I' : 'II'} срок · терапии и „вземане“ се броят 0,7</span>
           </div>
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto"><table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-left [&>th]:px-4 [&>th]:py-2.5 [&>th]:font-semibold [&>th]:text-slate-500 [&>th]:text-xs [&>th]:uppercase [&>th]:tracking-wider">
                   <th>Учител</th><th>Паралелка(и)</th><th className="text-center">Часове / {NORM}</th><th className="text-center">ИФО</th><th className="text-right">Разписание</th>
@@ -305,7 +305,7 @@ export default async function SchedulesPage({
                 ))}
                 {shown.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">{filter === 'all' ? 'Няма учители' : 'Няма учители в тази група'}</td></tr>}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </>)
       })()}
@@ -313,7 +313,7 @@ export default async function SchedulesPage({
       {/* ── Терапевти ── */}
       {tab === 'therapists' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left [&>th]:px-4 [&>th]:py-2.5 [&>th]:font-semibold [&>th]:text-slate-500 [&>th]:text-xs [&>th]:uppercase [&>th]:tracking-wider">
                 <th>Специалист</th><th>Роля</th><th className="text-center">Деца</th><th className="text-center">Часове</th><th className="text-right">График</th>
@@ -337,14 +337,14 @@ export default async function SchedulesPage({
               ))}
               {therapists.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Няма терапевти</td></tr>}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
 
       {/* ── Ученици ИФО ── */}
       {tab === 'ifo' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left [&>th]:px-4 [&>th]:py-2.5 [&>th]:font-semibold [&>th]:text-slate-500 [&>th]:text-xs [&>th]:uppercase [&>th]:tracking-wider">
                 <th>Ученик</th><th>Паралелка</th><th>Води се от</th><th className="text-center">Часове</th><th className="text-right">Разписание</th>
@@ -368,7 +368,7 @@ export default async function SchedulesPage({
               ))}
               {ifoStudents.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Няма ученици на ИФО</td></tr>}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
     </div>

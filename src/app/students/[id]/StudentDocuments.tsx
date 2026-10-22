@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Check, X, Loader2, Trash2, Pencil, Stethoscope, ShieldCheck, Utensils } from 'lucide-react'
 import DateInput from '@/components/ui/DateInput'
+import { notify } from '@/components/ui/Toast'
 
 interface DocRow {
   doc_type: string
@@ -196,9 +197,9 @@ export default function StudentDocuments({ studentId, canManage, externalClass }
       const { error } = await supabase.from('student_documents')
         .upsert({ student_id: studentId, ...base, ...(indefinite || rows[key]?.indefinite ? { indefinite } : {}),
           ...(valid_label || rows[key]?.valid_label ? { valid_label } : {}), updated_at: new Date().toISOString() }, { onConflict: 'student_id,doc_type' })
-      if (error && /indefinite/.test(error.message)) alert('За „безсрочен“ пуснете SQL файла 2026-10-09_student_documents_indefinite.sql')
-      if (error && /valid_label/.test(error.message)) alert('За „до края на клас/етап“ пуснете SQL файла 2026-10-17_student_documents_valid_label.sql')
-      if (error && /allerg|reaction_plan|emergency_med/.test(error.message)) alert('За „Няма / Има“ при алергиите пуснете SQL файла 2026-10-17_student_allergy_status.sql')
+      if (error && /indefinite/.test(error.message)) notify('За „безсрочен“ пуснете SQL файла 2026-10-09_student_documents_indefinite.sql')
+      if (error && /valid_label/.test(error.message)) notify('За „до края на клас/етап“ пуснете SQL файла 2026-10-17_student_documents_valid_label.sql')
+      if (error && /allerg|reaction_plan|emergency_med/.test(error.message)) notify('За „Няма / Има“ при алергиите пуснете SQL файла 2026-10-17_student_allergy_status.sql')
       if (!error) setRows(prev => ({ ...prev, [key]: row }))
     }
     setSaving(false)

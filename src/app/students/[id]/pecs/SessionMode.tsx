@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { X, Undo2, Check, Loader2, ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { PHASES, PLACES, PROMPTS, ROMAN, PHASE_COLOR, pct } from './lib'
 import type { Item, Profile, Prompt, Session } from './lib'
 import ItemPic from './ItemPic'
@@ -90,7 +90,7 @@ export default function SessionMode({ studentId, childName, profile, items, sess
     <div className="fixed inset-0 z-50 bg-slate-50 flex flex-col">
       {/* горна лента */}
       <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3">
-        <button type="button" onClick={() => { if (!trials.length || confirm('Да излезете без запис? Опитите остават в браузъра за следващия път.')) onClose(false) }}
+        <button type="button" onClick={async () => { if (!trials.length || await confirmDialog('Да излезете без запис? Опитите остават в браузъра за следващия път.')) onClose(false) }}
           className="p-2 -ml-2 text-slate-400 hover:text-slate-700"><X size={22} /></button>
         <div className="min-w-0">
           <div className="text-[15px] font-semibold text-slate-800 truncate">Занимание · {childName}</div>

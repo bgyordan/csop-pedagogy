@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Users, X, Plus } from 'lucide-react'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { getFullName } from '@/lib/utils'
 
 interface Member {
@@ -64,7 +64,7 @@ export function CommitteeMembers({ committeeId, members: initial, allStaff, canM
   }
 
   async function handleRemove(memberId: string) {
-    if (!confirm('Премахни члена от комисията?')) return
+    if (!await confirmDialog('Премахни члена от комисията?')) return
 
     const { error } = await supabase
       .from('committee_members').delete().eq('id', memberId)

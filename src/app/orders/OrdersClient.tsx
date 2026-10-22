@@ -9,6 +9,7 @@ import ViewOrderModal from './ViewOrderModal'
 import EditOrderModal from './EditOrderModal'
 import { Hl, SortHeader, FileAndActions, FilterChips, EmptyState } from '@/components/registry/RegistryParts'
 import { PANEL_WIDTH_CLS } from '@/components/registry/SidePanel'
+import { notify, confirmDialog } from '@/components/ui/Toast'
 
 interface NomenclatureItem {
   id: string; section_code: string; item_code: string; name: string; retention_years: string
@@ -48,9 +49,9 @@ export default function OrdersClient({
 
   async function handleDelete(id: string, e: React.MouseEvent) {
     e.stopPropagation()
-    if (!confirm('Изтрий тази заповед? Действието е необратимо.')) return
+    if (!await confirmDialog('Изтрий тази заповед? Действието е необратимо.')) return
     const { error } = await supabase.from('orders').delete().eq('id', id)
-    if (error) { alert('Грешка при изтриване'); return }
+    if (error) { notify('Грешка при изтриване'); return }
     router.refresh()
   }
 

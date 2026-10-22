@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Upload, Download, Trash2, Loader2, FileText } from 'lucide-react'
+import { notify, confirmDialog } from '@/components/ui/Toast'
 
 interface SFile { id: string; name: string; path: string; size: number | null; created_at: string }
 function fmtSize(b: number | null) {
@@ -34,7 +35,7 @@ export default function SchoolFilesPanel({ schoolId }: { schoolId: string }) {
       const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_')
       const path = `${schoolId}/${Date.now()}_${safe}`
       const { error } = await supabase.storage.from('school-files').upload(path, file)
-      if (error) { alert('Грешка при качване: ' + file.name); continue }
+      if (error) { notify('Грешка при качване: ' + file.name); continue }
       const { data: { user } } = await supabase.auth.getUser()
       const { data: prof } = await supabase.from('staff_profiles').select('id').eq('user_id', user?.id!).single()
       await supabase.from('school_files').insert({ school_id: schoolId, name: file.name, path, size: file.size, mime_type: file.type, uploaded_by: prof?.id })
@@ -43,13 +44,13 @@ export default function SchoolFilesPanel({ schoolId }: { schoolId: string }) {
   }
   async function download(f: SFile) {
     const { data, error } = await supabase.storage.from('school-files').download(f.path)
-    if (error || !data) { alert('Грешка при изтегляне'); return }
+    if (error || !data) { notify('Грешка при изтегляне'); return }
     const url = URL.createObjectURL(data)
     const a = document.createElement('a'); a.href = url; a.download = f.name
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
   }
   async function del(f: SFile) {
-    if (!confirm(`Изтрий „${f.name}"?`)) return
+    if (!await confirmDialog(`Изтрий „${f.name}"?`)) return
     await supabase.storage.from('school-files').remove([f.path])
     await supabase.from('school_files').delete().eq('id', f.id)
     setFiles(prev => prev.filter(x => x.id !== f.id))

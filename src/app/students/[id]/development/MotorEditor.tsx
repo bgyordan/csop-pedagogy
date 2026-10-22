@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Loader2, Save, Trash2, MessageSquare, Info, AlertTriangle } from 'lucide-react'
 import { DOMAINS, ITEMS, MSCALE, CODES, SUPPORT, STAGES, DETAIL, CONDITIONS, UNIT, resultText, isEmptyResult, fmtD, compare } from '@/lib/motor'
 import type { MotorItem, MotorSession, MotorResult } from '@/lib/motor'
+import { confirmDialog } from '@/components/ui/Toast'
 
 export type MR = Omit<MotorResult, 'session_id' | 'item'>
 export type MotorInput = {
@@ -137,7 +138,7 @@ export default function MotorEditor({ session, template, prevResults, results, s
           <div className="ml-auto flex items-center gap-2">
             {!readOnly && <span className="text-[12px] text-slate-500">Проби: <b className="text-slate-800">{total}</b></span>}
             {onDelete && !readOnly && (
-              <button type="button" onClick={async () => { if (confirm('Да изтрия ли тази оценка?')) { setBusy(true); await onDelete() } }}
+              <button type="button" onClick={async () => { if (await confirmDialog('Да изтрия ли тази оценка?')) { setBusy(true); await onDelete() } }}
                 className="p-2 rounded-xl text-rose-600 hover:bg-rose-50" title="Изтрий"><Trash2 size={16} /></button>
             )}
             <button type="button" onClick={onClose} className="px-3 py-2 rounded-xl text-sm text-slate-600 hover:bg-slate-100">{readOnly ? 'Затвори' : 'Откажи'}</button>

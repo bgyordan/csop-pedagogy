@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, Lock, Unlock, Copy } from 'lucide-react'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { setScheduleLock, copySchoolTerm1To2 } from './actions'
 
 // Утвърждаване на разписанието за срока + копиране на цялото училище от I във II срок
@@ -16,7 +16,7 @@ export default function PlanAdminBar({ term, locked, lockInfo }: { term: number;
     const msg = locked
       ? `Да се отключи разписанието за ${term === 2 ? 'II' : 'I'} срок? Учителите отново ще могат да променят своите часове.`
       : `Да се утвърди разписанието за ${term === 2 ? 'II' : 'I'} срок? След това учителите няма да могат да го променят — само управата.`
-    if (!confirm(msg)) return
+    if (!await confirmDialog(msg)) return
     setBusy('lock')
     const res: any = await setScheduleLock(term, !locked)
     setBusy('')

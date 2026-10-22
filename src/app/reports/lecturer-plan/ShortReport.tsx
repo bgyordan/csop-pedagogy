@@ -44,7 +44,7 @@ export default function ShortReport({ rows, yearName, unlinked = [] }: { rows: R
           <button onClick={() => window.print()} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm border border-slate-200 text-slate-700 hover:border-[#0f2240]"><Printer size={15} /> Печат</button>
         </div>
       </div>
-      <table className="w-full text-[15px]">
+      <div className="overflow-x-auto"><table className="w-full text-[15px]">
         <thead>
           <tr className="text-left text-[12px] text-slate-500 align-bottom">
             <th className="px-5 py-2 font-medium w-10">№</th>
@@ -84,7 +84,7 @@ export default function ShortReport({ rows, yearName, unlinked = [] }: { rows: R
             <td className="px-5 py-2.5 text-right tabular-nums font-semibold text-slate-900">{tM}</td>
           </tr></tfoot>
         )}
-      </table>
+      </table></div>
       {unlinked.length > 0 && (
         <div className="mx-5 my-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-[13px] text-amber-900">
           <b>Не са в списъка — преподавателят от НЕИСПУО не е свързан със служител в EIS:</b>

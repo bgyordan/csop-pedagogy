@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { X, Upload, FileText, Loader2, Trash2, Download, Package } from 'lucide-react'
+import { notify, confirmDialog } from '@/components/ui/Toast'
 
 const OBJECT_LABELS: Record<string, string> = {
   construction: 'Строителство', supply: 'Доставка', service: 'Услуга',
@@ -58,7 +59,7 @@ export default function ProcurementModal({ item, canEdit, onClose, onChanged }: 
     const ext = file.name.split('.').pop()
     const filePath = `procurements/${item.id}/${Date.now()}.${ext}`
     const { error: upErr } = await supabase.storage.from('documents').upload(filePath, file, { upsert: true })
-    if (upErr) { alert(`Грешка: ${upErr.message}`); setUploading(false); return }
+    if (upErr) { notify(`Грешка: ${upErr.message}`); setUploading(false); return }
 
     await supabase.from('procurement_files').insert({
       procurement_id: item.id,
@@ -79,7 +80,7 @@ export default function ProcurementModal({ item, canEdit, onClose, onChanged }: 
   }
 
   async function handleDeleteFile(id: string) {
-    if (!confirm('Изтриване на файла?')) return
+    if (!await confirmDialog('Изтриване на файла?')) return
     await supabase.from('procurement_files').delete().eq('id', id)
     await loadFiles()
     onChanged()

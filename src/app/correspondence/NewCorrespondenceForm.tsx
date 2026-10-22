@@ -10,6 +10,7 @@ import KtPartsEditor, { ktPartsError } from '@/components/KtPartsEditor'
 import { ktLabel, type KtPart } from '@/lib/kt'
 import { FileDrop, useFormKeys, KeysHint } from '@/components/registry/FormParts'
 import { X, Loader2, User, GraduationCap, ChevronDown, ArrowDownLeft, ArrowUpRight, Zap, ClipboardList, FileText } from 'lucide-react'
+import { notify } from '@/components/ui/Toast'
 // Деловодна година: 15.09 – 14.09 следващата
 function deloYearBounds(ref: Date): { start: string; end: string } {
   const y = ref.getFullYear()
@@ -263,7 +264,7 @@ export default function NewCorrespondenceForm({
       first_name: ns.first.trim(), middle_name: ns.middle.trim() || null, last_name: ns.last.trim(),
       birth_date: ns.birth, status: 'active', is_new: true,
     }).select('id, first_name, last_name').single()
-    if (error || !st) { setNsSaving(false); alert('Грешка при добавяне на ученика: ' + (error?.message || '')); return }
+    if (error || !st) { setNsSaving(false); notify('Грешка при добавяне на ученика: ' + (error?.message || '')); return }
     // временно в Служебна паралелка — класът се определя по-късно
     if (year) {
       const { data: sl } = await supabase.from('classes').select('id').eq('academic_year_id', year.id).ilike('name', 'служебна').limit(1).maybeSingle()
@@ -315,9 +316,9 @@ export default function NewCorrespondenceForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!subject) { alert('Моля попълнете темата.'); return }
-    if (partsUsed.length > 0) { const kErr = ktPartsError(partsUsed, subFrom, subTo); if (kErr) { alert(kErr); return } }
-    if (isVacation && absentInRegister && leavePeriods.length === 0) { alert(separateDays ? 'Моля добавете поне един ден на отпуска.' : 'Моля попълнете периода на отпуска (от – до).'); return }
+    if (!subject) { notify('Моля попълнете темата.'); return }
+    if (partsUsed.length > 0) { const kErr = ktPartsError(partsUsed, subFrom, subTo); if (kErr) { notify(kErr); return } }
+    if (isVacation && absentInRegister && leavePeriods.length === 0) { notify(separateDays ? 'Моля добавете поне един ден на отпуска.' : 'Моля попълнете периода на отпуска (от – до).'); return }
     setSaving(true)
     const { start: dStart, end: dEnd } = deloYearBounds(new Date(docDate))
     // Резервиран номер: номерът и поредността остават същите, записът се обновява
@@ -355,7 +356,7 @@ export default function NewCorrespondenceForm({
     const { error } = reserved
       ? await supabase.from('correspondence').update({ ...row, created_by: undefined, is_reserved: false }).eq('id', reserved.id)
       : await supabase.from('correspondence').insert(row)
-    if (error) { alert(`Грешка: ${error.message}`); setSaving(false); return }
+    if (error) { notify(`Грешка: ${error.message}`); setSaving(false); return }
 
     // Автоматична заповед за отпуск (сценарий vacation, отметка включена)
     if (isVacation && createOrder) {

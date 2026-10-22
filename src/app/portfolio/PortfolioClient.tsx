@@ -12,6 +12,7 @@ import type { FileRow } from './SharedFilesTab'
 import { KINDS, MANAGERS, isImage, isDraft, isDrive, trashVideos } from './lib'
 import { createClient } from '@/lib/supabase/client'
 import type { Post, Person, Cls, Kind } from './lib'
+import { confirmDialog } from '@/components/ui/Toast'
 
 type Tab = 'wall' | 'mine' | 'files' | 'site'
 const PER_PAGE = 24
@@ -80,7 +81,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
   // „Сподели“ / „Само за мен“ — като при файловете
   // Изтриване направо от картата (с потвърждение) — заедно със снимките и файловете
   async function removePost(p: Post) {
-    if (!confirm(`Да изтрия ли „${p.title}“ заедно със снимките?`)) return
+    if (!await confirmDialog(`Да изтрия ли „${p.title}“ заедно със снимките?`)) return
     const supabase = createClient()
     const paths = p.media.flatMap(m => [m.path, m.thumb_path].filter(x => x && !isDrive(x)) as string[])
     if (paths.length) await supabase.storage.from('portfolio').remove(paths)

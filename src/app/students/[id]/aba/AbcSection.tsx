@@ -7,7 +7,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Plus, X, Loader2, Check, Trash2, Lightbulb, Info, ShieldAlert } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import {
   ANTECEDENTS, BEHAVIORS, CONSEQUENCES, ABC_PLACES, INTENSITY, abcAnalysis, todaySofia, nowSofia, fmtDate, fmtShort,
 } from '@/lib/aba'
@@ -34,7 +34,7 @@ export default function AbcSection({ studentId, firstName, meId, isManager, reco
   const a = useMemo(() => abcAnalysis(shown), [shown])
 
   async function remove(r: AbcRecord) {
-    if (!confirm(`Да се изтрие ли записът от ${fmtDate(r.occurred_on)}?`)) return
+    if (!await confirmDialog(`Да се изтрие ли записът от ${fmtDate(r.occurred_on)}?`)) return
     const { error } = await supabase.from('abc_records').delete().eq('id', r.id)
     if (error) { toast(error.message, 'error'); return }
     toast('Записът е изтрит')

@@ -10,7 +10,7 @@ import {
   Briefcase, ClipboardList, Star, Eye, Settings2, Plane, Repeat, UserPlus, HeartHandshake, Users, Bus,
   ShieldCheck, Wallet, BookOpen, GraduationCap, Stethoscope, CalendarDays, ArrowUp, ArrowDown, Flame,
 } from 'lucide-react'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 
 interface Template {
   id: string
@@ -203,7 +203,7 @@ export default function TemplatesClient({ templates: initial, collections: initi
     if (error) { setFavs(favs); toast('Любимите още не са включени', 'error') }
   }
   async function remove(t: Template) {
-    if (!confirm(`Изтрий образеца „${t.title}“?`)) return
+    if (!await confirmDialog(`Изтрий образеца „${t.title}“?`)) return
     await supabase.storage.from('templates').remove([t.file_path])
     await supabase.from('document_templates').delete().eq('id', t.id)
     toast('Образецът е изтрит')
@@ -552,7 +552,7 @@ function ManageCollections({ collections, setCollections, onClose }: {
     setRows(next); setCollections(next); setNewName('')
   }
   async function del(c: Collection) {
-    if (!confirm(`Да се изтрие ли колекцията „${c.name}“? Образците остават — само излизат от нея.`)) return
+    if (!await confirmDialog(`Да се изтрие ли колекцията „${c.name}“? Образците остават — само излизат от нея.`)) return
     const { error } = await supabase.from('template_collections').delete().eq('id', c.id)
     if (error) { toast('Грешка при изтриване', 'error'); return }
     const next = rows.filter(r => r.id !== c.id)

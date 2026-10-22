@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Plus, Coffee, User, Users, Loader2, Pencil, Trash2, FileText, X } from 'lucide-react'
 import { generateCoudOrder } from '@/lib/docx-generator'
 import CoudGroupModal from './CoudGroupModal'
+import { notify, confirmDialog } from '@/components/ui/Toast'
 
 interface Teacher { id: string; first_name: string; last_name: string }
 interface Student { id: string; name: string }
@@ -44,9 +45,9 @@ export default function CoudGroupsClient({ groups, teachers, academicYearId, yea
   const [genBusy, setGenBusy] = useState(false)
 
   async function generateOrder() {
-    if (!orderNumber.trim()) { alert('Въведете номер на заповедта'); return }
+    if (!orderNumber.trim()) { notify('Въведете номер на заповедта'); return }
     const withStudents = groups.filter(g => g.students.length > 0)
-    if (withStudents.length === 0) { alert('Няма групи с ученици'); return }
+    if (withStudents.length === 0) { notify('Няма групи с ученици'); return }
     setGenBusy(true)
     try {
       const [y, m, d] = orderDate.split('-')
@@ -63,7 +64,7 @@ export default function CoudGroupsClient({ groups, teachers, academicYearId, yea
       )
       setShowOrder(false)
     } catch (e: any) {
-      alert(`Грешка: ${e.message}`)
+      notify(`Грешка: ${e.message}`)
     }
     setGenBusy(false)
   }
@@ -80,7 +81,7 @@ export default function CoudGroupsClient({ groups, teachers, academicYearId, yea
     if (!error) {
       setNewName(''); setNewTeacher(''); setShowNew(false)
       router.refresh()
-    } else alert(`Грешка: ${error.message}`)
+    } else notify(`Грешка: ${error.message}`)
   }
 
   async function saveEdit() {
@@ -95,7 +96,7 @@ export default function CoudGroupsClient({ groups, teachers, academicYearId, yea
   }
 
   async function deleteGroup(id: string) {
-    if (!confirm('Изтриване на ЦОУД групата? Записванията в нея също ще се премахнат.')) return
+    if (!await confirmDialog('Изтриване на ЦОУД групата? Записванията в нея също ще се премахнат.')) return
     await supabase.from('coud_groups').delete().eq('id', id)
     router.refresh()
   }

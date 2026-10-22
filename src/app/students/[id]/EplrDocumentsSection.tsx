@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Upload, Download, Trash2, FileText, Loader2, Check, Eye } from 'lucide-react'
 import { DocViewer } from '@/components/registry/DocViewer'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 
 interface EplrDoc {
   id: string
@@ -110,7 +110,7 @@ export function EplrDocumentsSection({ studentId, academicYearId, documents: ini
   }
 
   async function handleDelete(doc: EplrDoc) {
-    if (!confirm(`Изтрий "${EPLR_DOC_TYPES[doc.doc_type] || doc.doc_type}"?`)) return
+    if (!await confirmDialog(`Изтрий "${EPLR_DOC_TYPES[doc.doc_type] || doc.doc_type}"?`)) return
     await supabase.storage.from('student-dossiers').remove([doc.file_path])
     await supabase.from('eplr_attachments').delete().eq('id', doc.id)
     toast('Документът е изтрит')

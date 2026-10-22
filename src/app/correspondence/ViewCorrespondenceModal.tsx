@@ -6,6 +6,7 @@ import { SidePanel, PanelField, FilePreview } from '@/components/registry/SidePa
 import { createClient } from '@/lib/supabase/client'
 import { nextOrderSeq } from '@/lib/delo-seq'
 import { useRouter } from 'next/navigation'
+import { notify } from '@/components/ui/Toast'
 
 const DIRECTION_CONFIG = {
   incoming: { label: 'Входящ' },
@@ -81,7 +82,7 @@ export default function ViewCorrespondenceModal({ item, students, staff, onClose
     const win = window.open('', '_blank')
     const { data } = await supabase.storage.from('documents').createSignedUrl(item.file_url, 120)
     if (data?.signedUrl && win) win.location.href = data.signedUrl
-    else { if (win) win.close(); alert('Грешка при изтегляне') }
+    else { if (win) win.close(); notify('Грешка при изтегляне') }
   }
 
   async function handleIssueOrder() {
@@ -100,7 +101,7 @@ export default function ViewCorrespondenceModal({ item, students, staff, onClose
       created_by: profile?.id,
       seq,
     })
-    if (error) { alert(`Грешка: ${error.message}`); setIssuingOrder(false); return }
+    if (error) { notify(`Грешка: ${error.message}`); setIssuingOrder(false); return }
     setOrderIssued(orderNumber)
     setIssuingOrder(false)
     router.refresh()

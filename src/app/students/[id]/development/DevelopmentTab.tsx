@@ -12,6 +12,7 @@ import ProfileCard from './ProfileCard'
 import MotorSection from './MotorSection'
 import { sortAssessments } from './lib'
 import type { Skill, Assessment, Score, Target, AreaKey, Gas, Profile } from './lib'
+import { notify } from '@/components/ui/Toast'
 
 const MANAGERS = ['admin', 'zdud', 'director']
 // Оценяват психолозите и логопедите (и координиращият екип, и управата); останалите само разглеждат
@@ -92,7 +93,7 @@ export default function DevelopmentTab({ studentId, studentName, className, acad
   async function addSkill(area: AreaKey, label: string): Promise<Skill | null> {
     const sort = Math.max(0, ...(data?.skills || []).filter(s => s.area === area).map(s => s.sort)) + 1
     const { data: row, error } = await supabase.from('dev_skills').insert({ area, label, sort, created_by: meId }).select('id, area, label, sort, active, level').single()
-    if (error) { alert(error.message); return null }
+    if (error) { notify(error.message); return null }
     setData(d => d ? { ...d, skills: [...d.skills, row as Skill] } : d)
     return row as Skill
   }
@@ -109,7 +110,7 @@ export default function DevelopmentTab({ studentId, studentName, className, acad
       student_id: studentId, groups: p.groups, gmfcs: p.gmfcs, macs: p.macs, cfcs: p.cfcs, asd_level: p.asd_level, icf: p.icf,
       note: p.note?.trim() || null, updated_by: meId, updated_at: new Date().toISOString(),
     })
-    if (error) { alert(error.message); return }
+    if (error) { notify(error.message); return }
     await load()
   }
 

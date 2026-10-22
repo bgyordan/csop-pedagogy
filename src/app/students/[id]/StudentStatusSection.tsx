@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { GraduationCap, Home, Wifi, Plus, X, Loader2, Check, Calendar } from 'lucide-react'
 import { isOresActive, todaySofia, ORES_ACTIVE_COLS } from '@/lib/ores'
+import { notify, confirmDialog } from '@/components/ui/Toast'
 
 function coudEligible(ext?: string | null): boolean {
   if (!ext) return true
@@ -99,11 +100,11 @@ export default function StudentStatusSection({
   }
 
   async function deleteOres(oresId: string) {
-    if (!confirm('Изтриване на записа за ОРЕС?')) return
+    if (!await confirmDialog('Изтриване на записа за ОРЕС?')) return
     const { error } = await supabase.from('student_ores').delete().eq('id', oresId)
     if (error) {
       // в онлайн стаята има публикации — хронологията се пази (ОРЕС се приключва от таба „Онлайн стая“)
-      alert(error.code === '23503'
+      notify(error.code === '23503'
         ? 'Този ОРЕС има хронология в онлайн стаята и не може да се изтрие. Приключете го от таба „Онлайн стая“ (ако е тестов — администраторът го изтрива оттам с „Изтрий като тестов“).'
         : 'Грешка при изтриване: ' + error.message)
       return

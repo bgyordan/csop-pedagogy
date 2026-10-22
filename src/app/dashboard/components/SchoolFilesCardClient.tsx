@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { FileText, ChevronDown, ChevronRight, School } from 'lucide-react'
 import { SideCard, isFreshFile } from './ClassTeacherSide'
+import { notify } from '@/components/ui/Toast'
 
 type FileRow = { id: string; name: string; path: string; created_at: string }
 type Group = { name: string; kids: string[]; files: FileRow[] }
@@ -30,7 +31,7 @@ export default function SchoolFilesCardClient({ groups }: { groups: Group[]; bar
       .createSignedUrl(path, 300, view ? undefined : { download: name })
     if (error || !data?.signedUrl) {
       tab?.close()
-      alert('Файлът не се отвори: ' + (error?.message || 'няма връзка с хранилището') + '\nОпитайте пак или кажете на администратора.')
+      notify('Файлът не се отвори: ' + (error?.message || 'няма връзка с хранилището') + '\nОпитайте пак или кажете на администратора.')
       return
     }
     if (tab) tab.location.href = data.signedUrl

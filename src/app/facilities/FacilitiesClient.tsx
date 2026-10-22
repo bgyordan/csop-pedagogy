@@ -7,7 +7,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, X, Camera, Loader2, Search, AlertTriangle, Send, RotateCcw, Trash2, Check, Clock, Ban, MessageSquare } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { resizeImage, uid } from '@/app/portfolio/lib'
 import { CATEGORIES, catMeta, STATUS } from './lib'
 import type { Issue, IssueEvent, IssueStatus } from './lib'
@@ -241,7 +241,7 @@ function IssueCard({ issue: i, events, people, photo, handler, mine, fresh, onCh
     setReopen(false); setReopenText(''); toast('Сигналът е отворен отново'); onChanged()
   }
   async function remove() {
-    if (!confirm('Да се изтрие ли сигналът?')) return
+    if (!await confirmDialog('Да се изтрие ли сигналът?')) return
     setBusy(true)
     if (i.photo_path) await supabase.storage.from('facilities').remove([i.photo_path])
     const { error } = await supabase.from('facility_issues').delete().eq('id', i.id)

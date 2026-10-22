@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { BackButton } from '@/components/ui/BackButton'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import SchoolFilesPanel from './SchoolFilesPanel'
 import { Plus, Pencil, X, Check, School, MapPin, User, Phone, Mail, AlertCircle, Users, ChevronDown, ChevronUp, UserPlus, Loader2, ArrowUpDown, Paperclip } from 'lucide-react'
 interface SchoolRow {
@@ -95,7 +95,7 @@ export default function SchoolsAdminPage() {
     loadStudents()
   }
   async function unlinkStudent(studentId: string) {
-    if (!confirm('Премахване на връзката с това училище?')) return
+    if (!await confirmDialog('Премахване на връзката с това училище?')) return
     setLinking(studentId)
     const { error } = await supabase
       .from('students')

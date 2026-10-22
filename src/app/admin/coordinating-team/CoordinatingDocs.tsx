@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { FolderOpen, Upload, FileText, Download, Trash2, Loader2, Plus, X } from 'lucide-react'
+import { notify, confirmDialog } from '@/components/ui/Toast'
 
 const DOC_TYPES = [
   { value: 'annual_report', label: 'Годишен доклад' },
@@ -44,15 +45,15 @@ export default function CoordinatingDocs({ academicYearId }: { academicYearId: s
   }
 
   async function handleUpload(file: File) {
-    if (!title.trim()) { alert('Въведете заглавие'); return }
-    if (file.size > 10 * 1024 * 1024) { alert('Максимум 10MB'); return }
+    if (!title.trim()) { notify('Въведете заглавие'); return }
+    if (file.size > 10 * 1024 * 1024) { notify('Максимум 10MB'); return }
 
     setUploading(true)
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_')
     const filePath = `coordinating/${Date.now()}_${safeName}`
 
     const { error: upErr } = await supabase.storage.from('documents').upload(filePath, file)
-    if (upErr) { alert(`Грешка при качване: ${upErr.message}`); setUploading(false); return }
+    if (upErr) { notify(`Грешка при качване: ${upErr.message}`); setUploading(false); return }
 
     const { data: profile } = await supabase.from('staff_profiles')
       .select('id').eq('user_id', (await supabase.auth.getUser()).data.user?.id).single()
@@ -67,7 +68,7 @@ export default function CoordinatingDocs({ academicYearId }: { academicYearId: s
       uploaded_by: profile?.id || null,
     })
 
-    if (error) { alert(`Грешка при запис: ${error.message}`); setUploading(false); return }
+    if (error) { notify(`Грешка при запис: ${error.message}`); setUploading(false); return }
 
     setTitle(''); setDocType('other'); setShowForm(false)
     setUploading(false)
@@ -80,7 +81,7 @@ export default function CoordinatingDocs({ academicYearId }: { academicYearId: s
   }
 
   async function handleDelete(doc: any) {
-    if (!confirm(`Изтриване на "${doc.title}"?`)) return
+    if (!await confirmDialog(`Изтриване на "${doc.title}"?`)) return
     setBusy(doc.id)
     await supabase.storage.from('documents').remove([doc.file_url])
     await supabase.from('coordinating_team_documents').delete().eq('id', doc.id)

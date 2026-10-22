@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Save, CalendarDays } from 'lucide-react'
 import { BackButton } from '@/components/ui/BackButton'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { getFullName, getMonthName } from '@/lib/utils'
 
 interface Entry {
@@ -129,7 +129,7 @@ export default function AbsenceEditorPage() {
   // вярната информация за отсъствията е в НЕИСПУО.
   async function fillPlanned() {
     if (!year || !yearId) return
-    if (entries.some(e => e.planned_hours > 0) && !confirm('Планираните часове ще бъдат заменени с изчислените от седмичното разписание. Продължаваш ли?')) return
+    if (entries.some(e => e.planned_hours > 0) && !await confirmDialog('Планираните часове ще бъдат заменени с изчислените от седмичното разписание. Продължаваш ли?')) return
     setFilling(true)
     try {
       const pad = (n: number) => String(n).padStart(2, '0')
@@ -257,7 +257,7 @@ export default function AbsenceEditorPage() {
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
               <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Три имена</th>
@@ -311,7 +311,7 @@ export default function AbsenceEditorPage() {
               )
             })}
           </tbody>
-        </table>
+        </table></div>
         {entries.length === 0 && <div className="text-center py-12 text-slate-400 text-sm">Няма ученици в тази паралелка</div>}
       </div>
     </div>

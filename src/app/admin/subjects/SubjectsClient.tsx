@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { Plus, Trash2, BookOpen, HeartPulse, Loader2, Check, Pencil, X } from 'lucide-react'
 
 interface Subject {
@@ -79,7 +79,7 @@ export function SubjectsClient({ subjects: initial }: { subjects: Subject[] }) {
   }
 
   async function deleteSubject(s: Subject) {
-    if (!confirm(`Да изтрия „${s.name}"? Ако се ползва в разписания, това може да ги засегне.`)) return
+    if (!await confirmDialog(`Да изтрия „${s.name}"? Ако се ползва в разписания, това може да ги засегне.`)) return
     setBusy(s.id)
     const { error } = await supabase.from('subjects').delete().eq('id', s.id)
     setBusy(null)

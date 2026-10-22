@@ -14,7 +14,7 @@ import {
   Loader2, Send, Link2, Paperclip, Copy, Check, MonitorSmartphone, X, ExternalLink, EyeOff, Eye, FileDown, MessageCircle,
   CircleCheck, Square, RotateCcw, Library, Trash2, Users, User, QrCode, Ban, RefreshCw, UserPlus, Phone, CalendarDays,
 } from 'lucide-react'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import DateInput from '@/components/ui/DateInput'
 import { LibraryPicker } from '@/app/students/[id]/room/OnlineRoomTab'
 import { MSG_LABEL, seenBy } from '@/lib/class-rooms'
@@ -134,11 +134,11 @@ export default function ClassRoomClient({ room, live, upcoming, meId, isManager,
     <div className="space-y-4">
       <Header room={room} live={live} upcoming={upcoming} isManager={isManager} busy={busy} exporting={exporting}
         hasPosts={(posts || []).length > 0} onExport={exportChronology}
-        onClose={() => confirm('Да се затвори ли стаята днес? Линковете на родителите спират веднага. Хронологията остава.') && act(() => closeClassRoom(room.id), 'Стаята е затворена')}
-        onReopen={() => confirm('Да се отвори ли стаята отново? Линковете ще работят пак.') && act(() => reopenClassRoom(room.id), 'Стаята е отворена отново')}
+        onClose={async () => await confirmDialog('Да се затвори ли стаята днес? Линковете на родителите спират веднага. Хронологията остава.') && act(() => closeClassRoom(room.id), 'Стаята е затворена')}
+        onReopen={async () => await confirmDialog('Да се отвори ли стаята отново? Линковете ще работят пак.') && act(() => reopenClassRoom(room.id), 'Стаята е отворена отново')}
         onExtend={(to: string) => act(() => extendClassRoom(room.id, to), 'Крайната дата е променена')}
         onDelete={async () => {
-          if (!confirm('Да се изтрие ли стаята? Само ако е отворена по грешка — в нея няма публикации.')) return
+          if (!await confirmDialog('Да се изтрие ли стаята? Само ако е отворена по грешка — в нея няма публикации.')) return
           setBusy(true); const r: any = await deleteEmptyRoom(room.id); setBusy(false)
           if (r?.error) { toast(r.error, 'error'); return }
           toast('Стаята е изтрита'); router.push('/rooms')
@@ -161,8 +161,8 @@ export default function ClassRoomClient({ room, live, upcoming, meId, isManager,
         </>
       ) : (
         <Links room={room} members={members} visits={visits} canManage={canManage} live={live || upcoming} missing={missing}
-          onStop={(m) => confirm(`Да се спре ли линкът на ${m.name}? Родителят няма да може да влиза, докато не му дадете нов.`) && act(() => stopLink(m.id, room.id), 'Линкът е спрян')}
-          onNew={(m) => confirm(`Нов линк за ${m.name}? Старият спира да работи — изпратете новия на родителя.`) && act(() => newLink(m.id, room.id), 'Готово — изпратете новия линк')}
+          onStop={async (m) => await confirmDialog(`Да се спре ли линкът на ${m.name}? Родителят няма да може да влиза, докато не му дадете нов.`) && act(() => stopLink(m.id, room.id), 'Линкът е спрян')}
+          onNew={async (m) => await confirmDialog(`Нов линк за ${m.name}? Старият спира да работи — изпратете новия на родителя.`) && act(() => newLink(m.id, room.id), 'Готово — изпратете новия линк')}
           onSync={() => act(() => syncMembers(room.id), 'Новите деца са добавени')} />
       )}
     </div>
@@ -357,7 +357,7 @@ function Feed({ posts, msgs, names, visits, members, memberById, memberByStudent
 
   async function toggleHidden(p: Post) {
     const hide = !p.hidden_at
-    if (hide && !confirm('Да се скрие ли от родителите? В хронологията остава.')) return
+    if (hide && !await confirmDialog('Да се скрие ли от родителите? В хронологията остава.')) return
     const { error } = await supabase.from('class_room_posts')
       .update(hide ? { hidden_at: new Date().toISOString(), hidden_by: meId } : { hidden_at: null, hidden_by: null }).eq('id', p.id)
     if (error) { toast(error.message, 'error'); return }

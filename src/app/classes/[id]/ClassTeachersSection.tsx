@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { UserPlus, X, Loader2, User } from 'lucide-react'
+import { notify, confirmDialog } from '@/components/ui/Toast'
 
 interface Teacher { id: string; name: string; assignmentId: string }
 interface Option { id: string; name: string }
@@ -43,13 +44,13 @@ export default function ClassTeachersSection({ classId, academicYearId, teachers
       setAdding(false)
       router.refresh()
     } else if (error) {
-      alert(`Грешка: ${error.message}`)
+      notify(`Грешка: ${error.message}`)
     }
     setBusy(null)
   }
 
   async function removeTeacher(assignmentId: string) {
-    if (!confirm('Премахване на класния ръководител от тази паралелка?')) return
+    if (!await confirmDialog('Премахване на класния ръководител от тази паралелка?')) return
     setBusy(assignmentId)
     await supabase.from('class_teacher_assignments').delete().eq('id', assignmentId)
     // Изчистваме класния и от ЕПЛР екипите на учениците

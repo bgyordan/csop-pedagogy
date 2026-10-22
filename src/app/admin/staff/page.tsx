@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { createStaffAccount, syncDriveAccess, removeDriveAccess } from './actions'
 import { Plus, Pencil, ExternalLink, FolderSync } from 'lucide-react'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, notify, confirmDialog } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { getFullName } from '@/lib/utils'
 import { StaffProfile, UserRole, ROLE_LABELS } from '@/types'
@@ -94,9 +94,9 @@ export default function AdminStaffPage() {
   }
 
   async function createAccess(s: any) {
-    if (!confirm(`Създаване на достъп за ${getFullName(s)} (${s.email})?`)) return
+    if (!await confirmDialog(`Създаване на достъп за ${getFullName(s)} (${s.email})?`)) return
     const res: any = await createStaffAccount(s.id)
-    if (res.error) { alert(res.error); return }
+    if (res.error) { notify(res.error); return }
     setCred({ email: res.email, password: res.password })
   }
   function openEdit(s: any) {
@@ -127,7 +127,7 @@ export default function AdminStaffPage() {
     ))
     if (dups.length > 0) {
       const list = dups.map((x: any) => `• ${getFullName(x)} (${ROLE_LABELS[x.role as UserRole] || x.role}${x.is_active ? '' : ', неактивен'}) – ${x.email || 'без имейл'}`).join('\n')
-      if (!confirm(`Вече има подобен служител:\n${list}\n\nСъщият човек ли е? Натисни „Отказ“, за да не се дублира, или „OK“, ако е друг човек.`)) return
+      if (!await confirmDialog(`Вече има подобен служител:\n${list}\n\nСъщият човек ли е? Натисни „Отказ“, за да не се дублира, или „OK“, ако е друг човек.`)) return
     }
     setSaving(true)
 

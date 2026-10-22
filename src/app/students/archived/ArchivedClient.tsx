@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { RotateCcw, Loader2 } from 'lucide-react'
+import { notify, confirmDialog } from '@/components/ui/Toast'
 interface Row {
   id: string
   name: string
@@ -22,13 +23,13 @@ export default function ArchivedClient({ rows }: { rows: Row[] }) {
   const [restoring, setRestoring] = useState<string | null>(null)
 
   async function handleRestore(id: string, name: string) {
-    if (!confirm(`Върни "${name}" от архива? Ученикът ще стане активен, но трябва да го зачислиш в паралелка отново.`)) return
+    if (!await confirmDialog(`Върни "${name}" от архива? Ученикът ще стане активен, но трябва да го зачислиш в паралелка отново.`)) return
     setRestoring(id)
     const { error } = await supabase.from('students')
       .update({ status: 'active', archive_reason: null, archived_at: null })
       .eq('id', id)
     setRestoring(null)
-    if (error) { alert('Грешка при връщане'); return }
+    if (error) { notify('Грешка при връщане'); return }
     router.refresh()
   }
 

@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { PackagePlus, RefreshCw, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { SEED_SOURCE } from './lib'
 import type { Material, SeedItem, Source } from './lib'
 
@@ -91,7 +91,7 @@ export default function SeedLoader({ materials, sources, meId }: { materials: Ma
 
   return (
     <div className="flex justify-end -mt-2">
-      <button type="button" onClick={() => { if (confirm('Да се презапишат файловете и описанията на началния комплект с текущото издание?')) run(true) }}
+      <button type="button" onClick={async () => { if (await confirmDialog('Да се презапишат файловете и описанията на началния комплект с текущото издание?')) run(true) }}
         className="inline-flex items-center gap-1.5 text-[12px] text-slate-400 hover:text-slate-700">
         <RefreshCw size={12} /> Обнови началния комплект
       </button>

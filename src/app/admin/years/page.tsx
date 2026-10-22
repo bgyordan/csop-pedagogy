@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, Trash2, Loader2, Users, Pencil } from 'lucide-react'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate } from '@/lib/utils'
 const OUTREACH_LOCATIONS = ['ДМСГД – Виница', 'ЦНСТ – Тополи']
@@ -113,7 +113,7 @@ export default function AcademicYearsPage() {
       toast('Не може: паралелката има назначен класен ръководител', 'error')
       return
     }
-    if (!confirm(`Изтриване на паралелка „${cls.name}"?`)) return
+    if (!await confirmDialog(`Изтриване на паралелка „${cls.name}"?`)) return
     setDeleting(cls.id)
     const { error } = await supabase.from('classes').delete().eq('id', cls.id)
     setDeleting(null)

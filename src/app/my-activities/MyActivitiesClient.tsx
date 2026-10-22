@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Search, Plus, X, Loader2, Lock, HeartPulse, ChevronRight, CalendarClock, Check, Users, FileDown } from 'lucide-react'
 import { assignToMe, removeFromMe } from './actions'
 import { generateTherapyListPDF } from '@/lib/pdf-generator'
+import { confirmDialog } from '@/components/ui/Toast'
 interface Row {
   id: string
   name: string
@@ -87,8 +88,8 @@ export default function MyActivitiesClient({ rows, roleLabel, yearName = '', ter
       router.refresh()
     })
   }
-  function doRemove(r: Row) {
-    if (!confirm(`Да махна ли ${r.name} от вашия списък за терапия?\n\nЧасовете му в графика ви също се махат. ЕПЛР екипът НЕ се променя — ако и там трябва смяна, кажете на ЗДУД.`)) return
+  async function doRemove(r: Row) {
+    if (!await confirmDialog(`Да махна ли ${r.name} от вашия списък за терапия?\n\nЧасовете му в графика ви също се махат. ЕПЛР екипът НЕ се променя — ако и там трябва смяна, кажете на ЗДУД.`)) return
     setBusy(r.id)
     startTransition(async () => {
       const res = await removeFromMe(r.id)

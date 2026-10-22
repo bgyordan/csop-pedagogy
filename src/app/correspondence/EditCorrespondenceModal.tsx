@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { X, Loader2, Save } from 'lucide-react'
 import { FormSection, FileDrop, useFormKeys, KeysHint } from '@/components/registry/FormParts'
+import { notify } from '@/components/ui/Toast'
 
 const EXTERNAL_SUGGESTIONS = [
   'МОН — Министерство на образованието и науката',
@@ -86,7 +87,7 @@ export default function EditCorrespondenceModal({ item, onClose, staff = [] }: P
       is_reserved: false,
     }).eq('id', item.id)
 
-    if (error) { alert(`Грешка: ${error.message}`); setSaving(false); return }
+    if (error) { notify(`Грешка: ${error.message}`); setSaving(false); return }
     setSaving(false)
     onClose()
     router.refresh()

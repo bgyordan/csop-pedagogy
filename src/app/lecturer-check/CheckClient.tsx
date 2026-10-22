@@ -2,7 +2,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Loader2, Search, FileDown, Check, X, Inbox, Banknote, RotateCcw, AlertTriangle, FileSpreadsheet, Printer } from 'lucide-react'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { smartMatch } from '@/lib/search'
 import { declarationPeriods, defaultPeriod, deadlineOf, sofiaTodayIso, DEADLINE_ACTIVE } from '@/lib/declaration-periods'
 import { effectiveRates, type LecturerRates } from '@/lib/lecturer-rates'
@@ -114,7 +114,7 @@ export default function CheckClient({ rates }: { rates: LecturerRates }) {
 
   async function act(r: CheckRow, c: Cell, action: 'received' | 'ok' | 'issue' | 'paid' | 'unpaid' | 'reset') {
     if (action === 'issue' && !note.trim()) { toast('Напиши какво не съвпада', 'error'); return }
-    if (action === 'reset' && !confirm('Да се изчистят всички отметки по тази декларация?')) return
+    if (action === 'reset' && !await confirmDialog('Да се изчистят всички отметки по тази декларация?')) return
     setBusy(true)
     const res: any = await setCheck({ staffId: r.staffId, kind: c.kind, from: c.from, to: c.to, action, note, hours: c.hours })
     setBusy(false)
@@ -144,7 +144,7 @@ export default function CheckClient({ rates }: { rates: LecturerRates }) {
     }).filter(x => x.overNorm + x.budgetSub + x.np > 0)
     if (!okRows.length) { toast('Няма проверени декларации за заповед', 'error'); return }
     const notOk = tabRows.length - okRows.length
-    if (notOk > 0 && !confirm(`${notOk} служители още нямат проверена декларация и няма да влязат в заповедта. Продължаваме ли?`)) return
+    if (notOk > 0 && !await confirmDialog(`${notOk} служители още нямат проверена декларация и няма да влязат в заповедта. Продължаваме ли?`)) return
     setGenning(true)
     try {
       await generateLecturerPaymentOrder({

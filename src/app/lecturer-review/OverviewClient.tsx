@@ -2,7 +2,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Loader2, FileDown, ChevronRight, ChevronDown, Check, Undo2, Search, AlertTriangle } from 'lucide-react'
 import { generateLecturerPaymentOrder } from '@/lib/docx-substitution'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { smartMatch } from '@/lib/search'
 import { declarationPeriods, defaultPeriod } from '@/lib/declaration-periods'
 import { getLecturerOverview, getReviewDetail, verifyDeclaration, unverifyDeclaration } from './actions'
@@ -112,7 +112,7 @@ export default function OverviewClient({ archive, rates }: { archive: ArchiveRow
   const [genning, setGenning] = useState(false)
   async function paymentOrder() {
     if (!all.length) return
-    if (counts.missing > 0 && !confirm(`${counts.missing} служители не са подали декларация за над норматив — техните часове над норматив няма да влязат. Продължаваме ли?`)) return
+    if (counts.missing > 0 && !await confirmDialog(`${counts.missing} служители не са подали декларация за над норматив — техните часове над норматив няма да влязат. Продължаваме ли?`)) return
     setGenning(true)
     try {
       await generateLecturerPaymentOrder({

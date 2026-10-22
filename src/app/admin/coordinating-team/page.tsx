@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { BackButton } from '@/components/ui/BackButton'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { getFullName, formatDate } from '@/lib/utils'
 import { Plus, X, Star, Calendar, Download, Pencil, Trash2, Check } from 'lucide-react'
 import { generateCommitteeProtocol } from '@/lib/docx-generator'
@@ -156,7 +156,7 @@ export default function CoordinatingTeamPage() {
   }
 
   async function handleRemoveMember(member: TeamMember) {
-    if (!confirm(`Премахни ${getFullName(member.staff)} от координиращия екип?`)) return
+    if (!await confirmDialog(`Премахни ${getFullName(member.staff)} от координиращия екип?`)) return
     const { error } = await supabase.from('coordinating_team').delete().eq('id', member.id)
     if (error) { toast('Грешка', 'error'); return }
     // Върни is_coordinator на false само ако няма друг запис за текущата година
@@ -223,7 +223,7 @@ export default function CoordinatingTeamPage() {
   }
 
   async function handleDeleteSession(sessionId: string) {
-    if (!confirm('Изтрий заседанието?')) return
+    if (!await confirmDialog('Изтрий заседанието?')) return
     const { error } = await supabase.from('coordinating_team_sessions').delete().eq('id', sessionId)
     if (error) { toast('Грешка', 'error'); return }
     setSessions(prev => prev.filter(s => s.id !== sessionId))

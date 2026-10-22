@@ -40,7 +40,7 @@ export default function CoudTabs({ groups, showPassports = false }: { groups: Co
         {g.students.length === 0 ? (
           <div className="px-4 py-8 text-center text-slate-400 text-sm">Няма записани ученици</div>
         ) : (
-          <table className="w-full text-sm table-fixed">
+          <div className="overflow-x-auto"><table className="w-full text-sm table-fixed">
             <thead>
               <tr className="text-[10px] font-medium text-slate-400 uppercase tracking-wide border-b border-slate-100">
                 <th className="text-left px-4 py-2 w-[30%]">Ученик</th>
@@ -67,7 +67,7 @@ export default function CoudTabs({ groups, showPassports = false }: { groups: Co
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>

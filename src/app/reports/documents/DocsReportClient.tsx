@@ -216,7 +216,7 @@ export default function DocsReportClient({ kids, yearName, initialDoc, initialSt
           {groups.map(g => (
             <div key={g.title || '_'} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
               {g.title && <div className="px-4 py-2.5 bg-slate-50/60 border-b border-slate-100"><span className="text-sm font-medium text-slate-800">{group === 'class' && g.title !== 'Без паралелка' ? `Паралелка ${g.title}` : g.title}</span><span className="text-xs text-slate-500"> · {g.meta}</span></div>}
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto"><table className="w-full text-sm">
                 <thead><tr className="text-xs text-slate-500 border-b border-slate-100">
                   <th className="px-3 py-1.5 w-10 text-center font-normal">№</th>
                   <th className="px-3 py-1.5 text-left font-normal">Име</th>
@@ -239,7 +239,7 @@ export default function DocsReportClient({ kids, yearName, initialDoc, initialSt
                     )
                   })}
                 </tbody>
-              </table>
+              </table></div>
             </div>
           ))}
         </div>
