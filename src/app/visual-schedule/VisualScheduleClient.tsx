@@ -3,17 +3,20 @@
 // Визуалният график: денят на паралелката като поредица от картинки.
 // • На екрана (смарт дъска, таблет): „Сега“ и „После“ с голяма картинка, отминалото е отметнато.
 // • За печат: денят вертикално (A4) или цялата седмица (A4 хоризонтално).
-// Картинката и краткото име на всеки предмет могат да се сменят — пазят се в този браузър.
+// Картинката и краткото име на всеки предмет могат да се сменят — пазят се за паралелката (с кой и кога);
+// ЗДУД и админ ги виждат в „Промени от колегите“. Отметките (пристигане/закуска/прибиране) остават в браузъра.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { Printer, Maximize2, Minimize2, Pencil, Check, X, Search, Loader2 } from 'lucide-react'
 import { pictoUrl, subjectPicto } from '@/lib/pictos'
 import type { PictoCatalog } from '@/lib/pictos'
 
 export type Slot = { day: number; period: number; subject: string; start: number; end: number }
 type Item = { id: string; label: string; picto: string; start: number; end: number; subject?: string }
-type Override = { picto?: string; label?: string }
+export type Override = { picto?: string; label?: string }
+export type ChangeRow = { id: string; classId: string; className: string; subject: string; picto: string | null; label: string | null; at: string; who: string }
 
 const DAYS = ['', 'Понеделник', 'Вторник', 'Сряда', 'Четвъртък', 'Петък']
 const SHORT = ['', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт']
@@ -47,14 +50,16 @@ function sofiaNow() {
   return { day: wd, min: Number(get('hour')) * 60 + Number(get('minute')) }
 }
 
-export default function VisualScheduleClient({ classes, classId, className, term, yearName, slots }: {
+export default function VisualScheduleClient({ classes, classId, className, term, yearName, slots, overrides, meId, changes }: {
   classes: { id: string; name: string }[]; classId: string; className: string; term: number; yearName: string; slots: Slot[]
+  overrides: Record<string, Override>; meId: string; changes: ChangeRow[] | null
 }) {
   const router = useRouter()
   const [now, setNow] = useState<{ day: number; min: number } | null>(null)
   const [day, setDay] = useState(1)
   const [extras, setExtras] = useState<Extras>(EXTRA_DEFAULT)
-  const [over, setOver] = useState<Record<string, Override>>({})
+  const [over, setOver] = useState<Record<string, Override>>(overrides)
+  const [saveErr, setSaveErr] = useState('')
   const [edit, setEdit] = useState(false)
   const [picking, setPicking] = useState<Item | null>(null)
   const [full, setFull] = useState(false)
@@ -67,7 +72,7 @@ export default function VisualScheduleClient({ classes, classId, className, term
     setNow(n)
     setDay(n.day >= 1 && n.day <= 5 ? n.day : 1)
     setExtras(load('vs-extras', EXTRA_DEFAULT))
-    setOver(load<Record<string, Override>>('vs-pictos', {}))
+    migrateLocal()
     const t = setInterval(() => setNow(sofiaNow()), 30_000)
     const fs = () => setFull(!!document.fullscreenElement)
     document.addEventListener('fullscreenchange', fs)
@@ -85,12 +90,14 @@ export default function VisualScheduleClient({ classes, classId, className, term
   const itemsFor = useMemo(() => (d: number): Item[] => {
     const daySlots = slots.filter(s => s.day === d).sort((a, b) => a.start - b.start)
     const out: Item[] = []
+    const seen = new Set<string>()
     for (const s of daySlots) {
-      const prev = out[out.length - 1]
-      // поредни часове по един предмет → една картинка
-      if (prev && prev.subject === s.subject && s.start - prev.end <= 15) { prev.end = s.end; continue }
+      // всеки час е отделна картинка (1:1 с разписанието); само еднакъв предмет в същия час (групи) се показва веднъж
+      const k = `${s.period}|${s.subject}`
+      if (seen.has(k)) continue
+      seen.add(k)
       const o = over[s.subject] || {}
-      out.push({ id: `${d}-${s.period}`, subject: s.subject, label: o.label || shortLabel(s.subject), picto: o.picto || subjectPicto(s.subject), start: s.start, end: s.end })
+      out.push({ id: `${d}-${s.period}-${out.length}`, subject: s.subject, label: o.label || shortLabel(s.subject), picto: o.picto || subjectPicto(s.subject), start: s.start, end: s.end })
     }
     if (!out.length) return out
     const ex = (k: string, label: string, picto: string, start: number, end: number): Item => {
@@ -116,11 +123,39 @@ export default function VisualScheduleClient({ classes, classId, className, term
   const colorOf = (i: Item, k: number) => COLORS[(i.subject || '').length % COLORS.length] || COLORS[k % COLORS.length]
 
   function setExtra(k: keyof Extras, v: boolean) { const e = { ...extras, [k]: v }; setExtras(e); save('vs-extras', e) }
-  function saveOverride(subject: string, o: Override) {
-    const m = { ...over, [subject]: { ...over[subject], ...o } }
-    setOver(m); save('vs-pictos', m)
+  async function saveOverride(subject: string, o: Override) {
+    const prev = over
+    const v = { ...over[subject], ...o }
+    setOver({ ...over, [subject]: v }); setSaveErr('')
+    const { error } = await createClient().from('visual_schedule_pictos').upsert({
+      class_id: classId, subject_key: subject, picto: v.picto || null, label: v.label || null,
+      updated_by: meId, updated_at: new Date().toISOString(),
+    }, { onConflict: 'class_id,subject_key' })
+    if (error) { setOver(prev); setSaveErr('Промяната не е запазена — само учителите на паралелката могат да сменят картинките.') }
+    else router.refresh()
   }
-  function resetOverride(subject: string) { const m = { ...over }; delete m[subject]; setOver(m); save('vs-pictos', m) }
+  async function resetOverride(subject: string) {
+    const prev = over
+    const m = { ...over }; delete m[subject]; setOver(m); setSaveErr('')
+    const { error } = await createClient().from('visual_schedule_pictos').delete().eq('class_id', classId).eq('subject_key', subject)
+    if (error) { setOver(prev); setSaveErr('Промяната не е запазена.') }
+    else router.refresh()
+  }
+  // старите промени, пазени досега само в браузъра → в паралелката (веднъж за паралелка, без да презаписва)
+  async function migrateLocal() {
+    const local = load<Record<string, Override>>('vs-pictos', {})
+    const done = load<Record<string, boolean>>('vs-pictos-moved', {})
+    if (done[classId] || !Object.keys(local).length) return
+    const used = new Set(slots.map(s => s.subject).concat(['#arrival', '#break', '#home']))
+    const rows = Object.entries(local).filter(([k, o]) => used.has(k) && !overrides[k] && (o.picto || o.label))
+      .map(([k, o]) => ({ class_id: classId, subject_key: k, picto: o.picto || null, label: o.label || null, updated_by: meId }))
+    if (rows.length) {
+      const { error } = await createClient().from('visual_schedule_pictos').upsert(rows, { onConflict: 'class_id,subject_key', ignoreDuplicates: true })
+      if (error) return
+      setOver(m => { const n = { ...m }; rows.forEach(r => { n[r.subject_key] = { picto: r.picto || undefined, label: r.label || undefined } }); return n })
+    }
+    save('vs-pictos-moved', { ...done, [classId]: true })
+  }
   function toggleFull() {
     if (document.fullscreenElement) document.exitFullscreen()
     else board.current?.requestFullscreen?.()
@@ -168,7 +203,8 @@ export default function VisualScheduleClient({ classes, classId, className, term
               <input type="checkbox" checked={extras[k]} onChange={e => setExtra(k, e.target.checked)} className="accent-[#0f2240]" /> {l}
             </label>
           ))}
-          {edit && <span className="text-sky-700">Натиснете картинка, за да я смените. Промяната важи за предмета във всички дни (само на този компютър).</span>}
+          {edit && <span className="text-sky-700">Натиснете картинка, за да я смените. Промяната важи за предмета във всички дни на паралелката {className}, на всеки компютър.</span>}
+          {saveErr && <span className="text-rose-600">{saveErr}</span>}
         </div>
       </div>
 
@@ -262,6 +298,8 @@ export default function VisualScheduleClient({ classes, classId, className, term
         </div>
         <div className="text-[8px] text-slate-400 mt-2 text-right">ЦСОП Варна · ЕИС · Пиктограми: Twemoji, CC-BY 4.0</div>
       </div>
+
+      {changes && <ChangesList rows={changes} />}
 
       {picking && (
         <PictoPicker item={picking} hasOverride={!!over[picking.subject || '']}
@@ -367,6 +405,56 @@ function PictoPicker({ item, hasOverride, onClose, onSave, onReset }: {
             className="px-4 py-2 rounded-xl text-white text-sm" style={{ backgroundColor: '#0f2240' }}>Запази</button>
         </div>
       </div>
+    </div>
+  )
+}
+
+function ChangesList({ rows }: { rows: ChangeRow[] }) {
+  const [open, setOpen] = useState(false)
+  const [who, setWho] = useState('')
+  const people = Array.from(new Set(rows.map(r => r.who))).sort((a, b) => a.localeCompare(b, 'bg'))
+  const list = who ? rows.filter(r => r.who === who) : rows
+  const when = (iso: string) => new Date(iso).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const extra: Record<string, string> = { '#arrival': 'Пристигане', '#break': 'Закуска и почивка', '#home': 'Прибиране вкъщи' }
+  return (
+    <div className="print:hidden mt-6 bg-white rounded-2xl border border-slate-200">
+      <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-5 py-3 text-left">
+        <span className="text-[15px] font-semibold text-slate-800">Промени от колегите <span className="text-slate-400 font-normal">({rows.length})</span></span>
+        <span className="text-[13px] text-slate-500">{open ? 'Скрий' : 'Покажи'}</span>
+      </button>
+      {open && (
+        <div className="px-5 pb-5">
+          {!rows.length ? <div className="text-sm text-slate-500">Още никой не е сменял картинки.</div> : (
+            <>
+              <select value={who} onChange={e => setWho(e.target.value)} className="mb-3 px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm">
+                <option value="">Всички колеги</option>
+                {people.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[13px]">
+                  <thead><tr className="text-left text-slate-500 border-b border-slate-100">
+                    <th className="py-2 pr-3 font-medium">Картинка</th><th className="py-2 pr-3 font-medium">Паралелка</th>
+                    <th className="py-2 pr-3 font-medium">Предмет</th><th className="py-2 pr-3 font-medium">Кратко име</th>
+                    <th className="py-2 pr-3 font-medium">Кой</th><th className="py-2 font-medium">Кога</th>
+                  </tr></thead>
+                  <tbody>
+                    {list.map(r => (
+                      <tr key={r.id} className="border-b border-slate-50 align-middle">
+                        <td className="py-1.5 pr-3">{r.picto ? <img src={pictoUrl(r.picto)} alt="" className="w-9 h-9" /> : <span className="text-slate-400">стандартна</span>}</td>
+                        <td className="py-1.5 pr-3"><a href={`/visual-schedule?c=${r.classId}`} className="text-sky-700 hover:underline">{r.className}</a></td>
+                        <td className="py-1.5 pr-3 text-slate-700">{extra[r.subject] || r.subject}</td>
+                        <td className="py-1.5 pr-3 text-slate-700">{r.label || <span className="text-slate-400">—</span>}</td>
+                        <td className="py-1.5 pr-3 text-slate-700">{r.who}</td>
+                        <td className="py-1.5 text-slate-500 tabular-nums whitespace-nowrap">{when(r.at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
