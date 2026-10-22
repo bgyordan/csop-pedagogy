@@ -10,6 +10,7 @@ import {
   CENTER_NAME, DETAIL_FIELDS, FORM_LABEL, KIND_LABEL, FOCUS_LABEL, scoreLabel, dmy,
   type ControlCheck, type CheckStaff, type Recommendation,
 } from './control'
+import { MONTH_LABEL, PERIOD_LABEL, monthOrder, monthYear, type Analysis, type ControlPlan, type PlanItem, type Period } from './control-plan'
 
 const F = 'Times New Roman'
 const t = (text: string, o: any = {}) => new TextRun({ text, font: F, size: 22, ...o })
@@ -155,4 +156,110 @@ export async function generateControlBook(d: {
     ],
   }] })
   saveAs(await Packer.toBlob(doc), `Книга_контролна_дейност_${d.yearName}.docx`)
+}
+
+// ── Годишен план ──────────────────────────────────────────────────────────────
+export async function generateControlPlan(d: {
+  plan: ControlPlan; items: PlanItem[]; yearName: string; ownerName: string; templates?: { id: string; name: string }[]
+}) {
+  const pl = d.plan
+  const y = d.yearName.replace('-', '/')
+  const children: (Paragraph | Table)[] = []
+  children.push(P([t(CENTER_NAME, { bold: true })], { alignment: AlignmentType.CENTER }))
+  children.push(P([t('УТВЪРЖДАВАМ:', { bold: true })], { alignment: AlignmentType.RIGHT, spacing: { before: 240, after: 0 } }))
+  children.push(P([t('Директор: ........................')], { alignment: AlignmentType.RIGHT, spacing: { after: 0 } }))
+  children.push(P([t(pl.order_ref ? pl.order_ref : 'Заповед № ............ / ............ г.')], { alignment: AlignmentType.RIGHT, spacing: { after: 240 } }))
+  children.push(P([t('ПЛАН', { bold: true, size: 28 })], { alignment: AlignmentType.CENTER, spacing: { after: 20 } }))
+  children.push(P([t(`ЗА КОНТРОЛНАТА ДЕЙНОСТ НА ${(pl.owner_title || 'проверяващия').toUpperCase()}`, { bold: true })], { alignment: AlignmentType.CENTER, spacing: { after: 20 } }))
+  children.push(P([t(`през учебната ${y} година`)], { alignment: AlignmentType.CENTER, spacing: { after: 240 } }))
+
+  const part = (n: string, title: string, body: string | null) => {
+    children.push(heading(`${n}. ${title}`))
+    children.push(...(body?.trim() ? multiline(body) : [P([t(dots)])]))
+  }
+  part('I', 'Анализ на контролната дейност през предходната учебна година', pl.analysis)
+  part('II', 'Цел и задачи', pl.goals)
+  part('III', 'Обект и предмет на контрола', pl.objects)
+  part('IV', 'Видове, форми и методи на контрол', pl.methods)
+
+  children.push(heading('V. График на контролната дейност'))
+  const COLS = [1300, 3900, 2200, 2238]
+  const rows: TableRow[] = [new TableRow({ tableHeader: true, children: ['Срок', 'Обект и предмет', 'Вид / форма', 'Обхват'].map((h, i) => cell(COLS[i], h, { head: true, center: true })) })]
+  const sorted = [...d.items].sort((a, b) => monthOrder(a.month) - monthOrder(b.month) || a.sort - b.sort)
+  sorted.forEach(i => rows.push(new TableRow({ cantSplit: true, children: [
+    cell(COLS[0], `${MONTH_LABEL[i.month]} ${monthYear(d.yearName, i.month)}`, { center: true }),
+    cell(COLS[1], i.subject + (i.target > 1 ? ` (${i.target} проверки)` : '')),
+    cell(COLS[2], `${KIND_LABEL[i.kind]}, ${FOCUS_LABEL[i.focus].toLowerCase()}\n${FORM_LABEL[i.form].toLowerCase()}`),
+    cell(COLS[3], i.scope || ''),
+  ] })))
+  if (!sorted.length) rows.push(new TableRow({ children: [cell(COLS[0] + COLS[1] + COLS[2] + COLS[3], '—', { span: 4, center: true })] }))
+  children.push(table(COLS, rows))
+
+  part('VI', 'Отчитане на резултатите', pl.reporting)
+  children.push(P([t(`Изготвил: ${pl.owner_title || ''} ........................  / ${d.ownerName} /`)], { spacing: { before: 400 } }))
+
+  const doc = new Document({ sections: [{
+    properties: { page: { margin: { top: 1000, bottom: 1000, left: 1134, right: 1134 } } },
+    footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ font: F, size: 16, children: ['стр. ', PageNumber.CURRENT, ' от ', PageNumber.TOTAL_PAGES] })] })] }) },
+    children,
+  }] })
+  saveAs(await Packer.toBlob(doc), `План_контролна_дейност_${d.yearName}_${d.ownerName.replace(/\s+/g, '_')}.docx`)
+}
+
+// ── Анализ / доклад за ПС ──────────────────────────────────────────────────────
+export async function generateControlAnalysis(d: {
+  yearName: string; period: Period; who: string; analysis: Analysis; text: string; author: string; authorTitle?: string
+}) {
+  const a = d.analysis
+  const y = d.yearName.replace('-', '/')
+  const children: (Paragraph | Table)[] = []
+  children.push(P([t(CENTER_NAME, { bold: true })], { alignment: AlignmentType.CENTER }))
+  children.push(P([t('АНАЛИЗ', { bold: true, size: 28 })], { alignment: AlignmentType.CENTER, spacing: { before: 240, after: 20 } }))
+  children.push(P([t(`НА КОНТРОЛНАТА ДЕЙНОСТ${d.who ? ` — ${d.who.toUpperCase()}` : ''}`, { bold: true })], { alignment: AlignmentType.CENTER, spacing: { after: 20 } }))
+  children.push(P([t(`за ${PERIOD_LABEL[d.period]} ${y} г.`)], { alignment: AlignmentType.CENTER, spacing: { after: 240 } }))
+
+  children.push(heading('1. Обобщение'))
+  children.push(...multiline(d.text))
+
+  children.push(heading('2. Проверки в цифри'))
+  const COLS = [6000, 3638]
+  const kv = (rows: (readonly [string, number | string])[]) => table(COLS, rows.map(([k, v]) => new TableRow({ children: [cell(COLS[0], k), cell(COLS[1], String(v), { center: true })] })))
+  children.push(kv([
+    ['Подписани констативни протоколи', a.total], ['— по плана', a.planned], ['— извън плана', a.total - a.planned],
+    ['Проверени служители', a.staff], ['Последващи проверки', a.followUps], ['Протоколи с възражение', a.objections],
+    ...(a.plan.total ? [['Дейности от графика с изтекъл срок — изпълнени изцяло', `${a.plan.done} от ${a.plan.due}`] as const] : []),
+    ...a.byKind.map(([l, n]) => [`Вид: ${l.toLowerCase()}`, n] as const),
+    ...a.byForm.map(([l, n]) => [`Форма: ${l.toLowerCase()}`, n] as const),
+  ]))
+
+  if (a.weak.length || a.strong.length) {
+    children.push(heading('3. Критерии'))
+    const C = [6600, 3038]
+    const rows: TableRow[] = [new TableRow({ tableHeader: true, children: [cell(C[0], 'Критерий', { head: true }), cell(C[1], 'Оценки', { head: true, center: true })] })]
+    if (a.strong.length) {
+      rows.push(new TableRow({ children: [cell(C[0] + C[1], 'Силни страни (изпълнено)', { bold: true, span: 2 })] }))
+      a.strong.forEach(x => rows.push(new TableRow({ children: [cell(C[0], x.t), cell(C[1], `${x.high} от ${x.n}`, { center: true })] })))
+    }
+    if (a.weak.length) {
+      rows.push(new TableRow({ children: [cell(C[0] + C[1], 'Области за подобрение (частично / не е изпълнено)', { bold: true, span: 2 })] }))
+      a.weak.forEach(x => rows.push(new TableRow({ children: [cell(C[0], x.t), cell(C[1], `${x.low} от ${x.n}`, { center: true })] })))
+    }
+    children.push(table(C, rows))
+  }
+
+  if (a.rec.total) {
+    children.push(heading(`${a.weak.length || a.strong.length ? '4' : '3'}. Препоръки`))
+    children.push(kv([
+      ['Дадени препоръки', a.rec.total], ['Изпълнени', a.rec.done], ['Отчетени, очакват потвърждение', a.rec.reported],
+      ['Неизпълнени', a.rec.notDone], ['Отворени', a.rec.open], ['С изтекъл срок', a.rec.overdue],
+    ]))
+  }
+
+  children.push(P([t(`Изготвил: ${d.authorTitle || ''} ........................  / ${d.author} /`)], { spacing: { before: 400 } }))
+  const doc = new Document({ sections: [{
+    properties: { page: { margin: { top: 1000, bottom: 1000, left: 1134, right: 1134 } } },
+    footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ font: F, size: 16, children: ['стр. ', PageNumber.CURRENT, ' от ', PageNumber.TOTAL_PAGES] })] })] }) },
+    children,
+  }] })
+  saveAs(await Packer.toBlob(doc), `Анализ_контролна_дейност_${d.yearName}_${d.period}.docx`)
 }

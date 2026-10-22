@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation'
 import ControlClient from './ControlClient'
 export const dynamic = 'force-dynamic'
 
-export default async function ControlPage({ searchParams }: { searchParams: Promise<{ tab?: string; y?: string; visit?: string }> }) {
+export default async function ControlPage({ searchParams }: { searchParams: Promise<{ tab?: string; y?: string; visit?: string; item?: string; owner?: string }> }) {
   const sp = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -45,6 +45,18 @@ export default async function ControlPage({ searchParams }: { searchParams: Prom
       ])
     : [{ data: [] as any[] }, { data: [] as any[] }]
 
+  // годишни планове (директорът вижда всички, проверяващият — своя); при липсваща миграция — празно
+  let plans: any[] = [], planItems: any[] = [], planReady = false
+  if (isInspector && year) {
+    const { data, error: pe } = await supabase.from('control_plans').select('*, owner:staff_profiles(first_name, last_name, role, position)').eq('academic_year_id', year.id)
+    planReady = !pe
+    plans = data || []
+    if (plans.length) {
+      const { data: it } = await supabase.from('control_plan_items').select('*').in('plan_id', plans.map(x => x.id)).order('month').order('sort')
+      planItems = it || []
+    }
+  }
+
   // протокол от посещение на час: ?visit=<booking id>
   let visit: any = null
   if (isInspector && sp.visit) {
@@ -70,6 +82,11 @@ export default async function ControlPage({ searchParams }: { searchParams: Prom
       people={(people || []) as any}
       inspectorIds={(inspectors || []).map((i: any) => i.staff_id)}
       visit={visit}
+      plans={plans}
+      planItems={planItems}
+      planReady={planReady}
+      itemParam={sp.item || null}
+      ownerParam={sp.owner || null}
     />
   )
 }
