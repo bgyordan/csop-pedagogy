@@ -325,7 +325,7 @@ export default function ProtocolEditor(p: {
           {detailKeys.length > 0 && (
             <div className="grid sm:grid-cols-2 gap-3">
               {DETAIL_FIELDS.filter(f => detailKeys.includes(f.k)).map(f => (
-                <Field key={f.k} label={f.l}>{edit ? <input className="input w-full" value={c.details?.[f.k] || ''} onChange={e => setDetail(f.k, e.target.value)} placeholder={f.k === 'attendance' ? 'напр. 6 присъстващи, 1 отсъстващ (болест)' : ''} /> : c.details?.[f.k]}</Field>
+                <Field key={f.k} label={f.l}>{edit ? <input className="input w-full" value={c.details?.[f.k] || ''} onChange={e => setDetail(f.k, e.target.value)} placeholder={f.k === 'attendance' ? 'напр. 6 присъстващи, 1 отсъстващ (болест)' : f.k === 'place' ? 'напр. етаж 2, санитарни възли, двор' : f.k === 'period' ? 'напр. 01.09 – 31.10.2026' : ''} /> : c.details?.[f.k]}</Field>
               ))}
             </div>
           )}

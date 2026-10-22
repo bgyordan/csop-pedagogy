@@ -21,6 +21,8 @@ const ACCENT = '#0f2240'
 const pname = (p?: { first_name: string; last_name: string } | null) => (p ? `${p.first_name} ${p.last_name}` : '—')
 const todayIso = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })
 const PEDAGOGICAL = ['teacher', 'class_teacher', 'educator', 'psychologist', 'speech_therapist', 'rehabilitator', 'coordinator']
+// ЗДАСД проверява непедагогическия персонал
+const NON_PEDAGOGICAL = ['support', 'secretary', 'admin']
 const PARTS: { k: 'analysis' | 'goals' | 'objects' | 'methods' | 'reporting'; n: string; l: string; hint: string }[] = [
   { k: 'analysis', n: '1', l: 'Анализ на контролната дейност през предходната година', hint: 'Попълва се от анализа на миналата година — може да се допълни.' },
   { k: 'goals', n: '2', l: 'Цел и задачи', hint: '' },
@@ -211,7 +213,8 @@ function PlanView(p: ControlProps & { plan: ControlPlan; items: PlanItem[]; owne
   }
 
   // обхват: служители × месеци
-  const staff = p.people.filter(x => PEDAGOGICAL.includes(x.role))
+  const asd = planRole(p.owner?.role || '') === 'zdasd'
+  const staff = p.people.filter(x => x.id !== plan.owner_id && (asd ? NON_PEDAGOGICAL : PEDAGOGICAL).includes(x.role))
   const scopeChecks = p.checks.filter(c => c.status !== 'voided' && (allInspectors || c.inspector_id === plan.owner_id))
   const cov: Record<string, Record<number, number>> = {}
   scopeChecks.forEach(c => {
@@ -333,8 +336,8 @@ function PlanView(p: ControlProps & { plan: ControlPlan; items: PlanItem[]; owne
         </div>
         <p className="text-[13px] text-slate-600">
           {unchecked.length
-            ? <>Непроверени досега: <b>{unchecked.length}</b> от {staff.length} педагогически специалисти.</>
-            : <>Всички {staff.length} педагогически специалисти са проверени поне веднъж.</>}
+            ? <>Непроверени досега: <b>{unchecked.length}</b> от {staff.length} {asd ? "служители от непедагогическия персонал" : "педагогически специалисти"}.</>
+            : <>Всички {staff.length} {asd ? "служители от непедагогическия персонал" : "педагогически специалисти"} са проверени поне веднъж.</>}
         </p>
         <div className="overflow-x-auto">
           <table className="text-[12.5px] w-full">
