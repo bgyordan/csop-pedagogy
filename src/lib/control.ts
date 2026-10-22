@@ -78,6 +78,8 @@ export const DETAIL_FIELDS: { k: string; l: string }[] = [
   { k: 'subject', l: 'Учебен предмет' },
   { k: 'topic', l: 'Тема' },
   { k: 'attendance', l: 'Присъстващи / отсъстващи ученици' },
+  { k: 'place', l: 'Обект / помещения' },
+  { k: 'period', l: 'Проверен период' },
 ]
 
 export const PROTOCOL_DAYS = 15        // чл. 41, ал. 7 от Наредба № 8
