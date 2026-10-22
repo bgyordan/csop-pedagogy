@@ -9,6 +9,6 @@ import AbsentNote from './AbsentNote'
 export default async function TodayAbsentStrip() {
   let rows: Awaited<ReturnType<typeof getTodayAbsences>> = []
   try { rows = await getTodayAbsences(createAdminClient(), { all: true }) } catch { return null }
-  if (!rows.some(r => !!r.by)) return null   // листчето е само за заместванията
+  if (rows.length === 0) return null
   return <AbsentNote rows={rows} today={sofiaToday()} />
 }

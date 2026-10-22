@@ -26,9 +26,8 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
   const reportMonth = P.month
   const reportYear = P.year
 
-  const [todayRows, allToday, waiting, returning, { data: cta }, { data: iup }, { data: enr }, { data: teams }, { data: newKids }] = await Promise.all([
-    getTodayAbsences(supabase),
-    getTodayAbsences(supabase, { all: true }),   // за листчето — всички отсъстващи днес
+  const [allToday, waiting, returning, { data: cta }, { data: iup }, { data: enr }, { data: teams }, { data: newKids }] = await Promise.all([
+    getTodayAbsences(supabase, { all: true }),   // всички отсъстващи днес — за картата и листчето
     countWaiting(supabase),
     getReturningSoon(supabase),
     supabase.from('class_teacher_assignments')
@@ -115,24 +114,53 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
         <div className={head}>
           <UserX size={16} className="text-rose-500" />
           <h2 className="text-sm font-medium text-slate-800">Днес отсъстват</h2>
-          <span className="ml-auto text-xs text-slate-400">{todayRows.length}</span>
-          {allToday.some(r => !!r.by) && <AbsentNote rows={allToday} today={sofiaToday()} compact />}
+          <span className="ml-auto text-xs text-slate-400">{allToday.length}</span>
+          {allToday.length > 0 && <AbsentNote rows={allToday} today={sofiaToday()} compact />}
         </div>
-        {todayRows.length === 0 ? (
+        {allToday.length === 0 ? (
           <p className="text-sm text-slate-400 font-light">Няма отсъстващи.</p>
-        ) : (
-          <div className="space-y-1.5">
-            {todayRows.slice(0, 8).map(r => (
-              <div key={r.id} className="flex items-center justify-between gap-2 text-sm">
-                <span className="text-slate-700 truncate">{r.absent}</span>
-                <span className={`text-[11px] shrink-0 ${r.by || !r.substitutable ? 'text-slate-500' : 'text-amber-700'}`}>
-                  {r.by ? `→ ${r.by}` : r.substitutable ? 'без заместник' : 'не се замества'}{r.np ? ' · НП' : ''}
-                </span>
-              </div>
-            ))}
-            {todayRows.length > 8 && <div className="text-[11px] text-slate-400">и още {todayRows.length - 8}…</div>}
-          </div>
-        )}
+        ) : (() => {
+          // три групи: заместени · чакат заместник (учители без заместник) · не се заместват (помощници, специалисти…)
+          const subbed = allToday.filter(r => r.by)
+          const waitingRows = allToday.filter(r => !r.by && r.substitutable)
+          const away = allToday.filter(r => !r.by && !r.substitutable)
+          const sn = (n: string) => { const [f, l] = n.trim().split(/\s+/); return l ? `${f} ${l[0]}.` : f }
+          const until = (iso: string) => iso.split('-').reverse().slice(0, 2).join('.')
+          const Group = ({ label, tone, children }: { label: string; tone: string; children: React.ReactNode }) => (
+            <div>
+              <div className={`text-[10.5px] uppercase tracking-wider mb-1 ${tone}`}>{label}</div>
+              <div className="space-y-1">{children}</div>
+            </div>
+          )
+          const Row = ({ name, right, sub }: { name: string; right: string; sub?: React.ReactNode }) => (
+            <div className="flex items-baseline gap-2 text-[13px] leading-snug">
+              <span className="text-slate-800 truncate">{name}</span>
+              {sub}
+              <span className="ml-auto text-[11px] text-slate-400 tabular-nums shrink-0">до {right}</span>
+            </div>
+          )
+          return (
+            <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+              {waitingRows.length > 0 && (
+                <Group label="Чакат заместник" tone="text-amber-700">
+                  {waitingRows.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)} sub={r.np ? <span className="text-[10.5px] px-1 rounded bg-emerald-50 text-emerald-700">НП</span> : null} />)}
+                </Group>
+              )}
+              {subbed.length > 0 && (
+                <Group label="Заместват ги" tone="text-emerald-700">
+                  {subbed.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)}
+                    sub={<span className="text-[12px] text-emerald-700 truncate">← {r.by.split(', ').map(sn).join(', ')}{r.np ? ' · НП' : ''}</span>} />)}
+                </Group>
+              )}
+              {away.length > 0 && (
+                <Group label="Отсъстват" tone="text-slate-400">
+                  {away.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)}
+                    sub={r.position ? <span className="text-[11.5px] text-slate-400 truncate">{r.position.toLowerCase()}</span> : null} />)}
+                </Group>
+              )}
+            </div>
+          )
+        })()}
         {!!waiting && <div className="mt-2 text-xs text-amber-700">{waiting} замествания чакат заместник</div>}
         {returning.length > 0 && (
           <div className="mt-2 pt-2 border-t border-slate-100 space-y-1">
