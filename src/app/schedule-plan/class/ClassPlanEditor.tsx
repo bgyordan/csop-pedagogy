@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, Check, X, Plus, AlertTriangle } from 'lucide-react'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { PERIOD_TIMES, PERIOD_LABEL, periodsOverlap } from '@/lib/periods'
 import { settlePlan, subjectCanon, type PlanCard } from '@/lib/curriculum'
 import { linkCurriculumSubject, addSubjectQuick } from '@/app/my-schedule/edit/actions'
@@ -69,7 +69,7 @@ export default function ClassPlanEditor({ classId, term, classes, cards: initial
     if (b) { toast(`${c.teacher} е зает(а) по това време — ${b.label}`, 'error'); return }
     let group = false
     if (here.length) {
-      if (!confirm(`Часът е зает: ${here.map(s => `${s.subject} (${s.teacher})`).join(', ')}.\nПаралелката е разделена на групи — да се добави и ${c.subject} (${c.teacher}) в същия час?`)) return
+      if (!await confirmDialog(`Часът е зает: ${here.map(s => `${s.subject} (${s.teacher})`).join(', ')}.\nПаралелката е разделена на групи — да се добави и ${c.subject} (${c.teacher}) в същия час?`)) return
       group = true
     }
     const key = `${day}-${period}`
@@ -81,7 +81,7 @@ export default function ClassPlanEditor({ classId, term, classes, cards: initial
   }
 
   async function remove(s: Slot, ask = true) {
-    if (ask && !confirm(`Да се махне ${s.subject} (${s.teacher}) — ${DAYS[s.day - 1]?.label}, ${PERIOD_LABEL[s.period]}. час? Часът изчезва и от разписанието на учителя.`)) return
+    if (ask && !await confirmDialog(`Да се махне ${s.subject} (${s.teacher}) — ${DAYS[s.day - 1]?.label}, ${PERIOD_LABEL[s.period]}. час? Часът изчезва и от разписанието на учителя.`)) return
     setPending(`${s.day}-${s.period}`)
     const res: any = await removeClassSlot(s.id)
     setPending(null)
@@ -134,7 +134,7 @@ export default function ClassPlanEditor({ classId, term, classes, cards: initial
     const msg = c.staffId !== gr.staffId
       ? `${n} ${n === 1 ? 'час' : 'часа'} „${gr.subject}“ (${gr.teacher || 'без учител'}) ще станат „${c.subject}“ на ${c.teacher}.\nЧасовете минават в разписанието на ${c.teacher}. Продължаваме?`
       : `${n} ${n === 1 ? 'час' : 'часа'} „${gr.subject}“ (${gr.teacher}) ще се свържат с „${c.subject}“ от плана. Продължаваме?`
-    if (!confirm(msg)) return
+    if (!await confirmDialog(msg)) return
     setPending(gr.key)
     const res: any = await relinkSlots(gr.ids, c.staffId, c.subjectId)
     setPending(null)

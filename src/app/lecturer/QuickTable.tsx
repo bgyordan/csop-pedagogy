@@ -7,7 +7,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, Wand2, Pencil, Search, Check, AlertTriangle, CalendarCheck, FileDown, Trash2 } from 'lucide-react'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { smartMatch } from '@/lib/search'
 import { autoDistribute, saveYearEnds, clearAllLecturerSlots } from './actions'
 import { downloadLecturerOrder } from './OrderButton'
@@ -94,7 +94,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
   async function distribute(r: QTRow, quiet = false) {
     const total = year(r)
     if (total <= 0) return false
-    if (!quiet && placed[r.id] && !confirm(`${r.name}: да се разпределят ли наново? Часовете, сложени на ръка в „График“ (с катинарче), остават; останалите се слагат отначало.`)) return false
+    if (!quiet && placed[r.id] && !await confirmDialog(`${r.name}: да се разпределят ли наново? Часовете, сложени на ръка в „График“ (с катинарче), остават; останалите се слагат отначало.`)) return false
     setBusyId(r.id, true)
     const res: any = await autoDistribute(r.id, null, null, total)
     setBusyId(r.id, false)
@@ -107,7 +107,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
 
   async function distributeAll() {
     if (!pending.length) return
-    if (!confirm(`Разпредели ${pending.length} души (${METHODS.find(m => m[0] === method)?.[1]})? Часовете, сложени на ръка (с катинарче), остават; останалите се слагат отначало.`)) return
+    if (!await confirmDialog(`Разпредели ${pending.length} души (${METHODS.find(m => m[0] === method)?.[1]})? Часовете, сложени на ръка (с катинарче), остават; останалите се слагат отначало.`)) return
     let ok = 0
     for (const r of pending) if (await distribute(r, true)) ok++
     toast(`Разпределени: ${ok} от ${pending.length}`)
@@ -115,7 +115,7 @@ export default function QuickTable({ rows: initial, marked, schoolDates, ends: i
   }
 
   async function clearAll() {
-    if (!confirm(`Да се изтрият ли ВСИЧКИ разпределени лекторски (${sumPlaced} ч.) на всички — и сложените на ръка? Не може да се върне.`)) return
+    if (!await confirmDialog(`Да се изтрият ли ВСИЧКИ разпределени лекторски (${sumPlaced} ч.) на всички — и сложените на ръка? Не може да се върне.`)) return
     setBusyId('*', true)
     const res: any = await clearAllLecturerSlots()
     setBusyId('*', false)

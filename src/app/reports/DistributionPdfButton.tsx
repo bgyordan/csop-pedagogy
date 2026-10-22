@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { FileText, Loader2 } from 'lucide-react'
 import { generateDistributionPDF } from '@/lib/pdf-generator'
+import { notify } from '@/components/ui/Toast'
 
 interface Props {
   rows: any[]
@@ -16,7 +17,7 @@ export default function DistributionPdfButton({ rows, yearName }: Props) {
       await generateDistributionPDF(rows, yearName)
     } catch (e) {
       console.error(e)
-      alert('Грешка при генериране на PDF')
+      notify('Грешка при генериране на PDF')
     }
     setLoading(false)
   }

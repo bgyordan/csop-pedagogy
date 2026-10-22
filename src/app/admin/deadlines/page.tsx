@@ -96,7 +96,7 @@ export default function DeadlinesPage() {
         </button>
       </div>
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50">
               <th className="text-left px-5 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Срок</th>
@@ -139,7 +139,7 @@ export default function DeadlinesPage() {
               )
             })}
           </tbody>
-        </table>
+        </table></div>
         {!deadlines.length && <p className="text-sm text-slate-400 py-10 text-center">Няма добавени срокове</p>}
       </div>
       <Modal open={open} onClose={() => setOpen(false)} title={editId ? 'Редакция на срок' : 'Нов срок'}>

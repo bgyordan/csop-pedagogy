@@ -7,6 +7,7 @@ import {
   Upload, File, FileText, FileSpreadsheet, FileImage, Download, Trash2,
   Pencil, Share2, Search, X, Check,
 } from 'lucide-react'
+import { notify, confirmDialog } from '@/components/ui/Toast'
 
 const NAVY = '#0f2240'
 
@@ -81,7 +82,7 @@ export default function MyFilesClient({ staffId }: { staffId: string }) {
       const ext = file.name.includes('.') ? file.name.split('.').pop() : 'bin'
       const path = `${staffId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
       const { error } = await supabase.storage.from('staff-files').upload(path, file)
-      if (error) { alert('Грешка при качване: ' + file.name); continue }
+      if (error) { notify('Грешка при качване: ' + file.name); continue }
       await supabase.from('staff_files').insert({
         staff_id: staffId, name: file.name, path, size: file.size,
         mime_type: file.type || null, is_shared: false,
@@ -95,7 +96,7 @@ export default function MyFilesClient({ staffId }: { staffId: string }) {
     if (data?.signedUrl) window.open(data.signedUrl, '_blank')
   }
   async function remove(f: StaffFile) {
-    if (!confirm(`Изтриване на „${f.name}"?`)) return
+    if (!await confirmDialog(`Изтриване на „${f.name}"?`)) return
     await supabase.storage.from('staff-files').remove([f.path])
     await supabase.from('staff_files').delete().eq('id', f.id)
     load()

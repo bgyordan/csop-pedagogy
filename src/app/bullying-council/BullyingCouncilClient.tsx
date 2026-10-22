@@ -12,6 +12,7 @@ import {
 import { generateBullyingProtocol } from '@/lib/docx-generator'
 import { KINDS, LEVELS } from '@/lib/incidents'
 import IncidentGuide from '../incidents/IncidentGuide'
+import { notify, confirmDialog } from '@/components/ui/Toast'
 
 interface Member { id: string; staff_id: string | null; name: string; position: string | null; is_chair: boolean; sort: number }
 interface Staff { id: string; first_name: string; last_name: string; position: string | null }
@@ -209,21 +210,21 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
     if (editId) {
       const { data, error } = await supabase.from('bullying_protocols').update(common).eq('id', editId).select('*').single()
       setSaving(false)
-      if (error || !data) { alert('Грешка при запис: ' + (error?.message || '')); return }
+      if (error || !data) { notify('Грешка при запис: ' + (error?.message || '')); return }
       setProts(prev => prev.map(p => p.id === editId ? (data as Protocol) : p))
       if (kind === 'case') await linkCase(data.id, data.number, data.date)
     } else {
       const nextNum = (prots.reduce((m, p) => Math.max(m, p.number), 0)) + 1
       const { data, error } = await supabase.from('bullying_protocols').insert({ ...common, academic_year_id: academicYearId, number: nextNum, created_by: meId }).select('*').single()
       setSaving(false)
-      if (error || !data) { alert('Грешка при запис: ' + (error?.message || '')); return }
+      if (error || !data) { notify('Грешка при запис: ' + (error?.message || '')); return }
       setProts(prev => [data as Protocol, ...prev])
       if (kind === 'case') await linkCase(data.id, data.number, data.date)
     }
     setShowForm(false); setEditId(null); resetForm(); router.refresh()
   }
   async function removeMeeting(id: string) {
-    if (!confirm('Изтриване на заседанието?')) return
+    if (!await confirmDialog('Изтриване на заседанието?')) return
     await supabase.from('bullying_protocols').delete().eq('id', id)
     setProts(prev => prev.filter(p => p.id !== id)); router.refresh()
   }
@@ -243,17 +244,17 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
     const path = `protocols/${id}_${Date.now()}_${safe}`
     const { error } = await supabase.storage.from('bullying-council').upload(path, file)
     if (!error) { await supabase.from('bullying_protocols').update({ file_url: path }).eq('id', id); setProts(prev => prev.map(p => p.id === id ? { ...p, file_url: path } : p)) }
-    else alert('Грешка при качване: ' + file.name)
+    else notify('Грешка при качване: ' + file.name)
     setUploadingProto(null); if (protoFileRef.current) protoFileRef.current.value = ''; router.refresh()
   }
   async function downloadScan(p: Protocol) {
     if (!p.file_url) return
     const { data, error } = await supabase.storage.from('bullying-council').download(p.file_url)
-    if (error || !data) { alert('Грешка при сваляне'); return }
+    if (error || !data) { notify('Грешка при сваляне'); return }
     const url = URL.createObjectURL(data); const a = document.createElement('a'); a.href = url; a.download = `протокол_${p.number}_подписан`; a.click(); URL.revokeObjectURL(url)
   }
   async function removeScan(p: Protocol) {
-    if (!p.file_url || !confirm('Премахване на качения скан?')) return
+    if (!p.file_url || !await confirmDialog('Премахване на качения скан?')) return
     await supabase.storage.from('bullying-council').remove([p.file_url])
     await supabase.from('bullying_protocols').update({ file_url: null }).eq('id', p.id)
     setProts(prev => prev.map(x => x.id === p.id ? { ...x, file_url: null } : x)); router.refresh()
@@ -274,7 +275,7 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
       const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_')
       const path = `docs/${Date.now()}_${safe}`
       const { error } = await supabase.storage.from('bullying-council').upload(path, file)
-      if (error) { alert('Грешка при качване: ' + file.name); continue }
+      if (error) { notify('Грешка при качване: ' + file.name); continue }
       
       const { data } = await supabase.from('bullying_documents')
         .insert({ academic_year_id: academicYearId, category: 'general', name: file.name, description: suggestDesc(file.name), path, size: file.size, mime_type: file.type, uploaded_by: meId })
@@ -287,11 +288,11 @@ export default function BullyingCouncilClient({ meId, isManager, members, staff,
   
   async function downloadDoc(d: DocRow) {
     const { data, error } = await supabase.storage.from('bullying-council').download(d.path)
-    if (error || !data) { alert('Грешка при сваляне'); return }
+    if (error || !data) { notify('Грешка при сваляне'); return }
     const url = URL.createObjectURL(data); const a = document.createElement('a'); a.href = url; a.download = d.name; a.click(); URL.revokeObjectURL(url)
   }
   async function removeDoc(d: DocRow) {
-    if (!confirm(`Изтриване на „${d.name}"?`)) return
+    if (!await confirmDialog(`Изтриване на „${d.name}"?`)) return
     await supabase.storage.from('bullying-council').remove([d.path])
     await supabase.from('bullying_documents').delete().eq('id', d.id)
     setDocs(prev => prev.filter(x => x.id !== d.id)); router.refresh()

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { X, Loader2, Save } from 'lucide-react'
 import { FormSection, FileDrop, useFormKeys, KeysHint } from '@/components/registry/FormParts'
+import { notify } from '@/components/ui/Toast'
 
 function calcEndDate(start: string, months: string): string {
   if (!start || !months) return ''
@@ -62,7 +63,7 @@ export default function EditContractModal({ item, onClose }: Props) {
       })
       .eq('id', item.id)
 
-    if (error) { alert(`Грешка: ${error.message}`); setSaving(false); return }
+    if (error) { notify(`Грешка: ${error.message}`); setSaving(false); return }
     setSaving(false)
     onClose()
     router.refresh()

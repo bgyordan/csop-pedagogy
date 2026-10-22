@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BookOpen, X, Loader2, Plus } from 'lucide-react'
+import { notify, confirmDialog } from '@/components/ui/Toast'
 
 interface ClassItem { assignmentId: string; classId: string; name: string }
 interface Option { id: string; name: string; takenBy?: string | null }
@@ -42,13 +43,13 @@ export default function StaffClassesSection({ staffId, academicYearId, assigned:
       setAdding(false)
       router.refresh()
     } else if (error) {
-      alert(`Грешка: ${error.message}`)
+      notify(`Грешка: ${error.message}`)
     }
     setBusy(null)
   }
 
   async function removeClass(assignmentId: string) {
-    if (!confirm('Премахване от тази паралелка?')) return
+    if (!await confirmDialog('Премахване от тази паралелка?')) return
     const item = assigned.find(a => a.assignmentId === assignmentId)
     setBusy(assignmentId)
     await supabase.from('class_teacher_assignments').delete().eq('id', assignmentId)

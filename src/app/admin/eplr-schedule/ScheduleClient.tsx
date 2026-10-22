@@ -7,6 +7,7 @@ import {
   Loader2, Plus, X, Download, Users, CalendarDays, LayoutList, Trash2
 } from 'lucide-react'
 import { generateEplrSchedule, generateScheduleBySpecialist, generateScheduleByDay } from '@/lib/docx-generator'
+import { notify, confirmDialog } from '@/components/ui/Toast'
 
 interface Student { id: string; name: string; externalClass: string }
 interface ClassData { id: string; name: string; students: Student[] }
@@ -108,7 +109,7 @@ export default function ScheduleClient({
       created_by: staffId || null,
     }).select().single()
     setCreating(false)
-    if (error) { alert(`Грешка: ${error.message}`); return }
+    if (error) { notify(`Грешка: ${error.message}`); return }
     setSchedules(prev => [data, ...prev])
     setActiveId(data.id)
     setNewName('')
@@ -118,7 +119,7 @@ export default function ScheduleClient({
   async function deleteSchedule() {
     const sch = schedules.find(s => s.id === activeId)
     if (!sch) return
-    if (!confirm(`Изтриване на график "${sch.name}" и всички часове в него?`)) return
+    if (!await confirmDialog(`Изтриване на график "${sch.name}" и всички часове в него?`)) return
     await supabase.from('eplr_schedules').delete().eq('id', activeId)
     const rest = schedules.filter(s => s.id !== activeId)
     setSchedules(rest)
@@ -256,14 +257,14 @@ export default function ScheduleClient({
       }))
       .filter(c => c.rows.length > 0)
 
-    if (data.length === 0) { alert('Няма въведени часове'); return }
+    if (data.length === 0) { notify('Няма въведени часове'); return }
     generateEplrSchedule(sch?.name || 'График', yearName, data)
   }
 
   function handleWordSpecialists() {
     const sch = schedules.find(s => s.id === activeId)
     const entries = Object.entries(bySpecialist)
-    if (entries.length === 0) { alert('Няма въведени часове'); return }
+    if (entries.length === 0) { notify('Няма въведени часове'); return }
     const data = entries
       .sort((a, b) => (staffMap[a[0]] || '').localeCompare(staffMap[b[0]] || '', 'bg'))
       .map(([sid, list]) => ({
@@ -277,7 +278,7 @@ export default function ScheduleClient({
   function handleWordDays() {
     const sch = schedules.find(s => s.id === activeId)
     const entries = Object.entries(byDay)
-    if (entries.length === 0) { alert('Няма въведени часове'); return }
+    if (entries.length === 0) { notify('Няма въведени часове'); return }
     const data = entries
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([date, rows]) => ({ date, weekday: weekdayOf(date), rows }))

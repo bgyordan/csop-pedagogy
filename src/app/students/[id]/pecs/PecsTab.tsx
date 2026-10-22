@@ -12,7 +12,7 @@ import {
   Star, Trash2, MessagesSquare, ChevronRight, Archive,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { fileToDataUrl } from '@/lib/photo'
 import PictoPicker from '@/components/pictos/PictoPicker'
 import type { Picked } from '@/components/pictos/PictoPicker'
@@ -127,14 +127,14 @@ export default function PecsTab({ studentId, childName, firstName, meId, isManag
     toast('Браво! Отбелязано като научена ✓')
   }
   async function removeItem(it: Item) {
-    if (!confirm(`Да се изтрие ли „${it.label}“? Опитите остават в историята, но без картинка.`)) return
+    if (!await confirmDialog(`Да се изтрие ли „${it.label}“? Опитите остават в историята, но без картинка.`)) return
     const { error } = await supabase.from('pecs_items').delete().eq('id', it.id)
     if (error) { toast(error.message, 'error'); return }
     setItems(x => x.filter(i => i.id !== it.id))
     setEditItem(null)
   }
   async function removeSession(s: Session) {
-    if (!confirm(`Да се изтрие ли заниманието от ${fmtDate(s.held_on)}?`)) return
+    if (!await confirmDialog(`Да се изтрие ли заниманието от ${fmtDate(s.held_on)}?`)) return
     const { error } = await supabase.from('pecs_sessions').delete().eq('id', s.id)
     if (error) { toast(error.message, 'error'); return }
     load()
@@ -148,10 +148,10 @@ export default function PecsTab({ studentId, childName, firstName, meId, isManag
     } catch { toast('Браузърът не позволи — отворете генератора ръчно', 'error'); return }
     router.push('/materials/make')
   }
-  function act(i: Insight) {
+  async function act(i: Insight) {
     const a = i.action
     if (!a || !profile) return
-    if (a.kind === 'advance') { if (confirm(`Детето преминава към етап ${ROMAN[profile.phase + 1]} — ${PHASES[profile.phase + 1].name}?`)) setPhase(profile.phase + 1, 'Достигнат праг') }
+    if (a.kind === 'advance') { if (await confirmDialog(`Детето преминава към етап ${ROMAN[profile.phase + 1]} — ${PHASES[profile.phase + 1].name}?`)) setPhase(profile.phase + 1, 'Достигнат праг') }
     else if (a.kind === 'master' && a.itemId) master(a.itemId)
     else if (a.kind === 'session') setMode('session')
     else if (a.kind === 'prefs') setMode('prefs')
@@ -465,7 +465,7 @@ function SettingsModal({ profile, isManager, onClose, onSave, onPhase }: {
           <div className="text-[12px] text-slate-500 mb-1">Смяна на етапа ръчно (напр. детето идва от друго място)</div>
           <div className="flex gap-1">
             {[1, 2, 3, 4, 5, 6].map(n => (
-              <button key={n} type="button" disabled={n === profile.phase} onClick={() => { if (confirm(`Етап ${ROMAN[n]} — ${PHASES[n].name}?`)) onPhase(n) }}
+              <button key={n} type="button" disabled={n === profile.phase} onClick={async () => { if (await confirmDialog(`Етап ${ROMAN[n]} — ${PHASES[n].name}?`)) onPhase(n) }}
                 className="flex-1 py-1.5 rounded-lg text-[13px] font-semibold border disabled:text-white"
                 style={n === profile.phase ? { backgroundColor: PHASE_COLOR[n], borderColor: PHASE_COLOR[n] } : { borderColor: '#e2e8f0', color: PHASE_COLOR[n] }}>{ROMAN[n]}</button>
             ))}

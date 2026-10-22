@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Plus, Pencil, Phone, Mail, Trash2, Save, Loader2 } from 'lucide-react'
+import { confirmDialog } from '@/components/ui/Toast'
 
 const RELATION_OPTIONS = ['майка', 'баща', 'настойник', 'баба', 'дядо', 'приемен родител', 'друг']
 
@@ -83,7 +84,7 @@ export default function GuardiansSection({ studentId, guardians: initial, canMan
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Изтриване на родителя?')) return
+    if (!await confirmDialog('Изтриване на родителя?')) return
     setSaving(true); setErr('')
     // .select() — при липса на права базата не дава грешка, а просто не трие нищо
     const { data, error } = await supabase.from('student_guardians').delete().eq('id', id).select('id')

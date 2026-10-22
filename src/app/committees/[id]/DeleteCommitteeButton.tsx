@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Trash2 } from 'lucide-react'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 
 interface Props {
   committeeId: string
@@ -18,7 +18,7 @@ export function DeleteCommitteeButton({ committeeId, committeeName }: Props) {
   const [deleting, setDeleting] = useState(false)
 
   async function handleDelete() {
-    if (!confirm(`Изтрий комисията "${committeeName}"?\n\nТова ще изтрие и всички членове и заседания.`)) return
+    if (!await confirmDialog(`Изтрий комисията "${committeeName}"?\n\nТова ще изтрие и всички членове и заседания.`)) return
     setDeleting(true)
 
     // Изтрий членове и заседания (cascade ако е настроено, иначе ръчно)

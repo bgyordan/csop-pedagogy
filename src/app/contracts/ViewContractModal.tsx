@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/client'
 import { AlertTriangle, ExternalLink, Paperclip, Pencil } from 'lucide-react'
 import { SidePanel, PanelField, FilePreview } from '@/components/registry/SidePanel'
+import { notify } from '@/components/ui/Toast'
 
 interface Props {
   item: any
@@ -25,7 +26,7 @@ export default function ViewContractModal({ item, onClose, onPrev, onNext, canEd
     const win = window.open('', '_blank')
     const { data } = await supabase.storage.from('documents').createSignedUrl(item.file_url, 120)
     if (data?.signedUrl && win) win.location.href = data.signedUrl
-    else { if (win) win.close(); alert('Грешка при отваряне на файла') }
+    else { if (win) win.close(); notify('Грешка при отваряне на файла') }
   }
 
   const fmt = (d?: string | null) => d ? new Date(d).toLocaleDateString('bg-BG') : '—'

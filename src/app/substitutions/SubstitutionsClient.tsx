@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect, Fragment } from 'react'
 import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Pencil, Trash2, ChevronDown, Download } from 'lucide-react'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { generateSubstitution, getAssignments, saveAssignments, checkSubstituteOverlap, deleteSubstitution, getAbsentHours, getKtParts, saveKtParts, getSubstitutionOrder, type RegistryOrder } from './actions'
 import RegistryOrderPick from './RegistryOrderPick'
 import KtPartsEditor, { ktPartsError } from '@/components/KtPartsEditor'
@@ -507,7 +507,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   async function del() {
     if (!editId) return
     const row = rows.find(x => x.id === editId)
-    if (!confirm(`Изтрий това заместване?${(row as any)?.hasOrder ? '\nЗаповедта към него се освобождава като резервиран номер в регистъра (ако няма качен файл).' : ''}`)) return
+    if (!await confirmDialog(`Изтрий това заместване?${(row as any)?.hasOrder ? '\nЗаповедта към него се освобождава като резервиран номер в регистъра (ако няма качен файл).' : ''}`)) return
     // на сървъра: разпределение, заповед и самото заместване — с проверка, че наистина е изтрито
     const res: any = await deleteSubstitution(editId)
     if (res?.error) { toast(res.error, 'error'); return }

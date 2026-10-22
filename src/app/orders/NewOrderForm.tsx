@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { FileDrop, useFormKeys, KeysHint } from '@/components/registry/FormParts'
 import { X, Loader2, ChevronDown, Zap, User } from 'lucide-react'
+import { notify } from '@/components/ui/Toast'
 
 const TITLE_SUGGESTIONS = [
   'Заповед за отпуск',
@@ -191,7 +192,7 @@ export default function NewOrderForm({ currentUserId, students, staff, nomenclat
       ? await supabase.from('orders').update({ ...row, created_by: undefined, is_reserved: false }).eq('id', reserved.id)
       : await supabase.from('orders').insert(row)
 
-    if (error) { alert(`Грешка: ${error.message}`); setSaving(false); return }
+    if (error) { notify(`Грешка: ${error.message}`); setSaving(false); return }
     router.refresh()
     setSaving(false)
     if (saveAction === 'save_new') resetForm()

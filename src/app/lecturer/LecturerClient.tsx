@@ -1,7 +1,7 @@
 'use client'
 import { useState, useMemo, useEffect } from 'react'
 import { Loader2, Check, Save, Search, Plus, X, Trash2, UserRound, Lock, MoveRight, Pencil } from 'lucide-react'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { getTeacherSchedule, saveLecturerSlots, clearLecturerSlots, removeLecturerSlot, moveLecturerSlot, changeLecturerPeriod } from './actions'
 import { slotHours } from './distribute'
 import type { Ends } from './distribute'
@@ -133,7 +133,7 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
   }
 
   async function removeTeacher(id: string) {
-    if (!confirm('Изтрий лекторските на този учител?')) return
+    if (!await confirmDialog('Изтрий лекторските на този учител?')) return
     await clearLecturerSlots(id)
     setMarked(prev => prev.filter(m => m.staffId !== id))
     if (id === teacherId) setPicked(new Set())

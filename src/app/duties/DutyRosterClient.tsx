@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { smartMatch } from '@/lib/search'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { Plus, X, Search, Loader2, FileText, Wand2, Users, ChevronDown, Settings2, Plane } from 'lucide-react'
 import { generateDutyRoster } from '@/lib/docx-generator'
 import { mondayOf, isoOf, type DutyWeek } from '@/lib/duty-weeks'
@@ -115,7 +115,7 @@ export default function DutyRosterClient({ staff, duties: initial, weeks, canMan
       }
     })
     if (!rows.length) { toast(`Всички седмици напред вече имат по ${perWeek}`); return }
-    if (!confirm(`Ще се добавят ${rows.length} дежурства в ${new Set(rows.map(r => r.start_date)).size} седмици (до ${perWeek} души на седмица). Продължаваме ли?`)) return
+    if (!await confirmDialog(`Ще се добавят ${rows.length} дежурства в ${new Set(rows.map(r => r.start_date)).size} седмици (до ${perWeek} души на седмица). Продължаваме ли?`)) return
     setBusy(true)
     const { data, error } = await supabase.from('duty_slots').insert(rows).select()
     setBusy(false)

@@ -82,7 +82,7 @@ export default async function StaffPage({
 
       {/* ДЕСКТОП */}
       <div className="hidden md:block bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
               <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">
@@ -134,7 +134,7 @@ export default async function StaffPage({
               )
             })}
           </tbody>
-        </table>
+        </table></div>
 
         <Pagination page={page} totalPages={totalPages} total={total} PER_PAGE={PER_PAGE} pageLink={pageLink} />
       </div>

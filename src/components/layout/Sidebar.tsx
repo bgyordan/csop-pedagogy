@@ -113,6 +113,8 @@ const navItems: NavItem[] = [
       { href: '/templates', label: 'Образци', icon: <FileText size={14} /> },
       { href: '/normative-docs', label: 'Документи в ЦСОП', icon: <ScrollText size={14} /> },
       { href: '/council', label: 'За съгласуване', icon: <ClipboardCheck size={14} /> },
+      // протоколите от проверките, в които съм проверен/а — запознаване, възражение, самооценка, препоръки
+      { href: '/control', label: 'Констативни протоколи', icon: <ClipboardCheck size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'support'] },
       { href: '/portfolio', label: 'Портфолио', icon: <Images size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
       // Старият генератор — временно (колегите го търсят). Новото: досие → „Документи“ → „Нов документ“. Да се махне, щом всички минат на бланките.
       { href: '/generator', label: 'Генератор (стар)', icon: <FileText size={14} />, roles: ['class_teacher', 'teacher', 'educator', 'psychologist', 'speech_therapist', 'rehabilitator'] },
@@ -203,6 +205,7 @@ const navItems: NavItem[] = [
   { href: '/templates', label: 'Образци на документи', icon: <FileText size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/reports/hub', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/admin/tasks', label: 'График срокове', icon: <CalendarClock size={16} />, roles: ['secretary'], section: 'settings' },
+  { href: '/control', label: 'Констативни протоколи', icon: <ClipboardCheck size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/gym-schedule', label: 'Физк. салон', icon: <Dumbbell size={16} />, roles: ['secretary'], section: 'settings' },
 ]
 interface SidebarProps {
@@ -214,7 +217,7 @@ interface SidebarProps {
   hasClass?: boolean
   userPosition?: string
 }
-export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, userPosition = '', hasClass = true, therapyRole: therapyRoleProp }: SidebarProps) {
+export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, userPosition = '', hasClass: hasClassProp, therapyRole: therapyRoleProp }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -282,6 +285,27 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
       supabase.from('staff_profiles').select('therapy_role').eq('user_id', user.id).maybeSingle()
         .then(({ data }) => { if (!off) setTherapyRole((data as any)?.therapy_role || null) })
     })
+    return () => { off = true }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Класен без паралелка за годината не вижда пунктовете за класа. Таблото подава hasClass;
+  // на другите страници се проверява тук, за да е менюто еднакво навсякъде.
+  const [hasClassOwn, setHasClassOwn] = useState(true)
+  const hasClass = hasClassProp !== undefined ? hasClassProp : hasClassOwn
+  useEffect(() => {
+    if (hasClassProp !== undefined || userRole !== 'class_teacher') return
+    let off = false
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || off) return
+      const [{ data: prof }, { data: cy }] = await Promise.all([
+        supabase.from('staff_profiles').select('id').eq('user_id', user.id).maybeSingle(),
+        supabase.from('academic_years').select('id').eq('is_current', true).maybeSingle(),
+      ])
+      if (!prof || !cy || off) return
+      const { count } = await supabase.from('class_teacher_assignments').select('*', { count: 'exact', head: true })
+        .eq('staff_id', (prof as any).id).eq('academic_year_id', (cy as any).id)
+      if (!off) setHasClassOwn((count || 0) > 0)
+    })()
     return () => { off = true }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const THERAPY_ITEMS = ['/my-activities', '/surveys']

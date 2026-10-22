@@ -40,7 +40,7 @@ export default function EnrollmentsClient({ rows }: { rows: Row[] }) {
         </button>
       </div>
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-        <table className="w-full text-xs">
+        <div className="overflow-x-auto"><table className="w-full text-xs">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
               <th className="text-left px-3 py-2 text-[10px] font-bold text-slate-400 uppercase w-8">#</th>
@@ -92,7 +92,7 @@ export default function EnrollmentsClient({ rows }: { rows: Row[] }) {
               <td className="px-3 py-2 text-center text-xs font-bold text-indigo-600">{rows.filter(r => r.hasCoud).length}</td>
             </tr>
           </tfoot>
-        </table>
+        </table></div>
       </div>
     </div>
   )

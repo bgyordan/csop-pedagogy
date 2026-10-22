@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react'
 import { FileText, Paperclip, Upload, X } from 'lucide-react'
+import { confirmDialog } from '@/components/ui/Toast'
 
 export const LABEL_CLS = 'block text-[11px] font-medium text-slate-600 uppercase tracking-wider mb-1.5'
 
@@ -97,12 +98,12 @@ export function useFormKeys(rootRef: React.RefObject<HTMLElement | null>, onClos
       const fields = root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input[type="text"], input:not([type]), textarea')
       return Array.from(fields).some(f => f.value.trim() !== '' && f.defaultValue.trim() !== f.value.trim())
     }
-    function onKey(e: KeyboardEvent) {
+    async function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         // Ако е отворен падащ списък/търсачка вътре — Esc първо затваря него
         if (e.defaultPrevented) return
         e.preventDefault()
-        if (opts?.confirmDirty !== false && isDirty() && !confirm('Затвори без да записваш?')) return
+        if (opts?.confirmDirty !== false && isDirty() && !await confirmDialog('Затвори без да записваш?')) return
         onClose()
       } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         const btn = rootRef.current?.querySelector<HTMLButtonElement>('[data-primary]')

@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Search, Upload, Printer, Download, Trash2, X, Loader2, FileText, Settings2, ImageIcon, Wand2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { smartMatch } from '@/lib/search'
 import { AREAS, areaMeta } from '../students/[id]/development/lib'
 import { KINDS, isImage, sourceValid } from './lib'
@@ -39,7 +39,7 @@ export default function MaterialsClient({ initialArea = '', materials, sources, 
   }
 
   async function remove(m: Material) {
-    if (!confirm(`Да се изтрие ли „${m.title}“ от библиотеката?`)) return
+    if (!await confirmDialog(`Да се изтрие ли „${m.title}“ от библиотеката?`)) return
     await supabase.storage.from('materials').remove([m.file_path, ...(m.preview_path ? [m.preview_path] : [])])
     const { error } = await supabase.from('materials').delete().eq('id', m.id)
     if (error) { toast(error.message, 'error'); return }

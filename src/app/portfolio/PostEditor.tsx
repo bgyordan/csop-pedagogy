@@ -8,6 +8,7 @@ import {
 import { renderRich, slugName } from '@/app/site-docs/shared'
 import { KINDS, kindMeta, isImage, isVideo, isVideoFile, isDrive, uploadVideo, trashVideos, VIDEO_MAX_MB, resizeImage, uid, STATUS } from './lib'
 import type { Post, Kind, Media, Cls } from './lib'
+import { confirmDialog } from '@/components/ui/Toast'
 
 type Item = { key: string; media?: Media; file?: File; preview?: string; caption: string; image: boolean; video?: boolean }
 
@@ -100,8 +101,8 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
     return () => window.removeEventListener('paste', onPaste)
   }, [])
 
-  function tryClose() {
-    if (dirty.current && (title.trim() || body.trim() || items.some(i => i.file)) && !confirm('Да затворя ли без запис?')) return
+  async function tryClose() {
+    if (dirty.current && (title.trim() || body.trim() || items.some(i => i.file)) && !await confirmDialog('Да затворя ли без запис?')) return
     onClose()
   }
   useEffect(() => {

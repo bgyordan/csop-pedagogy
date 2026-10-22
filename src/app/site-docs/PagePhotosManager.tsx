@@ -7,6 +7,7 @@ import { Plus, X, Star, ExternalLink, GripVertical, ImagePlus, Trash2, Search, U
 import { ACCENT, SITE_URL, SITE_PAGES, Toast, useFlash, moveItem, pageLabel, Spinner } from './shared'
 import type { Album, Photo, PageMode } from './shared'
 import PhotoPicker, { useLibrary } from './PhotoPicker'
+import { confirmDialog } from '@/components/ui/Toast'
 
 const MODE_TEXT: Record<PageMode, string> = {
   both: 'Първата снимка е заглавна — стои горе до заглавието. Всички снимки се показват и в лента по-надолу на страницата.',
@@ -53,7 +54,7 @@ export default function PagePhotosManager({ albums, photos, initialPages, startP
 
   async function removeFromLibrary(name: string, url: string) {
     const on = usage[url] || []
-    if (!confirm(on.length ? `Снимката е на: ${on.map(pageLabel).join(', ')}.\nДа се изтрие ли и да се махне оттам?` : `Изтриване на „${name}“?`)) return
+    if (!await confirmDialog(on.length ? `Снимката е на: ${on.map(pageLabel).join(', ')}.\nДа се изтрие ли и да се махне оттам?` : `Изтриване на „${name}“?`)) return
     setBusyLib(name)
     try {
       await library.remove(name)

@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, ArrowRight } from 'lucide-react'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { fillEplrFromTherapists } from './team-actions'
 
 // „Попълни ЕПЛР екипа от терапевтите“ — еднократно копиране, без автоматично наливане
@@ -13,7 +13,7 @@ export default function FillEplrButton({ studentId }: { studentId: string }) {
   return (
     <button type="button" disabled={busy}
       onClick={async () => {
-        if (!confirm('ЕПЛР екипът за годината да стане като терапевтите на детето? (празните места при терапевтите не трият попълненото)')) return
+        if (!await confirmDialog('ЕПЛР екипът за годината да стане като терапевтите на детето? (празните места при терапевтите не трият попълненото)')) return
         setBusy(true)
         const r: any = await fillEplrFromTherapists(studentId)
         setBusy(false)

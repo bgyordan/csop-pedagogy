@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { ShieldCheck, ShieldAlert, ShieldX, Minus, ChevronDown, ChevronRight, X, Upload, Loader2, Download, Trash2, Plus } from 'lucide-react'
+import { notify, confirmDialog } from '@/components/ui/Toast'
 
 interface DocInfo {
   id: string | null
@@ -214,8 +215,8 @@ function CellModal({ cell, yearOptions, currentYearName, staffId, onClose, onUpd
     const file = e.target.files?.[0]
     if (!file) return
     const ext = file.name.split('.').pop()?.toLowerCase()
-    if (!['pdf', 'doc', 'docx'].includes(ext || '')) { alert('Само PDF и Word'); return }
-    if (file.size > 10 * 1024 * 1024) { alert('Макс. 10MB'); return }
+    if (!['pdf', 'doc', 'docx'].includes(ext || '')) { notify('Само PDF и Word'); return }
+    if (file.size > 10 * 1024 * 1024) { notify('Макс. 10MB'); return }
 
     setUploading(true)
     const safeName = file.name
@@ -223,7 +224,7 @@ function CellModal({ cell, yearOptions, currentYearName, staffId, onClose, onUpd
       .replace(/_+/g, '_')
     const filePath = `${cell.studentId}/${Date.now()}_${safeName}`
     const { error: upErr } = await supabase.storage.from('student-dossiers').upload(filePath, file)
-    if (upErr) { alert('Грешка при качване'); setUploading(false); return }
+    if (upErr) { notify('Грешка при качване'); setUploading(false); return }
 
     const { data, error } = await supabase.from('student_attachments').insert({
       student_id: cell.studentId,
@@ -235,7 +236,7 @@ function CellModal({ cell, yearOptions, currentYearName, staffId, onClose, onUpd
             valid_until_year: validUntil || (['enrollment_application', 'coud_application'].includes(cell.docType.key) ? currentYearName : null),
     }).select().single()
 
-    if (error) { alert('Грешка при запис'); setUploading(false); return }
+    if (error) { notify('Грешка при запис'); setUploading(false); return }
     setUploading(false)
     onUpdate({ id: data.id, valid_until_year: data.valid_until_year, file_name: data.file_name, file_path: data.file_path })
   }
@@ -256,7 +257,7 @@ function CellModal({ cell, yearOptions, currentYearName, staffId, onClose, onUpd
 
   async function handleDelete() {
     if (!cell.doc?.id || !cell.doc?.file_path) return
-    if (!confirm('Изтриване на документа?')) return
+    if (!await confirmDialog('Изтриване на документа?')) return
     await supabase.storage.from('student-dossiers').remove([cell.doc.file_path])
     await supabase.from('student_attachments').delete().eq('id', cell.doc.id)
     onUpdate(undefined)

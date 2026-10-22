@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { FileText, Loader2, X, AlertTriangle } from 'lucide-react'
 import { generateRuoClassesLetter } from '@/lib/docx-generator'
+import { notify } from '@/components/ui/Toast'
 interface Props {
   yearName: string
   classes: {
@@ -28,7 +29,7 @@ export default function RuoLetterButton({ yearName, classes, label = 'Писмо
 
   async function generate() {
     const withStudents = usable.filter(c => c.students.length > 0)
-    if (withStudents.length === 0) { alert('Няма ученици за включване'); return }
+    if (withStudents.length === 0) { notify('Няма ученици за включване'); return }
     setBusy(true)
     try {
       await generateRuoClassesLetter(yearName, withStudents, {
@@ -36,7 +37,7 @@ export default function RuoLetterButton({ yearName, classes, label = 'Писмо
       })
       setOpen(false)
     } catch (e: any) {
-      alert(`Грешка: ${e.message}`)
+      notify(`Грешка: ${e.message}`)
     }
     setBusy(false)
   }

@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { X, Pencil, Send, Loader2, FileText, MessageSquare, ShieldCheck, Phone, Flag, Trash2 } from 'lucide-react'
 import { KINDS, STATUS, LEVELS, ROLE_LABEL, fmtDate } from '@/lib/incidents'
 import type { Case, Event, Participant, Status } from '@/lib/incidents'
+import { confirmDialog } from '@/components/ui/Toast'
 
 const EV_ICON = { note: MessageSquare, status: Flag, measure: ShieldCheck, parent: Phone, protocol: FileText }
 const EV_LABEL = { note: 'Бележка', status: 'Статус', measure: 'Мярка', parent: 'Родител', protocol: 'Протокол' }
@@ -43,7 +44,7 @@ export default function IncidentDetail({ c, parts, events, names, studentNames, 
           <span className="text-[12px] px-2 py-0.5 rounded-full font-medium" style={{ background: KINDS[c.kind].bg, color: KINDS[c.kind].color }}>{KINDS[c.kind].short}</span>
           <h2 className="flex-1 text-base text-[#0f2240]">Случай № {c.number} · {fmtDate(c.occurred_on)}{c.occurred_time ? ` ${c.occurred_time.slice(0, 5)}` : ''}</h2>
           {canEdit && <button type="button" onClick={onEdit} title="Редакция" className="p-2 rounded-xl text-slate-500 hover:bg-slate-100"><Pencil size={16} /></button>}
-          {isAdmin && <button type="button" onClick={() => confirm(`Да се изтрие ли случай № ${c.number}? Дирята се губи.`) && onDelete()} title="Изтрий" className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50"><Trash2 size={16} /></button>}
+          {isAdmin && <button type="button" onClick={async () => await confirmDialog(`Да се изтрие ли случай № ${c.number}? Дирята се губи.`) && onDelete()} title="Изтрий" className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50"><Trash2 size={16} /></button>}
           <button type="button" onClick={onClose} className="p-2 rounded-xl text-slate-500 hover:bg-slate-100"><X size={18} /></button>
         </div>
 

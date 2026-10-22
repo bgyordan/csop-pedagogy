@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { FileText, Loader2 } from 'lucide-react'
 import { generateOutreachGroupsLetter } from '@/lib/docx-generator'
+import { notify } from '@/components/ui/Toast'
 
 interface RuoRow { className: string; students: { name: string; school: string; externalClass: string }[] }
 interface Group { location: string; items: RuoRow[] }
@@ -10,10 +11,10 @@ export default function OutreachLetterButton({ yearName, groups }: { yearName: s
   const [busy, setBusy] = useState(false)
   const empty = groups.reduce((a, g) => a + g.items.length, 0) === 0
   async function gen() {
-    if (empty) { alert('Няма отбелязани изнесени паралелки. Отбележи ги в Администрация → Паралелки.'); return }
+    if (empty) { notify('Няма отбелязани изнесени паралелки. Отбележи ги в Администрация → Паралелки.'); return }
     setBusy(true)
     try { await generateOutreachGroupsLetter(yearName, groups) }
-    catch (e: any) { alert(`Грешка: ${e.message}`) }
+    catch (e: any) { notify(`Грешка: ${e.message}`) }
     setBusy(false)
   }
   return (

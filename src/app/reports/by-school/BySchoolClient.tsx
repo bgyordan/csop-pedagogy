@@ -302,7 +302,7 @@ export default function BySchoolClient({ rows, yearName }: { rows: StudentRow[];
                   {g.meta && <span className="text-xs text-slate-500"> · {g.meta}</span>}
                 </div>
               )}
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto"><table className="w-full text-sm">
                 <thead>
                   <tr className="text-xs text-slate-500 border-b border-slate-100">
                     <th className="px-3 py-1.5 w-10 text-center font-normal">№</th>
@@ -319,7 +319,7 @@ export default function BySchoolClient({ rows, yearName }: { rows: StudentRow[];
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </div>
           ))}
         </div>

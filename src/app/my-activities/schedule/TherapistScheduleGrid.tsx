@@ -5,6 +5,7 @@ import { Save, Loader2, Info, Download, Copy, X, Search, Pencil, Check, AlertTri
 import { saveTherapistSchedule, copyTherapistFromTerm1 } from './actions'
 import { generateTherapistSchedule } from '@/lib/docx-generator'
 import { createClient } from '@/lib/supabase/client'
+import { confirmDialog } from '@/components/ui/Toast'
 interface Student {
   id: string
   name: string
@@ -64,8 +65,8 @@ export function TherapistScheduleGrid({
   const [editing, setEditing] = useState(existingSlots.length === 0)
   const [saved, setSaved] = useState<Record<string, string[]>>(grid)   // последно запазеното — за „Откажи“
   const dirty = JSON.stringify(grid) !== JSON.stringify(saved)
-  function cancelEdit() {
-    if (dirty && !confirm('Да се откажат ли промените? Графикът остава както е запазен.')) return
+  async function cancelEdit() {
+    if (dirty && !await confirmDialog('Да се откажат ли промените? Графикът остава както е запазен.')) return
     setGrid(saved); setActiveId(''); setMsg(null); setEditing(false); setHistory([])
   }
   // Всяка промяна се помни (до 20 стъпки) → „Отмени“ връща предишното състояние
@@ -218,7 +219,7 @@ export function TherapistScheduleGrid({
         ch.added.length ? `Добавени (${ch.added.length}):\n  ${ch.added.join('\n  ')}` : '',
         ch.removed.length ? `Махнати (${ch.removed.length}):\n  ${ch.removed.join('\n  ')}` : '',
       ].filter(Boolean).join('\n\n')
-      if (!confirm(`${lines}\n\nДа се запази ли графикът?`)) return
+      if (!await confirmDialog(`${lines}\n\nДа се запази ли графикът?`)) return
     }
     setSaving(true); setMsg(null)
     const slots: { day: number; period: number; studentId: string }[] = []

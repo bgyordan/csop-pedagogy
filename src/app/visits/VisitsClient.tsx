@@ -10,7 +10,7 @@ import {
   BookOpen, Megaphone, Calculator,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { PERIOD_LABEL, PERIOD_TIMES, MORNING_PERIODS, AFTERNOON_PERIODS, COUD_PERIODS, byStartTime } from '@/lib/periods'
 
 type Campaign = {
@@ -168,7 +168,7 @@ function Pick({ me, campaign: c, bookings, slots, lessons, calendar }: Parameter
     setChanging(false); router.refresh()
   }
   async function cancel() {
-    if (!mine || !confirm('Да се откаже ли избраният ден?')) return
+    if (!mine || !await confirmDialog('Да се откаже ли избраният ден?')) return
     const { error } = await supabase.from('visit_bookings').delete().eq('id', mine.id)
     if (error) { toast(error.message, 'error'); return }
     setChanging(true); router.refresh()
@@ -373,13 +373,13 @@ function Board({ campaign: c, bookings, people, calendar, onEdit }: Parameters<t
     router.refresh()
   }
   async function removeBooking(b: Booking) {
-    if (!confirm(`Да се махне ли посещението на ${name(b)}? Ще може да избере отново.`)) return
+    if (!await confirmDialog(`Да се махне ли посещението на ${name(b)}? Ще може да избере отново.`)) return
     const { error } = await supabase.from('visit_bookings').delete().eq('id', b.id)
     if (error) { toast(error.message, 'error'); return }
     router.refresh()
   }
   async function removeCampaign() {
-    if (!confirm(`Да се изтрие ли „${c.title}“ заедно с всички избрани дни?`)) return
+    if (!await confirmDialog(`Да се изтрие ли „${c.title}“ заедно с всички избрани дни?`)) return
     const { error } = await supabase.from('visit_campaigns').delete().eq('id', c.id)
     if (error) { toast(error.message, 'error'); return }
     router.push('/visits'); router.refresh()

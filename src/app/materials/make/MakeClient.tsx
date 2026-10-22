@@ -12,7 +12,7 @@ import {
   LayoutGrid, ArrowRight, ListChecks, Star, ListOrdered, BookOpen, BookHeart, MousePointerClick,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { pictoUrl } from '@/lib/pictos'
 import PictoPicker from '@/components/pictos/PictoPicker'
 import type { Picked } from '@/components/pictos/PictoPicker'
@@ -217,7 +217,7 @@ export default function MakeClient({ meId, ownSourceId }: { meId: string; ownSou
             <div className="flex items-center justify-between mb-2">
               <span className="text-[13px] font-semibold text-slate-700">Картинки {!fixed && <span className="font-normal text-slate-400">({board.pics.length}/{meta.max})</span>}</span>
               {!fixed && board.pics.length > 0 && (
-                <button type="button" onClick={() => { if (confirm('Да се изчистят всички картинки?')) update({ pics: [] }) }} className="text-[12px] text-slate-400 hover:text-rose-600">Изчисти</button>
+                <button type="button" onClick={async () => { if (await confirmDialog('Да се изчистят всички картинки?')) update({ pics: [] }) }} className="text-[12px] text-slate-400 hover:text-rose-600">Изчисти</button>
               )}
             </div>
             <div className="space-y-1.5 max-h-[52vh] overflow-auto pr-1">
@@ -261,7 +261,7 @@ export default function MakeClient({ meId, ownSourceId }: { meId: string; ownSou
               </div>
             )}
           </div>
-          <button type="button" onClick={() => { if (confirm('Да се върне примерът за този вид?')) { const d = { ...drafts }; delete d[type]; setDrafts(d); try { localStorage.setItem(DRAFT, JSON.stringify({ type, drafts: d })) } catch { /* */ } } }}
+          <button type="button" onClick={async () => { if (await confirmDialog('Да се върне примерът за този вид?')) { const d = { ...drafts }; delete d[type]; setDrafts(d); try { localStorage.setItem(DRAFT, JSON.stringify({ type, drafts: d })) } catch { /* */ } } }}
             className="inline-flex items-center gap-1 text-[12px] text-slate-400 hover:text-slate-700"><RotateCcw size={12} /> Започни отначало</button>
         </div>
 

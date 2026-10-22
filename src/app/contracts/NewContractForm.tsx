@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { nextContractNumber } from '@/lib/delo-seq'
 import { X, Loader2 } from 'lucide-react'
 import { FormSection, FileDrop, useFormKeys, KeysHint } from '@/components/registry/FormParts'
+import { notify } from '@/components/ui/Toast'
 
 function calcEndDate(start: string, months: string): string {
   if (!start || !months) return ''
@@ -74,7 +75,7 @@ export default function NewContractForm({ currentUserId, onClose, onSaved }: Pro
       created_by: currentUserId,
     })
 
-    if (error) { alert(`Грешка: ${error.message}`); setSaving(false); return }
+    if (error) { notify(`Грешка: ${error.message}`); setSaving(false); return }
     router.refresh()
     setSaving(false)
     if (saveAction === 'save_new') resetForm()

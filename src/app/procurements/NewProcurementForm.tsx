@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { X, Loader2 } from 'lucide-react'
+import { notify } from '@/components/ui/Toast'
 
 const OBJECT_OPTIONS = [
   { value: 'supply', label: 'Доставка' },
@@ -55,7 +56,7 @@ export default function NewProcurementForm({ currentUserId, onClose, onSaved }: 
       created_by: currentUserId,
     })
 
-    if (error) { alert(`Грешка: ${error.message}`); setSaving(false); return }
+    if (error) { notify(`Грешка: ${error.message}`); setSaving(false); return }
     setSaving(false)
     onSaved()
   }

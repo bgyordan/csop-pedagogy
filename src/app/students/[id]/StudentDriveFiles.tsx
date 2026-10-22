@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { FileText, FileSpreadsheet, Presentation, File, ExternalLink, Plus, Trash2, X, FilePlus2 } from 'lucide-react'
 import { createDriveDoc } from './drive-actions'
+import { confirmDialog } from '@/components/ui/Toast'
 
 type DriveFile = {
   id: string
@@ -108,7 +109,7 @@ export default function StudentDriveFiles({ studentId }: { studentId: string }) 
   }
 
   async function remove(id: string) {
-    if (!confirm('Да махна ли линка? Самият файл в Drive остава.')) return
+    if (!await confirmDialog('Да махна ли линка? Самият файл в Drive остава.')) return
     await supabase.from('student_drive_files').delete().eq('id', id)
     setFiles((f) => f.filter((x) => x.id !== id))
   }

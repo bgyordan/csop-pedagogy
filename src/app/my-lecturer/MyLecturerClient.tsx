@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { CalendarClock, Trash2, UserX, IdCard, GraduationCap, ChevronDown } from 'lucide-react'
 import type { MySubRow } from '@/lib/my-substitutions'
 import { sofiaTodayIso } from '@/lib/declaration-periods'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { deleteMyDeclaration } from './actions'
 import MyDeclarationsCard from '@/components/lecturer/MyDeclarationsCard'
 
@@ -122,7 +122,7 @@ export default function MyLecturerClient({ slots, subs, declarations: initialDec
                   <span className={`text-[11px] px-2 py-0.5 rounded-full ${st.c}`}>{st.l}</span>
                   {d.status === 'submitted' && (
                     <button onClick={async () => {
-                      if (!confirm('Изтрий тази декларация?')) return
+                      if (!await confirmDialog('Изтрий тази декларация?')) return
                       const r: any = await deleteMyDeclaration(d.id)
                       if (r.error) { toast(r.error, 'error'); return }
                       setDeclarations(prev => prev.filter(x => x.id !== d.id))

@@ -12,7 +12,7 @@ import {
 import Link from 'next/link'
 import { gensForSkill } from '@/lib/sheets'
 import { createClient } from '@/lib/supabase/client'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import {
   PARTS, KINDS, LEVELS, LEVEL_COLOR, LEVEL_TEXT, SUPPORT, currentLevels, suggestProgram, insights, areaAverages, todaySofia, fmtDate,
 } from '@/lib/remelka'
@@ -122,7 +122,7 @@ export default function RemelkaTab({ studentId, firstName, meId, isManager }: { 
     await load()
   }
   async function removeAssessment(a: Assessment) {
-    if (!confirm(`Да се изтрие ли диагностиката от ${fmtDate(a.held_on)}?`)) return
+    if (!await confirmDialog(`Да се изтрие ли диагностиката от ${fmtDate(a.held_on)}?`)) return
     const { error } = await supabase.from('remelka_assessments').delete().eq('id', a.id)
     if (error) { toast(error.message, 'error'); return }
     load()
@@ -160,7 +160,7 @@ export default function RemelkaTab({ studentId, firstName, meId, isManager }: { 
     load()
   }
   async function removeSession(s: Session) {
-    if (!confirm(`Да се изтрие ли заниманието от ${fmtDate(s.held_on)}?`)) return
+    if (!await confirmDialog(`Да се изтрие ли заниманието от ${fmtDate(s.held_on)}?`)) return
     const { error } = await supabase.from('remelka_sessions').delete().eq('id', s.id)
     if (error) { toast(error.message, 'error'); return }
     load()

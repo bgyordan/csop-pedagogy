@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { Upload, Loader2, Trash2, Plus, X, Check, Search, Pencil, ChevronDown, ArrowLeft, CalendarDays, Images, ImagePlus, Star, MapPin, Clock, Briefcase, Mail, Copy } from 'lucide-react'
 import { ACCENT, fmtDate, MONTHS_SHORT, SITE_PAGES, Field, INPUT, Toast, Drawer } from './shared'
 import type { Ev, Album, Photo, Job, Subscriber } from './shared'
+import { confirmDialog } from '@/components/ui/Toast'
 
 /* ═══════════════ СЪБИТИЯ ═══════════════ */
 export function EventsManager({ initial }: { initial: Ev[] }) {
@@ -39,7 +40,7 @@ export function EventsManager({ initial }: { initial: Ev[] }) {
       setDrawer(false); flash('Записано.'); router.refresh()
     } catch (e: unknown) { flash(e instanceof Error ? e.message : 'Грешка.', true) } finally { setBusy(false) }
   }
-  async function remove(e: Ev) { if (!confirm(`Изтриване на „${e.title}“?`)) return; await supabase.from('site_events').delete().eq('id', e.id); setList((p) => p.filter((x) => x.id !== e.id)); flash('Изтрито.'); router.refresh() }
+  async function remove(e: Ev) { if (!await confirmDialog(`Изтриване на „${e.title}“?`)) return; await supabase.from('site_events').delete().eq('id', e.id); setList((p) => p.filter((x) => x.id !== e.id)); flash('Изтрито.'); router.refresh() }
 
   return (
     <div>
@@ -146,7 +147,7 @@ export function JobsManager({ initial, authorId, subscribers = [] }: { initial: 
     } catch (e: unknown) { flash(e instanceof Error ? e.message : 'Грешка.', true) } finally { setBusy(false) }
   }
   async function toggleStatus(j: Job) { const next = j.status === 'active' ? 'closed' : 'active'; setList((p) => p.map((x) => x.id === j.id ? { ...x, status: next } : x)); await supabase.from('site_jobs').update({ status: next }).eq('id', j.id); router.refresh() }
-  async function remove(j: Job) { if (!confirm(`Изтриване на „${j.title}“?`)) return; await supabase.from('site_jobs').delete().eq('id', j.id); setList((p) => p.filter((x) => x.id !== j.id)); flash('Изтрито.'); router.refresh() }
+  async function remove(j: Job) { if (!await confirmDialog(`Изтриване на „${j.title}“?`)) return; await supabase.from('site_jobs').delete().eq('id', j.id); setList((p) => p.filter((x) => x.id !== j.id)); flash('Изтрито.'); router.refresh() }
 
   return (
     <div>

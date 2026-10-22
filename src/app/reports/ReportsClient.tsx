@@ -11,6 +11,7 @@ import {
   generateWorkloadReportExcel,
 } from '@/lib/excel-generator'
 import Link from 'next/link'
+import { notify } from '@/components/ui/Toast'
 type ReportTab = 'distribution' | 'school' | 'workload' | 'intensity'
 const TAB_TITLES: Record<ReportTab, string> = {
   distribution: 'Разпределение на учениците',
@@ -79,7 +80,7 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
   }
   async function downloadSchedule(school: any) {
     const rows = scheduleRowsFor(school.id)
-    if (rows.length === 0) { alert('Няма насрочени срещи за това училище в избрания график'); return }
+    if (rows.length === 0) { notify('Няма насрочени срещи за това училище в избрания график'); return }
     const sch = schedules.find(s => s.id === scheduleId)
     await generateSchoolScheduleLetter(school.name, school.city, yearName, sch?.name || '', rows)
   }
@@ -133,7 +134,7 @@ export default function ReportsClient({ schedules = [], slotsBySchedule = {}, al
   const [genIntensity, setGenIntensity] = useState(false)
   async function downloadIntensityPdf() {
     setGenIntensity(true)
-    try { await generateIntensityPDF(intensityRows, yearName) } catch (e: any) { alert('Грешка: ' + e.message) }
+    try { await generateIntensityPDF(intensityRows, yearName) } catch (e: any) { notify('Грешка: ' + e.message) }
     setGenIntensity(false)
   }
   function ExportButtons({ onExcel }: { onExcel?: () => void }) {

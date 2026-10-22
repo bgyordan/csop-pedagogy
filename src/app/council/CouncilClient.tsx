@@ -5,6 +5,7 @@ import {
   CalendarClock, Upload, Download, Trash2, Loader2, Plus, X, Archive, ArchiveRestore, Pencil, Check,
   ChevronDown, Eye, CheckCircle2, Users, Sparkles,
 } from 'lucide-react'
+import { notify, confirmDialog } from '@/components/ui/Toast'
 
 type CFile = { id: string; name: string; description: string | null; path: string; size: number | null; mime: string; createdAt: string }
 type Ack = { staffId: string; at: string }
@@ -94,7 +95,7 @@ export default function CouncilClient({ groups: initial, canManage, meId, acksOn
     if (timeOn) row.event_time = nTime || null
     const { data, error } = await supabase.from('council_sets').insert(row).select('id, title, event_date, is_archived').single()
     setSavingSet(false)
-    if (error || !data) { alert('Грешка при създаване'); return }
+    if (error || !data) { notify('Грешка при създаване'); return }
     const g: Group = { id: data.id, title: data.title, eventDate: data.event_date, eventTime: timeOn ? (nTime || null) : null, isArchived: false, files: [], acks: [] }
     setGroups(prev => [g, ...prev]); setOpenId(g.id); setShowNew(false); setNTitle('Педагогически съвет'); setNDate(''); setNTime('')
   }
@@ -105,7 +106,7 @@ export default function CouncilClient({ groups: initial, canManage, meId, acksOn
     const row: any = { title: eTitle.trim(), event_date: eDate || null }
     if (timeOn) row.event_time = eTime || null
     const { error } = await supabase.from('council_sets').update(row).eq('id', g.id)
-    if (error) { alert('Грешка при запис'); return }
+    if (error) { notify('Грешка при запис'); return }
     setGroups(prev => prev.map(x => x.id === g.id ? { ...x, title: eTitle.trim(), eventDate: eDate || null, eventTime: timeOn ? (eTime || null) : x.eventTime } : x))
     setEditSet(null)
   }
@@ -120,11 +121,11 @@ export default function CouncilClient({ groups: initial, canManage, meId, acksOn
       const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_')
       const path = `${setId}/${Date.now()}_${safe}`
       const { error } = await supabase.storage.from(BUCKET).upload(path, file)
-      if (error) { alert('Грешка при качване: ' + file.name); continue }
+      if (error) { notify('Грешка при качване: ' + file.name); continue }
       const { data, error: dbErr } = await supabase.from('council_files')
         .insert({ set_id: setId, name: file.name, description: suggestDesc(file.name), path, size: file.size, mime_type: file.type, uploaded_by: meId })
         .select('id, name, description, path, size, mime_type, created_at').single()
-      if (dbErr || !data) { await supabase.storage.from(BUCKET).remove([path]); alert('Грешка при запис: ' + file.name); continue }
+      if (dbErr || !data) { await supabase.storage.from(BUCKET).remove([path]); notify('Грешка при запис: ' + file.name); continue }
       added.push({ id: data.id, name: data.name, description: data.description, path: data.path, size: data.size, mime: data.mime_type || '', createdAt: data.created_at })
     }
     setGroups(prev => prev.map(g => g.id === setId ? { ...g, files: [...g.files, ...added] } : g))
@@ -133,7 +134,7 @@ export default function CouncilClient({ groups: initial, canManage, meId, acksOn
 
   async function download(f: CFile) {
     const { data, error } = await supabase.storage.from(BUCKET).download(f.path)
-    if (error || !data) { alert('Файлът не може да се изтегли'); return }
+    if (error || !data) { notify('Файлът не може да се изтегли'); return }
     const url = URL.createObjectURL(data); const a = document.createElement('a'); a.href = url; a.download = f.name
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
   }
@@ -146,7 +147,7 @@ export default function CouncilClient({ groups: initial, canManage, meId, acksOn
     if (w) w.location.href = data.signedUrl; else window.location.href = data.signedUrl
   }
   async function delFile(setId: string, f: CFile) {
-    if (!confirm(`Изтрий „${f.description || f.name}“?`)) return
+    if (!await confirmDialog(`Изтрий „${f.description || f.name}“?`)) return
     await supabase.storage.from(BUCKET).remove([f.path])
     await supabase.from('council_files').delete().eq('id', f.id)
     setGroups(prev => prev.map(g => g.id === setId ? { ...g, files: g.files.filter(x => x.id !== f.id) } : g))
@@ -161,7 +162,7 @@ export default function CouncilClient({ groups: initial, canManage, meId, acksOn
     setGroups(prev => prev.map(x => x.id === g.id ? { ...x, isArchived: !x.isArchived } : x))
   }
   async function delSet(g: Group) {
-    if (!confirm(`Изтрий целия комплект „${g.title}“ и файловете му?`)) return
+    if (!await confirmDialog(`Изтрий целия комплект „${g.title}“ и файловете му?`)) return
     if (g.files.length) await supabase.storage.from(BUCKET).remove(g.files.map(f => f.path))
     await supabase.from('council_sets').delete().eq('id', g.id)
     setGroups(prev => prev.filter(x => x.id !== g.id))
@@ -171,7 +172,7 @@ export default function CouncilClient({ groups: initial, canManage, meId, acksOn
     const at = new Date().toISOString()
     const { error } = await supabase.from('council_acks').upsert({ set_id: g.id, staff_id: meId, acked_at: at }, { onConflict: 'set_id,staff_id' })
     setAcking(null)
-    if (error) { alert('Грешка при запис'); return }
+    if (error) { notify('Грешка при запис'); return }
     setGroups(prev => prev.map(x => x.id === g.id ? { ...x, acks: [...x.acks.filter(a => a.staffId !== meId), { staffId: meId, at }] } : x))
   }
 

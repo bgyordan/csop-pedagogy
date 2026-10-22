@@ -7,7 +7,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Save, Loader2, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import type { Source } from '../lib'
 
 function Toggle({ on, onChange, yes, no }: { on: boolean; onChange: (v: boolean) => void; yes: string; no: string }) {
@@ -42,7 +42,7 @@ export default function SourcesClient({ sources, counts }: { sources: Source[]; 
   async function remove(s: Source) {
     if (s.id.startsWith('new-')) { setRows(r => r.filter(x => x.id !== s.id)); return }
     if (counts[s.id]) { toast(`Има ${counts[s.id]} материала от този източник — не може да се изтрие`, 'error'); return }
-    if (!confirm(`Да се изтрие ли „${s.name}“?`)) return
+    if (!await confirmDialog(`Да се изтрие ли „${s.name}“?`)) return
     const { error } = await supabase.from('material_sources').delete().eq('id', s.id)
     if (error) { toast(error.message, 'error'); return }
     setRows(r => r.filter(x => x.id !== s.id))

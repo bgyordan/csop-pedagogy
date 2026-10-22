@@ -274,7 +274,7 @@ function LinesTable({ rows, showHolder = false, showTeacher = true }: {
   showHolder?: boolean; showTeacher?: boolean
 }) {
   return (
-    <table className="w-full text-[13px]">
+    <div className="overflow-x-auto"><table className="w-full text-[13px]">
       <thead>
         <tr className="text-left text-[10.5px] uppercase tracking-wider text-slate-400">
           {showHolder && <th className="pl-11 pr-2 py-2 font-medium">Паралелка</th>}
@@ -299,6 +299,6 @@ function LinesTable({ rows, showHolder = false, showTeacher = true }: {
           </tr>
         ))}
       </tbody>
-    </table>
+    </table></div>
   )
 }

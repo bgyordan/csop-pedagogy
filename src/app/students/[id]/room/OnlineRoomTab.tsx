@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2, Send, Link2, Paperclip, Copy, Check, MonitorSmartphone, X, ExternalLink, EyeOff, Eye, FileDown, Play, MessageCircle, CircleCheck, Square, RotateCcw, Library, Search, Trash2 } from 'lucide-react'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { generateOresChronology } from '@/lib/docx-ores'
 import { isOresActive, todaySofia } from '@/lib/ores'
 import { deleteTestOres } from './actions'
@@ -206,7 +206,7 @@ function Room({ studentId, studentName, ores, live, meId, isManager, isAdmin }: 
 
   async function toggleHidden(p: Post) {
     const hide = !p.hidden_at
-    if (hide && !confirm('Да се скрие ли от родителя? В хронологията остава.')) return
+    if (hide && !await confirmDialog('Да се скрие ли от родителя? В хронологията остава.')) return
     const { error } = await supabase.from('online_room_posts')
       .update(hide ? { hidden_at: new Date().toISOString(), hidden_by: meId } : { hidden_at: null, hidden_by: null }).eq('id', p.id)
     if (error) { toast(error.message, 'error'); return }
@@ -232,7 +232,7 @@ function Room({ studentId, studentName, ores, live, meId, isManager, isAdmin }: 
 
   // „Приключи ОРЕС“ — крайна дата днес, линкът спира веднага; „Отвори отново“ връща предишната крайна дата
   async function closeRoom() {
-    if (!confirm('Да се приключи ли ОРЕС днес? Линкът на родителя спира веднага. Хронологията остава.')) return
+    if (!await confirmDialog('Да се приключи ли ОРЕС днес? Линкът на родителя спира веднага. Хронологията остава.')) return
     setClosing(true)
     const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })
     const { error } = await supabase.from('student_ores').update({
@@ -245,7 +245,7 @@ function Room({ studentId, studentName, ores, live, meId, isManager, isAdmin }: 
     router.refresh()
   }
   async function reopenRoom() {
-    if (!confirm('Да се отвори ли стаята отново? Линкът на родителя ще работи пак.')) return
+    if (!await confirmDialog('Да се отвори ли стаята отново? Линкът на родителя ще работи пак.')) return
     setClosing(true)
     const { error } = await supabase.from('student_ores').update({
       room_closed_at: null, room_closed_by: null, to_date: ores.to_date_before_close ?? null, to_date_before_close: null,
@@ -259,7 +259,7 @@ function Room({ studentId, studentName, ores, live, meId, isManager, isAdmin }: 
   // само за администратор: тестов ОРЕС се маха изцяло (истинските се приключват, не се трият)
   async function removeTest() {
     const period = `${fmt(ores.from_date)}${ores.to_date ? ` – ${fmt(ores.to_date)}` : ''}`
-    if (!confirm(`Изтриване на ТЕСТОВ ОРЕС на ${studentName} (${period})?\n\nТрият се и всички публикации, въпроси на родителя и файлове в стаята. Не може да се върне.\n\nЗа истински ОРЕС използвайте „Приключи ОРЕС“.`)) return
+    if (!await confirmDialog(`Изтриване на ТЕСТОВ ОРЕС на ${studentName} (${period})?\n\nТрият се и всички публикации, въпроси на родителя и файлове в стаята. Не може да се върне.\n\nЗа истински ОРЕС използвайте „Приключи ОРЕС“.`)) return
     setClosing(true)
     const res = await deleteTestOres(ores.id)
     setClosing(false)

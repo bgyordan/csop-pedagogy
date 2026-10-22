@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Upload, Download, Trash2, FileText, Loader2, ShieldCheck, ShieldAlert, ShieldX, Eye } from 'lucide-react'
 import { DocViewer } from '@/components/registry/DocViewer'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 
 interface Attachment {
   id: string
@@ -148,7 +148,7 @@ export function AttachmentsSection({ studentId, attachments: initial, canManage,
   }
 
   async function handleDelete(attachment: Attachment) {
-    if (!confirm(`Изтрий "${typeLabels[attachment.doc_type] || attachment.doc_type}"?`)) return
+    if (!await confirmDialog(`Изтрий "${typeLabels[attachment.doc_type] || attachment.doc_type}"?`)) return
 
     await supabase.storage.from('student-dossiers').remove([attachment.file_path])
     await supabase.from('student_attachments').delete().eq('id', attachment.id)

@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Check, Loader2, AlertTriangle, Archive, Pencil, CheckCheck, CalendarPlus } from 'lucide-react'
 import { runRollover, confirmEnrollment, confirmAllEnrollments, archiveStudent, updateExternalClass } from './actions'
+import { confirmDialog } from '@/components/ui/Toast'
 
 interface Row {
   enrollmentId: string
@@ -60,7 +61,7 @@ export default function RolloverClient({
   const hasUnconfirmed = rows.length > 0
 
   async function handleRollover() {
-    if (!confirm(`Ще се създаде учебна година ${yearName} и всички паралелки, ученици, ЕПЛР екипи и ЦОУД групи ще бъдат прехвърлени. Продължаваме?`)) return
+    if (!await confirmDialog(`Ще се създаде учебна година ${yearName} и всички паралелки, ученици, ЕПЛР екипи и ЦОУД групи ще бъдат прехвърлени. Продължаваме?`)) return
     setMessage(null)
     startTransition(async () => {
       const res = await runRollover(yearName, startDate, endDate)
@@ -85,7 +86,7 @@ export default function RolloverClient({
   }
 
   async function handleConfirmAll() {
-    if (!confirm(`Потвърждаване на всички ${rows.length} записа наведнъж?`)) return
+    if (!await confirmDialog(`Потвърждаване на всички ${rows.length} записа наведнъж?`)) return
     setBusy('all')
     await confirmAllEnrollments(currentYearId)
     setBusy(null)
@@ -154,7 +155,7 @@ export default function RolloverClient({
           </div>
 
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto"><table className="w-full text-sm">
               <thead className="bg-slate-50/50 border-b border-slate-100">
                 <tr>
                   <th className="text-left px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ученик</th>
@@ -214,7 +215,7 @@ export default function RolloverClient({
                   )
                 })}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </>
       ) : (

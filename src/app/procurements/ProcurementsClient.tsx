@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Plus, Search, Package, Paperclip, Pencil, FileText, Trash2 } from 'lucide-react'
 import NewProcurementForm from './NewProcurementForm'
 import ProcurementModal from './ProcurementModal'
+import { notify, confirmDialog } from '@/components/ui/Toast'
 
 const OBJECT_LABELS: Record<string, string> = {
   construction: 'Строителство',
@@ -38,13 +39,13 @@ export default function ProcurementsClient({ procurements, canEdit, canDelete, c
   const supabase = createClient()
   async function handleDelete(item: any, e: React.MouseEvent) {
     e.stopPropagation()
-    if (!confirm(`Изтриване на „${item.subject}"?`)) return
+    if (!await confirmDialog(`Изтриване на „${item.subject}"?`)) return
     const { data: files } = await supabase.from('procurement_files').select('file_url').eq('procurement_id', item.id)
     const paths = (files || []).map((f: any) => f.file_url).filter(Boolean)
     if (paths.length) await supabase.storage.from('documents').remove(paths)
     await supabase.from('procurement_files').delete().eq('procurement_id', item.id)
     const { error } = await supabase.from('procurements').delete().eq('id', item.id)
-    if (error) { alert('Грешка при триене: ' + error.message); return }
+    if (error) { notify('Грешка при триене: ' + error.message); return }
     router.refresh()
   }
   const router = useRouter()

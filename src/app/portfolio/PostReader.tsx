@@ -11,6 +11,7 @@ import { DocViewer } from '@/components/registry/DocViewer'
 import { Avatar, coverThumb } from './PostCard'
 import { kindMeta, fmtDate, fmtPeriod, STATUS, SITE, isImage, isVideo, isDrive, videoSrc, trashVideos, plain, resizeImage, isDraft } from './lib'
 import type { Post, Person, Media } from './lib'
+import { notify, confirmDialog } from '@/components/ui/Toast'
 
 const NEWS_CAT: Record<string, string> = { event: 'Събития', project: 'Новини', cabinet: 'Публикации', material: 'Публикации' }
 
@@ -73,14 +74,14 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
   }
 
   async function remove() {
-    if (!confirm('Да изтрия ли публикацията заедно със снимките?')) return
+    if (!await confirmDialog('Да изтрия ли публикацията заедно със снимките?')) return
     setBusy('del')
     const paths = post.media.flatMap(m => [m.path, m.thumb_path].filter(x => x && !isDrive(x)) as string[])
     if (paths.length) await supabase.storage.from('portfolio').remove(paths)
     await trashVideos(post.media.map(m => m.path))
     const { error } = await supabase.from('portfolio_posts').delete().eq('id', post.id)
     setBusy(null)
-    if (error) { alert(error.message); return }
+    if (error) { notify(error.message); return }
     onDeleted()
   }
 
@@ -90,7 +91,7 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
     if (!draft && post.site_status === 'requested') patch.site_status = 'none'
     const { error } = await supabase.from('portfolio_posts').update(patch).eq('id', post.id)
     setBusy(null)
-    if (error) { alert(error.message); return }
+    if (error) { notify(error.message); return }
     onChanged(draft ? 'Споделено с колегите.' : 'Вече го виждаш само ти.')
   }
 
@@ -98,7 +99,7 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
     setBusy(status)
     const { error } = await supabase.rpc('portfolio_set_site_status', { p_post: post.id, p_status: status, p_news: news || null, p_reply: reply.trim() || null })
     setBusy(null)
-    if (error) { alert(error.message); return }
+    if (error) { notify(error.message); return }
     onChanged(msg || 'Готово.')
   }
 
@@ -128,7 +129,7 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
       if (error) throw error
       await supabase.rpc('portfolio_set_site_status', { p_post: post.id, p_status: 'requested', p_news: news!.id, p_reply: null })
       onChanged('Черновата е в „Сайт → Новини“ — прегледай я и я публикувай.')
-    } catch (e: any) { alert(e?.message || 'Грешка') } finally { setBusy(null) }
+    } catch (e: any) { notify(e?.message || 'Грешка') } finally { setBusy(null) }
   }
 
   const projectBlocks = ([['Идеи', post.ideas, Lightbulb], ['Дейности', post.activities, ListChecks], ['Цели', post.goals, Target]] as const)

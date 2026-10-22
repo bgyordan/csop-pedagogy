@@ -124,7 +124,7 @@ export default function ByClassClient({ rows }: { rows: Row[] }) {
                 <span className="text-sm font-semibold text-slate-700">{classLabel(g.classGroup)}</span>
                 <span className="text-xs font-medium text-slate-400">{g.students.length} ученика</span>
               </div>
-              <table className="w-full text-xs">
+              <div className="overflow-x-auto"><table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 text-[10px] text-slate-400 uppercase">
                     <th className="px-4 py-1.5 text-left w-8">#</th>
@@ -151,7 +151,7 @@ export default function ByClassClient({ rows }: { rows: Row[] }) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </div>
           ))}
         </div>

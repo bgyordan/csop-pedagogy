@@ -13,6 +13,7 @@ import {
 } from './shared'
 import type { News, Album, Photo } from './shared'
 import PhotoPicker, { useLibrary } from './PhotoPicker'
+import { confirmDialog } from '@/components/ui/Toast'
 
 type Img = { key: string; url?: string; file?: File; preview: string }
 type Status = 'draft' | 'scheduled' | 'published'
@@ -63,8 +64,8 @@ export default function NewsManager({ initial, authorId, openId, openNewSignal, 
     setImgs(urls.map((u) => ({ key: u, url: u, preview: u }))); setCoverKey(n.cover_url || null)
     setWhen(toLocalInput(n.published_at)); setDrawer(true)
   }
-  function close() {
-    if (dirty && !confirm('Има незапазени промени. Да затворя ли без запис?')) return
+  async function close() {
+    if (dirty && !await confirmDialog('Има незапазени промени. Да затворя ли без запис?')) return
     setDrawer(false)
   }
   const touch = <T,>(fn: (v: T) => void) => (v: T) => { fn(v); setDirty(true) }
@@ -133,7 +134,7 @@ export default function NewsManager({ initial, authorId, openId, openNewSignal, 
   }
   async function unpublish(n: News) { setList((p) => p.map((x) => (x.id === n.id ? { ...x, status: 'draft', published_at: null } : x))); await supabase.from('site_news').update({ status: 'draft', published_at: null }).eq('id', n.id); flash('Върната в чернова – вече не се вижда на сайта.'); router.refresh() }
   async function publishNow(n: News) { const at = new Date().toISOString(); setList((p) => p.map((x) => (x.id === n.id ? { ...x, status: 'published', published_at: at } : x))); await supabase.from('site_news').update({ status: 'published', published_at: at }).eq('id', n.id); flash('Публикувано на сайта.'); router.refresh() }
-  async function remove(n: News) { if (!confirm(`Изтриване на „${n.title}“? Това не може да се върне.`)) return; await supabase.from('site_news').delete().eq('id', n.id); setList((p) => p.filter((x) => x.id !== n.id)); flash('Изтрито.'); router.refresh() }
+  async function remove(n: News) { if (!await confirmDialog(`Изтриване на „${n.title}“? Това не може да се върне.`)) return; await supabase.from('site_news').delete().eq('id', n.id); setList((p) => p.filter((x) => x.id !== n.id)); flash('Изтрито.'); router.refresh() }
 
   const editing = list.find((x) => x.id === editId)
   const coverPreview = imgs.find((x) => x.key === coverKey)?.preview || imgs[0]?.preview

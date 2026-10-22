@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ChevronLeft, ChevronRight, Plus, X, Loader2, CalendarDays } from 'lucide-react'
+import { notify, confirmDialog } from '@/components/ui/Toast'
 
 interface EventRow {
   id: string
@@ -76,18 +77,18 @@ export default function DashboardCalendar({ currentYearId, canEdit, staffId }: {
       created_by: staffId,
     })
     setSaving(false)
-    if (error) { alert('Грешка: ' + error.message); return }
+    if (error) { notify('Грешка: ' + error.message); return }
     setNewTitle('')
     setNewColor(COLORS[0].value)
     loadEvents()
   }
 
   async function deleteEvent(id: string) {
-    if (!confirm('Изтрий събитието?')) return
+    if (!await confirmDialog('Изтрий събитието?')) return
     setDeleting(id)
     const { error } = await supabase.from('calendar_deadlines').delete().eq('id', id)
     setDeleting(null)
-    if (error) { alert('Грешка: ' + error.message); return }
+    if (error) { notify('Грешка: ' + error.message); return }
     loadEvents()
   }
 

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { X, Loader2, Save, ChevronDown } from 'lucide-react'
 import { FormSection, FileDrop, useFormKeys, KeysHint } from '@/components/registry/FormParts'
+import { notify } from '@/components/ui/Toast'
 
 const TITLE_SUGGESTIONS = [
   'Заповед за назначаване', 'Заповед за освобождаване',
@@ -70,7 +71,7 @@ export default function EditOrderModal({ item, nomenclature = [], onClose }: Pro
       is_reserved: false,
     }).eq('id', item.id)
 
-    if (error) { alert(`Грешка: ${error.message}`); setSaving(false); return }
+    if (error) { notify(`Грешка: ${error.message}`); setSaving(false); return }
     setSaving(false)
     onClose()
     router.refresh()

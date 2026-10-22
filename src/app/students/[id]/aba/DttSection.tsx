@@ -8,7 +8,7 @@ import {
   Plus, X, Loader2, Check, Trash2, Play, Pause, RotateCcw, Trophy, ChevronDown, ChevronRight, Undo2, Pencil,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { useToast } from '@/components/ui/Toast'
+import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { MARKS, DTT_AREAS, scoreOf, sortSessions, streakOf, todaySofia, fmtDate } from '@/lib/aba'
 import type { Mark, Target, DttSession } from '@/lib/aba'
 import DttChart from './DttChart'
@@ -43,14 +43,14 @@ export default function DttSection({ studentId, firstName, meId, isManager, targ
     await reload()
   }
   async function removeTarget(t: Target) {
-    if (!confirm(`Да се изтрие ли целта „${t.title}“ заедно с всичките ѝ сесии?`)) return
+    if (!await confirmDialog(`Да се изтрие ли целта „${t.title}“ заедно с всичките ѝ сесии?`)) return
     const { error } = await supabase.from('dtt_targets').delete().eq('id', t.id)
     if (error) { toast(error.message, 'error'); return }
     toast('Целта е изтрита')
     await reload()
   }
   async function removeSession(s: DttSession) {
-    if (!confirm(`Да се изтрие ли сесията от ${fmtDate(s.held_on)}?`)) return
+    if (!await confirmDialog(`Да се изтрие ли сесията от ${fmtDate(s.held_on)}?`)) return
     const { error } = await supabase.from('dtt_sessions').delete().eq('id', s.id)
     if (error) { toast(error.message, 'error'); return }
     await reload()

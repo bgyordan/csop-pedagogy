@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { X, Loader2, Save, Plus, MessageSquare, Trash2, Check } from 'lucide-react'
 import { AREAS, SCALE, KINDS, STAGES, LEVELS, NA, NA_STYLE, scaleOf, fmtD, profileUpTo, severity, openLevels } from './lib'
 import type { Skill, Assessment, Score, AreaKey, Profile } from './lib'
+import { confirmDialog } from '@/components/ui/Toast'
 
 export type AssessmentInput = {
   kind: string; assessed_on: string; notes: Record<string, string>
@@ -105,7 +106,7 @@ export default function AssessmentEditor({ skills, assessments, scores, assessme
           <div className="ml-auto flex items-center gap-2">
             {!readOnly && <span className="text-[12px] text-slate-500">Оценени: <b className="text-slate-800">{total}</b></span>}
             {onDelete && !readOnly && (
-              <button type="button" onClick={async () => { if (confirm('Да изтрия ли тази оценка?')) { setBusy(true); await onDelete() } }}
+              <button type="button" onClick={async () => { if (await confirmDialog('Да изтрия ли тази оценка?')) { setBusy(true); await onDelete() } }}
                 className="p-2 rounded-xl text-rose-600 hover:bg-rose-50" title="Изтрий"><Trash2 size={16} /></button>
             )}
             <button type="button" onClick={onClose} className="px-3 py-2 rounded-xl text-sm text-slate-600 hover:bg-slate-100">{readOnly ? 'Затвори' : 'Откажи'}</button>

@@ -2,6 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Loader2, Check, Wand2, Trash2, CalendarClock } from 'lucide-react'
 import { applyStandardEducatorSchedule, clearEducatorSchedule } from './educator-schedule-actions'
+import { confirmDialog } from '@/components/ui/Toast'
 
 interface Ed { id: string; name: string }
 const ACCENT = '#0f2240'
@@ -31,8 +32,8 @@ export default function EducatorScheduleCard({ educators, seeded, academicYearId
       setMsg({ type: 'ok', text: 'Стандартният блок е приложен на всички учители ЦОУД.' })
     })
   }
-  function clearOne(id: string) {
-    if (!confirm('Изчисти ЦОУД разписанието на този учител ЦОУД?')) return
+  async function clearOne(id: string) {
+    if (!await confirmDialog('Изчисти ЦОУД разписанието на този учител ЦОУД?')) return
     setBusyId(id); setMsg(null)
     start(async () => {
       const r = await clearEducatorSchedule(id, academicYearId)
