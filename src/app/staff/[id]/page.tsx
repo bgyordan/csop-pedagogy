@@ -8,6 +8,7 @@ import StaffClassesSection from './StaffClassesSection'
 import StaffControlSection from './StaffControlSection'
 import StaffEvalSection from './StaffEvalSection'
 import StaffPortfolioSection from './StaffPortfolioSection'
+import { loadStaffStudents } from '@/lib/staff-students'
 import CurriculumPlan from '@/components/curriculum/CurriculumPlan'
 import { loadCurriculum, scheduleHoursByClass, TEACHER_NORM } from '@/lib/curriculum'
 export const dynamic = 'force-dynamic'
@@ -27,30 +28,9 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   if (!staff) notFound()
   const { data: currentYear } = await supabase
     .from('academic_years').select('*').eq('is_current', true).single()
-  // Ученици по ЕПЛР роля
-  const roleField: Record<string, string> = {
-    psychologist: 'psychologist_id',
-    speech_therapist: 'speech_therapist_id',
-    rehabilitator: 'rehabilitator_id',
-  }
-  let eplrStudents: any[] = []
-  const field = roleField[staff.role]
-  if (field) {
-    const { data } = await supabase
-      .from('eplr_teams')
-      .select('student:students(id, first_name, middle_name, last_name, status)')
-      .eq(field, id)
-      .eq('academic_year_id', currentYear?.id)
-    eplrStudents = (data || [])
-      .map((t: any) => t.student)
-      .filter((s: any) => s && s.status === 'active')
-  }
-  // Паралелки като класен ръководител
-  const { data: myClasses } = await supabase
-    .from('class_teacher_assignments')
-    .select('id, class:classes(id, name)')
-    .eq('staff_id', id)
-    .eq('academic_year_id', currentYear?.id)
+  // Учениците: като класен, по ЕПЛР и в ЦОУД (общото с „Моят профил“)
+  const st = await loadStaffStudents(supabase, id, staff.role, currentYear?.id, (staff as any).therapy_role)
+  const eplrStudents = st.eplrStudents
   // Всички паралелки за избор (без тези които вече имат класен)
   const { data: allClasses } = await supabase
     .from('classes').select('id, name')
@@ -71,37 +51,11 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
     name: c.name,
     takenBy: takenMap[c.id] || null,
   }))
-  const assignedClasses = (myClasses || []).map((c: any) => ({
-    assignmentId: c.id,
-    classId: c.class?.id,
-    name: c.class?.name || '—',
-  })).filter((c: any) => c.classId)
+  const assignedClasses = st.classes
   const canManageAssignments = ['admin', 'zdud'].includes(profile?.role || '')
-  const classIds = (myClasses || []).map((c: any) => c.class?.id).filter(Boolean)
-  let classStudents: any[] = []
-  if (classIds.length > 0) {
-    const { data } = await supabase
-      .from('student_enrollments')
-      .select('class_id, student:students(id, first_name, middle_name, last_name, status), class:classes(name)')
-      .in('class_id', classIds)
-      .eq('academic_year_id', currentYear?.id)
-    classStudents = (data || []).filter((e: any) => e.student?.status === 'active')
-  }
-  // ЦОУД групи като възпитател
-  const { data: coudGroups } = await supabase
-    .from('coud_groups')
-    .select('id, name')
-    .eq('teacher_id', id)
-    .eq('academic_year_id', currentYear?.id)
-  let coudStudents: any[] = []
-  if ((coudGroups || []).length > 0) {
-    const { data } = await supabase
-      .from('coud_enrollments')
-      .select('coud_group_id, student:students(id, first_name, middle_name, last_name, status)')
-      .in('coud_group_id', (coudGroups || []).map(g => g.id))
-      .eq('academic_year_id', currentYear?.id)
-    coudStudents = (data || []).filter((e: any) => e.student?.status === 'active')
-  }
+  const classStudents = st.classStudents.map(e => ({ student: e.student, class: { name: e.className } }))
+  const coudGroups = st.coudGroups
+  const coudStudents = st.coudStudents
   const sortByName = (a: any, b: any) => getFullName(a).localeCompare(getFullName(b), 'bg')
   // Разписание — линк според ролята (без администрация/деловодство)
   const hasSchedule = !NO_SCHEDULE_ROLES.includes(staff.role)
