@@ -220,7 +220,7 @@ export type SectionA = {
   pks?: string; years_total?: number | null; years_teacher?: number | null
   hours_internal?: number | null; hours_mandatory?: number | null; credits?: number | null; prev_recs?: 'yes' | 'no' | 'na'
 }
-export const EDU_LEVELS = ['Средно образование', 'Професионален бакалавър', 'Бакалавър', 'Магистър', 'Доктор', 'Доктор на науките']
+export const EDU_LEVELS = ['Средно образование', 'Полувисше', 'Професионален бакалавър', 'Бакалавър', 'Магистър', 'Доктор', 'Доктор на науките']
 export const PKS_LEVELS = ['няма', 'V ПКС', 'IV ПКС', 'III ПКС', 'II ПКС', 'I ПКС']
 
 /** Атестиращите роли по подразбиране (педагогически специалисти без директора) */

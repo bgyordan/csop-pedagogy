@@ -161,12 +161,17 @@ function Overview(p: Props & { items: PPItem[]; rangeLabel: string; onAdd: (s: S
             <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-2 text-[13px]">
               <Row l="Длъжност" v={p.staff.position || p.staff.roleLabel} />
               <Row l="Групи / паралелки (тази година)" v={p.classes.join(', ')} />
-              <Row l="Образование" v={f.education.map(e => [e.level, e.specialty, e.school, e.year].filter(Boolean).join(', ')).join('; ')} />
+              <Row l="Образование" v={f.education.map(e => [e.level, e.specialty, e.qualification ? `ПК: ${e.qualification}` : null, e.school, e.year].filter(Boolean).join(', ')).join('; ')} />
               <Row l="Специалност (базово висше)" v={f.specialty || ''} />
               <Row l="ПК „учител“" v={f.teacher_q == null ? '' : f.teacher_q ? 'да' : 'не'} />
               <Row l="Друга квалификация" v={f.other_q || ''} />
               <Row l="ПКС" v={[f.pks, f.pks_year].filter(Boolean).join(', ')} />
               <Row l="Стаж — общ / учителски" v={yt != null || yy != null ? `${yt ?? '—'} / ${yy ?? '—'} г.` : ''} />
+              {f.neispuo && <Row l={`По НЕИСПУО към ${f.neispuo.as_of.split('-').reverse().join('.')}`} v={[
+                f.neispuo.years_specialty != null ? `стаж по специалността ${f.neispuo.years_specialty} г.` : null,
+                f.neispuo.credits != null ? `${f.neispuo.credits} квалификационни кредита` : null,
+                f.neispuo.titular, f.neispuo.contract_basis,
+              ].filter(Boolean).join(' · ')} />}
             </dl>
           ) : (
             <div className="space-y-3 text-[13px]">

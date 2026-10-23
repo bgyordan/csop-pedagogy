@@ -1,18 +1,22 @@
 // Професионално портфолио (Наредба № 15/2019): раздели, типове и изчисления — часове и кредити за периода,
 // стаж, попълване на раздел А на атестационната карта от портфолиото.
 import type { SectionA } from './evaluation'
+import type { NeispuoSnapshot } from './neispuo-staff'
 
 export type Visibility = 'private' | 'managers' | 'colleagues'
 export type SectionKey =
   | 'practice' | 'results' | 'achievements' | 'qualification' | 'aids' | 'events'
   | 'creative' | 'interaction' | 'mtb' | 'policy' | 'feedback' | 'other'
 
-export type Edu = { level: string; school?: string; specialty?: string; year?: number | null }
+/** qualification — придобита професионална квалификация по дипломата (напр. „учител“), идва от НЕИСПУО */
+export type Edu = { level: string; school?: string; specialty?: string; qualification?: string; year?: number | null }
 export type PPProfile = {
   staff_id: string; philosophy: string | null; about: string | null; education: Edu[]
   specialty: string | null; teacher_q: boolean | null; other_q: string | null; pks: string | null; pks_year: number | null
   work_since: string | null; teacher_since: string | null; years_extra: { total?: number; teacher?: number } | null
   strengths: string | null; growth: string | null; visibility: Visibility; updated_at?: string
+  /** последен импорт от НЕИСПУО (справка) — src/lib/neispuo-staff.ts */
+  neispuo?: NeispuoSnapshot | null
 }
 export type PPFile = { id: string; item_id: string; staff_id: string; name: string; path: string; mime: string | null; size: number | null; created_at: string }
 export type PPItem = {
