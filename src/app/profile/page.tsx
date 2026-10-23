@@ -283,7 +283,6 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           <dl>
             <Row l="Общ трудов стаж" v={yTotal != null ? `${yTotal} г.` : null} />
             {isPed && <Row l="Учителски стаж" v={yTeacher != null ? `${yTeacher} г.` : null} />}
-            {n?.years_specialty != null && <Row l="Стаж по специалността" v={`${fmtNum(n.years_specialty)} г. (НЕИСПУО)`} />}
             {n?.since_year && <Row l="В ЦСОП от" v={`${n.since_year} г.`} />}
           </dl>
         </Card>

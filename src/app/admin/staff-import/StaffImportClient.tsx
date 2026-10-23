@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
 import { Upload, Loader2, Check, AlertTriangle, ChevronDown, ChevronRight, X, Search } from 'lucide-react'
 import { notify, confirmDialog } from '@/components/ui/Toast'
-import { yearsSince, type PPProfile } from '@/lib/pro-portfolio'
+import { type PPProfile } from '@/lib/pro-portfolio'
 import {
   parsePersonnel, matchPerson, planFor, asOfFromFileName, FIELD_LABEL,
   type NeispuoPerson, type StaffRef, type FieldKey, type Mode, type Change,
@@ -59,16 +59,15 @@ export default function StaffImportClient({ staff, profiles }: { staff: StaffRef
   // свързване и план за всеки човек
   const plans = useMemo(() => {
     if (!parsed) return []
-    const at = (since: string | null | undefined, extra = 0) => yearsSince(since, asOf, extra)
     return parsed.people.map(p => {
       const m = matchPerson(p, staff)
       const staffId = p.key in pick ? pick[p.key] || null : m.id
       const s = staffId ? staffById.get(staffId) : undefined
-      const plan = s ? planFor(p, profileBy.get(s.id) || null, s, mode, fields, at) : null
+      const plan = s ? planFor(p, profileBy.get(s.id) || null, s, mode, fields) : null
       const writes = plan ? Object.keys(plan.set).length + Object.keys(plan.staff).length : 0
       return { p, m, staffId, s, plan, writes, manual: p.key in pick }
     })
-  }, [parsed, staff, staffById, profileBy, pick, mode, fields, asOf])
+  }, [parsed, staff, staffById, profileBy, pick, mode, fields])
 
   const dupIds = useMemo(() => {
     const c = new Map<string, number>()
@@ -113,7 +112,7 @@ export default function StaffImportClient({ staff, profiles }: { staff: StaffRef
           <li>Качете файла тук. Той се чете само в браузъра — не се записва в системата и не се качва никъде.</li>
           <li>Прегледайте кой с кого е свързан и какво ще се промени. Докато не натиснете „Запиши“, нищо не се променя.</li>
         </ol>
-        <p className="text-xs text-slate-500 mt-3">Взимат се: образование (степен, специалност, ПК), допълнителни квалификации, ПКС, стаж, длъжност и телефон. Адресите и датата на раждане не се пазят.</p>
+        <p className="text-xs text-slate-500 mt-3">Взимат се: образование (степен, специалност, ПК), допълнителни квалификации, ПКС, длъжност и телефон. Стажът не се взима — в НЕИСПУО често е подвеждащ, затова се въвежда ръчно в портфолиото. Адресите и датата на раждане не се пазят.</p>
         <button type="button" onClick={() => fileRef.current?.click()} className="btn-primary mt-4 inline-flex items-center gap-2"><Upload size={16} /> Избери файл от НЕИСПУО (.xlsx)</button>
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f) }} />
       </div>
@@ -151,7 +150,6 @@ export default function StaffImportClient({ staff, profiles }: { staff: StaffRef
                 </label>
               ))}
             </div>
-            <p className="text-xs text-slate-500 mt-1">Стажът се записва като начална дата, изчислена от годините в НЕИСПУО към датата на справката, и после се смята сам.</p>
           </div>
         </div>
       </div>
@@ -227,8 +225,7 @@ export default function StaffImportClient({ staff, profiles }: { staff: StaffRef
                     </table>
                   )}
                   <div className="text-xs text-slate-500 mt-2">
-                    {[x.p.snap.years_specialty != null ? `стаж по специалността ${x.p.snap.years_specialty} г.` : null,
-                      x.p.snap.credits != null ? `${x.p.snap.credits} кредита` : null, x.p.snap.titular, x.p.snap.contract_basis,
+                    {[x.p.snap.credits != null ? `${x.p.snap.credits} кредита` : null, x.p.snap.titular, x.p.snap.contract_basis,
                       x.p.poid ? `№ в НЕИСПУО: ${x.p.poid}` : null].filter(Boolean).join(' · ')}
                     {' '}— пазят се като справка в профила.
                   </div>

@@ -1,4 +1,4 @@
-// Импорт на данни за педагогическия персонал от НЕИСПУО: образование, квалификации, ПКС, стаж, длъжност.
+// Импорт на данни за педагогическия персонал от НЕИСПУО: образование, квалификации, ПКС, длъжност (без стажа).
 // Данните отиват в профила на професионалното портфолио — оттам ги ползват атестирането и ДТВ.
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
@@ -31,7 +31,7 @@ export default async function StaffImportPage() {
         </div>
         <div>
           <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">Импорт на персонала от НЕИСПУО</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Образование, квалификации, ПКС и стаж → профил в професионалното портфолио (за атестирането и ДТВ)</p>
+          <p className="text-sm text-slate-500 mt-0.5">Образование, квалификации и ПКС → профил в професионалното портфолио (за атестирането и ДТВ)</p>
         </div>
       </header>
       {(!ready || profiles.error) && (
