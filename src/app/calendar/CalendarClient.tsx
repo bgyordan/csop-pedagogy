@@ -24,8 +24,8 @@ export interface StaffLite { id: string; first_name: string; last_name: string; 
 const VIEW_LABELS: Record<CalView, string> = { month: 'Месец', week: 'Седмица', day: 'Ден', agenda: 'Списък' }
 const LS_LAYERS = 'cal-layers-off'
 
-export default function CalendarClient({ me, staff, needSql, initialView, initialDate }: {
-  me: MeInfo; staff: StaffLite[]; needSql: boolean; initialView: CalView | null; initialDate: string | null
+export default function CalendarClient({ me, staff, needSql, initialView, initialDate, openNew }: {
+  me: MeInfo; staff: StaffLite[]; needSql: boolean; initialView: CalView | null; initialDate: string | null; openNew?: boolean
 }) {
   const supabase = useMemo(() => createClient(), [])
   const [view, setView] = useState<CalView>(initialView || 'month')
@@ -47,13 +47,15 @@ export default function CalendarClient({ me, staff, needSql, initialView, initia
   useEffect(() => {
     try { const s = localStorage.getItem(LS_LAYERS); if (s) setOff(new Set(JSON.parse(s))) } catch {}
     if (!initialView && typeof window !== 'undefined' && window.innerWidth < 768) setView('agenda')
+    // от таблото „+ Ново“ → направо прозорецът за ново събитие
+    if (openNew) newEvent()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(t) }, [])
 
   // адресът отразява изгледа и датата (за споделяне и „назад“)
   useEffect(() => {
     const u = new URL(window.location.href)
-    u.searchParams.set('view', view); u.searchParams.set('date', ymd(anchor))
+    u.searchParams.set('view', view); u.searchParams.set('date', ymd(anchor)); u.searchParams.delete('new')
     window.history.replaceState(null, '', u.toString())
   }, [view, anchor])
 

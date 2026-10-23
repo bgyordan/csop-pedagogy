@@ -39,6 +39,7 @@ export default async function DirectorDashboard({ profile, currentYearId }: any)
       ]
 
   const cards = [
+    { title: 'Календар', desc: 'Събития, съвети, срокове и покани', icon: <CalendarDays size={20} />, href: '/calendar' },
     { title: 'Справки', desc: 'Заявления, по клас, пътуващи, натовареност', icon: <BarChart3 size={20} />, href: '/reports/hub' },
     { title: 'Натовареност', desc: 'Разпределение и интензивност на терапиите', icon: <GraduationCap size={20} />, href: '/reports' },
     { title: 'Дежурства', desc: 'График на дежурствата по седмици', icon: <CalendarDays size={20} />, href: '/duties' },
