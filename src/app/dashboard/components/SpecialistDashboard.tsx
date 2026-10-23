@@ -121,12 +121,9 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
     if (a.isReal !== b.isReal) return a.isReal ? -1 : 1
     return a.name.localeCompare(b.name, 'bg')
   })
-  const [{ data: announcements }, { data: deadlines }] = await Promise.all([
+  const [{ data: announcements }] = await Promise.all([
     supabase.from('announcements').select('*').eq('is_active', true)
       .order('created_at', { ascending: false }).limit(3),
-    supabase.from('calendar_deadlines').select('*').eq('academic_year_id', currentYearId)
-      .gte('deadline_date', new Date().toISOString().split('T')[0])
-      .order('deadline_date').limit(5),
   ])
   // ── ДНЕС: часовете от седмичния ми график за днешния ден ──
   const nowBg = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Sofia' }))
@@ -192,7 +189,6 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
         </div>
         <div>
           <ClassTeacherSide
-            deadlines={deadlines || []}
             announcements={announcements || []}
             files={<SharedFiles bare />}
           />

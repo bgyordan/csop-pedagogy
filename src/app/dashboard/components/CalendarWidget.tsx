@@ -11,9 +11,9 @@ import { loadCalendar } from '@/lib/calendar-sources'
 // Карта „Моята седмица“ на таблото: 7-те дни с всичко от календара (собствени събития, покани, срокове
 // от модулите), неучебните дни, бутон „Ново“ и връзка към пълния календар.
 // Зарежда се в браузъра — часовете и „днес“ са по местното време; пази изключените слоеве от календара.
-const PER_DAY = 4
+const PER_DAY = 3
 
-export default function CalendarWidget({ me }: { me: { id: string; role: string; isCoordinator?: boolean } }) {
+export default function CalendarWidget({ me, compact = false }: { me: { id: string; role: string; isCoordinator?: boolean }; compact?: boolean }) {
   const supabase = useMemo(() => createClient(), [])
   const [week, setWeek] = useState(() => {
     // в събота и неделя — следващата седмица
@@ -46,6 +46,8 @@ export default function CalendarWidget({ me }: { me: { id: string; role: string;
       .sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.start.getTime() - b.start.getTime())
     return { d, holiday, rest }
   })
+  // в тясна карта — само делничните дни (+ събота/неделя, ако имат нещо)
+  const shown = compact ? byDay.filter(x => isoWd(x.d) <= 5 || x.rest.length > 0) : byDay
   const total = byDay.reduce((n, x) => n + x.rest.length, 0)
   const last = addDays(week, 6)
   const title = week.getMonth() === last.getMonth()
@@ -56,7 +58,7 @@ export default function CalendarWidget({ me }: { me: { id: string; role: string;
   return (
     <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
       {/* заглавие */}
-      <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-slate-100">
+      <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-slate-100">
         <span className="w-7 h-7 rounded-lg bg-[#0f2240] text-white flex items-center justify-center"><CalendarDays size={14} /></span>
         <Link href={`/calendar?view=week&date=${ymd(week)}`} className="text-[14px] font-semibold text-slate-800 hover:text-[#1a3560]">
           {isThisWeek ? 'Моята седмица' : 'Седмица'}
@@ -83,15 +85,16 @@ export default function CalendarWidget({ me }: { me: { id: string; role: string;
       </div>
 
       {/* 7 дни: колони на голям екран, списък на телефон */}
-      <div className="grid grid-cols-1 md:grid-cols-7 md:divide-x divide-y md:divide-y-0 divide-slate-100">
-        {byDay.map(({ d, holiday, rest }) => {
+      <div className="grid grid-cols-1 md:[grid-template-columns:var(--cols)] md:divide-x divide-y md:divide-y-0 divide-slate-100"
+        style={{ ['--cols' as any]: `repeat(${shown.length}, minmax(0, 1fr))` }}>
+        {shown.map(({ d, holiday, rest }) => {
           const isToday = sameDay(d, today)
           const weekend = isoWd(d) >= 6
           const past = d < today
           return (
             <div key={d.toISOString()}
-              className={`min-h-[64px] md:min-h-[150px] px-2.5 py-2 flex md:block gap-3 ${isToday ? 'bg-blue-50/50' : holiday || weekend ? 'bg-slate-50/70' : ''} ${past ? 'opacity-70' : ''} ${weekend && rest.length === 0 && !holiday ? 'hidden md:block' : ''}`}>
-              <Link href={`/calendar?view=day&date=${ymd(d)}`} className="flex md:flex-row items-center gap-1.5 mb-1.5 shrink-0 w-14 md:w-auto group">
+              className={`min-h-[52px] md:min-h-[104px] px-2 py-1.5 flex md:block gap-3 ${isToday ? 'bg-blue-50/50' : holiday || weekend ? 'bg-slate-50/70' : ''} ${past ? 'opacity-70' : ''} ${weekend && rest.length === 0 && !holiday ? 'hidden md:block' : ''}`}>
+              <Link href={`/calendar?view=day&date=${ymd(d)}`} className="flex md:flex-row items-center gap-1.5 mb-1 shrink-0 w-14 md:w-auto group">
                 <span className={`text-[10.5px] font-semibold uppercase tracking-wide ${isToday ? 'text-blue-600' : 'text-slate-400'}`}>{WD_SHORT[isoWd(d) - 1]}</span>
                 <span className={`min-w-[24px] h-6 px-1 rounded-full flex items-center justify-center text-[13px] tabular-nums ${isToday ? 'bg-blue-600 text-white font-semibold' : 'text-slate-700 group-hover:bg-slate-200'}`}>{d.getDate()}</span>
               </Link>

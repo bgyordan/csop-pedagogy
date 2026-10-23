@@ -19,13 +19,12 @@ export default async function EducatorDashboard({ profile, currentYearId }: any)
   const groupIds = groups.map((g: any) => g.id)
 
   const todayIso = new Date().toISOString().split('T')[0]
-  const [{ data: enr }, { data: today }, { data: announcements }, { data: deadlines }] = await Promise.all([
+  const [{ data: enr }, { data: today }, { data: announcements }] = await Promise.all([
     supabase.from('coud_enrollments')
       .select('coud_group_id, student:students(id, first_name, middle_name, last_name, status)')
       .in('coud_group_id', groupIds).eq('academic_year_id', currentYearId),
     supabase.from('academic_calendar_days').select('is_school_day, term, day_of_week').eq('date', todayIso).maybeSingle(),
     supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
-    supabase.from('calendar_deadlines').select('*').eq('academic_year_id', currentYearId).gte('deadline_date', todayIso).order('deadline_date').limit(5),
   ])
   const kids = (enr || []).filter((e: any) => e.student?.status === 'active')
   const studentIds = kids.map((e: any) => e.student.id)
@@ -131,7 +130,7 @@ export default async function EducatorDashboard({ profile, currentYearId }: any)
               </div>
             )}
           </div>
-          <ClassTeacherSide deadlines={deadlines || []} announcements={announcements || []} files={<SharedFiles bare />} />
+          <ClassTeacherSide announcements={announcements || []} files={<SharedFiles bare />} />
         </div>
       </div>
     </div>
