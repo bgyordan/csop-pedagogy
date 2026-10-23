@@ -212,10 +212,18 @@ const addMin = (d: Date, min: number) => new Date(d.getFullYear(), d.getMonth(),
 const loadMeetings: Loader = async (sb, me, from, to) => {
   const f = ymd(from), t = ymd(to)
   const isMgr = MANAGER_ROLES.includes(me.role)
-  const [council, committees, coord] = await Promise.all([
+  const [council, committees, coord, mtg, mtgDec] = await Promise.all([
     sb.from('council_sets').select('id, title, event_date, event_time').gte('event_date', f).lt('event_date', t),
     sb.from('committee_sessions').select('id, committee_id, session_date, agenda, deadline, committee:committees(name)').gte('session_date', f).lt('session_date', t),
     (isMgr || me.isCoordinator) ? sb.from('coordinating_team_sessions').select('id, session_date, agenda').gte('session_date', f).lt('session_date', t) : Promise.resolve({ data: [] }),
+    // заседания на ПС / ОС и сроковете на решенията (отговорникът вижда своите, ръководството — всички)
+    sb.from('mtg_meetings').select('id, body, title, meeting_date, start_time, end_time, place, status, meeting_no').gte('meeting_date', f).lt('meeting_date', t),
+    (() => {
+      let dq = sb.from('mtg_decisions').select('id, text, due_date, task_status, responsible_id, meeting_id, meeting:mtg_meetings!inner(body, meeting_no, status)')
+        .eq('meeting.status', 'final').gte('due_date', f).lt('due_date', t).in('task_status', ['open', 'reported'])
+      if (!isMgr) dq = dq.eq('responsible_id', me.id)
+      return dq
+    })(),
   ])
   const out: CalItem[] = []
   for (const s of (council.data || []) as any[]) {
@@ -233,6 +241,23 @@ const loadMeetings: Loader = async (sb, me, from, to) => {
   for (const s of (coord.data || []) as any[]) out.push({
     key: `ct:${s.id}`, layer: 'meetings', title: 'Заседание на координиращия екип', start: parseYmd(s.session_date), end: parseYmd(s.session_date), allDay: true,
     color: color('meetings'), description: s.agenda || undefined, href: '/admin/coordinating-team', sourceLabel: 'Координиращ екип',
+  })
+  for (const s of (mtg.data || []) as any[]) {
+    const label = s.body === 'os' ? 'Общо събрание' : 'Педагогически съвет'
+    const timed = !!s.start_time
+    const start = timed ? at(s.meeting_date, String(s.start_time).slice(0, 5)) : parseYmd(s.meeting_date)
+    const end = timed ? (s.end_time ? at(s.meeting_date, String(s.end_time).slice(0, 5)) : new Date(start.getTime() + 90 * 60000)) : start
+    out.push({
+      key: `mtg:${s.id}`, layer: 'meetings', title: s.title ? `${label}: ${s.title}` : label, start, end, allDay: !timed,
+      color: s.body === 'os' ? '#7c3aed' : color('meetings'), location: s.place || undefined,
+      subtitle: s.meeting_no ? `Протокол № ${s.meeting_no}` : 'Дневен ред и покана', href: `/meetings/${s.id}`, sourceLabel: label,
+      done: s.status === 'final',
+    })
+  }
+  for (const d of (mtgDec.data || []) as any[]) out.push({
+    key: `mtgd:${d.id}`, layer: 'meetings', title: `Решение: ${d.text}`, start: parseYmd(d.due_date), end: parseYmd(d.due_date), allDay: true,
+    color: '#0891b2', subtitle: d.task_status === 'reported' ? 'Отчетено — чака преглед' : `Срок · протокол № ${d.meeting?.meeting_no ?? ''} ${d.meeting?.body === 'os' ? 'ОС' : 'ПС'}`,
+    href: '/meetings?tab=decisions', sourceLabel: 'Решения на ПС / ОС', done: d.task_status === 'reported',
   })
   if (council.error && committees.error) throw council.error
   return out
