@@ -1,19 +1,14 @@
 'use client'
 import { useState, type ReactNode } from 'react'
-import { Calendar, Bell } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
+import { Bell } from 'lucide-react'
 
-// Дясната колона на таблото: отделни кратки карти — Съобщения · Срокове (+ файловете, ако са подадени).
+// Дясната колона на таблото: отделни кратки карти — Съобщения (+ файловете, ако са подадени).
+// Сроковете са в картата „Моята седмица“ (календара) най-горе на таблото.
 // Празна карта е само един ред. За управата — една до друга в ред: layout="row".
 
 export const FRESH_DAYS = 7
 export const isFreshFile = (iso?: string | null) => !!iso && Date.now() - new Date(iso).getTime() < FRESH_DAYS * 864e5
 
-function daysLeft(d: string) {
-  const t = new Date(new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' }) + 'T00:00:00')
-  return Math.round((new Date(d + 'T00:00:00').getTime() - t.getTime()) / 864e5)
-}
-const leftLabel = (n: number) => n <= 0 ? 'днес' : n === 1 ? 'утре' : `след ${n} дни`
 
 // Обща карта за дясната колона и файловете: заглавие + съдържание; празната е само един ред
 export function SideCard({ icon, title, right, empty, children }: { icon: ReactNode; title: string; right?: ReactNode; empty?: string; children?: ReactNode }) {
@@ -32,7 +27,6 @@ export function SideCard({ icon, title, right, empty, children }: { icon: ReactN
 }
 
 type Ann = { id: string; title: string; body: string; created_at?: string }
-type Dl = { id: string; title: string; deadline_date: string }
 const manage = (href: string) => <a href={href} className="text-[11px] text-slate-400 hover:text-[#0f2240]">управление →</a>
 
 // Съобщения: заглавие + 1 ред, клик разгръща; зелена точка — новите (3 дни)
@@ -58,36 +52,16 @@ export function NewsCard({ announcements, newsHref }: { announcements: Ann[]; ne
   )
 }
 
-// Срокове: „днес / утре / след N дни“, кехлибарено при ≤ 3 дни
-export function DeadlinesCard({ deadlines, deadlinesHref }: { deadlines: Dl[]; deadlinesHref?: string }) {
-  return (
-    <SideCard icon={<Calendar size={14} />} title="Срокове" right={deadlinesHref ? manage(deadlinesHref) : undefined} empty={deadlines.length ? undefined : 'няма предстоящи'}>
-      {deadlines.map(d => {
-        const n = daysLeft(d.deadline_date)
-        return (
-          <div key={d.id} className="flex items-center gap-2 px-1 py-1.5">
-            <div className="flex-1 min-w-0 text-[13px] text-slate-700 truncate" title={`${d.title} — ${formatDate(d.deadline_date)}`}>{d.title}</div>
-            <span title={formatDate(d.deadline_date)}
-              className={`text-[11px] flex-shrink-0 tabular-nums ${n <= 3 ? 'text-amber-700' : 'text-slate-400'}`}>{leftLabel(n)}</span>
-          </div>
-        )
-      })}
-    </SideCard>
-  )
-}
 
-export default function ClassTeacherSide({ deadlines, announcements, files, deadlinesHref, newsHref, layout = 'stack' }: {
-  deadlines: Dl[]
+export default function ClassTeacherSide({ announcements, files, newsHref, layout = 'stack' }: {
   announcements: Ann[]
   files?: ReactNode
-  deadlinesHref?: string   // „управление →“ (за управата)
   newsHref?: string
   layout?: 'stack' | 'row'
 }) {
   return (
-    <div className={layout === 'row' ? 'grid grid-cols-1 md:grid-cols-3 gap-4 items-start' : 'space-y-4'}>
+    <div className={layout === 'row' ? 'grid grid-cols-1 md:grid-cols-2 gap-4 items-start' : 'space-y-4'}>
       <NewsCard announcements={announcements} newsHref={newsHref} />
-      <DeadlinesCard deadlines={deadlines} deadlinesHref={deadlinesHref} />
       {/* файловете (споделено, учебни планове) — всеки списък е своя карта */}
       {files}
     </div>

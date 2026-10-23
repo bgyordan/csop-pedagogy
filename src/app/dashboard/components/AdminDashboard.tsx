@@ -209,9 +209,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
       </div>
       <div className="lg:col-span-3">
         <ClassTeacherSide
-          deadlines={(deadlines || []) as any}
           announcements={(announcements || []) as any}
-          deadlinesHref="/admin/tasks"
           newsHref="/admin/announcements"
           files={<SharedFiles bare />}
           layout="row"

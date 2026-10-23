@@ -2,13 +2,12 @@ import { createClient } from '@/lib/supabase/server'
 import { iupPeriod } from '@/lib/iup-period'
 import OutreachBadge from '@/components/OutreachBadge'
 import Link from 'next/link'
-import SchoolFilesCard from './SchoolFilesCard'
 import { Users, Calendar, Bell, CalendarClock, ClipboardList } from 'lucide-react'
 import { getFullName, getMonthName, formatDate } from '@/lib/utils'
 import SharedFiles from './SharedFiles'
 import ClassTeacherTabs from './ClassTeacherTabs'
 import ExpiringDocsCard from './ExpiringDocsCard'
-import ClassTeacherSide, { NewsCard, DeadlinesCard } from './ClassTeacherSide'
+import ClassTeacherSide, { NewsCard } from './ClassTeacherSide'
 // "01" → "I паралелка"; нечислови имена остават както са
 function paralelkaTitle(name: string) {
   const m = (name || '').trim().match(/^0*(\d+)$/)
@@ -34,9 +33,8 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
   const myClasses = assignments?.map((a: any) => a.class).filter(Boolean) || []
   if (myClasses.length === 0) {
     // Учител без паралелка (преподава по паралелки, но не е класен) — общ изглед
-    const [{ data: anns }, { data: dls }] = await Promise.all([
+    const [{ data: anns }] = await Promise.all([
       supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
-      supabase.from('calendar_deadlines').select('*').eq('academic_year_id', currentYearId).gte('deadline_date', now.toISOString().split('T')[0]).order('deadline_date').limit(5),
     ])
     return (
       <div className="animate-in fade-in duration-500 space-y-6">
@@ -49,12 +47,12 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
           </Link>
         </div>
         {/* същите карти като при класните: Съобщения · Срокове · Файлове */}
-        <ClassTeacherSide deadlines={dls || []} announcements={anns || []} files={<SharedFiles bare />} layout="row" />
+        <ClassTeacherSide announcements={anns || []} files={<SharedFiles bare />} layout="row" />
       </div>
     )
   }
   const classIds = myClasses.map((c: any) => c.id)
-  const [{ data: allEnrollments }, { data: iupSubmissions }, { data: announcements }, { data: deadlines }] = await Promise.all([
+  const [{ data: allEnrollments }, { data: iupSubmissions }, { data: announcements }] = await Promise.all([
     supabase.from('student_enrollments')
       .select(`student_id, class_id, education_form,
         student:students(id, first_name, middle_name, last_name, status, external_class,
@@ -66,7 +64,6 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
       .in('class_id', classIds).eq('academic_year_id', currentYearId),
     supabase.from('monthly_absences').select('class_id').in('class_id', classIds).eq('month', reportMonth).eq('year', reportYear),
     supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
-    supabase.from('calendar_deadlines').select('*').eq('academic_year_id', currentYearId).gte('deadline_date', now.toISOString().split('T')[0]).order('deadline_date').limit(5),
   ])
   const activeEnrollments = (allEnrollments || []).filter((e: any) => e.student?.status === 'active')
   const submittedIds = new Set(iupSubmissions?.map((s: any) => s.class_id) || [])
@@ -215,13 +212,9 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
         </Link>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* лявата част: децата, а под тях — учебните планове и сроковете */}
+        {/* лявата част: децата (учебните планове са до календара най-горе) */}
         <div className="lg:col-span-2 space-y-6">
           <ClassTeacherTabs paralelkaRows={paralelkaRows} eplrRows={eplrRows} therapyRows={therapyRows} className={myClasses[0].name} classId={myClasses[0].id} />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-            <SchoolFilesCard profileId={profile.id} currentYearId={currentYearId} bare />
-            <DeadlinesCard deadlines={deadlines || []} />
-          </div>
         </div>
         {/* дясната колона: съобщенията и споделеното от колегите */}
         <div className="space-y-4">

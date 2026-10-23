@@ -4,6 +4,13 @@ import SchoolFilesCardClient from './SchoolFilesCardClient'
 
 // Сървърен: взема училищата (с файлове) на децата от паралелките на класния
 export default async function SchoolFilesCard({ profileId, currentYearId, bare = false }: { profileId: string; currentYearId: string; bare?: boolean }) {
+  const groups = await loadSchoolFileGroups(profileId, currentYearId)
+  if (!groups) return null
+  return groups
+}
+
+/** Учебните планове по училища; null — няма какво да се покаже (за да реши таблото как да подреди картите) */
+export async function loadSchoolFileGroups(profileId: string, currentYearId: string) {
   const supabase = await createClient()
 
   // моите паралелки
@@ -42,5 +49,5 @@ export default async function SchoolFilesCard({ profileId, currentYearId, bare =
   // най-новото отгоре
   const groups = Object.values(bySchool).sort((a, b) => (b.files[0]?.created_at || '').localeCompare(a.files[0]?.created_at || '') || a.name.localeCompare(b.name, 'bg'))
 
-  return <SchoolFilesCardClient groups={groups} bare={bare} />
+  return groups
 }

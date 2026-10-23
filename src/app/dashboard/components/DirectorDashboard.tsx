@@ -1,10 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import OnlineNow from './OnlineNow'
-import { upcomingTasks } from '@/lib/upcoming-tasks'
 import OpsPanel from './OpsPanel'
 import Link from 'next/link'
-import { Users, BookOpen, UserCircle, Star, BarChart3, CalendarDays, Inbox, ClipboardList, ArrowRight, GraduationCap, Calendar, AlertTriangle } from 'lucide-react'
-import { formatDate, getDaysUntil } from '@/lib/utils'
+import { Users, BookOpen, UserCircle, Star, BarChart3, CalendarDays, Inbox, ClipboardList, ArrowRight, GraduationCap } from 'lucide-react'
 import SharedFiles from './SharedFiles'
 import ExpiringDocsCard from './ExpiringDocsCard'
 export default async function DirectorDashboard({ profile, currentYearId }: any) {
@@ -21,7 +19,6 @@ export default async function DirectorDashboard({ profile, currentYearId }: any)
     { count: classesCount },
     { count: staffCount },
     { count: eplrCount },
-    { data: deadlines },
   ] = await Promise.all([
     supabase.from('student_enrollments')
       .select('student:students!inner(status)', { count: 'exact', head: true })
@@ -29,7 +26,6 @@ export default async function DirectorDashboard({ profile, currentYearId }: any)
     supabase.from('classes').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId).not('name', 'ilike', '%служебна%'),
     supabase.from('staff_profiles').select('*', { count: 'exact', head: true }).eq('is_active', true),
     supabase.from('eplr_teams').select('*', { count: 'exact', head: true }).eq('academic_year_id', currentYearId),
-    upcomingTasks(supabase, 5).then(data => ({ data })),   // от „График срокове“
   ])
 
   const stats = [
@@ -73,35 +69,6 @@ export default async function DirectorDashboard({ profile, currentYearId }: any)
       {/* Изтичащи документи */}
       <ExpiringDocsCard />
 
-      {/* Предстоящи срокове */}
-      {deadlines && deadlines.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-3">
-            <Calendar size={16} className="text-slate-400" />
-            <h3 className="text-sm font-semibold text-slate-700">Предстоящи срокове</h3>
-          </div>
-          <div className="space-y-2">
-            {deadlines.map((d: any) => {
-              const days = getDaysUntil(d.deadline_date)
-              const urgent = days <= 7
-              return (
-                <div key={d.id} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {urgent && <AlertTriangle size={13} className="text-amber-500 flex-shrink-0" />}
-                    <span className="text-sm text-slate-700 truncate">{d.title}</span>
-                  </div>
-                  <div className="text-xs text-slate-400 flex-shrink-0 ml-3">
-                    {formatDate(d.deadline_date)}
-                    <span className={`ml-1.5 font-medium ${urgent ? 'text-amber-600' : 'text-slate-400'}`}>
-                      {days < 0 ? `просрочено ${-days} дни` : days === 0 ? 'днес' : days === 1 ? 'утре' : `след ${days} дни`}
-                    </span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Карти-линкове */}
       <div>

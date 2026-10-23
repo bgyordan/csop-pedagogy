@@ -23,6 +23,8 @@ import CouncilStrip from './components/CouncilStrip'
 import NonSchoolDayStrip from './components/NonSchoolDayStrip'
 import DutyStrip from './components/DutyStrip'
 import CalendarWidget from './components/CalendarWidget'
+import { loadSchoolFileGroups } from './components/SchoolFilesCard'
+import SchoolFilesCardClient from './components/SchoolFilesCardClient'
 import FacilitiesStrip from './components/FacilitiesStrip'
 import OnlineRoomStrip from './components/OnlineRoomStrip'
 import ClassRoomStrip from './components/ClassRoomStrip'
@@ -71,6 +73,9 @@ export default async function DashboardPage() {
         .not('user_id', 'is', null).neq('id', real.id).order('first_name')
     : { data: null }
   const people = (staffList || []).map((p: any) => ({ id: p.id, name: getFullName(p), label: labelOf(p), role: p.role }))
+  // учебните планове от училищата на децата — за класните (до календара)
+  const schoolGroups = (profile.role === 'class_teacher' || profile.role === 'teacher')
+    ? await loadSchoolFileGroups(profile.id, currentYear.id) : null
   const viewing = viewingAs ? { id: profile.id, name: getFullName(profile), label: labelOf(profile) } : null
 
   const isAdmin = ['admin', 'zdud'].includes(profile.role)
@@ -160,8 +165,17 @@ export default async function DashboardPage() {
 
       </div>
 
-      {/* Календар — моята седмица: събития, покани и срокове от модулите */}
-      {!viewing && <CalendarWidget me={{ id: profile.id, role: profile.role, isCoordinator: profile.is_coordinator === true }} />}
+      {/* Календар — моята седмица (по-компактен); до него за класните — учебните планове от училищата */}
+      {(!viewing || schoolGroups) && (
+        <div className={!viewing && schoolGroups ? 'grid grid-cols-1 lg:grid-cols-3 gap-4 items-start' : ''}>
+          {!viewing && (
+            <div className={schoolGroups ? 'lg:col-span-2 min-w-0' : ''}>
+              <CalendarWidget compact={!!schoolGroups} me={{ id: profile.id, role: profile.role, isCoordinator: profile.is_coordinator === true }} />
+            </div>
+          )}
+          {schoolGroups && <SchoolFilesCardClient groups={schoolGroups} />}
+        </div>
+      )}
 
       {/* Dashboard по роля */}
       <div className="transition-all duration-500">
