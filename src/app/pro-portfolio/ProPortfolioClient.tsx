@@ -168,7 +168,6 @@ function Overview(p: Props & { items: PPItem[]; rangeLabel: string; onAdd: (s: S
               <Row l="ПКС" v={[f.pks, f.pks_year].filter(Boolean).join(', ')} />
               <Row l="Стаж — общ / учителски" v={yt != null || yy != null ? `${yt ?? '—'} / ${yy ?? '—'} г.` : ''} />
               {f.neispuo && <Row l={`По НЕИСПУО към ${f.neispuo.as_of.split('-').reverse().join('.')}`} v={[
-                f.neispuo.years_specialty != null ? `стаж по специалността ${f.neispuo.years_specialty} г.` : null,
                 f.neispuo.credits != null ? `${f.neispuo.credits} квалификационни кредита` : null,
                 f.neispuo.titular, f.neispuo.contract_basis,
               ].filter(Boolean).join(' · ')} />}

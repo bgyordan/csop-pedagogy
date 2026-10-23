@@ -1,5 +1,6 @@
 // Импорт на данни за педагогическия персонал от експорта „Персонал“ на НЕИСПУО (.xlsx):
-// образование, квалификации, ПКС, стаж, длъжност. Файлът има по един ред за всяко образование /
+// образование, квалификации, ПКС, длъжност. Стажът от НЕИСПУО не се взима — подвеждащ е (въвежда се ръчно).
+// Файлът има по един ред за всяко образование /
 // квалификация на човека — редовете се групират по лице. Колоните се намират по заглавие.
 import type { Edu, PPProfile } from './pro-portfolio'
 
@@ -8,7 +9,6 @@ export type NeispuoSnapshot = {
   as_of: string
   position?: string | null; category?: string | null; titular?: string | null
   contract?: string | null; contract_basis?: string | null; contract_no?: string | null; since_year?: number | null
-  years_total?: number | null; years_specialty?: number | null; years_teacher?: number | null
   credits?: number | null; pks?: string | null
   znpr_min?: number | null; znpr_ind?: number | null; hours_total?: number | null
   email?: string | null; phone?: string | null
@@ -25,7 +25,7 @@ export type NeispuoPerson = {
   /** Предложени стойности за профила в портфолиото */
   profile: {
     education: Edu[]; specialty: string | null; teacher_q: boolean | null; other_q: string | null
-    pks: string | null; work_since: string | null; teacher_since: string | null
+    pks: string | null
   }
 }
 
@@ -67,17 +67,6 @@ export function pksOf(raw: unknown): string | null {
 
 const TEACHER_RE = /учител|педагог|учителк/i
 
-/** Дата „преди N години (и един ден)“ — за да се смята стажът напред във времето, без да се закръгля нагоре. */
-export function sinceFromYears(asOf: string, years: number | null): string | null {
-  if (years == null || years < 0) return null
-  const whole = Math.floor(years)
-  const months = Math.round((years - whole) * 12)
-  const d = new Date(asOf + 'T00:00:00Z')
-  d.setUTCFullYear(d.getUTCFullYear() - whole)
-  d.setUTCMonth(d.getUTCMonth() - months)
-  d.setUTCDate(d.getUTCDate() - 1)
-  return d.toISOString().slice(0, 10)
-}
 
 /** Дата на експорта от името на файла (НЕИСПУО добавя време в милисекунди), иначе днес. */
 export function asOfFromFileName(name: string, today = new Date()): string {
@@ -98,7 +87,6 @@ export function parsePersonnel(rows: unknown[][], asOf: string): { people: Neisp
     position: col(x => x === 'длъжност'), category: col(x => x === 'категория персонал'), titular: col(x => x.startsWith('титуляр')),
     contract: col(x => x === 'вид на договора'), basis: col(x => x.startsWith('основание по кт')), contractNo: col(x => x.startsWith('№ на договора')),
     since: col(x => x.startsWith('година на постъпване')),
-    yTotal: col(x => x === 'трудов стаж - общ'), ySpec: col(x => x.startsWith('трудов стаж - по специалност')), yTeach: col(x => x.startsWith('трудов стаж - учителски')),
     phone: col(x => x.startsWith('телефон')), email: col(x => x === 'имейл' || x === 'e-mail' || x === 'email'),
     pq: col(x => x.startsWith('придобита професионална квалификация')),
     level: col(x => x.startsWith('образователна степен')), spec: col(x => x === 'специалност'),
@@ -147,7 +135,6 @@ export function parsePersonnel(rows: unknown[][], asOf: string): { people: Neisp
     }
     edu.sort((a, b) => a.rank - b.rank)
     const higher = edu.find(e => e.rank >= 3)
-    const yTotal = numOf(c.yTotal), yTeach = numOf(c.yTeach)
     const pks = pksOf(firstOf(c.pks))
     const position = (firstOf(c.position) || '').replace(/^\d{4}-\d{4}\s+/, '').trim() || null
     const email = firstOf(c.email), phone = firstOf(c.phone)
@@ -160,7 +147,7 @@ export function parsePersonnel(rows: unknown[][], asOf: string): { people: Neisp
       snap: {
         as_of: asOf, position, category: firstOf(c.category), titular: firstOf(c.titular),
         contract: firstOf(c.contract), contract_basis: firstOf(c.basis), contract_no: firstOf(c.contractNo),
-        since_year: numOf(c.since), years_total: yTotal, years_specialty: numOf(c.ySpec), years_teacher: yTeach,
+        since_year: numOf(c.since),
         credits: numOf(c.credits), pks, znpr_min: numOf(c.znprMin), znpr_ind: numOf(c.znprInd), hours_total: numOf(c.hours),
         email, phone,
       },
@@ -170,8 +157,6 @@ export function parsePersonnel(rows: unknown[][], asOf: string): { people: Neisp
         teacher_q: anyQ ? teacher : null,
         other_q: extra.length ? extra.join('; ') : null,
         pks,   // празно в НЕИСПУО не значи непременно „няма“ — не се попълва
-        work_since: sinceFromYears(asOf, yTotal),
-        teacher_since: sinceFromYears(asOf, yTeach),
       },
     })
   }
@@ -195,10 +180,10 @@ export function matchPerson(p: NeispuoPerson, staff: StaffRef[]): { id: string |
   return { id: null, how: two.length > 1 ? 'няколко съвпадения' : 'няма съвпадение', candidates: (two.length ? two : mid).map(s => s.id) }
 }
 
-export type FieldKey = 'education' | 'specialty' | 'teacher_q' | 'other_q' | 'pks' | 'work' | 'teacher' | 'position' | 'phone'
+export type FieldKey = 'education' | 'specialty' | 'teacher_q' | 'other_q' | 'pks' | 'position' | 'phone'
 export const FIELD_LABEL: Record<FieldKey, string> = {
   education: 'Образование', specialty: 'Специалност', teacher_q: 'ПК „учител“', other_q: 'Допълнителна квалификация', pks: 'ПКС',
-  work: 'Общ стаж', teacher: 'Учителски стаж', position: 'Длъжност', phone: 'Телефон',
+  position: 'Длъжност', phone: 'Телефон',
 }
 export type Change = { field: FieldKey; from: string; to: string; state: 'new' | 'same' | 'diff' }
 export type Mode = 'fill' | 'replace'
@@ -208,7 +193,7 @@ const yn = (v: boolean | null | undefined) => (v == null ? '' : v ? 'да' : 'н
 const sameEdu = (a: Edu, b: Edu) => a.level === b.level && norm(a.specialty) === norm(b.specialty)
 
 /** Какво ще се промени за един човек и какво точно се изпраща за запис. */
-export function planFor(p: NeispuoPerson, cur: PPProfile | null, s: StaffRef, mode: Mode, fields: Set<FieldKey>, yearsAt: (since: string | null | undefined, extra?: number) => number | null) {
+export function planFor(p: NeispuoPerson, cur: PPProfile | null, s: StaffRef, mode: Mode, fields: Set<FieldKey>) {
   const changes: Change[] = []
   const set: Record<string, unknown> = {}
   const add = (field: FieldKey, from: string, to: string, apply: () => void) => {
@@ -239,14 +224,7 @@ export function planFor(p: NeispuoPerson, cur: PPProfile | null, s: StaffRef, mo
   add('other_q', cur?.other_q || '', pr.other_q || '', () => { set.other_q = pr.other_q })
   add('pks', cur?.pks || '', pr.pks || '', () => { set.pks = pr.pks })
 
-  // стаж: сравнява се изчисленият брой години към датата на експорта
-  const extra = { ...(cur?.years_extra || {}) }
-  const yt = yearsAt(cur?.work_since, Number(extra.total || 0)), yy = yearsAt(cur?.teacher_since, Number(extra.teacher || 0))
-  const ys = (n: number | null | undefined) => (n == null ? '' : `${n} г.`)
-  let extraChanged = false
-  add('work', ys(yt), pr.work_since ? ys(p.snap.years_total) : '', () => { set.work_since = pr.work_since; delete extra.total; extraChanged = true })
-  add('teacher', ys(yy), pr.teacher_since ? ys(p.snap.years_teacher) : '', () => { set.teacher_since = pr.teacher_since; delete extra.teacher; extraChanged = true })
-  if (extraChanged) set.years_extra = Object.keys(extra).length ? extra : null
+  // стажът от НЕИСПУО не се взима — не винаги отговаря на трудовата книжка; въвежда се ръчно в портфолиото
 
   const staff: { position?: string; phone?: string } = {}
   add('position', s.position || '', p.position || '', () => { staff.position = p.position! })
