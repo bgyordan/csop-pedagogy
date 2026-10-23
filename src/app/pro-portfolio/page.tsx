@@ -7,6 +7,7 @@ import { fetchAll } from '@/lib/supabase/fetch-all'
 import { ROLE_LABELS, type UserRole } from '@/types'
 import { PP_MANAGERS, PP_ROLES } from '@/lib/pro-portfolio'
 import ProPortfolioClient from './ProPortfolioClient'
+import ProfileNav from '@/components/profile/ProfileNav'
 export const dynamic = 'force-dynamic'
 
 export default async function ProPortfolioPage({ searchParams }: { searchParams: Promise<{ staff?: string; tab?: string }> }) {
@@ -65,7 +66,8 @@ export default async function ProPortfolioPage({ searchParams }: { searchParams:
     }))
   }
 
-  return (
+  // Моето портфолио е таб от „Моят профил“ — над него стоят табовете на профила
+  const client = (
     <ProPortfolioClient
       me={{ id: me.id, role: me.role }}
       isManager={isManager}
@@ -82,5 +84,12 @@ export default async function ProPortfolioPage({ searchParams }: { searchParams:
       lastAttest={lastDates[0] || null}
       overview={overview}
     />
+  )
+  if (!isOwn || tab === 'staff') return client
+  return (
+    <>
+      <div className="max-w-6xl mx-auto px-4 md:px-8 pt-4 md:pt-8 -mb-2 md:-mb-4"><ProfileNav active="portfolio" role={me.role} /></div>
+      {client}
+    </>
   )
 }

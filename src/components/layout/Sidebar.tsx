@@ -31,10 +31,13 @@ interface NavItem {
   children?: NavItem[]
   defaultOpen?: boolean   // групата е отворена по подразбиране
   notMgmt?: boolean       // не за управата (тя го има в своя група)
+  also?: string[]         // други адреси, при които пунктът свети (напр. табовете на профила)
 }
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Начало', icon: <LayoutDashboard size={16} /> },
   { href: '/calendar', label: 'Календар', icon: <CalendarDays size={16} /> },
+  // Моят профил — всичко лично на едно място: данни, класове, оценяване, контролна дейност, проф. портфолио, документи
+  { href: '/profile', label: 'Моят профил', icon: <IdCard size={16} />, also: ['/my-files'] },
   // ── УПРАВАТА: основните регистри в една група, отворена по подразбиране ──
   // (инструментите за децата — PECS, РЕМЕЛКА, материали… — са в „Децата“, както при колегите)
   {
@@ -122,13 +125,8 @@ const navItems: NavItem[] = [
       { href: '/council', label: 'За съгласуване', icon: <ClipboardCheck size={14} /> },
       // дневен ред на предстоящите заседания, протоколите и моите решения за изпълнение
       { href: '/meetings', label: 'ПС и Общо събрание', icon: <Landmark size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'support', 'secretary'] },
-      // протоколите от проверките, в които съм проверен/а — запознаване, възражение, самооценка, препоръки
-      { href: '/control', label: 'Констативни протоколи', icon: <ClipboardCheck size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'support'] },
-      // моята карта за ДТВ (запознаване, възражение) и оценяването, ако съм в комисията
-      { href: '/evaluation', label: 'Оценяване', icon: <Award size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'support'] },
+      // Констативните протоколи, Оценяването (ДТВ, атестиране) и Професионалното портфолио на колегите са в „Моят профил“
       { href: '/portfolio', label: 'Портфолио', icon: <Images size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
-      // професионалното портфолио по Наредба № 15 — материали, квалификация, цели; доказателства за атестирането
-      { href: '/pro-portfolio', label: 'Професионално портфолио', icon: <BookUser size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator'] },
       // Старият генератор — временно (колегите го търсят). Новото: досие → „Документи“ → „Нов документ“. Да се махне, щом всички минат на бланките.
       { href: '/generator', label: 'Генератор (стар)', icon: <FileText size={14} />, roles: ['class_teacher', 'teacher', 'educator', 'psychologist', 'speech_therapist', 'rehabilitator'] },
     ],
@@ -152,8 +150,7 @@ const navItems: NavItem[] = [
       { href: '/schedules', label: 'Разписания', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'] },
       // нареждане по учебния план (НЕИСПУО): по паралелки, колко остава, утвърждаване, копиране I → II срок
       { href: '/schedule-plan', label: 'Разписание по план', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'] },
-      // собствените часове по учебния план (управата също има преподавателска заетост)
-      { href: '/my-schedule', label: 'Моето разписание', icon: <CalendarDays size={14} />, roles: ['admin', 'zdud', 'director'] },
+      // „Моето разписание“ на управата е в „Моят профил“ → Бърз достъп
       { href: '/absences', label: 'Реализация на ИУП', icon: <Calendar size={14} />, roles: ['admin', 'director', 'zdud'] },
       { href: '/admin/tasks', label: 'График срокове', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/school-calendar', label: 'Учебен календар', icon: <CalendarDays size={14} />, roles: ['admin', 'zdud', 'director'] },
@@ -413,7 +410,8 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
     setUserMenuOpen(false)
   }, [pathname])
   function NavLink({ item }: { item: NavItem }) {
-    const active = pathname === item.href || pathname.startsWith(item.href + '/')
+    const also = item.href === '/profile' && !isMgmt ? [...(item.also || []), '/pro-portfolio'] : (item.also || [])
+    const active = [item.href, ...also].some(h => pathname === h || pathname.startsWith(h + '/'))
     return (
       <Link href={item.href} onClick={() => setMobileOpen(false)} title={isMini ? item.label : undefined} className={itemCls(active)}>
         <span className={iconCls(active)}>{item.icon}</span>
@@ -473,13 +471,17 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
                   {isCoordinator && <span style={{ color: '#2563a8' }}> · Координатор</span>}
                 </div>
               </div>
+              <Link href="/profile" onClick={() => { setUserMenuOpen(false); setMobileOpen(false) }}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs hover:bg-slate-50" style={{ color: TEXT_SECONDARY }}>
+                <IdCard size={14} /> Моят профил
+              </Link>
               <Link href="/my-files" onClick={() => { setUserMenuOpen(false); setMobileOpen(false) }}
                 className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs hover:bg-slate-50" style={{ color: TEXT_SECONDARY }}>
                 <FolderOpen size={14} /> Моите документи
               </Link>
-              <Link href="/profile" onClick={() => { setUserMenuOpen(false); setMobileOpen(false) }}
+              <Link href="/profile?tab=security" onClick={() => { setUserMenuOpen(false); setMobileOpen(false) }}
                 className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs hover:bg-slate-50" style={{ color: TEXT_SECONDARY }}>
-                <Settings size={14} /> Профил и парола
+                <Settings size={14} /> Вход и парола
               </Link>
               <button onClick={handleLogout}
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs hover:bg-rose-50 hover:text-rose-700" style={{ color: TEXT_SECONDARY }}>
