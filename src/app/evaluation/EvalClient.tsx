@@ -19,6 +19,8 @@ import {
   type EvalFile, type History,
 } from '@/lib/evaluation'
 import { generateCards, exportRegistryExcel, type RegistryRow } from '@/lib/docx-evaluation'
+import { sectionAFromPortfolio, type PPItem, type PPProfile, type PPLink } from '@/lib/pro-portfolio'
+import { PortfolioPicker } from './PortfolioEvidence'
 
 type CampaignRow = {
   id: string; name: string; kind: Kind; status: 'setup' | 'scoring' | 'closed'; created_at: string; score_by: string | null; closed_at: string | null
@@ -40,8 +42,11 @@ type Props = {
   isDirector: boolean; isManager: boolean; isFinance: boolean; tab: string; isSecretaryAny: boolean
   campaigns: CampaignRow[]; myCommission: { campaign_id: string; role: string }[]; cards: MyCard[]; years: Year[]
   templates: EvalTemplate[]; people: Person[]; access: { staff_id: string; kind: string }[]
+  pp: PP | null
   myFiles: EvalFile[]; results: Result[]; history: History[]; supports: { participant_id: string; status: string; reattest_by: string | null }[]
 }
+
+type PP = { items: PPItem[]; profile: PPProfile | null; links: PPLink[] }
 
 const ACCENT = '#0f2240'
 
@@ -101,10 +106,10 @@ function MyCards(p: Props) {
   // карти в подготовка (утвърдени, но неизпратени) не се показват — лицето вижда само самооценката си
   const cards = p.cards.filter(c => c.campaign && (c.sent_at || (c.campaign.self_assess && c.campaign.status !== 'setup')))
   if (!cards.length) return <p className="bg-white rounded-2xl border border-slate-200 p-6 text-sm text-slate-400 text-center">Нямате карти за оценка. Тук ще се появи картата ви — за самооценка (при атестиране) или когато комисията я изпрати.</p>
-  return <div className="space-y-4">{cards.map(c => <MyCardView key={c.id} c={c} me={p.me} template={p.templates.find(t => t.id === c.template_id) || null} files={p.myFiles.filter(f => f.participant_id === c.id)} />)}</div>
+  return <div className="space-y-4">{cards.map(c => <MyCardView key={c.id} c={c} me={p.me} pp={p.pp} template={p.templates.find(t => t.id === c.template_id) || null} files={p.myFiles.filter(f => f.participant_id === c.id)} />)}</div>
 }
 
-function MyCardView({ c, me, template, files }: { c: MyCard; me: Props['me']; template: EvalTemplate | null; files: EvalFile[] }) {
+function MyCardView({ c, me, pp, template, files }: { c: MyCard; me: Props['me']; pp: PP | null; template: EvalTemplate | null; files: EvalFile[] }) {
   const router = useRouter()
   const { toast } = useToast()
   const k = c.campaign.kind || 'dtv'
@@ -158,7 +163,7 @@ function MyCardView({ c, me, template, files }: { c: MyCard; me: Props['me']; te
       </button>
       {open && (
         <div className="px-5 pb-5 space-y-4">
-          {!shown && <SelfForm c={c} me={me} template={template} files={files} editable={selfOpen} />}
+          {!shown && <SelfForm c={c} me={me} pp={pp} template={template} files={files} editable={selfOpen} />}
           {shown && <>
             {isAttest && (
               <div className="grid gap-2 sm:grid-cols-4 text-[13px]">
@@ -210,7 +215,7 @@ function MyCardView({ c, me, template, files }: { c: MyCard; me: Props['me']; te
 }
 
 /** Самооценка: раздел А (атестиране), точките по критериите и портфолиото. */
-function SelfForm({ c, me, template, files, editable }: { c: MyCard; me: Props['me']; template: EvalTemplate | null; files: EvalFile[]; editable: boolean }) {
+function SelfForm({ c, me, pp, template, files, editable }: { c: MyCard; me: Props['me']; pp: PP | null; template: EvalTemplate | null; files: EvalFile[]; editable: boolean }) {
   const router = useRouter()
   const { toast } = useToast()
   const isAttest = c.campaign.kind === 'attest'
@@ -269,7 +274,11 @@ function SelfForm({ c, me, template, files, editable }: { c: MyCard; me: Props['
       </div>
       {isAttest && (
         <section className="space-y-2">
-          <div className="text-[14px] font-medium text-slate-800">А. Съответствие с изискванията на длъжността</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="text-[14px] font-medium text-slate-800 flex-1">А. Съответствие с изискванията на длъжността</div>
+            {editable && pp && <button type="button" onClick={() => { setA(sectionAFromPortfolio(pp.profile, pp.items, c.campaign.period_from, c.campaign.period_to, a)); toast('Попълнено от портфолиото — прегледайте данните') }}
+              className="px-3 py-1.5 rounded-lg text-[12.5px] border border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50" title="Образование, ПКС и стаж от общите данни; часове и кредити от квалификацията за периода">Попълни от портфолиото</button>}
+          </div>
           <div className="grid gap-2 md:grid-cols-2 text-[13px]">
             <label className="block"><span className="label">1.1 Образование — първоначално</span>
               <select value={a.edu1 || ''} disabled={!editable} onChange={e => setA1({ edu1: e.target.value })} className="input w-full"><option value="">—</option>{EDU_LEVELS.map(x => <option key={x}>{x}</option>)}</select></label>
@@ -325,6 +334,8 @@ function SelfForm({ c, me, template, files, editable }: { c: MyCard; me: Props['
       </section>
       <section className="space-y-2">
         <div className="text-[14px] font-medium text-slate-800">{isAttest ? 'Професионално портфолио' : 'Доказателства'}</div>
+        {pp && <PortfolioPicker participantId={c.id} crit={crit} items={pp.items} links={pp.links.filter(l => l.participant_id === c.id)} editable={editable} from={c.campaign.period_from} to={c.campaign.period_to} />}
+        {pp && <div className="text-[12px] uppercase tracking-wide text-slate-400 pt-1">Други прикачени файлове</div>}
         {files.length ? files.map(f => (
           <div key={f.id} className="flex items-center gap-2 text-[13px]">
             <Paperclip size={13} className="text-slate-400" /><button type="button" onClick={() => openFile(f)} className="text-indigo-700 hover:underline truncate">{f.name}</button>

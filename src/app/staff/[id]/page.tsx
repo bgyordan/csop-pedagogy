@@ -7,6 +7,7 @@ import { getFullName } from '@/lib/utils'
 import StaffClassesSection from './StaffClassesSection'
 import StaffControlSection from './StaffControlSection'
 import StaffEvalSection from './StaffEvalSection'
+import StaffPortfolioSection from './StaffPortfolioSection'
 import CurriculumPlan from '@/components/curriculum/CurriculumPlan'
 import { loadCurriculum, scheduleHoursByClass, TEACHER_NORM } from '@/lib/curriculum'
 export const dynamic = 'force-dynamic'
@@ -228,6 +229,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
       )}
       <div className="mt-5"><StaffControlSection supabase={supabase} staffId={id} /></div>
       <StaffEvalSection supabase={supabase} staffId={id} />
+      <StaffPortfolioSection supabase={supabase} staffId={id} year={currentYear} />
     </div>
   )
 }

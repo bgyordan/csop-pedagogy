@@ -51,8 +51,17 @@ export default async function EvaluationPage({ searchParams }: { searchParams: P
     isManager ? supabase.from('eval_support').select('participant_id, status, reattest_by') : Promise.resolve({ data: [] as any[] }),
   ])
 
+  // Професионално портфолио — за доказателствата при самооценката (ако таблиците ги има)
+  const [ppItems, ppProfile, ppLinks] = await Promise.all([
+    supabase.from('pp_items').select('*, files:pp_files(*)').eq('staff_id', me.id).order('date_from', { ascending: false, nullsFirst: false }),
+    supabase.from('pp_profile').select('*').eq('staff_id', me.id).maybeSingle(),
+    myIds.length ? supabase.from('pp_eval_links').select('*').in('participant_id', myIds) : Promise.resolve({ data: [] as any[], error: null }),
+  ])
+  const ppReady = !ppItems.error
+
   return (
     <EvalClient
+      pp={ppReady ? { items: (ppItems.data || []) as any, profile: (ppProfile.data || null) as any, links: (ppLinks.data || []) as any } : null}
       me={{ id: me.id, role: me.role, name: `${me.first_name} ${me.last_name}` }}
       isDirector={isDirector} isManager={isManager} isFinance={isFinance}
       tab={sp.tab || ''}

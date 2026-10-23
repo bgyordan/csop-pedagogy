@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3, FileSpreadsheet,
-  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare, Calculator, ShieldAlert, MonitorSmartphone, Bell, CalendarCheck, Award } from 'lucide-react'
+  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare, Calculator, ShieldAlert, MonitorSmartphone, Bell, CalendarCheck, Award, BookUser } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
 import WhatsNewModal from './WhatsNewModal'
@@ -56,6 +56,8 @@ const navItems: NavItem[] = [
       { href: '/facilities', label: 'Материална база', icon: <Wrench size={14} />, roles: ['admin', 'zdud', 'director'] },
       // оценяване на персонала — ДТВ за постигнати резултати (карти, комисия, протоколи, суми)
       { href: '/evaluation', label: 'Оценяване', icon: <Award size={14} />, roles: ['admin', 'zdud', 'director'] },
+      // професионално портфолио на служителите (обобщение, квалификация) и моето
+      { href: '/pro-portfolio', label: 'Проф. портфолио', icon: <BookUser size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
   },
   // ── КОЛЕГИТЕ (учители, възпитатели, терапевти): групи по това, за какво ползват менюто ──
@@ -120,6 +122,8 @@ const navItems: NavItem[] = [
       // моята карта за ДТВ (запознаване, възражение) и оценяването, ако съм в комисията
       { href: '/evaluation', label: 'Оценяване', icon: <Award size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'support'] },
       { href: '/portfolio', label: 'Портфолио', icon: <Images size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
+      // професионалното портфолио по Наредба № 15 — материали, квалификация, цели; доказателства за атестирането
+      { href: '/pro-portfolio', label: 'Професионално портфолио', icon: <BookUser size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator'] },
       // Старият генератор — временно (колегите го търсят). Новото: досие → „Документи“ → „Нов документ“. Да се махне, щом всички минат на бланките.
       { href: '/generator', label: 'Генератор (стар)', icon: <FileText size={14} />, roles: ['class_teacher', 'teacher', 'educator', 'psychologist', 'speech_therapist', 'rehabilitator'] },
     ],
