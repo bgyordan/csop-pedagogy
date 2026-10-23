@@ -56,7 +56,7 @@ export async function generatePortfolio(o: {
   out.push(kv('Институция', CENTER_NAME))
   if (o.classes.length) out.push(kv('Групи / паралелки', o.classes.join(', ')))
   const edu = pr?.education || []
-  out.push(kv('Образование', edu.length ? edu.map(e => [e.level, e.specialty, e.school, e.year].filter(Boolean).join(', ')).join('; ') : ''))
+  out.push(kv('Образование', edu.length ? edu.map(e => [e.level, e.specialty, e.qualification ? `ПК: ${e.qualification}` : null, e.school, e.year].filter(Boolean).join(', ')).join('; ') : ''))
   out.push(kv('Специалност по базовото висше образование', pr?.specialty))
   out.push(kv('Професионална квалификация „учител“', pr?.teacher_q == null ? '' : pr.teacher_q ? 'да' : 'не'))
   if (pr?.other_q) out.push(kv('Допълнителна квалификация', pr.other_q))
