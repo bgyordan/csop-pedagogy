@@ -171,7 +171,11 @@ export const daysLeft = (due: string) => Math.round((Date.parse(due + 'T00:00:00
 /** Карта по подразбиране според ролята. */
 export function defaultTemplate(templates: EvalTemplate[], role: string, kind: string = 'dtv') {
   const act = templates.filter(t => t.is_active && t.kind === kind)
-  return act.find(t => t.roles?.includes(role)) || null
+  const hit = act.find(t => t.roles?.includes(role))
+  if (hit) return hit
+  // Една обща карта за групата (напр. за всички педагози) — ползва се за всяка длъжност от групата.
+  const same = act.filter(t => t.grp === grpForRole(role))
+  return same.length === 1 ? same[0] : null
 }
 /** Педагогически специалист ли е (за групата и фонда). */
 export const PED_ROLES = ['class_teacher', 'teacher', 'educator', 'speech_therapist', 'psychologist', 'zdud', 'coordinator']
