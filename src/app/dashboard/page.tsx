@@ -22,7 +22,7 @@ import ControlStrip from './components/ControlStrip'
 import CouncilStrip from './components/CouncilStrip'
 import NonSchoolDayStrip from './components/NonSchoolDayStrip'
 import DutyStrip from './components/DutyStrip'
-import CalendarStrip from './components/CalendarStrip'
+import CalendarWidget from './components/CalendarWidget'
 import FacilitiesStrip from './components/FacilitiesStrip'
 import OnlineRoomStrip from './components/OnlineRoomStrip'
 import ClassRoomStrip from './components/ClassRoomStrip'
@@ -128,8 +128,6 @@ export default async function DashboardPage() {
       {/* Спонтанен неучебен ден — днес или в следващите дни */}
       <NonSchoolDayStrip />
 
-      {/* Календар — днешните събития, напомнянията и поканите без отговор */}
-      {!viewing && <CalendarStrip staffId={profile.id} />}
 
       {/* Кратките ленти — по две на ред, за да не са дълги през целия екран */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 empty:hidden">
@@ -161,6 +159,9 @@ export default async function DashboardPage() {
         {!isAdmin && !isDirector && <TodayAbsentStrip />}
 
       </div>
+
+      {/* Календар — моята седмица: събития, покани и срокове от модулите */}
+      {!viewing && <CalendarWidget me={{ id: profile.id, role: profile.role, isCoordinator: profile.is_coordinator === true }} />}
 
       {/* Dashboard по роля */}
       <div className="transition-all duration-500">

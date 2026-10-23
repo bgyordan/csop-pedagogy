@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 
 const VIEWS: CalView[] = ['month', 'week', 'day', 'agenda']
 
-export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ view?: string; date?: string; event?: string }> }) {
+export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ view?: string; date?: string; event?: string; new?: string }> }) {
   const sp = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -28,6 +28,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       staff={(staff || []) as any[]}
       needSql={!!error}
       initialView={VIEWS.includes(sp.view as CalView) ? (sp.view as CalView) : null}
+      openNew={sp.new === '1'}
       initialDate={/^\d{4}-\d{2}-\d{2}$/.test(sp.date || '') ? sp.date! : null}
     />
   )
