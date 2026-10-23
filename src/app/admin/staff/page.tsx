@@ -5,7 +5,7 @@ import { smartMatch } from '@/lib/search'
 import { loginTime } from '@/lib/login-time'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { createStaffAccount, syncDriveAccess, removeDriveAccess } from './actions'
+import { createStaffAccount, syncDriveAccess, removeDriveAccess, changeLoginEmail } from './actions'
 import { Plus, Pencil, ExternalLink, FolderSync } from 'lucide-react'
 import { useToast, notify, confirmDialog } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
@@ -129,6 +129,21 @@ export default function AdminStaffPage() {
       const list = dups.map((x: any) => `• ${getFullName(x)} (${ROLE_LABELS[x.role as UserRole] || x.role}${x.is_active ? '' : ', неактивен'}) – ${x.email || 'без имейл'}`).join('\n')
       if (!await confirmDialog(`Вече има подобен служител:\n${list}\n\nСъщият човек ли е? Натисни „Отказ“, за да не се дублира, или „OK“, ако е друг човек.`)) return
     }
+    // Сменен имейл на съществуващ служител → сменя се и акаунтът за вход (на сървъра)
+    const oldEmail = editing ? ((editing as any).email || '').trim().toLowerCase() : ''
+    const emailChanged = !!editing && form.email.trim().toLowerCase() !== oldEmail
+    if (emailChanged) {
+      const hasAcc = !!(editing as any).user_id
+      if (!await confirmDialog(
+        `Смяна на имейла за вход:\n${(editing as any).email || '—'}  →  ${form.email.trim()}\n\n` +
+        (hasAcc
+          ? 'След това колегата влиза САМО с новия имейл (бутонът за @csop-varna.bg или съответния Google акаунт). Старият имейл спира да работи.'
+          : 'Служителят още няма акаунт — сменя се само имейлът в профила.')
+      )) return
+      setSaving(true)
+      const r = await changeLoginEmail((editing as any).id, form.email)
+      if (r.error) { notify(r.error); setSaving(false); return }
+    }
     setSaving(true)
 
     const payload = {
@@ -140,13 +155,15 @@ export default function AdminStaffPage() {
       position: form.position.trim() || ROLE_LABELS[form.role],
       // втора роля има смисъл само ако основната не е същата терапевтична
       therapy_role: form.therapyRole && form.therapyRole !== form.role ? form.therapyRole : null,
-      email: form.email,
+      email: form.email.trim(),
       phone: form.phone || null,
     }
 
     let error
     if (editing) {
-      ({ error } = await supabase.from('staff_profiles').update(payload).eq('id', (editing as any).id))
+      // имейлът вече е записан от changeLoginEmail (ако е сменен) — тук не го пипаме
+      const { email: _e, ...rest } = payload
+      ;({ error } = await supabase.from('staff_profiles').update(rest).eq('id', (editing as any).id))
     } else {
       ({ error } = await supabase.from('staff_profiles').insert({ ...payload, is_active: true }))
     }
@@ -487,6 +504,9 @@ export default function AdminStaffPage() {
           <div>
             <label className="label">Имейл <span className="text-red-500">*</span></label>
             <input type="email" className="input" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} />
+            {editing && (editing as any).user_id && (
+              <p className="text-[11px] text-slate-400 mt-1">С този имейл служителят влиза в системата. При смяна се сменя и акаунтът за вход (само администратор/директор).</p>
+            )}
           </div>
           <div>
             <label className="label">Телефон</label>
