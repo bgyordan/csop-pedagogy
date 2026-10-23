@@ -34,6 +34,7 @@ interface NavItem {
 }
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Начало', icon: <LayoutDashboard size={16} /> },
+  { href: '/calendar', label: 'Календар', icon: <CalendarDays size={16} /> },
   // ── УПРАВАТА: основните регистри в една група, отворена по подразбиране ──
   // (инструментите за децата — PECS, РЕМЕЛКА, материали… — са в „Децата“, както при колегите)
   {
@@ -191,6 +192,7 @@ const navItems: NavItem[] = [
   },
   // Администрация (рядко: структура, предмети, училища, съобщения, нова година…) — един ред най-долу
   { href: '/admin', label: 'Администрация', icon: <Settings size={16} />, roles: ['admin', 'zdud'] },
+  { href: '/calendar', label: 'Календар', icon: <CalendarDays size={16} />, roles: ['secretary'], section: 'delo' },
   { href: '/correspondence', label: 'Регистър', icon: <Inbox size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/orders', label: 'Заповеди', icon: <ClipboardList size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/leave-np', label: 'Отпуск по НП', icon: <FileText size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
