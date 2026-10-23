@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3, FileSpreadsheet,
-  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare, Calculator, ShieldAlert, MonitorSmartphone, Bell, CalendarCheck } from 'lucide-react'
+  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare, Calculator, ShieldAlert, MonitorSmartphone, Bell, CalendarCheck, Award } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
 import WhatsNewModal from './WhatsNewModal'
@@ -54,6 +54,8 @@ const navItems: NavItem[] = [
       // контролна дейност — проверки, констативни протоколи, Книга (ЗДАСД вижда, ако директорът го е определил за проверяващ)
       { href: '/control', label: 'Контролна дейност', icon: <ClipboardCheck size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/facilities', label: 'Материална база', icon: <Wrench size={14} />, roles: ['admin', 'zdud', 'director'] },
+      // оценяване на персонала — ДТВ за постигнати резултати (карти, комисия, протоколи, суми)
+      { href: '/evaluation', label: 'Оценяване', icon: <Award size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
   },
   // ── КОЛЕГИТЕ (учители, възпитатели, терапевти): групи по това, за какво ползват менюто ──
@@ -115,6 +117,8 @@ const navItems: NavItem[] = [
       { href: '/council', label: 'За съгласуване', icon: <ClipboardCheck size={14} /> },
       // протоколите от проверките, в които съм проверен/а — запознаване, възражение, самооценка, препоръки
       { href: '/control', label: 'Констативни протоколи', icon: <ClipboardCheck size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'support'] },
+      // моята карта за ДТВ (запознаване, възражение) и оценяването, ако съм в комисията
+      { href: '/evaluation', label: 'Оценяване', icon: <Award size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'support'] },
       { href: '/portfolio', label: 'Портфолио', icon: <Images size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
       // Старият генератор — временно (колегите го търсят). Новото: досие → „Документи“ → „Нов документ“. Да се махне, щом всички минат на бланките.
       { href: '/generator', label: 'Генератор (стар)', icon: <FileText size={14} />, roles: ['class_teacher', 'teacher', 'educator', 'psychologist', 'speech_therapist', 'rehabilitator'] },
@@ -206,6 +210,7 @@ const navItems: NavItem[] = [
   { href: '/reports/hub', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/admin/tasks', label: 'График срокове', icon: <CalendarClock size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/control', label: 'Констативни протоколи', icon: <ClipboardCheck size={16} />, roles: ['secretary'], section: 'settings' },
+  { href: '/evaluation', label: 'Оценяване (ДТВ)', icon: <Award size={16} />, roles: ['secretary'], section: 'delo' },
   { href: '/gym-schedule', label: 'Физк. салон', icon: <Dumbbell size={16} />, roles: ['secretary'], section: 'settings' },
 ]
 interface SidebarProps {
