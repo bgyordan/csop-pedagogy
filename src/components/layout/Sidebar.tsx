@@ -210,7 +210,7 @@ const navItems: NavItem[] = [
   { href: '/reports/hub', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/admin/tasks', label: 'График срокове', icon: <CalendarClock size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/control', label: 'Констативни протоколи', icon: <ClipboardCheck size={16} />, roles: ['secretary'], section: 'settings' },
-  { href: '/evaluation', label: 'Оценяване (ДТВ)', icon: <Award size={16} />, roles: ['secretary'], section: 'delo' },
+  { href: '/evaluation', label: 'Оценяване', icon: <Award size={16} />, roles: ['secretary'], section: 'delo' },
   { href: '/gym-schedule', label: 'Физк. салон', icon: <Dumbbell size={16} />, roles: ['secretary'], section: 'settings' },
 ]
 interface SidebarProps {
