@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3, FileSpreadsheet,
-  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare, Calculator, ShieldAlert, MonitorSmartphone, Bell, CalendarCheck, Award, BookUser } from 'lucide-react'
+  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare, Calculator, ShieldAlert, MonitorSmartphone, Bell, CalendarCheck, Award, BookUser, Landmark } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
 import WhatsNewModal from './WhatsNewModal'
@@ -54,6 +54,8 @@ const navItems: NavItem[] = [
       { href: '/visits', label: 'Посещения на час', icon: <CalendarCheck size={14} />, roles: ['admin', 'zdud', 'director'] },
       // контролна дейност — проверки, констативни протоколи, Книга (ЗДАСД вижда, ако директорът го е определил за проверяващ)
       { href: '/control', label: 'Контролна дейност', icon: <ClipboardCheck size={14} />, roles: ['admin', 'zdud', 'director'] },
+      // заседания на педагогическия съвет и общото събрание — дневен ред, кворум, решения, Книга с протоколи
+      { href: '/meetings', label: 'ПС и Общо събрание', icon: <Landmark size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/facilities', label: 'Материална база', icon: <Wrench size={14} />, roles: ['admin', 'zdud', 'director'] },
       // оценяване на персонала — ДТВ за постигнати резултати (карти, комисия, протоколи, суми)
       { href: '/evaluation', label: 'Оценяване', icon: <Award size={14} />, roles: ['admin', 'zdud', 'director'] },
@@ -118,6 +120,8 @@ const navItems: NavItem[] = [
       { href: '/templates', label: 'Образци', icon: <FileText size={14} /> },
       { href: '/normative-docs', label: 'Документи в ЦСОП', icon: <ScrollText size={14} /> },
       { href: '/council', label: 'За съгласуване', icon: <ClipboardCheck size={14} /> },
+      // дневен ред на предстоящите заседания, протоколите и моите решения за изпълнение
+      { href: '/meetings', label: 'ПС и Общо събрание', icon: <Landmark size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'support', 'secretary'] },
       // протоколите от проверките, в които съм проверен/а — запознаване, възражение, самооценка, препоръки
       { href: '/control', label: 'Констативни протоколи', icon: <ClipboardCheck size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'support'] },
       // моята карта за ДТВ (запознаване, възражение) и оценяването, ако съм в комисията

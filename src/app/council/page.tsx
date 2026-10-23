@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { BackButton } from '@/components/ui/BackButton'
-import { ClipboardCheck } from 'lucide-react'
+import { ClipboardCheck, Landmark } from 'lucide-react'
+import Link from 'next/link'
 import CouncilClient from './CouncilClient'
 export const dynamic = 'force-dynamic'
 
@@ -69,6 +70,9 @@ export default async function CouncilPage() {
           <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">Материали за съгласуване</h1>
           <p className="text-sm text-slate-500 mt-0.5">Документи за преглед преди педагогически съвет — прочетете ги и натиснете „Запознах се“</p>
         </div>
+        <Link href="/meetings" className="ml-auto hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-600 hover:bg-slate-50 shrink-0">
+          <Landmark size={15} /> Заседания и протоколи
+        </Link>
       </header>
       <CouncilClient
         groups={groups}
