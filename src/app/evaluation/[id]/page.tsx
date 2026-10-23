@@ -1,5 +1,6 @@
-// Кампания за ДТВ: подготовка (комисия, оценявани, карти), оценяване от членовете, утвърждаване, изпращане на картите,
-// възражения, суми (само директорът и счетоводителят) и документите.
+// Кампания (ДТВ, атестиране или друга оценка): подготовка (комисия, оценявани, карти), самооценка, оценяване от
+// членовете, утвърждаване, изпращане на картите, възражения, суми (ДТВ — само директорът и счетоводителят),
+// анализ, план за подкрепа (атестиране) и документите.
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { fetchAll } from '@/lib/supabase/fetch-all'
@@ -31,13 +32,25 @@ export default async function CampaignPage({ params, searchParams }: { params: P
   ])
   const myRole = (members || []).find((m: any) => m.staff_id === me.id)?.role || null
   const isLead = isManager || myRole === 'chair'
+  const isSecretary = campaign.secretary_id === me.id
   const ids = (participants || []).map((x: any) => x.id)
   const { data: scores } = ids.length
     ? await fetchAll(() => supabase.from('eval_scores').select('*').in('participant_id', ids).order('participant_id').order('member_id'))
     : { data: [] as any[] }
 
-  const { data: people } = isLead
-    ? await supabase.from('staff_profiles').select('id, first_name, last_name, role, position').eq('is_active', true).order('first_name')
+  const [{ data: people }, { data: externals }, { data: files }, { data: supports }, { data: others }] = await Promise.all([
+    isLead || isSecretary
+      ? supabase.from('staff_profiles').select('id, first_name, last_name, role, position').eq('is_active', true).order('first_name')
+      : Promise.resolve({ data: [] as any[] }),
+    supabase.from('eval_external').select('*').eq('campaign_id', id).order('sort'),
+    ids.length ? fetchAll(() => supabase.from('eval_files').select('*').in('participant_id', ids).order('created_at')) : Promise.resolve({ data: [] as any[], error: null }),
+    ids.length && campaign.kind === 'attest' ? supabase.from('eval_support').select('*').in('participant_id', ids) : Promise.resolve({ data: [] as any[] }),
+    isLead ? supabase.from('eval_campaigns').select('id, name, kind, created_at').neq('id', id).order('created_at', { ascending: false }) : Promise.resolve({ data: [] as any[] }),
+  ])
+  // предишната кампания от същия вид — за сравнение в „Анализ“
+  const prevC = (others || []).find((x: any) => x.kind === campaign.kind && x.created_at < campaign.created_at)
+  const { data: prev } = isLead && prevC
+    ? await fetchAll(() => supabase.from('eval_participants').select('staff_id, final_total, result, grade, employer_grade').eq('campaign_id', prevC.id).order('staff_id'))
     : { data: [] as any[] }
   const [{ data: funds }, { data: pay }] = isFinance
     ? await Promise.all([
@@ -55,7 +68,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
   return (
     <CampaignClient
       me={{ id: me.id, role: me.role, name: `${me.first_name} ${me.last_name}` }}
-      isDirector={isDirector} isManager={isManager} isFinance={isFinance} isLead={isLead} myRole={myRole as any}
+      isDirector={isDirector} isManager={isManager} isFinance={isFinance} isLead={isLead} isSecretary={isSecretary} myRole={myRole as any}
       tab={sp.tab || ''} openP={sp.p || null}
       campaign={campaign as any}
       members={(members || []) as any}
@@ -66,6 +79,11 @@ export default async function CampaignPage({ params, searchParams }: { params: P
       funds={(funds || []) as any}
       pay={(pay || []) as any}
       scanUrl={scanUrl}
+      externals={(externals || []) as any}
+      files={(files || []) as any}
+      supports={(supports || []) as any}
+      others={(others || []) as any}
+      prev={{ name: prevC?.name || null, rows: (prev || []) as any }}
     />
   )
 }

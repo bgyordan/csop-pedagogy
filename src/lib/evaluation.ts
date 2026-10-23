@@ -1,18 +1,24 @@
-// Оценяване на персонала (ДТВ за постигнати резултати) — общи типове, етикети и сметки.
-// Правилата са по Вътрешните правила за ДТВ на ЦСОП – Варна: една комисия, карта по длъжност (общо 100 т.),
-// корекция на точките до 20% на показател, възражение до 3 работни дни, сума пропорционално на точките.
+// Оценяване на персонала — общи типове, етикети и сметки.
+// ДТВ: по Вътрешните правила на ЦСОП – Варна — една комисия, карта по длъжност (общо 100 т.), корекция до 20%
+// на показател, възражение до 3 работни дни, сума пропорционално на точките.
+// Атестиране (Наредба № 15/2019): самооценка (СО) + оценка на комисията (ОАК), ОР = 0,25·СО + 0,75·ОАК, скала 25–50,
+// възражение до 5 работни дни, работодателят потвърждава или променя с една степен, на всеки 4 години.
+// Други карти: същият ред (комисия, средно или обща оценка, по желание самооценка), без суми.
 
 export type Grp = 'ped' | 'nonped'
+export type Kind = 'dtv' | 'attest' | 'other'
 export type EvalItem = { k: string; t: string; max: number }
-export type EvalGroup = { n: string; g: string; max: number; items: EvalItem[] }
+/** h — заглавие на раздела над показателя (напр. „I. Педагогически компетентности…“) */
+export type EvalGroup = { n: string; g: string; max: number; items: EvalItem[]; h?: string }
 export type Scores = Record<string, number>
 
 export type EvalTemplate = {
   id: string; code: string | null; kind: string; grp: Grp; name: string; title: string; adopted: string | null
   col_label: string; roles: string[]; criteria: EvalGroup[]; base: EvalGroup[] | null; total: number
-  is_active: boolean; sort: number
+  is_active: boolean; sort: number; guide?: string | null
 }
 
+export type ScaleStep = { min: number; l: string; support?: boolean; reattest?: boolean }
 export type CampaignStatus = 'setup' | 'scoring' | 'closed'
 export type Campaign = {
   id: string; kind: string; name: string; academic_year_id: string | null; status: CampaignStatus
@@ -21,6 +27,8 @@ export type Campaign = {
   score_by: string | null; order_by: string | null; basis: string | null
   protocol_no: string | null; protocol_date: string | null; scan_path: string | null
   created_at: string; closed_at: string | null
+  period_from?: string | null; period_to?: string | null; self_assess?: boolean; self_by?: string | null
+  decide_days?: number; secretary_id?: string | null; scale?: ScaleStep[] | null; note?: string | null; source_id?: string | null
 }
 
 export type PStatus = 'pending' | 'scored' | 'sent' | 'acked' | 'objected' | 'resolved'
@@ -32,12 +40,30 @@ export type Participant = {
   acked_at: string | null; objection: string | null; objection_at: string | null
   decision: string | null; decision_changed: boolean | null; decided_at: string | null
   scan_path: string | null; note: string | null
+  self_scores?: Scores | null; self_total?: number | null; self_at?: string | null; section_a?: SectionA | null
+  result?: number | null; grade?: string | null; commission_comment?: string | null
+  employer_grade?: string | null; employer_note?: string | null; employer_at?: string | null
   staff?: Person | null
 }
-export type Member = { campaign_id: string; staff_id: string; role: 'chair' | 'member'; sort: number; staff?: Person | null }
-export type ScoreRow = { participant_id: string; member_id: string; scores: Scores; total: number; submitted_at: string | null }
+export type Member = { campaign_id: string; staff_id: string; role: 'chair' | 'member'; sort: number; org?: string | null; staff?: Person | null }
+export type External = { id: string; campaign_id: string; name: string; org: string | null; sort: number }
+export type ScoreRow = { id?: string; participant_id: string; member_id: string | null; ext_id?: string | null; scores: Scores; total: number; submitted_at: string | null }
+export type EvalFile = { id: string; participant_id: string; name: string; path: string; note: string | null; uploaded_by: string | null; created_at: string }
+export type Support = {
+  participant_id: string; mentor_id: string | null; causes: string | null; measures: string | null; training: string | null
+  start_date: string | null; reattest_by: string | null; status: 'open' | 'done'; result: string | null
+}
+export type History = { id: string; staff_id: string; attested_on: string; result: number | null; grade: string | null; note: string | null }
+export type Evidence = {
+  from: string; to: string
+  checks: { id: string; date: string; book_no: number | null; subject: string; form: string; kind: string; inspector: string | null; strengths: string | null; conclusions: string | null; objection: string | null }[]
+  recs: { text: string; due: string | null; status: string; report: string | null }[]
+  counts: { k: string; l: string; n: number | null }[]
+}
 export type Pay = { participant_id: string; worked_days: number | null; sick_days: number | null; override: 'yes' | 'no' | null; note: string | null }
 
+export const KIND_LABEL: Record<Kind, string> = { dtv: 'ДТВ за постигнати резултати', attest: 'Атестиране', other: 'Друга оценка' }
+export const KIND_SHORT: Record<Kind, string> = { dtv: 'ДТВ', attest: 'Атестиране', other: 'Оценка' }
 export const GRP_LABEL: Record<Grp, string> = { ped: 'Педагогически специалисти', nonped: 'Непедагогически персонал' }
 export const CAMPAIGN_STATUS_LABEL: Record<CampaignStatus, string> = { setup: 'Подготовка', scoring: 'Оценяване', closed: 'Приключена' }
 export const P_STATUS_LABEL: Record<PStatus, string> = {
@@ -87,7 +113,7 @@ export function averageScores(rows: { scores: Scores; submitted_at: string | nul
 }
 
 /** Проверка на картата: показателите = сбор от критериите, общо 100, корекция до 20% спрямо приетата. */
-export function validateTemplate(t: { criteria: EvalGroup[]; base: EvalGroup[] | null; total: number }): string[] {
+export function validateTemplate(t: { criteria: EvalGroup[]; base: EvalGroup[] | null; total: number; kind?: string }): string[] {
   const errs: string[] = []
   const total = maxTotal(t.criteria)
   if (Math.abs(total - Number(t.total || 100)) > 0.001) errs.push(`Общият брой точки е ${num(total)}, а трябва да е ${num(t.total || 100)}.`)
@@ -95,7 +121,7 @@ export function validateTemplate(t: { criteria: EvalGroup[]; base: EvalGroup[] |
     const s = g.items.reduce((a, it) => a + Number(it.max || 0), 0)
     if (Math.abs(s - Number(g.max)) > 0.001) errs.push(`Показател ${g.n}: критериите дават ${num(s)} т., а показателят е ${num(g.max)} т.`)
     if (!g.items.length) errs.push(`Показател ${g.n} няма критерии.`)
-    const b = t.base?.find(x => x.n === g.n)
+    const b = t.kind && t.kind !== 'dtv' ? null : t.base?.find(x => x.n === g.n)
     if (b && Number(b.max) > 0) {
       const ch = Math.abs(Number(g.max) - Number(b.max)) / Number(b.max)
       if (ch > 0.2 + 1e-9) errs.push(`Показател ${g.n}: от ${num(b.max)} на ${num(g.max)} т. е промяна с ${Math.round(ch * 100)}% — позволено е до 20%.`)
@@ -143,13 +169,55 @@ export const addDays = (iso: string, n: number) => new Date(Date.parse(iso + 'T0
 export const daysLeft = (due: string) => Math.round((Date.parse(due + 'T00:00:00Z') - Date.parse(todayIso() + 'T00:00:00Z')) / 864e5)
 
 /** Карта по подразбиране според ролята. */
-export function defaultTemplate(templates: EvalTemplate[], role: string) {
-  const act = templates.filter(t => t.is_active && t.kind === 'dtv')
+export function defaultTemplate(templates: EvalTemplate[], role: string, kind: string = 'dtv') {
+  const act = templates.filter(t => t.is_active && t.kind === kind)
   return act.find(t => t.roles?.includes(role)) || null
 }
 /** Педагогически специалист ли е (за групата и фонда). */
 export const PED_ROLES = ['class_teacher', 'teacher', 'educator', 'speech_therapist', 'psychologist', 'zdud', 'coordinator']
 export const grpForRole = (role: string): Grp => (PED_ROLES.includes(role) ? 'ped' : 'nonped')
 
-/** Предложение за име: „ДТВ 2025/2026“ */
-export const campaignName = (yearName?: string | null) => `ДТВ за постигнати резултати ${(yearName || '').replace('-', '/')}`.trim()
+/** Предложение за име: „ДТВ за постигнати резултати 2025/2026“ */
+export const campaignName = (yearName?: string | null, kind: Kind = 'dtv') =>
+  `${kind === 'dtv' ? 'ДТВ за постигнати резултати' : kind === 'attest' ? 'Атестиране' : 'Оценяване'} ${(yearName || '').replace('-', '/')}`.trim()
+
+// ── Атестиране ────────────────────────────────────────────────────────────
+export const DEFAULT_SCALE: ScaleStep[] = [
+  { min: 45, l: 'Изключително изпълнение' },
+  { min: 40, l: 'Надвишава изискванията' },
+  { min: 35, l: 'Отговаря на изискванията' },
+  { min: 30, l: 'Отговаря частично на изискванията', support: true },
+  { min: 25, l: 'Съответства в минимална степен на изискванията', support: true, reattest: true },
+]
+export const scaleOf = (c?: { scale?: ScaleStep[] | null } | null) => (c?.scale?.length ? c.scale : DEFAULT_SCALE)
+/** Степента по скалата — като в базата (eval_grade) */
+export function gradeOf(scale: ScaleStep[], v: number | null | undefined) {
+  if (v == null || isNaN(v)) return null
+  return (scale.find(s => v >= s.min) || scale[scale.length - 1])?.l || null
+}
+export const stepOf = (scale: ScaleStep[], grade: string | null | undefined) => scale.find(s => s.l === grade) || null
+/** ОР = 0,25·СО + 0,75·ОАК (до 2 знака) */
+export const attestResult = (so: number | null | undefined, oak: number | null | undefined) =>
+  so == null || oak == null ? null : Math.round((0.25 * Number(so) + 0.75 * Number(oak)) * 100) / 100
+/** Крайната оценка: на работодателя, ако е вписал, иначе на комисията */
+export const finalGrade = (x: { employer_grade?: string | null; grade?: string | null }) => x.employer_grade || x.grade || null
+/** Степените, до които работодателят може да промени оценката (± една) */
+export function employerOptions(scale: ScaleStep[], grade: string | null | undefined, objected: boolean) {
+  const i = scale.findIndex(s => s.l === grade)
+  if (i < 0) return scale.map(s => s.l)
+  return objected ? scale.filter((_, j) => Math.abs(j - i) <= 1).map(s => s.l) : [scale[i].l]
+}
+export const ATTEST_YEARS = 4
+export const addYears = (iso: string, n: number) => { const [y, m, d] = iso.slice(0, 10).split('-').map(Number); return `${y + n}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` }
+
+/** Раздел А „Съответствие с изискванията на длъжността“ (прил. № 20) — попълва атестираният. */
+export type SectionA = {
+  edu1?: string; edu2?: string; specialty?: string; teacher_q?: 'yes' | 'no'; other_q?: 'yes' | 'no'; other_q_text?: string
+  pks?: string; years_total?: number | null; years_teacher?: number | null
+  hours_internal?: number | null; hours_mandatory?: number | null; credits?: number | null; prev_recs?: 'yes' | 'no' | 'na'
+}
+export const EDU_LEVELS = ['Средно образование', 'Професионален бакалавър', 'Бакалавър', 'Магистър', 'Доктор', 'Доктор на науките']
+export const PKS_LEVELS = ['няма', 'V ПКС', 'IV ПКС', 'III ПКС', 'II ПКС', 'I ПКС']
+
+/** Атестиращите роли по подразбиране (педагогически специалисти без директора) */
+export const ATTEST_ROLES = ['class_teacher', 'teacher', 'educator', 'speech_therapist', 'psychologist', 'zdud', 'coordinator']
