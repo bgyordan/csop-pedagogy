@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import NewOrderForm from './NewOrderForm'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, ChevronLeft, ChevronRight, ClipboardList, X } from 'lucide-react'
+import { Plus, Search, ChevronLeft, ChevronRight, ClipboardList, X, Sparkles } from 'lucide-react'
+import Link from 'next/link'
 import ViewOrderModal from './ViewOrderModal'
 import EditOrderModal from './EditOrderModal'
 import { Hl, SortHeader, FileAndActions, FilterChips, EmptyState } from '@/components/registry/RegistryParts'
@@ -129,6 +130,13 @@ export default function OrdersClient({
               className="flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl border-2 border-[#0f2240] text-[#0f2240] bg-white hover:bg-[#0f2240] hover:text-white transition-all whitespace-nowrap flex-shrink-0">
               <Plus size={14} /> Нова заповед
             </button>
+          )}
+          {canEdit && (
+            <Link href="/orders/generator"
+              className="flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl bg-[#0f2240] text-white hover:bg-[#1a3358] transition-all whitespace-nowrap flex-shrink-0"
+              title="Заповед по шаблон — текстът се пише сам, номерът идва от Книгата">
+              <Sparkles size={14} /> Генератор
+            </Link>
           )}
 
           <select value={dyearValue} onChange={e => router.push(buildUrl({ dyear: e.target.value, page: 1 }))}
