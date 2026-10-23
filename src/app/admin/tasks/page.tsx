@@ -192,7 +192,7 @@ export default function TasksPage() {
       <div className="flex items-center justify-between mb-6 gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-800">График на срокове и задачи</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Повтарящи се задължения с напомняне — седмични, месечни, годишни.</p>
+          <p className="text-sm text-slate-400 mt-0.5">Повтарящи се задължения с напомняне — седмични, месечни, годишни. Показват се и в <a href="/calendar" className="text-blue-700 hover:underline">Календара</a>.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center bg-slate-100 rounded-lg p-1">

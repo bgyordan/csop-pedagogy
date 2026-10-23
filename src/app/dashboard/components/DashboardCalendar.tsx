@@ -119,6 +119,7 @@ export default function DashboardCalendar({ currentYearId, canEdit, staffId }: {
         <div className="flex items-center gap-2">
           <CalendarDays size={16} className="text-slate-400" />
           <span className="text-sm font-semibold text-slate-700">{MONTHS[viewMonth]} {viewYear}</span>
+          <a href={`/calendar?view=month&date=${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-01`} className="text-[11px] text-blue-700 hover:underline ml-1">пълен календар →</a>
         </div>
         <div className="flex items-center gap-1">
           <button onClick={prevMonth} className="p-1 rounded-lg hover:bg-slate-100 text-slate-500"><ChevronLeft size={16} /></button>
