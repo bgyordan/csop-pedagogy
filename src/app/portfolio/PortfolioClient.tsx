@@ -165,8 +165,12 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
               <div className="text-[11px] text-white/70 mt-1">Снимки</div>
             </div>
           </div>
+          <a href="/pro-portfolio" className="ml-auto inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white text-sm font-medium hover:bg-white/20"
+            title="Професионалното портфолио по Наредба № 15 — материали, квалификация, цели, доказателства за атестирането">
+            Професионално портфолио →
+          </a>
           <button type="button" onClick={exportWord} disabled={!mine.length || exporting}
-            className="ml-auto inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-[#0f2240] text-sm font-medium hover:bg-slate-100 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-[#0f2240] text-sm font-medium hover:bg-slate-100 disabled:opacity-50"
             title="Word документ с всички мои публикации — за атестацията">
             {exporting ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />} Изтегли за атестация
           </button>

@@ -11,6 +11,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { useToast, confirmDialog } from '@/components/ui/Toast'
 import DateInput from '@/components/ui/DateInput'
+import { PortfolioLinked } from '../PortfolioEvidence'
 import {
   CAMPAIGN_STATUS_LABEL, P_STATUS_LABEL, P_STATUS_TONE, GRP_LABEL, KIND_LABEL, pname, dmy, isoOf, num, money, daysLeft, addDays,
   sumScores, groupSum, scoresComplete, averageScores, eligibility, distribute, defaultTemplate, grpForRole, addWorkdays, maxTotal,
@@ -598,8 +599,9 @@ function EvidencePanel(p: Props & { x: Participant }) {
       </button>
       {open && (
         <div className="px-4 pb-4 space-y-4 text-[13px]">
+          <PortfolioLinked participantId={x.id} staffId={x.staff_id} crit={x.criteria || p.templates.find(t => t.id === x.template_id)?.criteria || []} />
           <div>
-            <div className="text-[12px] uppercase tracking-wide text-slate-400 mb-1.5">Портфолио и приложени документи</div>
+            <div className="text-[12px] uppercase tracking-wide text-slate-400 mb-1.5">Приложени документи</div>
             {files.length ? (
               <ul className="space-y-1">
                 {files.map(f => (
