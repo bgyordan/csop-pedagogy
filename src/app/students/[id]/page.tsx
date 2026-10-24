@@ -29,15 +29,14 @@ import StudentIncidents from './StudentIncidents'
 import StudentAbsencesCard from './StudentAbsencesCard'
 import FillEplrButton from './FillEplrButton'
 import { Card, Tile } from '@/app/profile/parts'
+import { MERGED_ATTACHMENT_TYPES } from '@/lib/student-doc-scans'
 import { isOresActive, todaySofia, ORES_ACTIVE_COLS } from '@/lib/ores'
 
 const ATTACHMENT_TYPE_LABELS: Record<string, string> = {
   enrollment_application: 'Заявление за прием',
   coud_application: 'Заявление за ЦОУД',
-  referral_order: 'Заповед за насочване',
   eplr_order: 'Заповед ЕПЛР (от училището)',
   rcpppo_assessment: 'Оценка от РЦПППО',
-  medical_expertise: 'Медицинска експертиза',
   other: 'Друг документ',
 }
 
@@ -611,18 +610,18 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
               <div className={cardHead}>
                 <CalendarClock size={16} className="text-amber-500" />
                 <h2 className="font-semibold text-slate-800 text-sm">Документи със срок</h2>
-                <span className="ml-auto text-[11px] text-slate-400">ТЕЛК/ЛКК, заповед РЦПППО, алергии и хранене</span>
+                <span className="ml-auto text-[11px] text-slate-400">ТЕЛК/ЛКК и заповед РЦПППО (срок + скан), алергии и хранене</span>
               </div>
-              <StudentDocuments studentId={id} canManage={canEditDossier} externalClass={student.external_class} />
+              <StudentDocuments studentId={id} canManage={canEditDossier} externalClass={student.external_class} staffId={profile?.id || ''} />
             </div>
 
             <div className={`${cardCls} !h-auto`}>
               <div className={cardHead}>
                 <Paperclip size={16} className="text-amber-500" />
                 <h2 className="font-semibold text-slate-800 text-sm">Външни документи (досие)</h2>
-                <span className="ml-auto text-[11px] text-slate-400">заявления, заповеди и оценки от РЦПППО, медицински…</span>
+                <span className="ml-auto text-[11px] text-slate-400">заявления, заповед ЕПЛР, оценка от РЦПППО, други</span>
               </div>
-              <AttachmentsSection studentId={id} attachments={attachments || []} canManage={canEditDossier} staffId={profile?.id || ''}
+              <AttachmentsSection studentId={id} attachments={(attachments || []).filter((a: any) => !MERGED_ATTACHMENT_TYPES.includes(a.doc_type))} canManage={canEditDossier} staffId={profile?.id || ''}
                 typeLabels={ATTACHMENT_TYPE_LABELS} currentYearName={currentYearName} yearOptions={yearOptions} />
             </div>
 
