@@ -36,7 +36,7 @@ export default function ProfileNav({ active, role, className = '', staffId }: { 
         const on = k === active
         return (
           <Link key={k} href={href} aria-current={on ? 'page' : undefined}
-            className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] transition-colors ${on ? 'bg-[#0f2240] text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-[#0f2240]'}`}>
+            className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] transition-colors ${on ? 'bg-sky-50 text-[#0f2240] ring-1 ring-sky-200 font-medium' : 'text-slate-600 hover:bg-slate-100 hover:text-[#0f2240]'}`}>
             <Icon size={14} /> {label}
           </Link>
         )

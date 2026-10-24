@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, ArrowRight, Loader2, MailQuestion } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, ArrowRight, Loader2, MailQuestion } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import {
   type CalItem, type CalLayer, startOfDay, startOfWeek, addDays, sameDay, isoWd, itemDays, hm, ymd, WD_SHORT, MONTHS, dmy,
@@ -11,9 +11,10 @@ import { loadCalendar } from '@/lib/calendar-sources'
 // Карта „Моята седмица“ на таблото: 7-те дни с всичко от календара (собствени събития, покани, срокове
 // от модулите), неучебните дни, бутон „Ново“ и връзка към пълния календар.
 // Зарежда се в браузъра — часовете и „днес“ са по местното време; пази изключените слоеве от календара.
-const PER_DAY = 3
+const PER_DAY = 2
+const FOLD_KEY = 'dash-cal-folded'
 
-export default function CalendarWidget({ me, compact = false }: { me: { id: string; role: string; isCoordinator?: boolean }; compact?: boolean }) {
+export default function CalendarWidget({ me }: { me: { id: string; role: string; isCoordinator?: boolean } }) {
   const supabase = useMemo(() => createClient(), [])
   const [week, setWeek] = useState(() => {
     // в събота и неделя — следващата седмица
@@ -23,6 +24,10 @@ export default function CalendarWidget({ me, compact = false }: { me: { id: stri
   const [items, setItems] = useState<CalItem[] | null>(null)
   const [invites, setInvites] = useState(0)
   const [off, setOff] = useState<Set<CalLayer>>(new Set())
+  // „Свий“ — остава само заглавният ред (пази се на устройството)
+  const [folded, setFolded] = useState(false)
+  useEffect(() => { try { setFolded(localStorage.getItem(FOLD_KEY) === '1') } catch {} }, [])
+  const toggleFold = () => setFolded(f => { try { localStorage.setItem(FOLD_KEY, f ? '0' : '1') } catch {} return !f })
 
   useEffect(() => { try { const s = localStorage.getItem('cal-layers-off'); if (s) setOff(new Set(JSON.parse(s))) } catch {} }, [])
   useEffect(() => {
@@ -46,8 +51,9 @@ export default function CalendarWidget({ me, compact = false }: { me: { id: stri
       .sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.start.getTime() - b.start.getTime())
     return { d, holiday, rest }
   })
-  // в тясна карта — само делничните дни (+ събота/неделя, ако имат нещо)
-  const shown = compact ? byDay.filter(x => isoWd(x.d) <= 5 || x.rest.length > 0) : byDay
+  // само делничните дни (+ събота/неделя, ако имат нещо) — за да не е широка и висока
+  const shown = byDay.filter(x => isoWd(x.d) <= 5 || x.rest.length > 0)
+  const todayN = byDay.find(x => sameDay(x.d, today))?.rest.length ?? 0
   const total = byDay.reduce((n, x) => n + x.rest.length, 0)
   const last = addDays(week, 6)
   const title = week.getMonth() === last.getMonth()
@@ -59,12 +65,15 @@ export default function CalendarWidget({ me, compact = false }: { me: { id: stri
     <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
       {/* заглавие */}
       <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-slate-100">
-        <span className="w-7 h-7 rounded-lg bg-[#0f2240] text-white flex items-center justify-center"><CalendarDays size={14} /></span>
+        <span className="w-7 h-7 rounded-lg bg-sky-50 text-sky-700 border border-sky-100 flex items-center justify-center"><CalendarDays size={14} /></span>
         <Link href={`/calendar?view=week&date=${ymd(week)}`} className="text-[14px] font-semibold text-slate-800 hover:text-[#1a3560]">
           {isThisWeek ? 'Моята седмица' : 'Седмица'}
         </Link>
         <span className="text-[13px] text-slate-500">{title}</span>
         {items === null && <Loader2 size={13} className="animate-spin text-slate-300" />}
+        {folded && items !== null && (
+          <span className="text-[12px] text-slate-500">· {isThisWeek ? `днес ${todayN}, ` : ''}седмицата {total}</span>
+        )}
         <div className="flex items-center ml-1">
           <button onClick={() => setWeek(w => addDays(w, -7))} className="p-1 rounded-full hover:bg-slate-100 text-slate-500" aria-label="Предишна седмица"><ChevronLeft size={16} /></button>
           <button onClick={() => setWeek(w => addDays(w, 7))} className="p-1 rounded-full hover:bg-slate-100 text-slate-500" aria-label="Следваща седмица"><ChevronRight size={16} /></button>
@@ -82,7 +91,13 @@ export default function CalendarWidget({ me, compact = false }: { me: { id: stri
         <Link href={`/calendar?view=month&date=${ymd(week)}`} className="inline-flex items-center gap-1 text-[12px] text-blue-700 hover:underline">
           Календар <ArrowRight size={12} />
         </Link>
+        <button type="button" onClick={toggleFold} className="p-1 rounded-full hover:bg-slate-100 text-slate-500" aria-expanded={!folded}
+          aria-label={folded ? 'Покажи седмицата' : 'Свий календара'} title={folded ? 'Покажи седмицата' : 'Свий'}>
+          {folded ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+        </button>
       </div>
+
+      {!folded && <>
 
       {/* 7 дни: колони на голям екран, списък на телефон */}
       <div className="grid grid-cols-1 md:[grid-template-columns:var(--cols)] md:divide-x divide-y md:divide-y-0 divide-slate-100"
@@ -93,7 +108,7 @@ export default function CalendarWidget({ me, compact = false }: { me: { id: stri
           const past = d < today
           return (
             <div key={d.toISOString()}
-              className={`min-h-[52px] md:min-h-[104px] px-2 py-1.5 flex md:block gap-3 ${isToday ? 'bg-blue-50/50' : holiday || weekend ? 'bg-slate-50/70' : ''} ${past ? 'opacity-70' : ''} ${weekend && rest.length === 0 && !holiday ? 'hidden md:block' : ''}`}>
+              className={`min-h-[52px] md:min-h-[72px] px-2 py-1.5 flex md:block gap-3 ${isToday ? 'bg-blue-50/50' : holiday || weekend ? 'bg-slate-50/70' : ''} ${past ? 'opacity-70' : ''} ${weekend && rest.length === 0 && !holiday ? 'hidden md:block' : ''}`}>
               <Link href={`/calendar?view=day&date=${ymd(d)}`} className="flex md:flex-row items-center gap-1.5 mb-1 shrink-0 w-14 md:w-auto group">
                 <span className={`text-[10.5px] font-semibold uppercase tracking-wide ${isToday ? 'text-blue-600' : 'text-slate-400'}`}>{WD_SHORT[isoWd(d) - 1]}</span>
                 <span className={`min-w-[24px] h-6 px-1 rounded-full flex items-center justify-center text-[13px] tabular-nums ${isToday ? 'bg-blue-600 text-white font-semibold' : 'text-slate-700 group-hover:bg-slate-200'}`}>{d.getDate()}</span>
@@ -113,6 +128,7 @@ export default function CalendarWidget({ me, compact = false }: { me: { id: stri
       {items !== null && total === 0 && (
         <div className="px-4 py-2 text-[12px] text-slate-400 border-t border-slate-100">Няма събития и срокове тази седмица. Създай среща с „Ново“ или виж месеца в Календара.</div>
       )}
+      </>}
     </div>
   )
 }

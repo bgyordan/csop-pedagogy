@@ -90,9 +90,9 @@ export default async function StaffProfileView({ supabase, me, tab: askedTab, se
         { l: 'учителски стаж', v: yTeacher != null ? `${yTeacher} г.` : '—', hide: !isPed },
         { l: 'ученици', v: String(studentCount), hide: !students },
       ].filter(x => !x.hide).map(x => (
-        <div key={x.l} className="rounded-2xl bg-white/10 border border-white/10 px-3.5 py-2">
-          <div className="text-lg font-semibold tabular-nums leading-tight">{x.v}</div>
-          <div className="text-[11px] text-white/60">{x.l}</div>
+        <div key={x.l} className="rounded-2xl bg-white/80 border border-slate-200 px-3.5 py-2">
+          <div className="text-lg font-semibold tabular-nums leading-tight text-[#0f2240]">{x.v}</div>
+          <div className="text-[11px] text-slate-500">{x.l}</div>
         </div>
       ))}
     </div>
@@ -348,7 +348,7 @@ export default async function StaffProfileView({ supabase, me, tab: askedTab, se
             </Link>
           ))}
           {hasSchedule && (
-            <Link href={scheduleHref} className="ml-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium text-white bg-[#0f2240] hover:opacity-90">
+            <Link href={scheduleHref} className="ml-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium text-[#0f2240] bg-sky-50 border border-sky-200 hover:bg-sky-100">
               <CalendarClock size={14} /> {THER.includes(role) ? 'График на терапиите' : my('Моето разписание', 'Разписание')}
             </Link>
           )}
