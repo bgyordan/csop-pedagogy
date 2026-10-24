@@ -8,10 +8,8 @@ import DocumentsMatrixClient from './DocumentsMatrixClient'
 const ATTACHMENT_TYPES = [
   { key: 'enrollment_application', label: 'Записване' },
   { key: 'coud_application', label: 'ЦОУД' },
-  { key: 'referral_order', label: 'Заповед за насочване' },
   { key: 'eplr_order', label: 'Заповед ЕПЛР' },
   { key: 'rcpppo_assessment', label: 'Оценка от РЦПППО' },
-  { key: 'medical_expertise', label: 'Медицинска експертиза' },
   { key: 'other', label: 'Друг документ' },
 ]
 
@@ -108,6 +106,7 @@ export default async function DocumentsMatrixPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Досиета на учениците</h1>
         <p className="text-slate-500 text-sm mt-1">Валидност на външните документи · {currentYear?.name}</p>
+        <p className="text-slate-500 text-[13px] mt-1">ТЕЛК/ЛКК и заповедта от РЦПППО (срок и скан) са в досието → „Документи със срок“; справка за всички — <Link href="/reports/documents" className="text-sky-700 hover:underline">Документи на децата</Link>.</p>
       </div>
 
       <DocumentsMatrixClient

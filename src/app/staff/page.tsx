@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { ROLE_LABELS, StaffProfile } from '@/types'
 import { getFullName } from '@/lib/utils'
 
-const PER_PAGE = 15
+const PER_PAGE = 50
 
 export default async function StaffPage({
   searchParams,
@@ -73,9 +73,17 @@ export default async function StaffPage({
 
   return (
     <div className="p-4 md:p-8">
-      <div className="mb-6">
-        <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Служители</h1>
-        <p className="text-slate-500 text-sm mt-1">{total} активни служители</p>
+      <div className="mb-6 flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-xl md:text-2xl font-semibold text-slate-800">Служители</h1>
+          <p className="text-slate-500 text-sm mt-1">{total} активни служители · името отваря профила</p>
+        </div>
+        {/* добавяне, роли, акаунти, неактивни — в Администрация; тук е справочникът */}
+        {['admin', 'zdud'].includes(myProfile?.role || '') && (
+          <Link href="/admin/staff" className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-[13px] text-slate-700 hover:border-[#0f2240]">
+            Добави / роли и акаунти
+          </Link>
+        )}
       </div>
 
       <StaffSearch q={q} sort={sort} dir={dir} />

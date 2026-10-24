@@ -1,3 +1,4 @@
+import { MERGED_ATTACHMENT_TYPES } from '@/lib/student-doc-scans'
 import { createClient } from '@/lib/supabase/server'
 import OnlineNow from './OnlineNow'
 import { iupPeriod } from '@/lib/iup-period'
@@ -59,6 +60,8 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
   ;(attachments || []).forEach(a => {
     if (!a.valid_until_year) return
     if (['enrollment_application', 'coud_application'].includes(a.doc_type)) return
+    // ТЕЛК и заповедта РЦПППО — срокът им е в „Документи със срок“ (картата „Изтичащи документи“)
+    if (MERGED_ATTACHMENT_TYPES.includes(a.doc_type)) return
     const y = parseInt(a.valid_until_year.split('/')[0])
     if (y < baseYear) expiredStudents.add(a.student_id)
     else if (y === baseYear) expiringStudents.add(a.student_id)

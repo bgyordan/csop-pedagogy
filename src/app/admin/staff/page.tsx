@@ -53,6 +53,15 @@ export default function AdminStaffPage() {
   const [dReplacedBy, setDReplacedBy] = useState('')
 
   useEffect(() => { load() }, [])
+  // /admin/staff?edit=<id> (от профила на служителя) — отваря направо формата за редакция
+  useEffect(() => {
+    if (!staff.length) return
+    const want = new URLSearchParams(window.location.search).get('edit')
+    if (!want) return
+    const s = staff.find(x => x.id === want)
+    if (s) openEdit(s)
+    window.history.replaceState(null, '', '/admin/staff')
+  }, [staff]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function load() {
     const { data } = await supabase.from('staff_profiles').select('*').order('first_name')
@@ -495,7 +504,7 @@ export default function AdminStaffPage() {
               <div className="text-sm text-slate-700 mt-0.5">
                 {(classesByStaff[(editing as any).id] || []).join(', ') || 'няма назначени паралелки'}
               </div>
-              <Link href={`/staff/${(editing as any).id}`}
+              <Link href={`/staff/${(editing as any).id}?tab=work`}
                 className="text-[11px] text-slate-500 hover:text-[#0f2240] inline-flex items-center gap-1 mt-1">
                 Управление на паралелките <ExternalLink size={10} />
               </Link>

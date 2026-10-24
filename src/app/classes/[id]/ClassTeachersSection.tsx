@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { UserPlus, X, Loader2, User } from 'lucide-react'
 import { notify, confirmDialog } from '@/components/ui/Toast'
@@ -100,7 +101,7 @@ export default function ClassTeachersSection({ classId, academicYearId, teachers
             <span key={t.assignmentId}
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-700">
               <User size={13} className="text-slate-400" />
-              {t.name}
+              <Link href={`/staff/${t.id}`} className="hover:text-[#0f2240] hover:underline">{t.name}</Link>
               {canManage && (
                 <button onClick={() => removeTeacher(t.assignmentId)} disabled={busy === t.assignmentId}
                   className="text-slate-300 hover:text-red-500 transition-colors">

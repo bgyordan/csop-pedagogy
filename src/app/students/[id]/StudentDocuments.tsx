@@ -1,9 +1,10 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Check, X, Loader2, Trash2, Pencil, Stethoscope, ShieldCheck, Utensils } from 'lucide-react'
+import { Check, X, Loader2, Trash2, Pencil, Stethoscope, ShieldCheck, Utensils, Paperclip, Eye } from 'lucide-react'
 import DateInput from '@/components/ui/DateInput'
-import { notify } from '@/components/ui/Toast'
+import { notify, confirmDialog } from '@/components/ui/Toast'
+import { SCAN_TYPE } from '@/lib/student-doc-scans'
 
 interface DocRow {
   doc_type: string
@@ -22,7 +23,9 @@ interface DocRow {
   reaction_plan?: string | null
   emergency_med?: boolean | null
 }
-interface Props { studentId: string; canManage: boolean; externalClass?: string | null }
+interface Props { studentId: string; canManage: boolean; externalClass?: string | null; staffId?: string }
+// Сканът на ТЕЛК/ЛКК и заповедта от РЦПППО — файл в student_attachments (doc_type по SCAN_TYPE)
+interface Scan { id: string; doc_type: string; file_name: string; file_path: string; created_at: string }
 
 // hasSupport = поле „интензивност" (само РЦПППО); hasDiagnosis = „Диагноза" (само ТЕЛК).
 const DOC_TYPES: { key: string; label: string; icon: any; notePlaceholder?: string; hasSupport?: boolean; hasDiagnosis?: boolean }[] = [
@@ -89,12 +92,14 @@ function statusOf(row?: DocRow) {
   return { kind: 'valid' as const, date: row!.valid_until }
 }
 
-export default function StudentDocuments({ studentId, canManage, externalClass }: Props) {
+export default function StudentDocuments({ studentId, canManage, externalClass, staffId }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<Record<string, DocRow>>({})
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [scans, setScans] = useState<Scan[]>([])
+  const [uploading, setUploading] = useState<string | null>(null)
 
   const [dNumber, setDNumber] = useState('')
   const [dIssued, setDIssued] = useState('')
@@ -119,11 +124,13 @@ export default function StudentDocuments({ studentId, canManage, externalClass }
   useEffect(() => {
     let active = true
     ;(async () => {
-      const { data } = await supabase
-        .from('student_documents')
-        .select('*')
-        .eq('student_id', studentId)
+      const [{ data }, { data: sc }] = await Promise.all([
+        supabase.from('student_documents').select('*').eq('student_id', studentId),
+        supabase.from('student_attachments').select('id, doc_type, file_name, file_path, created_at')
+          .eq('student_id', studentId).in('doc_type', Object.values(SCAN_TYPE)).order('created_at', { ascending: false }),
+      ])
       if (!active) return
+      setScans((sc || []) as Scan[])
       const map: Record<string, DocRow> = {}
       ;(data || []).forEach((r: any) => { map[r.doc_type] = r })
       setRows(map)
@@ -214,6 +221,36 @@ export default function StudentDocuments({ studentId, canManage, externalClass }
     setEditing(null)
   }
 
+  // ── Скан към документа (PDF или снимка) ──
+  async function uploadScan(key: string, file?: File | null) {
+    if (!file) return
+    const ext = (file.name.split('.').pop() || '').toLowerCase()
+    if (!['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'].includes(ext)) { notify('Позволени са PDF, снимка (JPG/PNG) или Word'); return }
+    if (file.size > 10 * 1024 * 1024) { notify('Файлът е прекалено голям (макс. 10 MB)'); return }
+    setUploading(key)
+    const path = `${studentId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_')}`
+    const { error: upErr } = await supabase.storage.from('student-dossiers').upload(path, file)
+    if (upErr) { notify('Грешка при качване'); setUploading(null); return }
+    const { data, error } = await supabase.from('student_attachments').insert({
+      student_id: studentId, file_name: file.name, file_path: path, file_size: file.size,
+      doc_type: SCAN_TYPE[key], uploaded_by: staffId || null, valid_until_year: null,
+    }).select('id, doc_type, file_name, file_path, created_at').single()
+    if (error) { notify('Грешка при запис'); await supabase.storage.from('student-dossiers').remove([path]) }
+    else { setScans(prev => [data as Scan, ...prev]); notify('Сканът е прикачен', 'success') }
+    setUploading(null)
+  }
+  async function openScan(sc: Scan) {
+    const { data, error } = await supabase.storage.from('student-dossiers').createSignedUrl(sc.file_path, 60)
+    if (error || !data) { notify('Файлът не може да се отвори'); return }
+    window.open(data.signedUrl, '_blank')
+  }
+  async function deleteScan(sc: Scan) {
+    if (!await confirmDialog(`Да изтрия ли „${sc.file_name}“?`, { danger: true })) return
+    await supabase.storage.from('student-dossiers').remove([sc.file_path])
+    await supabase.from('student_attachments').delete().eq('id', sc.id)
+    setScans(prev => prev.filter(x => x.id !== sc.id))
+  }
+
   function StatusPill({ row }: { row?: DocRow }) {
     const st = statusOf(row)
     if (st.kind === 'none') return <span className="text-xs text-slate-400">Не е въведено</span>
@@ -294,6 +331,31 @@ export default function StudentDocuments({ studentId, canManage, externalClass }
                 )}
               </div>
             </div>
+
+            {SCAN_TYPE[t.key] && (() => {
+              const mine = scans.filter(x => x.doc_type === SCAN_TYPE[t.key])
+              if (!mine.length && !canManage) return null
+              return (
+                <div className="flex items-center gap-1.5 flex-wrap px-3 pb-2.5 -mt-1">
+                  {mine.map(sc => (
+                    <span key={sc.id} className="inline-flex items-center gap-1 max-w-full text-[11.5px] pl-2 pr-1 py-0.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600">
+                      <button type="button" onClick={() => openScan(sc)} title="Отвори" className="inline-flex items-center gap-1 min-w-0 hover:text-[#0f2240]">
+                        <Eye size={12} className="shrink-0" /><span className="truncate max-w-[220px]">{sc.file_name}</span>
+                      </button>
+                      {canManage && <button type="button" onClick={() => deleteScan(sc)} title="Изтрий" className="p-0.5 text-slate-300 hover:text-rose-600"><X size={12} /></button>}
+                    </span>
+                  ))}
+                  {canManage && (
+                    <label className="inline-flex items-center gap-1 text-[11.5px] px-2 py-0.5 rounded-lg border border-dashed border-slate-300 text-slate-500 hover:text-[#0f2240] hover:border-slate-400 cursor-pointer">
+                      {uploading === t.key ? <Loader2 size={12} className="animate-spin" /> : <Paperclip size={12} />}
+                      {mine.length ? 'още скан' : 'прикачи скан'}
+                      <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden" disabled={!!uploading}
+                        onChange={e => { uploadScan(t.key, e.target.files?.[0]); e.target.value = '' }} />
+                    </label>
+                  )}
+                </div>
+              )
+            })()}
 
             {isEditing && (
               <div className="px-3 pb-3 pt-1 border-t border-slate-100 bg-slate-50/60 rounded-b-xl space-y-2.5">

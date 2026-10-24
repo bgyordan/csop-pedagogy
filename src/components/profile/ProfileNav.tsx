@@ -6,7 +6,18 @@ import { PP_ROLES } from '@/lib/pro-portfolio'
 // Стоят и над /pro-portfolio и /my-files, за да изглеждат като част от профила (адресите им не се сменят).
 export type ProfileTab = 'overview' | 'data' | 'work' | 'growth' | 'portfolio' | 'files' | 'security'
 
-export function profileTabs(role: string) {
+// staffId — профил на колега (/staff/[id]): същите раздели без личните (Моите документи, Вход и парола)
+export function profileTabs(role: string, staffId?: string) {
+  if (staffId) {
+    const b = `/staff/${staffId}`
+    return [
+      { k: 'overview' as const, href: b, label: 'Обзор', Icon: LayoutGrid },
+      { k: 'data' as const, href: `${b}?tab=data`, label: 'Данни', Icon: IdCard },
+      { k: 'work' as const, href: `${b}?tab=work`, label: 'Класове и ученици', Icon: Users, hide: ['secretary', 'support'].includes(role) },
+      { k: 'growth' as const, href: `${b}?tab=growth`, label: 'Оценяване', Icon: Award },
+      { k: 'portfolio' as const, href: `/pro-portfolio?staff=${staffId}`, label: 'Проф. портфолио', Icon: BookUser, hide: !PP_ROLES.includes(role) },
+    ].filter(t => !t.hide)
+  }
   return [
     { k: 'overview' as const, href: '/profile', label: 'Обзор', Icon: LayoutGrid },
     { k: 'data' as const, href: '/profile?tab=data', label: 'Данни', Icon: IdCard },
@@ -18,10 +29,10 @@ export function profileTabs(role: string) {
   ].filter(t => !t.hide)
 }
 
-export default function ProfileNav({ active, role, className = '' }: { active: ProfileTab; role: string; className?: string }) {
+export default function ProfileNav({ active, role, className = '', staffId }: { active: ProfileTab; role: string; className?: string; staffId?: string }) {
   return (
-    <nav aria-label="Моят профил" className={`flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-sm ${className}`}>
-      {profileTabs(role).map(({ k, href, label, Icon }) => {
+    <nav aria-label={staffId ? 'Профил на служител' : 'Моят профил'} className={`flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-sm ${className}`}>
+      {profileTabs(role, staffId).map(({ k, href, label, Icon }) => {
         const on = k === active
         return (
           <Link key={k} href={href} aria-current={on ? 'page' : undefined}
