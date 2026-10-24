@@ -11,27 +11,27 @@ export function Hero({ name, initials, photo, subtitle, badges, email, phone, as
   aside?: React.ReactNode; kicker?: string; actions?: React.ReactNode
 }) {
   return (
-    <header className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0f2240] via-[#1a3660] to-[#2b5a8f] text-white p-6 md:p-7">
+    <header className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-sky-50 via-white to-indigo-50/60 text-slate-800 shadow-sm p-5 md:p-6">
       {/* лек декор */}
-      <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 w-72 h-72 rounded-full bg-white/[0.06]" />
-      <div aria-hidden className="pointer-events-none absolute right-24 -bottom-24 w-56 h-56 rounded-full bg-white/[0.04]" />
+      <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 w-72 h-72 rounded-full bg-sky-100/40" />
+      <div aria-hidden className="pointer-events-none absolute right-24 -bottom-24 w-56 h-56 rounded-full bg-indigo-100/30" />
       <div className="relative flex flex-wrap items-center gap-5">
         {photo
-          ? <img src={photo} alt="" className="w-20 h-20 rounded-3xl object-cover ring-4 ring-white/15 shrink-0" />
-          : <div className="w-20 h-20 rounded-3xl bg-white/10 ring-4 ring-white/10 flex items-center justify-center text-2xl font-semibold tracking-wide shrink-0">{initials}</div>}
+          ? <img src={photo} alt="" className="w-20 h-20 rounded-3xl object-cover ring-4 ring-white shadow-sm shrink-0" />
+          : <div className="w-20 h-20 rounded-3xl bg-sky-100 text-[#1a3660] ring-4 ring-white flex items-center justify-center text-2xl font-semibold tracking-wide shrink-0">{initials}</div>}
         <div className="min-w-0 flex-1">
-          <div className="text-[11.5px] uppercase tracking-[0.12em] text-white/55">{kicker}</div>
-          <h1 className="text-2xl md:text-[26px] font-semibold leading-tight">{name}</h1>
-          <div className="text-sm text-white/75 mt-0.5">{subtitle}</div>
+          <div className="text-[11.5px] uppercase tracking-[0.12em] text-slate-400">{kicker}</div>
+          <h1 className="text-2xl md:text-[26px] font-semibold leading-tight text-[#0f2240]">{name}</h1>
+          <div className="text-sm text-slate-600 mt-0.5">{subtitle}</div>
           <div className="flex flex-wrap gap-1.5 mt-3">
             {badges.map(b => (
-              <span key={b.label} className={`text-[12px] px-2.5 py-1 rounded-full ${b.tone === 'accent' ? 'bg-amber-300/90 text-[#0f2240] font-medium' : 'bg-white/10 border border-white/15 text-white/90'}`}>{b.label}</span>
+              <span key={b.label} className={`text-[12px] px-2.5 py-1 rounded-full ${b.tone === 'accent' ? 'bg-amber-100 text-amber-900 border border-amber-200 font-medium' : 'bg-white border border-slate-200 text-slate-600'}`}>{b.label}</span>
             ))}
           </div>
           {(email || phone) && (
-            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[12.5px] text-white/70">
-              {email && <a href={`mailto:${email}`} className="inline-flex items-center gap-1.5 hover:text-white hover:underline"><Mail size={13} />{email}</a>}
-              {phone && <a href={`tel:${String(phone).replace(/\s/g, '')}`} className="inline-flex items-center gap-1.5 hover:text-white hover:underline"><Phone size={13} />{phone}</a>}
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[12.5px] text-slate-500">
+              {email && <a href={`mailto:${email}`} className="inline-flex items-center gap-1.5 hover:text-[#0f2240] hover:underline"><Mail size={13} />{email}</a>}
+              {phone && <a href={`tel:${String(phone).replace(/\s/g, '')}`} className="inline-flex items-center gap-1.5 hover:text-[#0f2240] hover:underline"><Phone size={13} />{phone}</a>}
             </div>
           )}
           {actions && <div className="flex flex-wrap gap-2 mt-4">{actions}</div>}

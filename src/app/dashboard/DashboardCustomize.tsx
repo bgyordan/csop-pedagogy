@@ -32,7 +32,7 @@ export default function DashboardCustomize({ cookieName, widgets, hidden }: { co
   return (
     <div ref={box} className="relative">
       <button type="button" onClick={() => setOpen(o => !o)}
-        className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl bg-white/15 border border-white/25 text-white hover:bg-white/25">
+        className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50">
         <SlidersHorizontal size={13} /> Подреди таблото
       </button>
       {open && (

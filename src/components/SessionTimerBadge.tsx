@@ -35,8 +35,8 @@ export function SessionTimerBadge() {
   return (
     <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
       isWarning
-        ? 'bg-rose-500/20 border border-rose-400/40 text-rose-200 animate-pulse'
-        : 'bg-white/10 border border-white/10 text-sky-100/70'
+        ? 'bg-rose-50 border border-rose-200 text-rose-700 animate-pulse'
+        : 'bg-white border border-slate-200 text-slate-500'
     }`}>
       <Clock size={12} />
       <span className="font-mono tabular-nums tracking-wider">

@@ -47,7 +47,7 @@ export default function ViewAsPicker({ people, viewing }: { people: Person[]; vi
   return (
     <div className="relative inline-block">
       <button onClick={() => setOpen(o => !o)}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 border border-white/25 text-xs text-white hover:bg-white/25 transition">
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition">
         <Eye size={13} /> Виж като…
       </button>
       {open && (

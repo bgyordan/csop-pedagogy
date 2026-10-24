@@ -78,7 +78,7 @@ export default async function StaffDetailPage({ params, searchParams }: { params
         canManage={['admin', 'zdud'].includes(viewer?.role || '')} />
     )
   }
-  const btn = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] bg-white/10 border border-white/20 text-white hover:bg-white/20'
+  const btn = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] bg-white border border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
   const hasSchedule = !['secretary', 'admin', 'director', 'support'].includes(staff.role)
   const heroActions = (
     <>
