@@ -6,7 +6,7 @@ import ReserveNumberCard from './ReserveNumberCard'
 import SharedFiles from './SharedFiles'
 
 // Таблото на деловодството (Ванина): бързи бутони · регистрите с „без файл“ · споделено от колеги · срокове
-export default async function SecretaryDashboard({ profile }: any) {
+export default async function SecretaryDashboard({ profile, showShared = true }: any) {
   const supabase = await createClient()
   const now = new Date()
   const currentYear = now.getFullYear()
@@ -122,11 +122,12 @@ export default async function SecretaryDashboard({ profile }: any) {
 
       {/* Споделено от колеги (голяма карта) · вдясно: замествания, заявления, резерв, изтичащи договори */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-        <div className="lg:col-span-2">
-          <SharedFiles limit={5} portfolio />
-        </div>
+        {/* от портфолиото — само публикациите, чакащи за сайта (това е работата на деловодството там) */}
+        {showShared && <div className="lg:col-span-2">
+          <SharedFiles limit={5} portfolio="site" />
+        </div>}
 
-        <div className="space-y-4">
+        <div className={showShared ? 'space-y-4' : 'space-y-4 lg:col-span-3 lg:grid lg:grid-cols-3 lg:gap-4 lg:space-y-0'}>
           <div className="grid grid-cols-2 gap-4">
             <Link href="/substitutions"
               className="block bg-white rounded-2xl border border-slate-200 shadow-sm px-4 py-4 hover:shadow-md hover:-translate-y-0.5 transition">

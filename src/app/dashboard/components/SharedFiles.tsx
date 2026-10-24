@@ -46,11 +46,11 @@ const KIND: Record<string, { label: string; I: typeof File; cls: string }> = {
   material: { label: 'Материал', I: BookOpen, cls: 'text-violet-600 bg-violet-50' },
 }
 
-async function loadPosts(): Promise<PostRow[]> {
+async function loadPosts(siteOnly = false): Promise<PostRow[]> {
   const supabase = createClient()
   const cols = 'id, title, kind, author_id, created_at, site_status, cover_path'
   const [{ data: recent }, { data: queue }] = await Promise.all([
-    supabase.from('portfolio_posts').select(cols).eq('is_shared', true).order('created_at', { ascending: false }).limit(6),
+    siteOnly ? Promise.resolve({ data: [] as any[] }) : supabase.from('portfolio_posts').select(cols).eq('is_shared', true).order('created_at', { ascending: false }).limit(6),
     supabase.from('portfolio_posts').select(cols).eq('is_shared', true).eq('site_status', 'requested').order('site_requested_at', { ascending: true }).limit(6),
   ])
   const all = [...(queue || []), ...(recent || [])].filter((p: any, i, a) => a.findIndex((x: any) => x.id === p.id) === i)
@@ -80,7 +80,8 @@ async function loadPosts(): Promise<PostRow[]> {
   }))
 }
 
-export default function SharedFiles({ bare = false, limit = 5, portfolio = false }: { bare?: boolean; limit?: number; portfolio?: boolean } = {}) {
+// portfolio: true — и последните публикации; 'site' — само чакащите за сайта (деловодството)
+export default function SharedFiles({ bare = false, limit = 5, portfolio = false }: { bare?: boolean; limit?: number; portfolio?: boolean | 'site' } = {}) {
   const [rows, setRows] = useState<Row[]>([])
   const [posts, setPosts] = useState<PostRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -91,7 +92,7 @@ export default function SharedFiles({ bare = false, limit = 5, portfolio = false
       // споделените лични документи на колегите — от Drive
       const [r, p] = await Promise.all([
         listSharedStaffDocs().catch(() => ({ files: [] as any[] })),
-        portfolio ? loadPosts().catch(() => [] as PostRow[]) : Promise.resolve([] as PostRow[]),
+        portfolio ? loadPosts(portfolio === 'site').catch(() => [] as PostRow[]) : Promise.resolve([] as PostRow[]),
       ])
       setPosts(p)
       setRows(((r as any).files || []).slice(0, limit).map((f: any) => ({
@@ -123,7 +124,7 @@ export default function SharedFiles({ bare = false, limit = 5, portfolio = false
           <Share2 size={14} className="text-[#0f2240]" />
           <h2 className="text-[11px] font-semibold text-[#0f2240] uppercase tracking-widest flex-1">Споделено от колеги</h2>
           {fresh > 0 && <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">{fresh} нови</span>}
-          <Link href={portfolio ? '/portfolio' : '/portfolio?tab=files'} className="text-xs text-slate-500 hover:text-[#0f2240] inline-flex items-center gap-1">Всички <ArrowRight size={13} /></Link>
+          <Link href={portfolio === 'site' ? '/portfolio?tab=site' : portfolio ? '/portfolio' : '/portfolio?tab=files'} className="text-xs text-slate-500 hover:text-[#0f2240] inline-flex items-center gap-1">Всички <ArrowRight size={13} /></Link>
         </div>
         <div className="p-1.5">
           {loading ? (

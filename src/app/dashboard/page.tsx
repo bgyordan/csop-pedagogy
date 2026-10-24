@@ -28,6 +28,8 @@ import SchoolFilesCardClient from './components/SchoolFilesCardClient'
 import FacilitiesStrip from './components/FacilitiesStrip'
 import OnlineRoomStrip from './components/OnlineRoomStrip'
 import ClassRoomStrip from './components/ClassRoomStrip'
+import DashboardCustomize from './DashboardCustomize'
+import { dashCookie, hiddenWidgets, widgetsFor } from '@/lib/dashboard-prefs'
 export const dynamic = 'force-dynamic'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -86,6 +88,11 @@ export default async function DashboardPage() {
   const therapyRole = !isSpecialist && ['psychologist', 'speech_therapist', 'rehabilitator'].includes(profile.therapy_role || '') ? profile.therapy_role as string : null
   const roleLabel = profile.position || ROLE_LABELS[profile.role] || profile.role
   const isCoordinator = profile.is_coordinator
+  // „Подреди таблото“ — кои карти е скрил човекът (или по подразбиране за ролята)
+  const dashKey = dashCookie(profile.id)
+  const cookieStore = await cookies()
+  const hidden = hiddenWidgets(profile.role, cookieStore.get(dashKey)?.value != null ? decodeURIComponent(cookieStore.get(dashKey)!.value) : null)
+  const show = (k: string) => !hidden.has(k)
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 animate-in fade-in duration-700 space-y-6">
@@ -108,6 +115,7 @@ export default async function DashboardPage() {
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <SessionTimerBadge />
               {real?.role === 'admin' && !viewing && <ViewAsPicker people={people} />}
+              {!viewing && <DashboardCustomize cookieName={dashKey} widgets={widgetsFor(profile.role)} hidden={Array.from(hidden)} />}
             </div>
           </div>
           <div className="flex-shrink-0 text-right">
@@ -131,44 +139,44 @@ export default async function DashboardPage() {
       </div>
 
       {/* Спонтанен неучебен ден — днес или в следващите дни */}
-      <NonSchoolDayStrip />
+      {show('nonschool') && <NonSchoolDayStrip />}
 
 
       {/* Кратките ленти — по две на ред, за да не са дълги през целия екран */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 empty:hidden">
         {/* Посещение на час — избор на ден (учителите в отворена проверка) */}
-        {!viewing && <VisitStrip profile={profile} />}
+        {!viewing && show('visit') && <VisitStrip profile={profile} />}
 
         {/* Контролна дейност — протокол за запознаване / черновите изтичат */}
-        {!viewing && <ControlStrip profile={profile} />}
+        {!viewing && show('control') && <ControlStrip profile={profile} />}
 
         {/* Дежурни тази седмица */}
-        {!viewing && <DutyStrip staffId={profile.id} />}
+        {!viewing && show('duty') && <DutyStrip staffId={profile.id} />}
 
         {/* За съгласуване — материали за предстоящ съвет, с които още не съм се запознал */}
-        {!viewing && <CouncilStrip staffId={profile.id} />}
+        {!viewing && show('council') && <CouncilStrip staffId={profile.id} />}
 
         {/* Материална база — нови сигнали (управа/деловодство) или отговори по моите сигнали */}
-        {!viewing && <FacilitiesStrip profile={profile} />}
+        {!viewing && show('facilities') && <FacilitiesStrip profile={profile} />}
 
         {/* Онлайн стаи — децата на ОРЕС, с които работя */}
-        <OnlineRoomStrip profile={profile} currentYearId={currentYear.id} />
+        {show('ores') && <OnlineRoomStrip profile={profile} currentYearId={currentYear.id} />}
 
         {/* Онлайн стаи на паралелките (грипна ваканция) — отворените стаи и въпросите от родители */}
-        <ClassRoomStrip profile={profile} currentYearId={currentYear.id} />
+        {show('classroom') && <ClassRoomStrip profile={profile} currentYearId={currentYear.id} />}
 
         {/* Отсъстващи деца — класният отразява, терапевтите и учителите на детето виждат */}
-        {!isSecretary && profile.role !== 'support' && <StudentAbsentStrip profile={profile} currentYearId={currentYear.id} />}
+        {!isSecretary && profile.role !== 'support' && show('absent') && <StudentAbsentStrip profile={profile} currentYearId={currentYear.id} />}
 
         {/* Днес отсъстват — за всички колеги (управата го има в оперативния панел) */}
-        {!isAdmin && !isDirector && <TodayAbsentStrip />}
+        {!isAdmin && !isDirector && show('todayAbsent') && <TodayAbsentStrip />}
 
       </div>
 
       {/* Календар — моята седмица (по-компактен); до него за класните — учебните планове от училищата */}
-      {(!viewing || schoolGroups) && (
-        <div className={!viewing && schoolGroups ? 'grid grid-cols-1 lg:grid-cols-3 gap-4 items-start' : ''}>
-          {!viewing && (
+      {((!viewing && show('calendar')) || schoolGroups) && (
+        <div className={!viewing && show('calendar') && schoolGroups ? 'grid grid-cols-1 lg:grid-cols-3 gap-4 items-start' : ''}>
+          {!viewing && show('calendar') && (
             <div className={schoolGroups ? 'lg:col-span-2 min-w-0' : ''}>
               <CalendarWidget compact={!!schoolGroups} me={{ id: profile.id, role: profile.role, isCoordinator: profile.is_coordinator === true }} />
             </div>
@@ -184,7 +192,7 @@ export default async function DashboardPage() {
         {isSpecialist && <SpecialistDashboard profile={profile} currentYearId={currentYear.id} />}
         {(profile.role === 'class_teacher' || profile.role === 'teacher') && <ClassTeacherDashboard profile={profile} currentYearId={currentYear.id} />}
         {profile.role === 'educator' && <EducatorDashboard profile={profile} currentYearId={currentYear.id} />}
-        {isSecretary && <SecretaryDashboard profile={profile} />}
+        {isSecretary && <SecretaryDashboard profile={profile} showShared={show('shared')} />}
         {therapyRole && (
           <div className="mt-6">
             <div className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-3">Като {String(ROLE_LABELS[therapyRole as keyof typeof ROLE_LABELS] || therapyRole).toLowerCase()}</div>
