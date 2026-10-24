@@ -58,17 +58,17 @@ function getInitials(firstName: string, lastName: string): string {
 }
 
 // Досие — подредено като „Моят профил“: карта с детето отгоре, под нея пет раздела по смисъл.
-//   Обзор (какво чака, бърз достъп) · Документи (Drive, срокове, външни) · Данни и семейство ·
+//   Документи (по подразбиране: Drive, срокове, външни) · Обзор (какво чака, бърз достъп) · Данни и семейство ·
 //   Обучение и екип (обучение, екип, онлайн стая) · Развитие и подкрепа (развитие, паспорт, PECS, РЕМЕЛКА, АБА, случаи)
 // Адресите ?tab=… остават същите (вкл. старите eplr/therapy/files), за да работят връзките отвсякъде.
-const TABS = ['overview', 'docs', 'data', 'study', 'team', 'room', 'dev', 'passport', 'pecs', 'remelka', 'aba', 'cases'] as const
+const TABS = ['docs', 'overview', 'data', 'study', 'team', 'room', 'dev', 'passport', 'pecs', 'remelka', 'aba', 'cases'] as const
 type Tab = typeof TABS[number]
 const LEGACY_TAB: Record<string, Tab> = { eplr: 'team', therapy: 'team', files: 'docs' }
 
 export default async function StudentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; view?: string }> }) {
   const { id } = await params
   const sp = await searchParams
-  const askedTab: Tab = (TABS as readonly string[]).includes(sp.tab || '') ? (sp.tab as Tab) : (LEGACY_TAB[sp.tab || ''] || 'overview')
+  const askedTab: Tab = (TABS as readonly string[]).includes(sp.tab || '') ? (sp.tab as Tab) : (LEGACY_TAB[sp.tab || ''] || 'docs')
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
@@ -251,7 +251,7 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
   }
   if (activeOres) alerts.push({ level: 'info', icon: Sparkles, tab: !['secretary', 'support'].includes(profile?.role || '') ? 'room' : 'study', text: `ОРЕС от ${formatDate(activeOres.from_date)}${activeOres.to_date ? ` до ${formatDate(activeOres.to_date)}` : ''}` })
 
-  const tabHref = (t: Tab) => t === 'overview' ? `/students/${id}` : `/students/${id}?tab=${t}`
+  const tabHref = (t: Tab) => t === 'docs' ? `/students/${id}` : `/students/${id}?tab=${t}`
 
   const cardCls = "bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm h-full"
   const cardHead = "flex items-center gap-2 mb-3 pb-2.5 border-b border-slate-100"
@@ -278,8 +278,8 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
   // ── Раздели (горе) и подраздели (под тях) ──
   type Sub = { key: Tab; label: string; icon: any }
   const SECTIONS: { key: string; label: string; icon: any; subs: Sub[] }[] = [
-    { key: 'overview', label: 'Обзор', icon: LayoutGrid, subs: [{ key: 'overview', label: 'Обзор', icon: LayoutGrid }] },
     { key: 'docs', label: 'Документи', icon: FolderOpen, subs: [{ key: 'docs', label: 'Документи', icon: FolderOpen }] },
+    { key: 'overview', label: 'Обзор', icon: LayoutGrid, subs: [{ key: 'overview', label: 'Обзор', icon: LayoutGrid }] },
     { key: 'data', label: 'Данни и семейство', icon: Heart, subs: [{ key: 'data', label: 'Данни и семейство', icon: Heart }] },
     { key: 'study', label: 'Обучение и екип', icon: GraduationCap, subs: [
       { key: 'study', label: 'Обучение', icon: GraduationCap },
@@ -296,11 +296,11 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
     ] }] : []),
   ]
   // таб, който не е за тази роля (напр. „Развитие“ за деловодител) → Обзор
-  const tab: Tab = SECTIONS.some(s => s.subs.some(x => x.key === askedTab)) ? askedTab : 'overview'
+  const tab: Tab = SECTIONS.some(s => s.subs.some(x => x.key === askedTab)) ? askedTab : 'docs'
   const section = SECTIONS.find(s => s.subs.some(x => x.key === tab))!
 
   const menuItem = 'flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-700 hover:bg-slate-50'
-  const metaSep = <span className="text-white/30">·</span>
+  const metaSep = <span className="text-slate-300">·</span>
   // Екип: терапевтите (кой реално работи с детето) и ЕПЛР екипът за годината — по специалност, едно до друго
   const st = student as any
   const nm = (m: any) => m ? getFullName(m) : ''
@@ -370,32 +370,32 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
       </div>
 
       {/* КАРТА С ДЕТЕТО — най-важното с един поглед (като „Моят профил“) */}
-      <header className="relative rounded-3xl bg-gradient-to-br from-[#0f2240] via-[#1a3660] to-[#2b5a8f] text-white p-5 md:p-6">
+      <header className="relative rounded-3xl border border-slate-200 bg-gradient-to-br from-sky-50 via-white to-indigo-50/60 text-slate-800 shadow-sm p-5 md:p-6">
         <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
-          <div className="absolute -right-16 -top-20 w-72 h-72 rounded-full bg-white/[0.06]" />
-          <div className="absolute right-24 -bottom-24 w-56 h-56 rounded-full bg-white/[0.04]" />
+          <div className="absolute -right-16 -top-20 w-72 h-72 rounded-full bg-sky-100/40" />
+          <div className="absolute right-24 -bottom-24 w-56 h-56 rounded-full bg-indigo-100/30" />
         </div>
         <div className="relative flex flex-wrap items-start gap-4 md:gap-5">
-          <div className="w-16 h-16 md:w-20 md:h-20 rounded-3xl bg-white/10 ring-4 ring-white/10 flex items-center justify-center text-xl md:text-2xl font-semibold tracking-wide shrink-0">
+          <div className="w-16 h-16 md:w-20 md:h-20 rounded-3xl bg-sky-100 text-[#1a3660] ring-4 ring-white flex items-center justify-center text-xl md:text-2xl font-semibold tracking-wide shrink-0">
             {getInitials(student.first_name, student.last_name)}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[11.5px] uppercase tracking-[0.12em] text-white/55">Досие на ученика{currentYearName ? ` · ${currentYearName}` : ''}</div>
+            <div className="text-[11.5px] uppercase tracking-[0.12em] text-slate-400">Досие на ученика{currentYearName ? ` · ${currentYearName}` : ''}</div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl md:text-[26px] font-semibold leading-tight">{getFullName(student)}</h1>
-              {student.status !== 'active' && <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/15 text-white uppercase tracking-wider">Архивиран</span>}
-              {(student as any).is_new && <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-300/90 text-[#0f2240] font-medium"><Sparkles size={11} /> нов</span>}
+              <h1 className="text-xl md:text-[26px] font-semibold leading-tight text-[#0f2240]">{getFullName(student)}</h1>
+              {student.status !== 'active' && <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 uppercase tracking-wider">Архивиран</span>}
+              {(student as any).is_new && <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200"><Sparkles size={11} /> нов</span>}
               {(enrollment?.class as any)?.outreach_location && <OutreachBadge location={(enrollment?.class as any).outreach_location} />}
             </div>
-            <div className="flex items-center gap-x-2 gap-y-0.5 flex-wrap text-[13px] text-white/75 mt-1">
+            <div className="flex items-center gap-x-2 gap-y-0.5 flex-wrap text-[13px] text-slate-600 mt-1">
               {age && <span>{age}</span>}
               {age && metaSep}
               <span>
                 {enrollment?.class_id && className
-                  ? <Link href={`/classes/${enrollment.class_id}`} className="hover:text-white hover:underline">паралелка {className}</Link>
+                  ? <Link href={`/classes/${enrollment.class_id}`} className="hover:text-[#0f2240] hover:underline">паралелка {className}</Link>
                   : (className ? `паралелка ${className}` : 'без паралелка')}
-                {classTeachers.length > 0 && <span className="text-white/60"> (класен {classTeachers.map((t: any, i: number) => (
-                  <span key={t.id}>{i > 0 && ', '}<Link href={`/staff/${t.id}`} className="hover:text-white hover:underline">{t.first_name} {t.last_name}</Link></span>
+                {classTeachers.length > 0 && <span className="text-slate-500"> (класен {classTeachers.map((t: any, i: number) => (
+                  <span key={t.id}>{i > 0 && ', '}<Link href={`/staff/${t.id}`} className="hover:text-[#0f2240] hover:underline">{t.first_name} {t.last_name}</Link></span>
                 ))})</span>}
               </span>
             </div>
@@ -408,8 +408,8 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
                 { show: !!student.is_traveling, label: 'пътуващ', icon: Bus },
                 { show: !!activeOres, label: 'ОРЕС', icon: Wifi },
               ].filter(b => b.show).map(b => (
-                <span key={b.label} className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-white/90 max-w-full">
-                  <b.icon size={12} className="shrink-0 text-white/60" /><span className="truncate max-w-[280px]">{b.label}</span>
+                <span key={b.label} className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-700 max-w-full">
+                  <b.icon size={12} className="shrink-0 text-slate-400" /><span className="truncate max-w-[280px]">{b.label}</span>
                 </span>
               ))}
             </div>
@@ -418,9 +418,9 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
               <div className="flex items-center gap-x-4 gap-y-1 flex-wrap text-[13px] mt-2.5">
                 {(guardians || []).filter((g: any) => g.phone || g.email).map((g: any) => (
                   <span key={g.id} className="inline-flex items-center gap-1.5">
-                    <span className="text-white/55">{g.relation ? g.relation.charAt(0).toUpperCase() + g.relation.slice(1) : 'Родител'}:</span>
-                    {g.phone && <a href={`tel:${String(g.phone).replace(/\s/g, '')}`} className="inline-flex items-center gap-1 text-white font-medium tabular-nums hover:underline"><Phone size={12} />{g.phone}</a>}
-                    {g.email && <a href={`mailto:${g.email}`} title={g.email} className="inline-flex items-center gap-1 text-sky-200 hover:underline"><Mail size={12} /><span className="hidden md:inline">{g.email}</span></a>}
+                    <span className="text-slate-500">{g.relation ? g.relation.charAt(0).toUpperCase() + g.relation.slice(1) : 'Родител'}:</span>
+                    {g.phone && <a href={`tel:${String(g.phone).replace(/\s/g, '')}`} className="inline-flex items-center gap-1 text-[#0f2240] font-medium tabular-nums hover:underline"><Phone size={12} />{g.phone}</a>}
+                    {g.email && <a href={`mailto:${g.email}`} title={g.email} className="inline-flex items-center gap-1 text-sky-700 hover:underline"><Mail size={12} /><span className="hidden md:inline">{g.email}</span></a>}
                   </span>
                 ))}
               </div>
@@ -431,11 +431,11 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
           {(canManage || canEditDossier || canEditTeam) && student.status === 'active' && (
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {canEditDossier && (
-                <Link href={tabHref('data')} scroll={false} className="inline-flex items-center gap-1.5 text-xs font-medium text-white border border-white/25 bg-white/10 px-3 py-2 rounded-xl hover:bg-white/20 transition-colors">
+                <Link href={tabHref('data')} scroll={false} className="inline-flex items-center gap-1.5 text-xs font-medium text-[#0f2240] border border-slate-300 bg-white px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors">
                   <Pencil size={13} /> <span className="hidden sm:inline">Данни</span>
                 </Link>
               )}
-              {(canManage || canEditTeam || educationForm === 'ifo' || (student as any).is_new || hasSurvey) && <MoreMenu dark>
+              {(canManage || canEditTeam || educationForm === 'ifo' || (student as any).is_new || hasSurvey) && <MoreMenu>
                   {canEditTeam && <Link href={`/students/${id}/eplr`} className={menuItem}><UserCog size={14} /> ЕПЛР екип</Link>}
                   {educationForm === 'ifo' && <Link href={`/students/${id}/schedule`} className={menuItem}><CalendarClock size={14} /> Седмично разписание</Link>}
                   {((student as any).is_new || hasSurvey) && <Link href={`/students/${id}/survey`} className={menuItem}><ClipboardList size={14} /> Анкета</Link>}
@@ -451,14 +451,14 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
 
         {/* алергия / изтекъл документ — видимо от всеки раздел; останалото е в „Какво чака“ */}
         {(redAlerts.length > 0 || (tab !== 'overview' && tasks.length > redAlerts.length)) && (
-          <div className="relative flex items-center gap-1.5 flex-wrap mt-4 pt-3 border-t border-white/10">
+          <div className="relative flex items-center gap-1.5 flex-wrap mt-4 pt-3 border-t border-slate-200/70">
             {redAlerts.map((a, i) => (
               <Link key={i} href={a.tab ? tabHref(a.tab) : '#'} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100 max-w-full">
                 <a.icon size={13} className="flex-shrink-0" /> <span className="truncate">{a.text}</span>
               </Link>
             ))}
             {tab !== 'overview' && tasks.length > redAlerts.length && (
-              <Link href={tabHref('overview')} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-white/10 border border-white/15 text-white/90 hover:bg-white/20">
+              <Link href={tabHref('overview')} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100">
                 <ListTodo size={13} /> още {tasks.length - redAlerts.length} за внимание <ChevronRight size={12} />
               </Link>
             )}
@@ -474,14 +474,14 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
               const on = s.key === section.key
               return (
                 <Link key={s.key} href={tabHref(s.subs[0].key)} scroll={false} aria-current={on ? 'page' : undefined}
-                  className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] transition-colors ${on ? 'bg-[#0f2240] text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-[#0f2240]'}`}>
+                  className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] transition-colors ${on ? 'bg-sky-50 text-[#0f2240] ring-1 ring-sky-200 font-medium' : 'text-slate-600 hover:bg-slate-100 hover:text-[#0f2240]'}`}>
                   <s.icon size={14} /> {s.label}
-                  {s.key === 'overview' && tasks.length > 0 && <span className={`text-[11px] px-1.5 rounded-full ${on ? 'bg-white/20' : 'bg-rose-100 text-rose-700'}`}>{tasks.length}</span>}
+                  {s.key === 'overview' && tasks.length > 0 && <span className={`text-[11px] px-1.5 rounded-full bg-rose-100 text-rose-700`}>{tasks.length}</span>}
                 </Link>
               )
             })}
           </nav>
-          <StudentNav kids={navKids} currentId={id} label={navLabel} tab={tab !== 'overview' ? tab : undefined} />
+          <StudentNav kids={navKids} currentId={id} label={navLabel} tab={tab !== 'docs' ? tab : undefined} />
         </div>
         {section.subs.length > 1 && (
           <div className="flex gap-1 overflow-x-auto mt-2">
