@@ -5,10 +5,10 @@ import type { StaffStudent } from '@/lib/staff-students'
 
 // Общите парчета на „Моят профил“ (сървърни, без състояние).
 
-export function Hero({ name, initials, photo, subtitle, badges, email, phone, aside }: {
+export function Hero({ name, initials, photo, subtitle, badges, email, phone, aside, kicker = 'Моят профил', actions }: {
   name: string; initials: string; photo?: string | null; subtitle: string
   badges: { label: string; tone?: 'light' | 'accent' }[]; email?: string | null; phone?: string | null
-  aside?: React.ReactNode
+  aside?: React.ReactNode; kicker?: string; actions?: React.ReactNode
 }) {
   return (
     <header className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0f2240] via-[#1a3660] to-[#2b5a8f] text-white p-6 md:p-7">
@@ -20,7 +20,7 @@ export function Hero({ name, initials, photo, subtitle, badges, email, phone, as
           ? <img src={photo} alt="" className="w-20 h-20 rounded-3xl object-cover ring-4 ring-white/15 shrink-0" />
           : <div className="w-20 h-20 rounded-3xl bg-white/10 ring-4 ring-white/10 flex items-center justify-center text-2xl font-semibold tracking-wide shrink-0">{initials}</div>}
         <div className="min-w-0 flex-1">
-          <div className="text-[11.5px] uppercase tracking-[0.12em] text-white/55">Моят профил</div>
+          <div className="text-[11.5px] uppercase tracking-[0.12em] text-white/55">{kicker}</div>
           <h1 className="text-2xl md:text-[26px] font-semibold leading-tight">{name}</h1>
           <div className="text-sm text-white/75 mt-0.5">{subtitle}</div>
           <div className="flex flex-wrap gap-1.5 mt-3">
@@ -30,10 +30,11 @@ export function Hero({ name, initials, photo, subtitle, badges, email, phone, as
           </div>
           {(email || phone) && (
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[12.5px] text-white/70">
-              {email && <span className="inline-flex items-center gap-1.5"><Mail size={13} />{email}</span>}
-              {phone && <span className="inline-flex items-center gap-1.5"><Phone size={13} />{phone}</span>}
+              {email && <a href={`mailto:${email}`} className="inline-flex items-center gap-1.5 hover:text-white hover:underline"><Mail size={13} />{email}</a>}
+              {phone && <a href={`tel:${String(phone).replace(/\s/g, '')}`} className="inline-flex items-center gap-1.5 hover:text-white hover:underline"><Phone size={13} />{phone}</a>}
             </div>
           )}
+          {actions && <div className="flex flex-wrap gap-2 mt-4">{actions}</div>}
         </div>
         {aside && <div className="w-full md:w-auto">{aside}</div>}
       </div>

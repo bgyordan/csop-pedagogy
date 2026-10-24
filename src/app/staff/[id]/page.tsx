@@ -1,189 +1,95 @@
+// Профил на служител — същият изглед като „Моят профил“ (карта отгоре, Обзор · Данни · Класове и ученици · Оценяване · Портфолио).
+// Управата вижда всичко и определя класния; колегите виждат само визитката (роля, контакти, паралелки).
+// Ако отварям себе си → „Моят профил“.
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Users, BookOpen, ChevronRight, Mail, CalendarClock } from 'lucide-react'
-import { ROLE_LABELS } from '@/types'
+import { ArrowLeft, Pencil, CalendarClock, BookOpen, Mail, Phone, Users } from 'lucide-react'
+import { ROLE_LABELS, type UserRole } from '@/types'
 import { getFullName } from '@/lib/utils'
+import StaffProfileView from '@/components/profile/StaffProfileView'
+import { Hero, Card, Row } from '@/app/profile/parts'
 import StaffClassesSection from './StaffClassesSection'
-import StaffControlSection from './StaffControlSection'
-import StaffEvalSection from './StaffEvalSection'
-import StaffPortfolioSection from './StaffPortfolioSection'
-import { loadStaffStudents } from '@/lib/staff-students'
-import CurriculumPlan from '@/components/curriculum/CurriculumPlan'
-import { loadCurriculum, scheduleHoursByClass, TEACHER_NORM } from '@/lib/curriculum'
 export const dynamic = 'force-dynamic'
+
+const MGMT = ['admin', 'zdud', 'director']
 const CAN_BE_CLASS_TEACHER = ['class_teacher', 'psychologist', 'speech_therapist', 'rehabilitator', 'educator']
-const THERAPIST_ROLES = ['psychologist', 'speech_therapist', 'rehabilitator']
-const NO_SCHEDULE_ROLES = ['secretary', 'admin', 'director']
-export default async function StaffDetailPage({ params }: { params: Promise<{ id: string }> }) {
+const THER = ['psychologist', 'speech_therapist', 'rehabilitator']
+
+export default async function StaffDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const { id } = await params
+  const sp = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
-  const { data: profile } = await supabase
-    .from('staff_profiles').select('role').eq('user_id', user.id).single()
-  if (!['admin', 'zdud', 'director'].includes(profile?.role || '')) redirect('/dashboard')
-  const { data: staff } = await supabase
-    .from('staff_profiles').select('*').eq('id', id).single()
+  const { data: viewer } = await supabase.from('staff_profiles').select('id, role').eq('user_id', user.id).single()
+  if (viewer?.id === id) redirect(sp.tab ? `/profile?tab=${sp.tab}` : '/profile')
+  const { data: staff } = await supabase.from('staff_profiles').select('*').eq('id', id).single()
   if (!staff) notFound()
-  const { data: currentYear } = await supabase
-    .from('academic_years').select('*').eq('is_current', true).single()
-  // Учениците: като класен, по ЕПЛР и в ЦОУД (общото с „Моят профил“)
-  const st = await loadStaffStudents(supabase, id, staff.role, currentYear?.id, (staff as any).therapy_role)
-  const eplrStudents = st.eplrStudents
-  // Всички паралелки за избор (без тези които вече имат класен)
-  const { data: allClasses } = await supabase
-    .from('classes').select('id, name')
-    .eq('academic_year_id', currentYear?.id)
-    .order('name')
-  const { data: takenAssignments } = await supabase
-    .from('class_teacher_assignments')
-    .select('class_id, staff_id, staff:staff_profiles(first_name, middle_name, last_name)')
-    .eq('academic_year_id', currentYear?.id)
-  // Всички паралелки; заетите носят името на текущия класен
-  const takenMap: Record<string, string> = {}
-  ;(takenAssignments || []).forEach((a: any) => {
-    if (a.staff_id === id) return
-    takenMap[a.class_id] = a.staff ? getFullName(a.staff) : 'зает'
-  })
-  const classOptions = (allClasses || []).map((c: any) => ({
-    id: c.id,
-    name: c.name,
-    takenBy: takenMap[c.id] || null,
-  }))
-  const assignedClasses = st.classes
-  const canManageAssignments = ['admin', 'zdud'].includes(profile?.role || '')
-  const classStudents = st.classStudents.map(e => ({ student: e.student, class: { name: e.className } }))
-  const coudGroups = st.coudGroups
-  const coudStudents = st.coudStudents
-  const sortByName = (a: any, b: any) => getFullName(a).localeCompare(getFullName(b), 'bg')
-  // Разписание — линк според ролята (без администрация/деловодство)
-  const hasSchedule = !NO_SCHEDULE_ROLES.includes(staff.role)
-  const scheduleHref = THERAPIST_ROLES.includes(staff.role)
-    ? `/my-activities/schedule?staff=${id}`
-    : `/my-schedule?staff=${id}`
-  // Учебен план от НЕИСПУО — за учителите (и за всеки, който има редове в плана)
-  const isTeacher = !!TEACHER_NORM[staff.role]
-  const plan = await loadCurriculum(supabase, currentYear?.id, { staffId: id })
-  const planSchedule = isTeacher && plan.lines.length ? await scheduleHoursByClass(supabase, currentYear?.id, id) : undefined
-  const { data: lp } = await supabase.from('lecturer_plans').select('*').eq('staff_id', id).eq('academic_year_id', currentYear?.id).maybeSingle()
-  return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto">
-      <Link href="/staff" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6 transition-colors">
-        <ArrowLeft size={15} /> Назад към служителите
-      </Link>
-      {/* Хедър */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-xl font-bold flex-shrink-0"
-              style={{ backgroundColor: '#0f2240' }}>
-              {staff.first_name?.charAt(0)}{staff.last_name?.charAt(0)}
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-800">{getFullName(staff)}</h1>
-              <div className="flex flex-wrap items-center gap-3 mt-1.5 text-sm text-slate-500">
-                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-                  {ROLE_LABELS[staff.role as keyof typeof ROLE_LABELS] || staff.role}
-                </span>
-                {staff.position && <span className="text-xs">{staff.position}</span>}
-                <span className="flex items-center gap-1 text-xs"><Mail size={12} />{staff.email}</span>
-              </div>
-            </div>
-          </div>
-          {hasSchedule && (
-            <Link href={scheduleHref}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-white flex-shrink-0 transition-opacity hover:opacity-90"
-              style={{ backgroundColor: '#0f2240' }}>
-              <CalendarClock size={14} /> Разписание
-            </Link>
-          )}
-        </div>
+  const { data: year } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
+
+  const isMgmt = MGMT.includes(viewer?.role || '')
+  const roleLabel = ROLE_LABELS[staff.role as UserRole] || staff.role
+  const back = (
+    <Link href={isMgmt ? '/staff' : '/dashboard'} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800">
+      <ArrowLeft size={15} /> {isMgmt ? 'Служители' : 'Начало'}
+    </Link>
+  )
+
+  // Паралелки като класен (видимо за всички — „при кого е паралелката“)
+  const { data: myCls } = await supabase.from('class_teacher_assignments')
+    .select('id, class_id, class:classes(id, name)').eq('staff_id', id).eq('academic_year_id', year?.id)
+  const assigned = ((myCls || []) as any[]).filter(a => a.class).map(a => ({ assignmentId: a.id, classId: a.class.id, name: a.class.name }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'bg', { numeric: true }))
+
+  // ── Колега (не от управата): визитка ──
+  if (!isMgmt) {
+    return (
+      <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-5">
+        {back}
+        <Hero name={getFullName(staff)} initials={`${staff.first_name?.charAt(0) || ''}${staff.last_name?.charAt(0) || ''}`}
+          photo={(staff as any).photo_url} subtitle={staff.position || roleLabel} kicker="Служител"
+          badges={[{ label: roleLabel }, ...(staff.is_coordinator ? [{ label: 'Координатор', tone: 'accent' as const }] : []), ...assigned.map(c => ({ label: `Класен на ${c.name}` }))]}
+          email={staff.email} phone={(staff as any).phone} />
+        <Card title="Връзка" icon={<Users size={16} />}>
+          <dl>
+            <Row l="Длъжност" v={staff.position || roleLabel} />
+            <Row l="Служебен имейл" v={staff.email ? <a href={`mailto:${staff.email}`} className="text-sky-700 hover:underline inline-flex items-center gap-1"><Mail size={12} />{staff.email}</a> : null} />
+            <Row l="Телефон" v={(staff as any).phone ? <a href={`tel:${String((staff as any).phone).replace(/\s/g, '')}`} className="text-[#0f2240] hover:underline inline-flex items-center gap-1"><Phone size={12} />{(staff as any).phone}</a> : null} />
+            <Row l="Класен на" v={assigned.length ? <span className="flex flex-wrap gap-1.5">{assigned.map(c => <Link key={c.classId} href={`/classes/${c.classId}`} className="inline-flex items-center gap-1 text-[#0f2240] hover:underline"><BookOpen size={12} />{c.name}</Link>)}</span> : null} />
+          </dl>
+        </Card>
       </div>
-      {(isTeacher || plan.lines.length > 0) && (
-        <CurriculumPlan mode="teacher" lines={plan.lines} importedAt={plan.importedAt} norm={TEACHER_NORM[staff.role]} schedule={planSchedule} ichLect={Number((lp as any)?.ich_lecturer || 0)} />
-      )}
-      {(CAN_BE_CLASS_TEACHER.includes(staff.role) || assignedClasses.length > 0) && (
-        <StaffClassesSection
-          staffId={id}
-          academicYearId={currentYear?.id || ''}
-          assigned={assignedClasses}
-          options={classOptions}
-          canManage={canManageAssignments}
-        />
-      )}
-      {/* Паралелки като класен */}
-      {classStudents.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm mb-5">
-          <div className="flex items-center gap-2 px-5 py-3 bg-slate-50 border-b border-slate-100">
-            <BookOpen size={15} className="text-slate-500" />
-            <span className="text-sm font-medium text-slate-700">Класен ръководител</span>
-            <span className="ml-auto text-xs text-slate-400">{classStudents.length} ученика</span>
-          </div>
-          <div className="divide-y divide-slate-50">
-            {classStudents.sort((a, b) => sortByName(a.student, b.student)).map((e: any) => (
-              <Link key={e.student.id} href={`/students/${e.student.id}`}
-                className="flex items-center justify-between px-5 py-2.5 hover:bg-slate-50 transition-colors group">
-                <span className="text-sm text-slate-700">{getFullName(e.student)}</span>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-slate-400">{e.class?.name}</span>
-                  <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500" />
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-      {/* ЕПЛР ученици */}
-      {eplrStudents.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm mb-5">
-          <div className="flex items-center gap-2 px-5 py-3 bg-slate-50 border-b border-slate-100">
-            <Users size={15} className="text-slate-500" />
-            <span className="text-sm font-medium text-slate-700">
-              Ученици по ЕПЛР ({ROLE_LABELS[staff.role as keyof typeof ROLE_LABELS] || staff.role})
-            </span>
-            <span className="ml-auto text-xs text-slate-400">{eplrStudents.length} ученика</span>
-          </div>
-          <div className="divide-y divide-slate-50">
-            {eplrStudents.sort(sortByName).map((s: any) => (
-              <Link key={s.id} href={`/students/${s.id}`}
-                className="flex items-center justify-between px-5 py-2.5 hover:bg-slate-50 transition-colors group">
-                <span className="text-sm text-slate-700">{getFullName(s)}</span>
-                <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500" />
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-      {/* ЦОУД групи */}
-      {coudStudents.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm mb-5">
-          <div className="flex items-center gap-2 px-5 py-3 bg-slate-50 border-b border-slate-100">
-            <Users size={15} className="text-slate-500" />
-            <span className="text-sm font-medium text-slate-700">
-              ЦОУД {(coudGroups || []).map(g => g.name).join(', ')}
-            </span>
-            <span className="ml-auto text-xs text-slate-400">{coudStudents.length} ученика</span>
-          </div>
-          <div className="divide-y divide-slate-50">
-            {coudStudents.sort((a, b) => sortByName(a.student, b.student)).map((e: any) => (
-              <Link key={e.student.id} href={`/students/${e.student.id}`}
-                className="flex items-center justify-between px-5 py-2.5 hover:bg-slate-50 transition-colors group">
-                <span className="text-sm text-slate-700">{getFullName(e.student)}</span>
-                <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500" />
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-      {classStudents.length === 0 && eplrStudents.length === 0 && coudStudents.length === 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
-          <p className="text-slate-400 text-sm">Няма назначени ученици за {currentYear?.name}</p>
-        </div>
-      )}
-      <div className="mt-5"><StaffControlSection supabase={supabase} staffId={id} /></div>
-      <StaffEvalSection supabase={supabase} staffId={id} />
-      <StaffPortfolioSection supabase={supabase} staffId={id} year={currentYear} />
+    )
+  }
+
+  // ── Управата: пълният профил + определяне за класен + бутони ──
+  let workExtra: React.ReactNode = null
+  if (CAN_BE_CLASS_TEACHER.includes(staff.role) || assigned.length > 0) {
+    const [{ data: allClasses }, { data: taken }] = await Promise.all([
+      supabase.from('classes').select('id, name').eq('academic_year_id', year?.id).order('name'),
+      supabase.from('class_teacher_assignments').select('class_id, staff_id, staff:staff_profiles(first_name, middle_name, last_name)').eq('academic_year_id', year?.id),
+    ])
+    const takenMap: Record<string, string> = {}
+    ;((taken || []) as any[]).forEach(a => { if (a.staff_id !== id) takenMap[a.class_id] = a.staff ? getFullName(a.staff) : 'зает' })
+    workExtra = (
+      <StaffClassesSection staffId={id} academicYearId={year?.id || ''} assigned={assigned}
+        options={((allClasses || []) as any[]).map(c => ({ id: c.id, name: c.name, takenBy: takenMap[c.id] || null }))}
+        canManage={['admin', 'zdud'].includes(viewer?.role || '')} />
+    )
+  }
+  const btn = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] bg-white/10 border border-white/20 text-white hover:bg-white/20'
+  const hasSchedule = !['secretary', 'admin', 'director', 'support'].includes(staff.role)
+  const heroActions = (
+    <>
+      {hasSchedule && <Link href={`${THER.includes(staff.role) ? '/my-activities/schedule' : '/my-schedule'}?staff=${id}`} className={btn}><CalendarClock size={13} /> Разписание</Link>}
+      {viewer?.role === 'admin' && <Link href={`/admin/staff?edit=${id}`} className={btn}><Pencil size={13} /> Редактирай (акаунт, роля)</Link>}
+    </>
+  )
+  return (
+    <div className="p-4 md:p-8 max-w-6xl mx-auto">
+      <div className="mb-4">{back}</div>
+      <StaffProfileView supabase={supabase} me={staff} tab={sp.tab} self={false} workExtra={workExtra} heroActions={heroActions} />
     </div>
   )
 }

@@ -113,7 +113,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
               <p className="text-slate-500 text-sm">{students.length} ученика · {currentYear?.name}</p>
               {teachers.length > 0 && (
-                <p className="text-slate-500 text-sm">Класен: <strong className="text-slate-700">{teachers.join(', ')}</strong></p>
+                <p className="text-slate-500 text-sm">Класен: {teacherList.map((t, i) => <span key={t.id}>{i > 0 && ', '}<Link href={`/staff/${t.id}`} className="font-semibold text-slate-700 hover:text-[#0f2240] hover:underline">{t.name}</Link></span>)}</p>
               )}
             </div>
           </div>
