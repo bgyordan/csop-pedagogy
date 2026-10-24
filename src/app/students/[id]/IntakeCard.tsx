@@ -21,20 +21,20 @@ export default async function IntakeCard({ student, enrollment, guardiansCount, 
   type Step = { done: boolean; label: string; hint: string; href?: string; info?: boolean }
   const steps: Step[] = [
     { done: !inSluzhebna, label: 'Паралелка', hint: inSluzhebna ? 'още е в Служебна' : `паралелка ${className}`, href: canManage ? `/students/${id}/transfer` : undefined },
-    { done: !!enrollment?.education_form, label: 'Форма на обучение', hint: enrollment?.education_form === 'ifo' ? 'ИФО' : enrollment?.education_form ? 'дневна' : 'таб „Данни“' },
-    { done: guardiansCount > 0, label: 'Родител', hint: guardiansCount > 0 ? `${guardiansCount} въведен(и)` : 'таб „Данни“' },
-    { done: !!student.sending_school_id, label: 'Изпращащо училище', hint: student.sending_school?.name || 'таб „Данни“ → Лични данни', href: `/students/${id}?tab=data` },
+    { done: !!enrollment?.education_form, label: 'Форма на обучение', hint: enrollment?.education_form === 'ifo' ? 'ИФО' : enrollment?.education_form ? 'дневна' : '„Обучение и екип“', href: `/students/${id}?tab=study` },
+    { done: guardiansCount > 0, label: 'Родител', hint: guardiansCount > 0 ? `${guardiansCount} въведен(и)` : '„Данни и семейство“', href: `/students/${id}?tab=data` },
+    { done: !!student.sending_school_id, label: 'Изпращащо училище', hint: student.sending_school?.name || '„Данни и семейство“ → Лични данни', href: `/students/${id}?tab=data` },
     { done: hasTeam, label: 'ЕПЛР екип', hint: hasTeam ? 'определен' : 'не е определен', href: `/students/${id}/eplr` },
     { done: hasTherapist, label: 'Терапевти', hint: hasTherapist ? 'разпределено' : 'не е разпределено', href: canManage ? '/admin/therapists' : undefined },
     { done: survey?.status === 'completed', label: 'Анкета (оценка)', hint: survey?.status === 'completed' ? 'завършена' : survey?.status === 'in_progress' ? 'започната' : 'непопълнена', href: `/students/${id}/survey` },
-    { done: (docsCount || 0) > 0, label: 'ТЕЛК/ЛКК / документи', hint: (docsCount || 0) > 0 ? `${docsCount} въведени` : 'таб „Данни“' },
+    { done: (docsCount || 0) > 0, label: 'ТЕЛК/ЛКК / документи', hint: (docsCount || 0) > 0 ? `${docsCount} въведени` : '„Документи“ → със срок', href: `/students/${id}?tab=docs` },
     { done: true, info: true, label: 'ЦОУД', hint: coudEnrolled ? 'записан в група' : 'не е в ЦОУД (решава КЕ)' },
   ]
   const required = steps.filter(s => !s.info)
   const doneCount = required.filter(s => s.done).length
 
   return (
-    <div className="bg-white rounded-2xl border border-violet-200/70 shadow-sm p-5 mb-5">
+    <div className="bg-white rounded-2xl border border-violet-200/70 shadow-sm p-5">
       <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-slate-100">
         <Sparkles size={16} className="text-violet-500" />
         <h2 className="text-sm font-semibold text-slate-800">Прием на ново дете</h2>

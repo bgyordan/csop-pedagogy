@@ -72,7 +72,7 @@ export default async function ExpiringDocsCard({ studentIds, windowDays = 30 }: 
         {[shown.slice(0, Math.ceil(shown.length / 2)), shown.slice(Math.ceil(shown.length / 2))].map((col, ci) => (
           <div key={ci} className="divide-y divide-slate-50">
             {col.map(k => (
-              <Link key={k.id} href={`/students/${k.id}?tab=data`}
+              <Link key={k.id} href={`/students/${k.id}?tab=docs`}
                 className="flex items-center gap-2.5 px-4 py-1.5 hover:bg-slate-50 transition-colors">
                 <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${k.worst < 0 ? 'bg-rose-400' : 'bg-amber-400'}`} />
                 <span className="text-[13px] text-slate-800 truncate">{k.first} {k.last}</span>
