@@ -28,6 +28,7 @@ import SchoolFilesCardClient from './components/SchoolFilesCardClient'
 import FacilitiesStrip from './components/FacilitiesStrip'
 import OnlineRoomStrip from './components/OnlineRoomStrip'
 import ClassRoomStrip from './components/ClassRoomStrip'
+import { heroCookie, heroTheme } from './hero-themes'
 import DashboardCustomize from './DashboardCustomize'
 import { dashCookie, hiddenWidgets, widgetsFor } from '@/lib/dashboard-prefs'
 export const dynamic = 'force-dynamic'
@@ -93,46 +94,50 @@ export default async function DashboardPage() {
   const cookieStore = await cookies()
   const hidden = hiddenWidgets(profile.role, cookieStore.get(dashKey)?.value != null ? decodeURIComponent(cookieStore.get(dashKey)!.value) : null)
   const show = (k: string) => !hidden.has(k)
+  // цвят на хедъра — по избор на човека (по подразбиране синьо-зеленият преливащ)
+  const heroKey = heroCookie(profile.id)
+  const hero = heroTheme(cookieStore.get(heroKey)?.value)
+  const d = hero.dark
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 animate-in fade-in duration-700 space-y-6">
       {viewing && <ViewAsPicker people={[]} viewing={viewing} />}
 
-      {/* Хедър — светъл, със синкаво-зелен оттенък */}
-      <div className="bg-gradient-to-br from-teal-50 via-white to-cyan-50/70 border border-teal-100 text-slate-800 p-5 md:p-6 rounded-3xl shadow-sm relative">
+      {/* Хедър — преливащ цвят по избор (по подразбиране синьо-зелен) */}
+      <div className={`${hero.bg} ${d ? 'text-white' : 'text-slate-800'} p-6 md:p-8 rounded-3xl shadow-sm relative`}>
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-[#0f2240]">
+            <h1 className={`text-xl md:text-2xl font-semibold tracking-tight ${d ? '' : 'text-[#0f2240]'}`}>
               Добре дошли в Информационната система на ЦСОП-Варна!
             </h1>
-            <p className="text-sm text-slate-600 mt-1.5">
+            <p className={`text-sm mt-1.5 ${d ? 'text-white/90' : 'text-slate-600'}`}>
               Влязохте като <span className="font-semibold">{profile.first_name} {profile.last_name}</span>{' '}
               ({roleLabel}{isCoordinator ? ' & Координатор' : ''}).
             </p>
             {!viewing && prevLogin && (
-              <p className="text-xs text-slate-400 mt-1 font-light">Предишно влизане: {loginTime(prevLogin)}</p>
+              <p className={`text-xs mt-1 font-light ${d ? 'text-white/75' : 'text-slate-400'}`}>Предишно влизане: {loginTime(prevLogin)}</p>
             )}
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <SessionTimerBadge />
-              {real?.role === 'admin' && !viewing && <ViewAsPicker people={people} />}
-              {!viewing && <DashboardCustomize cookieName={dashKey} widgets={widgetsFor(profile.role)} hidden={Array.from(hidden)} />}
+              <SessionTimerBadge onDark={d} />
+              {real?.role === 'admin' && !viewing && <ViewAsPicker people={people} onDark={d} />}
+              {!viewing && <DashboardCustomize heroCookieName={heroKey} heroKey={hero.key} onDark={d} cookieName={dashKey} widgets={widgetsFor(profile.role)} hidden={Array.from(hidden)} />}
             </div>
           </div>
           <div className="flex-shrink-0 text-right">
-            <div className="text-[10px] font-semibold uppercase tracking-widest text-teal-700/70 mb-1">
+            <div className={`text-[10px] font-semibold uppercase tracking-widest mb-1 ${d ? 'text-white/80' : 'text-teal-700/70'}`}>
               {isSecretary ? 'Деловодство' : 'Учебна година'}
             </div>
-            <div className="text-base font-semibold text-teal-800 bg-white px-4 py-1.5 rounded-xl border border-teal-200">
+            <div className={`text-base font-semibold px-4 py-1.5 rounded-xl border ${d ? 'text-white bg-white/15 border-white/20' : 'text-teal-800 bg-white border-teal-200'}`}>
               {isSecretary ? 'ЦСОП Варна' : currentYear.name}
             </div>
-            <div className="text-sm text-slate-500 mt-1.5">
+            <div className={`text-sm mt-1.5 ${d ? 'text-white/90' : 'text-slate-500'}`}>
               {new Date().toLocaleDateString('bg-BG', { weekday: 'long', day: 'numeric', month: 'long' })}
             </div>
           </div>
         </div>
         {/* декорацията се реже тук, а не целият хедър — иначе падащото „Виж като…“ се скрива */}
         <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
-          <div className="absolute right-0 top-0 bottom-0 opacity-[0.07] text-teal-700 flex items-center pr-8">
+          <div className={`absolute right-0 top-0 bottom-0 ${d ? 'opacity-10' : 'opacity-[0.07] text-teal-700'} flex items-center pr-8`}>
             <Megaphone className="h-40 w-40 rotate-12" />
           </div>
         </div>

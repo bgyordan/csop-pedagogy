@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Clock } from 'lucide-react'
 
-export function SessionTimerBadge() {
+export function SessionTimerBadge({ onDark = false }: { onDark?: boolean }) {
   const [secondsLeft, setSecondsLeft] = useState(30 * 60)
 
   useEffect(() => {
@@ -36,7 +36,7 @@ export function SessionTimerBadge() {
     <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
       isWarning
         ? 'bg-rose-50 border border-rose-200 text-rose-700 animate-pulse'
-        : 'bg-white border border-slate-200 text-slate-500'
+        : (onDark ? 'bg-white/10 border border-white/10 text-white/80' : 'bg-white border border-slate-200 text-slate-500')
     }`}>
       <Clock size={12} />
       <span className="font-mono tabular-nums tracking-wider">

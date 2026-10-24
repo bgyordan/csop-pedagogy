@@ -8,7 +8,7 @@ type Person = { id: string; name: string; label: string; role?: string }
 
 // Избор „Виж като…“ (в хедъра на таблото, само за админ) + лента, когато гледаш като друг.
 // Два режима: „Само меню“ (безопасно, само сайдбар+табло) и „Влез като“ (истинска сесия на колегата).
-export default function ViewAsPicker({ people, viewing }: { people: Person[]; viewing?: Person | null }) {
+export default function ViewAsPicker({ people, viewing, onDark = false }: { people: Person[]; viewing?: Person | null; onDark?: boolean }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [mode, setMode] = useState<'view' | 'login'>('view')
@@ -47,7 +47,7 @@ export default function ViewAsPicker({ people, viewing }: { people: Person[]; vi
   return (
     <div className="relative inline-block">
       <button onClick={() => setOpen(o => !o)}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition">
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs transition ${onDark ? 'bg-white/15 border-white/25 text-white hover:bg-white/25' : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'}`}>
         <Eye size={13} /> Виж като…
       </button>
       {open && (
