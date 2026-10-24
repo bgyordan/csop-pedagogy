@@ -236,10 +236,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
    const [mobileOpen, setMobileOpen] = useState(false)
   // Акордеон: отворена е само една група наведнъж
   const [openKey, setOpenKey] = useState<string | null>(null)
-  // Колегите (учители, възпитатели, терапевти) имат малко редове — групите им са отворени по подразбиране,
-  // за да виждат какво могат със системата; всяка група може да се свие поотделно. Управата и деловодството — акордеон.
-  const allOpen = !['admin', 'zdud', 'director', 'secretary'].includes(userRole)
-  const [closed, setClosed] = useState<Set<string>>(new Set())
+  // Групите са свити за всички (акордеон): отворена е само тази на текущата страница, а на таблото — групата по подразбиране
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   // Свит сайдбар (само иконки) — помни се в браузъра
   const [mini, setMini] = useState(false)
@@ -358,15 +355,14 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   function NavGroup({ item }: { item: NavItem }) {
     const kids = item.children || []
     const hasActiveChild = kids.some(k => pathname === k.href || pathname.startsWith(k.href + '/'))
-    const open = (allOpen ? !closed.has(item.href) : openKey === item.href) && !isMini
+    const open = openKey === item.href && !isMini
     return (
       <div id={`nav-${item.href}`}>
         <button
           type="button"
           title={isMini ? item.label : undefined}
           onClick={() => {
-            if (isMini) { toggleMini(); setOpenKey(item.href); setClosed(c => { const n = new Set(c); n.delete(item.href); return n }) }
-            else if (allOpen) setClosed(c => { const n = new Set(c); n.has(item.href) ? n.delete(item.href) : n.add(item.href); return n })
+            if (isMini) { toggleMini(); setOpenKey(item.href) }
             else toggleKey(item.href)
           }}
           className={cn(itemCls(hasActiveChild && !open), 'w-full text-left')}
