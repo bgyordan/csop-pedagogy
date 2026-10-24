@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import OutreachBadge from '@/components/OutreachBadge'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Heart, CalendarClock, ClipboardList, Sparkles, FolderOpen, LayoutGrid, AlertTriangle, Phone, ChevronDown, ChevronRight, Bus, Utensils, Sprout, Mail, IdCard, MonitorSmartphone, MessagesSquare, Calculator, Target, ShieldAlert, Plus } from 'lucide-react'
+import { ArrowLeft, FileText, Users, ArrowRightLeft, Archive, UserCog, Pencil, School, Paperclip, History, Heart, CalendarClock, ClipboardList, Sparkles, FolderOpen, LayoutGrid, AlertTriangle, Phone, ChevronDown, ChevronRight, Bus, Utensils, Sprout, Mail, IdCard, MonitorSmartphone, MessagesSquare, Calculator, Target, ShieldAlert, Plus, ListTodo, CheckCircle2, ArrowRight } from 'lucide-react'
 import { formatDate, getFullName } from '@/lib/utils'
 import { DOCUMENT_TYPE_LABELS, DocumentType, STATUS_LABELS, DocumentStatus } from '@/types'
 import { AttachmentsSection } from './AttachmentsSection'
@@ -28,6 +28,7 @@ import StudentNav, { type NavKid } from './StudentNav'
 import StudentIncidents from './StudentIncidents'
 import StudentAbsencesCard from './StudentAbsencesCard'
 import FillEplrButton from './FillEplrButton'
+import { Card, Tile } from '@/app/profile/parts'
 import { isOresActive, todaySofia, ORES_ACTIVE_COLS } from '@/lib/ores'
 
 const ATTACHMENT_TYPE_LABELS: Record<string, string> = {
@@ -56,16 +57,18 @@ function getInitials(firstName: string, lastName: string): string {
   return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`
 }
 
-// Досие: Документи (Drive — по подразбиране, ползват го най-много) · Обзор · Паспорт · Данни (вкл. външните документи) · Екип · Развитие
-// (старите адреси ?tab=eplr/therapy/files водят към новите)
-const TABS = ['docs', 'overview', 'room', 'passport', 'pecs', 'remelka', 'aba', 'cases', 'data', 'team', 'dev'] as const
+// Досие — подредено като „Моят профил“: карта с детето отгоре, под нея пет раздела по смисъл.
+//   Обзор (какво чака, бърз достъп) · Документи (Drive, срокове, външни) · Данни и семейство ·
+//   Обучение и екип (обучение, екип, онлайн стая) · Развитие и подкрепа (развитие, паспорт, PECS, РЕМЕЛКА, АБА, случаи)
+// Адресите ?tab=… остават същите (вкл. старите eplr/therapy/files), за да работят връзките отвсякъде.
+const TABS = ['overview', 'docs', 'data', 'study', 'team', 'room', 'dev', 'passport', 'pecs', 'remelka', 'aba', 'cases'] as const
 type Tab = typeof TABS[number]
 const LEGACY_TAB: Record<string, Tab> = { eplr: 'team', therapy: 'team', files: 'docs' }
 
 export default async function StudentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; view?: string }> }) {
   const { id } = await params
   const sp = await searchParams
-  const tab: Tab = (TABS as readonly string[]).includes(sp.tab || '') ? (sp.tab as Tab) : (LEGACY_TAB[sp.tab || ''] || 'docs')
+  const askedTab: Tab = (TABS as readonly string[]).includes(sp.tab || '') ? (sp.tab as Tab) : (LEGACY_TAB[sp.tab || ''] || 'overview')
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
@@ -217,7 +220,7 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
     .from('student_documents').select('*').eq('student_id', id)
   const sDoc = Object.fromEntries((sDocs || []).map((d: any) => [d.doc_type, d])) as Record<string, any>
   const daysTo = (d?: string | null) => d ? Math.ceil((new Date(d).getTime() - Date.now()) / 864e5) : null
-  type Alert = { level: 'red' | 'amber' | 'info'; text: string; tab: Tab; icon: any }
+  type Alert = { level: 'red' | 'amber' | 'info'; text: string; tab: Tab | null; icon: any; href?: string }
   const alerts: Alert[] = []
   // алергии: известие само при „Има“ (или стар запис с текст); „Няма“ не тревожи
   {
@@ -225,13 +228,13 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
     const has = a && (a.allergy_status === 'has' || (!a.allergy_status && (a.note || '').trim()))
     if (has) {
       const what = [...(a.allergens || []), ...(!(a.allergens || []).length && a.note ? [a.note] : [])].join(', ')
-      alerts.push({ level: 'red', icon: Utensils, tab: 'data', text: `Алергия / специално хранене${what ? `: ${what}` : ''}${a.emergency_med ? ' · има лекарство за спешна помощ' : ''}` })
+      alerts.push({ level: 'red', icon: Utensils, tab: 'docs', text: `Алергия / специално хранене${what ? `: ${what}` : ''}${a.emergency_med ? ' · има лекарство за спешна помощ' : ''}` })
     }
   }
   for (const [k, lbl] of [['rcpppo', 'Заповед РЦПППО'], ['telk', 'ТЕЛК/ЛКК']] as const) {
     const d = daysTo(sDoc[k]?.valid_until)
-    if (d !== null && d < 0) alerts.push({ level: 'red', icon: AlertTriangle, tab: 'data', text: `${lbl} — изтекла на ${formatDate(sDoc[k].valid_until)}` })
-    else if (d !== null && d <= 30) alerts.push({ level: 'amber', icon: CalendarClock, tab: 'data', text: `${lbl} — изтича след ${d} дни` })
+    if (d !== null && d < 0) alerts.push({ level: 'red', icon: AlertTriangle, tab: 'docs', text: `${lbl} — изтекла на ${formatDate(sDoc[k].valid_until)}` })
+    else if (d !== null && d <= 30) alerts.push({ level: 'amber', icon: CalendarClock, tab: 'docs', text: `${lbl} — изтича след ${d} дни` })
   }
   if (student.status === 'active' && !eplr) alerts.push({ level: 'amber', icon: Users, tab: 'team', text: 'Няма назначен ЕПЛР екип' })
   // отсъства сега / до 7 дни (отразено от класния)
@@ -243,12 +246,12 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
     if (a) {
       const dm = (x: string) => x.split('-').reverse().slice(0, 2).join('.')
       const why = a.reason === 'medical' ? 'медицинска бележка' : a.reason === 'family' ? 'семейни причини' : 'друго'
-      alerts.push({ level: 'info', icon: CalendarClock, tab: 'overview', text: a.date_from <= t ? `Отсъства до ${dm(a.date_to)} · ${why}` : `Ще отсъства ${dm(a.date_from)} – ${dm(a.date_to)} · ${why}` })
+      alerts.push({ level: 'info', icon: CalendarClock, tab: null, text: a.date_from <= t ? `Отсъства до ${dm(a.date_to)} · ${why}` : `Ще отсъства ${dm(a.date_from)} – ${dm(a.date_to)} · ${why}` })
     }
   }
-  if (activeOres) alerts.push({ level: 'info', icon: Sparkles, tab: !['secretary', 'support'].includes(profile?.role || '') ? 'room' : 'data', text: `ОРЕС от ${formatDate(activeOres.from_date)}${activeOres.to_date ? ` до ${formatDate(activeOres.to_date)}` : ''}` })
+  if (activeOres) alerts.push({ level: 'info', icon: Sparkles, tab: !['secretary', 'support'].includes(profile?.role || '') ? 'room' : 'study', text: `ОРЕС от ${formatDate(activeOres.from_date)}${activeOres.to_date ? ` до ${formatDate(activeOres.to_date)}` : ''}` })
 
-  const tabHref = (t: Tab) => t === 'docs' ? `/students/${id}` : `/students/${id}?tab=${t}`
+  const tabHref = (t: Tab) => t === 'overview' ? `/students/${id}` : `/students/${id}?tab=${t}`
 
   const cardCls = "bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm h-full"
   const cardHead = "flex items-center gap-2 mb-3 pb-2.5 border-b border-slate-100"
@@ -271,22 +274,33 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
     : [{ data: false }, { count: 0 }]
   const canAddCase = showDev && (!!incTeam || isMyClass)
   const showCases = canAddCase || (showDev && (incCount || 0) > 0)
-  const TAB_DEFS: { key: Tab; label: string; icon: any }[] = [
-    { key: 'docs', label: 'Документи', icon: FolderOpen },
-    { key: 'overview', label: 'Обзор', icon: LayoutGrid },
-    ...(showRoom ? [{ key: 'room' as Tab, label: activeOres ? 'Онлайн стая ●' : 'Онлайн стая', icon: MonitorSmartphone }] : []),
-    ...(showDev ? [{ key: 'passport' as Tab, label: 'Паспорт', icon: IdCard }] : []),
-    ...(showDev ? [{ key: 'pecs' as Tab, label: 'PECS', icon: MessagesSquare }] : []),
-    ...(showDev ? [{ key: 'remelka' as Tab, label: 'РЕМЕЛКА', icon: Calculator }] : []),
-    ...(showDev ? [{ key: 'aba' as Tab, label: 'АБА', icon: Target }] : []),
-    ...(showCases ? [{ key: 'cases' as Tab, label: incCount ? `Случаи (${incCount})` : 'Случаи', icon: ShieldAlert }] : []),
-    { key: 'data', label: 'Данни', icon: ClipboardList },
-    { key: 'team', label: 'Екип', icon: Users },
-    ...(showDev ? [{ key: 'dev' as Tab, label: 'Развитие', icon: Sprout }] : []),
+
+  // ── Раздели (горе) и подраздели (под тях) ──
+  type Sub = { key: Tab; label: string; icon: any }
+  const SECTIONS: { key: string; label: string; icon: any; subs: Sub[] }[] = [
+    { key: 'overview', label: 'Обзор', icon: LayoutGrid, subs: [{ key: 'overview', label: 'Обзор', icon: LayoutGrid }] },
+    { key: 'docs', label: 'Документи', icon: FolderOpen, subs: [{ key: 'docs', label: 'Документи', icon: FolderOpen }] },
+    { key: 'data', label: 'Данни и семейство', icon: Heart, subs: [{ key: 'data', label: 'Данни и семейство', icon: Heart }] },
+    { key: 'study', label: 'Обучение и екип', icon: GraduationCap, subs: [
+      { key: 'study', label: 'Обучение', icon: GraduationCap },
+      { key: 'team', label: 'Екип', icon: Users },
+      ...(showRoom ? [{ key: 'room' as Tab, label: activeOres ? 'Онлайн стая ●' : 'Онлайн стая', icon: MonitorSmartphone }] : []),
+    ] },
+    ...(showDev ? [{ key: 'support', label: 'Развитие и подкрепа', icon: Sprout, subs: [
+      { key: 'dev' as Tab, label: 'Развитие', icon: Sprout },
+      { key: 'passport' as Tab, label: 'Паспорт', icon: IdCard },
+      { key: 'pecs' as Tab, label: 'PECS', icon: MessagesSquare },
+      { key: 'remelka' as Tab, label: 'РЕМЕЛКА', icon: Calculator },
+      { key: 'aba' as Tab, label: 'АБА', icon: Target },
+      ...(showCases ? [{ key: 'cases' as Tab, label: incCount ? `Случаи (${incCount})` : 'Случаи', icon: ShieldAlert }] : []),
+    ] }] : []),
   ]
-  const alertCls = { red: 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100', amber: 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100', info: 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100' }
+  // таб, който не е за тази роля (напр. „Развитие“ за деловодител) → Обзор
+  const tab: Tab = SECTIONS.some(s => s.subs.some(x => x.key === askedTab)) ? askedTab : 'overview'
+  const section = SECTIONS.find(s => s.subs.some(x => x.key === tab))!
+
   const menuItem = 'flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-700 hover:bg-slate-50'
-  const metaSep = <span className="text-slate-300">·</span>
+  const metaSep = <span className="text-white/30">·</span>
   // Екип: терапевтите (кой реално работи с детето) и ЕПЛР екипът за годината — по специалност, едно до друго
   const st = student as any
   const nm = (m: any) => m ? getFullName(m) : ''
@@ -298,22 +312,50 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
   // разминаване: има терапевт, а в ЕПЛР екипа го няма (празно или друг човек)
   const differs = (r: typeof teamRows[number]) => r.ther.length > 0 && !r.ther.some((t: any) => t.id === r.eplr?.id)
   const teamDiffers = teamRows.some(differs)
+
+  // ── „Какво чака“ — важното за детето, всяко води до мястото си ──
+  type Task = { key: string; tone: 'rose' | 'amber' | 'sky' | 'violet'; icon: any; title: string; meta?: string; href?: string }
+  const tasks: Task[] = alerts.map((a, i) => ({
+    key: 'a' + i, tone: a.level === 'red' ? 'rose' : a.level === 'amber' ? 'amber' : 'sky', icon: a.icon, title: a.text,
+    href: a.tab ? tabHref(a.tab) : a.href,
+    meta: a.tab === 'docs' ? 'Документи → срокове' : a.tab === 'team' ? 'Обучение и екип → Екип' : a.tab === 'room' ? 'Онлайн стая' : undefined,
+  }))
+  if (student.status === 'active' && eplr && teamDiffers && canEditTeam)
+    tasks.push({ key: 'td', tone: 'amber', icon: UserCog, title: 'ЕПЛР екипът се различава от терапевтите, които работят с детето', meta: 'Обучение и екип → Екип', href: tabHref('team') })
+  if (student.status === 'active' && !(guardians || []).length)
+    tasks.push({ key: 'g', tone: 'amber', icon: Phone, title: 'Няма въведен родител / настойник', meta: 'Данни и семейство', href: tabHref('data') })
+  else if (student.status === 'active' && !(guardians || []).some((g: any) => g.phone))
+    tasks.push({ key: 'gp', tone: 'amber', icon: Phone, title: 'Няма телефон за връзка с родител', meta: 'Данни и семейство', href: tabHref('data') })
+  const toneOrder = { rose: 0, amber: 1, violet: 2, sky: 3 }
+  tasks.sort((a, b) => toneOrder[a.tone] - toneOrder[b.tone])
+  // най-важното (алергия, изтекъл документ) стои в картата горе на всеки раздел
+  const redAlerts = alerts.filter(a => a.level === 'red')
+
   const overviewCard = (title: string, Icon: any, to: Tab | null, children: React.ReactNode) => (
-    <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm">
-      <div className="flex items-center gap-2 mb-3">
-        <Icon size={15} className="text-slate-400" />
-        <h2 className="text-[11px] font-semibold text-[#0f2240] uppercase tracking-widest flex-1">{title}</h2>
-        {to && <Link href={tabHref(to)} className="text-[11px] text-slate-500 hover:text-[#0f2240] inline-flex items-center gap-0.5">виж <ChevronRight size={12} /></Link>}
-      </div>
+    <Card title={title} icon={<Icon size={16} />}
+      action={to ? <Link href={tabHref(to)} className="text-[12px] text-slate-500 hover:text-[#0f2240] inline-flex items-center gap-0.5">виж <ChevronRight size={12} /></Link> : undefined}>
       {children}
-    </div>
+    </Card>
   )
   const row = (label: string, value: React.ReactNode) => (
-    <div className="flex items-baseline justify-between gap-3 py-1.5 border-b border-slate-100 last:border-0">
-      <span className="text-xs text-slate-500">{label}</span>
-      <span className="text-sm text-slate-800 text-right min-w-0 truncate">{value}</span>
+    <div className="flex items-baseline justify-between gap-3 py-1.5 border-b border-slate-50 last:border-0">
+      <span className="text-[12.5px] text-slate-400">{label}</span>
+      <span className="text-[13.5px] text-slate-800 text-right min-w-0 truncate">{value}</span>
     </div>
   )
+  const tiles = [
+    { show: true, href: tabHref('docs'), label: 'Документи на детето', hint: 'Google Drive, срокове, външни документи', icon: <FolderOpen size={18} />, tone: 'bg-emerald-50 text-emerald-700' },
+    { show: showDev, href: tabHref('passport'), label: 'Паспорт', hint: 'детето на една страница', icon: <IdCard size={18} />, tone: 'bg-sky-50 text-sky-700' },
+    { show: showDev, href: tabHref('dev'), label: 'Развитие', hint: 'оценка, цели, двигателно развитие', icon: <Sprout size={18} />, tone: 'bg-lime-50 text-lime-700' },
+    { show: showRoom, href: tabHref('room'), label: 'Онлайн стая', hint: activeOres ? 'ОРЕС е активно сега' : 'материали за родителя при ОРЕС', icon: <MonitorSmartphone size={18} />, tone: activeOres ? 'bg-violet-100 text-violet-700' : 'bg-violet-50 text-violet-700' },
+    { show: showDev, href: tabHref('pecs'), label: 'PECS', hint: 'общуване с картинки', icon: <MessagesSquare size={18} />, tone: 'bg-amber-50 text-amber-700' },
+    { show: showDev, href: tabHref('remelka'), label: 'РЕМЕЛКА', hint: 'смятане и социални умения', icon: <Calculator size={18} />, tone: 'bg-indigo-50 text-indigo-700' },
+    { show: showDev, href: tabHref('aba'), label: 'АБА', hint: 'поведение и дискретни опити', icon: <Target size={18} />, tone: 'bg-teal-50 text-teal-700' },
+    { show: showCases, href: tabHref('cases'), label: 'Случаи', hint: incCount ? `${incCount} в дневника` : 'дневник на случаите', icon: <ShieldAlert size={18} />, tone: 'bg-rose-50 text-rose-700' },
+    { show: canEditTeam && student.status === 'active', href: `/students/${id}/eplr`, label: 'ЕПЛР екип', hint: `определяне за ${currentYearName}`, icon: <UserCog size={18} />, tone: 'bg-slate-100 text-slate-700' },
+    { show: educationForm === 'ifo', href: `/students/${id}/schedule`, label: 'Седмично разписание', hint: 'индивидуална форма', icon: <CalendarClock size={18} />, tone: 'bg-orange-50 text-orange-700' },
+    { show: (student as any).is_new || hasSurvey, href: `/students/${id}/survey`, label: 'Анкета', hint: 'начална оценка', icon: <ClipboardList size={18} />, tone: 'bg-fuchsia-50 text-fuchsia-700' },
+  ].filter(t => t.show)
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8 animate-in fade-in duration-500">
@@ -327,101 +369,131 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
         </>}
       </div>
 
-      {/* ЛЕНТА С ДЕТЕТО — остава видима при скролване */}
-      <div className="sticky top-0 z-20 -mx-4 md:-mx-8 px-4 md:px-8 pt-2 pb-3 bg-slate-50/95 backdrop-blur">
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm px-4 md:px-5 py-3.5">
-          <div className="flex items-start gap-3.5">
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white text-base font-medium flex-shrink-0"
-              style={{ backgroundColor: '#0f2240' }}>
-              {getInitials(student.first_name, student.last_name)}
+      {/* КАРТА С ДЕТЕТО — най-важното с един поглед (като „Моят профил“) */}
+      <header className="relative rounded-3xl bg-gradient-to-br from-[#0f2240] via-[#1a3660] to-[#2b5a8f] text-white p-5 md:p-6">
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
+          <div className="absolute -right-16 -top-20 w-72 h-72 rounded-full bg-white/[0.06]" />
+          <div className="absolute right-24 -bottom-24 w-56 h-56 rounded-full bg-white/[0.04]" />
+        </div>
+        <div className="relative flex flex-wrap items-start gap-4 md:gap-5">
+          <div className="w-16 h-16 md:w-20 md:h-20 rounded-3xl bg-white/10 ring-4 ring-white/10 flex items-center justify-center text-xl md:text-2xl font-semibold tracking-wide shrink-0">
+            {getInitials(student.first_name, student.last_name)}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[11.5px] uppercase tracking-[0.12em] text-white/55">Досие на ученика{currentYearName ? ` · ${currentYearName}` : ''}</div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl md:text-[26px] font-semibold leading-tight">{getFullName(student)}</h1>
+              {student.status !== 'active' && <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/15 text-white uppercase tracking-wider">Архивиран</span>}
+              {(student as any).is_new && <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-300/90 text-[#0f2240] font-medium"><Sparkles size={11} /> нов</span>}
+              {(enrollment?.class as any)?.outreach_location && <OutreachBadge location={(enrollment?.class as any).outreach_location} />}
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg md:text-xl font-normal text-[#0f2240] leading-tight">{getFullName(student)}</h1>
-                {student.status !== 'active' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 uppercase tracking-wider">Архивиран</span>}
-                {(student as any).is_new && <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200"><Sparkles size={10} /> нов</span>}
-                {(enrollment?.class as any)?.outreach_location && <OutreachBadge location={(enrollment?.class as any).outreach_location} />}
-              </div>
-              <div className="flex items-center gap-x-2 gap-y-0.5 flex-wrap text-[13px] text-slate-600 mt-1">
-                {age && <span>{age}</span>}
-                {age && metaSep}
-                <span>
-                  {enrollment?.class_id && className
-                    ? <Link href={`/classes/${enrollment.class_id}`} className="hover:text-[#0f2240] hover:underline">паралелка {className}</Link>
-                    : (className ? `паралелка ${className}` : 'без паралелка')}
-                  {classTeachers.length > 0 && <span className="text-slate-500"> (класен {classTeachers.map((t: any, i: number) => (
-                    <span key={t.id}>{i > 0 && ', '}<Link href={`/staff/${t.id}`} className="hover:text-[#0f2240] hover:underline">{t.first_name} {t.last_name}</Link></span>
-                  ))})</span>}
+            <div className="flex items-center gap-x-2 gap-y-0.5 flex-wrap text-[13px] text-white/75 mt-1">
+              {age && <span>{age}</span>}
+              {age && metaSep}
+              <span>
+                {enrollment?.class_id && className
+                  ? <Link href={`/classes/${enrollment.class_id}`} className="hover:text-white hover:underline">паралелка {className}</Link>
+                  : (className ? `паралелка ${className}` : 'без паралелка')}
+                {classTeachers.length > 0 && <span className="text-white/60"> (класен {classTeachers.map((t: any, i: number) => (
+                  <span key={t.id}>{i > 0 && ', '}<Link href={`/staff/${t.id}`} className="hover:text-white hover:underline">{t.first_name} {t.last_name}</Link></span>
+                ))})</span>}
+              </span>
+            </div>
+            {/* етикети: форма, ЦОУД, училище, пътуващ, ОРЕС */}
+            <div className="flex flex-wrap gap-1.5 mt-2.5">
+              {[
+                { show: true, label: educationForm === 'ifo' ? 'ИФО' : 'дневна форма', icon: educationForm === 'ifo' ? Home : GraduationCap },
+                { show: coudEnrolled, label: coudGroupName || 'ЦОУД', icon: Users },
+                { show: !!sendingSchool, label: `${sendingSchool?.name || ''}${student.external_class ? `, ${student.external_class}${(student as any).external_class_letter ? ` ${(student as any).external_class_letter}` : ''} клас` : ''}`, icon: School },
+                { show: !!student.is_traveling, label: 'пътуващ', icon: Bus },
+                { show: !!activeOres, label: 'ОРЕС', icon: Wifi },
+              ].filter(b => b.show).map(b => (
+                <span key={b.label} className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-white/90 max-w-full">
+                  <b.icon size={12} className="shrink-0 text-white/60" /><span className="truncate max-w-[280px]">{b.label}</span>
                 </span>
-                {metaSep}
-                <span className="inline-flex items-center gap-1">{educationForm === 'ifo' ? <><Home size={12} /> ИФО</> : <><GraduationCap size={12} /> дневна</>}</span>
-                {coudEnrolled && <>{metaSep}<span>{coudGroupName || 'ЦОУД'}</span></>}
-                {sendingSchool && <>{metaSep}<span className="inline-flex items-center gap-1 min-w-0"><School size={12} className="flex-shrink-0 text-slate-400" /><span className="truncate max-w-[260px]">{sendingSchool.name}{student.external_class ? `, ${student.external_class}${(student as any).external_class_letter ? ` ${(student as any).external_class_letter}` : ''} клас` : ''}</span></span></>}
-                {student.is_traveling && <>{metaSep}<span className="inline-flex items-center gap-1 text-amber-700"><Bus size={12} /> пътуващ</span></>}
-              </div>
-              {/* Връзка с родителите — винаги пред очите */}
-              {(guardians || []).some((g: any) => g.phone || g.email) && (
-                <div className="flex items-center gap-x-4 gap-y-1 flex-wrap text-[13px] mt-1.5">
-                  {(guardians || []).filter((g: any) => g.phone || g.email).map((g: any) => (
-                    <span key={g.id} className="inline-flex items-center gap-1.5">
-                      <span className="text-slate-500">{g.relation ? g.relation.charAt(0).toUpperCase() + g.relation.slice(1) : 'Родител'}:</span>
-                      {g.phone && <a href={`tel:${String(g.phone).replace(/\s/g, '')}`} className="inline-flex items-center gap-1 text-[#0f2240] font-medium tabular-nums hover:underline"><Phone size={12} />{g.phone}</a>}
-                      {g.email && <a href={`mailto:${g.email}`} title={g.email} className="inline-flex items-center gap-1 text-sky-700 hover:underline"><Mail size={12} /><span className="hidden md:inline">{g.email}</span></a>}
-                    </span>
-                  ))}
-                </div>
-              )}
+              ))}
             </div>
-
-            {/* Действия: Редактирай + Още ▾ */}
-            {(canManage || canEditDossier || canEditTeam) && student.status === 'active' && (
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                {canEditDossier && (
-                  <Link href={tabHref('data')} scroll={false} className="inline-flex items-center gap-1.5 text-xs font-medium text-[#0f2240] border border-slate-300 px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors">
-                    <Pencil size={13} /> <span className="hidden sm:inline">Данни</span>
-                  </Link>
-                )}
-                {(canManage || canEditTeam || educationForm === 'ifo' || (student as any).is_new || hasSurvey) && <MoreMenu>
-                    {canEditTeam && <Link href={`/students/${id}/eplr`} className={menuItem}><UserCog size={14} /> ЕПЛР екип</Link>}
-                    {educationForm === 'ifo' && <Link href={`/students/${id}/schedule`} className={menuItem}><CalendarClock size={14} /> Седмично разписание</Link>}
-                    {((student as any).is_new || hasSurvey) && <Link href={`/students/${id}/survey`} className={menuItem}><ClipboardList size={14} /> Анкета</Link>}
-                    {(student as any).is_new && canMarkProcessed && <div className="px-1.5 py-1"><MarkProcessedButton studentId={id} /></div>}
-                    {canManage && <Link href={`/students/${id}/transfer`} className={menuItem}><ArrowRightLeft size={14} /> Прехвърли</Link>}
-                    {canManage && <div className="my-1 border-t border-slate-100" />}
-                    {canManage && <Link href={`/students/${id}/archive`} className={`${menuItem} !text-rose-700 hover:!bg-rose-50`}><Archive size={14} /> Архивирай</Link>}
-                    {profile?.role === 'admin' && <DeleteStudentButton studentId={id} fullName={getFullName(student)} lastName={(student as any).last_name || ''} />}
-                  </MoreMenu>}
+            {/* Връзка с родителите — винаги пред очите */}
+            {(guardians || []).some((g: any) => g.phone || g.email) && (
+              <div className="flex items-center gap-x-4 gap-y-1 flex-wrap text-[13px] mt-2.5">
+                {(guardians || []).filter((g: any) => g.phone || g.email).map((g: any) => (
+                  <span key={g.id} className="inline-flex items-center gap-1.5">
+                    <span className="text-white/55">{g.relation ? g.relation.charAt(0).toUpperCase() + g.relation.slice(1) : 'Родител'}:</span>
+                    {g.phone && <a href={`tel:${String(g.phone).replace(/\s/g, '')}`} className="inline-flex items-center gap-1 text-white font-medium tabular-nums hover:underline"><Phone size={12} />{g.phone}</a>}
+                    {g.email && <a href={`mailto:${g.email}`} title={g.email} className="inline-flex items-center gap-1 text-sky-200 hover:underline"><Mail size={12} /><span className="hidden md:inline">{g.email}</span></a>}
+                  </span>
+                ))}
               </div>
             )}
           </div>
 
-          {/* ВНИМАНИЕ — важното отгоре, клик води до мястото */}
-          {alerts.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap mt-3 pt-3 border-t border-slate-100">
-              {alerts.map((a, i) => (
-                <Link key={i} href={tabHref(a.tab)}
-                  className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-colors max-w-full ${alertCls[a.level]}`}>
-                  <a.icon size={13} className="flex-shrink-0" /> <span className="truncate">{a.text}</span>
+          {/* Действия: Данни + Още ▾ */}
+          {(canManage || canEditDossier || canEditTeam) && student.status === 'active' && (
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {canEditDossier && (
+                <Link href={tabHref('data')} scroll={false} className="inline-flex items-center gap-1.5 text-xs font-medium text-white border border-white/25 bg-white/10 px-3 py-2 rounded-xl hover:bg-white/20 transition-colors">
+                  <Pencil size={13} /> <span className="hidden sm:inline">Данни</span>
                 </Link>
-              ))}
+              )}
+              {(canManage || canEditTeam || educationForm === 'ifo' || (student as any).is_new || hasSurvey) && <MoreMenu dark>
+                  {canEditTeam && <Link href={`/students/${id}/eplr`} className={menuItem}><UserCog size={14} /> ЕПЛР екип</Link>}
+                  {educationForm === 'ifo' && <Link href={`/students/${id}/schedule`} className={menuItem}><CalendarClock size={14} /> Седмично разписание</Link>}
+                  {((student as any).is_new || hasSurvey) && <Link href={`/students/${id}/survey`} className={menuItem}><ClipboardList size={14} /> Анкета</Link>}
+                  {(student as any).is_new && canMarkProcessed && <div className="px-1.5 py-1"><MarkProcessedButton studentId={id} /></div>}
+                  {canManage && <Link href={`/students/${id}/transfer`} className={menuItem}><ArrowRightLeft size={14} /> Прехвърли</Link>}
+                  {canManage && <div className="my-1 border-t border-slate-100" />}
+                  {canManage && <Link href={`/students/${id}/archive`} className={`${menuItem} !text-rose-700 hover:!bg-rose-50`}><Archive size={14} /> Архивирай</Link>}
+                  {profile?.role === 'admin' && <DeleteStudentButton studentId={id} fullName={getFullName(student)} lastName={(student as any).last_name || ''} />}
+                </MoreMenu>}
             </div>
           )}
         </div>
 
-        {/* ТАБОВЕ — помнят се в адреса; вдясно — бърз преход към друго дете */}
-        <div className="flex items-start justify-between gap-2 mt-3">
-        <div className="flex flex-wrap gap-1 p-1 bg-slate-100 rounded-xl w-fit">
-          {TAB_DEFS.map(t => (
-            <Link key={t.key} href={tabHref(t.key)} scroll={false}
-              className={`px-3.5 py-1.5 rounded-lg text-sm transition-all flex items-center gap-1.5 ${
-                tab === t.key ? 'bg-white text-[#0f2240] shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'
-              }`}>
-              <t.icon size={15} /> {t.label}
-            </Link>
-          ))}
+        {/* алергия / изтекъл документ — видимо от всеки раздел; останалото е в „Какво чака“ */}
+        {(redAlerts.length > 0 || (tab !== 'overview' && tasks.length > redAlerts.length)) && (
+          <div className="relative flex items-center gap-1.5 flex-wrap mt-4 pt-3 border-t border-white/10">
+            {redAlerts.map((a, i) => (
+              <Link key={i} href={a.tab ? tabHref(a.tab) : '#'} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100 max-w-full">
+                <a.icon size={13} className="flex-shrink-0" /> <span className="truncate">{a.text}</span>
+              </Link>
+            ))}
+            {tab !== 'overview' && tasks.length > redAlerts.length && (
+              <Link href={tabHref('overview')} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-white/10 border border-white/15 text-white/90 hover:bg-white/20">
+                <ListTodo size={13} /> още {tasks.length - redAlerts.length} за внимание <ChevronRight size={12} />
+              </Link>
+            )}
+          </div>
+        )}
+      </header>
+
+      {/* РАЗДЕЛИ — помнят се в адреса; вдясно — бърз преход към друго дете */}
+      <div className="sticky top-0 z-20 -mx-4 md:-mx-8 px-4 md:px-8 pt-3 pb-2 bg-slate-50/95 backdrop-blur">
+        <div className="flex items-start justify-between gap-2">
+          <nav aria-label="Досие" className="flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-sm min-w-0">
+            {SECTIONS.map(s => {
+              const on = s.key === section.key
+              return (
+                <Link key={s.key} href={tabHref(s.subs[0].key)} scroll={false} aria-current={on ? 'page' : undefined}
+                  className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] transition-colors ${on ? 'bg-[#0f2240] text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-[#0f2240]'}`}>
+                  <s.icon size={14} /> {s.label}
+                  {s.key === 'overview' && tasks.length > 0 && <span className={`text-[11px] px-1.5 rounded-full ${on ? 'bg-white/20' : 'bg-rose-100 text-rose-700'}`}>{tasks.length}</span>}
+                </Link>
+              )
+            })}
+          </nav>
+          <StudentNav kids={navKids} currentId={id} label={navLabel} tab={tab !== 'overview' ? tab : undefined} />
         </div>
-        <StudentNav kids={navKids} currentId={id} label={navLabel} tab={tab !== 'docs' ? tab : undefined} />
-        </div>
+        {section.subs.length > 1 && (
+          <div className="flex gap-1 overflow-x-auto mt-2">
+            {section.subs.map(x => (
+              <Link key={x.key} href={tabHref(x.key)} scroll={false}
+                className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] transition-colors ${
+                  tab === x.key ? 'bg-white text-[#0f2240] shadow-sm ring-1 ring-slate-200 font-medium' : 'text-slate-500 hover:text-slate-800 hover:bg-white/70'}`}>
+                <x.icon size={14} /> {x.label}
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       {student.status === 'archived' && student.archive_reason && (
@@ -431,20 +503,63 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
         </div>
       )}
 
-      <div className="mt-4">
-        {/* Нов ученик — картата за прием стои над всеки таб, както преди */}
-        {(student as any).is_new && student.status === 'active' && (
-          <div className="mb-4">
-            <IntakeCard student={student} enrollment={enrollment} guardiansCount={(guardians || []).length}
-              eplr={eplr} coudEnrolled={coudEnrolled} canManage={canManage} />
-          </div>
-        )}
-
-        {/* ОБЗОР — бърз поглед; всяка карта води към своя таб */}
+      <div className="mt-3">
+        {/* ОБЗОР — какво чака, бърз достъп; вдясно — основното с един поглед */}
         {tab === 'overview' && (
-          <div className="animate-in fade-in duration-300 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
-              {overviewCard('Обучение', GraduationCap, 'data', <div>
+          <div className="animate-in fade-in duration-300 grid lg:grid-cols-3 gap-5 items-start">
+            <div className="lg:col-span-2 space-y-5 min-w-0">
+              {/* Нов ученик — какво е попълнено и какво липсва */}
+              {(student as any).is_new && student.status === 'active' && (
+                <IntakeCard student={student} enrollment={enrollment} guardiansCount={(guardians || []).length}
+                  eplr={eplr} coudEnrolled={coudEnrolled} canManage={canManage} />
+              )}
+
+              <Card title="Какво чака" icon={<ListTodo size={16} />} pad={false}
+                action={tasks.length > 0 ? <span className="text-[12px] px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-medium">{tasks.length}</span> : undefined}>
+                {tasks.length === 0 ? (
+                  <div className="flex items-center gap-3 px-5 py-6">
+                    <span className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center"><CheckCircle2 size={20} /></span>
+                    <div>
+                      <div className="text-sm font-medium text-slate-700">Всичко е наред</div>
+                      <div className="text-[12.5px] text-slate-400">Няма алергии, изтичащи документи, липсващ екип или родител.</div>
+                    </div>
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-slate-50">
+                    {tasks.map(t => {
+                      const tone = { rose: 'bg-rose-50 text-rose-600', amber: 'bg-amber-50 text-amber-600', sky: 'bg-sky-50 text-sky-600', violet: 'bg-violet-50 text-violet-600' }[t.tone]
+                      const body = <>
+                        <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${tone}`}><t.icon size={15} /></span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-[13.5px] text-slate-800">{t.title}</span>
+                          {t.meta && <span className="block text-[12px] text-slate-400 truncate">{t.meta}</span>}
+                        </span>
+                      </>
+                      return (
+                        <li key={t.key}>
+                          {t.href
+                            ? <Link href={t.href} scroll={false} className="group flex items-center gap-3 px-5 py-3 hover:bg-slate-50">{body}<ArrowRight size={15} className="text-slate-300 group-hover:text-slate-500 shrink-0" /></Link>
+                            : <div className="flex items-center gap-3 px-5 py-3">{body}</div>}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </Card>
+
+              {/* отсъствия по период (семейни / медицинска бележка) — отразява класният */}
+              {showDev && <StudentAbsencesCard studentId={id} />}
+
+              <div>
+                <h2 className="text-[12px] uppercase tracking-[0.1em] text-slate-400 mb-2 px-1">Бърз достъп</h2>
+                <div className="grid sm:grid-cols-2 gap-2.5">
+                  {tiles.map(t => <Tile key={t.href} {...t} />)}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-5 min-w-0">
+              {overviewCard('Обучение', GraduationCap, 'study', <div>
                 {row('Паралелка', className || '—')}
                 {row('Форма', educationForm === 'ifo' ? 'Индивидуална (ИФО)' : 'Дневна')}
                 {row('ЦОУД', coudEnrolled ? `${coudGroupName || 'да'}${coudTeacher ? ` · ${coudTeacher}` : ''}` : 'не')}
@@ -452,19 +567,15 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
                 {row('Роден(а)', student.birth_date ? formatDate(student.birth_date) : '—')}
               </div>)}
 
-              {overviewCard('Родители', Phone, 'data', (guardians || []).length === 0
-                ? <p className="text-sm text-slate-400">Няма записани родители.</p>
-                : <div>{(guardians || []).map((g: any) => (
-                    <div key={g.id} className="flex items-baseline justify-between gap-3 py-1.5 border-b border-slate-100 last:border-0">
-                      <span className="text-sm text-slate-800 truncate">{g.full_name} <span className="text-xs text-slate-400">{g.relation}</span></span>
-                      <span className="flex flex-col items-end">
-                        {g.phone ? <a href={`tel:${String(g.phone).replace(/\s/g, '')}`} className="text-sm text-[#0f2240] tabular-nums whitespace-nowrap hover:underline">{g.phone}</a> : <span className="text-xs text-slate-300">—</span>}
-                        {g.email && <a href={`mailto:${g.email}`} className="text-xs text-sky-700 hover:underline truncate max-w-[200px]">{g.email}</a>}
-                      </span>
-                    </div>
-                  ))}</div>)}
+              {overviewCard('Екип', Users, 'team', <div>
+                {teamRows.map(r => <div key={r.label}>{row(r.label, r.eplr || r.ther.length
+                  ? <span className={differs(r) ? 'text-amber-700' : ''} title={differs(r) ? `Терапия: ${r.ther.map(nm).join(', ')}` : undefined}>{r.eplr ? nm(r.eplr) : <span className="text-slate-400">— (терапия: {r.ther.map(nm).join(', ')})</span>}</span>
+                  : <span className="text-slate-300">—</span>)}</div>)}
+                {row('Класен р-л', eplr?.class_teacher ? nm(eplr.class_teacher) : classTeachers.length ? classTeachers.map((t: any) => `${t.first_name} ${t.last_name}`).join(', ') : '—')}
+                {!eplr && <p className="text-xs text-amber-700 pt-1.5">Няма ЕПЛР екип за {currentYearName}.</p>}
+              </div>)}
 
-              {overviewCard('Срокове', CalendarClock, 'data', <div>
+              {overviewCard('Срокове', CalendarClock, 'docs', <div>
                 {[['rcpppo', 'Заповед РЦПППО'], ['telk', 'ТЕЛК/ЛКК'], ['allergy', 'Алергии / хранене']].map(([k, lbl]) => {
                   const d = sDoc[k]; const left = daysTo(d?.valid_until)
                   return <div key={k}>{row(lbl, !d ? <span className="text-slate-300">няма</span>
@@ -476,24 +587,45 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
                 })}
               </div>)}
 
-              {overviewCard('Екип', Users, 'team', <div>
-                {teamRows.map(r => <div key={r.label}>{row(r.label, r.eplr || r.ther.length
-                  ? <span className={differs(r) ? 'text-amber-700' : ''} title={differs(r) ? `Терапия: ${r.ther.map(nm).join(', ')}` : undefined}>{r.eplr ? nm(r.eplr) : <span className="text-slate-400">— (терапия: {r.ther.map(nm).join(', ')})</span>}</span>
-                  : <span className="text-slate-300">—</span>)}</div>)}
-                {row('Класен р-л', eplr?.class_teacher ? nm(eplr.class_teacher) : classTeachers.length ? classTeachers.map((t: any) => `${t.first_name} ${t.last_name}`).join(', ') : '—')}
-                {!eplr && <p className="text-xs text-amber-700 pt-1.5">Няма ЕПЛР екип за {currentYearName}.</p>}
-              </div>)}
-
+              {overviewCard('Родители', Heart, 'data', (guardians || []).length === 0
+                ? <p className="text-sm text-slate-400">Няма записани родители.</p>
+                : <div>{(guardians || []).map((g: any) => (
+                    <div key={g.id} className="flex items-baseline justify-between gap-3 py-1.5 border-b border-slate-50 last:border-0">
+                      <span className="text-sm text-slate-800 truncate">{g.full_name} <span className="text-xs text-slate-400">{g.relation}</span></span>
+                      <span className="flex flex-col items-end">
+                        {g.phone ? <a href={`tel:${String(g.phone).replace(/\s/g, '')}`} className="text-sm text-[#0f2240] tabular-nums whitespace-nowrap hover:underline">{g.phone}</a> : <span className="text-xs text-slate-300">—</span>}
+                        {g.email && <a href={`mailto:${g.email}`} className="text-xs text-sky-700 hover:underline truncate max-w-[200px]">{g.email}</a>}
+                      </span>
+                    </div>
+                  ))}</div>)}
             </div>
-            {/* отсъствия по период (семейни / медицинска бележка) — отразява класният */}
-            {showDev && <StudentAbsencesCard studentId={id} />}
           </div>
         )}
 
-        {/* ДОКУМЕНТИ — работните (Google Drive), ЕПЛР документите за годината и външните документи в досието */}
+        {/* ДОКУМЕНТИ — всичко документално на едно място: работните (Google Drive), документите със срок и външните в досието */}
         {tab === 'docs' && (
           <div className="animate-in fade-in duration-300 space-y-4">
             <StudentWorkDocs studentId={id} />
+
+            <div className={`${cardCls} !h-auto`}>
+              <div className={cardHead}>
+                <CalendarClock size={16} className="text-amber-500" />
+                <h2 className="font-semibold text-slate-800 text-sm">Документи със срок</h2>
+                <span className="ml-auto text-[11px] text-slate-400">ТЕЛК/ЛКК, заповед РЦПППО, алергии и хранене</span>
+              </div>
+              <StudentDocuments studentId={id} canManage={canEditDossier} externalClass={student.external_class} />
+            </div>
+
+            <div className={`${cardCls} !h-auto`}>
+              <div className={cardHead}>
+                <Paperclip size={16} className="text-amber-500" />
+                <h2 className="font-semibold text-slate-800 text-sm">Външни документи (досие)</h2>
+                <span className="ml-auto text-[11px] text-slate-400">заявления, заповеди и оценки от РЦПППО, медицински…</span>
+              </div>
+              <AttachmentsSection studentId={id} attachments={attachments || []} canManage={canEditDossier} staffId={profile?.id || ''}
+                typeLabels={ATTACHMENT_TYPE_LABELS} currentYearName={currentYearName} yearOptions={yearOptions} />
+            </div>
+
             {/* Старите качени ЕПЛР документи — само за преглед; новите (и сканираните подписани) се качват в Drive горе */}
             {(eplrDocs || []).length > 0 && (
               <details className={`${cardCls} !h-auto`}>
@@ -510,12 +642,9 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
           </div>
         )}
 
-        {/* ДАННИ */}
+        {/* ДАННИ И СЕМЕЙСТВО — лични данни и родители, редактират се на място */}
         {tab === 'data' && (
-          <div className="animate-in fade-in duration-300">
-
-          {/* Лични данни и родители — показват се и се редактират ТУК (бутон „Редактирай“ на всяка карта) */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start mb-4">
+          <div className="animate-in fade-in duration-300 grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
             <div className={cardCls}>
               <StudentPersonalCard studentId={id}
                 firstName={(student as any).first_name || ''} middleName={(student as any).middle_name || null} lastName={(student as any).last_name || ''}
@@ -532,46 +661,30 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
               <GuardiansSection studentId={id} guardians={guardians || []} canManage={canEditDossier} />
             </div>
           </div>
+        )}
 
-          <div className={`${cardCls} !h-auto mb-4`}>
-            <div className={cardHead}>
-              <GraduationCap size={16} className="text-blue-500" />
-              <h2 className="font-semibold text-slate-800 text-sm">Обучение</h2>
+        {/* ОБУЧЕНИЕ — форма, ЦОУД, ОРЕС, интензивност; история по години */}
+        {tab === 'study' && (
+          <div className="animate-in fade-in duration-300 space-y-4">
+            <div className={`${cardCls} !h-auto`}>
+              <div className={cardHead}>
+                <GraduationCap size={16} className="text-blue-500" />
+                <h2 className="font-semibold text-slate-800 text-sm">Обучение {currentYearName}</h2>
+              </div>
+              <StudentStatusSection
+                studentId={id}
+                enrollmentId={enrollment?.id || null}
+                educationForm={educationForm}
+                coudEnrolled={coudEnrolled}
+                coudGroupName={coudGroupName}
+                coudTeacher={coudTeacher}
+                externalClass={student.external_class}
+                oresRecords={oresRecords || []}
+                intensity={(student as any).intensity}
+                canManage={canManage}
+              />
             </div>
-            <StudentStatusSection
-              studentId={id}
-              enrollmentId={enrollment?.id || null}
-              educationForm={educationForm}
-              coudEnrolled={coudEnrolled}
-              coudGroupName={coudGroupName}
-              coudTeacher={coudTeacher}
-              externalClass={student.external_class}
-              oresRecords={oresRecords || []}
-              intensity={(student as any).intensity}
-                           canManage={canManage}
-            />
-          </div>
-
-          <div className={`${cardCls} !h-auto mb-4`}>
-            <div className={cardHead}>
-              <CalendarClock size={16} className="text-amber-500" />
-              <h2 className="font-semibold text-slate-800 text-sm">Документи и срокове</h2>
-            </div>
-            <StudentDocuments studentId={id} canManage={canEditDossier} externalClass={student.external_class} />
-          </div>
-
-          <div className={`${cardCls} !h-auto mb-4`}>
-            <div className={cardHead}>
-              <Paperclip size={16} className="text-amber-500" />
-              <h2 className="font-semibold text-slate-800 text-sm">Досие — външни документи</h2>
-              <span className="ml-auto text-[11px] text-slate-400">заявления, заповеди и оценки от РЦПППО, медицински…</span>
-            </div>
-            <AttachmentsSection studentId={id} attachments={attachments || []} canManage={canEditDossier} staffId={profile?.id || ''}
-              typeLabels={ATTACHMENT_TYPE_LABELS} currentYearName={currentYearName} yearOptions={yearOptions} />
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-            <div className={cardCls}>
+            <div className={`${cardCls} !h-auto`}>
               <div className={cardHead}>
                 <History size={16} className="text-indigo-400" />
                 <h2 className="font-semibold text-slate-800 text-sm">История на обучението</h2>
@@ -594,25 +707,9 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
               )}
             </div>
           </div>
-          </div>
         )}
 
         {/* ЕКИП — терапевтите и ЕПЛР екипът едно до друго */}
-        {/* СЛУЧАИ — от „Дневник на случаите“; оттук се вписва нов случай с вече избрано дете */}
-        {tab === 'cases' && showCases && (
-          <div className="animate-in fade-in duration-300 space-y-3">
-            {canAddCase && (
-              <div className="flex justify-end">
-                <Link href={`/incidents?new=${id}`}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm text-white hover:opacity-90" style={{ backgroundColor: '#b91c1c' }}>
-                  <Plus size={15} /> Констатирай случай
-                </Link>
-              </div>
-            )}
-            <StudentIncidents studentId={id} showEmpty />
-          </div>
-        )}
-
         {tab === 'team' && (
           <div className="animate-in fade-in duration-300 space-y-4">
             <div className={`${cardCls} !h-auto`}>
@@ -668,22 +765,30 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
         )}
 
         {/* ОНЛАЙН СТАЯ — материали и указания за родителя по време на ОРЕС */}
-        {tab === 'room' && showRoom && (
+        {tab === 'room' && (
           <div className="animate-in fade-in duration-300">
             <OnlineRoomTab studentId={id} studentName={getFullName(student as any)} oresList={(oresRecords || []) as any}
               meId={meId} isManager={canManage || profile?.role === 'director'} canStart={canManage || profile?.role === 'director'} isAdmin={profile?.role === 'admin'} />
           </div>
         )}
 
+        {/* РАЗВИТИЕ */}
+        {tab === 'dev' && (
+          <div className="animate-in fade-in duration-300">
+            <DevelopmentTab studentId={id} studentName={getFullName(student as any)} className={(enrollment as any)?.class?.name || ''}
+              academicYearId={currentYear?.id || null} meId={profile?.id || ''} role={profile?.role || ''} isCoordinator={isCoordinator} initialView={sp.view} />
+          </div>
+        )}
+
         {/* ПАСПОРТ — една страница за заместници, ЦОУД и нови колеги */}
-        {tab === 'passport' && showDev && (
+        {tab === 'passport' && (
           <div className="animate-in fade-in duration-300">
             <PassportTab studentId={id} meId={meId} canEdit={canEditPassport} />
           </div>
         )}
 
         {/* PECS — общуване чрез размяна на картинки */}
-        {tab === 'pecs' && showDev && (
+        {tab === 'pecs' && (
           <div className="animate-in fade-in duration-300">
             <PecsTab studentId={id} childName={getFullName(student as any)} firstName={(student as any).first_name || ''} meId={meId}
               isManager={canManage || profile?.role === 'director'} />
@@ -691,27 +796,33 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
         )}
 
         {/* РЕМЕЛКА — смятане и социални умения: диагностика → програма → занимания */}
-        {tab === 'remelka' && showDev && (
+        {tab === 'remelka' && (
           <div className="animate-in fade-in duration-300">
             <RemelkaTab studentId={id} firstName={(student as any).first_name || ''} meId={meId} isManager={canManage || profile?.role === 'director'} />
           </div>
         )}
 
         {/* АБА — ABC картон (поведение) и дискретни опити (умения) */}
-        {tab === 'aba' && showDev && (
+        {tab === 'aba' && (
           <div className="animate-in fade-in duration-300">
             <AbaTab studentId={id} firstName={(student as any).first_name || ''} meId={meId} isManager={canManage || profile?.role === 'director'} />
           </div>
         )}
 
-        {/* РАЗВИТИЕ */}
-        {tab === 'dev' && showDev && (
-          <div className="animate-in fade-in duration-300">
-            <DevelopmentTab studentId={id} studentName={getFullName(student as any)} className={(enrollment as any)?.class?.name || ''}
-              academicYearId={currentYear?.id || null} meId={profile?.id || ''} role={profile?.role || ''} isCoordinator={isCoordinator} initialView={sp.view} />
+        {/* СЛУЧАИ — от „Дневник на случаите“; оттук се вписва нов случай с вече избрано дете */}
+        {tab === 'cases' && (
+          <div className="animate-in fade-in duration-300 space-y-3">
+            {canAddCase && (
+              <div className="flex justify-end">
+                <Link href={`/incidents?new=${id}`}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm text-white hover:opacity-90" style={{ backgroundColor: '#b91c1c' }}>
+                  <Plus size={15} /> Констатирай случай
+                </Link>
+              </div>
+            )}
+            <StudentIncidents studentId={id} showEmpty />
           </div>
         )}
-
       </div>
     </div>
   )

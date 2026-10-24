@@ -230,7 +230,7 @@ export default function DocsReportClient({ kids, yearName, initialDoc, initialSt
                     return (
                       <tr key={view === 'matrix' ? k.id : `${k.id}-${x.t}`} className={`border-b border-slate-50 last:border-0 ${j % 2 ? 'bg-slate-50/40' : ''}`}>
                         <td className="px-3 py-1.5 text-center text-slate-400 text-xs">{j + 1}</td>
-                        <td className="px-3 py-1.5"><Link href={`/students/${k.id}?tab=data`} className="text-slate-800 hover:underline">{k.name}</Link></td>
+                        <td className="px-3 py-1.5"><Link href={`/students/${k.id}?tab=docs`} className="text-slate-800 hover:underline">{k.name}</Link></td>
                         {group !== 'class' && <td className="px-3 py-1.5 text-slate-600">{k.className || '—'}</td>}
                         {view === 'matrix'
                           ? docLabels.map(t => <td key={t.key} className="px-3 py-1.5">{pill(st(k, t.key).s, cellText(k, t.key), k.docs[t.key]?.doc_number ? `№ ${k.docs[t.key].doc_number}` : undefined)}</td>)
