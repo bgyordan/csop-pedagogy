@@ -6,7 +6,7 @@ export type CalView = 'month' | 'week' | 'day' | 'agenda'
 
 // Слоеве (като „календарите“ в Google): включват се/изключват се отляво
 export type CalLayer =
-  | 'mine' | 'shared' | 'school' | 'tasks' | 'deadlines' | 'control' | 'eval' | 'portfolio' | 'visits' | 'meetings' | 'duties'
+  | 'mine' | 'shared' | 'school' | 'tasks' | 'deadlines' | 'control' | 'eval' | 'portfolio' | 'projects' | 'visits' | 'meetings' | 'duties'
 
 export const LAYERS: { key: CalLayer; label: string; color: string; hint: string; mgmtOnly?: boolean }[] = [
   { key: 'mine', label: 'Моите събития', color: '#2563eb', hint: 'Създадени от мен и поканите към мен' },
@@ -16,6 +16,7 @@ export const LAYERS: { key: CalLayer; label: string; color: string; hint: string
   { key: 'control', label: 'Контролна дейност', color: '#0d9488', hint: 'Проверки и срокове за протоколите' },
   { key: 'eval', label: 'Оценяване и атестиране', color: '#9333ea', hint: 'Срокове на ДТВ и атестацията' },
   { key: 'visits', label: 'Посещения на час', color: '#0284c7', hint: 'Записани посещения' },
+  { key: 'projects', label: 'Събития от портфолиото', color: '#e11d48', hint: 'Акцентираните дати на проекти, кабинети и събития' },
   { key: 'portfolio', label: 'Цели в портфолиото', color: '#65a30d', hint: 'Срокове на моите цели за развитие' },
   { key: 'duties', label: 'Дежурства', color: '#a16207', hint: 'Седмиците на дежурство' },
   { key: 'deadlines', label: 'Срокове на таблото', color: '#d97706', hint: 'Сроковете в календара на таблото' },

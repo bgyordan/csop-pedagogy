@@ -3,12 +3,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
-  X, ImagePlus, Star, Lock, Users, Trash2, Loader2, Bold, Heading2, List, Globe, ShieldCheck, Paperclip, Upload, Send, Eye, PenLine, Film,
+  X, ImagePlus, Star, Lock, Users, Trash2, Loader2, Bold, Heading2, List, Globe, ShieldCheck, Paperclip, Upload, Send, Eye, PenLine, Film, CalendarClock, Plus,
 } from 'lucide-react'
 import { renderRich, slugName } from '@/app/site-docs/shared'
 import { KINDS, kindMeta, isImage, isVideo, isVideoFile, isDrive, uploadVideo, trashVideos, VIDEO_MAX_MB, resizeImage, uid, STATUS } from './lib'
 import type { Post, Kind, Media, Cls } from './lib'
 import { confirmDialog } from '@/components/ui/Toast'
+
+type DateRow = { key: string; id?: string; date: string; time_from: string; time_to: string; title: string; place: string; note: string; highlight: boolean }
 
 type Item = { key: string; media?: Media; file?: File; preview?: string; caption: string; image: boolean; video?: boolean }
 
@@ -32,8 +34,8 @@ function monthOptions() {
 }
 const lastDay = (ym: string) => { const [y, m] = ym.split('-').map(Number); return `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}` }
 
-export default function PostEditor({ post, presetKind, meId, academicYearId, classes, myClassIds, thumbs, onClose, onSaved }: {
-  post: Post | null; presetKind?: Kind; meId: string; academicYearId: string | null
+export default function PostEditor({ post, presetKind, meId, academicYearId, datesReady = true, classes, myClassIds, thumbs, onClose, onSaved }: {
+  post: Post | null; presetKind?: Kind; meId: string; academicYearId: string | null; datesReady?: boolean
   classes: Cls[]; myClassIds: string[]; thumbs: Record<string, string>
   onClose: () => void; onSaved: (id: string, msg: string) => void
 }) {
@@ -48,6 +50,12 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
   const [from, setFrom] = useState(monthOf(post?.period_from || null))
   const [to, setTo] = useState(monthOf(post?.period_to || null))
   const [status, setStatus] = useState(post?.status || 'in_progress')
+  const [dates, setDates] = useState<DateRow[]>(() => (post?.dates || []).map(d => ({
+    key: d.id, id: d.id, date: d.date, time_from: d.time_from?.slice(0, 5) || '', time_to: d.time_to?.slice(0, 5) || '',
+    title: d.title, place: d.place || '', note: d.note || '', highlight: d.highlight,
+  })))
+  const setDate = (key: string, patch: Partial<DateRow>) => setDates(p => p.map(d => d.key === key ? { ...d, ...patch } : d))
+  const addDate = () => setDates(p => [...p, { key: uid(), date: '', time_from: '', time_to: '', title: '', place: '', note: '', highlight: true }])
   const [classIds, setClassIds] = useState<string[]>(post ? post.classIds : (presetKind === 'project' ? myClassIds : []))
   const [items, setItems] = useState<Item[]>(() => (post?.media || []).map(m => ({
     key: m.id, media: m, caption: m.caption || '', image: isImage(m), video: isVideo(m), preview: m.thumb_path ? thumbs[m.thumb_path] : undefined,
@@ -70,7 +78,7 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
   const fileRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLInputElement>(null)
   const dirty = useRef(false)
-  useEffect(() => { dirty.current = true }, [title, body, items, kind]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { dirty.current = true }, [title, body, items, kind, dates]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { dirty.current = false }, [])
 
   const images = items.filter(i => i.image)
@@ -135,6 +143,10 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
     if (busy) return
     setErr('')
     if (!title.trim()) { setErr('Дай заглавие на публикацията.'); return }
+    const usedDates = dates.filter(d => d.date || d.title.trim())
+    const badDate = usedDates.find(d => !d.date || !d.title.trim())
+    if (badDate) { setErr(badDate.date ? 'Напиши какво е събитието към всяка дата.' : `Избери дата за „${badDate.title.trim()}“.`); return }
+    if (usedDates.some(d => d.time_from && d.time_to && d.time_to < d.time_from)) { setErr('Краят на събитието е преди началото.'); return }
     if (share && siteWant && !consent) { setErr('За сайта отбележи потвърждението за снимките на децата.'); return }
     setBusy('Записване…')
     try {
@@ -231,6 +243,25 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
       const add = want.filter(c => !prev.includes(c)), del = prev.filter(c => !want.includes(c))
       if (del.length) await supabase.from('portfolio_post_classes').delete().eq('post_id', id).in('class_id', del)
       if (add.length) await supabase.from('portfolio_post_classes').insert(add.map(c => ({ post_id: id, class_id: c })))
+
+      // Дати и събития
+      if (datesReady) {
+        const keepIds = new Set(usedDates.filter(d => d.id).map(d => d.id!))
+        const goneDates = (post?.dates || []).filter(d => !keepIds.has(d.id)).map(d => d.id)
+        if (goneDates.length) { const { error } = await supabase.from('portfolio_dates').delete().in('id', goneDates); if (error) throw error }
+        const sorted = [...usedDates].sort((a, b) => a.date.localeCompare(b.date) || a.time_from.localeCompare(b.time_from))
+        for (let i = 0; i < sorted.length; i++) {
+          const d = sorted[i]
+          const row = {
+            post_id: id, date: d.date, time_from: d.time_from || null, time_to: d.time_from && d.time_to ? d.time_to : null,
+            title: d.title.trim(), place: d.place.trim() || null, note: d.note.trim() || null, highlight: d.highlight, sort: i,
+          }
+          const { error } = d.id
+            ? await supabase.from('portfolio_dates').update(row).eq('id', d.id)
+            : await supabase.from('portfolio_dates').insert(row)
+          if (error) throw error
+        }
+      }
 
       dirty.current = false
       onSaved(id, !share ? 'Записано — вижда го само ти.' : post && !wasDraft ? 'Промените са записани.' : siteWant ? 'Публикувано и предложено за сайта.' : 'Публикувано в портфолиото.')
@@ -380,6 +411,62 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, cla
                   ))}
                 </div>
               )}
+
+              {/* Дати и събития към публикацията — акцентираните излизат на картата, в „Предстоящи“ и в календара */}
+              <div className="rounded-2xl border border-rose-200 bg-rose-50/40 p-5">
+                <div className="flex items-center gap-2">
+                  <CalendarClock size={16} className="text-rose-600" />
+                  <span className="text-[11px] font-semibold uppercase tracking-widest text-rose-800">{kind === 'event' ? 'Още дати' : 'Дати и събития'}</span>
+                  <span className="text-[12px] text-slate-500">— по желание</span>
+                </div>
+                <p className="text-[12.5px] text-slate-600 mt-1 mb-3">
+                  {kind === 'project' ? 'Напр. „Открит урок“, „Изложба за родителите“, „Финал на проекта“.'
+                    : kind === 'cabinet' ? 'Напр. „Ден на отворените врати в кабинета“, „Открито занятие“.'
+                    : kind === 'event' ? 'Подготовка, репетиция, второ представяне… Основната дата е по-горе.'
+                    : 'Напр. „Представяне пред методичното обединение“.'}
+                  {' '}Акцентираните се виждат на картата, в „Предстоящи събития“ и в календара на колегите.
+                </p>
+                {!datesReady ? (
+                  <p className="text-[12.5px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                    Датите ще станат достъпни, след като се пусне SQL файлът <code>2026-11-03_portfolio_dates.sql</code>.
+                  </p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {dates.map(d => (
+                      <div key={d.key} className={`rounded-xl border bg-white p-3 ${d.highlight ? 'border-rose-300' : 'border-slate-200'}`}>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input type="date" value={d.date} onChange={e => setDate(d.key, { date: e.target.value })}
+                            className="px-2.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:bg-white focus:outline-none focus:border-[#0f2240]" />
+                          <input type="time" value={d.time_from} onChange={e => setDate(d.key, { time_from: e.target.value })} title="Начален час (по желание)"
+                            className="w-[6.5rem] px-2.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:bg-white focus:outline-none focus:border-[#0f2240]" />
+                          <span className="text-slate-400 text-sm">–</span>
+                          <input type="time" value={d.time_to} onChange={e => setDate(d.key, { time_to: e.target.value })} disabled={!d.time_from} title="Краен час (по желание)"
+                            className="w-[6.5rem] px-2.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:bg-white focus:outline-none focus:border-[#0f2240] disabled:opacity-50" />
+                          <button type="button" onClick={() => setDate(d.key, { highlight: !d.highlight })}
+                            title={d.highlight ? 'Акцентирана: вижда се на картата, в „Предстоящи“ и в календара' : 'Само в публикацията'}
+                            className={`ml-auto inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium border transition-colors ${d.highlight ? 'bg-rose-600 border-rose-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:border-rose-400'}`}>
+                            <Star size={12} className={d.highlight ? 'fill-white' : ''} /> {d.highlight ? 'Акцент' : 'Без акцент'}
+                          </button>
+                          <button type="button" onClick={() => setDates(p => p.filter(x => x.key !== d.key))} title="Махни датата"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"><Trash2 size={15} /></button>
+                        </div>
+                        <div className="grid sm:grid-cols-[1fr_12rem] gap-2 mt-2">
+                          <input value={d.title} onChange={e => setDate(d.key, { title: e.target.value })} placeholder="Какво е събитието — напр. „Открит урок за родителите“"
+                            className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:bg-white focus:outline-none focus:border-[#0f2240]" />
+                          <input value={d.place} onChange={e => setDate(d.key, { place: e.target.value })} placeholder="Място (по желание)"
+                            className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:bg-white focus:outline-none focus:border-[#0f2240]" />
+                        </div>
+                        <input value={d.note} onChange={e => setDate(d.key, { note: e.target.value })} placeholder="Бележка (по желание) — кои участват, какво да се подготви…"
+                          className="w-full mt-2 px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-[13px] focus:bg-white focus:outline-none focus:border-[#0f2240]" />
+                      </div>
+                    ))}
+                    <button type="button" onClick={addDate}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-dashed border-rose-300 text-rose-700 text-[13px] font-medium hover:bg-rose-50">
+                      <Plus size={14} /> Добави дата
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {(kind === 'project' || kind === 'event') && classes.length > 0 && (
                 <div>

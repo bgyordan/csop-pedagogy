@@ -3,7 +3,7 @@
 
 import { Document, Packer, Paragraph, TextRun, ImageRun, HeadingLevel, AlignmentType } from 'docx'
 import { saveAs } from 'file-saver'
-import { kindMeta, fmtDate, fmtPeriod, STATUS, isImage } from './lib'
+import { kindMeta, fmtDate, fmtPeriod, STATUS, isImage, keyDates } from './lib'
 import type { Post } from './lib'
 
 const F = 'Times New Roman'
@@ -51,6 +51,11 @@ export async function exportPortfolio(opts: { name: string; label: string; posts
         else if (/^[-•] /.test(clean)) kids.push(new Paragraph({ bullet: { level: 0 }, children: [t(clean.slice(2))] }))
         else kids.push(new Paragraph({ spacing: { after: 80 }, alignment: AlignmentType.JUSTIFIED, children: [t(clean)] }))
       })
+    }
+    const ds = keyDates(p).filter(d => !d.main)
+    if (ds.length) {
+      kids.push(new Paragraph({ spacing: { before: 80 }, children: [t('Дати и събития:', { bold: true })] }))
+      ds.forEach(d => kids.push(new Paragraph({ bullet: { level: 0 }, children: [t([fmtDate(d.date), d.time, d.title, d.place].filter(Boolean).join(' · '))] })))
     }
     const imgs = p.media.filter(isImage).filter(m => m.thumb_path && thumbs[m.thumb_path]).slice(0, 4)
     const runs: (ImageRun | TextRun)[] = []

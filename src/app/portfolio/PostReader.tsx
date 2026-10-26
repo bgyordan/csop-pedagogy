@@ -4,12 +4,12 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   X, Pencil, Trash2, Globe, ChevronLeft, ChevronRight, Download, Eye, Paperclip, CalendarDays, Loader2,
-  Newspaper, CheckCircle2, Ban, ExternalLink, ShieldCheck, Lock, Share2, Lightbulb, ListChecks, Target,
+  Newspaper, CheckCircle2, Ban, ExternalLink, ShieldCheck, Lock, Share2, Lightbulb, ListChecks, Target, CalendarClock, MapPin, Star,
 } from 'lucide-react'
 import { renderRich } from '@/app/site-docs/shared'
 import { DocViewer } from '@/components/registry/DocViewer'
 import { Avatar, coverThumb } from './PostCard'
-import { kindMeta, fmtDate, fmtPeriod, STATUS, SITE, isImage, isVideo, isDrive, videoSrc, trashVideos, plain, resizeImage, isDraft } from './lib'
+import { kindMeta, fmtDate, fmtPeriod, STATUS, SITE, isImage, isVideo, isDrive, videoSrc, trashVideos, plain, resizeImage, isDraft, keyDates, nextKeyDate, todayYmd, relDays, dateTone } from './lib'
 import type { Post, Person, Media } from './lib'
 import { notify, confirmDialog } from '@/components/ui/Toast'
 
@@ -38,6 +38,9 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
   const [declining, setDeclining] = useState(false); const [reply, setReply] = useState('')
   const site = SITE[post.site_status]
   const draft = isDraft(post)
+  const today = todayYmd()
+  const allDates = keyDates(post).filter(d => !d.main)
+  const next = nextKeyDate(post, today)
   const cls = post.classIds.map(id => classNames[id]).filter(Boolean)
 
   useEffect(() => {
@@ -176,6 +179,7 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
             <div className="flex flex-wrap items-center gap-2 mb-3">
               <span className={`inline-flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-full border ${k.soft}`}><Icon size={13} /> {k.label}</span>
               {post.kind === 'project' && post.status && STATUS[post.status] && <span className={`text-[12px] px-2.5 py-1 rounded-full ${STATUS[post.status].cls}`}>{STATUS[post.status].label}</span>}
+              {next && <span className={`inline-flex items-center gap-1 text-[12px] font-medium px-2.5 py-1 rounded-full ${dateTone(next.date, today).tile}`}><CalendarClock size={12} /> {next.main ? 'Събитието е' : next.title + ' —'} {relDays(next.date, today)}</span>}
               {draft && <span className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1 rounded-full bg-slate-700 text-white"><Lock size={12} /> Само за мен</span>}
               {!draft && site && <span className={`inline-flex items-center gap-1 text-[12px] px-2.5 py-1 rounded-full ${site.cls}`}><Globe size={12} /> {site.label}</span>}
             </div>
@@ -200,6 +204,43 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
                   <div className="text-[14px] text-slate-800 whitespace-pre-line leading-relaxed">{v}</div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {allDates.length > 0 && (
+            <div className="mt-8">
+              <h2 className="text-[12px] font-semibold uppercase tracking-widest text-slate-500 mb-3">Дати и събития</h2>
+              <div className="space-y-2">
+                {allDates.map(d => {
+                  const past = d.date < today
+                  const t = dateTone(d.date, today)
+                  const dt = new Date(d.date + 'T00:00')
+                  return (
+                    <div key={d.id} className={`flex items-start gap-3 px-4 py-3 rounded-2xl border ${past ? 'border-slate-200 bg-slate-50/60 opacity-75' : d.highlight ? 'border-rose-200 bg-rose-50/40' : 'border-slate-200 bg-white'}`}>
+                      <div className={`shrink-0 w-12 h-14 rounded-xl flex flex-col items-center justify-center leading-none ${past ? 'bg-slate-200 text-slate-600' : d.highlight ? t.tile : 'bg-slate-100 text-slate-700'}`}>
+                        <span className="text-[18px] font-bold">{dt.getDate()}</span>
+                        <span className="text-[10px] uppercase mt-1">{dt.toLocaleDateString('bg-BG', { month: 'short' }).replace('.', '')}</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[14.5px] font-semibold text-slate-900">{d.title}</span>
+                          {d.highlight && !past && <span className="inline-flex items-center gap-1 text-[11px] text-rose-700"><Star size={11} className="fill-rose-600 text-rose-600" /> Акцент</span>}
+                        </div>
+                        <div className="text-[12.5px] text-slate-500 mt-0.5 flex flex-wrap gap-x-2">
+                          <span>{fmtDate(d.date)} · {relDays(d.date, today)}</span>
+                          {d.time && <span>· {d.time}</span>}
+                          {d.place && <span className="inline-flex items-center gap-0.5">· <MapPin size={12} /> {d.place}</span>}
+                        </div>
+                        {d.note && <div className="text-[13px] text-slate-700 mt-1">{d.note}</div>}
+                      </div>
+                      {!past && (
+                        <a href={`/calendar?view=week&date=${d.date}`} title="Отвори седмицата в календара"
+                          className="shrink-0 p-1.5 rounded-lg text-slate-500 hover:text-[#0f2240] hover:bg-slate-100"><CalendarDays size={16} /></a>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
 
