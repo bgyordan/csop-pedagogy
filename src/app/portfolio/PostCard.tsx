@@ -1,7 +1,7 @@
 'use client'
 
-import { Images, Paperclip, Globe, Share2, Lock, Trash2, Film } from 'lucide-react'
-import { kindMeta, plain, fmtShort, fmtPeriod, STATUS, SITE, isImage, isVideo } from './lib'
+import { Images, Paperclip, Globe, Share2, Lock, Trash2, Film, CalendarClock } from 'lucide-react'
+import { kindMeta, plain, fmtShort, fmtPeriod, STATUS, SITE, isImage, isVideo, nextKeyDate, relDays, dateTone, daysUntil } from './lib'
 import type { Post, Person } from './lib'
 
 export function initials(name: string) {
@@ -39,10 +39,14 @@ export default function PostCard({ post, author, thumbs, classNames, onOpen, onT
   const site = SITE[post.site_status]
   const text = plain(post.body || post.ideas || post.activities || post.goals, 150)
   const cls = post.classIds.map(id => classNames[id]).filter(Boolean)
+  // Акцент: най-близката предстояща дата на събитие
+  const next = nextKeyDate(post)
+  const tone = next ? dateTone(next.date) : null
+  const soon = next ? daysUntil(next.date) <= 7 : false
 
   return (
     <div role="button" tabIndex={0} onClick={onOpen} onKeyDown={e => { if (e.key === 'Enter') onOpen() }}
-      className="group cursor-pointer text-left bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 flex flex-col">
+      className={`group cursor-pointer text-left bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 flex flex-col ${soon && tone ? tone.ring : ''}`}>
       <div className={`relative aspect-[16/10] overflow-hidden ${cover ? 'bg-slate-100' : `bg-gradient-to-br ${k.grad}`}`}>
         {cover
           // eslint-disable-next-line @next/next/no-img-element
@@ -61,6 +65,13 @@ export default function PostCard({ post, author, thumbs, classNames, onOpen, onT
             <Globe size={11} /> {site.label}
           </span>
         )}
+        {next && tone && (
+          <span title={`${next.title}${next.time ? ' · ' + next.time : ''}${next.place ? ' · ' + next.place : ''}`}
+            className={`absolute bottom-3 left-3 max-w-[70%] inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full shadow-sm ${tone.badge}`}>
+            <CalendarClock size={12} className="shrink-0" />
+            <span className="truncate">{fmtShort(next.date)}{next.time ? ` ${next.time.slice(0, 5)}` : ''} · {relDays(next.date)}</span>
+          </span>
+        )}
         {(photos > 1 || files > 0 || videos > 0) && (
           <span className="absolute bottom-3 right-3 inline-flex items-center gap-2 text-[11px] px-2 py-1 rounded-full bg-black/55 text-white backdrop-blur-sm">
             {photos > 1 && <span className="inline-flex items-center gap-1"><Images size={12} />{photos}</span>}
@@ -75,6 +86,11 @@ export default function PostCard({ post, author, thumbs, classNames, onOpen, onT
           <div className="flex items-center gap-1.5 mt-1.5 text-[11px]">
             {post.status && STATUS[post.status] && <span className={`px-1.5 py-0.5 rounded ${STATUS[post.status].cls}`}>{STATUS[post.status].label}</span>}
             <span className="text-slate-500">{fmtPeriod(post.period_from, post.period_to)}</span>
+          </div>
+        )}
+        {next && !next.main && (
+          <div className="mt-1.5 flex items-center gap-1.5 text-[12px] text-rose-700 font-medium min-w-0">
+            <CalendarClock size={13} className="shrink-0" /><span className="truncate">{next.title}</span>
           </div>
         )}
         {text && <p className="text-[13px] text-slate-600 mt-1.5 line-clamp-2 leading-relaxed">{text}</p>}

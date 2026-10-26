@@ -19,6 +19,12 @@ export interface Post {
   site_news_id: string | null; site_requested_at: string | null
   created_at: string; updated_at: string
   media: Media[]; classIds: string[]
+  /** Дати и събития към публикацията (таблица portfolio_dates) */
+  dates: PDate[]
+}
+export interface PDate {
+  id: string; post_id: string; date: string; time_from: string | null; time_to: string | null
+  title: string; place: string | null; note: string | null; highlight: boolean; sort: number
 }
 export interface Person { id: string; name: string; short: string; label: string }
 export interface Cls { id: string; name: string }
@@ -123,3 +129,55 @@ export async function resizeImage(file: Blob, max: number, quality = 0.85): Prom
 }
 
 export const uid = () => (crypto as any).randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)
+
+// ── Дати и събития към публикацията ──
+
+/** Днешната дата като YYYY-MM-DD (местно време) */
+export const todayYmd = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+
+/** Дните от днес до датата (отрицателно — минала) */
+export function daysUntil(date: string, today = todayYmd()) {
+  const a = Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 1, +today.slice(8, 10))
+  const b = Date.UTC(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10))
+  return Math.round((b - a) / 86400000)
+}
+
+/** „днес“, „утре“, „след 5 дни“, „вчера“, „преди 3 дни“ */
+export function relDays(date: string, today = todayYmd()) {
+  const n = daysUntil(date, today)
+  if (n === 0) return 'днес'
+  if (n === 1) return 'утре'
+  if (n === -1) return 'вчера'
+  if (n > 1) return n < 14 ? `след ${n} дни` : n < 60 ? `след ${Math.round(n / 7)} седм.` : `след ${Math.round(n / 30)} мес.`
+  return -n < 14 ? `преди ${-n} дни` : -n < 60 ? `преди ${Math.round(-n / 7)} седм.` : `преди ${Math.round(-n / 30)} мес.`
+}
+
+export const hhmm = (t: string | null) => t ? t.slice(0, 5) : ''
+export const timeRange = (d: { time_from: string | null; time_to: string | null }) =>
+  d.time_from ? (d.time_to ? `${hhmm(d.time_from)}–${hhmm(d.time_to)}` : hhmm(d.time_from)) : ''
+
+/** Ключова дата: собствена или (при „Събитие“) датата на самото събитие */
+export interface KeyDate { id: string; post_id: string; date: string; title: string; time: string; place: string | null; note: string | null; highlight: boolean; main?: boolean }
+
+/** Всички дати на публикацията, по ред */
+export function keyDates(p: Post): KeyDate[] {
+  const out: KeyDate[] = (p.dates || []).map(d => ({
+    id: d.id, post_id: p.id, date: d.date, title: d.title, time: timeRange(d), place: d.place, note: d.note, highlight: d.highlight,
+  }))
+  if (p.kind === 'event' && p.event_date && !out.some(d => d.date === p.event_date))
+    out.push({ id: `main:${p.id}`, post_id: p.id, date: p.event_date, title: p.title, time: '', place: null, note: null, highlight: true, main: true })
+  return out.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+}
+
+/** Най-близката акцентирана дата от днес нататък (или null) */
+export function nextKeyDate(p: Post, today = todayYmd()): KeyDate | null {
+  return keyDates(p).find(d => d.highlight && d.date >= today) || null
+}
+
+/** Тонът на знака според близостта: днес · до 7 дни · по-нататък */
+export function dateTone(date: string, today = todayYmd()) {
+  const n = daysUntil(date, today)
+  if (n === 0) return { badge: 'bg-rose-600 text-white', ring: 'ring-2 ring-rose-500/70', tile: 'bg-rose-600 text-white' }
+  if (n <= 7) return { badge: 'bg-rose-500 text-white', ring: 'ring-2 ring-rose-300', tile: 'bg-rose-500 text-white' }
+  return { badge: 'bg-white/95 text-rose-700', ring: '', tile: 'bg-rose-50 text-rose-700 border border-rose-200' }
+}

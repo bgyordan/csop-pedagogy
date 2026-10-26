@@ -21,13 +21,15 @@ export default async function PortfolioPage() {
 
   const { data: year } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
 
-  const [postsRes, mediaRes, linksRes, staffRes, classesRes, ctaRes] = await Promise.all([
+  const [postsRes, mediaRes, linksRes, staffRes, classesRes, ctaRes, datesRes] = await Promise.all([
     supabase.from('portfolio_posts').select('*').order('created_at', { ascending: false }).limit(1000),
     supabase.from('portfolio_media').select('id, post_id, path, thumb_path, name, mime, size, caption, sort').order('sort'),
     supabase.from('portfolio_post_classes').select('post_id, class_id'),
     supabase.from('staff_profiles').select('id, first_name, middle_name, last_name, role, position').order('first_name'),
     supabase.from('classes').select('id, name').eq('academic_year_id', year?.id).order('name'),
     supabase.from('class_teacher_assignments').select('class_id').eq('staff_id', me.id).eq('academic_year_id', year?.id),
+    // Дати и събития (2026-11-03_portfolio_dates.sql) — ако таблицата я няма, разделът просто не се показва
+    supabase.from('portfolio_dates').select('id, post_id, date, time_from, time_to, title, place, note, highlight, sort').order('date').order('sort'),
   ])
 
   // Миграцията още не е пусната
@@ -47,7 +49,10 @@ export default async function PortfolioPage() {
   const clsBy: Record<string, string[]> = {}
   ;(linksRes.data || []).forEach((l: any) => { (clsBy[l.post_id] ||= []).push(l.class_id) })
 
-  const posts: Post[] = (postsRes.data || []).map((p: any) => ({ ...p, media: mediaBy[p.id] || [], classIds: clsBy[p.id] || [] }))
+  const datesBy: Record<string, any[]> = {}
+  ;(datesRes.data || []).forEach((d: any) => { (datesBy[d.post_id] ||= []).push(d) })
+
+  const posts: Post[] = (postsRes.data || []).map((p: any) => ({ ...p, media: mediaBy[p.id] || [], classIds: clsBy[p.id] || [], dates: datesBy[p.id] || [] }))
 
   // Подписани адреси за миниатюрите (хранилището е частно)
   const thumbPaths = Array.from(new Set((mediaRes.data || []).map((m: any) => m.thumb_path).filter(Boolean))) as string[]
@@ -72,6 +77,7 @@ export default async function PortfolioPage() {
       classes={classesRes.data || []}
       myClassIds={(ctaRes.data || []).map((c: any) => c.class_id)}
       academicYearId={year?.id || null}
+      datesReady={!datesRes.error}
     />
   )
 }

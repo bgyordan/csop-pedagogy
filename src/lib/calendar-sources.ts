@@ -187,6 +187,43 @@ const loadPortfolio: Loader = async (sb, me, from, to) => {
   }))
 }
 
+// ── дати и събития от портфолиото (проекти, кабинети, събития) — акцентираните; правата решават кой какво вижда ──
+const loadProjects: Loader = async (sb, _me, from, to) => {
+  const post = 'post:portfolio_posts(id, title, kind, is_shared, author:staff_profiles(first_name, last_name))'
+  const [dates, events] = await Promise.all([
+    sb.from('portfolio_dates').select(`id, date, time_from, time_to, title, place, note, ${post}`)
+      .eq('highlight', true).gte('date', ymd(from)).lt('date', ymd(to)),
+    sb.from('portfolio_posts').select('id, title, event_date, is_shared, author:staff_profiles(first_name, last_name)')
+      .eq('kind', 'event').gte('event_date', ymd(from)).lt('event_date', ymd(to)),
+  ])
+  if (dates.error && events.error) throw dates.error
+  const KIND: Record<string, string> = { project: 'Проект', cabinet: 'Кабинет', event: 'Събитие', material: 'Материал' }
+  const out: CalItem[] = []
+  const seen = new Set<string>()
+  for (const d of (dates.data || []) as any[]) {
+    if (!d.post) continue
+    seen.add(`${d.post.id}:${d.date}`)
+    const timed = !!d.time_from
+    const start = timed ? at(d.date, String(d.time_from).slice(0, 5)) : parseYmd(d.date)
+    const end = timed ? (d.time_to ? at(d.date, String(d.time_to).slice(0, 5)) : new Date(start.getTime() + 60 * 60000)) : start
+    out.push({
+      key: `pfd:${d.id}`, layer: 'projects', title: d.title, start, end, allDay: !timed, color: color('projects'),
+      location: d.place || undefined, description: d.note || undefined,
+      subtitle: `${KIND[d.post.kind] || 'Портфолио'}: ${d.post.title}${d.post.author ? ' · ' + name(d.post.author) : ''}${d.post.is_shared === false ? ' · само за мен' : ''}`,
+      href: `/portfolio?open=${d.post.id}`, sourceLabel: 'Портфолио',
+    })
+  }
+  for (const p of (events.data || []) as any[]) {
+    if (seen.has(`${p.id}:${p.event_date}`)) continue
+    out.push({
+      key: `pfe:${p.id}`, layer: 'projects', title: p.title, start: parseYmd(p.event_date), end: parseYmd(p.event_date), allDay: true,
+      color: color('projects'), subtitle: `Събитие${p.author ? ' · ' + name(p.author) : ''}${p.is_shared === false ? ' · само за мен' : ''}`,
+      href: `/portfolio?open=${p.id}`, sourceLabel: 'Портфолио',
+    })
+  }
+  return out
+}
+
 // ── посещения на час (часът — по единната номерация) ──
 const loadVisits: Loader = async (sb, me, from, to) => {
   let q = sb.from('visit_bookings').select('id, date, period, class_name, subject, topic, staff_id, staff:staff_profiles(first_name, last_name), campaign:visit_campaigns(title)')
@@ -279,7 +316,7 @@ const loadDuties: Loader = async (sb, me, from, to) => {
 
 const LOADERS: Record<CalLayer, Loader | null> = {
   mine: loadEvents, shared: null, school: loadSchool, tasks: loadTasks, deadlines: loadDeadlines, control: loadControl,
-  eval: loadEval, portfolio: loadPortfolio, visits: loadVisits, meetings: loadMeetings, duties: loadDuties,
+  eval: loadEval, portfolio: loadPortfolio, projects: loadProjects, visits: loadVisits, meetings: loadMeetings, duties: loadDuties,
 }
 
 export interface LoadResult { items: CalItem[]; failed: CalLayer[]; needSql: boolean }

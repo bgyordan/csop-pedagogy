@@ -3,23 +3,26 @@
 import { useEffect, useMemo, useState } from 'react'
 import { smartMatch } from '@/lib/search'
 import { useRouter } from 'next/navigation'
-import { Plus, Search, LayoutGrid, UserRound, Globe, Share2, FileDown, Loader2, Sparkles, X } from 'lucide-react'
+import { Plus, Search, LayoutGrid, UserRound, Globe, Share2, FileDown, Loader2, Sparkles, X, CalendarClock, ArrowRight } from 'lucide-react'
 import PostCard, { Avatar } from './PostCard'
 import PostReader from './PostReader'
 import PostEditor from './PostEditor'
 import SharedFilesTab, { loadSharedFiles } from './SharedFilesTab'
 import type { FileRow } from './SharedFilesTab'
-import { KINDS, MANAGERS, isImage, isDraft, isDrive, trashVideos } from './lib'
+import { KINDS, MANAGERS, isImage, isDraft, isDrive, trashVideos, keyDates, nextKeyDate, todayYmd, relDays, dateTone, kindMeta } from './lib'
 import { createClient } from '@/lib/supabase/client'
-import type { Post, Person, Cls, Kind } from './lib'
+import type { Post, Person, Cls, Kind, KeyDate } from './lib'
 import { confirmDialog } from '@/components/ui/Toast'
 
 type Tab = 'wall' | 'mine' | 'files' | 'site'
+const plusDays = (ymd: string, n: number) => { const d = new Date(ymd + 'T00:00'); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 const PER_PAGE = 24
 
-export default function PortfolioClient({ meId, role, posts, thumbs, people, classes, myClassIds, academicYearId }: {
+export default function PortfolioClient({ meId, role, posts, thumbs, people, classes, myClassIds, academicYearId, datesReady }: {
   meId: string; role: string; posts: Post[]; thumbs: Record<string, string>; people: Person[]
   classes: Cls[]; myClassIds: string[]; academicYearId: string | null
+  /** Има ли таблица за датите (миграция 2026-11-03_portfolio_dates.sql) */
+  datesReady: boolean
 }) {
   const router = useRouter()
   const isManager = MANAGERS.includes(role)
@@ -28,6 +31,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
 
   const [tab, setTab] = useState<Tab>(canPost ? 'wall' : 'site')
   const [kind, setKind] = useState<Kind | 'all'>('all')
+  const [upcoming, setUpcoming] = useState(false)
   const [author, setAuthor] = useState('')
   const [q, setQ] = useState('')
   const [limit, setLimit] = useState(PER_PAGE)
@@ -46,6 +50,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
     if (k && KINDS.some(x => x.key === k)) setKind(k)
     const t = sp.get('tab') as Tab | null
     if (t === 'mine' || t === 'files' || (t === 'site' && siteDesk) || t === 'wall') setTab(t)
+    if (sp.get('upcoming')) setUpcoming(true)
     if (sp.get('open')) setOpenId(sp.get('open'))
     if (sp.get('new') && canPost) setEditor({ post: null, kind: k || undefined })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -65,11 +70,23 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
     return people.filter(p => ids.has(p.id)).sort((a, b) => a.short.localeCompare(b.short, 'bg'))
   }, [wall, people])
 
+  const today = todayYmd()
+  const nextOf = useMemo(() => Object.fromEntries(posts.map(p => [p.id, nextKeyDate(p, today)])), [posts, today])
+  const upcomingCount = base.filter(p => nextOf[p.id]).length
+
   const needle = q.trim().toLowerCase()
-  const shown = base
+  const filtered = base
     .filter(p => kind === 'all' || p.kind === kind)
     .filter(p => tab !== 'wall' || !author || p.author_id === author)
-    .filter(p => !needle || smartMatch([p.title, p.body, p.ideas, p.activities, p.goals, personBy[p.author_id || '']?.name].join(' '), needle))
+    .filter(p => !upcoming || nextOf[p.id])
+    .filter(p => !needle || smartMatch([p.title, p.body, p.ideas, p.activities, p.goals, personBy[p.author_id || '']?.name, ...(p.dates || []).map(d => d.title)].join(' '), needle))
+  // „Предстоящи“ — подредени по най-близката дата
+  const shown = upcoming ? [...filtered].sort((a, b) => nextOf[a.id]!.date.localeCompare(nextOf[b.id]!.date)) : filtered
+
+  // Лентата „Предстоящи събития“ — следващите 60 дни от публикациите в текущия изглед
+  const agenda: (KeyDate & { post: Post })[] = (tab === 'site' ? [] : base)
+    .flatMap(p => keyDates(p).filter(d => d.highlight && d.date >= today && d.date <= plusDays(today, 60)).map(d => ({ ...d, post: p })))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
 
   const open = posts.find(p => p.id === openId) || null
   const canEdit = (p: Post) => p.author_id === meId || isManager || (p.kind === 'project' && p.classIds.some(c => myClassIds.includes(c)))
@@ -181,6 +198,40 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
       {tab === 'files' && <SharedFilesTab canShare={canPost} rows={files} err={filesErr} />}
 
       {tab !== 'files' && (<>
+      {/* Предстоящи събития от проектите, кабинетите и т.н. */}
+      {agenda.length > 0 && !needle && (
+        <div className="mb-6 rounded-3xl border border-rose-200 bg-gradient-to-br from-rose-50 to-white p-4 md:p-5">
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <CalendarClock size={18} className="text-rose-600" />
+            <span className="font-semibold text-slate-900">Предстоящи събития</span>
+            <span className="text-[12px] text-slate-500">следващите 60 дни · {agenda.length}</span>
+            <a href="/calendar?view=agenda" className="ml-auto inline-flex items-center gap-1 text-[13px] text-rose-700 hover:underline">
+              В календара <ArrowRight size={14} />
+            </a>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 snap-x">
+            {agenda.slice(0, 12).map(d => {
+              const t = dateTone(d.date, today); const k = kindMeta(d.post.kind); const I = k.icon
+              const dt = new Date(d.date + 'T00:00')
+              return (
+                <button key={d.id} type="button" onClick={() => setOpenId(d.post.id)}
+                  className="snap-start shrink-0 w-64 text-left flex gap-3 p-3 rounded-2xl bg-white border border-slate-200 hover:border-rose-300 hover:shadow-md transition-all">
+                  <div className={`shrink-0 w-12 h-14 rounded-xl flex flex-col items-center justify-center leading-none ${t.tile}`}>
+                    <span className="text-[18px] font-bold">{dt.getDate()}</span>
+                    <span className="text-[10px] uppercase mt-1">{dt.toLocaleDateString('bg-BG', { month: 'short' }).replace('.', '')}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[13.5px] font-semibold text-slate-900 leading-snug line-clamp-2">{d.title}</div>
+                    {!d.main && <div className={`mt-0.5 flex items-center gap-1 text-[11.5px] truncate ${k.tone}`}><I size={11} className="shrink-0" /><span className="truncate">{d.post.title}</span></div>}
+                    <div className="mt-0.5 text-[11.5px] text-slate-500 truncate">{relDays(d.date, today)}{d.time ? ` · ${d.time}` : ''}{d.place ? ` · ${d.place}` : ''}</div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Филтри */}
       <div className="flex flex-wrap items-center gap-2 mb-6">
         <button type="button" onClick={() => setKind('all')}
@@ -196,6 +247,12 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
             </button>
           )
         })}
+        {upcomingCount > 0 && (
+          <button type="button" onClick={() => setUpcoming(u => !u)} title="Само публикациите с предстояща дата — най-близките първи"
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] border transition-colors ${upcoming ? 'bg-rose-600 border-rose-600 text-white shadow-sm' : 'bg-white border-rose-200 text-rose-700 hover:border-rose-400'}`}>
+            <CalendarClock size={14} /> Предстоящи <span className="opacity-70">{upcomingCount}</span>
+          </button>
+        )}
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {tab === 'wall' && authors.length > 1 && (
             <select value={author} onChange={e => setAuthor(e.target.value)}
@@ -236,7 +293,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
 
       {/* Стена */}
       {shown.length === 0 ? (
-        (tab === 'site' || needle || kind !== 'all' || author) && (
+        (tab === 'site' || needle || kind !== 'all' || author || upcoming) && (
           <div className="text-center py-16 text-slate-500 text-sm">
             {tab === 'site' && !needle ? 'Няма публикации, които чакат за сайта.' : 'Нищо не отговаря на филтъра.'}
           </div>
@@ -269,7 +326,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
       )}
 
       {editor && (
-        <PostEditor post={editor.post} presetKind={editor.kind} meId={meId} academicYearId={academicYearId}
+        <PostEditor post={editor.post} presetKind={editor.kind} meId={meId} academicYearId={academicYearId} datesReady={datesReady}
           classes={classes} myClassIds={myClassIds} thumbs={thumbs}
           onClose={() => setEditor(null)}
           onSaved={(id, msg) => { setEditor(null); setOpenId(id); refresh(msg) }} />
