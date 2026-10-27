@@ -115,7 +115,7 @@ async function coudLabel(supabase: any, staffId: string): Promise<string> {
   // името вече може да съдържа „ЦОУД“ (напр. „ЦОУД №1“) — не го повтаряме
   return /ЦОУД/i.test(data.name) ? `група ${data.name}` : `група ЦОУД ${data.name}`
 }
-type Slot = { day: number; period: number; subject: string; cls: string; w?: number }
+type Slot = { day: number; period: number; subject: string; cls: string; w?: number; classId?: string }
 // Тежест за седмичната норма (като в редактора на разписанието): обикновен час = 1, „позволява вземане“ = 0,7, „Час на класа“ винаги 1
 const slotWeight = (name: string, pullout: boolean) => (!pullout || (name || '').toLowerCase().includes('час на класа')) ? 1 : 0.7
 // Праг за контрол „пълно разписание“ (норма 21, но съвместни часове/терапии свалят тежестта) — от 20 нагоре = пълно
@@ -134,9 +134,9 @@ async function planWeekHours(supabase: any, yearId: string | undefined, staffId:
 async function slotsByTerm(supabase: any, staffId: string, yearId: string | undefined): Promise<Record<number, Slot[]>> {
   const out: Record<number, Slot[]> = { 1: [], 2: [] }
   const { data: scheds } = await supabase
-    .from('class_schedules').select('id, term, class:classes(name)').eq('academic_year_id', yearId)
-  const info: Record<string, { term: number; name: string }> = {}
-  ;(scheds || []).forEach((s: any) => { info[s.id] = { term: s.term === 2 ? 2 : 1, name: s.class?.name || '' } })
+    .from('class_schedules').select('id, term, class_id, class:classes(name)').eq('academic_year_id', yearId)
+  const info: Record<string, { term: number; name: string; classId: string }> = {}
+  ;(scheds || []).forEach((s: any) => { info[s.id] = { term: s.term === 2 ? 2 : 1, name: s.class?.name || '', classId: s.class_id } })
   const ids = Object.keys(info)
   if (ids.length > 0) {
     const { data: slots } = await supabase
@@ -144,7 +144,7 @@ async function slotsByTerm(supabase: any, staffId: string, yearId: string | unde
       .in('schedule_id', ids).eq('staff_id', staffId)
     ;(slots || []).forEach((sl: any) => {
       const i = info[sl.schedule_id]
-      if (i) out[i.term].push({ day: sl.day, period: sl.period, subject: sl.subject?.name || '', cls: i.name, w: slotWeight(sl.subject?.name || '', !!sl.subject?.allows_pullout) })
+      if (i) out[i.term].push({ day: sl.day, period: sl.period, subject: sl.subject?.name || '', cls: i.name, classId: i.classId, w: slotWeight(sl.subject?.name || '', !!sl.subject?.allows_pullout) })
     })
   }
   const { data: ifo } = await supabase
@@ -738,17 +738,34 @@ export async function deleteSubstitution(substitutionId: string) {
 }
 
 // ── Часовете на отсъстващия по дни (за разпределяне на заместването по часове) ──
+// Към всеки час: паралелката и нейният класен — за ненатрапчивата подсказка „какво има в деня“ и „Попълни с класните“.
+export type AbsentHour = { period: number; label: string; cls?: string; classTeacherId?: string | null; classTeacherName?: string | null }
 export async function getAbsentHours(absentId: string, from: string, to: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || !absentId || !from || !to) return { data: {} as Record<string, { period: number; label: string }[]> }
+  if (!user || !absentId || !from || !to) return { data: {} as Record<string, AbsentHour[]> }
   const { data: cy } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
   const byTerm = await slotsByTerm(supabase, absentId, cy?.id)
   const wds = await workdays(supabase, from, to)
-  const out: Record<string, { period: number; label: string }[]> = {}
+  // класните на паралелките, в които отсъстващият има часове
+  const classIds = Array.from(new Set([...byTerm[1], ...byTerm[2]].map(s => s.classId).filter(Boolean))) as string[]
+  const ct: Record<string, { id: string; name: string }> = {}
+  if (classIds.length) {
+    const { data: cta } = await supabase.from('class_teacher_assignments')
+      .select('class_id, staff:staff_profiles(id, first_name, last_name, is_active)').in('class_id', classIds).eq('academic_year_id', cy?.id)
+    ;(cta || []).forEach((a: any) => {
+      if (a.staff?.is_active && a.staff.id !== absentId && !ct[a.class_id]) ct[a.class_id] = { id: a.staff.id, name: `${a.staff.first_name} ${a.staff.last_name}` }
+    })
+  }
+  const out: Record<string, AbsentHour[]> = {}
   wds.forEach(w => {
     out[w.iso] = byTerm[w.term].filter(s => s.day === w.dow).sort((a, b) => a.period - b.period)
-      .map(s => ({ period: s.period, label: `${PERIOD_LABEL[s.period] ?? s.period}${s.period <= 7 ? '. час' : ''} · ${s.cls}${s.subject ? ' — ' + s.subject : ''}` }))
+      .map(s => ({
+        period: s.period, label: `${PERIOD_LABEL[s.period] ?? s.period}${s.period <= 7 ? '. час' : ''} · ${s.cls}${s.subject ? ' — ' + s.subject : ''}`,
+        cls: s.classId ? s.cls : (s.cls.startsWith('ИФО') ? 'ИФО' : s.cls),
+        classTeacherId: s.classId ? ct[s.classId]?.id ?? null : null,
+        classTeacherName: s.classId ? ct[s.classId]?.name ?? null : null,
+      }))
   })
   return { data: out }
 }

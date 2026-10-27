@@ -13,8 +13,11 @@ interface Props {
   value: Record<string, string>           // iso → id на заместник
   onChange?: (next: Record<string, string>) => void
   readOnly?: boolean                      // само преглед (в списъка) — без избор и цъкане
-  hours?: Record<string, { period: number; label: string }[]>   // часовете на отсъстващия по дни (за разделяне по часове)
+  hours?: Record<string, DayHour[]>   // часовете на отсъстващия по дни (за разделяне по часове и подсказката „какво има в деня“)
 }
+type DayHour = { period: number; label: string; cls?: string; classTeacherId?: string | null; classTeacherName?: string | null }
+// паралелките на деня (без повторения) — тънкият ред под датата
+const dayGroups = (hs: DayHour[] = []) => Array.from(new Set(hs.map(h => h.cls).filter(Boolean))) as string[]
 export const hourKey = (iso: string, period: number) => `${iso}|${period}`
 const isSplit = (value: Record<string, string>, iso: string) => Object.keys(value).some(k => k.startsWith(iso + '|'))
 
@@ -111,6 +114,23 @@ export default function SubstituteDayCanvas({ schoolDays, staff, value, onChange
     onChange(next)
   }
   function clearAll() { onChange({}); setHourDay('') }
+  // „Попълни с класните“ — само непокритото: денят на класния на групата; ако групите в деня са с различни класни — по часове
+  const staffIds = useMemo(() => new Set(staff.map(s => s.id)), [staff])
+  const ctOf = (h: DayHour) => (h.classTeacherId && staffIds.has(h.classTeacherId) ? h.classTeacherId : '')
+  const canFillCt = !readOnly && schoolDays.some(iso => (hours[iso] || []).some(h => ctOf(h)))
+  function fillClassTeachers() {
+    const next = { ...value }
+    schoolDays.forEach(iso => {
+      const hs = hours[iso] || []
+      if (!hs.length) return
+      const ids = Array.from(new Set(hs.map(ctOf)))
+      if (isSplit(next, iso)) { hs.forEach(h => { const k = hourKey(iso, h.period); if (!next[k] && ctOf(h)) next[k] = ctOf(h) }); return }
+      if (next[iso]) return
+      if (ids.length === 1 && ids[0]) next[iso] = ids[0]
+      else if (ids.some(Boolean)) hs.forEach(h => { if (ctOf(h)) next[hourKey(iso, h.period)] = ctOf(h) })
+    })
+    onChange(next)
+  }
   // ден → по часове: досегашният заместник за деня поема всички часове, после се пребоядисват
   function splitDay(iso: string) {
     const owner = value[iso] || activeId
@@ -154,6 +174,12 @@ export default function SubstituteDayCanvas({ schoolDays, staff, value, onChange
           className="px-3 py-1.5 rounded-lg text-xs border border-slate-200 text-[#0f2240] bg-white hover:shadow-sm disabled:opacity-40 disabled:cursor-default">
           Останалите на него
         </button>
+        {canFillCt && (
+          <button type="button" onClick={fillClassTeachers} title="Непокритите дни — на класния на групата, в която отсъстващият има часове в този ден"
+            className="px-3 py-1.5 rounded-lg text-xs border border-slate-200 text-[#0f2240] bg-white hover:shadow-sm">
+            Попълни с класните
+          </button>
+        )}
         <button type="button" onClick={clearAll}
           className="px-3 py-1.5 rounded-lg text-xs border border-slate-200 text-slate-500 bg-white hover:shadow-sm">
           Изчисти
@@ -164,28 +190,33 @@ export default function SubstituteDayCanvas({ schoolDays, staff, value, onChange
 
       {/* Календар */}
       <div className="space-y-1.5">
-        <div className="grid grid-cols-5 gap-1.5">
+        <div className="grid grid-cols-5 gap-2">
           {['Пон', 'Вто', 'Сря', 'Чет', 'Пет'].map(d => <div key={d} className="text-center text-[11px] text-slate-400">{d}</div>)}
         </div>
         {weeks.map(({ wk, cols }) => (
-          <div key={wk} className="grid grid-cols-5 gap-1.5">
+          <div key={wk} className="grid grid-cols-5 gap-2">
             {[1, 2, 3, 4, 5].map(dow => {
               const iso = cols[dow]
-              if (!iso) return <div key={dow} className="min-h-[62px] rounded-xl border border-dashed border-slate-100 text-slate-300 flex items-center justify-center text-lg">·</div>
+              if (!iso) return <div key={dow} className="min-h-[76px] rounded-xl border border-dashed border-slate-100 text-slate-300 flex items-center justify-center text-lg">·</div>
               const split = isSplit(value, iso)
               const id = split ? '' : value[iso]
               const c = id ? colorOf[id] : null
               const splitIds = split ? Array.from(new Set(Object.entries(value).filter(([k]) => k.startsWith(iso + '|')).sort().map(([, v]) => v))) : []
               const canSplit = !readOnly && !split && (hours[iso]?.length || 0) > 1 && !!(value[iso] || activeId)
+              const groups = dayGroups(hours[iso])
+              const tip = [iso.split('-').reverse().join('.'), ...(hours[iso] || []).map(h => h.label + (h.classTeacherName ? `  (класен: ${h.classTeacherName})` : ''))].join('\n')
               return (
                 <div key={dow} className="relative">
                 <button type="button" onClick={() => paint(iso)} disabled={readOnly && !split}
-                  title={iso.split('-').reverse().join('.')}
-                  className={`w-full ${readOnly && !split ? 'min-h-[52px] cursor-default' : 'min-h-[62px] transition-all hover:-translate-y-0.5 hover:shadow-[0_3px_10px_rgba(15,34,64,0.10)]'} rounded-xl border flex flex-col items-center justify-center gap-0.5 py-1.5 ${split ? 'border-dashed' : ''} ${hourDay === iso ? 'ring-2 ring-[#0f2240]' : ''}`}
+                  title={tip}
+                  className={`w-full ${readOnly && !split ? 'min-h-[56px] cursor-default' : 'min-h-[76px] transition-all hover:-translate-y-0.5 hover:shadow-[0_3px_10px_rgba(15,34,64,0.10)]'} rounded-xl border flex flex-col items-center justify-center gap-0.5 py-1.5 ${split ? 'border-dashed' : ''} ${hourDay === iso ? 'ring-2 ring-[#0f2240]' : ''}`}
                   style={c ? { background: c.bg, borderColor: c.bd, color: c.tx } : { background: '#fff', borderColor: split ? '#94a3b8' : '#e2e8f0', color: '#334155' }}>
                   <span className="text-[11px] opacity-70">{WD[new Date(iso + 'T00:00').getDay()]}</span>
                   <span className="text-[15px] font-light">{dNum(iso)}.{String(mNum(iso)).padStart(2, '0')}</span>
                   {id && <span className="text-[11px] font-medium">{first(id)}</span>}
+                  {groups.length > 0 && !readOnly && (
+                    <span className="max-w-full truncate px-1 text-[10px] leading-tight text-slate-400">{groups.join(' · ')}</span>
+                  )}
                   {split && (
                     <span className="flex flex-wrap justify-center gap-0.5 px-1" title="Разделен по часове — цъкни, за да видиш">
                       {splitIds.map(x => <span key={x} className="text-[10px] px-1 rounded" style={{ background: colorOf[x]?.bg, color: colorOf[x]?.tx }}>{first(x)}</span>)}
@@ -223,7 +254,7 @@ export default function SubstituteDayCanvas({ schoolDays, staff, value, onChange
                   className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg border text-left text-[13px] ${readOnly ? 'cursor-default' : 'hover:shadow-sm'}`}
                   style={c ? { background: c.bg, borderColor: c.bd, color: c.tx } : { background: '#fff', borderColor: '#e2e8f0', color: '#334155' }}>
                   <span className="flex-1">{h.label}</span>
-                  <span className="text-[12px] font-medium">{who ? (nameOf[who] || '—') : <span className="text-amber-600">непокрит</span>}</span>
+                  <span className="text-[12px] font-medium">{who ? (nameOf[who] || '—') : <span className="text-amber-600">непокрит{h.classTeacherName && <span className="font-normal text-slate-400"> · класен: {h.classTeacherName}</span>}</span>}</span>
                 </button>
               )
             })}
