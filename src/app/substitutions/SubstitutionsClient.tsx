@@ -789,7 +789,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       {/* Модал редакция */}
       {editId && (
         <div className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={closeEdit}>
-          <div className={`bg-white rounded-2xl ${multiOpen ? 'max-w-4xl' : 'max-w-2xl'} w-full shadow-2xl border border-slate-100 p-5 md:p-6 space-y-4 max-h-[92vh] overflow-y-auto transition-[max-width]`} onClick={e => e.stopPropagation()}>
+          <div className={`bg-white rounded-2xl max-w-5xl w-full shadow-2xl border border-slate-100 p-5 md:p-6 space-y-4 max-h-[92vh] overflow-y-auto transition-[max-width]`} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2"><Pencil size={15} style={{ color: '#0f2240' }} /> Редакция на заместване</h3>
               <button onClick={closeEdit} className="p-1 rounded-lg text-slate-400 hover:text-slate-600"><X size={18} /></button>
