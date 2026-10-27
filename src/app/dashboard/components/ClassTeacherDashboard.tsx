@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { iupPeriod } from '@/lib/iup-period'
 import OutreachBadge from '@/components/OutreachBadge'
 import Link from 'next/link'
-import { Users, Calendar, Bell, CalendarClock, ClipboardList } from 'lucide-react'
+import { Users, Calendar, Bell, CalendarClock, ClipboardList, ArrowRight } from 'lucide-react'
 import { getFullName, getMonthName, formatDate } from '@/lib/utils'
 import SharedFiles from './SharedFiles'
 import ClassTeacherTabs from './ClassTeacherTabs'
@@ -67,6 +67,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
   ])
   const activeEnrollments = (allEnrollments || []).filter((e: any) => e.student?.status === 'active')
   const submittedIds = new Set(iupSubmissions?.map((s: any) => s.class_id) || [])
+  const iupDue = !isSummer && iup.open && myClasses.some((c: any) => !submittedIds.has(c.id))
   const studentIds = activeEnrollments.map((e: any) => e.student_id)
 
   // Родители (по едно име на дете) + ЦОУД записвания
@@ -183,7 +184,27 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
   }).sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
   return (
     <div className="animate-in fade-in duration-500">
-  
+      {/* Кампания ИУП: докато въвеждането е отворено и има неподадена паралелка */}
+      {iupDue && (
+        <Link href="/absences"
+          className="group mb-6 flex flex-wrap items-center gap-4 px-5 py-4 rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 ring-4 ring-amber-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition">
+          <span className="relative flex w-11 h-11 items-center justify-center rounded-xl bg-white border border-amber-200">
+            <ClipboardList size={22} className="text-amber-600" />
+            <span className="absolute -top-1 -right-1 flex h-3 w-3">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75 animate-ping" />
+              <span className="relative inline-flex h-3 w-3 rounded-full bg-amber-500" />
+            </span>
+          </span>
+          <div className="mr-auto">
+            <div className="text-lg font-medium text-[#0f2240]">Отчети реализацията на ИУП — {iup.label}</div>
+            <div className="text-sm text-slate-600 font-light">Въвеждането е отворено · срок до {iup.window.split('– ')[1]}</div>
+          </div>
+          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 text-white text-sm font-medium group-hover:bg-amber-600 transition">
+            Въведи <ArrowRight size={15} />
+          </span>
+        </Link>
+      )}
+
       {/* Изтичащи документи (по срок, от student_documents) */}
       <div className="mb-6">
         <ExpiringDocsCard studentIds={studentIds} />
