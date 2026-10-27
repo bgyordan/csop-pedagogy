@@ -205,19 +205,24 @@ export default function AbsenceEditorPage() {
 
   async function handleSave() {
     if (!year) return
+    if (!entries.some(e => e.planned_hours > 0)) {
+      toast('Няма въведени планирани часове — попълни ги (или „Планирани от разписанието“) и тогава запази', 'error')
+      return
+    }
     setSaving(true)
     const { data: yearData } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
     const { data: { user } } = await supabase.auth.getUser()
     const { data: profile } = await supabase.from('staff_profiles').select('id').eq('user_id', user?.id!).single()
 
     let absenceId = monthlyId
+    let created = false
     if (!absenceId) {
       const { data: newAbsence } = await supabase
         .from('monthly_absences')
         .insert({ class_id: classId, academic_year_id: yearData?.id, month, year, submitted_by: profile?.id, submitted_at: new Date().toISOString() })
         .select('id').single()
       absenceId = newAbsence?.id
-      setMonthlyId(absenceId)
+      created = !!absenceId
     }
 
     if (!absenceId) { toast('Записът не можа да се създаде — възможно е друг класен вече да е въвел паралелката', 'error'); setSaving(false); return }
@@ -234,7 +239,12 @@ export default function AbsenceEditorPage() {
         compensation: e.compensation,
       }))
     ).select('id')
-    if (insErr) { toast('Грешка при запис: ' + insErr.message, 'error'); setSaving(false); return }
+    if (insErr) {
+      // нов запис без редове не бива да остава — иначе паралелката изглежда „Въведено“ без данни
+      if (created) await supabase.from('monthly_absences').delete().eq('id', absenceId)
+      toast('Грешка при запис: ' + insErr.message, 'error'); setSaving(false); return
+    }
+    if (created) setMonthlyId(absenceId)
     const keep = (inserted || []).map((r: any) => r.id)
     let del = supabase.from('absence_entries').delete().eq('monthly_absence_id', absenceId)
     if (keep.length) del = del.not('id', 'in', `(${keep.join(',')})`)
