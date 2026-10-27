@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Save, CalendarDays } from 'lucide-react'
+import { Save } from 'lucide-react'
 import { BackButton } from '@/components/ui/BackButton'
 import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { getFullName, getMonthName } from '@/lib/utils'
@@ -30,8 +30,6 @@ export default function AbsenceEditorPage() {
   // Годината на отчетния месец идва от текущата учебна година (септ.–дек. = началната година,
   // януари–юни = следващата) — същото, което ползва списъкът „Реализация на ИУП“ и Excel-ът.
   const [year, setYear] = useState<number | null>(null)
-  const [yearId, setYearId] = useState<string | null>(null)
-  const [filling, setFilling] = useState(false)
 
   const [className, setClassName] = useState('')
   const [entries, setEntries] = useState<Entry[]>([])
@@ -48,7 +46,6 @@ export default function AbsenceEditorPage() {
     const startYear = yearData?.start_date ? parseInt(String(yearData.start_date).slice(0, 4)) : new Date().getFullYear()
     const year = month >= 9 ? startYear : startYear + 1
     setYear(year)
-    setYearId(yearData?.id || null)
 
     const { data: enrollments } = await supabase
       .from('student_enrollments')
@@ -127,86 +124,10 @@ export default function AbsenceEditorPage() {
     }))
   }
 
-  // Планирани часове от седмичното разписание: за всеки учебен ден от месеца (академичния календар —
-  // ваканции, празници и спонтанни неучебни дни отпадат) се броят часовете на паралелката в този ден
-  // от седмицата, по разписанието на съответния срок. Дете в ИФО — по неговите ИФО часове.
-  // Октомври включва и септември. Реализираните, причините и компенсирането не се пипат —
-  // вярната информация за отсъствията е в НЕИСПУО.
-  async function fillPlanned() {
-    if (!year || !yearId) return
-    if (entries.some(e => e.planned_hours > 0) && !await confirmDialog('Планираните часове ще бъдат заменени с изчислените от седмичното разписание. Продължаваш ли?')) return
-    setFilling(true)
-    try {
-      const pad = (n: number) => String(n).padStart(2, '0')
-      const from = month === 10 ? `${year}-09-01` : `${year}-${pad(month)}-01`
-      const lastDay = new Date(year, month, 0).getDate()
-      const to = `${year}-${pad(month)}-${pad(lastDay)}`
-
-      const { data: days } = await supabase.from('academic_calendar_days')
-        .select('date, term, day_of_week').gte('date', from).lte('date', to).eq('is_school_day', true)
-      if (!days || days.length === 0) { toast('Няма учебни дни в календара за този месец', 'error'); return }
-
-      // часове на паралелката: клетки ден·час по срок (група/няколко учители в една клетка = 1 час)
-      const { data: scheds } = await supabase.from('class_schedules').select('id, term')
-        .eq('class_id', classId).eq('academic_year_id', yearId)
-      const termOf: Record<string, number> = {}
-      ;(scheds || []).forEach((s: any) => { termOf[s.id] = s.term })
-      const classCells: Record<number, Set<string>> = { 1: new Set(), 2: new Set() }
-      if (scheds && scheds.length) {
-        const { data: slots } = await supabase.from('schedule_slots').select('schedule_id, day, period')
-          .in('schedule_id', scheds.map((s: any) => s.id)).limit(5000)
-        ;(slots || []).forEach((sl: any) => classCells[termOf[sl.schedule_id]]?.add(`${sl.day}-${sl.period}`))
-      }
-
-      // ИФО часове на децата в ИФО
-      const ifoIds = entries.filter(e => e.ifo).map(e => e.student_id)
-      const ifoCells: Record<string, Record<number, Set<string>>> = {}
-      if (ifoIds.length) {
-        const { data: ifo } = await supabase.from('teacher_ifo_slots').select('student_id, term, day, period')
-          .in('student_id', ifoIds).eq('academic_year_id', yearId)
-        ;(ifo || []).forEach((r: any) => {
-          const m = (ifoCells[r.student_id] ||= { 1: new Set(), 2: new Set() })
-          m[r.term]?.add(`${r.day}-${r.period}`)
-        })
-      }
-
-      // часове в даден ден от седмицата; ако за II срок още няма разписание — по I срок
-      const perDay = (cells: Record<number, Set<string>>, term: number, dow: number) => {
-        const set = cells[term]?.size ? cells[term] : cells[1]
-        let n = 0
-        set?.forEach(k => { if (k.startsWith(`${dow}-`)) n++ })
-        return n
-      }
-      const total = (cells: Record<number, Set<string>>) =>
-        days.reduce((sum: number, d: any) => sum + perDay(cells, d.term === 2 ? 2 : 1, d.day_of_week), 0)
-
-      const classTotal = total(classCells)
-      let empty = 0
-      const next = entries.map(e => {
-        const planned = e.ifo ? (ifoCells[e.student_id] ? total(ifoCells[e.student_id]) : 0) : classTotal
-        if (planned === 0) { empty++; return e }
-        const realized = Math.min(e.realized_hours, planned)
-        const updated = { ...e, planned_hours: planned, realized_hours: realized }
-        if (realized === planned) { updated.reason = 'Неприложимо'; updated.compensation = 'Неприложимо' }
-        else {
-          if (updated.reason === 'Неприложимо') updated.reason = ''
-          updated.compensation = 'Преразпределение на учебните часове'
-        }
-        return updated
-      })
-      setEntries(next)
-      toast(empty
-        ? `Попълнени от разписанието. Без разписание: ${empty} — въведи ги ръчно`
-        : 'Планираните часове са попълнени от разписанието — провери с НЕИСПУО')
-    } finally {
-      setFilling(false)
-    }
-  }
-
   async function handleSave() {
     if (!year) return
     if (!entries.some(e => e.planned_hours > 0)) {
-      toast('Няма въведени планирани часове — попълни ги (или „Планирани от разписанието“) и тогава запази', 'error')
+      toast('Няма въведени планирани часове — попълни ги и тогава запази', 'error')
       return
     }
     setSaving(true)
@@ -267,12 +188,6 @@ export default function AbsenceEditorPage() {
           <p className="text-slate-500 text-sm mt-1">Паралелка {className}</p>
         </div>
         <div className="flex items-center gap-2">
-        <button onClick={fillPlanned} disabled={filling || !year || entries.length === 0}
-          title="Изчислява планираните часове от седмичното разписание и учебните дни в календара"
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-normal text-slate-700 bg-white border border-slate-200 shadow-sm hover:shadow transition-shadow disabled:opacity-50">
-          <CalendarDays size={15} />
-          {filling ? 'Изчисляване...' : 'Планирани от разписанието'}
-        </button>
         <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#0f2240' }}>
           <Save size={15} />
           {saving ? 'Запазване...' : 'Запази'}
