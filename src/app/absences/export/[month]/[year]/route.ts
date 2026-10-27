@@ -12,6 +12,8 @@ export async function GET(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { data: me } = await supabase.from('staff_profiles').select('role').eq('user_id', user.id).single()
+  if (!['admin', 'zdud', 'director'].includes(me?.role || '')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { data: currentYear } = await supabase
     .from('academic_years').select('*').eq('is_current', true).single()
@@ -43,7 +45,11 @@ export async function GET(
     const absence = absenceByClass.get(cls.id)
     const teacher = teachersByClass.get(cls.id) || '—'
     if (absence?.entries?.length) {
-      for (const entry of absence.entries) {
+      const sorted = [...absence.entries].sort((a: any, b: any) => {
+        const na = studentsMap.get(a.student_id), nb = studentsMap.get(b.student_id)
+        return (na ? getFullName(na) : '').localeCompare(nb ? getFullName(nb) : '', 'bg')
+      })
+      for (const entry of sorted) {
         const student = studentsMap.get(entry.student_id)
         rows.push({
           'Паралелка/Група в ЦСОП-Варна': cls.name,

@@ -107,9 +107,14 @@ export default function AbsenceEditorPage() {
         const planned = field === 'planned_hours' ? Number(value) : e.planned_hours
         const realized = field === 'realized_hours' ? Number(value) : e.realized_hours
 
-        if (realized > planned) return { ...e }
+        // планираните не могат да са по-малко от реализираните → реализираните се смъкват
+        if (realized > planned) {
+          if (field === 'realized_hours') return { ...e }
+          updated.realized_hours = planned
+        }
+        const r = Math.min(realized, planned)
 
-        if (realized === planned) {
+        if (r === planned) {
           updated.reason = 'Неприложимо'
           updated.compensation = 'Неприложимо'
         } else {
@@ -215,10 +220,10 @@ export default function AbsenceEditorPage() {
       setMonthlyId(absenceId)
     }
 
-    if (!absenceId) { toast('Грешка', 'error'); setSaving(false); return }
+    if (!absenceId) { toast('Записът не можа да се създаде — възможно е друг класен вече да е въвел паралелката', 'error'); setSaving(false); return }
 
-    await supabase.from('absence_entries').delete().eq('monthly_absence_id', absenceId)
-    await supabase.from('absence_entries').insert(
+    // Първо вмъкваме новите редове, после трием старите — ако вмъкването се провали, старите остават
+    const { data: inserted, error: insErr } = await supabase.from('absence_entries').insert(
       entries.map(e => ({
         monthly_absence_id: absenceId,
         student_id: e.student_id,
@@ -228,9 +233,18 @@ export default function AbsenceEditorPage() {
         reason: e.reason,
         compensation: e.compensation,
       }))
-    )
+    ).select('id')
+    if (insErr) { toast('Грешка при запис: ' + insErr.message, 'error'); setSaving(false); return }
+    const keep = (inserted || []).map((r: any) => r.id)
+    let del = supabase.from('absence_entries').delete().eq('monthly_absence_id', absenceId)
+    if (keep.length) del = del.not('id', 'in', `(${keep.join(',')})`)
+    const { error: delErr } = await del
+    if (delErr) { toast('Грешка при запис: ' + delErr.message, 'error'); setSaving(false); return }
 
-    toast('Данните са запазени')
+    await supabase.from('monthly_absences').update({ submitted_at: new Date().toISOString() }).eq('id', absenceId)
+
+    const missing = entries.filter(e => e.planned_hours > 0 && e.realized_hours < e.planned_hours && !e.reason).length
+    toast(missing ? `Запазено. Липсва причина при ${missing} ${missing === 1 ? 'дете' : 'деца'}` : 'Данните са запазени', missing ? 'error' : undefined)
     setSaving(false)
   }
 
