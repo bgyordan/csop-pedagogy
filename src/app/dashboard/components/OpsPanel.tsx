@@ -176,8 +176,8 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
         <Link href="/substitutions" className={more}>Замествания <ArrowRight size={11} /></Link>
       </div>
 
-      {/* РЕАЛИЗАЦИЯ НА ИУП */}
-      <div className={card}>
+      {/* РЕАЛИЗАЦИЯ НА ИУП — акцент, докато въвеждането е отворено и има неподадени */}
+      <div className={`${card} ${!isSummer && P.open && missingIup.length > 0 ? '!border-amber-300 !bg-amber-50/50 ring-4 ring-amber-100' : ''}`}>
         <div className={head}>
           <ClipboardList size={16} className="text-amber-500" />
           <h2 className="text-sm font-medium text-slate-800">Реализация на ИУП</h2>
