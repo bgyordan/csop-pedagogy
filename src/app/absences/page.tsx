@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getMonthName } from '@/lib/utils'
-import { iupPeriod } from '@/lib/iup-period'
+import { iupPeriod, IUP_OPEN_DAY, IUP_CLOSE_DAY } from '@/lib/iup-period'
 
 export default async function AbsencesPage() {
   const supabase = await createClient()
@@ -18,12 +18,7 @@ export default async function AbsencesPage() {
   const { data: currentYear } = await supabase
     .from('academic_years').select('*').eq('is_current', true).single()
 
-  const now = new Date()
-  const currentDay = now.getDate()
-  const currentMonth = now.getMonth() + 1
-  const currentYearNum = now.getFullYear()
-
-  // Едно правило за периода (lib/iup-period): 28-ми – 8-ми; първи отчет октомври (+септември), последен юни
+  // Едно правило за периода (lib/iup-period): 27-ми – 8-ми; първи отчет октомври (+септември), последен юни
   const P = iupPeriod()
   const isSummer = P.offSeason
   const isActivePeriod = P.open
@@ -34,7 +29,7 @@ export default async function AbsencesPage() {
   const monthLabel = P.label.charAt(0).toUpperCase() + P.label.slice(1)
   // следващият прозорец (за съобщението към класните извън периода)
   const nextReport = P.offSeason ? P.month : (P.month === 6 ? 10 : P.month === 12 ? 1 : P.month + 1)
-  const nextWindow = `28 ${getMonthName(nextReport)} до 8 ${getMonthName(nextReport === 12 ? 1 : nextReport + 1)}`
+  const nextWindow = `${IUP_OPEN_DAY} ${getMonthName(nextReport)} до ${IUP_CLOSE_DAY} ${getMonthName(nextReport === 12 ? 1 : nextReport + 1)}`
 
   const isAdmin = ['admin', 'zdud', 'director'].includes(profile?.role || '')
 
@@ -49,7 +44,7 @@ export default async function AbsencesPage() {
             През <strong>юли</strong>, <strong>август</strong> и <strong>септември</strong> няма отчет за реализация на ИУП.
           </p>
           <p className="text-slate-400 text-xs mt-2">
-            Първият отчет е за <strong>октомври (и септември)</strong> — въвежда се от 28 октомври до 8 ноември.
+            Първият отчет е за <strong>октомври (и септември)</strong> — въвежда се от {IUP_OPEN_DAY} октомври до {IUP_CLOSE_DAY} ноември.
           </p>
         </div>
       </div>
@@ -87,7 +82,7 @@ export default async function AbsencesPage() {
         <p className="text-slate-500 text-sm mb-8">{currentYear?.name}</p>
         <div className="card text-center py-12">
           <p className="text-slate-500 text-sm">
-            Периодът за въвеждане е от <strong>28-ми</strong> до <strong>8-ми на следващия месец</strong>.
+            Периодът за въвеждане е от <strong>{IUP_OPEN_DAY}-ми</strong> до <strong>{IUP_CLOSE_DAY}-ми на следващия месец</strong>.
           </p>
           <p className="text-slate-400 text-xs mt-2">
             Следващ период: от {nextWindow}
@@ -106,7 +101,7 @@ export default async function AbsencesPage() {
             <span>{currentYear?.name}</span>
             <span>· Месец: <strong>{monthLabel}</strong></span>
             <span>· Срок: <strong className={deadlinePassed ? 'text-red-600' : 'text-green-600'}>
-              до 8 {getMonthName(nextMonth)}
+              до {IUP_CLOSE_DAY} {getMonthName(nextMonth)}
             </strong></span>
           </p>
         </div>
@@ -202,7 +197,7 @@ export default async function AbsencesPage() {
               >
                 <div>
                   <div className="font-medium text-slate-700">{monthLabel} {reportYear}</div>
-                  <div className="text-xs text-slate-400 mt-0.5">Срок до 8 {getMonthName(nextMonth)}</div>
+                  <div className="text-xs text-slate-400 mt-0.5">Срок до {IUP_CLOSE_DAY} {getMonthName(nextMonth)}</div>
                 </div>
                 <span className={`text-xs font-medium px-3 py-1 rounded-full flex-shrink-0 ${
                   submittedIds.has(cls.id) ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
