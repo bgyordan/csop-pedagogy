@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { iupPeriod } from '@/lib/iup-period'
+import { iupPeriod, inIup } from '@/lib/iup-period'
 import OutreachBadge from '@/components/OutreachBadge'
 import Link from 'next/link'
 import { Users, Calendar, Bell, CalendarClock, ClipboardList, ArrowRight } from 'lucide-react'
@@ -67,7 +67,8 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
   ])
   const activeEnrollments = (allEnrollments || []).filter((e: any) => e.student?.status === 'active')
   const submittedIds = new Set(iupSubmissions?.map((s: any) => s.class_id) || [])
-  const iupDue = !isSummer && iup.open && myClasses.some((c: any) => !submittedIds.has(c.id))
+  const iupClasses = myClasses.filter((c: any) => inIup(c.name))
+  const iupDue = !isSummer && iup.open && iupClasses.some((c: any) => !submittedIds.has(c.id))
   const studentIds = activeEnrollments.map((e: any) => e.student_id)
 
   // Родители (по едно име на дете) + ЦОУД записвания
@@ -228,7 +229,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
           <ClipboardList size={15} className={isSummer ? 'text-slate-400' : 'text-amber-600'} />
           Реализация на ИУП
           <span className="text-xs text-slate-500 font-light">
-            {isSummer ? `· първи отчет ${iup.window}` : `· ${iup.label} ${myClasses.map((c: any) => submittedIds.has(c.id) ? '✓' : '—').join(' ')}`}
+            {isSummer ? `· първи отчет ${iup.window}` : `· ${iup.label} ${iupClasses.map((c: any) => submittedIds.has(c.id) ? '✓' : '—').join(' ')}`}
           </span>
         </Link>
       </div>

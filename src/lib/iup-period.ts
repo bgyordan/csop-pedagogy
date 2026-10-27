@@ -22,6 +22,11 @@ export type IupPeriod = {
   window: string         // „27.10 – 8.11“
 }
 
+// Служебната паралелка (временно място за новите деца) не подава ИУП — нито се брои, нито се показва
+export function inIup(className?: string | null) {
+  return !!className && !/служебна/i.test(className)
+}
+
 export function sofiaNow() {
   return new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Sofia' }))
 }

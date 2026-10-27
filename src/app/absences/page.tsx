@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getMonthName } from '@/lib/utils'
-import { iupPeriod, IUP_OPEN_DAY, IUP_CLOSE_DAY } from '@/lib/iup-period'
+import { iupPeriod, inIup, IUP_OPEN_DAY, IUP_CLOSE_DAY } from '@/lib/iup-period'
 
 export default async function AbsencesPage() {
   const supabase = await createClient()
@@ -65,6 +65,8 @@ export default async function AbsencesPage() {
       .eq('academic_year_id', currentYear?.id)
     classes = data?.map((d: any) => d.class).filter(Boolean) || []
   }
+
+  classes = classes.filter((c: any) => inIup(c.name))
 
   const { data: submitted } = await supabase
     .from('monthly_absences')
