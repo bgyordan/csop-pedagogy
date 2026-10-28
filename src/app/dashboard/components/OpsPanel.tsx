@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { iupPeriod, inIup } from '@/lib/iup-period'
+import { iupPeriod, inIup, iupDoneClasses } from '@/lib/iup-period'
 import { createClient } from '@/lib/supabase/server'
 import { UserX, ClipboardList, HeartPulse, ArrowRight, CalendarClock } from 'lucide-react'
 import { getFullName, getMonthName } from '@/lib/utils'
@@ -23,8 +23,6 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
   // едно правило за периода (lib/iup-period)
   const P = iupPeriod()
   const isSummer = P.offSeason
-  const reportMonth = P.month
-  const reportYear = P.year
 
   const [allToday, waiting, returning, { data: cta }, { data: iup }, { data: enr }, { data: teams }, { data: newKids }] = await Promise.all([
     getTodayAbsences(supabase, { all: true }),   // всички отсъстващи днес — за картата и листчето
@@ -33,7 +31,7 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
     supabase.from('class_teacher_assignments')
       .select('class_id, class:classes(name), staff:staff_profiles(first_name, last_name)').eq('academic_year_id', currentYearId),
     isSummer ? Promise.resolve({ data: [] as any[] })
-      : supabase.from('monthly_absences').select('class_id').eq('month', reportMonth).eq('year', reportYear),
+      : supabase.from('monthly_absences').select('class_id, month, year').eq('year', P.year).in('month', P.months.map(x => x.month)),
     supabase.from('student_enrollments')
       .select('class:classes(outreach_location, eplr_class_teacher_only), student:students!inner(id, first_name, middle_name, last_name, status)').eq('academic_year_id', currentYearId).eq('student.status', 'active'),
     supabase.from('eplr_teams').select('student_id').eq('academic_year_id', currentYearId),
@@ -41,7 +39,7 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
   ])
 
   // РЕАЛИЗАЦИЯ НА ИУП — кои паралелки не са подали за миналия месец
-  const done = new Set((iup || []).map((r: any) => r.class_id))
+  const done = iupDoneClasses(iup as any, P)   // подали ВСИЧКИ отчети на прозореца (септ.+окт. са два)
   const iupClasses = (cta || []).filter((c: any) => inIup(c.class?.name))
   const missingIup = isSummer ? [] : iupClasses
     .filter((c: any) => !done.has(c.class_id))
@@ -185,7 +183,7 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
           {!isSummer && <span className="ml-auto text-xs text-slate-400">{P.label} · {P.overdue ? 'срокът изтече' : `до ${P.window.split('– ')[1]}`}</span>}
         </div>
         {isSummer ? (
-          <p className="text-sm text-slate-400 font-light">Сега няма отчет. Първият е за {P.label}: {P.window}.</p>
+          <p className="text-sm text-slate-400 font-light">Сега няма отчет. Следват: {P.label} — {P.window}.</p>
         ) : missingIup.length === 0 ? (
           <p className="text-sm text-emerald-700">✓ Всички паралелки са подали.</p>
         ) : (
