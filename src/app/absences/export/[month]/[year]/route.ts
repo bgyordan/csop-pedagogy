@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 import { getFullName, getMonthName } from '@/lib/utils'
+import { inIup } from '@/lib/iup-period'
 
 export async function GET(
   request: Request,
@@ -41,7 +42,7 @@ export async function GET(
   absences?.forEach(a => absenceByClass.set(a.class_id, a))
 
   const rows: any[] = []
-  for (const cls of classes || []) {
+  for (const cls of (classes || []).filter((c: any) => inIup(c.name))) {
     const absence = absenceByClass.get(cls.id)
     const teacher = teachersByClass.get(cls.id) || '—'
     if (absence?.entries?.length) {

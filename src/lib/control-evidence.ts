@@ -3,7 +3,7 @@
 import type { Evidence } from './control'
 
 const MONTHS = ['', 'януари', 'февруари', 'март', 'април', 'май', 'юни', 'юли', 'август', 'септември', 'октомври', 'ноември', 'декември']
-const REPORT_MONTHS = [10, 11, 12, 1, 2, 3, 4, 5, 6]   // реализация на ИУП: отчет до 8-мо число на следващия месец
+const REPORT_MONTHS = [9, 10, 11, 12, 1, 2, 3, 4, 5, 6]   // реализация на ИУП: отчет до 8-мо число на следващия месец (септември — заедно с октомври, до 8.11)
 
 /** Отчетите за реализацията на ИУП, чийто срок (8-мо число) е изтекъл преди датата. */
 export function iupDueMonths(yearName: string, date: string) {
@@ -11,7 +11,7 @@ export function iupDueMonths(yearName: string, date: string) {
   if (!start) return []
   return REPORT_MONTHS.map(m => ({ month: m, year: m >= 9 ? start : start + 1 }))
     .filter(({ month, year }) => {
-      const dm = month === 12 ? 1 : month + 1, dy = month === 12 ? year + 1 : year
+      const dm = month === 9 ? 11 : month === 12 ? 1 : month + 1, dy = month === 12 ? year + 1 : year
       return `${dy}-${String(dm).padStart(2, '0')}-08` < date
     })
 }

@@ -6,7 +6,7 @@ import { Settings2, CalendarClock, Users, Check } from 'lucide-react'
 import { BackButton } from '@/components/ui/BackButton'
 import { getFullName } from '@/lib/utils'
 import CoudTabs from './CoudTabs'
-import { iupPeriod } from '@/lib/iup-period'
+import { iupPeriod, inIup, iupDoneClasses } from '@/lib/iup-period'
 import ClassesTable, { type ClassRow } from './ClassesTable'
 import { isOresActive, todaySofia, ORES_ACTIVE_COLS } from '@/lib/ores'
 export default async function ClassesPage({
@@ -90,7 +90,7 @@ export default async function ClassesPage({
   const [{ data: scheds }, { data: iupDone }] = await Promise.all([
     supabase.from('class_schedules').select('id, class_id').eq('academic_year_id', currentYear?.id).eq('term', term),
     P.offSeason ? Promise.resolve({ data: [] as any[] })
-      : supabase.from('monthly_absences').select('class_id').eq('month', P.month).eq('year', P.year),
+      : supabase.from('monthly_absences').select('class_id, month, year').eq('year', P.year).in('month', P.months.map(x => x.month)),
   ])
   const schedIds = (scheds || []).map((x: any) => x.id)
   const { data: filled } = schedIds.length
@@ -98,7 +98,7 @@ export default async function ClassesPage({
     : { data: [] as any[] }
   const filledSched = new Set((filled || []).map((x: any) => x.schedule_id))
   const hasSchedule = new Set((scheds || []).filter((x: any) => filledSched.has(x.id)).map((x: any) => x.class_id))
-  const iupSet = new Set((iupDone || []).map((x: any) => x.class_id))
+  const iupSet = iupDoneClasses(iupDone as any, P)
     const teachersByClass = new Map<string, string[]>()
   const teacherIdByClass = new Map<string, string>()
   assignments?.forEach((a: any) => {
@@ -122,7 +122,7 @@ export default async function ClassesPage({
   const oresSet = new Set((oresRows || []).filter((o: any) => isOresActive(o, today)).map((o: any) => o.student_id))
   const absSet = new Set((absRows || []).map((r: any) => r.student_id))
   const newSet = new Set(enrollments.filter((e: any) => e.student?.is_new).map((e: any) => e.student_id))
-  const iupState = (id: string): ClassRow['iup'] => P.offSeason ? 'off' : iupSet.has(id) ? 'done' : (P.open || P.overdue) ? 'due' : 'later'
+  const iupState = (id: string, name?: string): ClassRow['iup'] => P.offSeason || !inIup(name) ? 'off' : iupSet.has(id) ? 'done' : (P.open || P.overdue) ? 'due' : 'later'
   const classRows: ClassRow[] = (classes || []).map((c: any) => {
     const ids = idsByClass.get(c.id) || []
     const n = (set: Set<string>) => ids.filter(i => set.has(i)).length
@@ -133,7 +133,7 @@ export default async function ClassesPage({
       coud: n(coudSet), isNew: n(newSet), ores: n(oresSet), absentToday: n(absSet),
       // „само класен“ (отметка в ЕПЛР разпределението) — не се брои като липсващ екип
       noEplr: c.eplr_class_teacher_only ? 0 : ids.filter(i => !eplrSet.has(i)).length,
-      hasSchedule: hasSchedule.has(c.id), iup: iupState(c.id),
+      hasSchedule: hasSchedule.has(c.id), iup: iupState(c.id, c.name),
     }
   })
 

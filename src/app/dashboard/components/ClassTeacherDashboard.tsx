@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { iupPeriod } from '@/lib/iup-period'
+import { iupPeriod, inIup, iupDoneClasses } from '@/lib/iup-period'
 import OutreachBadge from '@/components/OutreachBadge'
 import Link from 'next/link'
 import { Users, Calendar, Bell, CalendarClock, ClipboardList, ArrowRight } from 'lucide-react'
@@ -23,8 +23,6 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
   // едно правило за периода (lib/iup-period)
   const iup = iupPeriod()
   const isSummer = iup.offSeason
-  const reportMonth = iup.month
-  const reportYear = iup.year
   const { data: assignments } = await supabase
     .from('class_teacher_assignments')
     .select('class:classes(*)')
@@ -62,12 +60,13 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
           spe:staff_profiles!students_therapist_speech_id_fkey(first_name, last_name),
           reh:staff_profiles!students_therapist_rehab_id_fkey(first_name, last_name))`)
       .in('class_id', classIds).eq('academic_year_id', currentYearId),
-    supabase.from('monthly_absences').select('class_id').in('class_id', classIds).eq('month', reportMonth).eq('year', reportYear),
+    supabase.from('monthly_absences').select('class_id, month, year').in('class_id', classIds).eq('year', iup.year).in('month', iup.months.map(x => x.month)),
     supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
   ])
   const activeEnrollments = (allEnrollments || []).filter((e: any) => e.student?.status === 'active')
-  const submittedIds = new Set(iupSubmissions?.map((s: any) => s.class_id) || [])
-  const iupDue = !isSummer && iup.open && myClasses.some((c: any) => !submittedIds.has(c.id))
+  const submittedIds = iupDoneClasses(iupSubmissions as any, iup)   // ✓ = подадени всички отчети на прозореца
+  const iupClasses = myClasses.filter((c: any) => inIup(c.name))
+  const iupDue = !isSummer && iup.open && iupClasses.some((c: any) => !submittedIds.has(c.id))
   const studentIds = activeEnrollments.map((e: any) => e.student_id)
 
   // Родители (по едно име на дете) + ЦОУД записвания
@@ -228,7 +227,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
           <ClipboardList size={15} className={isSummer ? 'text-slate-400' : 'text-amber-600'} />
           Реализация на ИУП
           <span className="text-xs text-slate-500 font-light">
-            {isSummer ? `· първи отчет ${iup.window}` : `· ${iup.label} ${myClasses.map((c: any) => submittedIds.has(c.id) ? '✓' : '—').join(' ')}`}
+            {isSummer ? `· първи отчет ${iup.window}` : `· ${iup.label} ${iupClasses.map((c: any) => submittedIds.has(c.id) ? '✓' : '—').join(' ')}`}
           </span>
         </Link>
       </div>

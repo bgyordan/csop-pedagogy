@@ -184,7 +184,7 @@ export default function AbsenceEditorPage() {
       <BackButton />
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-800">Реализация на ИУП — {getMonthName(month)}{month === 10 ? ' (и септември)' : ''} {year ?? ''}</h1>
+          <h1 className="text-2xl font-semibold text-slate-800">Реализация на ИУП — {getMonthName(month)} {year ?? ''}</h1>
           <p className="text-slate-500 text-sm mt-1">Паралелка {className}</p>
         </div>
         <div className="flex items-center gap-2">
