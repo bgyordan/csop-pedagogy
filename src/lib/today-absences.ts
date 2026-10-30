@@ -41,15 +41,18 @@ export async function getTodayAbsences(supabase: any, opts: { all?: boolean } = 
   const today = sofiaToday()
   const [{ data: subs }, { data: assigns }, teaching] = await Promise.all([
     supabase.from('substitutions')
-      .select('id, date_from, date_to, bsch_eligible, absent_staff_id, absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, role, position), sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name)')
+      .select('id, date_from, date_to, bsch_eligible, absent_staff_id, substitute_staff_id, absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, role, position), sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name)')
       .lte('date_from', today).gte('date_to', today),
     supabase.from('substitution_assignments')
-      .select('substitution_id, sub:staff_profiles!substitution_assignments_substitute_staff_id_fkey(first_name, last_name)')
+      .select('substitution_id, substitute_staff_id, sub:staff_profiles!substitution_assignments_substitute_staff_id_fkey(first_name, last_name)')
       .lte('date_from', today).gte('date_to', today),
     teachingStaffIds(supabase),
   ])
+  // заместник, който днес сам отсъства (заместник на заместника още не е посочен) — отбелязваме го
+  const absentToday = new Set((subs || []).map((s: any) => s.absent_staff_id))
+  const nm = (id: string | null, p: any) => p ? `${full(p)}${id && absentToday.has(id) ? ' (отсъства!)' : ''}` : ''
   const extra: Record<string, string[]> = {}
-  ;(assigns || []).forEach((a: any) => { (extra[a.substitution_id] ||= []).push(full(a.sub)) })
+  ;(assigns || []).forEach((a: any) => { (extra[a.substitution_id] ||= []).push(nm(a.substitute_staff_id, a.sub)) })
 
   // учебен календар от най-ранното начало до днес
   const list = (subs || []).filter((s: any) => s.absent)
@@ -72,7 +75,7 @@ export async function getTodayAbsences(supabase: any, opts: { all?: boolean } = 
       absent: full(s.absent),
       position: s.absent?.position || '',
       substitutable: canBeSubstituted({ role: s.absent?.role, teaching: teaching.has(s.absent_staff_id) }),
-      by: extra[s.id]?.length ? extra[s.id].join(', ') : full(s.sub),
+      by: extra[s.id]?.length ? extra[s.id].join(', ') : nm(s.substitute_staff_id, s.sub),
       np: !!s.bsch_eligible,
       to: s.date_to,
       from: s.date_from as string,
