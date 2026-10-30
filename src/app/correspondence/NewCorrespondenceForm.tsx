@@ -4,11 +4,12 @@ import { smartMatch } from '@/lib/search'
 import { canSubstitute, canBeSubstituted } from '@/lib/pedagogues'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { generateNpLeaveOrder } from '@/lib/docx-substitution'
 import { saveKtParts } from '@/app/substitutions/actions'
 import KtPartsEditor, { ktPartsError } from '@/components/KtPartsEditor'
 import { ktLabel, type KtPart } from '@/lib/kt'
 import { FileDrop, useFormKeys, KeysHint } from '@/components/registry/FormParts'
-import { X, Loader2, User, GraduationCap, ChevronDown, ArrowDownLeft, ArrowUpRight, Zap, ClipboardList } from 'lucide-react'
+import { X, Loader2, User, GraduationCap, ChevronDown, ArrowDownLeft, ArrowUpRight, Zap, ClipboardList, FileText } from 'lucide-react'
 import { notify } from '@/components/ui/Toast'
 // Деловодна година: 15.09 – 14.09 следващата
 function deloYearBounds(ref: Date): { start: string; end: string } {
@@ -46,6 +47,7 @@ const QUICK_SCENARIOS: Record<string, {
   dossierDocType?: string
 }> = {
   vacation: { label: 'Отпуск', icon: 'staff', index: 'ЛС-02', template: 'Заявление за отпуск', directions: ['incoming'] },
+  vacation_np: { label: 'НП отпуск', icon: 'staff', index: 'ЛС-02', template: 'НП „Без свободен час" – заявление за отпуск', directions: ['incoming'] },
   enrollment: { label: 'Прием', icon: 'student', index: 'УВД-09', template: 'Заявление за прием на {name}', directions: ['incoming'], dossierDocType: 'enrollment_application' },
   coud: { label: 'ЦОУД', icon: 'student', index: 'УВД-12', template: 'Молба за ЦОУД на {name}', directions: ['incoming'], dossierDocType: 'coud_application' },
 }
@@ -181,8 +183,8 @@ export default function NewCorrespondenceForm({
     : (subFrom && subTo ? `${fmtD(subFrom)}–${fmtD(subTo)}` : '')
   const currentYear = new Date().getFullYear()
   const activeScenario = scenario ? QUICK_SCENARIOS[scenario] : null
-  // НП („Без свободен час“) се отбелязва на заместването в „Замествания“; отпускът е по общата бланка от „Образци“
-  const isVacation = scenario === 'vacation'
+    const isVacation = scenario === 'vacation' || scenario === 'vacation_np'
+  const isNp = scenario === 'vacation_np'
   const selectedNomItem = nomenclature.find(n => n.item_code === folderIndex)
   const [nextNumVal, setNextNumVal] = useState<number | null>(null)
   useEffect(() => {
@@ -294,6 +296,21 @@ export default function NewCorrespondenceForm({
       setFromWhom(data[0].full_name)
     }
   }
+  // Заявление по НП (Приложение № 1), попълнено със служителя, вида отпуск и периода
+  async function downloadNpApplication() {
+    const p = staff.find(x => x.id === staffId)
+    const { data: prof } = await supabase.from('staff_profiles').select('position').eq('id', staffId).maybeSingle()
+    const { generateNpLeaveApplication } = await import('@/lib/docx-substitution')
+    const { NP_LEAVE_KIND, leaveDaysInfo } = await import('@/lib/np-leave')
+    const info = leaveDaysInfo(leaveFirst, leaveLast)
+    await generateNpLeaveApplication({
+      name: p ? `${p.first_name} ${p.last_name}` : fromWhom, position: prof?.position || '',
+      leaveKind: NP_LEAVE_KIND[ktArticle] || '', days: separateDays ? leavePeriods.length || null : info.days || null,
+      forYear: (leaveFirst || docDate).slice(0, 4), dateFrom: leaveFirst, dateTo: leaveLast, reason: '',
+      backOn: info.backOn, inNumber: reserved?.number, inDate: docDate, signedOn: docDate,
+    })
+  }
+
   // частите важат само при отпуск за период (не при отделни дни)
   const partsUsed: KtPart[] = isVacation && !separateDays ? ktParts : []
 
@@ -358,12 +375,21 @@ export default function NewCorrespondenceForm({
                     created_by: currentUserId,
           seq: oSeq,
         })
+        if (isNp) {
+          try {
+            await generateNpLeaveOrder({
+              orderNumber, absentName: fromWhom || '', absentPosition: '',
+                            ktArticle, ktParts: partsUsed, dateFrom: leaveFirst || docDate, dateTo: leaveLast || docDate, workDays: 0,
+              leaveRef: `Заявление вх. № ${docNumber}`, zdudName: 'Силвия Кьошкерян',
+            })
+          } catch (_) {}
+        }
       } catch (_) { /* заповедта не бива да блокира деловодството */ }
     }
 
 // Отпуск → регистър „Замествания“: ВИНАГИ (с или без заместник), за да се вижда кой отсъства.
     // Специалистите се водят „не се замества“; НП — само за учители и възпитатели.
-    if (isVacation && absentInRegister && leavePeriods.length > 0) {
+    if ((isVacation && absentInRegister && leavePeriods.length > 0) || (isNp && absentCanBeSubstituted)) {
       try {
         // отделни дни → по един ред за всеки ден; иначе един ред за периода
         const all = leavePeriods.length > 0 ? leavePeriods : [{ from: docDate, to: docDate }]
@@ -381,6 +407,7 @@ export default function NewCorrespondenceForm({
           date_from: p.from,
           date_to: p.to,
           reason: 'vacation',
+          bsch_eligible: isNp && absentCanBeSubstituted,
           leave_order_date: docDate,
           created_by: currentUserId,
         }))).select('id')
@@ -510,6 +537,13 @@ export default function NewCorrespondenceForm({
                       Създай и <strong>заповед за отпуск</strong> (РД-10) с общия файл
                     </span>
                   </label>
+                )}
+                {/* НП: заявлението по Приложение № 1 — попълнено, за подпис (различно от общото) */}
+                {isNp && staffId && (
+                  <button type="button" onClick={downloadNpApplication}
+                    className="mt-1 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-[11px] text-slate-700 hover:border-[#0f2240]">
+                    <FileText size={12} /> Заявление по НП (Прил. 1) — Word за подпис
+                  </button>
                 )}
                 {/* Период на отпуска — винаги (от него зависи „Днес отсъстват“) */}
                 {isVacation && absentInRegister && (
