@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { getMonthName } from '@/lib/utils'
+import { getMonthName, getFullName } from '@/lib/utils'
+import OutreachBadge from '@/components/OutreachBadge'
 import { iupPeriod, inIup, IUP_OPEN_DAY, IUP_CLOSE_DAY } from '@/lib/iup-period'
 
 export default async function AbsencesPage() {
@@ -67,15 +68,38 @@ export default async function AbsencesPage() {
 
   classes = classes.filter((c: any) => inIup(c.name))
 
-  const { data: submitted } = await supabase
-    .from('monthly_absences')
-    .select('class_id, month')
-    .eq('year', P.year)
-    .in('month', months.map(m => m.month))
+  const classIds = classes.map((c: any) => c.id)
+  const [{ data: submitted }, { data: cta }, { data: enr }] = await Promise.all([
+    supabase.from('monthly_absences')
+      .select('class_id, month, submitted_at, entries:absence_entries(count)')
+      .eq('year', P.year)
+      .in('month', months.map(m => m.month)),
+    isAdmin && classIds.length
+      ? supabase.from('class_teacher_assignments').select('class_id, staff:staff_profiles(first_name, last_name, is_active)')
+          .eq('academic_year_id', currentYear?.id).in('class_id', classIds)
+      : Promise.resolve({ data: [] as any[] }),
+    isAdmin && classIds.length
+      ? supabase.from('student_enrollments').select('class_id, student:students!inner(status)')
+          .eq('academic_year_id', currentYear?.id).in('class_id', classIds).is('left_at', null).eq('student.status', 'active')
+      : Promise.resolve({ data: [] as any[] }),
+  ])
 
-  // подадено ли е за паралелка + месец
-  const done = new Set((submitted || []).map((s: any) => `${s.class_id}-${s.month}`))
-  const isDone = (classId: string, month: number) => done.has(`${classId}-${month}`)
+  // подадено ли е за паралелка + месец (+ кога и за колко деца)
+  const sub = new Map<string, { at: string | null; n: number }>()
+  ;(submitted || []).forEach((s: any) => sub.set(`${s.class_id}-${s.month}`, { at: s.submitted_at, n: s.entries?.[0]?.count ?? 0 }))
+  const isDone = (classId: string, month: number) => sub.has(`${classId}-${month}`)
+  const subInfo = (classId: string, month: number) => sub.get(`${classId}-${month}`)
+  const ddmm = (iso?: string | null) => iso ? new Date(iso).toLocaleDateString('bg-BG', { day: '2-digit', month: '2-digit', timeZone: 'Europe/Sofia' }) : ''
+
+  // класен ръководител(и) и брой деца СЕГА в паралелката
+  const teachers = new Map<string, string[]>()
+  ;(cta || []).forEach((a: any) => {
+    if (!a.staff || a.staff.is_active === false) return
+    if (!teachers.has(a.class_id)) teachers.set(a.class_id, [])
+    teachers.get(a.class_id)!.push(getFullName(a.staff))
+  })
+  const kids = new Map<string, number>()
+  ;(enr || []).forEach((e: any) => kids.set(e.class_id, (kids.get(e.class_id) || 0) + 1))
 
   // Извън активен период — само класен вижда това съобщение
   if (!isActivePeriod && !isAdmin) {
@@ -130,12 +154,14 @@ export default async function AbsencesPage() {
       </div>
       {isAdmin ? (
         <>
-          {/* ДЕСКТОП: таблица — по една колона за всеки отчет на прозореца */}
+          {/* ДЕСКТОП: таблица — паралелка, класен, деца + по една колона за всеки отчет на прозореца */}
           <div className="hidden md:block bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
             <div className="overflow-x-auto"><table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Паралелка</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Класен ръководител</th>
+                  <th className="text-center px-3 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Деца</th>
                   {months.map(m => (
                     <th key={m.month} className="text-center px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">
                       {cap(m.label)}
@@ -147,15 +173,28 @@ export default async function AbsencesPage() {
                 {classes.map((cls, idx) => (
                   <tr key={cls.id}
                       className={`border-b border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
-                    <td className="px-4 py-2.5 font-medium text-slate-800">{cls.name}</td>
-                    {months.map(m => (
-                      <td key={m.month} className="px-4 py-2.5 text-center">
-                        <Link href={`/absences/${cls.id}/${m.month}`} className="inline-flex items-center gap-2 hover:opacity-80" title={`Преглед — ${m.label}`}>
-                          <Badge ok={isDone(cls.id, m.month)} />
-                          <span className="text-slate-300 text-sm">›</span>
-                        </Link>
-                      </td>
-                    ))}
+                    <td className="px-4 py-2.5 font-medium text-slate-800 whitespace-nowrap">
+                      {cls.name} {cls.outreach_location && <OutreachBadge location={cls.outreach_location} size="xs" />}
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-600 font-light">{(teachers.get(cls.id) || []).join(', ') || <span className="text-slate-300">—</span>}</td>
+                    <td className="px-3 py-2.5 text-center text-slate-600">{kids.get(cls.id) || 0}</td>
+                    {months.map(m => {
+                      const info = subInfo(cls.id, m.month)
+                      const n = kids.get(cls.id) || 0
+                      return (
+                        <td key={m.month} className="px-4 py-2.5 text-center">
+                          <Link href={`/absences/${cls.id}/${m.month}`} className="inline-flex flex-col items-center hover:opacity-80" title={`Преглед — ${m.label}`}>
+                            <Badge ok={!!info} />
+                            {info && (
+                              <span className={`text-[11px] mt-0.5 ${info.n !== n ? 'text-amber-600' : 'text-slate-400'}`}
+                                title={info.n !== n ? 'Броят деца в отчета се различава от сегашния списък на паралелката' : ''}>
+                                {ddmm(info.at)} · {info.n} деца
+                              </span>
+                            )}
+                          </Link>
+                        </td>
+                      )
+                    })}
                   </tr>
                 ))}
               </tbody>
@@ -166,7 +205,11 @@ export default async function AbsencesPage() {
           <div className="md:hidden space-y-2">
             {classes.map(cls => (
               <div key={cls.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3 space-y-2">
-                <div className="font-medium text-slate-800 text-sm">Пар. {cls.name}</div>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-medium text-slate-800">Пар. {cls.name}</span>
+                  {cls.outreach_location && <OutreachBadge location={cls.outreach_location} size="xs" />}
+                  <span className="ml-auto text-xs text-slate-400 font-light truncate">{(teachers.get(cls.id) || []).join(', ')} · {kids.get(cls.id) || 0} деца</span>
+                </div>
                 {months.map(m => (
                   <Link key={m.month} href={`/absences/${cls.id}/${m.month}`}
                     className="flex items-center justify-between gap-3 text-sm text-slate-600 hover:text-[#0f2240]">

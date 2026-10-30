@@ -35,6 +35,7 @@ export default function AbsenceEditorPage() {
   const [entries, setEntries] = useState<Entry[]>([])
   const [saving, setSaving] = useState(false)
   const [monthlyId, setMonthlyId] = useState<string | null>(null)
+  const [staleCount, setStaleCount] = useState(0)   // деца в записания отчет, които вече не са в паралелката
 
   useEffect(() => { loadData() }, [classId, month])
 
@@ -52,8 +53,13 @@ export default function AbsenceEditorPage() {
       .select('*, student:students(*)')
       .eq('class_id', classId)
       .eq('academic_year_id', yearData?.id)
+      .is('left_at', null)
 
-    const students = enrollments?.map((e: any) => e.student && ({ ...e.student, __ifo: e.education_form === 'ifo' })).filter(Boolean) || []
+    // само децата, които СЕГА са в паралелката: активни (не архивирани/отписани), азбучно
+    const students = (enrollments || [])
+      .filter((e: any) => e.student && e.student.status === 'active')
+      .map((e: any) => ({ ...e.student, __ifo: e.education_form === 'ifo' }))
+      .sort((a: any, b: any) => getFullName(a).localeCompare(getFullName(b), 'bg'))
 
     const { data: existing } = await supabase
       .from('monthly_absences')
@@ -69,6 +75,9 @@ export default function AbsenceEditorPage() {
         .from('absence_entries')
         .select('*')
         .eq('monthly_absence_id', existing.id)
+
+      const current = new Set(students.map((s: any) => s.id))
+      setStaleCount((existingEntries || []).filter((e: any) => !current.has(e.student_id)).length)
 
       setEntries(students.map((s: any) => {
         const found = existingEntries?.find(e => e.student_id === s.id)
@@ -185,7 +194,7 @@ export default function AbsenceEditorPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-slate-800">Реализация на ИУП — {getMonthName(month)} {year ?? ''}</h1>
-          <p className="text-slate-500 text-sm mt-1">Паралелка {className}</p>
+          <p className="text-slate-500 text-sm mt-1">Паралелка {className} · {entries.length} деца</p>
         </div>
         <div className="flex items-center gap-2">
         <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: '#0f2240' }}>
@@ -194,6 +203,12 @@ export default function AbsenceEditorPage() {
         </button>
         </div>
       </div>
+
+      {staleCount > 0 && (
+        <div className="mb-4 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-800">
+          В записания отчет има {staleCount} {staleCount === 1 ? 'дете, което' : 'деца, които'} вече не {staleCount === 1 ? 'е' : 'са'} в паралелката (отписани или преместени). При „Запази“ ще отпаднат от отчета.
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
         <div className="overflow-x-auto"><table className="w-full text-sm">
