@@ -109,8 +109,6 @@ const navItems: NavItem[] = [
     children: [
       // едно място: бутонът за декларациите (един файл с всички видове) + моите замествания и часове над норматив
       { href: '/my-lecturer', label: 'Моите лекторски', icon: <GraduationCap size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
-      // заявление за отпуск по НП „Без свободен час“ (Приложение № 1)
-      { href: '/leave-np', label: 'Отпуск по НП', icon: <FileText size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
     ],
   },
   // Документи — за всички (Портфолио — без помощния персонал)
@@ -195,7 +193,6 @@ const navItems: NavItem[] = [
   { href: '/calendar', label: 'Календар', icon: <CalendarDays size={16} />, roles: ['secretary'], section: 'delo' },
   { href: '/correspondence', label: 'Регистър', icon: <Inbox size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/orders', label: 'Заповеди', icon: <ClipboardList size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
-  { href: '/leave-np', label: 'Отпуск по НП', icon: <FileText size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/contracts', label: 'Договори', icon: <FileSignature size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   // „Обществени поръчки“ — скрито: поръчките се водят в АОП (страницата /procurements и данните остават)
   // { href: '/procurements', label: 'Обществени поръчки', icon: <Package size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
