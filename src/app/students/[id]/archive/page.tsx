@@ -7,6 +7,7 @@ import { ArrowLeft, Archive } from 'lucide-react'
 import Link from 'next/link'
 import { useToast } from '@/components/ui/Toast'
 import { getFullName } from '@/lib/utils'
+import { todaySofia } from '@/lib/ores'
 
 export default function ArchiveStudentPage() {
   const params = useParams()
@@ -16,6 +17,7 @@ export default function ArchiveStudentPage() {
   const supabase = createClient()
   const [student, setStudent] = useState<any>(null)
   const [reason, setReason] = useState('')
+  const [leftOn, setLeftOn] = useState(todaySofia())   // дата на отписване — по нея детето остава в отчетите (ИУП) за месеца
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -25,22 +27,28 @@ export default function ArchiveStudentPage() {
   async function handleArchive(e: React.FormEvent) {
     e.preventDefault()
     if (!reason.trim()) { toast('Въведи причина за напускане', 'error'); return }
+    if (!leftOn) { toast('Въведи дата на отписване', 'error'); return }
     setSaving(true)
 
-  setSaving(true)
+    // паралелката, от която излиза — пази се, за да остане в отчетите за месеца на отписване
+    const { data: currentYear } = await supabase
+      .from('academic_years').select('id').eq('is_current', true).single()
+    const { data: enr } = currentYear
+      ? await supabase.from('student_enrollments').select('class_id').eq('student_id', id).eq('academic_year_id', currentYear.id).maybeSingle()
+      : { data: null }
+
     const { error } = await supabase
       .from('students')
       .update({
         status: 'archived',
         archive_reason: reason,
-        archived_at: new Date().toISOString(),
+        archived_at: leftOn,
+        archived_class_id: enr?.class_id ?? null,
       })
       .eq('id', id)
     if (error) { toast('Грешка при архивиране', 'error'); setSaving(false); return }
 
     // Махаме записването за текущата година — ученикът изчезва от оперативните списъци
-    const { data: currentYear } = await supabase
-      .from('academic_years').select('id').eq('is_current', true).single()
     if (currentYear) {
       await supabase
         .from('student_enrollments')
@@ -81,6 +89,11 @@ export default function ArchiveStudentPage() {
               onChange={e => setReason(e.target.value)}
               placeholder="Напр. завършване, преместване в друго училище..."
             />
+          </div>
+          <div>
+            <label className="label">Дата на отписване <span className="text-red-500">*</span></label>
+            <input type="date" className="input" value={leftOn} max={todaySofia()} onChange={e => setLeftOn(e.target.value)} />
+            <p className="text-xs text-slate-400 mt-1">Детето остава в отчета за реализация на ИУП за месеца, в който е отписано.</p>
           </div>
           <div className="flex gap-3">
             <button type="submit" disabled={saving} className="btn-danger">

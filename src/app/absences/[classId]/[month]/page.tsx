@@ -6,12 +6,14 @@ import { createClient } from '@/lib/supabase/client'
 import { Save } from 'lucide-react'
 import { BackButton } from '@/components/ui/BackButton'
 import { useToast, confirmDialog } from '@/components/ui/Toast'
-import { getFullName, getMonthName } from '@/lib/utils'
+import { getFullName, getMonthName, formatDate } from '@/lib/utils'
+import { iupMonthStart, leftDuringIup } from '@/lib/iup-period'
 
 interface Entry {
   student_id: string
   ifo: boolean
   student_name: string
+  left_on?: string | null   // отписан през периода — дата
   planned_hours: number
   realized_hours: number
   reason: string
@@ -55,10 +57,19 @@ export default function AbsenceEditorPage() {
       .eq('academic_year_id', yearData?.id)
       .is('left_at', null)
 
-    // само децата, които СЕГА са в паралелката: активни (не архивирани/отписани), азбучно
-    const students = (enrollments || [])
-      .filter((e: any) => e.student && e.student.status === 'active')
-      .map((e: any) => ({ ...e.student, __ifo: e.education_form === 'ifo' }))
+    // Децата в отчета: активните в паралелката + отписаните ПРЕЗ този месец (бяха в паралелката част от него).
+    // Отписаните по-рано не влизат. Архивираните пазят паралелката си в students.archived_class_id.
+    const start = iupMonthStart(month, year, yearData?.start_date)
+    const { data: leftKids } = await supabase.from('students').select('*')
+      .eq('status', 'archived').eq('archived_class_id', classId).gte('archived_at', start)
+    const seen = new Set<string>()
+    const students = [
+      ...(enrollments || []).filter((e: any) => e.student && (e.student.status === 'active' || leftDuringIup(e.student.archived_at, start)))
+        .map((e: any) => ({ ...e.student, __ifo: e.education_form === 'ifo' })),
+      ...(leftKids || []),
+    ]
+      .filter((s: any) => !seen.has(s.id) && seen.add(s.id))
+      .map((s: any) => ({ ...s, __left: s.status === 'archived' ? s.archived_at : null }))
       .sort((a: any, b: any) => getFullName(a).localeCompare(getFullName(b), 'bg'))
 
     const { data: existing } = await supabase
@@ -85,6 +96,7 @@ export default function AbsenceEditorPage() {
           student_id: s.id,
           ifo: !!s.__ifo,
           student_name: getFullName(s),
+          left_on: s.__left,
           planned_hours: found?.planned_hours || 0,
           realized_hours: found?.realized_hours || 0,
           reason: found?.reason || '',
@@ -96,6 +108,7 @@ export default function AbsenceEditorPage() {
         student_id: s.id,
         ifo: !!s.__ifo,
         student_name: getFullName(s),
+        left_on: s.__left,
         planned_hours: 0,
         realized_hours: 0,
         reason: '',
@@ -206,7 +219,7 @@ export default function AbsenceEditorPage() {
 
       {staleCount > 0 && (
         <div className="mb-4 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-800">
-          В записания отчет има {staleCount} {staleCount === 1 ? 'дете, което' : 'деца, които'} вече не {staleCount === 1 ? 'е' : 'са'} в паралелката (отписани или преместени). При „Запази“ ще отпаднат от отчета.
+          В записания отчет има {staleCount} {staleCount === 1 ? 'дете, което' : 'деца, които'} вече не {staleCount === 1 ? 'е' : 'са'} в паралелката (отписани преди месеца или преместени). При „Запази“ ще отпаднат от отчета.
         </div>
       )}
 
@@ -227,7 +240,10 @@ export default function AbsenceEditorPage() {
               const isEqual = entry.planned_hours > 0 && diff === 0
               return (
                 <tr key={entry.student_id} className={`border-b border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
-                  <td className="px-4 py-2 font-medium text-slate-800">{entry.student_name}</td>
+                  <td className="px-4 py-2 font-medium text-slate-800">
+                    {entry.student_name}
+                    {entry.left_on && <span className="ml-2 text-[11px] font-normal px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500">отписан {formatDate(entry.left_on)}</span>}
+                  </td>
                   <td className="px-3 py-2">
                     <input
                       type="number" min="0"
