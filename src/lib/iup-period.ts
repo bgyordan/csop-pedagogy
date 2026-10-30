@@ -32,6 +32,17 @@ export function inIup(className?: string | null) {
   return !!className && !/служебна/i.test(className)
 }
 
+/** Началото на отчетния период за месеца: септември — от началото на учебната година (15.09), иначе 1-во число. */
+export function iupMonthStart(month: number, year: number, schoolYearStart?: string | null) {
+  if (month === 9 && schoolYearStart) return String(schoolYearStart).slice(0, 10)
+  return `${year}-${String(month).padStart(2, '0')}-01`
+}
+
+/** Дете, отписано В периода (на или след началото му), остава в отчета за този месец. */
+export function leftDuringIup(archivedAt: string | null | undefined, monthStart: string) {
+  return !!archivedAt && String(archivedAt).slice(0, 10) >= monthStart
+}
+
 export function iupMonthLabel(month: number) {
   return MONTHS[month] || ''
 }

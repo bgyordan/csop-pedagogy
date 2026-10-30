@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getMonthName, getFullName } from '@/lib/utils'
 import OutreachBadge from '@/components/OutreachBadge'
-import { iupPeriod, inIup, IUP_OPEN_DAY, IUP_CLOSE_DAY } from '@/lib/iup-period'
+import { iupPeriod, inIup, iupMonthStart, leftDuringIup, IUP_OPEN_DAY, IUP_CLOSE_DAY } from '@/lib/iup-period'
 
 export default async function AbsencesPage() {
   const supabase = await createClient()
@@ -69,7 +69,9 @@ export default async function AbsencesPage() {
   classes = classes.filter((c: any) => inIup(c.name))
 
   const classIds = classes.map((c: any) => c.id)
-  const [{ data: submitted }, { data: cta }, { data: enr }] = await Promise.all([
+  const starts = months.map(m => iupMonthStart(m.month, m.year, currentYear?.start_date))
+  const firstStart = starts.reduce((a, b) => (a < b ? a : b), starts[0])
+  const [{ data: submitted }, { data: cta }, { data: enr }, { data: leftKids }] = await Promise.all([
     supabase.from('monthly_absences')
       .select('class_id, month, submitted_at, entries:absence_entries(count)')
       .eq('year', P.year)
@@ -81,6 +83,11 @@ export default async function AbsencesPage() {
     isAdmin && classIds.length
       ? supabase.from('student_enrollments').select('class_id, student:students!inner(status)')
           .eq('academic_year_id', currentYear?.id).in('class_id', classIds).is('left_at', null).eq('student.status', 'active')
+      : Promise.resolve({ data: [] as any[] }),
+    // отписаните през периода — остават в отчета за месеца, в който са излезли
+    isAdmin && classIds.length
+      ? supabase.from('students').select('archived_at, archived_class_id')
+          .eq('status', 'archived').in('archived_class_id', classIds).gte('archived_at', firstStart)
       : Promise.resolve({ data: [] as any[] }),
   ])
 
@@ -100,6 +107,11 @@ export default async function AbsencesPage() {
   })
   const kids = new Map<string, number>()
   ;(enr || []).forEach((e: any) => kids.set(e.class_id, (kids.get(e.class_id) || 0) + 1))
+  // колко деца ТРЯБВА да има в отчета за месеца: сегашните + отписаните през него
+  const expected = (classId: string, month: number) => {
+    const start = starts[months.findIndex(m => m.month === month)]
+    return (kids.get(classId) || 0) + (leftKids || []).filter((k: any) => k.archived_class_id === classId && leftDuringIup(k.archived_at, start)).length
+  }
 
   // Извън активен период — само класен вижда това съобщение
   if (!isActivePeriod && !isAdmin) {
@@ -180,14 +192,14 @@ export default async function AbsencesPage() {
                     <td className="px-3 py-2.5 text-center text-slate-600">{kids.get(cls.id) || 0}</td>
                     {months.map(m => {
                       const info = subInfo(cls.id, m.month)
-                      const n = kids.get(cls.id) || 0
+                      const n = expected(cls.id, m.month)
                       return (
                         <td key={m.month} className="px-4 py-2.5 text-center">
                           <Link href={`/absences/${cls.id}/${m.month}`} className="inline-flex flex-col items-center hover:opacity-80" title={`Преглед — ${m.label}`}>
                             <Badge ok={!!info} />
                             {info && (
                               <span className={`text-[11px] mt-0.5 ${info.n !== n ? 'text-amber-600' : 'text-slate-400'}`}
-                                title={info.n !== n ? 'Броят деца в отчета се различава от сегашния списък на паралелката' : ''}>
+                                title={info.n !== n ? `В отчета ${info.n}, а трябва ${n} (сегашните + отписаните през месеца)` : ''}>
                                 {ddmm(info.at)} · {info.n} деца
                               </span>
                             )}
