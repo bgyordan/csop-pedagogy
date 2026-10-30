@@ -26,6 +26,7 @@ export default function EditContractModal({ item, onClose }: Props) {
   const [saving, setSaving] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   useFormKeys(rootRef, onClose)
+  const [number, setNumber] = useState(item.number || '')
   const [date, setDate] = useState(item.date || '')
   const [counterparty, setCounterparty] = useState(item.counterparty || '')
   const [subject, setSubject] = useState(item.subject || '')
@@ -38,7 +39,15 @@ export default function EditContractModal({ item, onClose }: Props) {
 
   async function handleSave() {
     if (!counterparty || !subject) return
+    const num = number.trim()
+    if (!num) { notify('Номерът на договора не може да е празен'); return }
     setSaving(true)
+
+    // номерът е уникален — проверка, ако е сменен
+    if (num !== item.number) {
+      const { data: dup } = await supabase.from('contracts').select('id, counterparty').eq('number', num).neq('id', item.id).limit(1)
+      if (dup && dup.length) { notify(`Вече има договор № ${num} (${dup[0].counterparty || '—'})`); setSaving(false); return }
+    }
 
     let fileUrl = item.file_url || null
     let fileName = item.file_name || null
@@ -52,6 +61,7 @@ export default function EditContractModal({ item, onClose }: Props) {
     const { error } = await supabase
       .from('contracts')
       .update({
+        number: num,
         date,
         counterparty,
         subject,
@@ -85,9 +95,16 @@ export default function EditContractModal({ item, onClose }: Props) {
         <div className="flex-1 overflow-y-auto px-6 py-5">
           <div className="grid md:grid-cols-[1.2fr_1fr] gap-6">
             <FormSection title="Данни">
-              <div>
-                <label className={LBL}>Дата</label>
-                <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input w-44" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={LBL}>№ на договор *</label>
+                  <input type="text" required value={number} onChange={e => setNumber(e.target.value)}
+                    placeholder="ДГ-001/2026" className="input w-full tabular-nums" />
+                </div>
+                <div>
+                  <label className={LBL}>Дата</label>
+                  <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input w-full" />
+                </div>
               </div>
               <div>
                 <label className={LBL}>Контрагент *</label>
@@ -135,7 +152,7 @@ export default function EditContractModal({ item, onClose }: Props) {
             className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium">
             Отказ
           </button>
-          <button type="button" data-primary onClick={handleSave} disabled={saving || !counterparty || !subject}
+          <button type="button" data-primary onClick={handleSave} disabled={saving || !counterparty || !subject || !number.trim()}
             className="px-5 py-2 text-white rounded-xl text-xs font-medium flex items-center gap-2 whitespace-nowrap disabled:opacity-60 shadow-sm hover:opacity-90"
             style={{ backgroundColor: '#0f2240' }}>
             {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
