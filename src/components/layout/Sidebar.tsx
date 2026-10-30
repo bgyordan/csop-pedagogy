@@ -11,7 +11,6 @@ import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
 import WhatsNewModal from './WhatsNewModal'
 import { cn } from '@/lib/utils'
-import { AutoLogout } from '@/components/AutoLogout'
 const SIDEBAR_BG = '#f0f7ff'
 const SIDEBAR_HOVER = 'rgba(15,34,64,0.04)'
 const TEXT_PRIMARY = '#0f2240'
@@ -418,7 +417,6 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   const divider = <div className="my-3 mx-2.5 border-t border-[rgba(15,34,64,0.10)]" />
   const sidebarContent = (
     <aside className={cn('h-full flex flex-col transition-[width] duration-200', isMini ? 'w-16' : 'w-56')} style={{ backgroundColor: SIDEBAR_BG }}>
-      <AutoLogout />
       <div className={cn('flex items-center gap-2.5 py-4', isMini ? 'px-3 justify-center' : 'px-4')} style={{ borderBottom: '1px solid rgba(15,34,64,0.10)' }}>
         <Link href="/dashboard" onClick={() => setMobileOpen(false)} className="flex-shrink-0">
           <img src="/csop-varna-logo.jpg" alt="ЦСОП Варна" className="w-8 h-8 rounded-lg object-cover" />

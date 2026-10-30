@@ -9,7 +9,6 @@ import ClassTeacherDashboard from './components/ClassTeacherDashboard'
 import EducatorDashboard from './components/EducatorDashboard'
 import SecretaryDashboard from './components/SecretaryDashboard'
 import DirectorDashboard from './components/DirectorDashboard'
-import { SessionTimerBadge } from '@/components/SessionTimerBadge'
 import { Megaphone } from 'lucide-react'
 import { viewProfile } from '@/lib/view-as'
 import { getFullName } from '@/lib/utils'
@@ -118,7 +117,6 @@ export default async function DashboardPage() {
               <p className={`text-xs mt-1 font-light ${d ? 'text-white/75' : 'text-slate-400'}`}>Предишно влизане: {loginTime(prevLogin)}</p>
             )}
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <SessionTimerBadge onDark={d} />
               {real?.role === 'admin' && !viewing && <ViewAsPicker people={people} onDark={d} />}
               {!viewing && <DashboardCustomize heroCookieName={heroKey} heroKey={hero.key} onDark={d} cookieName={dashKey} widgets={widgetsFor(profile.role)} hidden={Array.from(hidden)} />}
             </div>
