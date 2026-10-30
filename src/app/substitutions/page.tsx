@@ -23,7 +23,11 @@ export interface SubRow {
   noOrder: boolean
   overNorm: boolean
   // няколко заместника — периоди по заместник (празно = един заместник)
-  assigns: { staffId: string; name: string; from: string; to: string; periods?: number[] | null }[]
+  assigns: { staffId: string; name: string; from: string; to: string; periods?: number[] | null; orderId?: string | null }[]
+  // заместник на заместника: колега, който поема дни след издадената заповед → своя заповед
+  partOrders: { staffId: string; name: string; from: string; to: string; orderNumber: string | null }[]
+  // заместник, който отсъства в дни, в които замества тук → кой поема
+  conflicts: { staffId: string; name: string; from: string; to: string }[]
 }
 export default async function SubstitutionsPage() {
   const supabase = await createClient()
@@ -51,7 +55,7 @@ export default async function SubstitutionsPage() {
     ;(assignsBy[a.substitution_id] ||= []).push({
       staffId: a.substitute_staff_id,
       name: a.sub ? `${a.sub.first_name} ${a.sub.last_name}` : '—',
-      from: a.date_from, to: a.date_to, periods: a.periods?.length ? a.periods : null,
+      from: a.date_from, to: a.date_to, periods: a.periods?.length ? a.periods : null, orderId: 'order_id' in a ? (a.order_id ?? null) : undefined,
     })
   })
 
@@ -60,11 +64,44 @@ export default async function SubstitutionsPage() {
   const noHoursIds = new Set((nh || []).map((o: any) => o.id))
 
   // номерата на заповедите — за колона „Заповед“ в списъка
-  const orderIds = Array.from(new Set((data || []).map((r: any) => r.substitution_order_id).filter(Boolean))) as string[]
+  const orderIds = Array.from(new Set([
+    ...(data || []).map((r: any) => r.substitution_order_id),
+    ...(asg || []).map((a: any) => a.order_id),
+  ].filter(Boolean))) as string[]
   const orderNum: Record<string, string> = {}
   for (let i = 0; i < orderIds.length; i += 200) {
     const { data: os } = await supabase.from('orders').select('id, number').in('id', orderIds.slice(i, i + 200))
     ;(os || []).forEach((o: any) => { orderNum[o.id] = o.number || '' })
+  }
+
+  // кой кога отсъства (по регистъра) — за „заместник на заместника“
+  const absencesBy: Record<string, { id: string; from: string; to: string }[]> = {}
+  ;(data || []).forEach((r: any) => { (absencesBy[r.absent_staff_id] ||= []).push({ id: r.id, from: r.date_from, to: r.date_to }) })
+  const fmtNm = (p: any) => p ? `${p.first_name} ${p.last_name}` : '—'
+  function conflictsOf(r: any) {
+    const cov = (assignsBy[r.id] || []).length
+      ? assignsBy[r.id].map(a => ({ staffId: a.staffId, name: a.name, from: a.from, to: a.to }))
+      : r.substitute_staff_id ? [{ staffId: r.substitute_staff_id, name: fmtNm(r.sub), from: r.date_from, to: r.date_to }] : []
+    const out: SubRow['conflicts'] = []
+    cov.forEach(c => (absencesBy[c.staffId] || []).forEach(a => {
+      if (a.id === r.id || a.to < c.from || a.from > c.to) return
+      const from = a.from > c.from ? a.from : c.from, to = a.to < c.to ? a.to : c.to
+      if (!out.some(x => x.staffId === c.staffId && x.from === from && x.to === to)) out.push({ staffId: c.staffId, name: c.name, from, to })
+    }))
+    return out
+  }
+  // части след издадената заповед: редовете без своя заповед (или със своя, различна от основната)
+  function partOrdersOf(r: any) {
+    if (!r.substitution_order_id) return []
+    const by: Record<string, SubRow['partOrders'][number]> = {}
+    ;(assignsBy[r.id] || []).forEach(a => {
+      if (a.orderId === r.substitution_order_id || a.orderId === undefined) return
+      const k = `${a.staffId}|${a.orderId || ''}`
+      const cur = by[k]
+      if (!cur) by[k] = { staffId: a.staffId, name: a.name, from: a.from, to: a.to, orderNumber: a.orderId ? (orderNum[a.orderId] || null) : null }
+      else { if (a.from < cur.from) cur.from = a.from; if (a.to > cur.to) cur.to = a.to }
+    })
+    return Object.values(by)
   }
 
   const rows: SubRow[] = (data || []).map((r: any) => ({
@@ -86,6 +123,8 @@ export default async function SubstitutionsPage() {
     noOrder: r.no_order_needed === true,
     overNorm: r.over_norm !== false,
     assigns: assignsBy[r.id] || [],
+    partOrders: partOrdersOf(r),
+    conflicts: conflictsOf(r),
   }))
 
   const { data: staffRaw } = await supabase

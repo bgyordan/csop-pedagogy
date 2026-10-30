@@ -1,10 +1,11 @@
 'use client'
 import { useState, useMemo, useEffect, Fragment } from 'react'
+import { useRouter } from 'next/navigation'
 import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Pencil, Trash2, ChevronDown, Download } from 'lucide-react'
+import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Pencil, Trash2, ChevronDown, Download, AlertTriangle, FileText } from 'lucide-react'
 import { useToast, confirmDialog } from '@/components/ui/Toast'
-import { generateSubstitution, getAssignments, saveAssignments, checkSubstituteOverlap, deleteSubstitution, getAbsentHours, getKtParts, saveKtParts, getSubstitutionOrder, type RegistryOrder } from './actions'
+import { generateSubstitution, generatePartOrder, reassignCoverage, getAssignments, saveAssignments, checkSubstituteOverlap, deleteSubstitution, getAbsentHours, getKtParts, saveKtParts, getSubstitutionOrder, type RegistryOrder } from './actions'
 import RegistryOrderPick from './RegistryOrderPick'
 import KtPartsEditor, { ktPartsError } from '@/components/KtPartsEditor'
 import type { KtPart } from '@/lib/kt'
@@ -176,6 +177,35 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const supabase = createClient()
   const { toast } = useToast()
   const [rows, setRows] = useState<SubRow[]>(initial)
+  const router = useRouter()
+  // след router.refresh() идват пресметнатите на сървъра части/конфликти
+  useEffect(() => { setRows(initial) }, [initial])
+
+  // ── Заместник на заместника ──
+  const [pick, setPick] = useState<Record<string, string>>({})   // ключ конфликт → кой поема
+  const [busyKey, setBusyKey] = useState<string | null>(null)
+  const cKey = (r: SubRow, c: SubRow['conflicts'][number]) => `${r.id}|${c.staffId}|${c.from}|${c.to}`
+  async function doReassign(r: SubRow, c: SubRow['conflicts'][number]) {
+    const k = cKey(r, c)
+    const to = pick[k]
+    if (!to) { toast('Избери кой поема дните', 'error'); return }
+    setBusyKey(k)
+    const res: any = await reassignCoverage(r.id, c.staffId, to, c.from, c.to)
+    setBusyKey(null)
+    if (res?.error) { toast(res.error, 'error'); return }
+    toast(r.hasOrder ? 'Дните са прехвърлени — издай заповедта за новия заместник' : 'Дните са прехвърлени')
+    router.refresh()
+  }
+  async function genPart(r: SubRow, p: SubRow['partOrders'][number]) {
+    const k = `part|${r.id}|${p.staffId}`
+    setBusyKey(k)
+    const res: any = await generatePartOrder(r.id, p.staffId)
+    if (res?.error) { toast(res.error, 'error'); setBusyKey(null); return }
+    try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ }
+    setBusyKey(null)
+    toast(p.orderNumber ? 'Заповедта е изтеглена отново (същият номер)' : `Заповед № ${res.data.orderNumber} за ${p.name} — създадена и изтеглена`)
+    router.refresh()
+  }
   // само учители и възпитатели (при редакция запазваме и вече избрания, ако е друг)
   const pedStaff = (...keep: string[]) => staff.filter(s => canSubstitute(s.role) || keep.includes(s.id))
   // отсъстващ: учители и възпитатели + всеки с часове (напр. управата с преподавателска заетост)
@@ -379,7 +409,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
            reason: r.reason, hasOrder: !!r.substitution_order_id, bsch: r.bsch_eligible === true, ktArticle: r.kt_article,
       manualNumber: r.manual_order_number || null, manualDate: r.manual_order_date || null, noOrder: r.no_order_needed === true,
       overNorm: r.over_norm !== false,
-      assigns: [],
+      assigns: [], partOrders: [], conflicts: [],
     } as SubRow
   }
   const selectCols = `id, date_from, date_to, reason, substitute_staff_id, substitution_order_id, manual_order_number, manual_order_date, no_order_needed, bsch_eligible, kt_article, over_norm,
@@ -437,9 +467,15 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       if (res.error) { toast(res.error, 'error') }
       else { try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ } newRow = { ...newRow, hasOrder: true, noHours: !!res.data?.noHours, orderNumber: res.data?.orderNumber || null } }
     }
+    // отсъстващият замества някого в тези дни? → предупреждение (редовете се оцветяват след обновяването)
+    const covering = rows.filter(x => x.dateFrom <= data.date_to && x.dateTo >= data.date_from && (
+      x.assigns.length ? x.assigns.some(a => a.staffId === absentId && a.from <= data.date_to && a.to >= data.date_from)
+                       : x.substituteId === absentId))
     setRows(prev => [newRow, ...prev])
     setOverNormMap(p => ({ ...p, [newRow.id]: newRow.overNorm }))
     toast('Заместването е добавено')
+    if (covering.length) toast(`${newRow.absentName} замества ${covering.map(x => x.absentName).join(', ')} в тези дни — посочи кой поема (жълтия ред)`, 'error')
+    router.refresh()   // части/конфликти (заместник на заместника) се смятат на сървъра
     setAbsentId(''); setSubId(''); setFrom(''); setTo(''); setReason('sick'); setBsch(false); setKtArticle('155'); setKtParts([]); setOrderMode('create'); setNManualNumber(''); setNManualDate(''); setNLinked(null); setNOverNorm(true); setShowNew(false); setSaving(false)
     resetMulti()
   }
@@ -501,6 +537,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     setRows(prev => prev.map(x => x.id === editId ? mapped : x))
     setOverNormMap(p => ({ ...p, [editId]: mapped.overNorm }))
     toast('Записът е обновен')
+    router.refresh()   // части/конфликти (заместник на заместника) се смятат на сървъра
     closeEdit(); setESaving(false)
   }
 
@@ -767,6 +804,43 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                 <button onClick={() => startEdit(r)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all" title="Редактирай"><Pencil size={14} /></button>
               </div>
             </div>
+            {r.conflicts.length > 0 && (
+              <div className="px-4 pb-2.5 pt-2 border-t border-amber-100 bg-amber-50/50 rounded-b-2xl space-y-1.5" onClick={e => e.stopPropagation()}>
+                {r.conflicts.map(c => { const k = cKey(r, c); return (
+                  <div key={k} className="flex flex-wrap items-center gap-2 text-xs text-amber-800">
+                    <AlertTriangle size={13} className="text-amber-500 shrink-0" />
+                    <span><b className="font-medium">{c.name}</b> отсъства {c.from === c.to ? fmt(c.from) : `${fmt(c.from)} – ${fmt(c.to)}`} — кой поема часовете на {r.absentName} в тези дни?</span>
+                    <div className="w-56"><PersonCombo people={pedStaff()} value={pick[k] || ''} onChange={v => setPick(p => ({ ...p, [k]: v }))} placeholder="Кой поема…" excludeId={c.staffId} /></div>
+                    <button onClick={() => doReassign(r, c)} disabled={busyKey === k || !pick[k]}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 disabled:opacity-50">
+                      {busyKey === k ? <Loader2 size={12} className="animate-spin" /> : <ArrowRight size={12} />} Прехвърли дните
+                    </button>
+                  </div>
+                )})}
+              </div>
+            )}
+            {r.partOrders.length > 0 && (
+              <div className="px-4 pb-2.5 pt-2 border-t border-slate-100 space-y-1.5" onClick={e => e.stopPropagation()}>
+                {r.partOrders.map(p => { const k = `part|${r.id}|${p.staffId}`; return (
+                  <div key={k + (p.orderNumber || '')} className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                    <FileText size={13} className="text-slate-400 shrink-0" />
+                    <span>Поема дни: <b className="font-medium text-slate-800">{p.name}</b> · {p.from === p.to ? fmt(p.from) : `${fmt(p.from)} – ${fmt(p.to)}`}</span>
+                    {p.orderNumber ? (
+                      <button onClick={() => genPart(r, p)} disabled={busyKey === k} title="Изтегли заповедта пак (същият номер)"
+                        className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 disabled:opacity-50">
+                        {busyKey === k ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Заповед № {p.orderNumber.split('/')[0]} <Download size={12} className="opacity-60" />
+                      </button>
+                    ) : (
+                      <button onClick={() => genPart(r, p)} disabled={busyKey === k} title="Нова заповед само за дните на този колега — издадената не се променя"
+                        className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border hover:bg-slate-50 disabled:opacity-50"
+                        style={{ color: '#0f2240', borderColor: 'rgba(15,34,64,0.28)' }}>
+                        {busyKey === k ? <Loader2 size={12} className="animate-spin" /> : <>Създай заповед</>}
+                      </button>
+                    )}
+                  </div>
+                )})}
+              </div>
+            )}
             {isOpen && (
               <div className="px-4 pb-4 pt-3 border-t border-slate-100">
                 {openLoading
