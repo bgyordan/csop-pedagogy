@@ -111,6 +111,18 @@ const coveredItems = <T extends { period: number }>(iso: string, items: T[], rs:
 
 const addDays = (iso: string, n: number) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
 
+// Дните, в които колегата САМ е отсъстващ (запис в „Замествания“) — тогава не е заместил никого,
+// дори ако разпределението още не е прехвърлено → в тези дни няма лекторски за заместване.
+async function absenceRanges(supabase: any, from: string, to: string): Promise<Record<string, { from: string; to: string }[]>> {
+  const out: Record<string, { from: string; to: string }[]> = {}
+  const { data } = await supabase.from('substitutions').select('absent_staff_id, date_from, date_to')
+    .lte('date_from', to).gte('date_to', from)
+  ;(data || []).forEach((a: any) => { (out[a.absent_staff_id] ||= []).push({ from: a.date_from, to: a.date_to }) })
+  return out
+}
+const isAbsentOn = (abs: Record<string, { from: string; to: string }[]>, staffId: string, iso: string) =>
+  (abs[staffId] || []).some(r => iso >= r.from && iso <= r.to)
+
 // Собствени заповеди на части от разпределението (заместник на заместника): subId -> staffId -> order_id.
 // Само тези, различни от основната заповед на заместването. Без миграцията 2026-10-30 — празно.
 async function partOrdersBySub(supabase: any, subs: { id: string; substitution_order_id?: string | null }[]): Promise<Record<string, Record<string, { number: string; date: string }>>> {
@@ -653,6 +665,7 @@ async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_na
   const assignMap = await assignmentsBySub(supabase, subs.map((x: any) => x.id))
   const ktMap = await ktPartsBySub(supabase, subs.map((x: any) => x.id))
   const partOrders = await partOrdersBySub(supabase, subs as any[])
+  const absMap = await absenceRanges(supabase, first, last)
 
 
   const rows: { subId: string; date: string; orderRef: string; cls: string; subject: string; hours: number; items?: { period: number; subject: string }[]; bsch: boolean; kt: string; absentName: string }[] = []
@@ -682,6 +695,7 @@ async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_na
     const npSet = await npDays(supabase, sub, ktMap[sub.id])
     for (const w of wds) {
       if (!inRanges(w.iso, myRanges)) continue
+      if (isAbsentOn(absMap, me.id, w.iso)) continue   // в този ден самият аз отсъствам — не съм заместил
       const isNp = npSet === null ? true : npSet.has(w.iso)
       // вътрешно заместване (в рамките на нормата) не се плаща → не влиза в бюджетната декларация
       if (!isNp && (sub as any).over_norm === false) continue
@@ -750,6 +764,7 @@ export async function getMonExport(first: string, last: string) {
   const assignMap = await assignmentsBySub(supabase, subs.map((x: any) => x.id))
   const ktMap = await ktPartsBySub(supabase, subs.map((x: any) => x.id))
   const partOrders = await partOrdersBySub(supabase, subs as any[])
+  const absMap = await absenceRanges(supabase, first, last)
   const extraIds = Array.from(new Set(Object.values(assignMap).flat().map(a => a.staffId)))
   const people: Record<string, { name: string; position: string; role: string }> = {}
   ;(subs as any[]).forEach(x => { if (x.substitute_staff_id && x.sub) people[x.substitute_staff_id] = { name: `${x.sub.first_name} ${x.sub.last_name}`, position: x.sub.position || '', role: x.sub.role || '' } })
@@ -783,7 +798,7 @@ export async function getMonExport(first: string, last: string) {
     for (const [staffId, ranges] of Object.entries(cov)) {
       const byKt: Record<string, number> = {}
       wds.forEach(w => {
-        if ((npSet === null || npSet.has(w.iso)) && inRanges(w.iso, ranges)) {
+        if ((npSet === null || npSet.has(w.iso)) && inRanges(w.iso, ranges) && !isAbsentOn(absMap, staffId, w.iso)) {
           const kt = ktOn(parts, sub.kt_article, w.iso) || '155'
           byKt[kt] = (byKt[kt] || 0) + coveredItems(w.iso, dayItems(w.term, w.dow), ranges).length
         }
@@ -831,6 +846,7 @@ export async function getSubstitutionHoursByStaff(first: string, last: string, o
 
   const assignMap = await assignmentsBySub(supabase, subs.map((x: any) => x.id))
   const ktMap = await ktPartsBySub(supabase, subs.map((x: any) => x.id))
+  const absMap = await absenceRanges(supabase, first, last)
   const slotCache: Record<string, Record<number, Slot[]>> = {}
   for (const sub of subs as any[]) {
     if (!slotCache[sub.absent_staff_id]) slotCache[sub.absent_staff_id] = await slotsByTerm(supabase, sub.absent_staff_id, cy?.id)
@@ -844,6 +860,7 @@ export async function getSubstitutionHoursByStaff(first: string, last: string, o
       if (onlyStaff && staffId !== onlyStaff) continue
       for (const w of wds) {
         if (!inRanges(w.iso, ranges)) continue
+        if (isAbsentOn(absMap, staffId, w.iso)) continue   // заместникът сам отсъства този ден — няма лекторски
         const dayItems = coveredItems(w.iso, byTerm[w.term].filter(x => x.day === w.dow), ranges)
         const h = dayItems.length
         if (h === 0) continue
