@@ -187,7 +187,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const cKey = (r: SubRow, c: SubRow['conflicts'][number]) => `${r.id}|${c.staffId}|${c.from}|${c.to}`
   async function doReassign(r: SubRow, c: SubRow['conflicts'][number]) {
     const k = cKey(r, c)
-    const to = pick[k]
+    const to = pick[k] ?? c.suggestedId ?? ''
     if (!to) { toast('Избери кой поема дните', 'error'); return }
     setBusyKey(k)
     const res: any = await reassignCoverage(r.id, c.staffId, to, c.from, c.to)
@@ -474,7 +474,25 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     setRows(prev => [newRow, ...prev])
     setOverNormMap(p => ({ ...p, [newRow.id]: newRow.overNorm }))
     toast('Заместването е добавено')
-    if (covering.length) toast(`${newRow.absentName} замества ${covering.map(x => x.absentName).join(', ')} в тези дни — посочи кой поема (жълтия ред)`, 'error')
+    // Заместник на заместника: новият заместник поема и часовете, които отсъстващият е замествал в тези дни
+    if (covering.length) {
+      const who = newRow.absentName, by = newRow.substituteName
+      const list = covering.map(x => x.absentName).join(', ')
+      if (primary && by && await confirmDialog(
+        `${who} замества ${list} в тези дни.\n\n${by} да поеме ли и тези часове? Заместването на ${list} се разделя по дни; издадената заповед не се пипа — за ${by} се издава нова.`,
+        { title: 'Заместник на заместника', confirmLabel: `Да, ${by} поема` })) {
+        let err = ''
+        for (const x of covering) {
+          const lo = x.dateFrom > data.date_from ? x.dateFrom : data.date_from
+          const hi = x.dateTo < data.date_to ? x.dateTo : data.date_to
+          const res: any = await reassignCoverage(x.id, absentId, primary, lo, hi)
+          if (res?.error) err = res.error
+        }
+        toast(err || `${by} поема и часовете на ${list} — издай заповедта под реда`, err ? 'error' : undefined)
+      } else {
+        toast(`${who} замества ${list} в тези дни — посочи кой поема (жълтия ред)`, 'error')
+      }
+    }
     router.refresh()   // части/конфликти (заместник на заместника) се смятат на сървъра
     setAbsentId(''); setSubId(''); setFrom(''); setTo(''); setReason('sick'); setBsch(false); setKtArticle('155'); setKtParts([]); setOrderMode('create'); setNManualNumber(''); setNManualDate(''); setNLinked(null); setNOverNorm(true); setShowNew(false); setSaving(false)
     resetMulti()
@@ -810,8 +828,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                   <div key={k} className="flex flex-wrap items-center gap-2 text-xs text-amber-800">
                     <AlertTriangle size={13} className="text-amber-500 shrink-0" />
                     <span><b className="font-medium">{c.name}</b> отсъства {c.from === c.to ? fmt(c.from) : `${fmt(c.from)} – ${fmt(c.to)}`} — кой поема часовете на {r.absentName} в тези дни?</span>
-                    <div className="w-56"><PersonCombo people={pedStaff()} value={pick[k] || ''} onChange={v => setPick(p => ({ ...p, [k]: v }))} placeholder="Кой поема…" excludeId={c.staffId} /></div>
-                    <button onClick={() => doReassign(r, c)} disabled={busyKey === k || !pick[k]}
+                    <div className="w-56"><PersonCombo people={pedStaff()} value={pick[k] ?? c.suggestedId ?? ''} onChange={v => setPick(p => ({ ...p, [k]: v }))} placeholder="Кой поема…" excludeId={c.staffId} /></div>
+                    <button onClick={() => doReassign(r, c)} disabled={busyKey === k || !(pick[k] ?? c.suggestedId)}
                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 disabled:opacity-50">
                       {busyKey === k ? <Loader2 size={12} className="animate-spin" /> : <ArrowRight size={12} />} Прехвърли дните
                     </button>

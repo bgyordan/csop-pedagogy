@@ -27,7 +27,7 @@ export interface SubRow {
   // заместник на заместника: колега, който поема дни след издадената заповед → своя заповед
   partOrders: { staffId: string; name: string; from: string; to: string; orderNumber: string | null }[]
   // заместник, който отсъства в дни, в които замества тук → кой поема
-  conflicts: { staffId: string; name: string; from: string; to: string }[]
+  conflicts: { staffId: string; name: string; from: string; to: string; suggestedId?: string | null }[]
 }
 export default async function SubstitutionsPage() {
   const supabase = await createClient()
@@ -75,8 +75,8 @@ export default async function SubstitutionsPage() {
   }
 
   // кой кога отсъства (по регистъра) — за „заместник на заместника“
-  const absencesBy: Record<string, { id: string; from: string; to: string }[]> = {}
-  ;(data || []).forEach((r: any) => { (absencesBy[r.absent_staff_id] ||= []).push({ id: r.id, from: r.date_from, to: r.date_to }) })
+  const absencesBy: Record<string, { id: string; from: string; to: string; subId: string | null }[]> = {}
+  ;(data || []).forEach((r: any) => { (absencesBy[r.absent_staff_id] ||= []).push({ id: r.id, from: r.date_from, to: r.date_to, subId: r.substitute_staff_id || (assignsBy[r.id] || [])[0]?.staffId || null }) })
   const fmtNm = (p: any) => p ? `${p.first_name} ${p.last_name}` : '—'
   function conflictsOf(r: any) {
     const cov = (assignsBy[r.id] || []).length
@@ -86,7 +86,7 @@ export default async function SubstitutionsPage() {
     cov.forEach(c => (absencesBy[c.staffId] || []).forEach(a => {
       if (a.id === r.id || a.to < c.from || a.from > c.to) return
       const from = a.from > c.from ? a.from : c.from, to = a.to < c.to ? a.to : c.to
-      if (!out.some(x => x.staffId === c.staffId && x.from === from && x.to === to)) out.push({ staffId: c.staffId, name: c.name, from, to })
+      if (!out.some(x => x.staffId === c.staffId && x.from === from && x.to === to)) out.push({ staffId: c.staffId, name: c.name, from, to, suggestedId: a.subId })
     }))
     return out
   }
