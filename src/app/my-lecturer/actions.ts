@@ -45,6 +45,11 @@ export async function getMyLecturerDates(periodFrom: string, periodTo: string) {
     .select('date, day_of_week')
     .gte('date', periodFrom).lte('date', periodTo).eq('is_school_day', true)
   const schoolDates = (cal || [])
+  // неучебните дни (ваканции, празници) — само за прегледа „Какво ще влезе“, задраскани с причината
+  const { data: offCal } = await supabase
+    .from('academic_calendar_days')
+    .select('date, day_of_week, notes')
+    .gte('date', periodFrom).lte('date', periodTo).eq('is_school_day', false)
 
   // дните, в които самият учител отсъства (отпуск/болничен в „Замествания“) — не е провел часа
   const absent = new Set<string>()
@@ -62,7 +67,10 @@ export async function getMyLecturerDates(periodFrom: string, periodTo: string) {
     const dates = schoolDates
       .filter((c: any) => c.day_of_week === s.day && c.date >= lo && c.date <= hi)
       .map((c: any) => c.date)
-    return { slotId: s.id, day: s.day, period: s.period, subject: s.subject, holderType: s.holderType, holderLabel: s.holderLabel, validFrom: s.dateFrom, validTo: s.dateTo, dates, absent: dates.filter((d: string) => absent.has(d)) }
+    const off = (offCal || [])
+      .filter((c: any) => c.day_of_week === s.day && c.date >= lo && c.date <= hi)
+      .map((c: any) => ({ date: c.date as string, note: (c.notes as string) || 'неучебен ден' }))
+    return { slotId: s.id, day: s.day, period: s.period, subject: s.subject, holderType: s.holderType, holderLabel: s.holderLabel, validFrom: s.dateFrom, validTo: s.dateTo, dates, absent: dates.filter((d: string) => absent.has(d)), off }
   })
   return { rows }
 }

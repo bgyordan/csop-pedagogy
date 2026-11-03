@@ -636,6 +636,17 @@ export async function getMonthlyDeclaration(first: string, last: string) {
   return buildMonthlyDeclaration(supabase, me, first, last)
 }
 
+// Преглед „Какво ще влезе“ — същите редове, но без седмицата 5–11 (само четене на моите замествания).
+// Изтеглянето пак минава през getMonthlyDeclaration, което пази срока.
+export async function getMyMonthlyPreview(first: string, last: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+  const { data: me } = await supabase.from('staff_profiles').select('id, first_name, middle_name, last_name, position').eq('user_id', user.id).single()
+  if (!me) return { error: 'Профил не е намерен' }
+  return buildMonthlyDeclaration(supabase, me, first, last)
+}
+
 // Същите редове като в декларацията на колегата — за „Отчитане лекторски“ (управа и деловодство)
 export async function getMonthlyDeclarationFor(staffId: string, first: string, last: string) {
   const supabase = await createClient()
