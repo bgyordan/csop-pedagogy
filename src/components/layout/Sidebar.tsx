@@ -108,7 +108,8 @@ const navItems: NavItem[] = [
     icon: <GraduationCap size={16} />,
     children: [
       // едно място: бутонът за декларациите (един файл с всички видове) + моите замествания и часове над норматив
-      { href: '/my-lecturer', label: 'Моите лекторски', icon: <GraduationCap size={14} />, roles: ['class_teacher', 'teacher', 'educator'] },
+      // логопедите също имат лекторски над норматив (своя декларация „По Образец 1“)
+      { href: '/my-lecturer', label: 'Моите лекторски', icon: <GraduationCap size={14} />, roles: ['class_teacher', 'teacher', 'educator', 'speech_therapist'] },
     ],
   },
   // Документи — за всички (Портфолио — без помощния персонал)

@@ -130,7 +130,7 @@ export default async function StaffProfileView({ supabase, me, tab: askedTab, se
     const tiles = [
       { show: hasSchedule, href: scheduleHref, label: THER.includes(role) ? 'График на терапиите' : my('Моето разписание', 'Разписание'), hint: my('седмицата ми', 'седмицата'), icon: <CalendarClock size={18} />, tone: 'bg-sky-50 text-sky-700' },
       { show: self && (THER.includes(role) || THER.includes(therapyRole || '')), href: '/my-activities', label: 'Списък за терапия', hint: 'деца и сесии', icon: <HeartPulse size={18} />, tone: 'bg-rose-50 text-rose-700' },
-      { show: self && TEACH.includes(role), href: '/my-lecturer', label: 'Моите лекторски', hint: 'замествания, над норматив', icon: <GraduationCap size={18} />, tone: 'bg-indigo-50 text-indigo-700' },
+      { show: self && (TEACH.includes(role) || role === 'speech_therapist'), href: '/my-lecturer', label: 'Моите лекторски', hint: 'замествания, над норматив', icon: <GraduationCap size={18} />, tone: 'bg-indigo-50 text-indigo-700' },
       { show: self, href: '/calendar', label: 'Календар', hint: 'срокове, заседания, събития', icon: <CalendarDays size={18} />, tone: 'bg-teal-50 text-teal-700' },
       { show: self, href: '/evaluation', label: 'Оценяване', hint: 'ДТВ, атестиране, комисии', icon: <Award size={18} />, tone: 'bg-amber-50 text-amber-700' },
       { show: self, href: '/control', label: 'Констативни протоколи', hint: 'проверки и препоръки', icon: <ClipboardCheck size={18} />, tone: 'bg-orange-50 text-orange-700' },
