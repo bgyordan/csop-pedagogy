@@ -111,7 +111,7 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
       {/* ДНЕС */}
       <div className={card}>
         <div className={head}>
-          <UserX size={16} className="text-rose-500" />
+          <UserX size={16} className="text-slate-400" />
           <h2 className="text-sm font-medium text-slate-800">Днес отсъстват</h2>
           <span className="ml-auto text-xs text-slate-400">{allToday.length}</span>
           {allToday.length > 0 && <AbsentNote rows={allToday} today={sofiaToday()} compact />}
@@ -125,47 +125,53 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
           const away = allToday.filter(r => !r.by && !r.substitutable)
           const sn = (n: string) => { const [f, l] = n.trim().split(/\s+/); return l ? `${f} ${l[0]}.` : f }
           const until = (iso: string) => iso.split('-').reverse().slice(0, 2).join('.')
-          const Group = ({ label, tone, children }: { label: string; tone: string; children: React.ReactNode }) => (
+          // спокойно: едни и същи заглавия на групите, имената тъмни, датите сиви; цвят — само малка точка пред групата
+          const Group = ({ label, dot, children }: { label: string; dot?: string; children: React.ReactNode }) => (
             <div>
-              <div className={`text-[10.5px] uppercase tracking-wider mb-1 ${tone}`}>{label}</div>
-              <div className="space-y-1">{children}</div>
+              <div className="flex items-center gap-1.5 text-[10.5px] uppercase tracking-wider mb-1 text-slate-400">
+                {dot && <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />}{label}
+              </div>
+              <div className="space-y-1.5">{children}</div>
             </div>
           )
-          const Row = ({ name, right, sub }: { name: string; right: string; sub?: React.ReactNode }) => (
-            <div className="flex items-baseline gap-2 text-[13px] leading-snug">
-              <span className="text-slate-800 truncate">{name}</span>
-              {sub}
-              <span className="ml-auto text-[11px] text-slate-400 tabular-nums shrink-0">до {right}</span>
+          const NP = () => <span className="text-[10px] px-1 rounded border border-slate-200 text-slate-500 shrink-0">НП</span>
+          const Row = ({ name, right, np, by }: { name: string; right: string; np?: boolean; by?: string }) => (
+            <div className="text-[13px] leading-snug">
+              <div className="flex items-baseline gap-2">
+                <span className="text-slate-800 truncate">{name}</span>
+                {np && <NP />}
+                <span className="ml-auto text-[11px] text-slate-400 tabular-nums shrink-0">до {right}</span>
+              </div>
+              {by && <div className="text-[12px] text-slate-500 truncate">замества: {by}</div>}
             </div>
           )
           return (
             <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
               {waitingRows.length > 0 && (
-                <Group label="Чакат заместник" tone="text-amber-700">
-                  {waitingRows.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)} sub={r.np ? <span className="text-[10.5px] px-1 rounded bg-emerald-50 text-emerald-700">НП</span> : null} />)}
+                <Group label="Чакат заместник" dot="bg-amber-400">
+                  {waitingRows.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)} np={r.np} />)}
                 </Group>
               )}
               {subbed.length > 0 && (
-                <Group label="Заместват ги" tone="text-emerald-700">
-                  {subbed.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)}
-                    sub={<span className="text-[12px] text-emerald-700 truncate">← {r.by.split(', ').map(sn).join(', ')}{r.np ? ' · НП' : ''}</span>} />)}
+                <Group label="Заместват се">
+                  {subbed.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)} np={r.np} by={r.by.split(', ').map(sn).join(', ')} />)}
                 </Group>
               )}
               {away.length > 0 && (
-                <Group label="Отсъстват" tone="text-slate-400">
+                <Group label="Отсъстват">
                   {away.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)} />)}
                 </Group>
               )}
             </div>
           )
         })()}
-        {!!waiting && <div className="mt-2 text-xs text-amber-700">{waiting} замествания чакат заместник</div>}
+        {!!waiting && <div className="mt-2 text-xs text-slate-500">{waiting} {waiting === 1 ? 'заместване чака' : 'замествания чакат'} заместник</div>}
         {returning.length > 0 && (
           <div className="mt-2 pt-2 border-t border-slate-100 space-y-1">
             {returning.map(p => (
               <Link key={p.id} href="/admin/staff" className="flex items-center justify-between gap-2 text-xs hover:text-[#0f2240]">
                 <span className="text-slate-700 truncate">Връща се: {p.name}</span>
-                <span className={`shrink-0 ${p.overdue ? 'text-rose-600' : 'text-sky-700'}`}>
+                <span className={`shrink-0 tabular-nums ${p.overdue ? 'text-rose-600' : 'text-slate-500'}`}>
                   {p.until.split('-').reverse().slice(0, 2).join('.')}{p.overdue ? ' · активирай' : ''}
                 </span>
               </Link>
