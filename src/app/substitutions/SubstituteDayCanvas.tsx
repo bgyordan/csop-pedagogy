@@ -74,7 +74,10 @@ export default function SubstituteDayCanvas({ schoolDays, staff, value, onChange
     })
     return { c, h }
   }, [value, schoolDays])
-  const uncovered = schoolDays.filter(iso => !value[iso] && !isSplit(value, iso)).length
+  // ден без часове на отсъстващия няма какво да се покрива (когато часовете са заредени)
+  const hoursKnown = Object.keys(hours).length > 0
+  const noHours = (iso: string) => hoursKnown && !(hours[iso] || []).length
+  const uncovered = schoolDays.filter(iso => !noHours(iso) && !value[iso] && !isSplit(value, iso)).length
   // непокрити часове в разделените дни
   const uncoveredHours = schoolDays.filter(iso => isSplit(value, iso))
     .reduce((a, iso) => a + (hours[iso] || []).filter(h => !value[hourKey(iso, h.period)]).length, 0)
@@ -214,6 +217,7 @@ export default function SubstituteDayCanvas({ schoolDays, staff, value, onChange
                   <span className="text-[11px] opacity-70">{WD[new Date(iso + 'T00:00').getDay()]}</span>
                   <span className="text-[15px] font-light">{dNum(iso)}.{String(mNum(iso)).padStart(2, '0')}</span>
                   {id && <span className="text-[11px] font-medium">{first(id)}</span>}
+                  {!id && !split && noHours(iso) && <span className="text-[10px] text-slate-400">няма часове</span>}
                   {groups.length > 0 && !readOnly && (
                     <span className="max-w-full truncate px-1 text-[10px] leading-tight text-slate-400">{groups.join(' · ')}</span>
                   )}

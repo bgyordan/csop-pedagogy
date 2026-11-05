@@ -8,7 +8,7 @@ import AbsentNote from './AbsentNote'
 // Чете през service-role (само имена, длъжности и дати).
 export default async function TodayAbsentStrip() {
   let rows: Awaited<ReturnType<typeof getTodayAbsences>> = []
-  try { rows = await getTodayAbsences(createAdminClient(), { all: true }) } catch { return null }
+  try { rows = await getTodayAbsences(createAdminClient(), { all: true, hideMgmt: true }) } catch { return null }
   if (rows.length === 0) return null
   return <AbsentNote rows={rows} today={sofiaToday()} />
 }
