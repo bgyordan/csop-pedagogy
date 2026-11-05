@@ -168,7 +168,7 @@ export default function NewCorrespondenceForm({
   const [substituteId, setSubstituteId] = useState('')
   const [subFrom, setSubFrom] = useState('')
   const [subTo, setSubTo] = useState('')
-  // Отпуск в отделни дни (напр. три понеделника) — един ред в „Замествания“ за всеки ден
+  // Отпуск в отделни дни (напр. три понеделника) — един ред в „Отсъствия и замествания“ за всеки ден
   const [separateDays, setSeparateDays] = useState(false)
   const [leaveDays, setLeaveDays] = useState<string[]>([])
   const [dayPick, setDayPick] = useState('')
@@ -242,7 +242,7 @@ export default function NewCorrespondenceForm({
   }
   // отсъстващият може ли да бъде заместван (учител / възпитател или всеки с часове — разписание / ИЧ / план)
   const absentCanBeSubstituted = canBeSubstituted(staff.find(x => x.id === staffId))
-  // всеки отпуск влиза в регистъра „Замествания“ → вижда се в „Днес отсъстват“;
+  // всеки отпуск влиза в регистъра „Отсъствия и замествания“ → вижда се в „Днес отсъстват“;
   // от помощния персонал — само помощниците на учителя (с тях класните планират деня), не хигиенистите и др.
   const absentProfile: any = staff.find(x => x.id === staffId)
   const absentRole = absentProfile?.role
@@ -387,7 +387,7 @@ export default function NewCorrespondenceForm({
       } catch (_) { /* заповедта не бива да блокира деловодството */ }
     }
 
-// Отпуск → регистър „Замествания“: ВИНАГИ (с или без заместник), за да се вижда кой отсъства.
+// Отпуск → регистър „Отсъствия и замествания“: ВИНАГИ (с или без заместник), за да се вижда кой отсъства.
     // Специалистите се водят „не се замества“; НП — само за учители и възпитатели.
     if ((isVacation && absentInRegister && leavePeriods.length > 0) || (isNp && absentCanBeSubstituted)) {
       try {
@@ -603,7 +603,7 @@ export default function NewCorrespondenceForm({
                     <PersonCombo people={staff.filter(s => canSubstitute(s.role))} value={substituteId} excludeId={staffId}
                       onChange={(id) => setSubstituteId(id)}
                       placeholder="Заместник — търси по име…" />
-                    <div className="text-[10px] text-slate-400">Ако още няма — остави празно, после се задава в „Замествания“.</div>
+                    <div className="text-[10px] text-slate-400">Ако още няма — остави празно, после се задава в „Отсъствия и замествания“.</div>
                   </div>
                 )}
               </div>

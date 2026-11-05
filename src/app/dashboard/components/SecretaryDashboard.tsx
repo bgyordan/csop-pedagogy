@@ -3,8 +3,6 @@ import { countWaiting } from '@/lib/today-absences'
 import Link from 'next/link'
 import { AlertTriangle, ArrowDownLeft, ArrowUpRight, ClipboardList, FileSignature, Plus, Paperclip, CalendarClock, UserPlus, ArrowRight } from 'lucide-react'
 import ReserveNumberCard from './ReserveNumberCard'
-import AbsenceQuick from './AbsenceQuick'
-import { listQuickAbsences } from '../absence-actions'
 import SharedFiles from './SharedFiles'
 
 // Таблото на деловодството (Ванина): бързи бутони · регистрите с „без файл“ · споделено от колеги · срокове
@@ -80,11 +78,6 @@ export default async function SecretaryDashboard({ profile, showShared = true }:
 
   const enrollN = new Set((enrollments || []).map((e: any) => e.student_id)).size
   const coudN = new Set((couds || []).map((c: any) => c.student_id)).size
-  // „Отсъствия“ — Ванина / Марина (болничните) отразяват кой го няма
-  const [{ rows: absRows }, { data: activeStaff }] = await Promise.all([
-    listQuickAbsences(),
-    supabase.from('staff_profiles').select('id, first_name, last_name, role').eq('is_active', true),
-  ])
 
   return (
     <div className="animate-in fade-in duration-500 space-y-5">
@@ -138,7 +131,7 @@ export default async function SecretaryDashboard({ profile, showShared = true }:
           <div className="grid grid-cols-2 gap-4">
             <Link href="/substitutions"
               className="block bg-white rounded-2xl border border-slate-200 shadow-sm px-4 py-4 hover:shadow-md hover:-translate-y-0.5 transition">
-              <div className="flex items-center gap-1.5 text-sm text-slate-600"><CalendarClock size={14} /> Замествания</div>
+              <div className="flex items-center gap-1.5 text-sm text-slate-600"><CalendarClock size={14} /> Отсъствия и замествания</div>
               <div className={`text-3xl font-light tracking-tight mt-2 tabular-nums ${subsWaiting ? 'text-amber-700' : 'text-[#0f2240]'}`}>{subsWaiting || 0}</div>
               <div className="text-xs text-slate-500 mt-1">{subsWaiting ? 'чакат заместник' : 'няма чакащи'} · общо {subsTotal || 0}</div>
             </Link>
@@ -149,8 +142,6 @@ export default async function SecretaryDashboard({ profile, showShared = true }:
               <div className="text-xs text-slate-500 mt-1">за прием · {coudN} за ЦОУД</div>
             </Link>
           </div>
-
-          <AbsenceQuick mode="desk" me={{ id: profile.id, role: profile.role }} people={(activeStaff || []) as any} rows={absRows} />
 
           <ReserveNumberCard profileId={profile.id} />
 

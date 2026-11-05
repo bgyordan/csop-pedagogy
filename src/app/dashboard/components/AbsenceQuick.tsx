@@ -1,5 +1,5 @@
 'use client'
-// Бързо отразяване на отсъствия от таблото (без заповеди и заместници — те са в „Замествания“).
+// Бързо отразяване на отсъствия от таблото (без заповеди и заместници — те са в „Отсъствия и замествания“).
 //  • mode="desk" — деловодството (Ванина, Марина — болничните): карта „Отсъствия“ с „+ Отсъствие“ за всеки колега;
 //  • mode="self" — ръководството: бутон „Отсъствам“ в картата „Днес отсъстват“, само за себе си;
 //    директорът посочва кой изпълнява функциите на директор (излиза на листчето „замества: …“).
@@ -61,7 +61,7 @@ export default function AbsenceQuick({ mode, me, people, rows }: {
   const [staffId, setStaffId] = useState(mode === 'self' ? me.id : '')
   const [from, setFrom] = useState(todayIso())
   const [to, setTo] = useState(todayIso())
-  // причината не се показва никъде — записва се като „Друго“ (член от КТ, ако трябва — в „Замествания“)
+  // причината не се показва никъде — записва се като „Друго“ (член от КТ, ако трябва — в „Отсъствия и замествания“)
   const kind: AbsenceKind = 'other'
   const [acting, setActing] = useState('')
   const [busy, setBusy] = useState(false)
@@ -115,7 +115,7 @@ export default function AbsenceQuick({ mode, me, people, rows }: {
           <PersonCombo people={people} value={acting} onChange={setActing} placeholder="Търси по име…" excludeId={staffId} />
         </div>
       )}
-      {locked && <p className="text-[11px] text-slate-400">Има заместник или заповед — датите се променят в „Замествания“.</p>}
+      {locked && <p className="text-[11px] text-slate-400">Има заместник или заповед — датите се променят в „Отсъствия и замествания“.</p>}
       <div className="flex justify-end gap-2">
         <button type="button" onClick={reset} className="px-3 py-1.5 rounded-lg border border-slate-200 text-[13px] text-slate-600 bg-white">Отказ</button>
         <button type="button" onClick={save} disabled={busy || !staffId}
@@ -137,7 +137,7 @@ export default function AbsenceQuick({ mode, me, people, rows }: {
             </div>
             <div className="text-[11.5px] text-slate-400 truncate">
               {r.actingName && <>замества като директор: {r.actingName}</>}
-              {!r.editable && <>{r.actingName ? ' · ' : ''}със заместник — в „Замествания“</>}
+              {!r.editable && <>{r.actingName ? ' · ' : ''}със заместник — в „Отсъствия и замествания“</>}
             </div>
           </div>
           {(r.editable || r.role === 'director') && (
@@ -179,7 +179,7 @@ export default function AbsenceQuick({ mode, me, people, rows }: {
       </div>
       {form}
       {list || (!open && <p className="mt-2 text-[12.5px] text-slate-400">Няма текущи отсъствия.</p>)}
-      <p className="mt-2 text-[11px] text-slate-400">Колегите виждат на листчето „Днес отсъстват“ кой го няма (без причината). Заместниците и заповедите — в „Замествания“.</p>
+      <p className="mt-2 text-[11px] text-slate-400">Колегите виждат на листчето „Днес отсъстват“ кой го няма (без причината). Заместниците и заповедите — в „Отсъствия и замествания“.</p>
     </div>
   )
 }

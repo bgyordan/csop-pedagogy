@@ -188,7 +188,7 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
           </div>
         )}
         {meP && <AbsenceQuick mode="self" me={meP as any} people={(activeStaff || []) as any} rows={myAbs} />}
-        <Link href="/substitutions" className={more}>Замествания <ArrowRight size={11} /></Link>
+        <Link href="/substitutions" className={more}>Отсъствия и замествания <ArrowRight size={11} /></Link>
       </div>
 
       {/* РЕАЛИЗАЦИЯ НА ИУП — акцент, докато въвеждането е отворено и има неподадени */}

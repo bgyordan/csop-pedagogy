@@ -2,8 +2,8 @@
 // Бързо отразяване на отсъствия от таблото — без заповеди и заместници:
 //  • деловодството (Ванина, Марина — болничните): „+ Отсъствие“ за всеки колега;
 //  • ръководството: „Отсъствам“ — само за себе си; директорът посочва кой изпълнява функциите на директор.
-// Записва се в „Замествания“ (substitutions) — оттам го чете листчето „Днес отсъстват“.
-// Ред със заместник или заповед не се пипа оттук (освен „кой изпълнява функциите на директор“) — той е в „Замествания“.
+// Записва се в „Отсъствия и замествания“ (substitutions) — оттам го чете листчето „Днес отсъстват“.
+// Ред със заместник или заповед не се пипа оттук (освен „кой изпълнява функциите на директор“) — той е в „Отсъствия и замествания“.
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { sofiaToday } from '@/lib/today-absences'
@@ -82,12 +82,12 @@ export async function saveQuickAbsence(input: { id?: string; staffId: string; fr
     if (!row) return { error: 'Отсъствието не е намерено' }
     if (!row.editable) {
       // със заместник/заповед — оттук само „кой изпълнява функциите на директор“
-      if (!isDirector) return { error: 'Има заместник или заповед — променя се в „Замествания“' }
-      if (row.from !== input.from || row.to !== input.to) return { error: 'Има заместник или заповед — датите се променят в „Замествания“' }
+      if (!isDirector) return { error: 'Има заместник или заповед — променя се в „Отсъствия и замествания“' }
+      if (row.from !== input.from || row.to !== input.to) return { error: 'Има заместник или заповед — датите се променят в „Отсъствия и замествания“' }
       const { error } = await supabase.from('substitutions').update({ acting_staff_id: acting }).eq('id', input.id)
       if (error) return { error: /acting_staff_id/.test(error.message) ? SQL_HINT : error.message }
     } else {
-      // причината/членът от КТ не се пипат при редакция (може да са сложени в „Замествания“)
+      // причината/членът от КТ не се пипат при редакция (може да са сложени в „Отсъствия и замествания“)
       const upd: any = { date_from: input.from, date_to: input.to }
       if (isDirector) upd.acting_staff_id = acting
       const { error } = await supabase.from('substitutions').update(upd).eq('id', input.id)
@@ -109,7 +109,7 @@ export async function deleteQuickAbsence(id: string) {
   const { rows } = await listQuickAbsences()
   const row = rows.find(x => x.id === id)
   if (!row) return { error: 'Отсъствието не е намерено' }
-  if (!row.editable) return { error: 'Има заместник или заповед — изтрива се в „Замествания“' }
+  if (!row.editable) return { error: 'Има заместник или заповед — изтрива се в „Отсъствия и замествания“' }
   const { error } = await supabase.from('substitutions').delete().eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/dashboard'); revalidatePath('/substitutions')

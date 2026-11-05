@@ -167,7 +167,7 @@ const navItems: NavItem[] = [
     children: [
       { href: '/lecturer', label: 'Над норматив', icon: <GraduationCap size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/lecturer-schedule', label: 'График лекторски', icon: <CalendarDays size={14} />, roles: ['admin', 'zdud', 'director'] },
-      { href: '/substitutions', label: 'Замествания', icon: <UserX size={14} />, roles: ['admin', 'zdud', 'director'] },
+      { href: '/substitutions', label: 'Отсъствия и замествания', icon: <UserX size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/lecturer-check', label: 'Отчитане лекторски', icon: <ListChecks size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/mon-export', label: 'Отчет НП (МОН)', icon: <FileSpreadsheet size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
@@ -206,7 +206,7 @@ const navItems: NavItem[] = [
   { href: '/students', label: 'Ученици', icon: <Users size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/students/documents', label: 'Досиета', icon: <FileText size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/admin/schools', label: 'Училища', icon: <School size={16} />, roles: ['secretary'], section: 'settings' },
-  { href: '/substitutions', label: 'Замествания', icon: <UserX size={16} />, roles: ['secretary'], section: 'settings' },
+  { href: '/substitutions', label: 'Отсъствия и замествания', icon: <UserX size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/lecturer-check', label: 'Отчитане лекторски', icon: <ListChecks size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/lecturer-schedule', label: 'График лекторски', icon: <CalendarDays size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/duties', label: 'Дежурства', icon: <CalendarDays size={16} />, roles: ['secretary'], section: 'settings' },
