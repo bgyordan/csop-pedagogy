@@ -87,7 +87,8 @@ export async function saveQuickAbsence(input: { id?: string; staffId: string; fr
       const { error } = await supabase.from('substitutions').update({ acting_staff_id: acting }).eq('id', input.id)
       if (error) return { error: /acting_staff_id/.test(error.message) ? SQL_HINT : error.message }
     } else {
-      const upd: any = { date_from: input.from, date_to: input.to, reason: input.kind, kt_article: KT[input.kind] }
+      // причината/членът от КТ не се пипат при редакция (може да са сложени в „Замествания“)
+      const upd: any = { date_from: input.from, date_to: input.to }
       if (isDirector) upd.acting_staff_id = acting
       const { error } = await supabase.from('substitutions').update(upd).eq('id', input.id)
       if (error) return { error: /acting_staff_id/.test(error.message) ? SQL_HINT : error.message }
