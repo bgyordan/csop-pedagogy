@@ -6,6 +6,8 @@ import { getFullName, getMonthName } from '@/lib/utils'
 import NoDocsCount from './NoDocsCount'
 import { getTodayAbsences, countWaiting, getReturningSoon, sofiaToday } from '@/lib/today-absences'
 import AbsentNote from './AbsentNote'
+import AbsenceQuick from './AbsenceQuick'
+import { listQuickAbsences } from '../absence-actions'
 
 // "01" → "I"
 function roman(name: string) {
@@ -23,6 +25,14 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
   // едно правило за периода (lib/iup-period)
   const P = iupPeriod()
   const isSummer = P.offSeason
+
+  // „Отсъствам“ — ръководството отмята себе си (директорът — и кой изпълнява функциите му)
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: meP } = user ? await supabase.from('staff_profiles').select('id, role').eq('user_id', user.id).single() : { data: null }
+  const [{ rows: myAbs }, { data: activeStaff }] = await Promise.all([
+    listQuickAbsences({ mine: true }),
+    supabase.from('staff_profiles').select('id, first_name, last_name, role').eq('is_active', true),
+  ])
 
   const [allToday, waiting, returning, { data: cta }, { data: iup }, { data: enr }, { data: teams }, { data: newKids }] = await Promise.all([
     getTodayAbsences(supabase, { all: true }),   // всички отсъстващи днес — за картата и листчето
@@ -177,6 +187,7 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
             ))}
           </div>
         )}
+        {meP && <AbsenceQuick mode="self" me={meP as any} people={(activeStaff || []) as any} rows={myAbs} />}
         <Link href="/substitutions" className={more}>Замествания <ArrowRight size={11} /></Link>
       </div>
 

@@ -37,20 +37,24 @@ const addDays = (iso: string, n: number) => {
 //  • със заместник за днес — всеки учебен ден (колегите да знаят кой поема);
 //  • без заместник (не се замества / дълъг отпуск) — само в ПЪРВИЯ учебен ден от отсъствието, после се скрива.
 // { all: true } — всички отсъстващи днес (за листчето на колегите: то само помни кое е видяно).
-// { hideMgmt: true } — без управата (директор, ЗДУД, ЗДАСД): колегите не виждат отсъствието ѝ, нито кой води
-// часовете ѝ (да не се чете „днес директор е еди-кой си“); управата си го вижда в своята карта.
+// { hideMgmt: true } — за колегите: ръководството (директор, ЗДУД, ЗДАСД) се показва, но БЕЗ кой води часовете му
+// (да не се чете „днес директор е еди-кой си“); при директора — кой изпълнява функциите на директор (acting_staff_id),
+// при ЗДУД / ЗДАСД — без заместник. Управата си вижда всичко в своята карта.
 const MGMT_ROLES = ['director', 'zdud', 'admin']
 export async function getTodayAbsences(supabase: any, opts: { all?: boolean; hideMgmt?: boolean } = {}): Promise<TodayAbsence[]> {
   const today = sofiaToday()
-  const [{ data: subs }, { data: assigns }, teaching] = await Promise.all([
-    supabase.from('substitutions')
-      .select('id, date_from, date_to, bsch_eligible, absent_staff_id, substitute_staff_id, absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, role, position), sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name)')
-      .lte('date_from', today).gte('date_to', today),
+  const subsQ = (acting: boolean) => supabase.from('substitutions')
+    .select(`id, date_from, date_to, bsch_eligible, absent_staff_id, substitute_staff_id, absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, role, position), sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name)${acting ? ', acting:staff_profiles!substitutions_acting_staff_id_fkey(first_name, last_name)' : ''}`)
+    .lte('date_from', today).gte('date_to', today)
+  const [subsRes, { data: assigns }, teaching] = await Promise.all([
+    subsQ(true),
     supabase.from('substitution_assignments')
       .select('substitution_id, substitute_staff_id, sub:staff_profiles!substitution_assignments_substitute_staff_id_fkey(first_name, last_name)')
       .lte('date_from', today).gte('date_to', today),
     teachingStaffIds(supabase),
   ])
+  // преди SQL файла 2026-11-05_substitutions_acting.sql — без „кой изпълнява функциите на директор“
+  const { data: subs } = subsRes.error ? await subsQ(false) : subsRes
   // заместник, който днес сам отсъства (заместник на заместника още не е посочен) — отбелязваме го
   const absentToday = new Set((subs || []).map((s: any) => s.absent_staff_id))
   const nm = (id: string | null, p: any) => p ? `${full(p)}${id && absentToday.has(id) ? ' (отсъства!)' : ''}` : ''
@@ -58,7 +62,8 @@ export async function getTodayAbsences(supabase: any, opts: { all?: boolean; hid
   ;(assigns || []).forEach((a: any) => { (extra[a.substitution_id] ||= []).push(nm(a.substitute_staff_id, a.sub)) })
 
   // учебен календар от най-ранното начало до днес
-  const list = (subs || []).filter((s: any) => s.absent && !(opts.hideMgmt && MGMT_ROLES.includes(s.absent.role)))
+  const list = (subs || []).filter((s: any) => s.absent)
+  const isMgmt = (s: any) => MGMT_ROLES.includes(s.absent?.role)
   if (list.length === 0) return []
   const minFrom = list.reduce((m: string, s: any) => (s.date_from < m ? s.date_from : m), today)
   const { data: cal } = await supabase.from('academic_calendar_days').select('date, is_school_day').gte('date', minFrom).lte('date', today)
@@ -77,8 +82,10 @@ export async function getTodayAbsences(supabase: any, opts: { all?: boolean; hid
       id: s.id,
       absent: full(s.absent),
       position: s.absent?.position || '',
-      substitutable: canBeSubstituted({ role: s.absent?.role, teaching: teaching.has(s.absent_staff_id) }),
-      by: extra[s.id]?.length ? extra[s.id].join(', ') : nm(s.substitute_staff_id, s.sub),
+      substitutable: opts.hideMgmt && isMgmt(s) ? false : canBeSubstituted({ role: s.absent?.role, teaching: teaching.has(s.absent_staff_id) }),
+      by: opts.hideMgmt && isMgmt(s)
+        ? (s.absent?.role === 'director' && s.acting ? full(s.acting) : '')   // колегите: функциите на директор, не часовете
+        : extra[s.id]?.length ? extra[s.id].join(', ') : nm(s.substitute_staff_id, s.sub),
       np: !!s.bsch_eligible,
       to: s.date_to,
       from: s.date_from as string,
