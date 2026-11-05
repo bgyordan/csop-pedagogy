@@ -633,7 +633,8 @@ export async function getMonthlyDeclaration(first: string, last: string) {
   // колегата генерира една седмица: 5-то – 11-то число след периода (сеп.–окт. заедно, после по месеци)
   const pc = checkDeclarablePeriod(first, last, 'sub')
   if (!pc.ok) return { error: pc.error }
-  return buildMonthlyDeclaration(supabase, me, first, last)
+  // без замествания — празни данни (не грешка), за да се изтеглят декларациите над норматив / ИФО
+  return buildMonthlyDeclaration(supabase, me, first, last, true)
 }
 
 // Преглед „Какво ще влезе“ — същите редове, но без седмицата 5–11 (само четене на моите замествания).
@@ -644,7 +645,7 @@ export async function getMyMonthlyPreview(first: string, last: string) {
   if (!user) return { error: 'Не сте влезли' }
   const { data: me } = await supabase.from('staff_profiles').select('id, first_name, middle_name, last_name, position').eq('user_id', user.id).single()
   if (!me) return { error: 'Профил не е намерен' }
-  return buildMonthlyDeclaration(supabase, me, first, last)
+  return buildMonthlyDeclaration(supabase, me, first, last, true)
 }
 
 // Същите редове като в декларацията на колегата — за „Отчитане лекторски“ (управа и деловодство)
@@ -659,7 +660,7 @@ export async function getMonthlyDeclarationFor(staffId: string, first: string, l
   return buildMonthlyDeclaration(supabase, me, first, last)
 }
 
-async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_name: string; middle_name?: string | null; last_name: string; position?: string | null }, first: string, last: string) {
+async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_name: string; middle_name?: string | null; last_name: string; position?: string | null }, first: string, last: string, allowEmpty = false) {
   const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
 
   // всички мои замествания, застъпващи месеца — като основен заместник ИЛИ в разпределение по дни
@@ -672,7 +673,18 @@ async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_na
     .lte('date_from', last).gte('date_to', first)
   q = asIds.length > 0 ? q.or(`substitute_staff_id.eq.${me.id},id.in.(${asIds.join(',')})`) : q.eq('substitute_staff_id', me.id)
   const { data: subs } = await q
-  if (!subs || subs.length === 0) return { error: 'Няма замествания за този месец' }
+  if (!subs || subs.length === 0) {
+    if (!allowEmpty) return { error: 'Няма замествания за този месец' }
+    // колегата: без замествания — празни данни (името и ставката трябват за ръчно добавено заместване)
+    return { success: true, data: {
+      substituteName: [me.first_name, me.middle_name, me.last_name].filter(Boolean).join(' '),
+      substitutePosition: me.position || 'учител',
+      periodFrom: first, periodTo: last,
+      monthName: `периода ${first.split('-').reverse().join('.')} – ${last.split('-').reverse().join('.')}`, year: new Date(first).getFullYear(), yearName: cy?.name || '',
+      rows: [], totalHours: 0, npHours: 0, budgetHours: 0,
+      rate: effectiveRates(await loadLecturerRates(supabase)).sub,
+    } }
+  }
   const assignMap = await assignmentsBySub(supabase, subs.map((x: any) => x.id))
   const ktMap = await ktPartsBySub(supabase, subs.map((x: any) => x.id))
   const partOrders = await partOrdersBySub(supabase, subs as any[])
