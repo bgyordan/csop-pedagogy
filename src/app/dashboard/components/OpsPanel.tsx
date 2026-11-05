@@ -134,12 +134,11 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
               <div className="space-y-1.5">{children}</div>
             </div>
           )
-          const NP = () => <span className="text-[10px] px-1 rounded border border-slate-200 text-slate-500 shrink-0">НП</span>
-          const Row = ({ name, right, np, by }: { name: string; right: string; np?: boolean; by?: string }) => (
+          // НП не се показва — тук е важно кой го няма и кой поема, не как се плаща
+          const Row = ({ name, right, by }: { name: string; right: string; by?: string }) => (
             <div className="text-[13px] leading-snug">
               <div className="flex items-baseline gap-2">
                 <span className="text-slate-800 truncate">{name}</span>
-                {np && <NP />}
                 <span className="ml-auto text-[11px] text-slate-400 tabular-nums shrink-0">до {right}</span>
               </div>
               {by && <div className="text-[12px] text-slate-500 truncate">замества: {by}</div>}
@@ -149,12 +148,12 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
             <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
               {waitingRows.length > 0 && (
                 <Group label="Чакат заместник" dot="bg-amber-400">
-                  {waitingRows.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)} np={r.np} />)}
+                  {waitingRows.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)} />)}
                 </Group>
               )}
               {subbed.length > 0 && (
                 <Group label="Заместват се">
-                  {subbed.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)} np={r.np} by={r.by.split(', ').map(sn).join(', ')} />)}
+                  {subbed.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)} by={r.by.split(', ').map(sn).join(', ')} />)}
                 </Group>
               )}
               {away.length > 0 && (
