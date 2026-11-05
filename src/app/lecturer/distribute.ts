@@ -3,6 +3,7 @@
 //
 //  • Всяка паралелка учи до последния учебен ден на детето с най-дълъг учебен срок в нея
 //    (по класа му в изпращащото училище и датите на МОН: I–III, IV–VI, VII–XI, XII).
+//    ПГ (подготвителна група) учи до 31.05 — брои се с I–III.
 //  • Брои се по УЧЕБНИ СЕДМИЦИ (както МОН: учебни дни ÷ 5), не по дните на часа —
 //    празник в деня на часа не намалява броя. 1 ч./седм. за година = 32 (I–III), 34 (IV–VI), 36 (VII–XI), 31 (XII).
 //  • Пълни слотове, докато има място; остатъкът — един слот, който спира на датата,
@@ -31,9 +32,10 @@ export function normWeeks(end: string, ends: Ends): number | null {
 
 export const dowOf = (date: string) => { const d = new Date(date + 'T12:00:00Z').getUTCDay(); return d === 0 ? 7 : d }
 
-/** Клас в изпращащото училище: „5“, „V“, „IV“ → 5 / 4; иначе null (напр. ПГ) */
+/** Клас в изпращащото училище: „5“, „V“, „IV“ → 5 / 4; ПГ („ПГ“, „ПГ 6 г.“, „6 г. ПГ“, „подготвителна“) → 0; иначе null */
 export function gradeOf(name: string | null | undefined): number | null {
   const s = (name || '').trim()
+  if (/(^|[\s\d.,-])ПГ($|[\s\d.,-])|подготв/i.test(s)) return 0
   const m = s.match(/^(\d{1,2})(?!\d)/)
   if (m) return Number(m[1])
   const R: [string, number][] = [['XII', 12], ['XI', 11], ['X', 10], ['IX', 9], ['VIII', 8], ['VII', 7], ['VI', 6], ['V', 5], ['IV', 4], ['III', 3], ['II', 2], ['I', 1]]
@@ -41,6 +43,7 @@ export function gradeOf(name: string | null | undefined): number | null {
   return null
 }
 export function groupOf(g: number | null): Grp | null {
+  if (g === 0) return '1-3'   // ПГ — до 31.05, както I–III
   if (g === null || g < 1 || g > 12) return null
   return g <= 3 ? '1-3' : g <= 6 ? '4-6' : g <= 11 ? '7-11' : '12'
 }
