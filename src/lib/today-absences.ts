@@ -37,7 +37,10 @@ const addDays = (iso: string, n: number) => {
 //  • със заместник за днес — всеки учебен ден (колегите да знаят кой поема);
 //  • без заместник (не се замества / дълъг отпуск) — само в ПЪРВИЯ учебен ден от отсъствието, после се скрива.
 // { all: true } — всички отсъстващи днес (за листчето на колегите: то само помни кое е видяно).
-export async function getTodayAbsences(supabase: any, opts: { all?: boolean } = {}): Promise<TodayAbsence[]> {
+// { hideMgmt: true } — без управата (директор, ЗДУД, ЗДАСД): колегите не виждат отсъствието ѝ, нито кой води
+// часовете ѝ (да не се чете „днес директор е еди-кой си“); управата си го вижда в своята карта.
+const MGMT_ROLES = ['director', 'zdud', 'admin']
+export async function getTodayAbsences(supabase: any, opts: { all?: boolean; hideMgmt?: boolean } = {}): Promise<TodayAbsence[]> {
   const today = sofiaToday()
   const [{ data: subs }, { data: assigns }, teaching] = await Promise.all([
     supabase.from('substitutions')
@@ -55,7 +58,7 @@ export async function getTodayAbsences(supabase: any, opts: { all?: boolean } = 
   ;(assigns || []).forEach((a: any) => { (extra[a.substitution_id] ||= []).push(nm(a.substitute_staff_id, a.sub)) })
 
   // учебен календар от най-ранното начало до днес
-  const list = (subs || []).filter((s: any) => s.absent)
+  const list = (subs || []).filter((s: any) => s.absent && !(opts.hideMgmt && MGMT_ROLES.includes(s.absent.role)))
   if (list.length === 0) return []
   const minFrom = list.reduce((m: string, s: any) => (s.date_from < m ? s.date_from : m), today)
   const { data: cal } = await supabase.from('academic_calendar_days').select('date, is_school_day').gte('date', minFrom).lte('date', today)
