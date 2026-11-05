@@ -6,6 +6,8 @@
 // • „Видях“ го прибира; видяното се помни в браузъра.
 // • Остава малка бележка в таблото — клик я отваря отново.
 // • compact — за картата на управата: само карфица в заглавието (картата си показва списъка).
+// Стил: едно мастило (тъмносиньо), датите в сиво, „ново“ — единственият червен акцент; всеки колега на два реда
+// (име · до кога / под него „замества: …“); бледи редове на тетрадката, без червено поле.
 import '@fontsource/caveat/500.css'
 import '@fontsource/caveat/700.css'
 import { useEffect, useState } from 'react'
@@ -50,29 +52,27 @@ export default function AbsentNote({ rows, today, compact = false }: { rows: Tod
     <>
       {compact ? (
         <button type="button" onClick={() => setOpen(true)} title="Покажи листчето"
-          className="relative p-1 -m-1 rounded-lg text-rose-500 hover:bg-rose-50">
+          className="relative p-1 -m-1 rounded-lg text-slate-400 hover:text-[#0f2240] hover:bg-slate-50">
           <Pin size={14} className="rotate-[25deg]" />
           {newCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-rose-500" />}
         </button>
       ) : (
         <button type="button" onClick={() => setOpen(true)} style={{ fontFamily: HAND }}
-          className="relative w-full text-left px-5 pt-3 pb-2.5 rounded-2xl border border-amber-200/70 bg-[#fffbea] shadow-[0_1px_3px_rgba(120,90,20,0.12)] hover:shadow-md hover:-translate-y-0.5 transition-all">
-          <Pin size={15} className="absolute top-2.5 right-3 text-rose-500 rotate-[25deg]" />
+          className="relative w-full text-left px-5 pt-3 pb-2.5 rounded-2xl border border-slate-200 bg-[#fffdf6] shadow-[0_1px_3px_rgba(15,34,64,0.08)] hover:shadow-md hover:-translate-y-0.5 transition-all">
+          <Pin size={15} className="absolute top-2.5 right-3 text-slate-400 rotate-[25deg]" />
           <div className="flex items-baseline gap-2 pr-6">
             <span className="text-[24px] leading-none text-[#0f2240] font-bold">Днес отсъстват</span>
             <span className="text-[18px] leading-none text-slate-400">{rows.length}</span>
-            {newCount > 0 && <span className="text-[18px] leading-none text-rose-600 -rotate-3">{newCount} ново!</span>}
+            {newCount > 0 && <span className="text-[17px] leading-none text-rose-600">· {newCount} ново</span>}
           </div>
-          <div className="mt-1.5 grid grid-cols-[1fr_auto] gap-x-3 items-baseline text-[19px] leading-[24px]">
+          <div className="mt-1.5 space-y-0.5">
             {preview.map(r => (
-              <div key={r.id} className="contents">
-                <span className="truncate">
-                  <span className="text-slate-800">{short(r.absent)}</span>
-                  {r.by
-                    ? <span className="text-emerald-800"> ← {subs(r).join(', ')}</span>
-                    : null}
+              <div key={r.id} className="flex items-baseline gap-3 text-[19px] leading-[24px]">
+                <span className="min-w-0 flex-1 truncate">
+                  <span className="text-[#0f2240]">{short(r.absent)}</span>
+                  {r.by && <span className="text-slate-400 text-[17px]"> · замества {subs(r).join(', ')}</span>}
                 </span>
-                <span className="text-slate-400 text-[17px] tabular-nums">до {dm(r.to)}</span>
+                <span className="text-slate-400 text-[17px] tabular-nums shrink-0">до {dm(r.to)}</span>
               </div>
             ))}
           </div>
@@ -93,40 +93,41 @@ export default function AbsentNote({ rows, today, compact = false }: { rows: Tod
               style={{
                 background: '#fffdf3',
                 // редове от тетрадка + червена линия на полето
-                backgroundImage: 'linear-gradient(90deg, transparent 38px, rgba(239,68,68,0.35) 38px, rgba(239,68,68,0.35) 39.5px, transparent 39.5px), repeating-linear-gradient(transparent, transparent 33px, rgba(59,130,246,0.18) 33px, rgba(59,130,246,0.18) 34px)',
-                backgroundPosition: '0 0, 0 18px',
+                backgroundImage: 'repeating-linear-gradient(transparent, transparent 33px, rgba(15,34,64,0.08) 33px, rgba(15,34,64,0.08) 34px)',
+                backgroundPosition: '0 18px',
               }}>
               <button type="button" onClick={ack} className="absolute top-3 right-3 p-1 rounded-lg text-slate-400 hover:text-slate-700"><X size={16} /></button>
-              <div className="pl-8" style={{ fontFamily: HAND }}>
+              <div className="pl-2" style={{ fontFamily: HAND }}>
                 <h2 className="text-[34px] leading-[34px] text-[#0f2240] font-bold">Днес отсъстват</h2>
 
                 {subRows.length > 0 && (
                   <>
-                    <div className="leading-[34px] text-[21px] text-emerald-700">— заместват ги:</div>
-                    <div className="grid grid-cols-[auto_auto_1fr_auto] gap-x-2.5 items-baseline">
-                      {subRows.map(r => (
-                        <div key={r.id} className="contents">
-                          <span className="leading-[34px] text-[25px] text-slate-800">{r.absent}</span>
-                          <span className="leading-[34px] text-[21px] text-slate-400">←</span>
-                          <span className="leading-[34px] text-[25px] text-emerald-800">{subs(r).join(', ')}{isNew(r) && <span className="ml-1.5 text-[19px] text-rose-600 inline-block -rotate-6">ново!</span>}</span>
-                          <span className="leading-[34px] text-[20px] text-slate-500 tabular-nums text-right whitespace-nowrap">{until(r)}</span>
+                    <div className="leading-[34px] text-[21px] text-slate-400">— заместват се</div>
+                    {subRows.map(r => (
+                      <div key={r.id}>
+                        <div className="flex items-baseline gap-3">
+                          <span className="leading-[34px] text-[25px] text-[#0f2240] min-w-0 flex-1 truncate">
+                            {r.absent}{isNew(r) && <span className="ml-2 text-[18px] text-rose-600">ново</span>}
+                          </span>
+                          <span className="leading-[34px] text-[20px] text-slate-400 tabular-nums whitespace-nowrap">{until(r)}</span>
                         </div>
-                      ))}
-                    </div>
+                        <div className="leading-[34px] text-[20px] text-slate-500 pl-5 truncate">замества: {subs(r).join(', ')}</div>
+                      </div>
+                    ))}
                   </>
                 )}
 
                 {awayRows.length > 0 && (
                   <>
-                    <div className="leading-[34px] text-[21px] text-slate-500">— отсъстват:</div>
-                    <div className="grid grid-cols-[1fr_auto] gap-x-2.5 items-baseline">
-                      {awayRows.map(r => (
-                        <div key={r.id} className="contents">
-                          <span className="leading-[34px] text-[25px] text-slate-800">{r.absent}{isNew(r) && <span className="ml-1.5 text-[19px] text-rose-600 inline-block -rotate-6">ново!</span>}</span>
-                          <span className="leading-[34px] text-[20px] text-slate-500 tabular-nums text-right whitespace-nowrap">{until(r)}</span>
-                        </div>
-                      ))}
-                    </div>
+                    <div className="leading-[34px] text-[21px] text-slate-400">— отсъстват</div>
+                    {awayRows.map(r => (
+                      <div key={r.id} className="flex items-baseline gap-3">
+                        <span className="leading-[34px] text-[25px] text-[#0f2240] min-w-0 flex-1 truncate">
+                          {r.absent}{isNew(r) && <span className="ml-2 text-[18px] text-rose-600">ново</span>}
+                        </span>
+                        <span className="leading-[34px] text-[20px] text-slate-400 tabular-nums whitespace-nowrap">{until(r)}</span>
+                      </div>
+                    ))}
                   </>
                 )}
 

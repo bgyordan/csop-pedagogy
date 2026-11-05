@@ -3,6 +3,8 @@ import { countWaiting } from '@/lib/today-absences'
 import Link from 'next/link'
 import { AlertTriangle, ArrowDownLeft, ArrowUpRight, ClipboardList, FileSignature, Plus, Paperclip, CalendarClock, UserPlus, ArrowRight } from 'lucide-react'
 import ReserveNumberCard from './ReserveNumberCard'
+import AbsenceQuick from './AbsenceQuick'
+import { listQuickAbsences } from '../absence-actions'
 import SharedFiles from './SharedFiles'
 
 // Таблото на деловодството (Ванина): бързи бутони · регистрите с „без файл“ · споделено от колеги · срокове
@@ -78,6 +80,11 @@ export default async function SecretaryDashboard({ profile, showShared = true }:
 
   const enrollN = new Set((enrollments || []).map((e: any) => e.student_id)).size
   const coudN = new Set((couds || []).map((c: any) => c.student_id)).size
+  // „Отсъствия“ — Ванина / Марина (болничните) отразяват кой го няма
+  const [{ rows: absRows }, { data: activeStaff }] = await Promise.all([
+    listQuickAbsences(),
+    supabase.from('staff_profiles').select('id, first_name, last_name, role').eq('is_active', true),
+  ])
 
   return (
     <div className="animate-in fade-in duration-500 space-y-5">
@@ -142,6 +149,8 @@ export default async function SecretaryDashboard({ profile, showShared = true }:
               <div className="text-xs text-slate-500 mt-1">за прием · {coudN} за ЦОУД</div>
             </Link>
           </div>
+
+          <AbsenceQuick mode="desk" me={{ id: profile.id, role: profile.role }} people={(activeStaff || []) as any} rows={absRows} />
 
           <ReserveNumberCard profileId={profile.id} />
 
