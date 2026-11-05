@@ -5,6 +5,8 @@
 // по графика, без дните в отпуск/болничен и без неучебните дни; декларацията се записва за проверката.
 // Прегледът „Какво ще влезе“ се вижда през целия период (по дати, махнатите — задраскани с причината);
 // седмицата 5–11 ограничава само бутона за изтегляне.
+// ИФО: декларацията е за ВЗЕТИ часове — ако ИФО детето не е дошло, учителят сам отмята датата (щрака я);
+// отметнатите не влизат в декларацията и в записа за проверката. Само се махат — не може да се добави час извън графика.
 import { useEffect, useState } from 'react'
 import { Loader2, FileDown, CalendarClock, Lock, AlertTriangle } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
@@ -28,12 +30,20 @@ export default function MyDeclarationsCard({ onDone }: { onDone?: () => void }) 
   const [ctx, setCtx] = useState<Ctx | null>(null)
   const [sub, setSub] = useState<any | null>(null)
   const [over, setOver] = useState<OverRow[]>([])
+  // ИФО часове, които не са взети (детето не е дошло) — „slotId|дата“
+  const [skipped, setSkipped] = useState<Set<string>>(new Set())
+  const skipKey = (slotId: string, d: string) => `${slotId}|${d}`
+  const toggleSkip = (slotId: string, d: string) => setSkipped(prev => {
+    const n = new Set(prev); const k = skipKey(slotId, d)
+    if (n.has(k)) n.delete(k); else n.add(k)
+    return n
+  })
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => { getMyDeclContext().then((r: any) => { if (!r.error) setCtx(r) }) }, [])
   useEffect(() => {
-    setSub(null); setOver([])
+    setSub(null); setOver([]); setSkipped(new Set())
     if (!ctx) return
     let alive = true
     setLoading(true)
@@ -50,7 +60,7 @@ export default function MyDeclarationsCard({ onDone }: { onDone?: () => void }) 
   }, [period.key, ctx]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // над норматив — всички часове по графика без дните в отпуск/болничен
-  const taken = (r: OverRow) => r.dates.filter(d => !(r.absent || []).includes(d))
+  const taken = (r: OverRow) => r.dates.filter(d => !(r.absent || []).includes(d) && !skipped.has(skipKey(r.slotId, d)))
   const overItems: DeclItem[] = over.flatMap(r => taken(r).map(iso => ({ iso, period: r.period, subject: r.subject, holderType: r.holderType, holderLabel: r.holderLabel, validFrom: r.validFrom, validTo: r.validTo })))
   const ifoH = overItems.filter(i => i.holderType === 'ifo').length
   const overH = overItems.length - ifoH
@@ -137,11 +147,15 @@ export default function MyDeclarationsCard({ onDone }: { onDone?: () => void }) 
                 {over.map(r => {
                   const ab = new Set(r.absent || [])
                   const items = [
-                    ...r.dates.map(d => ({ d, kind: ab.has(d) ? 'absent' : d > today ? 'future' : 'ok', note: ab.has(d) ? 'отпуск / болничен' : d > today ? 'предстои' : '' })),
+                    ...r.dates.map(d => ({ d,
+                      kind: ab.has(d) ? 'absent' : skipped.has(skipKey(r.slotId, d)) ? 'skipped' : d > today ? 'future' : 'ok',
+                      note: ab.has(d) ? 'отпуск / болничен' : skipped.has(skipKey(r.slotId, d)) ? 'не е взет — детето не е дошло (щракнете, за да го върнете)' : d > today ? 'предстои' : '' })),
                     ...(r.off || []).map(o => ({ d: o.date, kind: 'off', note: o.note })),
                   ].sort((x, y) => x.d.localeCompare(y.d))
                   if (!items.length) return null
                   const h = taken(r).length
+                  // ИФО: в седмицата за генериране учителят отмята невзетите часове (детето не е дошло)
+                  const canSkip = r.holderType === 'ifo' && period.genOpen
                   return (
                     <div key={r.slotId} className="px-3 py-2">
                       <div className="flex items-center gap-2">
@@ -151,16 +165,26 @@ export default function MyDeclarationsCard({ onDone }: { onDone?: () => void }) 
                         <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 shrink-0">{h} ч.</span>
                       </div>
                       <div className="flex flex-wrap gap-1 mt-1.5">
-                        {items.map(it => (
-                          <span key={it.d} title={it.note || 'влиза'}
-                            className={`text-[11.5px] tabular-nums px-1.5 py-0.5 rounded-md border ${
-                              it.kind === 'ok' ? 'bg-white border-slate-200 text-slate-700'
-                              : it.kind === 'future' ? 'bg-white border-dashed border-slate-200 text-slate-400'
-                              : 'bg-rose-50/50 border-rose-100 text-rose-400 line-through'}`}>
-                            {fmt(it.d).slice(0, 5)}
-                          </span>
-                        ))}
+                        {items.map(it => {
+                          const cls = `text-[11.5px] tabular-nums px-1.5 py-0.5 rounded-md border ${
+                            it.kind === 'ok' ? 'bg-white border-slate-200 text-slate-700'
+                            : it.kind === 'future' ? 'bg-white border-dashed border-slate-200 text-slate-400'
+                            : it.kind === 'skipped' ? 'bg-amber-50 border-amber-200 text-amber-600 line-through'
+                            : 'bg-rose-50/50 border-rose-100 text-rose-400 line-through'}`
+                          return canSkip && (it.kind === 'ok' || it.kind === 'skipped')
+                            ? <button key={it.d} type="button" onClick={() => toggleSkip(r.slotId, it.d)}
+                                title={it.kind === 'ok' ? 'Взет — щракнете, ако детето не е дошло' : it.note}
+                                className={`${cls} cursor-pointer hover:border-[#0f2240]`}>{fmt(it.d).slice(0, 5)}</button>
+                            : <span key={it.d} title={it.note || 'влиза'} className={cls}>{fmt(it.d).slice(0, 5)}</span>
+                        })}
                       </div>
+                      {r.holderType === 'ifo' && (
+                        <div className="text-[11px] text-slate-400 mt-1">
+                          {canSkip
+                            ? 'Ако детето не е дошло в даден ден — щракнете датата; този час не влиза в декларацията.'
+                            : 'Невзетите часове (детето не е дошло) се отмятат при изтеглянето — от 5-то до 11-то число.'}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -183,10 +207,11 @@ export default function MyDeclarationsCard({ onDone }: { onDone?: () => void }) 
                 ))}
               </div>
             )}
-            {over.some(r => (r.off || []).length || (r.absent || []).length || r.dates.some(d => d > today)) && (
+            {over.some(r => r.holderType === 'ifo' || (r.off || []).length || (r.absent || []).length || r.dates.some(d => d > today)) && (
               <div className="flex flex-wrap gap-3 text-[11px] text-slate-400">
                 <span><span className="inline-block w-2.5 h-2.5 rounded-sm border border-slate-300 bg-white align-middle mr-1" />влиза</span>
                 <span><span className="inline-block w-2.5 h-2.5 rounded-sm border border-dashed border-slate-300 align-middle mr-1" />предстои</span>
+                {over.some(r => r.holderType === 'ifo') && <span><span className="inline-block w-2.5 h-2.5 rounded-sm border border-amber-200 bg-amber-50 align-middle mr-1" />ИФО — не е взет (отметнат от вас)</span>}
                 <span><span className="inline-block w-2.5 h-2.5 rounded-sm border border-rose-200 bg-rose-50 align-middle mr-1" />не влиза (отпуск/болничен, неучебен ден) — посочете датата за причината</span>
               </div>
             )}
