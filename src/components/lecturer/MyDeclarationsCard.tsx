@@ -9,7 +9,7 @@
 //  • над норматив / ИФО / логопед: щраква дата → маха часа (напр. ИФО детето не е дошло) или връща ден,
 //    в който системата го води в отпуск, а е бил на работа; неучебен ден не може да се добави;
 //  • заместване: −/+ часове на ред (НП — само намаляване), махане на ред и „Добави пропуснато заместване“
-//    (бюджет; НП заместване се въвежда от Ванина в „Замествания“ — нужни са заповед и отчет към МОН).
+//    (бюджет; НП заместване се въвежда от Ванина в „Отсъствия и замествания“ — нужни са заповед и отчет към МОН).
 // Корекциите влизат в Word файла и (за над норматив) в записа за проверката; Марина сверява на хартия.
 import { useEffect, useState } from 'react'
 import { Loader2, FileDown, CalendarClock, Lock, AlertTriangle, Pencil, Check, Plus, Minus, X, RotateCcw } from 'lucide-react'
@@ -318,7 +318,7 @@ export default function MyDeclarationsCard({ onDone }: { onDone?: () => void }) 
                         <button type="button" onClick={addManual} className="px-3 py-1.5 rounded-lg text-white text-[13px]" style={{ backgroundColor: '#0f2240' }}>Добави</button>
                         <button type="button" onClick={() => setAddOpen(false)} className="px-3 py-1.5 rounded-lg border border-slate-200 text-[13px] text-slate-600">Отказ</button>
                       </div>
-                      <p className="text-[11px] text-slate-400">Добавеното влиза в декларацията за бюджета, без № на заповед. Заместване по НП се въвежда от Ванина в „Замествания“ — за него са нужни заповед и отчет към МОН.</p>
+                      <p className="text-[11px] text-slate-400">Добавеното влиза в декларацията за бюджета, без № на заповед. Заместване по НП се въвежда от Ванина в „Отсъствия и замествания“ — за него са нужни заповед и отчет към МОН.</p>
                     </div>
                   )}
                 </div>

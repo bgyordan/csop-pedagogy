@@ -139,7 +139,7 @@ export default async function SubstitutionsPage() {
       <header className="mb-5 flex items-end justify-between gap-4 flex-wrap">
         <div>
           <div className="text-[11px] text-slate-500 uppercase tracking-widest">Лекторски</div>
-          <h1 className="text-2xl font-light text-[#0f2240] leading-tight mt-0.5">Замествания</h1>
+          <h1 className="text-2xl font-light text-[#0f2240] leading-tight mt-0.5">Отсъствия и замествания</h1>
         </div>
         <div className="text-sm text-slate-500 tabular-nums">
           {rows.length} записа

@@ -1,5 +1,5 @@
 'use client'
-// Бързо отразяване на отсъствия от таблото (без заповеди и заместници — те са в „Замествания“).
+// Бързо отразяване на отсъствия от таблото (без заповеди и заместници — те са в „Отсъствия и замествания“).
 //  • mode="desk" — деловодството (Ванина, Марина — болничните): карта „Отсъствия“ с „+ Отсъствие“ за всеки колега;
 //  • mode="self" — ръководството: бутон „Отсъствам“ в картата „Днес отсъстват“, само за себе си;
 //    директорът посочва кой изпълнява функциите на директор (излиза на листчето „замества: …“).
@@ -11,8 +11,6 @@ import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { saveQuickAbsence, deleteQuickAbsence, type QuickAbsence, type AbsenceKind } from '../absence-actions'
 
 type Person = { id: string; first_name: string; last_name: string; role?: string | null }
-const KINDS: { v: AbsenceKind; l: string }[] = [{ v: 'sick', l: 'Болничен' }, { v: 'vacation', l: 'Отпуск' }, { v: 'other', l: 'Друго' }]
-const kindLabel = (r: string) => KINDS.find(k => k.v === r)?.l || 'Друго'
 const dm = (iso: string) => iso.split('-').reverse().slice(0, 2).join('.')
 const period = (a: string, b: string) => (a === b ? dm(a) : `${dm(a)} – ${dm(b)}`)
 const todayIso = () => {
@@ -63,7 +61,8 @@ export default function AbsenceQuick({ mode, me, people, rows }: {
   const [staffId, setStaffId] = useState(mode === 'self' ? me.id : '')
   const [from, setFrom] = useState(todayIso())
   const [to, setTo] = useState(todayIso())
-  const [kind, setKind] = useState<AbsenceKind>(mode === 'self' ? 'other' : 'sick')
+  // причината не се показва никъде — записва се като „Друго“ (член от КТ, ако трябва — в „Отсъствия и замествания“)
+  const kind: AbsenceKind = 'other'
   const [acting, setActing] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -74,11 +73,10 @@ export default function AbsenceQuick({ mode, me, people, rows }: {
 
   function reset() {
     setOpen(false); setEditId(null); setStaffId(mode === 'self' ? me.id : ''); setFrom(todayIso()); setTo(todayIso())
-    setKind(mode === 'self' ? 'other' : 'sick'); setActing('')
+    setActing('')
   }
   function startEdit(r: QuickAbsence) {
-    setEditId(r.id); setStaffId(r.staffId); setFrom(r.from); setTo(r.to)
-    setKind((['sick', 'vacation', 'other'].includes(r.reason) ? r.reason : 'other') as AbsenceKind); setActing(r.actingId || ''); setOpen(true)
+    setEditId(r.id); setStaffId(r.staffId); setFrom(r.from); setTo(r.to); setActing(r.actingId || ''); setOpen(true)
   }
   async function save() {
     setBusy(true)
@@ -111,21 +109,13 @@ export default function AbsenceQuick({ mode, me, people, rows }: {
         <div><label className="block text-[11px] text-slate-500 mb-1">До</label>
           <input type="date" value={to} min={from} disabled={locked} onChange={e => setTo(e.target.value)} className={inp} /></div>
       </div>
-      {mode === 'desk' && !locked && (
-        <div className="flex p-0.5 rounded-xl bg-white border border-slate-200 w-fit">
-          {KINDS.map(k => (
-            <button key={k.v} type="button" onClick={() => setKind(k.v)}
-              className={`px-3 py-1 rounded-lg text-[12.5px] transition ${kind === k.v ? 'bg-[#0f2240] text-white' : 'text-slate-600 hover:text-slate-800'}`}>{k.l}</button>
-          ))}
-        </div>
-      )}
       {isDirector && (
         <div>
           <label className="block text-[11px] text-slate-500 mb-1">Замества ме като директор (по заповедта за ролята)</label>
           <PersonCombo people={people} value={acting} onChange={setActing} placeholder="Търси по име…" excludeId={staffId} />
         </div>
       )}
-      {locked && <p className="text-[11px] text-slate-400">Има заместник или заповед — датите се променят в „Замествания“.</p>}
+      {locked && <p className="text-[11px] text-slate-400">Има заместник или заповед — датите се променят в „Отсъствия и замествания“.</p>}
       <div className="flex justify-end gap-2">
         <button type="button" onClick={reset} className="px-3 py-1.5 rounded-lg border border-slate-200 text-[13px] text-slate-600 bg-white">Отказ</button>
         <button type="button" onClick={save} disabled={busy || !staffId}
@@ -146,9 +136,8 @@ export default function AbsenceQuick({ mode, me, people, rows }: {
               <span className="text-slate-400"> · {period(r.from, r.to)}</span>
             </div>
             <div className="text-[11.5px] text-slate-400 truncate">
-              {mode === 'desk' && kindLabel(r.reason)}
-              {r.actingName && <>{mode === 'desk' ? ' · ' : ''}замества ме като директор: {r.actingName}</>}
-              {!r.editable && <>{(mode === 'desk' || r.actingName) ? ' · ' : ''}със заместник — в „Замествания“</>}
+              {r.actingName && <>замества като директор: {r.actingName}</>}
+              {!r.editable && <>{r.actingName ? ' · ' : ''}със заместник — в „Отсъствия и замествания“</>}
             </div>
           </div>
           {(r.editable || r.role === 'director') && (
@@ -190,7 +179,7 @@ export default function AbsenceQuick({ mode, me, people, rows }: {
       </div>
       {form}
       {list || (!open && <p className="mt-2 text-[12.5px] text-slate-400">Няма текущи отсъствия.</p>)}
-      <p className="mt-2 text-[11px] text-slate-400">Колегите виждат на листчето „Днес отсъстват“ кой го няма (без причината). Заместниците и заповедите — в „Замествания“.</p>
+      <p className="mt-2 text-[11px] text-slate-400">Колегите виждат на листчето „Днес отсъстват“ кой го няма (без причината). Заместниците и заповедите — в „Отсъствия и замествания“.</p>
     </div>
   )
 }
