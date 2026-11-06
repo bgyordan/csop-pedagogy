@@ -5,7 +5,7 @@ import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Pencil, Trash2, ChevronDown, Download, AlertTriangle, FileText } from 'lucide-react'
 import { useToast, confirmDialog } from '@/components/ui/Toast'
-import { syncLeaveGroupSubstitute, generateSubstitution, generatePartOrder, reassignCoverage, getAssignments, saveAssignments, checkSubstituteOverlap, deleteSubstitution, getAbsentHours, getKtParts, saveKtParts, getSubstitutionOrder, type RegistryOrder } from './actions'
+import { saveLeavePeriods, generateSubstitution, generatePartOrder, reassignCoverage, getAssignments, saveAssignments, checkSubstituteOverlap, deleteSubstitution, getAbsentHours, getKtParts, saveKtParts, getSubstitutionOrder, type RegistryOrder } from './actions'
 import RegistryOrderPick from './RegistryOrderPick'
 import KtPartsEditor, { ktPartsError } from '@/components/KtPartsEditor'
 import type { KtPart } from '@/lib/kt'
@@ -173,6 +173,40 @@ const SCHOOL_MONTHS_FILTER = (() => {
   })
 })()
 
+// „+ Още период“ — допълнителните периоди на едно отсъствие (период 1 са полетата „От / До“ горе).
+// Всеки период е свой ред в базата (за да се броят само реалните дни); заместникът, заповедта и т.н. са общи.
+function MorePeriods({ list, onChange, disabled, locked, note }: {
+  list: { id?: string; from: string; to: string }[]
+  onChange: (l: { id?: string; from: string; to: string }[]) => void
+  disabled?: boolean; locked?: boolean; note?: string
+}) {
+  const set = (i: number, k: 'from' | 'to', v: string) => onChange(list.map((p, j) => j === i ? { ...p, [k]: v, ...(k === 'from' && p.to && v > p.to ? { to: '' } : {}) } : p))
+  const inp = 'w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 disabled:bg-slate-50 disabled:text-slate-500'
+  return (
+    <div className="md:col-span-2 space-y-2">
+      {list.map((p, i) => (
+        <div key={p.id || i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+          <div><label className="block text-xs text-slate-500 mb-1">Период {i + 2} — от</label>
+            <input type="date" value={p.from} disabled={locked} onChange={e => set(i, 'from', e.target.value)} className={inp} /></div>
+          <div><label className="block text-xs text-slate-500 mb-1">до</label>
+            <input type="date" value={p.to} min={p.from || undefined} disabled={locked} onChange={e => set(i, 'to', e.target.value)} className={inp} /></div>
+          {!locked
+            ? <button type="button" onClick={() => onChange(list.filter((_, j) => j !== i))} title="Махни периода" className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"><X size={15} /></button>
+            : <span className="w-[31px]" />}
+        </div>
+      ))}
+      {!locked && (
+        <button type="button" disabled={disabled} onClick={() => onChange([...list, { from: '', to: '' }])}
+          className="inline-flex items-center gap-1 text-[12.5px] text-slate-600 hover:text-[#0f2240] disabled:opacity-40 disabled:hover:text-slate-600"
+          title={disabled ? 'При „Няколко заместника“ — само един период' : 'Отпуск в няколко периода по едно заявление — един заместник, една заповед'}>
+          <Plus size={13} /> Още период
+        </button>
+      )}
+      {note && <p className="text-[11px] text-slate-400">{note}</p>}
+    </div>
+  )
+}
+
 export default function SubstitutionsClient({ rows: initial, staff }: { rows: SubRow[]; staff: Staff[] }) {
   const supabase = createClient()
   const { toast } = useToast()
@@ -272,6 +306,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [eSub, setESub] = useState('')
   const [eFrom, setEFrom] = useState('')
   const [eTo, setETo] = useState('')
+  const [eExtra, setEExtra] = useState<{ id?: string; from: string; to: string }[]>([])   // периоди 2, 3… при редакция
+  const [nExtra, setNExtra] = useState<{ from: string; to: string }[]>([])                // периоди 2, 3… при ново
   const [eReason, setEReason] = useState('sick')
   const [eBsch, setEBsch] = useState(false)
   const [eManualNumber, setEManualNumber] = useState('')
@@ -461,6 +497,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
 
   async function saveNew() {
     if (!absentId || !from || !to) { toast('Отсъстващ и срок са задължителни', 'error'); return }
+    if (nExtra.some(p => !p.from || !p.to)) { toast('Попълнете от – до на всеки период', 'error'); return }
+    for (const p of nExtra) { const d2 = await overlapMsg(absentId, p.from, p.to); if (d2) { toast(d2, 'error'); return } }
     const subbable = newSubstitutable
     const kErr = ktPartsError(ktParts, from, to)
     if (kErr) { toast(kErr, 'error'); return }
@@ -482,6 +520,11 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     if (ktParts.length > 0) {
       const kr: any = await saveKtParts(data.id, ktParts)
       if (kr?.error) toast(kr.error, 'error')
+    }
+    // периоди 2, 3… — преди заповедта, за да е една обща
+    if (nExtra.length) {
+      const pr: any = await saveLeavePeriods(data.id, nExtra)
+      if (pr?.error) toast(pr.error, 'error')
     }
     if (subbable && multiOpen) {
       const ar: any = await saveAssignments(data.id, mapToRows(dayMap, schoolDays))
@@ -526,6 +569,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     }
     router.refresh()   // части/конфликти (заместник на заместника) се смятат на сървъра
     setAbsentId(''); setSubId(''); setFrom(''); setTo(''); setReason('sick'); setBsch(false); setKtArticle('155'); setKtParts([]); setOrderMode('create'); setNManualNumber(''); setNManualDate(''); setNLinked(null); setNOverNorm(true); setShowNew(false); setSaving(false)
+    setNExtra([])
     resetMulti()
   }
 
@@ -541,6 +585,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     loadAssigns(r.id)
     setEAbsent(absentIdByRow[r.id] || '')
     setESub(r.substituteId || '')
+    setEExtra(r.group ? rows.filter(x => x.group?.id === r.group!.id && x.id !== r.id).sort((a, b) => a.dateFrom.localeCompare(b.dateFrom)).map(x => ({ id: x.id, from: x.dateFrom, to: x.dateTo })) : [])
     setEFrom(r.dateFrom); setETo(r.dateTo); setEReason(r.reason); setEBsch(!!(r as any).bsch); setEKtArticle((r as any).ktArticle || '155')
     setEKtParts([]); getKtParts(r.id).then((x: any) => setEKtParts(x?.data || []))
     setEManualNumber((r as any).manualNumber || ''); setEManualDate((r as any).manualDate || ''); setENoOrder(!!(r as any).noOrder)
@@ -559,6 +604,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
 
   async function saveEdit() {
     if (!editId || !eAbsent || !eFrom || !eTo) { toast('Отсъстващ и срок са задължителни', 'error'); return }
+    if (eExtra.some(p => !p.from || !p.to)) { toast('Попълнете от – до на всеки период', 'error'); return }
     const kErr = ktPartsError(eKtParts, eFrom, eTo)
     if (kErr) { toast(kErr, 'error'); return }
     const dup = await overlapMsg(eAbsent, eFrom, eTo, editId)
@@ -585,9 +631,12 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     mapped.assigns = toAssigns(eRanges)
     setRows(prev => prev.map(x => x.id === editId ? mapped : x))
     setOverNormMap(p => ({ ...p, [editId]: mapped.overNorm }))
-    // отпуск в няколко периода — същият заместник и на другите периоди (без заместник и заповед)
-    const sy: any = await syncLeaveGroupSubstitute(editId)
-    toast(sy?.n ? `Записът е обновен — заместникът е сложен и на още ${sy.n} ${sy.n === 1 ? 'период' : 'периода'} от заявлението` : 'Записът е обновен')
+    // периодите 2, 3… — общото (заместник, член, заповед) се копира от период 1
+    if (eExtra.length || rows.find(x => x.id === editId)?.group) {
+      const pr: any = await saveLeavePeriods(editId, eExtra)
+      if (pr?.error) { toast(pr.error, 'error'); setESaving(false); router.refresh(); return }
+    }
+    toast(eExtra.length ? `Записано — ${eExtra.length + 1} периода, един заместник, една заповед` : 'Записът е обновен')
     router.refresh()   // части/конфликти (заместник на заместника) се смятат на сървъра
     closeEdit(); setESaving(false)
   }
@@ -595,7 +644,10 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   async function del() {
     if (!editId) return
     const row = rows.find(x => x.id === editId)
-    if (!await confirmDialog(`Изтрий това заместване?${(row as any)?.hasOrder ? '\nЗаповедта към него се освобождава като резервиран номер в регистъра (ако няма качен файл).' : ''}`)) return
+    const nPer = row?.group ? (leavePeriods[row.group.id]?.length || 1) : 1
+    if (!await confirmDialog(`Изтрий това ${nPer > 1 ? `отсъствие (всичките ${nPer} периода)` : 'заместване'}?${(row as any)?.hasOrder ? '\nЗаповедта към него се освобождава като резервиран номер в регистъра (ако няма качен файл).' : ''}`)) return
+    // отпуск в няколко периода — първо другите периоди (без заповед), после период 1
+    if (row?.group) { const pr: any = await saveLeavePeriods(editId, [], { deleting: true }); if (pr?.error) { toast(pr.error, 'error'); return } }
     // на сървъра: разпределение, заповед и самото заместване — с проверка, че наистина е изтрито
     const res: any = await deleteSubstitution(editId)
     if (res?.error) { toast(res.error, 'error'); return }
@@ -680,13 +732,14 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               <label className="block text-xs text-slate-500 mb-1">До *</label>
               <DateField value={to} min={from || undefined} toast={toast} onChange={setTo} />
             </div>
+            <MorePeriods list={nExtra} onChange={setNExtra} disabled={multiOpen} />
             <div className="sm:col-span-2">
               <label className="block text-xs text-slate-500 mb-1">Вид отпуск / член от КТ на титуляря</label>
               <select value={ktArticle} onChange={e => setKtArticle(e.target.value)}
                 className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400 cursor-pointer">
                 {KT_ARTICLES.map(a => <option key={a.v} value={a.v}>{a.l}</option>)}
               </select>
-              <div className="mt-1.5"><KtPartsEditor parts={ktParts} onChange={setKtParts} from={from} to={to} base={ktArticle} /></div>
+              {nExtra.length === 0 && <div className="mt-1.5"><KtPartsEditor parts={ktParts} onChange={setKtParts} from={from} to={to} base={ktArticle} /></div>}
             </div>
           </div>
           {newSubstitutable && (<>
@@ -697,8 +750,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
 
           <div className="border-t border-slate-100 pt-3">
             <label className="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-              <input type="checkbox" checked={multiOpen} onChange={e => { setMultiOpen(e.target.checked); if (!e.target.checked) setDayMap({}) }} className="rounded" />
-              Няколко заместника
+              <input type="checkbox" checked={multiOpen} disabled={nExtra.length > 0} onChange={e => { setMultiOpen(e.target.checked); if (!e.target.checked) setDayMap({}) }} className="rounded" />
+              Няколко заместника{nExtra.length > 0 && <span className="text-[11px] text-slate-400">(само при един период)</span>}
             </label>
             {multiOpen && (
               <div className="mt-3">
@@ -934,11 +987,6 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2"><Pencil size={15} style={{ color: '#0f2240' }} /> Редакция на заместване</h3>
               <button onClick={closeEdit} className="p-1 rounded-lg text-slate-400 hover:text-slate-600"><X size={18} /></button>
             </div>
-            {(() => { const g = rows.find(x => x.id === editId)?.group; const l = g ? leavePeriods[g.id] || [] : []; return l.length > 1 && (
-              <p className="text-[12px] text-slate-500 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
-                Отпуск в {l.length} периода ({l.map(p => p.from === p.to ? fmt(p.from) : `${fmt(p.from)} – ${fmt(p.to)}`).join(', ')}). Заместникът се прилага за всички; датите тук са на първия период.
-              </p>
-            ) })()}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-slate-500 mb-1">Отсъстващ *</label>
@@ -958,6 +1006,10 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                 <label className="block text-xs text-slate-500 mb-1">До *</label>
                 <DateField value={eTo} min={eFrom || undefined} toast={toast} onChange={setETo} />
               </div>
+              {(() => { const er = rows.find(x => x.id === editId); const locked = !!(er?.hasOrder || (er as any)?.manualNumber); return (
+                <MorePeriods list={eExtra} onChange={setEExtra} disabled={multiOpen} locked={locked && eExtra.length > 0}
+                  note={locked && eExtra.length ? 'Заповедта е издадена — периодите не се променят.' : undefined} />
+              ) })()}
               <div>
                 <label className="block text-xs text-slate-500 mb-1">Вид отпуск / член от КТ на титуляря</label>
                 <select value={eKtArticle} onChange={e => setEKtArticle(e.target.value)}
@@ -965,7 +1017,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                   {KT_ARTICLES.map(a => <option key={a.v} value={a.v}>{a.l}</option>)}
                 </select>
               </div>
-              <div className="md:col-span-2"><KtPartsEditor parts={eKtParts} onChange={setEKtParts} from={eFrom} to={eTo} base={eKtArticle} /></div>
+              {eExtra.length === 0 && <div className="md:col-span-2"><KtPartsEditor parts={eKtParts} onChange={setEKtParts} from={eFrom} to={eTo} base={eKtArticle} /></div>}
               <div className="md:col-span-2">
                 <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm cursor-pointer transition-all ${eBsch ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
                   <input type="checkbox" checked={eBsch} onChange={e => setEBsch(e.target.checked)} className="sr-only" />
@@ -1008,8 +1060,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
             {/* Няколко заместника */}
             <div className="border-t border-slate-100 pt-3">
               <label className="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                <input type="checkbox" checked={multiOpen} onChange={e => { setMultiOpen(e.target.checked); if (!e.target.checked) setDayMap({}) }} className="rounded" />
-                Няколко заместника
+                <input type="checkbox" checked={multiOpen} disabled={eExtra.length > 0} onChange={e => { setMultiOpen(e.target.checked); if (!e.target.checked) setDayMap({}) }} className="rounded" />
+                Няколко заместника{eExtra.length > 0 && <span className="text-[11px] text-slate-400">(само при един период)</span>}
               </label>
               {multiOpen && (
                 <div className="mt-3">

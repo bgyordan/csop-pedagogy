@@ -233,6 +233,79 @@ async function leaveGroupOf(supabase: any, sub: any): Promise<{ id: string; date
   return rows.map(r => ({ id: r.id, date_from: r.date_from, date_to: r.date_to }))
 }
 
+/**
+ * Периодите на едно отсъствие (отпуск в няколко периода): период 1 е самият ред (mainId), а `extra` — останалите.
+ * Всеки период е свой ред (за да се броят само реалните дни), свързани с leave_group; заместникът, членът от КТ,
+ * НП, заповедта и т.н. се копират от период 1. Издадена заповед → периодите не се променят.
+ */
+export async function saveLeavePeriods(mainId: string, extra: { id?: string; from: string; to: string }[], opts: { deleting?: boolean } = {}) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+  const cols = 'id, absent_staff_id, substitute_staff_id, date_from, date_to, kt_article, reason, bsch_eligible, over_norm, no_order_needed, leave_order_date, leave_order_number, substitution_order_id, manual_order_number, manual_order_date, leave_group'
+  const mr: any = await supabase.from('substitutions').select(cols).eq('id', mainId).single()
+  if (mr.error) {
+    if (/leave_group/.test(mr.error.message || '')) return extra.length ? { error: 'Пуснете SQL файла 2026-11-06_substitutions_leave_group.sql (няколко периода)' } : { success: true }
+    return { error: mr.error.message }
+  }
+  const main = mr.data
+  for (const p of extra) {
+    if (!p.from || !p.to) return { error: 'Попълнете от – до на всеки период' }
+    if (p.to < p.from) return { error: '„До“ е преди „от“ в някой период' }
+  }
+  const all = [{ from: main.date_from, to: main.date_to }, ...extra].sort((a, b) => a.from.localeCompare(b.from))
+  for (let i = 1; i < all.length; i++) if (all[i].from <= all[i - 1].to) return { error: 'Периодите се застъпват' }
+
+  const { data: sibData } = main.leave_group
+    ? await supabase.from('substitutions').select('id, date_from, date_to, substitution_order_id, manual_order_number').eq('leave_group', main.leave_group).neq('id', mainId)
+    : { data: [] as any[] }
+  const sibs = (sibData || []) as any[]
+  const issued = !!(main.substitution_order_id || main.manual_order_number)
+  const same = sibs.length === extra.length && extra.every(p => sibs.some(s => s.id === p.id && s.date_from === p.from && s.date_to === p.to))
+  if (issued && !same && !opts.deleting) return { error: 'Заповедта е издадена — периодите не се променят (издадена заповед не се редактира)' }
+
+  // застъпване с други отсъствия на същия колега (извън това отсъствие)
+  const mine = new Set([mainId, ...sibs.map(s => s.id)])
+  const { data: others } = await supabase.from('substitutions').select('id, date_from, date_to').eq('absent_staff_id', main.absent_staff_id)
+  const d = (x: string) => x.split('-').reverse().join('.')
+  for (const p of extra) {
+    const o = (others || []).find((x: any) => !mine.has(x.id) && x.date_from <= p.to && x.date_to >= p.from)
+    if (o) return { error: `Вече има отсъствие ${d(o.date_from)} – ${d(o.date_to)} — застъпва се с периода ${d(p.from)} – ${d(p.to)}` }
+  }
+
+  // общото на всички периоди — от период 1
+  const common = {
+    absent_staff_id: main.absent_staff_id, substitute_staff_id: main.substitute_staff_id, kt_article: main.kt_article, reason: main.reason,
+    bsch_eligible: main.bsch_eligible, over_norm: main.over_norm, no_order_needed: main.no_order_needed,
+    leave_order_date: main.leave_order_date, leave_order_number: main.leave_order_number,
+    substitution_order_id: main.substitution_order_id, manual_order_number: main.manual_order_number, manual_order_date: main.manual_order_date,
+  }
+  if (extra.length === 0) {
+    // при изтриване на цялото отсъствие — всички периоди (общата заповед се освобождава с период 1)
+    const del = sibs.filter(s => opts.deleting || (!s.substitution_order_id && !s.manual_order_number)).map(s => s.id)
+    if (del.length) await supabase.from('substitutions').delete().in('id', del)
+    if (main.leave_group && del.length === sibs.length) await supabase.from('substitutions').update({ leave_group: null }).eq('id', mainId)
+    revalidatePath('/substitutions')
+    return { success: true }
+  }
+  const group = main.leave_group || crypto.randomUUID()
+  if (!main.leave_group) await supabase.from('substitutions').update({ leave_group: group }).eq('id', mainId)
+  const keep = new Set(extra.filter(p => p.id).map(p => p.id))
+  const gone = sibs.filter(s => !keep.has(s.id)).map(s => s.id)
+  if (gone.length) await supabase.from('substitutions').delete().in('id', gone)
+  for (const p of extra.filter(p => p.id)) {
+    const { error } = await supabase.from('substitutions').update({ ...common, date_from: p.from, date_to: p.to, leave_group: group }).eq('id', p.id!)
+    if (error) return { error: error.message }
+  }
+  const add = extra.filter(p => !p.id)
+  if (add.length) {
+    const { error } = await supabase.from('substitutions').insert(add.map(p => ({ ...common, date_from: p.from, date_to: p.to, leave_group: group })))
+    if (error) return { error: error.message }
+  }
+  revalidatePath('/substitutions')
+  return { success: true }
+}
+
 /** Заместникът на един период → и на другите периоди от същото заявление, които още нямат заместник и заповед. */
 export async function syncLeaveGroupSubstitute(substitutionId: string) {
   const supabase = await createClient()
