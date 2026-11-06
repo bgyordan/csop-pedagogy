@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 export interface SubRow {
   id: string
   /** отпуск в няколко периода по едно заявление: кой поред е този период и колко са */
-  group?: { i: number; n: number } | null
+  group?: { i: number; n: number; id: string } | null
   absentName: string
   absentStaffId: string
   absentRole: string | null
@@ -48,13 +48,13 @@ export default async function SubstitutionsPage() {
     .order('date_from', { ascending: false })
 
   // отпуск в няколко периода (leave_group) — „период 1 от 2“; преди SQL файла — без него
-  const groupBy: Record<string, { i: number; n: number }> = {}
+  const groupBy: Record<string, { i: number; n: number; id: string }> = {}
   {
     const g: any = await supabase.from('substitutions').select('id, leave_group, date_from').not('leave_group', 'is', null).order('date_from')
     if (!g.error) {
       const by: Record<string, string[]> = {}
       ;(g.data || []).forEach((r: any) => { (by[r.leave_group] ||= []).push(r.id) })
-      Object.values(by).forEach(ids => { if (ids.length > 1) ids.forEach((id, i) => { groupBy[id] = { i: i + 1, n: ids.length } }) })
+      Object.entries(by).forEach(([gid, ids]) => { if (ids.length > 1) ids.forEach((id, i) => { groupBy[id] = { i: i + 1, n: ids.length, id: gid } }) })
     }
   }
 
