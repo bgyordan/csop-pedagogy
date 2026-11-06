@@ -5,11 +5,11 @@
 // по графика, без дните в отпуск/болничен и без неучебните дни; декларацията се записва за проверката.
 // Прегледът „Какво ще влезе“ се вижда през целия период (по дати, махнатите — задраскани с причината);
 // седмицата 5–11 ограничава само бутона за изтегляне.
-// РЕДАКЦИЯ (в седмицата 5–11): декларацията е за ВЗЕТИ часове и е на колегата — той я коригира преди изтеглянето.
-//  • над норматив / ИФО / логопед: щраква дата → маха часа (напр. ИФО детето не е дошло) или връща ден,
-//    в който системата го води в отпуск, а е бил на работа; неучебен ден не може да се добави;
-//  • заместване: −/+ часове на ред (НП — само намаляване), махане на ред и „Добави пропуснато заместване“
-//    (бюджет; НП заместване се въвежда от Ванина в „Отсъствия и замествания“ — нужни са заповед и отчет към МОН).
+// РЕДАКЦИЯ (в седмицата 5–11): декларацията е за ВЗЕТИ часове — колегата може САМО ДА МАХА от изведените:
+//  • над норматив / ИФО / логопед: щраква дата → маха часа (напр. ИФО детето не е дошло); дни, които ЕИС е
+//    задраскала (отпуск/болничен, неучебен ден), не се връщат;
+//  • заместване: „−“ часове на ред (до 0 = махнат); не се добавя — пропуснато заместване въвежда Ванина
+//    в „Отсъствия и замествания“.
 // Корекциите влизат в Word файла и (за над норматив) в записа за проверката; Марина сверява на хартия.
 import { useEffect, useState } from 'react'
 import { Loader2, FileDown, CalendarClock, Lock, AlertTriangle, Pencil, Check, Plus, Minus, X, RotateCcw } from 'lucide-react'
@@ -53,7 +53,7 @@ export default function MyDeclarationsCard({ onDone }: { onDone?: () => void }) 
   const toggleIn = (set: (f: (p: Set<string>) => Set<string>) => void, k: string) => set(prev => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n })
   function resetEdits() { setRemoved(new Set()); setRestored(new Set()); setSubHours({}); setManual([]); setAddOpen(false) }
   // запис на корекциите за периода — при „Готово“, „Върни като в системата“ и при изтегляне
-  const editsNow = () => ({ removed: [...removed], restored: [...restored], subHours, manual })
+  const editsNow = () => ({ removed: [...removed], restored: [] as string[], subHours, manual: [] as Manual[] })
   async function persistEdits(e = editsNow(), quiet = false) {
     const r: any = await saveMyDeclEdits(period.from, period.to, e)
     if (r?.error) toast(r.error, 'error')
@@ -83,18 +83,19 @@ export default function MyDeclarationsCard({ onDone }: { onDone?: () => void }) 
       // запазените корекции за периода (при ново влизане да не се губят)
       const e = ed?.data
       if (e) {
-        setRemoved(new Set(e.removed || [])); setRestored(new Set(e.restored || []))
-        setSubHours(e.subHours || {}); setManual(e.manual || [])
+        // само махане: върнати дни и ръчно добавени от по-рано не се зареждат; часове — само надолу
+        setRemoved(new Set(e.removed || []))
+        setSubHours(e.subHours || {})
       }
       setLoading(false)
     })
     return () => { alive = false }
   }, [period.key, ctx]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // над норматив — по графика без дните в отпуск/болничен (освен върнатите) и без махнатите
+  // над норматив — по графика без дните в отпуск/болничен и без махнатите от колегата
   const taken = (r: OverRow) => {
     const ab = new Set(r.absent || [])
-    return r.dates.filter(d => (!ab.has(d) || restored.has(k2(r.slotId, d))) && !removed.has(k2(r.slotId, d)))
+    return r.dates.filter(d => !ab.has(d) && !removed.has(k2(r.slotId, d)))
   }
   const overItems: DeclItem[] = over.flatMap(r => taken(r).map(iso => ({ iso, period: r.period, subject: r.subject, holderType: r.holderType, holderLabel: r.holderLabel, validFrom: r.validFrom, validTo: r.validTo })))
   const ifoH = overItems.filter(i => i.holderType === 'ifo').length
@@ -137,7 +138,7 @@ export default function MyDeclarationsCard({ onDone }: { onDone?: () => void }) 
   ].sort((a, b) => dmyToIso(a.date).localeCompare(dmyToIso(b.date)))
   function setRowHours(r: SubRow & { orig: number }, h: number) {
     if (r.manual) { setManual(prev => prev.map(m => m.id === r.subId ? { ...m, hours: Math.max(1, Math.min(7, h)) } : m)); return }
-    const max = r.bsch ? r.orig : 7      // НП — само намаляване (по заповедта и портала)
+    const max = r.orig                   // само намаляване — не се добавят часове
     const v = Math.max(0, Math.min(max, h))
     setSubHours(prev => { const n = { ...prev }; if (v === r.orig) delete n[rowKey(r)]; else n[rowKey(r)] = v; return n })
   }
@@ -216,7 +217,7 @@ export default function MyDeclarationsCard({ onDone }: { onDone?: () => void }) 
         {edit && (
           <div className="flex flex-wrap items-center gap-2 text-[12.5px] px-3 py-2 rounded-xl bg-sky-50/60 border border-sky-100 text-slate-600">
             <Pencil size={13} className="text-sky-600 shrink-0" />
-            <span className="flex-1 min-w-0">Декларацията е за взети часове. Щракнете дата, за да махнете или върнете час; при заместване — −/+ часове или добавете пропуснато. Корекциите влизат при „Изтегли“.</span>
+            <span className="flex-1 min-w-0">Декларацията е за взети часове — можете само да махнете час, който не сте взели: щракнете датата; при заместване — „−“. Задрасканите от ЕИС дни (отпуск/болничен) не се връщат.</span>
             {changed && <button onClick={revertAll} className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-800"><RotateCcw size={12} /> Върни като в системата</button>}
           </div>
         )}
@@ -271,14 +272,13 @@ export default function MyDeclarationsCard({ onDone }: { onDone?: () => void }) 
                             : it.kind === 'future' ? 'bg-white border-dashed border-slate-200 text-slate-400'
                             : it.kind === 'removed' ? 'bg-amber-50 border-amber-200 text-amber-600 line-through'
                             : 'bg-rose-50/50 border-rose-100 text-rose-400 line-through'}`
-                          const click = edit && it.kind !== 'off' && it.kind !== 'future'
+                          // само махане: щракват се изведените (и махнатите — за връщане); задрасканите от ЕИС — не
+                          const click = edit && (it.kind === 'ok' || it.kind === 'removed')
                           if (!click) return <span key={it.d} title={it.note || 'влиза'} className={cls}>{fmt(it.d).slice(0, 5)}</span>
-                          const onClick = () => it.kind === 'absent' || it.kind === 'restored'
-                            ? (removed.has(it.k) ? toggleIn(setRemoved, it.k) : toggleIn(setRestored, it.k))
-                            : toggleIn(setRemoved, it.k)
+                          const onClick = () => toggleIn(setRemoved, it.k)
                           return (
                             <button key={it.d} type="button" onClick={onClick}
-                              title={it.kind === 'ok' ? 'Взет — щракнете, ако не е взет' : it.kind === 'absent' ? 'Отпуск/болничен — щракнете, ако все пак сте го взели' : `${it.note} (щракнете, за да го върнете)`}
+                              title={it.kind === 'ok' ? 'Взет — щракнете, ако не е взет' : `${it.note} (щракнете, за да го върнете)`}
                               className={`${cls} cursor-pointer hover:border-[#0f2240]`}>{fmt(it.d).slice(0, 5)}</button>
                           )
                         })}
@@ -312,36 +312,14 @@ export default function MyDeclarationsCard({ onDone }: { onDone?: () => void }) 
                         <div className="flex items-center gap-1">
                           <button type="button" className={stepBtn} disabled={r.manual ? r.cur <= 1 : r.cur <= 0} onClick={() => setRowHours(r, r.cur - 1)} title="Час по-малко"><Minus size={12} /></button>
                           <span className="w-9 text-center text-[12.5px] tabular-nums text-slate-700">{r.cur} ч.</span>
-                          <button type="button" className={stepBtn} disabled={r.bsch ? r.cur >= r.orig : r.cur >= 7} onClick={() => setRowHours(r, r.cur + 1)} title={r.bsch ? 'НП — само по заповедта' : 'Час повече'}><Plus size={12} /></button>
+                          <button type="button" className={stepBtn} disabled={r.cur >= r.orig} onClick={() => setRowHours(r, r.cur + 1)} title="Върни час (до изведеното)"><Plus size={12} /></button>
                         </div>
                         {r.manual && <button type="button" onClick={() => setManual(prev => prev.filter(m => m.id !== r.subId))} className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50" title="Махни"><X size={13} /></button>}
                       </div>
                     )
                   })}
                 </div>
-                <div className="px-3 py-2 border-t border-slate-100">
-                  {!addOpen ? (
-                    <button type="button" onClick={() => setAddOpen(true)} className="inline-flex items-center gap-1.5 text-[12.5px] text-slate-600 hover:text-[#0f2240]"><Plus size={13} /> Добави пропуснато заместване</button>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-end gap-2">
-                        <div><label className="block text-[11px] text-slate-500 mb-0.5">Дата</label>
-                          <input type="date" value={nf.iso} min={period.from} max={maxDay} onChange={e => setNf({ ...nf, iso: e.target.value })} className={inp} /></div>
-                        <div className="flex-1 min-w-[150px]"><label className="block text-[11px] text-slate-500 mb-0.5">Кого заместих</label>
-                          <input value={nf.absentName} onChange={e => setNf({ ...nf, absentName: e.target.value })} placeholder="Име Фамилия" className={`${inp} w-full`} /></div>
-                        <div className="w-28"><label className="block text-[11px] text-slate-500 mb-0.5">Паралелка / група</label>
-                          <input value={nf.cls} onChange={e => setNf({ ...nf, cls: e.target.value })} placeholder="напр. 14" className={`${inp} w-full`} /></div>
-                        <div className="flex-1 min-w-[130px]"><label className="block text-[11px] text-slate-500 mb-0.5">Предмет (по желание)</label>
-                          <input value={nf.subject} onChange={e => setNf({ ...nf, subject: e.target.value })} className={`${inp} w-full`} /></div>
-                        <div className="w-16"><label className="block text-[11px] text-slate-500 mb-0.5">Часове</label>
-                          <input type="number" min={1} max={7} value={nf.hours} onChange={e => setNf({ ...nf, hours: Number(e.target.value) })} className={`${inp} w-full`} /></div>
-                        <button type="button" onClick={addManual} className="px-3 py-1.5 rounded-lg text-white text-[13px]" style={{ backgroundColor: '#0f2240' }}>Добави</button>
-                        <button type="button" onClick={() => setAddOpen(false)} className="px-3 py-1.5 rounded-lg border border-slate-200 text-[13px] text-slate-600">Отказ</button>
-                      </div>
-                      <p className="text-[11px] text-slate-400">Добавеното влиза в декларацията за бюджета, без № на заповед. Заместване по НП се въвежда от Ванина в „Отсъствия и замествания“ — за него са нужни заповед и отчет към МОН.</p>
-                    </div>
-                  )}
-                </div>
+                <div className="px-3 py-2 border-t border-slate-100 text-[11px] text-slate-400">Пропуснато заместване се въвежда от Ванина в „Отсъствия и замествания“.</div>
               </div>
             ) : groups.length > 0 && (
               <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl">
@@ -367,7 +345,6 @@ export default function MyDeclarationsCard({ onDone }: { onDone?: () => void }) 
                 <span><span className="inline-block w-2.5 h-2.5 rounded-sm border border-slate-300 bg-white align-middle mr-1" />влиза</span>
                 {over.some(r => r.dates.some(d => d > today)) && <span><span className="inline-block w-2.5 h-2.5 rounded-sm border border-dashed border-slate-300 align-middle mr-1" />предстои</span>}
                 {(edit || removed.size > 0) && <span><span className="inline-block w-2.5 h-2.5 rounded-sm border border-amber-200 bg-amber-50 align-middle mr-1" />махнат от вас</span>}
-                {(edit || restored.size > 0) && <span><span className="inline-block w-2.5 h-2.5 rounded-sm border border-sky-200 bg-sky-50 align-middle mr-1" />върнат от вас</span>}
                 <span><span className="inline-block w-2.5 h-2.5 rounded-sm border border-rose-200 bg-rose-50 align-middle mr-1" />не влиза (отпуск/болничен, неучебен ден) — посочете датата за причината</span>
               </div>
             )}
@@ -377,7 +354,7 @@ export default function MyDeclarationsCard({ onDone }: { onDone?: () => void }) 
       <p className="text-[11px] text-slate-400 px-4 py-2.5 bg-slate-50/60 border-t border-slate-100">
         Един файл, всяка декларация на своя страница. Първият период е от началото на учебната година до края на октомври, после всеки месец.
         Генерира се от 5-то до 11-то число на следващия месец; подписаната декларация се предава до 10-то.
-        Над норматив влиза по графика — без дните в отпуск/болничен и без неучебните дни; с „Редакция“ коригирате невзетите или пропуснатите часове.
+        Над норматив влиза по графика — без дните в отпуск/болничен и без неучебните дни; с „Редакция“ махате невзетите часове.
       </p>
     </section>
   )
