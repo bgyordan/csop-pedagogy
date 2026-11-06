@@ -391,9 +391,29 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   }, [rows, search, npOnly, periodIdx, showAbsentOnly]) // eslint-disable-line react-hooks/exhaustive-deps
   const absentOnlyCount = useMemo(() => rows.filter(isAbsentOnly).length, [rows]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // отпуск в няколко периода (едно заявление, една заповед) — в списъка е ЕДИН ред, както всички други:
+  // показва се период 1, а датите са от първия до последния ден, с периодите дребно отдолу
+  const leavePeriods = useMemo(() => {
+    const m: Record<string, { from: string; to: string }[]> = {}
+    rows.forEach(r => { if (r.group) (m[r.group.id] ||= []).push({ from: r.dateFrom, to: r.dateTo }) })
+    Object.values(m).forEach(l => l.sort((a, b) => a.from.localeCompare(b.from)))
+    return m
+  }, [rows])
+  const collapsed = useMemo(() => {
+    const seen = new Set<string>()
+    const out: SubRow[] = []
+    filtered.forEach(r => {
+      if (!r.group) { out.push(r); return }
+      if (seen.has(r.group.id)) return
+      seen.add(r.group.id)
+      out.push(rows.find(x => x.group?.id === r.group!.id && x.group.i === 1) || r)
+    })
+    return out
+  }, [filtered, rows])
+
   // групи по месец на началото, най-новият месец отгоре
   const groups = useMemo(() => {
-    const sorted = [...filtered].sort((a, b) => b.dateFrom.localeCompare(a.dateFrom))
+    const sorted = [...collapsed].sort((a, b) => b.dateFrom.localeCompare(a.dateFrom))
     const out: { key: string; label: string; items: SubRow[] }[] = []
     sorted.forEach(r => {
       const key = r.dateFrom.slice(0, 7)
@@ -406,7 +426,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       g.items.push(r)
     })
     return out
-  }, [filtered])
+  }, [collapsed])
 
   function mapRow(r: any): SubRow {
     return {
@@ -796,10 +816,14 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               </span>
               )}
               <span className="text-xs text-slate-500">
-                {fmt(r.dateFrom)}
-                {r.group && <span className="block text-[10px] text-slate-400" title="Отпуск в няколко периода по едно заявление — заместникът и заповедта са общи">период {r.group.i} от {r.group.n}</span>}
+                {fmt(r.group ? (leavePeriods[r.group.id]?.[0]?.from || r.dateFrom) : r.dateFrom)}
+                {r.group && (
+                  <span className="block text-[10px] text-slate-400 whitespace-nowrap" title="Отпуск в няколко периода по едно заявление — един заместник, една заповед">
+                    {(leavePeriods[r.group.id] || []).map(p => p.from === p.to ? fmt(p.from).slice(0, 5) : `${fmt(p.from).slice(0, 5)}–${fmt(p.to).slice(0, 5)}`).join(' · ')}
+                  </span>
+                )}
               </span>
-              <span className="text-xs text-slate-500">{fmt(r.dateTo)}</span>
+              <span className="text-xs text-slate-500">{fmt(r.group ? (leavePeriods[r.group.id]?.slice(-1)[0]?.to || r.dateTo) : r.dateTo)}</span>
               <div className="flex items-center justify-end gap-1.5 flex-nowrap" onClick={e => e.stopPropagation()}>
                 {(r as any).bsch && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0" title="По национална програма">НП</span>}
                 {!r.bsch && overNormMap[r.id] === false && (r.hasOrder || (r as any).manualNumber || (r as any).noOrder) && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 shrink-0" title="В рамките на нормата — без заплащане">вътр.</span>}
@@ -910,6 +934,11 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2"><Pencil size={15} style={{ color: '#0f2240' }} /> Редакция на заместване</h3>
               <button onClick={closeEdit} className="p-1 rounded-lg text-slate-400 hover:text-slate-600"><X size={18} /></button>
             </div>
+            {(() => { const g = rows.find(x => x.id === editId)?.group; const l = g ? leavePeriods[g.id] || [] : []; return l.length > 1 && (
+              <p className="text-[12px] text-slate-500 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
+                Отпуск в {l.length} периода ({l.map(p => p.from === p.to ? fmt(p.from) : `${fmt(p.from)} – ${fmt(p.to)}`).join(', ')}). Заместникът се прилага за всички; датите тук са на първия период.
+              </p>
+            ) })()}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-slate-500 mb-1">Отсъстващ *</label>
