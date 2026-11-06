@@ -27,7 +27,8 @@ export interface PDate {
   title: string; place: string | null; note: string | null; highlight: boolean; sort: number
 }
 export interface Person { id: string; name: string; short: string; label: string }
-export interface Cls { id: string; name: string }
+// паралелка или група ЦОУД (group: true) — за съвместна дейност между тях
+export interface Cls { id: string; name: string; group?: boolean }
 
 export const KINDS: { key: Kind; label: string; plural: string; hint: string; icon: typeof DoorOpen; tone: string; soft: string; grad: string }[] = [
   { key: 'cabinet', label: 'Кабинет', plural: 'Кабинети', hint: 'Моят кабинет / работно място — как работим, с какво', icon: DoorOpen, tone: 'text-teal-700', soft: 'bg-teal-50 text-teal-800 border-teal-200', grad: 'from-teal-500 to-cyan-600' },
