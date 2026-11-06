@@ -211,6 +211,47 @@ async function slotsByTerm(supabase: any, staffId: string, yearId: string | unde
 }
 // Генерира заповед за заместване: вади часовете на отсъстващия, създава РД-08 в orders,
 // връща данните за Word генератора.
+// ── Отпуск в няколко периода (leave_group) ──
+// Редовете на едно заявление, ако могат да вървят с ОБЩА заповед: един заместник, без разпределение по дни,
+// без части с друг член, без ръчен номер и без различни заповеди. Иначе null — всеки период си е отделно.
+async function leaveGroupOf(supabase: any, sub: any): Promise<{ id: string; date_from: string; date_to: string }[] | null> {
+  const g: any = await supabase.from('substitutions').select('leave_group').eq('id', sub.id).single()
+  const lg = g.error ? null : g.data?.leave_group
+  if (!lg) return null
+  const { data: sib } = await supabase.from('substitutions')
+    .select('id, date_from, date_to, substitute_staff_id, substitution_order_id, manual_order_number')
+    .eq('leave_group', lg).eq('absent_staff_id', sub.absent_staff_id).order('date_from')
+  const rows = (sib || []) as any[]
+  if (rows.length < 2) return null
+  if (rows.some(r => r.substitute_staff_id !== sub.substitute_staff_id || r.manual_order_number)) return null
+  if (new Set(rows.map(r => r.substitution_order_id || '')).size > 1) return null
+  const ids = rows.map(r => r.id)
+  const { data: asg } = await supabase.from('substitution_assignments').select('substitution_id').in('substitution_id', ids).limit(1)
+  if ((asg || []).length) return null
+  const parts = await ktPartsBySub(supabase, ids)
+  if (ids.some(id => (parts[id] || []).length)) return null
+  return rows.map(r => ({ id: r.id, date_from: r.date_from, date_to: r.date_to }))
+}
+
+/** Заместникът на един период → и на другите периоди от същото заявление, които още нямат заместник и заповед. */
+export async function syncLeaveGroupSubstitute(substitutionId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+  const g: any = await supabase.from('substitutions').select('leave_group, absent_staff_id, substitute_staff_id').eq('id', substitutionId).single()
+  if (g.error || !g.data?.leave_group || !g.data.substitute_staff_id) return { success: true, n: 0 }
+  const { data: sib } = await supabase.from('substitutions').select('id, substitute_staff_id, substitution_order_id, manual_order_number')
+    .eq('leave_group', g.data.leave_group).eq('absent_staff_id', g.data.absent_staff_id).neq('id', substitutionId)
+  const ids = ((sib || []) as any[]).filter(r => !r.substitute_staff_id && !r.substitution_order_id && !r.manual_order_number).map(r => r.id)
+  if (!ids.length) return { success: true, n: 0 }
+  const { data: asg } = await supabase.from('substitution_assignments').select('substitution_id').in('substitution_id', ids)
+  const busy = new Set((asg || []).map((a: any) => a.substitution_id))
+  const free = ids.filter(id => !busy.has(id))
+  if (free.length) await supabase.from('substitutions').update({ substitute_staff_id: g.data.substitute_staff_id }).in('id', free)
+  revalidatePath('/substitutions')
+  return { success: true, n: free.length }
+}
+
 export async function generateSubstitution(substitutionId: string, overNorm: boolean = true, register: boolean = true) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -227,16 +268,22 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   if (!sub) return { error: 'Заместването не е намерено' }
   if (!sub.substitute_staff_id) return { error: 'Няма избран заместник' }
 
+  // Отпуск в няколко периода по едно заявление (leave_group) → ЕДНА заповед за всички периоди,
+  // когато са с един и същ заместник, без разпределение по дни, без части с друг член и без отделни заповеди.
+  const group = await leaveGroupOf(supabase, sub)
+
   const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
 
   // 2. Часовете на отсъстващия — по срокове (денят в периода решава кое разписание важи)
   const byTerm = await slotsByTerm(supabase, sub.absent_staff_id, cy?.id)
 
   // Пазим избора лекторски/вътрешно — от него зависи дали часовете влизат в декларацията
-  await supabase.from('substitutions').update({ over_norm: sub.bsch_eligible === true ? true : overNorm }).eq('id', substitutionId)
+  await supabase.from('substitutions').update({ over_norm: sub.bsch_eligible === true ? true : overNorm }).in('id', group ? group.map(g => g.id) : [substitutionId])
 
-  // 3. Разгъваме по работни дни в периода
-  const wds = await workdays(supabase, sub.date_from, sub.date_to)
+  // 3. Разгъваме по работни дни в периода (при няколко периода — само дните на периодите, без празнините)
+  const wds = group
+    ? (await Promise.all(group.map(g => workdays(supabase, g.date_from, g.date_to)))).flat()
+    : await workdays(supabase, sub.date_from, sub.date_to)
   const days = wds.map(wd => ({
     date: wd.iso.split('-').reverse().join('.'),
     items: byTerm[wd.term].filter(s => s.day === wd.dow).map(s => ({ period: s.period, subject: s.subject, cls: s.cls })),
@@ -246,7 +293,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   const bySlot: Slot[] = (usedTerms.length ? usedTerms : [1]).flatMap(t => byTerm[t])
   // НП при болничен (чл. 162): НП само за първите 2 работни дни, останалите — бюджет
   const kparts = (await ktPartsBySub(supabase, [substitutionId]))[substitutionId] || []
-  const npSplit = (kparts.length === 0 && sub.bsch_eligible === true && (sub as any).kt_article === '162' && wds.length > 2)
+  const npSplit = (!group && kparts.length === 0 && sub.bsch_eligible === true && (sub as any).kt_article === '162' && wds.length > 2)
     ? { npFrom: wds[0].iso, npTo: wds[1].iso, budgetFrom: wds[2].iso, budgetTo: sub.date_to }
     : null
   // няколко члена → кои дни са по НП и кои от бюджета, като непрекъснати периоди
@@ -303,13 +350,13 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
         number: orderNumber, date: orderDate,
         title: `Заповед за заместване на ${absentName}`,
         nomenclature_item: 'РД-08',
-        description: `Заместник: ${subName}, период ${sub.date_from.split('-').reverse().join('.')}–${sub.date_to.split('-').reverse().join('.')}`,
+        description: `Заместник: ${subName}, ${group ? 'периоди ' + group.map(g => `${g.date_from.split('-').reverse().join('.')}–${g.date_to.split('-').reverse().join('.')}`).join(', ') : `период ${sub.date_from.split('-').reverse().join('.')}–${sub.date_to.split('-').reverse().join('.')}`}`,
         created_by: me?.id || null, seq: nextSeq,
         without_hours: noHours,
       }).select('id').single()
       if (oErr) return { error: 'Грешка при създаване на заповедта: ' + oErr.message }
       // 6. Връзваме заповедта към заместването (+ към редовете на разпределението — те са покрити от нея)
-      await supabase.from('substitutions').update({ substitution_order_id: order.id }).eq('id', substitutionId)
+      await supabase.from('substitutions').update({ substitution_order_id: order.id }).in('id', group ? group.map(g => g.id) : [substitutionId])
       await supabase.from('substitution_assignments').update({ order_id: order.id }).eq('substitution_id', substitutionId).is('order_id', null)
       ;(sub as any).substitution_order_id = order.id
     }
@@ -350,7 +397,8 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
       reason: sub.reason || 'vacation',
       overNorm: sub.bsch_eligible === true ? true : overNorm,
       leaveRef: sub.leave_order_number ? `Заповед за отпуск № ${sub.leave_order_number}` : (sub.reason === 'sick' ? 'Болничен лист' : 'заявление'),
-      dateFrom: sub.date_from, dateTo: sub.date_to,
+      dateFrom: group ? group[0].date_from : sub.date_from, dateTo: group ? group[group.length - 1].date_to : sub.date_to,
+      periods: group ? group.map(g => ({ from: g.date_from, to: g.date_to })) : undefined,
       zdudName: zdud ? `${zdud.first_name} ${zdud.last_name}` : '',
             yearName: cy?.name || '',
       rate: effectiveRates(await loadLecturerRates(supabase)).sub,   // € за учебен час на заместника (и по НП)

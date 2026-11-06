@@ -49,6 +49,8 @@ export interface SubstOrderData {
   isBsch: boolean
   dateFrom: string
   dateTo: string
+  /** отпуск в няколко периода по едно заявление — една заповед за всички */
+  periods?: { from: string; to: string }[]
   zdudName: string
   yearName: string
   days: { date: string; items: { period: number; subject: string; cls: string }[] }[]
@@ -148,6 +150,17 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
 
   const df = formatDate(d.dateFrom), dt = formatDate(d.dateTo)
   const reasonWord = d.reason === 'sick' ? 'отсъствие поради болничен отпуск' : 'отсъствие поради отпуск'
+  // „за периода от … до …“ или при няколко периода — „за периодите от … до … и от … до …“
+  const whenRuns = (): any[] => {
+    if (!d.periods || d.periods.length < 2) return [normal('за периода от ', 22), bold(df, 22), normal(' до ', 22), bold(dt, 22)]
+    const out: any[] = [normal('за периодите ', 22)]
+    d.periods.forEach((p, i) => {
+      if (i) out.push(normal(i === d.periods!.length - 1 ? ' и ' : ', ', 22))
+      if (p.from === p.to) out.push(bold(formatDate(p.from), 22))
+      else out.push(normal('от ', 22), bold(formatDate(p.from), 22), normal(' до ', 22), bold(formatDate(p.to), 22))
+    })
+    return out
+  }
 
   const baseText = d.overNorm
     ? 'На основание чл. 259, ал. 1 от Закона за предучилищното и училищното образование, във връзка с чл. 110 от Кодекса на труда и чл. 5, ал. 2 от Наредбата за финансиране на институциите в системата на предучилищното и училищното образование, във връзка '
@@ -194,14 +207,12 @@ export async function generateSubstitutionOrder(d: SubstOrderData) {
   if (d.noHours) {
     // Разписанието още не е пълно → без брой часове и без таблица
     children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
-      normal('2. Заместването да се извърши за периода от ', 22),
-      bold(df, 22), normal(' до ', 22), bold(dt, 22),
+      normal('2. Заместването да се извърши ', 22), ...whenRuns(),
       normal(' включително, съгласно седмичното разписание на отсъстващия титуляр.', 22),
     ] }))
   } else {
   children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 }, children: [
-    normal('2. Заместването да се извърши за периода от ', 22),
-    bold(df, 22), normal(' до ', 22), bold(dt, 22),
+    normal('2. Заместването да се извърши ', 22), ...whenRuns(),
     normal(' включително, общо ', 22), bold(`${d.days.reduce((a, x) => a + x.items.length, 0)} учебни часа`, 22),
     normal(', съгласно утвърденото седмично разписание на отсъстващия титуляр:', 22),
   ] }))
@@ -970,6 +981,8 @@ export interface NpLeaveOrderData {
   ktParts?: { from: string; to: string; kt: string }[]
   dateFrom: string
   dateTo: string
+  /** отпуск в няколко периода по едно заявление (напр. 02–04.11 и 07–10.11) */
+  periods?: { from: string; to: string }[]
   workDays: number         // брой работни/учебни дни отпуск
   leaveRef: string         // "Заявление вх. № …"
   zdudName: string
@@ -1033,10 +1046,22 @@ export async function generateNpLeaveOrder(d: NpLeaveOrderData) {
     bold(`${d.absentName}${d.absentPosition ? ' – ' + d.absentPosition : ''}`, 22),
     normal(`, на основание ${ktText},`, 22),
   ] }))
+  if (d.periods && d.periods.length > 1) {
+    // няколко периода — изрежда ги (а не „от първия до последния ден“ — между тях колегата е на работа)
+    const parts: any[] = [normal('за периодите ', 22)]
+    d.periods.forEach((p, i) => {
+      if (i) parts.push(normal(i === d.periods!.length - 1 ? ' и ' : ', ', 22))
+      if (p.from === p.to) parts.push(bold(formatDate(p.from), 22))
+      else parts.push(normal('от ', 22), bold(formatDate(p.from), 22), normal(' до ', 22), bold(formatDate(p.to), 22))
+    })
+    parts.push(normal(` включително${d.workDays ? ` (${d.workDays} работни дни)` : ''}.`, 22))
+    children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 }, children: parts }))
+  } else {
   children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 }, children: [
     normal('за периода от ', 22), bold(df, 22), normal(' до ', 22), bold(dt, 22),
     normal(` включително${d.workDays ? ` (${d.workDays} работни дни)` : ''}.`, 22),
   ] }))
+  }
   }
 
   children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 }, children: [
