@@ -210,6 +210,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const pedStaff = (...keep: string[]) => staff.filter(s => canSubstitute(s.role) || keep.includes(s.id))
   // отсъстващ: учители и възпитатели + всеки с часове (напр. управата с преподавателска заетост)
   const absentStaff = (...keep: string[]) => staff.filter(s => canBeSubstituted(s) || keep.includes(s.id))
+  // кой се замества (учител/възпитател или с часове) — за останалите (логопед, психолог, помощник) е само отсъствие
   const [search, setSearch] = useState('')
   const [npOnly, setNpOnly] = useState(false)
   const [periodIdx, setPeriodIdx] = useState(-1)
@@ -247,6 +248,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   const [nLinked, setNLinked] = useState<RegistryOrder | null>(null)
   const [nOverNorm, setNOverNorm] = useState(true)
   const [absentId, setAbsentId] = useState('')
+  const newSubstitutable = !absentId || absentStaff().some(s => s.id === absentId)
   const [subId, setSubId] = useState('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -433,20 +435,21 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
 
   async function saveNew() {
     if (!absentId || !from || !to) { toast('Отсъстващ и срок са задължителни', 'error'); return }
+    const subbable = newSubstitutable
     const kErr = ktPartsError(ktParts, from, to)
     if (kErr) { toast(kErr, 'error'); return }
     const dup = await overlapMsg(absentId, from, to)
     if (dup) { toast(dup, 'error'); return }
     setSaving(true)
-    const primary = multiOpen ? firstOwner(dayMap, schoolDays) : subId
+    const primary = !subbable ? '' : multiOpen ? firstOwner(dayMap, schoolDays) : subId
     const { data, error } = await supabase.from('substitutions').insert({
       absent_staff_id: absentId, substitute_staff_id: primary || null,
-      date_from: from, date_to: to, reason: reasonFromKt(ktArticle), bsch_eligible: bsch, kt_article: ktArticle,
+      date_from: from, date_to: to, reason: reasonFromKt(ktArticle), bsch_eligible: subbable && bsch, kt_article: ktArticle,
       // „Вече е издадена“: избрана от регистъра → връзваме я; иначе ръчен номер
       ...(orderMode === 'manual' && nLinked ? { substitution_order_id: nLinked.id } : {}),
       manual_order_number: orderMode === 'manual' && !nLinked ? (nManualNumber.trim() || null) : null,
       manual_order_date: orderMode === 'manual' && !nLinked ? (nManualDate || null) : null,
-      no_order_needed: orderMode === 'none',
+      no_order_needed: !subbable || orderMode === 'none',
       over_norm: bsch ? true : nOverNorm,
     }).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setSaving(false); return }
@@ -454,7 +457,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       const kr: any = await saveKtParts(data.id, ktParts)
       if (kr?.error) toast(kr.error, 'error')
     }
-    if (multiOpen) {
+    if (subbable && multiOpen) {
       const ar: any = await saveAssignments(data.id, mapToRows(dayMap, schoolDays))
       if (ar?.error) toast(ar.error, 'error')
     }
@@ -462,7 +465,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     if (orderMode === 'manual' && nLinked) newRow.orderNumber = nLinked.number
     if (multiOpen) newRow.assigns = toAssigns(mapToRows(dayMap, schoolDays))
     // „Създай заповед" при запис: генерира Word + завежда номер (само ако има заместник)
-    if (orderMode === 'create' && primary) {
+    if (subbable && orderMode === 'create' && primary) {
       const overNorm = bsch ? true : nOverNorm
       const res: any = await generateSubstitution(data.id, overNorm, true)
       if (res.error) { toast(res.error, 'error') }
@@ -474,7 +477,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                        : x.substituteId === absentId))
     setRows(prev => [newRow, ...prev])
     setOverNormMap(p => ({ ...p, [newRow.id]: newRow.overNorm }))
-    toast('Заместването е добавено')
+    if (!subbable) setShowAbsentOnly(true)   // да се вижда току-що въведеното отсъствие (без заместване)
+    toast(subbable ? 'Записано' : 'Отсъствието е записано — колегите го виждат в „Днес отсъстват“')
     // Заместник на заместника: новият заместник поема и часовете, които отсъстващият е замествал в тези дни
     if (covering.length) {
       const who = newRow.absentName, by = newRow.substituteName
@@ -582,7 +586,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
           {!showNew && (
             <button onClick={() => { setShowNew(true); resetMulti() }}
               className="flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl border-2 border-[#0f2240] text-[#0f2240] bg-white hover:bg-[#0f2240] hover:text-white transition-all whitespace-nowrap flex-shrink-0">
-              <Plus size={14} /> Ново заместване
+              <Plus size={14} /> Ново отсъствие
             </button>
           )}
           <select value={periodIdx} onChange={e => setPeriodIdx(Number(e.target.value))}
@@ -624,17 +628,20 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       {showNew && (
         <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-            <h3 className="text-sm font-semibold text-slate-800">Ново заместване (болничен / друго)</h3>
+            <h3 className="text-sm font-semibold text-slate-800">Ново отсъствие (болничен / отпуск / друго)</h3>
             <button onClick={() => setShowNew(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600"><X size={16} /></button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-slate-500 mb-1">Отсъстващ *</label>
-              <PersonCombo people={absentStaff()} value={absentId} onChange={setAbsentId} placeholder="Търси по име…" excludeId={subId} />
+              {/* всеки служител — и логопед, психолог, помощник (те само отсъстват, без заместник) */}
+              <PersonCombo people={staff} value={absentId} onChange={setAbsentId} placeholder="Търси по име…" excludeId={subId} />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Заместник</label>
-              {multiOpen
+              {!newSubstitutable
+                ? <div className="px-3 py-2 text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">Не се замества — колегите го виждат в „Днес отсъстват“</div>
+                : multiOpen
                 ? <div className="px-3 py-2 text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">Задава се по дни долу ↓</div>
                 : <PersonCombo people={pedStaff()} value={subId} onChange={setSubId} placeholder="Търси по име…" excludeId={absentId} />}
             </div>
@@ -656,6 +663,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               <div className="mt-1.5"><KtPartsEditor parts={ktParts} onChange={setKtParts} from={from} to={to} base={ktArticle} /></div>
             </div>
           </div>
+          {newSubstitutable && (<>
           <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm cursor-pointer transition-all ${bsch ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
             <input type="checkbox" checked={bsch} onChange={e => setBsch(e.target.checked)} className="sr-only" />
             По НП „Без свободен час"
@@ -709,6 +717,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               </div>
             )}
           </div>
+
+          </>)}
 
           {!editId && overlapBox}
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
