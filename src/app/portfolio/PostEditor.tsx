@@ -237,12 +237,17 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, dat
       const coverPath = cover ? pathOf[cover] || null : null
       if ((post?.cover_path || null) !== coverPath) await supabase.from('portfolio_posts').update({ cover_path: coverPath }).eq('id', id)
 
-      // Паралелки
+      // Паралелки и групи ЦОУД (съвместна дейност може и между двете)
+      const isGroup = new Set(classes.filter(c => c.group).map(c => c.id))
       const prev = post?.classIds || []
       const want = kind === 'project' || kind === 'event' ? classIds : []
       const add = want.filter(c => !prev.includes(c)), del = prev.filter(c => !want.includes(c))
-      if (del.length) await supabase.from('portfolio_post_classes').delete().eq('post_id', id).in('class_id', del)
-      if (add.length) await supabase.from('portfolio_post_classes').insert(add.map(c => ({ post_id: id, class_id: c })))
+      const delC = del.filter(c => !isGroup.has(c)), delG = del.filter(c => isGroup.has(c))
+      const addC = add.filter(c => !isGroup.has(c)), addG = add.filter(c => isGroup.has(c))
+      if (delC.length) await supabase.from('portfolio_post_classes').delete().eq('post_id', id).in('class_id', delC)
+      if (addC.length) await supabase.from('portfolio_post_classes').insert(addC.map(c => ({ post_id: id, class_id: c })))
+      if (delG.length) await supabase.from('portfolio_post_groups').delete().eq('post_id', id).in('group_id', delG)
+      if (addG.length) { const { error } = await supabase.from('portfolio_post_groups').insert(addG.map(g => ({ post_id: id, group_id: g }))); if (error) throw error }
 
       // Дати и събития
       if (datesReady) {
@@ -470,14 +475,19 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, dat
 
               {(kind === 'project' || kind === 'event') && classes.length > 0 && (
                 <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-2">Паралелки / групи <span className="normal-case tracking-normal font-normal text-slate-400">— по желание</span></div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {classes.map(c => {
-                      const on = classIds.includes(c.id)
-                      return <button key={c.id} type="button" onClick={() => setClassIds(p => on ? p.filter(x => x !== c.id) : [...p, c.id])}
-                        className={`px-3 py-1.5 rounded-full text-[13px] border transition-colors ${on ? 'bg-[#0f2240] border-[#0f2240] text-white' : 'bg-white border-slate-300 text-slate-700 hover:border-slate-500'}`}>{c.name}</button>
-                    })}
-                  </div>
+                  <div className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-2">Паралелки / групи <span className="normal-case tracking-normal font-normal text-slate-400">— по желание; съвместна дейност — изберете няколко, вкл. паралелка и група ЦОУД</span></div>
+                  {([['Паралелки', classes.filter(c => !c.group)], ['Групи ЦОУД', classes.filter(c => c.group)]] as const).map(([lbl, list]) => list.length > 0 && (
+                    <div key={lbl} className="mb-2 last:mb-0">
+                      {classes.some(c => c.group) && <div className="text-[11px] text-slate-400 mb-1">{lbl}</div>}
+                      <div className="flex flex-wrap gap-1.5">
+                        {list.map(c => {
+                          const on = classIds.includes(c.id)
+                          return <button key={c.id} type="button" onClick={() => setClassIds(p => on ? p.filter(x => x !== c.id) : [...p, c.id])}
+                            className={`px-3 py-1.5 rounded-full text-[13px] border transition-colors ${on ? 'bg-[#0f2240] border-[#0f2240] text-white' : 'bg-white border-slate-300 text-slate-700 hover:border-slate-500'}`}>{c.name}</button>
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

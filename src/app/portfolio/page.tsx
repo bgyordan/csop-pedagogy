@@ -32,6 +32,16 @@ export default async function PortfolioPage() {
     supabase.from('portfolio_dates').select('id, post_id, date, time_from, time_to, title, place, note, highlight, sort').order('date').order('sort'),
   ])
 
+  // Групи ЦОУД — за съвместна дейност с паралелки (2026-11-06_portfolio_groups.sql; без него — само паралелки)
+  const [coudRes, grpLinksRes] = await Promise.all([
+    supabase.from('coud_groups').select('id, name, teacher_id').eq('academic_year_id', year?.id).order('name'),
+    supabase.from('portfolio_post_groups').select('post_id, group_id'),
+  ])
+  const groupsReady = !grpLinksRes.error
+  const coudLabel = (n: string) => /цоуд|група/i.test(n || '') ? n : `ЦОУД ${n}`
+  const groups = groupsReady ? (coudRes.data || []).map((g: any) => ({ id: g.id, name: coudLabel(g.name), group: true })) : []
+  const myGroupIds = groupsReady ? (coudRes.data || []).filter((g: any) => g.teacher_id === me.id).map((g: any) => g.id) : []
+
   // Миграцията още не е пусната
   if (postsRes.error) {
     return (
@@ -48,6 +58,8 @@ export default async function PortfolioPage() {
   ;(mediaRes.data || []).forEach((m: any) => { (mediaBy[m.post_id] ||= []).push(m) })
   const clsBy: Record<string, string[]> = {}
   ;(linksRes.data || []).forEach((l: any) => { (clsBy[l.post_id] ||= []).push(l.class_id) })
+  // групите ЦОУД вървят в същия списък (имената им са в classNames)
+  ;(groupsReady ? grpLinksRes.data || [] : []).forEach((l: any) => { (clsBy[l.post_id] ||= []).push(l.group_id) })
 
   const datesBy: Record<string, any[]> = {}
   ;(datesRes.data || []).forEach((d: any) => { (datesBy[d.post_id] ||= []).push(d) })
@@ -74,8 +86,8 @@ export default async function PortfolioPage() {
       posts={posts}
       thumbs={thumbs}
       people={people}
-      classes={classesRes.data || []}
-      myClassIds={(ctaRes.data || []).map((c: any) => c.class_id)}
+      classes={[...(classesRes.data || []), ...groups]}
+      myClassIds={[...(ctaRes.data || []).map((c: any) => c.class_id), ...myGroupIds]}
       academicYearId={year?.id || null}
       datesReady={!datesRes.error}
     />
