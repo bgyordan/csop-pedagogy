@@ -811,7 +811,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
       )}
 
       {/* Заглавен ред */}
-      <div className="hidden md:grid grid-cols-[88px_minmax(0,1.3fr)_minmax(0,1.3fr)_66px_66px_262px] gap-3 px-4 py-2.5 rounded-xl bg-slate-100 border-b border-slate-200">
+      <div className="hidden md:grid grid-cols-[88px_minmax(0,1.3fr)_minmax(0,1.3fr)_76px_76px_262px] gap-3 px-4 py-2.5 rounded-xl bg-slate-100 border-b border-slate-200">
         {['Заповед', 'Отсъстващ', 'Заместник', 'От', 'До', ''].map((h, i) => (
           <span key={i} className="text-[11px] font-medium uppercase tracking-wider text-slate-500">{h}</span>
         ))}
@@ -848,7 +848,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
             <div key={r.id} className={`bg-white border rounded-2xl transition-all group shadow-[0_1px_4px_rgba(15,34,64,0.06)] ${isOpen ? 'border-slate-400 shadow-[0_2px_8px_rgba(15,34,64,0.10)]' : 'border-slate-200 hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)]'} ${idx % 2 === 1 && !isOpen ? 'bg-slate-50/40' : ''}`}>
             <div onClick={multi ? () => toggleOpen(r) : undefined}
               title={multi ? 'Покажи кой кои дни замества' : undefined}
-              className={`px-4 py-2 grid grid-cols-1 md:grid-cols-[88px_minmax(0,1.3fr)_minmax(0,1.3fr)_66px_66px_262px] gap-2 md:gap-3 md:items-center ${multi ? 'cursor-pointer' : ''}`}>
+              className={`px-4 py-2 grid grid-cols-1 md:grid-cols-[88px_minmax(0,1.3fr)_minmax(0,1.3fr)_76px_76px_262px] gap-2 md:gap-3 md:items-center ${multi ? 'cursor-pointer' : ''}`}>
               {(() => { const o = orderRef(r); return o
                 ? <span className="text-xs tabular-nums whitespace-nowrap" title={`Заповед № ${o.full}`}><span className="text-slate-700">№ {o.n}</span>{o.d && <span className="text-slate-400"> / {o.d}</span>}</span>
                 : <span className="text-xs text-slate-300" title={r.noOrder ? 'Без заповед' : 'Заповедта не е издадена'}>—</span> })()}
@@ -871,8 +871,11 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
               <span className="text-xs text-slate-500">
                 {fmt(r.group ? (leavePeriods[r.group.id]?.[0]?.from || r.dateFrom) : r.dateFrom)}
                 {r.group && (
-                  <span className="block text-[10px] text-slate-400 whitespace-nowrap" title="Отпуск в няколко периода по едно заявление — един заместник, една заповед">
-                    {(leavePeriods[r.group.id] || []).map(p => p.from === p.to ? fmt(p.from).slice(0, 5) : `${fmt(p.from).slice(0, 5)}–${fmt(p.to).slice(0, 5)}`).join(' · ')}
+                  <span className="block mt-0.5 text-[10px] leading-tight text-slate-400" title="Отпуск в няколко периода по едно заявление — един заместник, една заповед">
+                    {/* всеки период на свой ред — колоната е тясна */}
+                    {(leavePeriods[r.group.id] || []).map(p => (
+                      <span key={p.from} className="block whitespace-nowrap">{p.from === p.to ? fmt(p.from).slice(0, 5) : `${fmt(p.from).slice(0, 5)}–${fmt(p.to).slice(0, 5)}`}</span>
+                    ))}
                   </span>
                 )}
               </span>
