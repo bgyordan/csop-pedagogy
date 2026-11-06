@@ -217,6 +217,12 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   // „само отсъства“ — отпуск на колега, който не се замества (специалист, помощник) и няма заместник:
   // въвежда се, за да се вижда в „Днес отсъстват“; в таблицата по подразбиране е скрит
   const [showAbsentOnly, setShowAbsentOnly] = useState(false)
+  // отпуск в няколко периода: „Създай заповед“ само на период 1 — заповедта е обща (същият заместник, без разпределение по дни)
+  const sharedOrderWithFirst = (r: SubRow) => {
+    if (!r.group || r.group.i === 1 || !r.substituteId || r.assigns?.length) return false
+    const first = rows.find(x => x.group?.id === r.group!.id && x.group?.i === 1)
+    return !!first && !first.hasOrder && first.substituteId === r.substituteId && !first.assigns?.length
+  }
   const isAbsentOnly = (r: any) => !r.substituteName && !(r.assigns?.length) && !canSubstitute(r.absentRole) && !staff.find(s => s.id === r.absentStaffId)?.teaching
   const [genId, setGenId] = useState<string | null>(null)
   const [overNormMap, setOverNormMap] = useState<Record<string, boolean>>(() => Object.fromEntries(initial.map(r => [r.id, r.overNorm !== false])))
@@ -814,6 +820,8 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                   </button>
                 ) : (r as any).noOrder ? (
                   <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 shrink-0">Без заповед</span>
+                ) : sharedOrderWithFirst(r) ? (
+                  <span className="text-[11px] text-slate-400 shrink-0" title="Отпуск в няколко периода — една заповед за всички периоди, издава се от период 1">обща заповед — от период 1</span>
                 ) : r.substituteId ? (
                   <>
                     {(() => { const on = r.bsch ? true : (overNormMap[r.id] !== false); return (
