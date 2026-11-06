@@ -410,7 +410,10 @@ export default function NewCorrespondenceForm({
           : { data: [] as any[] }
         const periods = all.filter(p => !(existing || []).some((e: any) => p.from <= e.date_to && p.to >= e.date_from))
         if (periods.length > 0) {
-          const group = periods.length > 1 ? crypto.randomUUID() : null
+          // crypto.randomUUID липсва при отваряне без https (напр. по IP адрес) — тогава ръчно
+          const uuid = () => (typeof crypto !== 'undefined' && (crypto as any).randomUUID) ? (crypto as any).randomUUID()
+            : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16) })
+          const group = periods.length > 1 ? uuid() : null
           const mk = (withGroup: boolean) => periods.map(p => ({
           ...(withGroup && group ? { leave_group: group } : {}),
           absent_staff_id: staffId || null,
@@ -426,11 +429,15 @@ export default function NewCorrespondenceForm({
           let insRes: any = await supabase.from('substitutions').insert(mk(true)).select('id')
           // преди SQL файла 2026-11-06_substitutions_leave_group.sql — без връзката между периодите
           if (insRes.error && group && /leave_group/.test(insRes.error.message || '')) insRes = await supabase.from('substitutions').insert(mk(false)).select('id')
+          if (insRes.error) throw new Error(insRes.error.message)
           const ins = insRes.data
           // части с друг член — към записа за периода
           if (partsUsed.length > 0 && ins?.length === 1) await saveKtParts(ins[0].id, partsUsed)
         }
-      } catch (_) { /* заместването не бива да блокира деловодството */ }
+      } catch (e: any) {
+        // документът и заповедта вече са записани — само казваме ясно, че отсъствието не влезе
+        notify(`Документът е заведен, но отсъствието НЕ се записа в „Отсъствия и замествания“ (${e?.message || 'грешка'}). Въведете го там с „+ Ново отсъствие“.`)
+      }
     }
 
     // Прикачване към досието на ученика (заявление за прием / ЦОУД)
