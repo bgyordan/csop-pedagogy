@@ -158,3 +158,41 @@ export async function getMyDeclContext() {
     hasSlots: (count || 0) > 0,
   }
 }
+
+// ── Корекциите по декларациите („Редакция“) — пазят се за периода, за да не се губят при ново влизане ──
+export type DeclEdits = {
+  removed?: string[]                  // над норматив: „slotId|дата“ — махнати (не са взети)
+  restored?: string[]                 // над норматив: „slotId|дата“ — върнати (системата ги води в отпуск)
+  subHours?: Record<string, number>   // заместване: „subId|дата|паралелка“ → часове (0 = махнат)
+  manual?: { id: string; iso: string; absentName: string; cls: string; subject: string; hours: number }[]
+}
+const EDITS_SQL_HINT = 'Корекциите не се запазиха — пуснете SQL файла 2026-11-06_declaration_edits.sql'
+
+async function myStaffId() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { supabase, id: null as string | null }
+  const { data: me } = await supabase.from('staff_profiles').select('id').eq('user_id', user.id).single()
+  return { supabase, id: (me?.id as string) || null }
+}
+
+export async function getMyDeclEdits(periodFrom: string, periodTo: string): Promise<{ data: DeclEdits | null }> {
+  const { supabase, id } = await myStaffId()
+  if (!id) return { data: null }
+  const { data, error } = await supabase.from('declaration_edits').select('data')
+    .eq('staff_id', id).eq('period_from', periodFrom).eq('period_to', periodTo).maybeSingle()
+  if (error) return { data: null }   // преди SQL файла — без запазени корекции
+  return { data: (data?.data as DeclEdits) || null }
+}
+
+export async function saveMyDeclEdits(periodFrom: string, periodTo: string, edits: DeclEdits) {
+  const { supabase, id } = await myStaffId()
+  if (!id) return { error: 'Не сте влезли' }
+  const empty = !(edits.removed?.length || edits.restored?.length || Object.keys(edits.subHours || {}).length || edits.manual?.length)
+  const q = empty
+    ? supabase.from('declaration_edits').delete().eq('staff_id', id).eq('period_from', periodFrom).eq('period_to', periodTo)
+    : supabase.from('declaration_edits').upsert({ staff_id: id, period_from: periodFrom, period_to: periodTo, data: edits, updated_at: new Date().toISOString() })
+  const { error } = await q
+  if (error) return { error: EDITS_SQL_HINT }
+  return { success: true }
+}

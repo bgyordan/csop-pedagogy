@@ -16,7 +16,7 @@ import { Loader2, FileDown, CalendarClock, Lock, AlertTriangle, Pencil, Check, P
 import { useToast } from '@/components/ui/Toast'
 import { declarationPeriods, genPeriod, sofiaTodayIso } from '@/lib/declaration-periods'
 import { getMonthlyDeclaration, getMyMonthlyPreview } from '@/app/substitutions/actions'
-import { getMyLecturerDates, submitLecturerDeclaration, getMyDeclContext } from '@/app/my-lecturer/actions'
+import { getMyLecturerDates, submitLecturerDeclaration, getMyDeclContext, getMyDeclEdits, saveMyDeclEdits } from '@/app/my-lecturer/actions'
 import { generateAllMyDeclarations } from '@/lib/docx-substitution'
 import { buildLecturerDecls, declPeriodLabel, type DeclItem } from '@/lib/lecturer-decl'
 
@@ -52,6 +52,18 @@ export default function MyDeclarationsCard({ onDone }: { onDone?: () => void }) 
   const k2 = (slotId: string, d: string) => `${slotId}|${d}`
   const toggleIn = (set: (f: (p: Set<string>) => Set<string>) => void, k: string) => set(prev => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n })
   function resetEdits() { setRemoved(new Set()); setRestored(new Set()); setSubHours({}); setManual([]); setAddOpen(false) }
+  // запис на корекциите за периода — при „Готово“, „Върни като в системата“ и при изтегляне
+  const editsNow = () => ({ removed: [...removed], restored: [...restored], subHours, manual })
+  async function persistEdits(e = editsNow(), quiet = false) {
+    const r: any = await saveMyDeclEdits(period.from, period.to, e)
+    if (r?.error) toast(r.error, 'error')
+    else if (!quiet) toast('Корекциите са запазени')
+  }
+  async function revertAll() {
+    resetEdits()
+    await persistEdits({ removed: [], restored: [], subHours: {}, manual: [] }, true)
+    toast('Върнато като в системата')
+  }
   const changed = removed.size + restored.size + Object.keys(subHours).length + manual.length > 0
 
   useEffect(() => { getMyDeclContext().then((r: any) => { if (!r.error) setCtx(r) }) }, [])
@@ -63,10 +75,17 @@ export default function MyDeclarationsCard({ onDone }: { onDone?: () => void }) 
     Promise.all([
       getMyMonthlyPreview(period.from, period.to),
       ctx.hasSlots ? getMyLecturerDates(period.from, period.to) : Promise.resolve({ rows: [] }),
-    ]).then(([s, o]: any[]) => {
+      getMyDeclEdits(period.from, period.to),
+    ]).then(([s, o, ed]: any[]) => {
       if (!alive) return
       setSub(s?.data || null)
       setOver((o?.rows || []) as OverRow[])
+      // запазените корекции за периода (при ново влизане да не се губят)
+      const e = ed?.data
+      if (e) {
+        setRemoved(new Set(e.removed || [])); setRestored(new Set(e.restored || []))
+        setSubHours(e.subHours || {}); setManual(e.manual || [])
+      }
       setLoading(false)
     })
     return () => { alive = false }
@@ -148,6 +167,7 @@ export default function MyDeclarationsCard({ onDone }: { onDone?: () => void }) 
       }
       const b = buildLecturerDecls({ teacherName: ctx.teacherName, position: ctx.position, periodLabel: declPeriodLabel(period.label),
         orderOver: ctx.orderOver, orderIfo: ctx.orderIfo, isSpeech: ctx.isSpeech, rate: ctx.rate, items: overItems })
+      await persistEdits(editsNow(), true)
       const n = await generateAllMyDeclarations(subData, b.docs, `декларации_${period.label.replace(/\s+/g, '_')}_${ctx.teacherName.replace(/\s+/g, '_')}.docx`)
       toast(n > 1 ? `Изтеглен е един файл с ${n} декларации — всяка на своя страница` : 'Декларацията е изтеглена')
       setEdit(false)
@@ -172,7 +192,7 @@ export default function MyDeclarationsCard({ onDone }: { onDone?: () => void }) 
         </div>
         <div className="ml-auto flex items-center gap-2">
           {period.genOpen && !loading && ctx && (
-            <button onClick={() => setEdit(v => !v)}
+            <button onClick={() => { if (edit) persistEdits(editsNow(), !changed); setEdit(v => !v) }}
               className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm border transition-colors ${edit ? 'bg-slate-100 border-slate-300 text-slate-800' : 'bg-white border-slate-300 text-slate-700 hover:border-[#0f2240]'}`}>
               {edit ? <><Check size={15} /> Готово</> : <><Pencil size={14} /> Редакция</>}
             </button>
@@ -197,7 +217,7 @@ export default function MyDeclarationsCard({ onDone }: { onDone?: () => void }) 
           <div className="flex flex-wrap items-center gap-2 text-[12.5px] px-3 py-2 rounded-xl bg-sky-50/60 border border-sky-100 text-slate-600">
             <Pencil size={13} className="text-sky-600 shrink-0" />
             <span className="flex-1 min-w-0">Декларацията е за взети часове. Щракнете дата, за да махнете или върнете час; при заместване — −/+ часове или добавете пропуснато. Корекциите влизат при „Изтегли“.</span>
-            {changed && <button onClick={resetEdits} className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-800"><RotateCcw size={12} /> Върни като в системата</button>}
+            {changed && <button onClick={revertAll} className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-800"><RotateCcw size={12} /> Върни като в системата</button>}
           </div>
         )}
         {loading || !ctx ? (
