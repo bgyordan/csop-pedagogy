@@ -648,12 +648,15 @@ export async function saveAssignments(substitutionId: string, rows: { substitute
   const oldRes = await supabase.from('substitution_assignments').select('substitute_staff_id, date_from, date_to, order_id').eq('substitution_id', substitutionId)
   const hasOrderCol = !oldRes.error
   let old: any[] = oldRes.data || []
-  if (hasOrderCol && old.length === 0) {
-    const { data: s0 } = await supabase.from('substitutions').select('substitute_staff_id, date_from, date_to, substitution_order_id').eq('id', substitutionId).maybeSingle()
-    if (s0?.substitution_order_id && s0.substitute_staff_id) old = [{ ...s0, order_id: s0.substitution_order_id }]
-  }
+  const { data: s0 } = hasOrderCol
+    ? await supabase.from('substitutions').select('substitute_staff_id, date_from, date_to, substitution_order_id').eq('id', substitutionId).maybeSingle()
+    : { data: null as any }
+  if (hasOrderCol && old.length === 0 && s0?.substitution_order_id && s0.substitute_staff_id) old = [{ ...s0, order_id: s0.substitution_order_id }]
+  // Свързана (вече издадена) заповед, а нито един ред от разпределението още няма заповед → тя покрива
+  // ЦЯЛОТО разпределение (не са „дни след заповедта“ — те се появяват само ако някой ред вече е с нея).
+  const coverAll: string | null = hasOrderCol && s0?.substitution_order_id && !old.some(o => o.order_id) ? s0.substitution_order_id : null
   const orderOf = (r: { substitute_staff_id: string; date_from: string; date_to: string }) =>
-    old.find(o => o.order_id && o.substitute_staff_id === r.substitute_staff_id && o.date_from <= r.date_from && o.date_to >= r.date_to)?.order_id ?? null
+    coverAll ?? old.find(o => o.order_id && o.substitute_staff_id === r.substitute_staff_id && o.date_from <= r.date_from && o.date_to >= r.date_to)?.order_id ?? null
   // трием старите и вписваме новите
   await supabase.from('substitution_assignments').delete().eq('substitution_id', substitutionId)
   if (rows.length > 0) {
