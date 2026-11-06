@@ -868,18 +868,17 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                   : <span className="text-xs text-slate-400">не се замества</span>)}
               </span>
               )}
-              <span className="text-xs text-slate-500">
-                {fmt(r.group ? (leavePeriods[r.group.id]?.[0]?.from || r.dateFrom) : r.dateFrom)}
-                {r.group && (
-                  <span className="block mt-0.5 text-[10px] leading-tight text-slate-400" title="Отпуск в няколко периода по едно заявление — един заместник, една заповед">
-                    {/* всеки период на свой ред — колоната е тясна */}
-                    {(leavePeriods[r.group.id] || []).map(p => (
-                      <span key={p.from} className="block whitespace-nowrap">{p.from === p.to ? fmt(p.from).slice(0, 5) : `${fmt(p.from).slice(0, 5)}–${fmt(p.to).slice(0, 5)}`}</span>
-                    ))}
-                  </span>
-                )}
+              {/* отпуск в няколко периода — всеки период на свой ред и в „от“, и в „до“ */}
+              <span className="text-xs text-slate-500" title={r.group ? 'Отпуск в няколко периода по едно заявление — един заместник, една заповед' : undefined}>
+                {r.group
+                  ? (leavePeriods[r.group.id] || []).map(p => <span key={p.from} className="block leading-snug">{fmt(p.from)}</span>)
+                  : fmt(r.dateFrom)}
               </span>
-              <span className="text-xs text-slate-500">{fmt(r.group ? (leavePeriods[r.group.id]?.slice(-1)[0]?.to || r.dateTo) : r.dateTo)}</span>
+              <span className="text-xs text-slate-500">
+                {r.group
+                  ? (leavePeriods[r.group.id] || []).map(p => <span key={p.from} className="block leading-snug">{fmt(p.to)}</span>)
+                  : fmt(r.dateTo)}
+              </span>
               <div className="flex items-center justify-end gap-1.5 flex-nowrap" onClick={e => e.stopPropagation()}>
                 {(r as any).bsch && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0" title="По национална програма">НП</span>}
                 {!r.bsch && overNormMap[r.id] === false && (r.hasOrder || (r as any).manualNumber || (r as any).noOrder) && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 shrink-0" title="В рамките на нормата — без заплащане">вътр.</span>}
