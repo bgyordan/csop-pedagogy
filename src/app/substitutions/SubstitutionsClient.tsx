@@ -5,7 +5,7 @@ import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Pencil, Trash2, ChevronDown, Download, AlertTriangle, FileText } from 'lucide-react'
 import { useToast, confirmDialog } from '@/components/ui/Toast'
-import { generateSubstitution, generatePartOrder, reassignCoverage, getAssignments, saveAssignments, checkSubstituteOverlap, deleteSubstitution, getAbsentHours, getKtParts, saveKtParts, getSubstitutionOrder, type RegistryOrder } from './actions'
+import { syncLeaveGroupSubstitute, generateSubstitution, generatePartOrder, reassignCoverage, getAssignments, saveAssignments, checkSubstituteOverlap, deleteSubstitution, getAbsentHours, getKtParts, saveKtParts, getSubstitutionOrder, type RegistryOrder } from './actions'
 import RegistryOrderPick from './RegistryOrderPick'
 import KtPartsEditor, { ktPartsError } from '@/components/KtPartsEditor'
 import type { KtPart } from '@/lib/kt'
@@ -364,6 +364,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ }
     const wasIssued = !!row?.hasOrder || !!(row as any)?.manualNumber
     if (!(row as any)?.manualNumber) setRows(prev => prev.map(r => r.id === id ? { ...r, hasOrder: true, noHours: !!res.data?.noHours, orderNumber: res.data?.orderNumber || r.orderNumber } : r))
+    if ((res.data?.periods || []).length > 1) router.refresh()   // общата заповед покрива и другите периоди
     const tail = res.data?.noHours ? ` — БЕЗ часове: разписанието на отсъстващия е ${String(res.data.placedHours ?? res.data.weekHours).replace('.', ',')} от ${String(res.data.targetHours ?? 20).replace('.', ',')} ч. (изтегли я пак, когато е пълно)` : ''
     toast((wasIssued ? 'Заповедта е изтеглена отново (същият номер)' : 'Заповедта е създадена и изтеглена') + tail)
     setGenId(null)
@@ -554,7 +555,9 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     mapped.assigns = toAssigns(eRanges)
     setRows(prev => prev.map(x => x.id === editId ? mapped : x))
     setOverNormMap(p => ({ ...p, [editId]: mapped.overNorm }))
-    toast('Записът е обновен')
+    // отпуск в няколко периода — същият заместник и на другите периоди (без заместник и заповед)
+    const sy: any = await syncLeaveGroupSubstitute(editId)
+    toast(sy?.n ? `Записът е обновен — заместникът е сложен и на още ${sy.n} ${sy.n === 1 ? 'период' : 'периода'} от заявлението` : 'Записът е обновен')
     router.refresh()   // части/конфликти (заместник на заместника) се смятат на сървъра
     closeEdit(); setESaving(false)
   }
@@ -776,7 +779,10 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
                   : <span className="text-xs text-slate-400">не се замества</span>)}
               </span>
               )}
-              <span className="text-xs text-slate-500">{fmt(r.dateFrom)}</span>
+              <span className="text-xs text-slate-500">
+                {fmt(r.dateFrom)}
+                {r.group && <span className="block text-[10px] text-slate-400" title="Отпуск в няколко периода по едно заявление — заместникът и заповедта са общи">период {r.group.i} от {r.group.n}</span>}
+              </span>
               <span className="text-xs text-slate-500">{fmt(r.dateTo)}</span>
               <div className="flex items-center justify-end gap-1.5 flex-nowrap" onClick={e => e.stopPropagation()}>
                 {(r as any).bsch && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0" title="По национална програма">НП</span>}

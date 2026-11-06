@@ -6,6 +6,8 @@ import SubstitutionsClient from './SubstitutionsClient'
 export const dynamic = 'force-dynamic'
 export interface SubRow {
   id: string
+  /** отпуск в няколко периода по едно заявление: кой поред е този период и колко са */
+  group?: { i: number; n: number } | null
   absentName: string
   absentStaffId: string
   absentRole: string | null
@@ -44,6 +46,17 @@ export default async function SubstitutionsPage() {
       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, role),
       sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name)`)
     .order('date_from', { ascending: false })
+
+  // отпуск в няколко периода (leave_group) — „период 1 от 2“; преди SQL файла — без него
+  const groupBy: Record<string, { i: number; n: number }> = {}
+  {
+    const g: any = await supabase.from('substitutions').select('id, leave_group, date_from').not('leave_group', 'is', null).order('date_from')
+    if (!g.error) {
+      const by: Record<string, string[]> = {}
+      ;(g.data || []).forEach((r: any) => { (by[r.leave_group] ||= []).push(r.id) })
+      Object.values(by).forEach(ids => { if (ids.length > 1) ids.forEach((id, i) => { groupBy[id] = { i: i + 1, n: ids.length } }) })
+    }
+  }
 
   // разпределение при няколко заместника — зарежда се заедно със списъка (без да се отваря редакция)
   const { data: asg } = await supabase
@@ -106,6 +119,7 @@ export default async function SubstitutionsPage() {
 
   const rows: SubRow[] = (data || []).map((r: any) => ({
     id: r.id,
+    group: groupBy[r.id] || null,
     absentName: r.absent ? `${r.absent.first_name} ${r.absent.last_name}` : '—',
     absentStaffId: r.absent_staff_id,
     absentRole: r.absent?.role || null,

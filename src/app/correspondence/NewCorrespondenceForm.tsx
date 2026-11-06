@@ -168,18 +168,27 @@ export default function NewCorrespondenceForm({
   const [substituteId, setSubstituteId] = useState('')
   const [subFrom, setSubFrom] = useState('')
   const [subTo, setSubTo] = useState('')
-  // Отпуск в отделни дни (напр. три понеделника) — един ред в „Отсъствия и замествания“ за всеки ден
+  // Отпуск в НЯКОЛКО ПЕРИОДА по едно заявление (напр. 02–04.11 и 07–10.11; един ден = от и до еднакви) —
+  // по един ред в „Отсъствия и замествания“ за всеки период, свързани с leave_group (един заместник, една заповед)
   const [separateDays, setSeparateDays] = useState(false)
-  const [leaveDays, setLeaveDays] = useState<string[]>([])
-  const [dayPick, setDayPick] = useState('')
+  const [leaveRanges, setLeaveRanges] = useState<{ from: string; to: string }[]>([])
+  const [rFrom, setRFrom] = useState('')
+  const [rTo, setRTo] = useState('')
   const leavePeriods: { from: string; to: string }[] = separateDays
-    ? [...leaveDays].sort().map(d => ({ from: d, to: d }))
+    ? [...leaveRanges].sort((a, b) => a.from.localeCompare(b.from))
     : (subFrom && subTo ? [{ from: subFrom, to: subTo }] : [])
+  function addRange() {
+    const f = rFrom, t = rTo || rFrom
+    if (!f) return
+    if (t < f) { notify('„До“ е преди „от“.'); return }
+    if (leaveRanges.some(r => f <= r.to && t >= r.from)) { notify('Периодът се застъпва с вече добавен.'); return }
+    setLeaveRanges(prev => [...prev, { from: f, to: t }]); setRFrom(''); setRTo('')
+  }
   const leaveFirst = leavePeriods[0]?.from || ''
   const leaveLast = leavePeriods[leavePeriods.length - 1]?.to || ''
   const fmtD = (d: string) => d.split('-').reverse().join('.')
   const leaveLabel = separateDays
-    ? leavePeriods.map(p => fmtD(p.from)).join(', ')
+    ? leavePeriods.map(p => p.from === p.to ? fmtD(p.from) : `${fmtD(p.from)}–${fmtD(p.to)}`).join(', ')
     : (subFrom && subTo ? `${fmtD(subFrom)}–${fmtD(subTo)}` : '')
   const currentYear = new Date().getFullYear()
   const activeScenario = scenario ? QUICK_SCENARIOS[scenario] : null
@@ -305,7 +314,7 @@ export default function NewCorrespondenceForm({
     const info = leaveDaysInfo(leaveFirst, leaveLast)
     await generateNpLeaveApplication({
       name: p ? `${p.first_name} ${p.last_name}` : fromWhom, position: prof?.position || '',
-      leaveKind: NP_LEAVE_KIND[ktArticle] || '', days: separateDays ? leavePeriods.length || null : info.days || null,
+      leaveKind: NP_LEAVE_KIND[ktArticle] || '', days: separateDays ? (leavePeriods.reduce((a, p) => a + (leaveDaysInfo(p.from, p.to).days || 0), 0) || null) : info.days || null,
       forYear: (leaveFirst || docDate).slice(0, 4), dateFrom: leaveFirst, dateTo: leaveLast, reason: '',
       backOn: info.backOn, inNumber: reserved?.number, inDate: docDate, signedOn: docDate,
     })
@@ -343,7 +352,7 @@ export default function NewCorrespondenceForm({
       description: (isVacation && substituteId && leaveLabel)
         ? `Заместник: ${(staff.find(x => x.id === substituteId)?.first_name || '')} ${(staff.find(x => x.id === substituteId)?.last_name || '')}, ${leaveLabel}${description ? ' · ' + description : ''}`.trim()
         : (isVacation && separateDays && leaveLabel)
-          ? `Отпуск в дни: ${leaveLabel}${description ? ' · ' + description : ''}`
+          ? `Отпуск в периоди: ${leaveLabel}${description ? ' · ' + description : ''}`
           : (description || null),
       file_url: fileUrl || null,
       file_name: fileName || null,
@@ -369,7 +378,7 @@ export default function NewCorrespondenceForm({
           date: docDate,
           title: `Заповед за отпуск на ${fromWhom || ''}`.trim(),
           nomenclature_item: 'РД-10',
-          description: `Издадена въз основа на Вх. ${docNumber} · Отпуск по ${ktLabel(ktArticle, partsUsed)} КТ`,
+          description: `Издадена въз основа на Вх. ${docNumber} · Отпуск по ${ktLabel(ktArticle, partsUsed)} КТ${separateDays && leavePeriods.length > 1 ? ` · периоди: ${leaveLabel}` : ''}`,
                     file_url: fileUrl || null,
           file_name: fileName || null,
                     created_by: currentUserId,
@@ -380,6 +389,7 @@ export default function NewCorrespondenceForm({
             await generateNpLeaveOrder({
               orderNumber, absentName: fromWhom || '', absentPosition: '',
                             ktArticle, ktParts: partsUsed, dateFrom: leaveFirst || docDate, dateTo: leaveLast || docDate, workDays: 0,
+              periods: separateDays && leavePeriods.length > 1 ? leavePeriods : undefined,
               leaveRef: `Заявление вх. № ${docNumber}`, zdudName: 'Силвия Кьошкерян',
             })
           } catch (_) {}
@@ -391,7 +401,7 @@ export default function NewCorrespondenceForm({
     // Специалистите се водят „не се замества“; НП — само за учители и възпитатели.
     if ((isVacation && absentInRegister && leavePeriods.length > 0) || (isNp && absentCanBeSubstituted)) {
       try {
-        // отделни дни → по един ред за всеки ден; иначе един ред за периода
+        // няколко периода → по един ред за всеки период (свързани с leave_group); иначе един ред
         const all = leavePeriods.length > 0 ? leavePeriods : [{ from: docDate, to: docDate }]
         // без втори запис за дни, за които вече има заместване на същия служител (иначе часовете се удвояват)
         const { data: existing } = staffId
@@ -400,7 +410,9 @@ export default function NewCorrespondenceForm({
           : { data: [] as any[] }
         const periods = all.filter(p => !(existing || []).some((e: any) => p.from <= e.date_to && p.to >= e.date_from))
         if (periods.length > 0) {
-          const { data: ins } = await supabase.from('substitutions').insert(periods.map(p => ({
+          const group = periods.length > 1 ? crypto.randomUUID() : null
+          const mk = (withGroup: boolean) => periods.map(p => ({
+          ...(withGroup && group ? { leave_group: group } : {}),
           absent_staff_id: staffId || null,
           kt_article: ktArticle,
           substitute_staff_id: absentCanBeSubstituted ? (substituteId || null) : null,
@@ -410,7 +422,11 @@ export default function NewCorrespondenceForm({
           bsch_eligible: isNp && absentCanBeSubstituted,
           leave_order_date: docDate,
           created_by: currentUserId,
-        }))).select('id')
+        }))
+          let insRes: any = await supabase.from('substitutions').insert(mk(true)).select('id')
+          // преди SQL файла 2026-11-06_substitutions_leave_group.sql — без връзката между периодите
+          if (insRes.error && group && /leave_group/.test(insRes.error.message || '')) insRes = await supabase.from('substitutions').insert(mk(false)).select('id')
+          const ins = insRes.data
           // части с друг член — към записа за периода
           if (partsUsed.length > 0 && ins?.length === 1) await saveKtParts(ins[0].id, partsUsed)
         }
@@ -442,7 +458,7 @@ export default function NewCorrespondenceForm({
     router.refresh()
     if (saveAction === 'save_new') {
       setScenario(null); setFolderIndex('')
-      setSeparateDays(false); setLeaveDays([]); setDayPick('')
+      setSeparateDays(false); setLeaveRanges([]); setRFrom(''); setRTo('')
       setDocDate(new Date().toISOString().split('T')[0])
       setFromWhom(''); setToWhom(''); setSubject(''); setDescription('')
       setStudentId(''); setStaffId(''); setUploadedFile(null)
@@ -549,32 +565,39 @@ export default function NewCorrespondenceForm({
                 {isVacation && absentInRegister && (
                   <div className="pt-2 mt-1 border-t border-slate-200 space-y-2">
                     <div className="flex items-center justify-between">
-                      <div className="text-[11px] font-medium text-slate-600 uppercase tracking-wider">{separateDays ? 'Дни на отпуска *' : 'Период на отпуска *'}</div>
+                      <div className="text-[11px] font-medium text-slate-600 uppercase tracking-wider">{separateDays ? 'Периоди на отпуска *' : 'Период на отпуска *'}</div>
                       <div className="flex rounded-full bg-slate-100 p-0.5 text-[10px]">
                         <button type="button" onClick={() => setSeparateDays(false)}
                           className={`px-2 py-0.5 rounded-full transition ${!separateDays ? 'bg-white shadow-sm text-[#0f2240]' : 'text-slate-500'}`}>Период</button>
                         <button type="button" onClick={() => setSeparateDays(true)}
-                          className={`px-2 py-0.5 rounded-full transition ${separateDays ? 'bg-white shadow-sm text-[#0f2240]' : 'text-slate-500'}`}>Отделни дни</button>
+                          className={`px-2 py-0.5 rounded-full transition ${separateDays ? 'bg-white shadow-sm text-[#0f2240]' : 'text-slate-500'}`}>Няколко периода</button>
                       </div>
                     </div>
                     {separateDays ? (
                       <div className="space-y-1.5">
-                        <div className="flex items-center gap-2">
-                          <input type="date" value={dayPick} onChange={e => setDayPick(e.target.value)} className="input flex-1 text-xs" />
-                          <button type="button" disabled={!dayPick}
-                            onClick={() => { if (dayPick && !leaveDays.includes(dayPick)) setLeaveDays(prev => [...prev, dayPick].sort()); setDayPick('') }}
+                        <div className="flex items-end gap-2">
+                          <div className="flex-1">
+                            <label className="block text-[10px] text-slate-400 mb-0.5">От</label>
+                            <input type="date" value={rFrom} onChange={e => { setRFrom(e.target.value); if (rTo && e.target.value > rTo) setRTo('') }} className="input w-full text-xs" />
+                          </div>
+                          <div className="flex-1">
+                            <label className="block text-[10px] text-slate-400 mb-0.5">До (за един ден — празно)</label>
+                            <input type="date" value={rTo} min={rFrom || undefined} onChange={e => setRTo(e.target.value)} className="input w-full text-xs" />
+                          </div>
+                          <button type="button" disabled={!rFrom} onClick={addRange}
                             className="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 text-[#0f2240] hover:bg-slate-50 disabled:opacity-40">+ Добави</button>
                         </div>
-                        {leaveDays.length > 0 && (
+                        {leaveRanges.length > 0 && (
                           <div className="flex flex-wrap gap-1">
-                            {[...leaveDays].sort().map(d => (
-                              <span key={d} className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                                {fmtD(d)}
-                                <button type="button" onClick={() => setLeaveDays(prev => prev.filter(x => x !== d))} className="text-slate-400 hover:text-red-500">×</button>
+                            {[...leaveRanges].sort((a, b) => a.from.localeCompare(b.from)).map(r => (
+                              <span key={r.from} className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                                {r.from === r.to ? fmtD(r.from) : `${fmtD(r.from)} – ${fmtD(r.to)}`}
+                                <button type="button" onClick={() => setLeaveRanges(prev => prev.filter(x => x.from !== r.from))} className="text-slate-400 hover:text-red-500">×</button>
                               </span>
                             ))}
                           </div>
                         )}
+                        <div className="text-[10px] text-slate-400">Всеки период — свой ред в „Отсъствия и замествания“; заместникът и заповедта за заместване са общи.</div>
                       </div>
                     ) : (
                     <div className="flex items-center gap-2">
