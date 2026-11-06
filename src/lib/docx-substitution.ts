@@ -800,7 +800,8 @@ function npDeclSection(d: MonthlyDeclData) {
   const TABS2 = [{ type: TabStopType.CENTER, position: 4200 }, { type: TabStopType.CENTER, position: 8000 }]
   const tab = () => new TextRun({ font: F, size: 24, children: [new Tab()] })
   children.push(P([tab(), it('(личен подпис)'), tab(), it('(дата)')], { tabStops: TABS2, spacing: { after: 400 }, ...KEEP }))
-  children.push(P([t('Директор: '), t('Светлана Иванова', { bold: true }), t(' '), dotTab()], { tabStops: DOTS, ...KEEP }))
+  // декларация по НП — директорът се попълва на ръка (точки, без име), както в бланката
+  children.push(P([t('Директор: '), dotTab()], { tabStops: DOTS, ...KEEP }))
   children.push(P([tab(), it('(име, фамилия, подпис, кръгъл печат)'), tab(), it('(дата)')], { tabStops: TABS2 }))
 
   return {
