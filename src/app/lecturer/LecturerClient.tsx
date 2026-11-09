@@ -176,6 +176,8 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
   }, [marked, teacherId, term])
   // часове от I срок с период след края на срока — те вече покриват и II срок (риск от двойно броене)
   const spillover = useMemo(() => marked.filter(m => m.staffId === teacherId && m.term === 1 && m.dateTo > TERM1_END()).length, [marked, teacherId])
+  // часове за целия период на една група (ч./седм. × учебните седмици на периода — както в общото)
+  const groupHours = (count: number, from: string, to: string) => from && to && to >= from ? count * slotHours(schoolDates, 0, from, to, ends) : 0
   const colorOf = (from: string, to: string) => PERIOD_COLORS[Math.max(0, myGroups.findIndex(g => g.key === `${from}|${to}`)) % PERIOD_COLORS.length]
   const selectedInfo = byTeacher.find(t => t.id === teacherId)
 
@@ -309,7 +311,7 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
                         <button key={g.key} type="button" title="Смени срока на тези часове"
                           onClick={() => setEditGroup(e => e?.key === g.key ? null : { key: g.key, oldFrom: g.from, oldTo: g.to, from: g.from, to: g.to })}
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border hover:shadow-sm ${colorOf(g.from, g.to).cell} ${editGroup?.key === g.key ? 'ring-2 ring-teal-500 ring-offset-1' : ''}`}>
-                          <span className={`h-2 w-2 rounded-full ${colorOf(g.from, g.to).dot}`} /> {fmt(g.from)}–{fmt(g.to)} · {g.count} ч./седм.
+                          <span className={`h-2 w-2 rounded-full ${colorOf(g.from, g.to).dot}`} /> {fmt(g.from)}–{fmt(g.to)} · {g.count} ч./седм. · <b className="font-medium">{groupHours(g.count, g.from, g.to)} ч.</b>
                           <Pencil size={11} className="opacity-60" />
                         </button>
                       ))}
@@ -324,6 +326,11 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
                       <label className="text-xs text-slate-500">До
                         <input type="date" value={editGroup.to} min={editGroup.from || undefined} onChange={e => setEditGroup({ ...editGroup, to: e.target.value })}
                           className="block mt-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm" /></label>
+                      {(() => { const cnt = myGroups.find(g => g.key === editGroup.key)?.count || 0; const was = groupHours(cnt, editGroup.oldFrom, editGroup.oldTo), now = groupHours(cnt, editGroup.from, editGroup.to); return (
+                        <div className="text-xs text-slate-600 self-center">
+                          {cnt} ч./седм. → <b className="font-medium text-slate-800">{now} ч.</b> за периода{now !== was && <span className="text-slate-400"> (беше {was} ч.)</span>}
+                        </div>
+                      ) })()}
                       <button type="button" disabled={editBusy || !editGroup.from || !editGroup.to || editGroup.to < editGroup.from} onClick={async () => {
                           const e = editGroup
                           setEditBusy(true)
@@ -454,7 +461,7 @@ export default function LecturerClient({ teachers, marked: initialMarked, school
                       </div>
                       <button onClick={save} disabled={saving || pickedCount === 0 || !from || !to}
                         className="ml-auto inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-white text-sm disabled:opacity-40 hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
-                        {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Добави {pickedCount > 0 ? `${pickedCount} ч./седм.` : ''}
+                        {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Добави {pickedCount > 0 ? `${pickedCount} ч./седм.${from && to ? ` = ${groupHours(pickedCount, from, to)} ч.` : ''}` : ''}
                       </button>
                     </div>
                   </div>
