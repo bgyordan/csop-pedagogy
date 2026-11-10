@@ -5,6 +5,7 @@
 import { useMemo, useState } from 'react'
 import { X, Loader2, Check, Search, Info } from 'lucide-react'
 import { smartMatch } from '@/lib/search'
+import { confirmDialog } from '@/components/ui/Toast'
 import { KINDS, FORMS, LEVELS, ROLES, PLACES, ANTECEDENTS, CONSEQUENCES, ACTIONS, todaySofia } from '@/lib/incidents'
 import type { Case, Kind, Participant, Role } from '@/lib/incidents'
 
@@ -49,7 +50,10 @@ export default function IncidentForm({ students, initial, initialParts, initialS
   })
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState(false)
-  const set = (p: Partial<FormValue>) => setV(x => ({ ...x, ...p }))
+  const [dirty, setDirty] = useState(false)
+  const set = (p: Partial<FormValue>) => { setDirty(true); setV(x => ({ ...x, ...p })) }
+  // случайно докосване извън формата или „Отказ“ не трябва да изтрива написаното
+  const close = async () => { if (busy) return; if (!dirty || await confirmDialog('Да се затвори ли формата? Въведеното няма да се запази.')) onClose() }
   const byId = useMemo(() => Object.fromEntries(students.map(s => [s.id, s])), [students])
   const found = q.trim().length >= 2 ? students.filter(s => smartMatch(s.name, q) && !v.participants.some(p => p.student_id === s.id)).slice(0, 8) : []
   const roles = ROLES[v.kind]
@@ -70,14 +74,14 @@ export default function IncidentForm({ students, initial, initialParts, initialS
   const label = 'block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5'
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm overflow-y-auto" onClick={close}>
       <div className="max-w-2xl mx-auto my-0 md:my-8 bg-white md:rounded-3xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 z-10 bg-white flex items-center gap-3 px-5 py-4 border-b border-slate-200">
           <div className="flex-1">
             <h2 className="text-base text-[#0f2240]">{initial ? `Случай № ${initial.number} — редакция` : 'Констатирай случай'}</h2>
             <p className="text-[12px] text-slate-500">Вижда се от Координационния съвет, ръководството и класния ръководител.</p>
           </div>
-          <button type="button" onClick={onClose} className="p-2 rounded-xl text-slate-500 hover:bg-slate-100"><X size={18} /></button>
+          <button type="button" onClick={close} className="p-2 rounded-xl text-slate-500 hover:bg-slate-100"><X size={18} /></button>
         </div>
 
         <div className="px-5 py-4 space-y-5">
@@ -183,7 +187,7 @@ export default function IncidentForm({ students, initial, initialParts, initialS
         <div className="sticky bottom-0 bg-white flex items-center justify-between gap-2 px-5 py-3 border-t border-slate-200">
           <span className="text-[12px] text-slate-400">{!v.participants.length ? 'Добавете поне едно дете' : v.description.trim().length < 5 ? 'Опишете какво се случи' : ''}</span>
           <div className="flex gap-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm bg-white border border-slate-200 text-slate-700 hover:bg-slate-50">Отказ</button>
+            <button type="button" onClick={close} className="px-4 py-2 rounded-xl text-sm bg-white border border-slate-200 text-slate-700 hover:bg-slate-50">Отказ</button>
             <button type="button" onClick={save} disabled={busy || !ok}
               className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>
               {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Запиши

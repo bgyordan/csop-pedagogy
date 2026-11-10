@@ -13,7 +13,7 @@ import { confirmDialog } from '@/components/ui/Toast'
 const EV_ICON = { note: MessageSquare, status: Flag, measure: ShieldCheck, parent: Phone, protocol: FileText }
 const EV_LABEL = { note: 'Бележка', status: 'Статус', measure: 'Мярка', parent: 'Родител', protocol: 'Протокол' }
 
-export default function IncidentDetail({ c, parts, events, names, studentNames, protocols, canManage, canEdit, isAdmin, onClose, onEdit, onStatus, onEvent, onProtocol, onDelete }: {
+export default function IncidentDetail({ c, parts, events, names, studentNames, protocols, canManage, canEdit, isAdmin, onClose, onEdit, onStatus, onEvent, onProtocol, onDelete, onDeleteEvent }: {
   c: Case; parts: Participant[]; events: Event[]; names: Record<string, string>; studentNames: Record<string, string>
   protocols: { id: string; number: number; date: string }[]
   canManage: boolean; canEdit: boolean; isAdmin: boolean
@@ -22,6 +22,7 @@ export default function IncidentDetail({ c, parts, events, names, studentNames, 
   onEvent: (kind: Event['kind'], text: string) => Promise<void>
   onProtocol: (id: string | null) => Promise<void>
   onDelete: () => Promise<void>
+  onDeleteEvent: (id: string) => Promise<void>
 }) {
   const [text, setText] = useState('')
   const [kind, setKind] = useState<Event['kind']>('note')
@@ -66,7 +67,7 @@ export default function IncidentDetail({ c, parts, events, names, studentNames, 
                 className="w-full px-3 py-2 rounded-xl border border-emerald-200 text-sm bg-white" />
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setClosing(false)} className="px-3 py-1.5 rounded-lg text-[13px] border border-slate-200 bg-white">Отказ</button>
-                <button type="button" onClick={async () => { await onStatus('closed', outcome.trim()); setClosing(false) }} className="px-3 py-1.5 rounded-lg text-[13px] text-white bg-emerald-600 hover:bg-emerald-700">Приключи</button>
+                <button type="button" disabled={outcome.trim().length < 3} onClick={async () => { await onStatus('closed', outcome.trim()); setClosing(false) }} className="px-3 py-1.5 rounded-lg text-[13px] text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50">Приключи</button>
               </div>
             </div>
           )}
@@ -112,7 +113,11 @@ export default function IncidentDetail({ c, parts, events, names, studentNames, 
                 return (
                   <li key={e.id} className="pl-4 relative">
                     <span className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-slate-300 border-2 border-white" />
-                    <div className="text-[12px] text-slate-500 flex items-center gap-1.5"><I size={12} />{EV_LABEL[e.kind]} · {new Date(e.at).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia', dateStyle: 'short', timeStyle: 'short' })} · {e.staff_id ? names[e.staff_id] : ''}</div>
+                    <div className="text-[12px] text-slate-500 flex items-center gap-1.5"><I size={12} />{EV_LABEL[e.kind]} · {new Date(e.at).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia', dateStyle: 'short', timeStyle: 'short' })} · {e.staff_id ? names[e.staff_id] : ''}
+                      {isAdmin && e.kind !== 'status' && e.kind !== 'protocol' && (
+                        <button type="button" title="Изтрий реда" onClick={async () => await confirmDialog('Да се изтрие ли този ред от дирята?') && onDeleteEvent(e.id)}
+                          className="ml-auto p-1 rounded text-slate-300 hover:text-rose-600"><Trash2 size={12} /></button>
+                      )}</div>
                     <div className="text-[13px] text-slate-800 whitespace-pre-wrap">{e.text}</div>
                   </li>
                 )

@@ -48,18 +48,26 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
     if (one) cases = [one, ...cases]
   }
   const ids = cases.map((c: any) => c.id)
-  const [{ data: parts }, { data: events }] = ids.length
-    ? await Promise.all([
-        supabase.from('incident_participants').select('*').in('case_id', ids),
-        supabase.from('incident_events').select('*').in('case_id', ids).order('at'),
-      ])
-    : [{ data: [] as any[] }, { data: [] as any[] }]
+  // на части: при много случаи („Всички години“) един общ списък с id-та е твърде дълъг, а базата връща най-много 1000 реда наведнъж
+  const loadAll = async (table: 'incident_participants' | 'incident_events') => {
+    const out: any[] = []
+    for (let i = 0; i < ids.length; i += 100) {
+      const chunk = ids.slice(i, i + 100)
+      for (let off = 0; ; off += 1000) {
+        const { data } = await supabase.from(table).select('*').in('case_id', chunk).order('id').range(off, off + 999)
+        out.push(...(data || []))
+        if (!data || data.length < 1000) break
+      }
+    }
+    return out
+  }
+  const [parts, events] = await Promise.all([loadAll('incident_participants'), loadAll('incident_events')])
 
   const clsBy: Record<string, string> = {}
   ;(enr || []).forEach((e: any) => { if (e.class?.name) clsBy[e.student_id] = `${e.class.name}` })
   const students = (studentsRaw || []).map((s: any) => ({ id: s.id, name: `${s.first_name} ${s.last_name}`, cls: clsBy[s.id] ? `паралелка ${clsBy[s.id]}` : undefined }))
   // имена и на деца, които вече не са активни, но са в стари случаи
-  const missing = Array.from(new Set((parts || []).map((x: any) => x.student_id).filter((id: string) => id && !students.some(s => s.id === id))))
+  const missing = Array.from(new Set(parts.map((x: any) => x.student_id).filter((id: string) => id && !students.some(s => s.id === id))))
   const { data: old } = missing.length ? await supabase.from('students').select('id, first_name, last_name').in('id', missing) : { data: [] as any[] }
 
   return (
@@ -67,7 +75,7 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
       meId={me.id} isCouncil={isCouncil} isAdmin={['admin', 'zdud', 'director'].includes(me.role)}
       yearId={cy?.id || null} yearName={cy?.name || ''}
       cases={cases as any} initialOpen={sp.open || null} initialNewStudent={sp.new || null}
-      years={(years || []).map((y: any) => ({ id: y.id, name: y.name }))} yearSel={yearSel} parts={(parts || []) as any} events={(events || []) as any}
+      years={(years || []).map((y: any) => ({ id: y.id, name: y.name }))} yearSel={yearSel} parts={parts as any} events={events as any}
       students={students}
       studentNames={Object.fromEntries((old || []).map((s: any) => [s.id, `${s.first_name} ${s.last_name}`]))}
       staffNames={Object.fromEntries((staff || []).map((s: any) => [s.id, `${s.first_name} ${s.last_name}`]))}

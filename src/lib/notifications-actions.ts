@@ -137,6 +137,20 @@ export async function getNotifications(): Promise<Notice[]> {
         hint: span(s.date_from, s.date_to), href: '/substitutions',
       }))
     }),
+    // 7. Екипът на Координационния съвет: нови случаи в дневника, които още никой не е поел
+    safe(async () => {
+      const { data: council, error: e0 } = await supabase.rpc('incident_is_council')
+      if (e0 || !council) return []
+      const { data, error } = await supabase.from('incident_cases').select('id, number, kind, level, occurred_on')
+        .eq('status', 'new').order('occurred_on', { ascending: false }).limit(10)
+      if (error || !data?.length) return []
+      return data.map((c: any) => ({
+        key: `incident-new:${c.id}`, tone: (c.level === 3 ? 'rose' : 'amber') as Notice['tone'],
+        title: `Нов случай № ${c.number} в дневника`,
+        hint: `${c.kind === 'bullying' ? 'тормоз' : 'поведение'}${c.level === 3 ? ', най-тежко ниво' : ''} · ${dm(c.occurred_on)}`,
+        href: `/incidents?open=${c.id}`,
+      }))
+    }),
   ])
 
   const order = { rose: 0, amber: 1, blue: 2 }
