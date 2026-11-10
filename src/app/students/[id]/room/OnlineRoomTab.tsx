@@ -126,7 +126,7 @@ function Room({ studentId, studentName, ores, live, meId, isManager, isAdmin }: 
   const [err, setErr] = useState('')
   const [body, setBody] = useState('')
   const [link, setLink] = useState('')
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -169,24 +169,41 @@ function Room({ studentId, studentName, ores, live, meId, isManager, isAdmin }: 
 
   async function publish() {
     const url = link.trim()
-    if (!body.trim() && !url && !file) { toast('Напишете указания, добавете линк или файл', 'error'); return }
+    if (!body.trim() && !url && !files.length) { toast('Напишете указания, добавете линк или файл', 'error'); return }
     if (url && !/^https?:\/\//i.test(url)) { toast('Линкът трябва да започва с http:// или https://', 'error'); return }
-    if (file && file.size > MAX_MB * 1024 * 1024) { toast(`Файлът е над ${MAX_MB} MB`, 'error'); return }
+    const big = files.find(f => f.size > MAX_MB * 1024 * 1024)
+    if (big) { toast(`„${big.name}“ е над ${MAX_MB} MB`, 'error'); return }
     setBusy(true)
-    let file_path: string | null = null
-    if (file) {
-      const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '')
-      file_path = `${ores.id}/${crypto.randomUUID()}.${ext}`
-      const up = await supabase.storage.from('online-room').upload(file_path, file, { contentType: file.type || undefined })
-      if (up.error) { setBusy(false); toast('Грешка при качване: ' + up.error.message, 'error'); return }
+    // няколко файла наведнъж: качват се всички; при грешка вече качените се махат и нищо не се публикува
+    const up: { path: string; name: string }[] = []
+    for (const f of files) {
+      const ext = (f.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '')
+      const path = `${ores.id}/${crypto.randomUUID()}.${ext}`
+      const r = await supabase.storage.from('online-room').upload(path, f, { contentType: f.type || undefined })
+      if (r.error) {
+        if (up.length) await supabase.storage.from('online-room').remove(up.map(x => x.path))
+        setBusy(false); toast(`Грешка при качване на „${f.name}“: ` + r.error.message, 'error'); return
+      }
+      up.push({ path, name: f.name })
     }
-    const { error } = await supabase.from('online_room_posts').insert({
+    // първата публикация носи указанията и линка; всеки следващ файл е отделна публикация точно под нея
+    const rows = (up.length ? up : [null]).map((u, i) => ({
       ores_id: ores.id, student_id: studentId, author_id: meId,
-      body: body.trim() || null, link_url: url || null, file_path, file_name: file?.name || null,
-    })
+      body: i === 0 ? body.trim() || null : null, link_url: i === 0 ? url || null : null,
+      file_path: u?.path || null, file_name: u?.name || null,
+    }))
+    // записват се отзад напред, за да излезе публикацията с указанията най-отгоре (часът го слага базата)
+    let error: { message: string } | null = null
+    for (let i = rows.length - 1; i >= 0 && !error; i--) {
+      error = (await supabase.from('online_room_posts').insert(rows[i])).error
+      if (error) {
+        const left = rows.slice(0, i + 1).map(r => r.file_path).filter(Boolean) as string[]
+        if (left.length) await supabase.storage.from('online-room').remove(left)
+      }
+    }
     setBusy(false)
     if (error) { toast('Грешка: ' + error.message, 'error'); return }
-    setBody(''); setLink(''); setFile(null); if (fileRef.current) fileRef.current.value = ''
+    setBody(''); setLink(''); setFiles([]); if (fileRef.current) fileRef.current.value = ''
     toast('Публикувано — родителят ще го види по линка')
     load()
   }
@@ -347,18 +364,18 @@ function Room({ studentId, studentName, ores, live, meId, isManager, isAdmin }: 
               <input value={link} onChange={e => setLink(e.target.value)} placeholder="Линк (клип, файл в Drive, видеовръзка) — по желание"
                 className="flex-1 min-w-0 text-[14px] text-slate-800 placeholder:text-slate-400 focus:outline-none" />
             </div>
-            <input ref={fileRef} type="file" className="hidden" onChange={e => setFile(e.target.files?.[0] || null)} />
-            {file ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-[13px] text-slate-700 max-w-[260px]">
-                <Paperclip size={13} /> <span className="truncate">{file.name}</span>
-                <button type="button" onClick={() => { setFile(null); if (fileRef.current) fileRef.current.value = '' }} className="text-slate-400 hover:text-slate-700"><X size={13} /></button>
+            <input ref={fileRef} type="file" multiple className="hidden"
+          onChange={e => { const add = Array.from(e.target.files || []); setFiles(cur => [...cur, ...add.filter(a => !cur.some(c => c.name === a.name && c.size === a.size))].slice(0, 10)); e.target.value = '' }} />
+            {files.map((f, i) => (
+              <span key={f.name + f.size} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-[13px] text-slate-700 max-w-[260px]">
+                <Paperclip size={13} /> <span className="truncate">{f.name}</span>
+                <button type="button" onClick={() => setFiles(cur => cur.filter((_, j) => j !== i))} className="text-slate-400 hover:text-slate-700"><X size={13} /></button>
               </span>
-            ) : (
+            ))}
               <button type="button" onClick={() => fileRef.current?.click()}
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-300 text-[13px] text-slate-700 hover:border-[#0f2240]">
-                <Paperclip size={14} /> Файл
+                <Paperclip size={14} /> {files.length ? 'Още файлове' : 'Файлове'}
               </button>
-            )}
             <button type="button" onClick={() => setPicker(true)}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-300 text-[13px] text-emerald-800 hover:bg-emerald-50">
               <Library size={14} /> От библиотеката
