@@ -27,3 +27,28 @@ export async function nextContractNumber(supabase: any, year: number): Promise<s
   }
   return `ДГ-${String(max + 1).padStart(3, '0')}/${year}`
 }
+
+export const orderNumberText = (seq: number, dateIso: string) =>
+  `${String(seq).padStart(3, '0')}/${dateIso.split('-').reverse().join('.')}г.`
+
+// Записва заповед с пореден номер и пази от ДВОЕН номер: ако двама души издадат заповед в един и същи миг,
+// и двамата биха взели „най-големия + 1“. След записа се проверява дали номерът е само наш; ако не е —
+// единият (с по-голямото id — и двете страни стигат до един и същ извод) взима следващия номер.
+export async function insertNumberedOrder(
+  supabase: any, dateIso: string, row: Record<string, unknown>,
+): Promise<{ id: string; seq: number; number: string } | { error: string }> {
+  const { start, end } = deloYearBounds(new Date(dateIso))
+  let seq = await nextOrderSeq(supabase, dateIso)
+  const { data: created, error } = await supabase.from('orders')
+    .insert({ ...row, date: dateIso, seq, number: orderNumberText(seq, dateIso) }).select('id').single()
+  if (error || !created) return { error: error?.message || 'Заповедта не беше записана' }
+  for (let i = 0; i < 5; i++) {
+    const { data: same } = await supabase.from('orders').select('id')
+      .eq('seq', seq).gte('date', start).lte('date', end).order('id').limit(2)
+    if (!same || same.length < 2 || same[0].id === created.id) break
+    seq = await nextOrderSeq(supabase, dateIso)
+    const { error: uErr } = await supabase.from('orders').update({ seq, number: orderNumberText(seq, dateIso) }).eq('id', created.id)
+    if (uErr) return { error: uErr.message }
+  }
+  return { id: created.id, seq, number: orderNumberText(seq, dateIso) }
+}

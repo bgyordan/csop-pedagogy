@@ -6,6 +6,7 @@ import { checkDeclarablePeriod } from '@/lib/declaration-periods'
 import { loadLecturerRates, effectiveRates } from '@/lib/lecturer-rates'
 import { coudPeriod, periodsOverlap, PERIOD_LABEL, PERIOD_TIMES } from '@/lib/periods'
 import { NP_KT, ktOn, type KtPart } from '@/lib/kt'
+import { nextOrderSeq, orderNumberText, insertNumberedOrder } from '@/lib/delo-seq'
 
 // Днешна дата по българско време (сървърът е в UTC — след полунощ даваше вчерашна дата)
 function sofiaToday() {
@@ -13,14 +14,55 @@ function sofiaToday() {
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
 }
 
+// ── Памет в рамките на ЕДНА заявка ──
+// Справките (декларации, отчет за МОН, часове по колеги) обикалят десетки замествания и за всяко
+// питаха базата наново за календара, разписанието и заповедта. Тук отговорите се помнят, докато трае
+// заявката (ключът е самата връзка към базата — всяко действие отваря нова, затова нищо не „застоява“).
+type ReqCache = {
+  cal?: { lo: string; hi: string; days: { iso: string; dow: number; term: number }[] }
+  slots: Map<string, Promise<Record<number, Slot[]>>>
+  scheds: Map<string, Promise<Record<string, { term: number; name: string; classId: string }>>>
+  orders: Map<string, Promise<{ number: string | null; date: string | null } | null>>
+}
+const reqCaches = new WeakMap<object, ReqCache>()
+function reqCache(supabase: any): ReqCache {
+  let c = reqCaches.get(supabase)
+  if (!c) { c = { slots: new Map(), scheds: new Map(), orders: new Map() }; reqCaches.set(supabase, c) }
+  return c
+}
+// Номер и дата на заповед от регистъра — по веднъж за заявка
+function orderInfo(supabase: any, id: string): Promise<{ number: string | null; date: string | null } | null> {
+  const c = reqCache(supabase)
+  let p = c.orders.get(id)
+  if (!p) {
+    p = (async () => (await supabase.from('orders').select('number, date').eq('id', id).maybeSingle()).data || null)()
+    c.orders.set(id, p)
+  }
+  return p
+}
+
 // Работни дни (пон-пет) между две дати, като { date: ISO, dow: 1..5, term: 1|2 }
+// Календарът се чете веднъж за най-широкия поискан период; следващите питания се режат от него.
 async function workdays(supabase: any, from: string, to: string): Promise<{ iso: string; dow: number; term: number }[]> {
-  const { data } = await supabase
-    .from('academic_calendar_days')
-    .select('date, day_of_week, term')
-    .gte('date', from).lte('date', to).eq('is_school_day', true)
-    .order('date')
-  return (data || []).map((c: any) => ({ iso: c.date, dow: c.day_of_week, term: c.term === 2 ? 2 : 1 }))
+  if (!from || !to || from > to) return []
+  const c = reqCache(supabase)
+  if (!c.cal || from < c.cal.lo || to > c.cal.hi) {
+    const lo = c.cal && c.cal.lo < from ? c.cal.lo : from
+    const hi = c.cal && c.cal.hi > to ? c.cal.hi : to
+    const days: { iso: string; dow: number; term: number }[] = []
+    // на страници — над 1000 учебни дни (няколко години назад) базата връща само първите 1000
+    for (let off = 0; ; off += 1000) {
+      const { data } = await supabase
+        .from('academic_calendar_days')
+        .select('date, day_of_week, term')
+        .gte('date', lo).lte('date', hi).eq('is_school_day', true)
+        .order('date').range(off, off + 999)
+      ;(data || []).forEach((d: any) => days.push({ iso: d.date, dow: d.day_of_week, term: d.term === 2 ? 2 : 1 }))
+      if (!data || data.length < 1000) break
+    }
+    c.cal = { lo, hi, days }
+  }
+  return c.cal.days.filter(d => d.iso >= from && d.iso <= to)
 }
 
 // ЦОУД етикет за възпитател (по coud_groups.teacher_id)
@@ -142,17 +184,10 @@ async function partOrdersBySub(supabase: any, subs: { id: string; substitution_o
   return out
 }
 
-// Следващ номер на заповед — max seq +1 в текущата деловодна година (15.09–14.09)
-async function nextOrderNo(supabase: any) {
+// Номер за Word, когато заповедта НЕ се завежда (само преглед) — същото броене като в регистъра (src/lib/delo-seq.ts)
+async function previewOrderNo(supabase: any) {
   const orderDate = sofiaToday()
-  const _p = orderDate.split('-').map(Number)
-  const _startYear = (_p[1] > 9 || (_p[1] === 9 && _p[2] >= 15)) ? _p[0] : _p[0] - 1
-  const dStart = `${_startYear}-09-15`, dEnd = `${_startYear + 1}-09-14`
-  const { data: maxRow } = await supabase
-    .from('orders').select('seq').gte('date', dStart).lte('date', dEnd)
-    .order('seq', { ascending: false, nullsFirst: false }).limit(1).maybeSingle()
-  const nextSeq = ((maxRow?.seq as number) || 0) + 1
-  return { orderDate, nextSeq, orderNumber: `${String(nextSeq).padStart(3, '0')}/${orderDate.split('-').reverse().join('.')}г.` }
+  return { orderDate, orderNumber: orderNumberText(await nextOrderSeq(supabase, orderDate), orderDate) }
 }
 
 async function coudLabel(supabase: any, staffId: string): Promise<string> {
@@ -177,12 +212,32 @@ async function planWeekHours(supabase: any, yearId: string | undefined, staffId:
 }
 // Всички часове на служител ПО СРОКОВЕ: паралелки (schedule_slots) + ИФО (teacher_ifo_slots)
 // + ЦОУД (educator_slots). Ако за II срок още няма въведено разписание — ползва I срок.
-async function slotsByTerm(supabase: any, staffId: string, yearId: string | undefined): Promise<Record<number, Slot[]>> {
+// Разписанията на паралелките за годината (id → срок, паралелка) — еднакви за всички служители
+function schedulesOf(supabase: any, yearId: string | undefined) {
+  const c = reqCache(supabase), k = yearId || ''
+  let p = c.scheds.get(k)
+  if (!p) {
+    p = (async () => {
+      const { data: scheds } = await supabase
+        .from('class_schedules').select('id, term, class_id, class:classes(name)').eq('academic_year_id', yearId)
+      const info: Record<string, { term: number; name: string; classId: string }> = {}
+      ;(scheds || []).forEach((s: any) => { info[s.id] = { term: s.term === 2 ? 2 : 1, name: s.class?.name || '', classId: s.class_id } })
+      return info
+    })()
+    c.scheds.set(k, p)
+  }
+  return p
+}
+// Часовете на един служител се четат веднъж за заявка (един отсъстващ често има няколко замествания)
+function slotsByTerm(supabase: any, staffId: string, yearId: string | undefined): Promise<Record<number, Slot[]>> {
+  const c = reqCache(supabase), k = `${staffId}|${yearId || ''}`
+  let p = c.slots.get(k)
+  if (!p) { p = loadSlotsByTerm(supabase, staffId, yearId); c.slots.set(k, p) }
+  return p
+}
+async function loadSlotsByTerm(supabase: any, staffId: string, yearId: string | undefined): Promise<Record<number, Slot[]>> {
   const out: Record<number, Slot[]> = { 1: [], 2: [] }
-  const { data: scheds } = await supabase
-    .from('class_schedules').select('id, term, class_id, class:classes(name)').eq('academic_year_id', yearId)
-  const info: Record<string, { term: number; name: string; classId: string }> = {}
-  ;(scheds || []).forEach((s: any) => { info[s.id] = { term: s.term === 2 ? 2 : 1, name: s.class?.name || '', classId: s.class_id } })
+  const info = await schedulesOf(supabase, yearId)
   const ids = Object.keys(info)
   if (ids.length > 0) {
     const { data: slots } = await supabase
@@ -402,7 +457,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   let orderNumber = '', orderDate = ''
   if (sub.substitution_order_id) {
     // Заповедта вече е издадена → само я изтегляме пак, със СЪЩИЯ номер и дата (нов номер не се взима)
-    const { data: o } = await supabase.from('orders').select('number, date').eq('id', sub.substitution_order_id).single()
+    const o = await orderInfo(supabase, sub.substitution_order_id)
     orderNumber = o?.number || '…………'
     orderDate = o?.date || sofiaToday()
     // Разписанието вече е пълно → заповедта излиза с часове, махаме отличаването в регистъра
@@ -412,26 +467,24 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
     orderNumber = (sub as any).manual_order_number
     orderDate = (sub as any).manual_order_date || sofiaToday()
   } else {
-    // 4. Номер от общия брояч — max seq +1 САМО в текущата деловодна година (15.09–14.09)
-    const no = await nextOrderNo(supabase)
-    orderDate = no.orderDate; orderNumber = no.orderNumber
-    const nextSeq = no.nextSeq
-
-    // 5. Създаваме заповедта в orders (РД-08)
+    // 4–5. Номер от общия брояч на регистъра (деловодна година 15.09–14.09) и запис в orders (РД-08)
     if (register) {
-      const { data: order, error: oErr } = await supabase.from('orders').insert({
-        number: orderNumber, date: orderDate,
+      const order = await insertNumberedOrder(supabase, sofiaToday(), {
         title: `Заповед за заместване на ${absentName}`,
         nomenclature_item: 'РД-08',
         description: `Заместник: ${subName}, ${group ? 'периоди ' + group.map(g => `${g.date_from.split('-').reverse().join('.')}–${g.date_to.split('-').reverse().join('.')}`).join(', ') : `период ${sub.date_from.split('-').reverse().join('.')}–${sub.date_to.split('-').reverse().join('.')}`}`,
-        created_by: me?.id || null, seq: nextSeq,
+        created_by: me?.id || null,
         without_hours: noHours,
-      }).select('id').single()
-      if (oErr) return { error: 'Грешка при създаване на заповедта: ' + oErr.message }
+      })
+      if ('error' in order) return { error: 'Грешка при създаване на заповедта: ' + order.error }
+      orderDate = sofiaToday(); orderNumber = order.number
       // 6. Връзваме заповедта към заместването (+ към редовете на разпределението — те са покрити от нея)
       await supabase.from('substitutions').update({ substitution_order_id: order.id }).in('id', group ? group.map(g => g.id) : [substitutionId])
       await supabase.from('substitution_assignments').update({ order_id: order.id }).eq('substitution_id', substitutionId).is('order_id', null)
       ;(sub as any).substitution_order_id = order.id
+    } else {
+      const no = await previewOrderNo(supabase)
+      orderDate = no.orderDate; orderNumber = no.orderNumber
     }
   }
 
@@ -586,22 +639,20 @@ export async function generatePartOrder(substitutionId: string, staffId: string)
 
   let orderNumber = '', orderDate = ''
   if (existingId) {
-    const { data: o } = await supabase.from('orders').select('number, date').eq('id', existingId).single()
+    const o = await orderInfo(supabase, existingId)
     orderNumber = o?.number || '…………'; orderDate = o?.date || sofiaToday()
     if (!noHours) await supabase.from('orders').update({ without_hours: false }).eq('id', existingId)
   } else {
-    const no = await nextOrderNo(supabase)
-    orderNumber = no.orderNumber; orderDate = no.orderDate
     const fmtD = (d: string) => d.split('-').reverse().join('.')
-    const { data: order, error: oErr } = await supabase.from('orders').insert({
-      number: orderNumber, date: orderDate,
+    const order = await insertNumberedOrder(supabase, sofiaToday(), {
       title: `Заповед за заместване на ${absentName}`,
       nomenclature_item: 'РД-08',
       description: `Заместник: ${subName}, период ${fmtD(from)}–${fmtD(to)} (поема дните на друг заместник)`,
-      created_by: me?.id || null, seq: no.nextSeq,
+      created_by: me?.id || null,
       without_hours: noHours,
-    }).select('id').single()
-    if (oErr) return { error: 'Грешка при създаване на заповедта: ' + oErr.message }
+    })
+    if ('error' in order) return { error: 'Грешка при създаване на заповедта: ' + order.error }
+    orderNumber = order.number; orderDate = sofiaToday()
     await supabase.from('substitution_assignments').update({ order_id: order.id }).in('id', parts.map(a => a.id))
   }
 
@@ -652,7 +703,7 @@ export async function getDeclarationData(substitutionId: string) {
   // заповедта за заместване (ако е издадена) — за orderRef
   let orderRef = 'Заповед № …'
   if (sub.substitution_order_id) {
-    const { data: o } = await supabase.from('orders').select('number, date').eq('id', sub.substitution_order_id).single()
+    const o = await orderInfo(supabase, sub.substitution_order_id)
     if (o?.number) orderRef = `Заповед № ${orderRefText(o.number, o.date)}`
   } else if ((sub as any).manual_order_number) {
     orderRef = `Заповед № ${orderRefText((sub as any).manual_order_number, (sub as any).manual_order_date)}`
@@ -824,7 +875,7 @@ async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_na
     // orderRef — „011/18.09.2026г.“; ръчният номер е без дата → добавяме датата на заповедта
     let orderRef = '—'
     if (sub.substitution_order_id) {
-      const { data: o } = await supabase.from('orders').select('number, date').eq('id', sub.substitution_order_id).single()
+      const o = await orderInfo(supabase, sub.substitution_order_id)
       if (o?.number) orderRef = orderRefText(o.number, o.date)
     } else if (sub.manual_order_number) {
       orderRef = orderRefText(sub.manual_order_number, sub.manual_order_date)
@@ -926,7 +977,7 @@ export async function getMonExport(first: string, last: string) {
   for (const sub of subs) {
     let orderNumber = '', orderDate = ''
     if (sub.substitution_order_id) {
-      const { data: o } = await supabase.from('orders').select('number, date').eq('id', sub.substitution_order_id).single()
+      const o = await orderInfo(supabase, sub.substitution_order_id)
       if (o) { orderNumber = o.number || ''; orderDate = o.date || '' }
     } else if (sub.manual_order_number) {
       orderNumber = sub.manual_order_number; orderDate = sub.manual_order_date || ''
