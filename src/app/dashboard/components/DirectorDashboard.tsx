@@ -45,9 +45,9 @@ export default async function DirectorDashboard({ profile, currentYearId }: any)
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
        {/* Ключови числа */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {stats.map(s => (
           <Link key={s.label} href={s.href}
             className="group bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-[#0f2240]/30 hover:shadow transition-all">
@@ -72,8 +72,8 @@ export default async function DirectorDashboard({ profile, currentYearId }: any)
 
       {/* Карти-линкове */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-700 mb-3">Бърз достъп</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <h3 className="dash-title mb-3">Бърз достъп</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {cards.map(c => (
             <Link key={c.href} href={c.href}
               className="group flex items-start gap-3 p-4 bg-white rounded-2xl border border-slate-200 shadow-sm hover:border-[#0f2240]/30 hover:shadow transition-all">

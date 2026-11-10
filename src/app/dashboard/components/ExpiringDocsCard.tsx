@@ -53,7 +53,7 @@ export default async function ExpiringDocsCard({ studentIds, windowDays = 30 }: 
     <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 border-b border-slate-100">
         <CalendarClock size={14} className="text-slate-400" />
-        <span className="text-[13px] text-slate-700">Документи със срок</span>
+        <span className="dash-title">Документи със срок</span>
         {expired > 0 && (
           <Link href={statusHref('expired')} className="inline-flex items-center gap-1.5 text-[12px] text-slate-600 hover:text-[#0f2240]">
             <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />{expired} изтекли

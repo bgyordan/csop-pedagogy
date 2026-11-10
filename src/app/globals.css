@@ -196,3 +196,24 @@ table { font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
+
+/* ───────────────────────────────────────────────────────────────
+   ТАБЛО: една мрежа и еднакви карти за всички роли (2026-11)
+   Навсякъде разстоянието между картите е 16px, ъглите — еднакви,
+   картите в един ред са с еднаква височина, заглавията — с един вид.
+   ─────────────────────────────────────────────────────────────── */
+/* Заглавие на карта: малки главни букви, тъмносиньо — едно и също във всички карти на таблото */
+.dash-title {
+  font-size: 11px; line-height: 1.25rem; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: #0f2240;
+}
+/* Кратките ленти (посещение, контрол, дежурни, съгласуване…): по две на ред, еднакво високи.
+   Ако са нечетен брой, последната заема целия ред — не остава празна дупка до нея. */
+.dash-strips > * { min-height: 4rem; border-radius: 1rem; align-content: center; }
+@media (min-width: 1024px) {
+  .dash-strips > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+/* Същото за двойките карти „Съобщения / Споделено“: сама карта заема целия ред */
+@media (min-width: 768px) {
+  .dash-odd-wide > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+}

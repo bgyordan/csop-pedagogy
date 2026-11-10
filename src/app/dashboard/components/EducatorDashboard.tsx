@@ -63,9 +63,9 @@ export default async function EducatorDashboard({ profile, currentYearId }: any)
   }
 
   return (
-    <div className="animate-in fade-in duration-500">
+    <div className="animate-in fade-in duration-500 space-y-4">
       {/* Лента на групата */}
-      <div className="flex flex-wrap items-center gap-3 mb-6 px-5 py-3.5 rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center gap-3 px-5 py-3.5 rounded-2xl border border-slate-200/70 bg-white shadow-sm">
         <div className="flex items-center gap-2.5 mr-auto">
           <Coffee size={18} className="text-amber-500" />
           <span className="text-base font-medium text-[#0f2240]">{groups.map((g: any) => /ЦОУД/i.test(g.name) ? g.name : `ЦОУД група ${g.name}`).join(', ')}</span>
@@ -81,8 +81,8 @@ export default async function EducatorDashboard({ profile, currentYearId }: any)
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-4">
           {byGroup.map((g: any) => (
             <div key={g.id} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
               {byGroup.length > 1 && (
@@ -110,12 +110,12 @@ export default async function EducatorDashboard({ profile, currentYearId }: any)
           ))}
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Днес */}
           <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5">
             <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-slate-100">
               <CalendarClock size={16} className="text-teal-500" />
-              <h2 className="text-sm font-semibold text-slate-800">Днес</h2>
+              <h2 className="dash-title">Днес</h2>
             </div>
             {todaySlots.length === 0 ? (
               <p className="text-sm text-slate-400">{today?.is_school_day ? 'Няма въведен график за днес.' : 'Днес не е учебен ден.'}</p>

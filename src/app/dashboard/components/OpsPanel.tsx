@@ -117,12 +117,12 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
   )
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 items-start mb-6">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       {/* ДНЕС */}
       <div className={card}>
         <div className={head}>
           <UserX size={16} className="text-slate-400" />
-          <h2 className="text-sm font-medium text-slate-800">Днес отсъстват</h2>
+          <h2 className="dash-title">Днес отсъстват</h2>
           <span className="ml-auto text-xs text-slate-400">{allToday.length}</span>
           {allToday.length > 0 && <AbsentNote rows={allToday} today={sofiaToday()} compact />}
         </div>
@@ -195,7 +195,7 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
       <div className={`${card} ${!isSummer && P.open && missingIup.length > 0 ? '!border-amber-300 !bg-amber-50/50 ring-4 ring-amber-100' : ''}`}>
         <div className={head}>
           <ClipboardList size={16} className="text-amber-500" />
-          <h2 className="text-sm font-medium text-slate-800">Реализация на ИУП</h2>
+          <h2 className="dash-title">Реализация на ИУП</h2>
           {!isSummer && <span className="ml-auto text-xs text-slate-400">{P.label} · {P.overdue ? 'срокът изтече' : `до ${P.window.split('– ')[1]}`}</span>}
         </div>
         {isSummer ? (
@@ -223,7 +223,7 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
       <div className={card}>
         <div className={head}>
           <HeartPulse size={16} className="text-teal-500" />
-          <h2 className="text-sm font-medium text-slate-800">ЕПЛР и документи</h2>
+          <h2 className="dash-title">ЕПЛР и документи</h2>
         </div>
         <div className="space-y-2.5">
           <Link href="/admin/eplr-assignment" className="flex items-center justify-between gap-2 text-sm text-slate-700 hover:text-[#0f2240]">
@@ -241,7 +241,7 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
       <div className={card}>
         <div className={head}>
           <CalendarClock size={16} className="text-sky-500" />
-          <h2 className="text-sm font-medium text-slate-800">Разписания</h2>
+          <h2 className="dash-title">Разписания</h2>
           <span className="ml-auto text-xs text-slate-400">{term === 2 ? 'II' : 'I'} срок</span>
         </div>
         <div className="space-y-2.5">

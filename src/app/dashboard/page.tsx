@@ -99,7 +99,7 @@ export default async function DashboardPage() {
   const d = hero.dark
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-8 animate-in fade-in duration-700 space-y-6">
+    <div className="max-w-7xl mx-auto p-4 md:p-8 animate-in fade-in duration-700 space-y-4">
       {viewing && <ViewAsPicker people={[]} viewing={viewing} />}
 
       {/* Хедър — преливащ цвят по избор (по подразбиране синьо-зелен) */}
@@ -146,7 +146,7 @@ export default async function DashboardPage() {
 
 
       {/* Кратките ленти — по две на ред, за да не са дълги през целия екран */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 empty:hidden">
+      <div className="dash-strips grid grid-cols-1 lg:grid-cols-2 gap-4 empty:hidden">
         {/* Посещение на час — избор на ден (учителите в отворена проверка) */}
         {!viewing && show('visit') && <VisitStrip profile={profile} />}
 
@@ -178,7 +178,7 @@ export default async function DashboardPage() {
 
       {/* Календар — моята седмица (по-компактен); до него за класните — учебните планове от училищата */}
       {((!viewing && show('calendar')) || schoolGroups) && (
-        <div className={!viewing && show('calendar') && schoolGroups ? 'grid grid-cols-1 lg:grid-cols-3 gap-4 items-start' : ''}>
+        <div className={!viewing && show('calendar') && schoolGroups ? 'grid grid-cols-1 lg:grid-cols-3 gap-4' : ''}>
           {!viewing && show('calendar') && (
             <div className={schoolGroups ? 'lg:col-span-2 min-w-0' : ''}>
               <CalendarWidget me={{ id: profile.id, role: profile.role, isCoordinator: profile.is_coordinator === true }} />
@@ -197,8 +197,8 @@ export default async function DashboardPage() {
         {profile.role === 'educator' && <EducatorDashboard profile={profile} currentYearId={currentYear.id} />}
         {isSecretary && <SecretaryDashboard profile={profile} showShared={show('shared')} />}
         {therapyRole && (
-          <div className="mt-6">
-            <div className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-3">Като {String(ROLE_LABELS[therapyRole as keyof typeof ROLE_LABELS] || therapyRole).toLowerCase()}</div>
+          <div className="mt-4">
+            <div className="dash-title mb-3">Като {String(ROLE_LABELS[therapyRole as keyof typeof ROLE_LABELS] || therapyRole).toLowerCase()}</div>
             <SpecialistDashboard profile={{ ...profile, role: therapyRole }} currentYearId={currentYear.id} />
           </div>
         )}

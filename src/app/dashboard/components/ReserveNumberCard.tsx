@@ -54,7 +54,7 @@ export default function ReserveNumberCard({ profileId }: { profileId: string }) 
 
   // Плочка като останалите в таблото: вид · бележка · бутон; резервираният номер излиза едро
   return (
-    <div className="flex flex-col bg-white px-5 py-5 min-h-[160px] rounded-xl border border-slate-200 shadow-sm">
+    <div className="flex flex-col bg-white px-5 py-5 min-h-[160px] rounded-2xl border border-slate-200 shadow-sm">
       <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500 mb-2">
         <Bookmark size={13} className="text-amber-500" /> Резервирай номер
       </div>

@@ -13,10 +13,10 @@ export const isFreshFile = (iso?: string | null) => !!iso && Date.now() - new Da
 // Обща карта за дясната колона и файловете: заглавие + съдържание; празната е само един ред
 export function SideCard({ icon, title, right, empty, children }: { icon: ReactNode; title: string; right?: ReactNode; empty?: string; children?: ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm h-fit">
+    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm h-full">
       <div className={`flex items-center gap-2 px-4 py-2.5 ${empty ? '' : 'border-b border-slate-100'}`}>
         <span className="text-slate-400">{icon}</span>
-        <h2 className="text-[11px] text-[#0f2240] uppercase tracking-widest">{title}</h2>
+        <h2 className="dash-title">{title}</h2>
         {empty && <span className="text-[12px] text-slate-400 font-light">· {empty}</span>}
         <span className="flex-1" />
         {right}
@@ -60,7 +60,7 @@ export default function ClassTeacherSide({ announcements, files, newsHref, layou
   layout?: 'stack' | 'row'
 }) {
   return (
-    <div className={layout === 'row' ? 'grid grid-cols-1 md:grid-cols-2 gap-4 items-start' : 'space-y-4'}>
+    <div className={layout === 'row' ? 'grid grid-cols-1 md:grid-cols-2 gap-4 dash-odd-wide' : 'space-y-4'}>
       <NewsCard announcements={announcements} newsHref={newsHref} />
       {/* файловете (споделено, учебни планове) — всеки списък е своя карта */}
       {files}
