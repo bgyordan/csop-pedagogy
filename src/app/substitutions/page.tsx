@@ -40,29 +40,36 @@ export default async function SubstitutionsPage() {
   const canManage = ['admin', 'zdud', 'director', 'secretary'].includes(profile?.role || '')
   if (!canManage) redirect('/dashboard')
 
-  const { data } = await supabase
-    .from('substitutions')
-    .select(`id, date_from, date_to, reason, absent_staff_id, substitute_staff_id, substitution_order_id, manual_order_number, manual_order_date, no_order_needed, bsch_eligible, over_norm,
-      absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, role),
-      sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name)`)
-    .order('date_from', { ascending: false })
+  // Всичко за списъка се чете наведнъж (успоредно), а не едно след друго
+  const [mainRes, grpRes, asgRes, staffRes, teaching] = await Promise.all([
+    supabase
+      .from('substitutions')
+      .select(`id, date_from, date_to, reason, absent_staff_id, substitute_staff_id, substitution_order_id, manual_order_number, manual_order_date, no_order_needed, bsch_eligible, over_norm,
+        absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, role),
+        sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name)`)
+      .order('date_from', { ascending: false }),
+    // отпуск в няколко периода (leave_group) — „период 1 от 2“; преди SQL файла — без него
+    supabase.from('substitutions').select('id, leave_group, date_from').not('leave_group', 'is', null).order('date_from'),
+    // разпределение при няколко заместника — зарежда се заедно със списъка (без да се отваря редакция)
+    supabase
+      .from('substitution_assignments')
+      .select('*, sub:staff_profiles!substitution_assignments_substitute_staff_id_fkey(first_name, last_name)')
+      .order('date_from'),
+    supabase.from('staff_profiles').select('id, first_name, last_name, role').eq('is_active', true),
+    // с преподавателска заетост (разписание / ИЧ / учебен план) — заместват се, независимо от ролята
+    teachingStaffIds(supabase),
+  ])
+  const data = mainRes.data
+  const asg = asgRes.data
+  const staffRaw = staffRes.data
 
-  // отпуск в няколко периода (leave_group) — „период 1 от 2“; преди SQL файла — без него
   const groupBy: Record<string, { i: number; n: number; id: string }> = {}
-  {
-    const g: any = await supabase.from('substitutions').select('id, leave_group, date_from').not('leave_group', 'is', null).order('date_from')
-    if (!g.error) {
-      const by: Record<string, string[]> = {}
-      ;(g.data || []).forEach((r: any) => { (by[r.leave_group] ||= []).push(r.id) })
-      Object.entries(by).forEach(([gid, ids]) => { if (ids.length > 1) ids.forEach((id, i) => { groupBy[id] = { i: i + 1, n: ids.length, id: gid } }) })
-    }
+  if (!(grpRes as any).error) {
+    const by: Record<string, string[]> = {}
+    ;((grpRes as any).data || []).forEach((r: any) => { (by[r.leave_group] ||= []).push(r.id) })
+    Object.entries(by).forEach(([gid, ids]) => { if (ids.length > 1) ids.forEach((id, i) => { groupBy[id] = { i: i + 1, n: ids.length, id: gid } }) })
   }
 
-  // разпределение при няколко заместника — зарежда се заедно със списъка (без да се отваря редакция)
-  const { data: asg } = await supabase
-    .from('substitution_assignments')
-    .select('*, sub:staff_profiles!substitution_assignments_substitute_staff_id_fkey(first_name, last_name)')
-    .order('date_from')
   const assignsBy: Record<string, SubRow['assigns']> = {}
   ;(asg || []).forEach((a: any) => {
     ;(assignsBy[a.substitution_id] ||= []).push({
@@ -72,20 +79,20 @@ export default async function SubstitutionsPage() {
     })
   })
 
-  // заповеди, издадени без часове — за лилавото отличаване в списъка
-  const { data: nh } = await supabase.from('orders').select('id').eq('without_hours', true)
-  const noHoursIds = new Set((nh || []).map((o: any) => o.id))
-
-  // номерата на заповедите — за колона „Заповед“ в списъка
+  // номерата на заповедите (колона „Заповед“) и кои са издадени без часове (лилавото отличаване) — с едно четене
   const orderIds = Array.from(new Set([
     ...(data || []).map((r: any) => r.substitution_order_id),
     ...(asg || []).map((a: any) => a.order_id),
   ].filter(Boolean))) as string[]
   const orderNum: Record<string, string> = {}
-  for (let i = 0; i < orderIds.length; i += 200) {
-    const { data: os } = await supabase.from('orders').select('id, number').in('id', orderIds.slice(i, i + 200))
-    ;(os || []).forEach((o: any) => { orderNum[o.id] = o.number || '' })
-  }
+  const noHoursIds = new Set<string>()
+  const chunks: string[][] = []
+  for (let i = 0; i < orderIds.length; i += 200) chunks.push(orderIds.slice(i, i + 200))
+  const orderRes = await Promise.all(chunks.map(ids => supabase.from('orders').select('id, number, without_hours').in('id', ids)))
+  orderRes.forEach(({ data: os }) => (os || []).forEach((o: any) => {
+    orderNum[o.id] = o.number || ''
+    if (o.without_hours === true) noHoursIds.add(o.id)
+  }))
 
   // кой кога отсъства (по регистъра) — за „заместник на заместника“
   const absencesBy: Record<string, { id: string; from: string; to: string; subId: string | null }[]> = {}
@@ -141,10 +148,6 @@ export default async function SubstitutionsPage() {
     conflicts: conflictsOf(r),
   }))
 
-  const { data: staffRaw } = await supabase
-    .from('staff_profiles').select('id, first_name, last_name, role').eq('is_active', true)
-  // с преподавателска заетост (разписание / ИЧ / учебен план) — заместват се, независимо от ролята
-  const teaching = await teachingStaffIds(supabase)
   const staff = (staffRaw || []).map((s: any) => ({ ...s, teaching: teaching.has(s.id) }))
 
   return (

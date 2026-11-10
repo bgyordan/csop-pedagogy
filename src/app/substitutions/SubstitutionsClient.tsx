@@ -251,12 +251,20 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
   // „само отсъства“ — отпуск на колега, който не се замества (специалист, помощник) и няма заместник:
   // въвежда се, за да се вижда в „Днес отсъстват“; в таблицата по подразбиране е скрит
   const [showAbsentOnly, setShowAbsentOnly] = useState(false)
+  // „за довършване“: бърз филтър на записите без заместник / без заповед
+  const [todo, setTodo] = useState<null | 'nosub' | 'noorder'>(null)
   // отпуск в няколко периода: „Създай заповед“ само на период 1 — заповедта е обща (същият заместник, без разпределение по дни)
   const sharedOrderWithFirst = (r: SubRow) => {
     if (!r.group || r.group.i === 1 || !r.substituteId || r.assigns?.length) return false
     const first = rows.find(x => x.group?.id === r.group!.id && x.group?.i === 1)
     return !!first && !first.hasOrder && first.substituteId === r.substituteId && !first.assigns?.length
   }
+  // трябва му заместник (учител/възпитател или с часове), а още няма
+  const needsSub = (r: SubRow) => !r.substituteName && !r.assigns?.length
+    && (canSubstitute(r.absentRole) || !!staff.find(s => s.id === r.absentStaffId)?.teaching)
+  // има заместник, но заповедта още не е издадена (нито е отбелязана ръчна / „без заповед“ / обща с период 1)
+  const needsOrder = (r: SubRow) => (!!r.substituteName || !!r.assigns?.length)
+    && !r.hasOrder && !r.manualNumber && !r.noOrder && !sharedOrderWithFirst(r)
   const isAbsentOnly = (r: any) => !r.substituteName && !(r.assigns?.length) && !canSubstitute(r.absentRole) && !staff.find(s => s.id === r.absentStaffId)?.teaching
   const [genId, setGenId] = useState<string | null>(null)
   const [overNormMap, setOverNormMap] = useState<Record<string, boolean>>(() => Object.fromEntries(initial.map(r => [r.id, r.overNorm !== false])))
@@ -420,11 +428,15 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
     return rows.filter(r => {
       if (npOnly && !r.bsch) return false
       if (!showAbsentOnly && isAbsentOnly(r)) return false
+      if (todo === 'nosub' && !needsSub(r)) return false
+      if (todo === 'noorder' && !needsOrder(r)) return false
       if (per && !(r.dateFrom <= per.last && r.dateTo >= per.first)) return false
       if (q && !(smartMatch(r.absentName, q) || smartMatch(r.substituteName || '', q))) return false
       return true
     })
-  }, [rows, search, npOnly, periodIdx, showAbsentOnly]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rows, search, npOnly, periodIdx, showAbsentOnly, todo]) // eslint-disable-line react-hooks/exhaustive-deps
+  const todoCount = useMemo(() => ({ nosub: rows.filter(needsSub).length, noorder: rows.filter(needsOrder).length }), [rows]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (todo && todoCount[todo] === 0) setTodo(null) }, [todo, todoCount])
   const absentOnlyCount = useMemo(() => rows.filter(isAbsentOnly).length, [rows]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // отпуск в няколко периода (едно заявление, една заповед) — в списъка е ЕДИН ред, както всички други:
@@ -689,6 +701,22 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
             }`}>
             само НП
           </button>
+          {todoCount.nosub > 0 && (
+            <button onClick={() => setTodo(t => t === 'nosub' ? null : 'nosub')} title="Отсъствия, за които още не е избран заместник"
+              className={`inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border transition-colors whitespace-nowrap flex-shrink-0 ${
+                todo === 'nosub' ? 'bg-amber-50 border-amber-300 text-amber-800 font-medium' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}>
+              <UserX size={13} className="text-amber-500" /> без заместник <span className="tabular-nums font-semibold">{todoCount.nosub}</span>
+            </button>
+          )}
+          {todoCount.noorder > 0 && (
+            <button onClick={() => setTodo(t => t === 'noorder' ? null : 'noorder')} title="Има заместник, но заповедта още не е издадена"
+              className={`inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border transition-colors whitespace-nowrap flex-shrink-0 ${
+                todo === 'noorder' ? 'bg-violet-50 border-violet-300 text-violet-800 font-medium' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}>
+              без заповед <span className="tabular-nums font-semibold">{todoCount.noorder}</span>
+            </button>
+          )}
           {absentOnlyCount > 0 && (
             <button onClick={() => setShowAbsentOnly(v => !v)} title="Колеги в отпуск, които не се заместват (специалисти, помощници) — за „Днес отсъстват“"
               className={`inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border transition-colors whitespace-nowrap flex-shrink-0 ${
@@ -823,7 +851,7 @@ export default function SubstitutionsClient({ rows: initial, staff }: { rows: Su
           <div className="bg-white border border-slate-200 rounded-2xl px-6 py-14 text-center shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
             <div className="mx-auto mb-3 w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400"><CalendarClock size={20} /></div>
             <p className="text-sm text-slate-500">
-              {search ? <>Няма резултати за „<span className="text-slate-700">{search}</span>“.</> : npOnly || periodIdx >= 0 ? 'Няма замествания по този филтър.' : 'Още няма замествания.'}
+              {search ? <>Няма резултати за „<span className="text-slate-700">{search}</span>“.</> : npOnly || todo || periodIdx >= 0 ? 'Няма замествания по този филтър.' : 'Още няма замествания.'}
             </p>
             {(search || npOnly || periodIdx >= 0) && (
               <button type="button" onClick={() => { setSearch(''); setNpOnly(false); setPeriodIdx(-1) }}

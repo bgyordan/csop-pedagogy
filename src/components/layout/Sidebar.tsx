@@ -12,6 +12,7 @@ import { UserRole, ROLE_LABELS } from '@/types'
 import WhatsNewModal from './WhatsNewModal'
 import CommandPalette from './CommandPalette'
 import NavProgress from './NavProgress'
+import NotificationBell from './NotificationBell'
 import { useFavorites, rememberVisit, type NavEntry } from './nav-memory'
 import { cn } from '@/lib/utils'
 const SIDEBAR_BG = '#f0f7ff'
@@ -465,14 +466,16 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
         )}
       </div>
       {/* Бързо търсене */}
-      <div className={cn('pt-3', isMini ? 'px-2' : 'px-2.5')}>
+      <div className={cn('pt-3 flex items-center gap-1.5', isMini ? 'px-2 flex-col' : 'px-2.5')}>
         <button type="button" onClick={() => { setMobileOpen(false); setPaletteOpen(true) }} title="Търсене (Ctrl+K)"
-          className={cn('w-full flex items-center gap-2 rounded-full border border-[rgba(15,34,64,0.18)] bg-white/80 text-[12.5px] text-[#4a7fa8] hover:border-[rgba(15,34,64,0.40)] hover:text-[#0f2240] transition-colors shadow-[0_1px_2px_rgba(15,34,64,0.06)]',
+          className={cn('flex-1 min-w-0 flex items-center gap-2 rounded-full border border-[rgba(15,34,64,0.18)] bg-white/80 text-[12.5px] text-[#4a7fa8] hover:border-[rgba(15,34,64,0.40)] hover:text-[#0f2240] transition-colors shadow-[0_1px_2px_rgba(15,34,64,0.06)]',
             isMini ? 'justify-center py-2' : 'px-3 py-[7px]')}>
           <Search size={15} className="flex-shrink-0" />
           {!isMini && <><span className="flex-1 text-left">Търси…</span>
             <kbd className="text-[10px] font-sans px-1.5 py-px rounded border border-[rgba(15,34,64,0.18)] bg-[#f0f7ff]">Ctrl K</kbd></>}
         </button>
+        {/* камбанката е в горната лента на телефона; тук — само на компютър */}
+        <div className="hidden md:block"><NotificationBell mini={isMini} /></div>
       </div>
       <nav className={cn('flex-1 py-3 overflow-y-auto', isMini ? 'px-2' : 'px-2.5')}>
         {/* Любими — добавят се със звездичката в търсенето */}
@@ -576,6 +579,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
           </div>
         </div>
         <div className="flex items-center gap-1">
+        <NotificationBell variant="mobile" />
         <button onClick={() => setPaletteOpen(true)} className="p-1.5 rounded-lg" style={{ color: TEXT_SECONDARY }} aria-label="Търсене">
           <Search size={20} />
         </button>
