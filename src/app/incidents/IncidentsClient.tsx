@@ -72,9 +72,10 @@ export default function IncidentsClient(p: Props) {
     }
     let id = editing?.id
     if (editing) {
-      const { error } = await supabase.from('incident_cases').update(row).eq('id', editing.id)
+      const { data: upd, error } = await supabase.from('incident_cases').update(row).eq('id', editing.id).select('id')
       if (error) { toast(error.message, 'error'); return }
-      await supabase.from('incident_participants').delete().eq('case_id', editing.id)
+      // базата не е пуснала промяната (напр. случаят вече не е „Нов“ и го движи съветът)
+      if (!upd?.length) { toast('Случаят вече се разглежда от Координационния съвет и не може да се поправя. Добавете бележка в дирята.', 'error'); return }
     } else {
       const { data: n } = await supabase.rpc('incident_next_number', { p_year: p.yearId })
       const { data, error } = await supabase.from('incident_cases').insert({ ...row, academic_year_id: p.yearId, number: n || 1, reported_by: p.meId }).select('*').single()
@@ -84,6 +85,9 @@ export default function IncidentsClient(p: Props) {
     }
     const { data: ps, error: e2 } = await supabase.from('incident_participants').insert(v.participants.map(x => ({ ...x, name: x.name || (x.student_id ? studentNames[x.student_id] || null : null), case_id: id }))).select('*')
     if (e2) { toast(e2.message, 'error'); return }
+    // старите деца се махат чак след като новите са записани — при грешка случаят не остава без деца
+    const oldIds = editing ? (byCase[editing.id] || []).map(x => x.id) : []
+    if (oldIds.length) await supabase.from('incident_participants').delete().in('id', oldIds)
     setParts(x => [...x.filter(y => y.case_id !== id), ...((ps || []) as Participant[])])
     if (editing) setCases(x => x.map(c => c.id === id ? { ...c, ...row } as Case : c))
     toast(editing ? 'Случаят е обновен' : 'Случаят е записан — Координационният съвет го вижда')
@@ -114,6 +118,12 @@ export default function IncidentsClient(p: Props) {
     if (pr) await addEvent(c.id, 'protocol', `Разгледан в протокол № ${pr.number} от ${fmtDate(pr.date)}`)
     // вързан протокол → случаят „Разглежда се“ (ако още е нов)
     if (pr && c.status === 'new') await setCaseStatus({ ...c, protocol_id: pid }, 'review')
+  }
+  // сгрешен ред в дирята — маха го само управата (редовете за статус и протокол остават)
+  async function removeEvent(id: string) {
+    const { data, error } = await supabase.from('incident_events').delete().eq('id', id).select('id')
+    if (error || !data?.length) { toast(error?.message || 'Редът не може да се изтрие', 'error'); return }
+    setEvents(x => x.filter(e => e.id !== id))
   }
   async function remove(c: Case) {
     const { error } = await supabase.from('incident_cases').delete().eq('id', c.id)
@@ -241,11 +251,11 @@ export default function IncidentsClient(p: Props) {
         initialStudent={form === 'new' ? newStudent : null}
         onClose={() => { setForm(null); setNewStudent(null) }} onSave={save} />}
       {open && (
-        <IncidentDetail c={open} parts={byCase[open.id] || []} events={events.filter(e => e.case_id === open.id).sort((a, b) => a.at.localeCompare(b.at))}
+        <IncidentDetail key={open.id} c={open} parts={byCase[open.id] || []} events={events.filter(e => e.case_id === open.id).sort((a, b) => a.at.localeCompare(b.at))}
           names={p.staffNames} studentNames={studentNames} protocols={p.protocols}
           canManage={p.isCouncil} canEdit={p.isCouncil || (open.reported_by === p.meId && open.status === 'new')} isAdmin={p.isAdmin}
           onClose={() => setOpenId(null)} onEdit={() => { setForm(open); setOpenId(null) }}
-          onStatus={(s, o) => setCaseStatus(open, s, o)} onEvent={(k, t) => addEvent(open.id, k, t)} onProtocol={pid => setProtocol(open, pid)} onDelete={() => remove(open)} />
+          onStatus={(s, o) => setCaseStatus(open, s, o)} onEvent={(k, t) => addEvent(open.id, k, t)} onProtocol={pid => setProtocol(open, pid)} onDelete={() => remove(open)} onDeleteEvent={removeEvent} />
       )}
     </div>
   )
