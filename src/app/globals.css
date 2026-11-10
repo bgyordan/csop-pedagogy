@@ -168,3 +168,31 @@
 /* Сайдбар: деловоден тесен шрифт — нормален, активният пункт малко по-плътен */
 .sb-font { font-family: 'Roboto Condensed', 'Montserrat', system-ui, sans-serif; font-weight: 400; }
 .sb-font.sb-active { font-weight: 500; }
+
+/* ───────────────────────────────────────────────────────────────
+   МОДЕРНИ ДЕТАЙЛИ (2026-11)
+   ─────────────────────────────────────────────────────────────── */
+/* Ясна рамка при работа с клавиатура (Tab), без да се вижда при клик с мишка */
+:where(a, button, [role="button"], summary, select):focus-visible {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+}
+/* Маркиран текст — в цветовете на системата */
+::selection { background: rgb(14 165 233 / 0.22); color: inherit; }
+/* Тънки, ненатрапчиви ленти за превъртане */
+* { scrollbar-width: thin; scrollbar-color: rgb(15 34 64 / 0.22) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: rgb(15 34 64 / 0.18); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background-color: rgb(15 34 64 / 0.32); }
+/* Еднакво широки цифри в таблиците — колоните с дати и номера стоят подравнени */
+table { font-variant-numeric: tabular-nums; }
+/* Бутоните се „натискат“ леко */
+.btn-primary:active, .btn-secondary:active, .btn-danger:active { transform: translateY(1px); }
+/* Анимации на търсенето */
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes popIn { from { opacity: 0; transform: translateY(-6px) scale(.98) } to { opacity: 1; transform: none } }
+/* Колегите, които са изключили анимациите в системата, не ги виждат */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}

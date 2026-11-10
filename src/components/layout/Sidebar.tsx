@@ -6,10 +6,13 @@ import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3, FileSpreadsheet,
-  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare, Calculator, ShieldAlert, MonitorSmartphone, Bell, CalendarCheck, Award, BookUser, Landmark } from 'lucide-react'
+  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare, Calculator, ShieldAlert, MonitorSmartphone, Bell, CalendarCheck, Award, BookUser, Landmark, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
 import WhatsNewModal from './WhatsNewModal'
+import CommandPalette from './CommandPalette'
+import NavProgress from './NavProgress'
+import { useFavorites, rememberVisit, type NavEntry } from './nav-memory'
 import { cn } from '@/lib/utils'
 const SIDEBAR_BG = '#f0f7ff'
 const SIDEBAR_HOVER = 'rgba(15,34,64,0.04)'
@@ -235,6 +238,22 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   const [openKey, setOpenKey] = useState<string | null>(null)
   // Групите са свити за всички (акордеон): отворена е само тази на текущата страница, а на таблото — групата по подразбиране
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  // Бързо търсене (Ctrl+K / ⌘K, или „/“ извън поле за писане)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null
+      const typing = !!t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K' || e.key === 'л' || e.key === 'Л')) {
+        e.preventDefault(); setPaletteOpen(o => !o)
+      } else if (e.key === '/' && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault(); setPaletteOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+  const { favorites } = useFavorites()
   // Свит сайдбар (само иконки) — помни се в браузъра
   const [mini, setMini] = useState(false)
   useEffect(() => { try { setMini(localStorage.getItem('sb-mini') === '1') } catch {} }, [])
@@ -337,6 +356,25 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
       ? { ...item, children: item.children.filter(canSee) }
       : item)
     .filter(item => item.children ? item.children.length > 0 : canSee(item))
+  // Всички страници, които човекът вижда в менюто — за бързото търсене и „Последно отваряни“
+  const pageEntries: NavEntry[] = (() => {
+    const out: NavEntry[] = []
+    const seen = new Set<string>()
+    const add = (href: string, label: string, group?: string) => {
+      if (href.startsWith('#') || seen.has(href)) return
+      seen.add(href); out.push({ href, label, group })
+    }
+    for (const it of visibleItems) {
+      if (it.children) it.children.forEach(k => add(k.href, k.label, it.label))
+      else add(it.href, it.label, it.section === 'delo' ? 'Деловодство' : undefined)
+    }
+    add('/profile', 'Моят профил'); add('/my-files', 'Моите документи'); add('/profile?tab=security', 'Вход и парола', 'Моят профил')
+    return out
+  })()
+  useEffect(() => {
+    const hit = pageEntries.find(p => p.href === pathname)
+    if (hit && hit.href !== '/dashboard') rememberVisit({ href: hit.href, label: hit.label })
+  }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
   // Общ вид на пункт: активният е с лек тъмносин фон и черта отляво; посочване — само лек фон
   // Деловоден шрифт (тесен, без удебеляване), главни букви; при посочване се изчертава овал
   const itemCls = (active: boolean, size: 'main' | 'sub' = 'main') => cn(
@@ -426,7 +464,33 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
           </div>
         )}
       </div>
+      {/* Бързо търсене */}
+      <div className={cn('pt-3', isMini ? 'px-2' : 'px-2.5')}>
+        <button type="button" onClick={() => { setMobileOpen(false); setPaletteOpen(true) }} title="Търсене (Ctrl+K)"
+          className={cn('w-full flex items-center gap-2 rounded-full border border-[rgba(15,34,64,0.18)] bg-white/80 text-[12.5px] text-[#4a7fa8] hover:border-[rgba(15,34,64,0.40)] hover:text-[#0f2240] transition-colors shadow-[0_1px_2px_rgba(15,34,64,0.06)]',
+            isMini ? 'justify-center py-2' : 'px-3 py-[7px]')}>
+          <Search size={15} className="flex-shrink-0" />
+          {!isMini && <><span className="flex-1 text-left">Търси…</span>
+            <kbd className="text-[10px] font-sans px-1.5 py-px rounded border border-[rgba(15,34,64,0.18)] bg-[#f0f7ff]">Ctrl K</kbd></>}
+        </button>
+      </div>
       <nav className={cn('flex-1 py-3 overflow-y-auto', isMini ? 'px-2' : 'px-2.5')}>
+        {/* Любими — добавят се със звездичката в търсенето */}
+        {favorites.length > 0 && (<>
+          <div className="space-y-0.5">
+            {!isMini && <div className="sb-font uppercase px-3 pb-1 text-[10.5px] tracking-[0.08em] text-[#6b8db0] flex items-center gap-1.5"><Star size={11} className="text-amber-500" fill="currentColor" /> Любими</div>}
+            {favorites.map(f => {
+              const active = pathname === f.href
+              return (
+                <Link key={f.href} href={f.href} onClick={() => setMobileOpen(false)} title={isMini ? f.label : undefined} className={itemCls(active, isMini ? 'main' : 'sub')}>
+                  <span className={iconCls(active)}><Star size={14} /></span>
+                  {!isMini && <span className="flex-1 truncate">{f.label}</span>}
+                </Link>
+              )
+            })}
+          </div>
+          {divider}
+        </>)}
         <div className="space-y-0.5">
           {mainItems.map(item =>
             item.children
@@ -511,11 +575,16 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
             <div className="text-xs" style={{ color: TEXT_MUTED }}>{isSecretary ? 'Деловодство' : 'ЕПЛР'}</div>
           </div>
         </div>
+        <div className="flex items-center gap-1">
+        <button onClick={() => setPaletteOpen(true)} className="p-1.5 rounded-lg" style={{ color: TEXT_SECONDARY }} aria-label="Търсене">
+          <Search size={20} />
+        </button>
         <button onClick={() => setMobileOpen(prev => !prev)}
           className="p-1.5 rounded-lg transition-colors"
           style={{ color: TEXT_SECONDARY }} aria-label="Меню">
           {mobileOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
+        </div>
       </div>
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setMobileOpen(false)} />
@@ -528,6 +597,8 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
       </div>
       <div className="md:hidden h-14 flex-shrink-0" />
       <WhatsNewModal />
+      <NavProgress />
+      <CommandPalette pages={pageEntries} canSearchStaff={isMgmt} open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </>
   )
 }
