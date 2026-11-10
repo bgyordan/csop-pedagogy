@@ -7,6 +7,7 @@ import { loadLecturerRates, effectiveRates } from '@/lib/lecturer-rates'
 import { coudPeriod, periodsOverlap, PERIOD_LABEL, PERIOD_TIMES } from '@/lib/periods'
 import { NP_KT, ktOn, type KtPart } from '@/lib/kt'
 import { nextOrderSeq, orderNumberText, insertNumberedOrder } from '@/lib/delo-seq'
+import { isOpenEnd } from '@/lib/open-end'
 
 // Днешна дата по българско време (сървърът е в UTC — след полунощ даваше вчерашна дата)
 function sofiaToday() {
@@ -396,6 +397,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   if (!sub) return { error: 'Заместването не е намерено' }
   if (!sub.substitute_staff_id) return { error: 'Няма избран заместник' }
 
+  if (isOpenEnd(sub.date_to)) return { error: 'Отсъствието още няма крайна дата, а заповедта се издава за точен период. Въведете докога е и опитайте пак.' }
   // Отпуск в няколко периода по едно заявление (leave_group) → ЕДНА заповед за всички периоди,
   // когато са с един и същ заместник, без разпределение по дни, без части с друг член и без отделни заповеди.
   const group = await leaveGroupOf(supabase, sub)
@@ -590,6 +592,7 @@ export async function generatePartOrder(substitutionId: string, staffId: string)
        absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, position)`)
     .eq('id', substitutionId).single()
   if (!sub) return { error: 'Заместването не е намерено' }
+  if (isOpenEnd(sub.date_to)) return { error: 'Отсъствието още няма крайна дата, а заповедта се издава за точен период. Въведете докога е и опитайте пак.' }
   const res = await supabase.from('substitution_assignments')
     .select('id, date_from, date_to, periods, order_id').eq('substitution_id', substitutionId).eq('substitute_staff_id', staffId).order('date_from')
   if (res.error) return { error: 'Пуснете SQL файла 2026-10-30_substitution_part_orders.sql (заместник на заместника)' }
@@ -697,6 +700,7 @@ export async function getDeclarationData(substitutionId: string) {
       sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name, position)`)
     .eq('id', substitutionId).single()
   if (!sub) return { error: 'Не е намерено' }
+  if (isOpenEnd(sub.date_to)) return { error: 'Отсъствието е без крайна дата. Въведете докога е и опитайте пак.' }
 
   const { data: cy } = await supabase.from('academic_years').select('id, name').eq('is_current', true).single()
 

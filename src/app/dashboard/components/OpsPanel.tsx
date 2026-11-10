@@ -1,3 +1,4 @@
+import { isOpenEnd } from '@/lib/open-end'
 import Link from 'next/link'
 import { iupPeriod, inIup, iupDoneClasses } from '@/lib/iup-period'
 import { createClient } from '@/lib/supabase/server'
@@ -134,7 +135,7 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
           const waitingRows = allToday.filter(r => !r.by && r.substitutable)
           const away = allToday.filter(r => !r.by && !r.substitutable)
           const sn = (n: string) => { const [f, l] = n.trim().split(/\s+/); return l ? `${f} ${l[0]}.` : f }
-          const until = (iso: string) => iso.split('-').reverse().slice(0, 2).join('.')
+          const until = (iso: string) => isOpenEnd(iso) ? 'без крайна дата' : iso.split('-').reverse().slice(0, 2).join('.')
           // спокойно: едни и същи заглавия на групите, имената тъмни, датите сиви; цвят — само малка точка пред групата
           const Group = ({ label, dot, children }: { label: string; dot?: string; children: React.ReactNode }) => (
             <div>

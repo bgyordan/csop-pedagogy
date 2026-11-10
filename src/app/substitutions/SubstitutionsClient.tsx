@@ -13,8 +13,9 @@ import { generateSubstitutionOrder } from '@/lib/docx-substitution'
 import SubstituteDayCanvas, { PALETTE } from './SubstituteDayCanvas'
 import type { SubRow } from './page'
 import { canSubstitute, canBeSubstituted } from '@/lib/pedagogues'
+import { isOpenEnd } from '@/lib/open-end'
 
-import { reasonFromKt, KT_ARTICLES, fmt, orderRef, MONTHS_BG, firstOwner, mapToRows, rowsToMap, shortName, uniqueSubs, OverNormPick, PersonCombo, DateField, schoolMonths, MorePeriods, type Staff, type AssignRow } from './sub-helpers'
+import { reasonFromKt, KT_ARTICLES, fmt, orderRef, MONTHS_BG, firstOwner, mapToRows, rowsToMap, shortName, uniqueSubs, OverNormPick, PersonCombo, DateField, EndDateField, REASON_BADGE, schoolMonths, MorePeriods, type Staff, type AssignRow } from './sub-helpers'
 
 export default function SubstitutionsClient({ rows: initial, staff, years = [], yearId = 'all', schoolYearStart = null }: {
   rows: SubRow[]; staff: Staff[]
@@ -66,6 +67,8 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
   const [showAbsentOnly, setShowAbsentOnly] = useState(false)
   // „за довършване“: бърз филтър на записите без заместник / без заповед
   const [todo, setTodo] = useState<null | 'nosub' | 'noorder'>(null)
+  // вид: болничен / отпуск / друго
+  const [kind, setKind] = useState('')
   // отпуск в няколко периода: „Създай заповед“ само на период 1 — заповедта е обща (същият заместник, без разпределение по дни)
   const sharedOrderWithFirst = (r: SubRow) => {
     if (!r.group || r.group.i === 1 || !r.substituteId || r.assigns?.length) return false
@@ -241,13 +244,14 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
     return rows.filter(r => {
       if (npOnly && !r.bsch) return false
       if (!showAbsentOnly && isAbsentOnly(r)) return false
+      if (kind && r.reason !== kind) return false
       if (todo === 'nosub' && !needsSub(r)) return false
       if (todo === 'noorder' && !needsOrder(r)) return false
       if (per && !(r.dateFrom <= per.last && r.dateTo >= per.first)) return false
       if (q && !(smartMatch(r.absentName, q) || smartMatch(r.substituteName || '', q))) return false
       return true
     })
-  }, [rows, search, npOnly, periodIdx, showAbsentOnly, todo]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rows, search, npOnly, periodIdx, showAbsentOnly, todo, kind]) // eslint-disable-line react-hooks/exhaustive-deps
   const todoCount = useMemo(() => ({ nosub: rows.filter(needsSub).length, noorder: rows.filter(needsOrder).length }), [rows]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (todo && todoCount[todo] === 0) setTodo(null) }, [todo, todoCount])
   const absentOnlyCount = useMemo(() => rows.filter(isAbsentOnly).length, [rows]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -325,6 +329,7 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
     if (nExtra.some(p => !p.from || !p.to)) { toast('Попълнете от – до на всеки период', 'error'); return }
     for (const p of nExtra) { const d2 = await overlapMsg(absentId, p.from, p.to); if (d2) { toast(d2, 'error'); return } }
     const subbable = newSubstitutable
+    if (isOpenEnd(to) && (multiOpen || nExtra.length)) { toast('При „не се знае до кога“ изберете един заместник и един период — разпределение по дни се прави, когато има крайна дата', 'error'); return }
     const kErr = ktPartsError(ktParts, from, to)
     if (kErr) { toast(kErr, 'error'); return }
     const dup = await overlapMsg(absentId, from, to)
@@ -430,6 +435,7 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
   async function saveEdit() {
     if (!editId || !eAbsent || !eFrom || !eTo) { toast('Отсъстващ и срок са задължителни', 'error'); return }
     if (eExtra.some(p => !p.from || !p.to)) { toast('Попълнете от – до на всеки период', 'error'); return }
+    if (isOpenEnd(eTo) && (multiOpen || eExtra.length)) { toast('При „не се знае до кога“ изберете един заместник и един период — разпределение по дни се прави, когато има крайна дата', 'error'); return }
     const kErr = ktPartsError(eKtParts, eFrom, eTo)
     if (kErr) { toast(kErr, 'error'); return }
     const dup = await overlapMsg(eAbsent, eFrom, eTo, editId)
@@ -505,6 +511,13 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
             <option value={-1}>Всички периоди</option>
             {SCHOOL_MONTHS_FILTER.map((m, i) => <option key={i} value={i}>{m.label}</option>)}
           </select>
+          <select value={kind} onChange={e => setKind(e.target.value)} title="Вид на отсъствието"
+            className="text-xs font-medium border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-[#0f2240] focus:outline-none focus:border-slate-400 flex-shrink-0 cursor-pointer">
+            <option value="">Всички видове</option>
+            <option value="sick">Болнични</option>
+            <option value="vacation">Отпуски</option>
+            <option value="other">Други</option>
+          </select>
           <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Търсене по име…"
@@ -579,7 +592,7 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">До *</label>
-              <DateField value={to} min={from || undefined} toast={toast} onChange={setTo} />
+              <EndDateField value={to} min={from || undefined} toast={toast} onChange={setTo} />
             </div>
             <MorePeriods list={nExtra} onChange={setNExtra} disabled={multiOpen} />
             <div className="sm:col-span-2">
@@ -672,10 +685,10 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
           <div className="bg-white border border-slate-200 rounded-2xl px-6 py-14 text-center shadow-[0_1px_6px_rgba(15,34,64,0.08)]">
             <div className="mx-auto mb-3 w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400"><CalendarClock size={20} /></div>
             <p className="text-sm text-slate-500">
-              {search ? <>Няма резултати за „<span className="text-slate-700">{search}</span>“.</> : npOnly || todo || periodIdx >= 0 ? 'Няма замествания по този филтър.' : 'Още няма замествания.'}
+              {search ? <>Няма резултати за „<span className="text-slate-700">{search}</span>“.</> : npOnly || todo || kind || periodIdx >= 0 ? 'Няма замествания по този филтър.' : 'Още няма замествания.'}
             </p>
-            {(search || npOnly || periodIdx >= 0) && (
-              <button type="button" onClick={() => { setSearch(''); setNpOnly(false); setPeriodIdx(-1) }}
+            {(search || npOnly || todo || kind || periodIdx >= 0) && (
+              <button type="button" onClick={() => { setSearch(''); setNpOnly(false); setPeriodIdx(-1); setTodo(null); setKind('') }}
                 className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50">
                 Изчисти филтрите
               </button>
@@ -701,7 +714,10 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
               {(() => { const o = orderRef(r); return o
                 ? <span className="text-xs tabular-nums whitespace-nowrap" title={`Заповед № ${o.full}`}><span className="text-slate-700">№ {o.n}</span>{o.d && <span className="text-slate-400"> / {o.d}</span>}</span>
                 : <span className="text-xs text-slate-300" title={r.noOrder ? 'Без заповед' : 'Заповедта не е издадена'}>—</span> })()}
-              <span className="text-sm text-slate-800 bg-rose-50/50 rounded-md px-2 py-1">{r.absentName}</span>
+              <span className="text-sm text-slate-800 bg-rose-50/50 rounded-md px-2 py-1 flex items-center gap-1.5 min-w-0">
+                <span className="truncate">{r.absentName}</span>
+                {REASON_BADGE[r.reason] && <span className={`shrink-0 text-[10px] px-1.5 py-px rounded-full border ${REASON_BADGE[r.reason].cls}`}>{REASON_BADGE[r.reason].label}</span>}
+              </span>
               {multi ? (
                 <span className="flex items-center gap-1 flex-wrap min-w-0">
                   {subs.map((x, i) => { const c = PALETTE[i % PALETTE.length]; return (
@@ -855,7 +871,7 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
               </div>
               <div>
                 <label className="block text-xs text-slate-500 mb-1">До *</label>
-                <DateField value={eTo} min={eFrom || undefined} toast={toast} onChange={setETo} />
+                <EndDateField value={eTo} min={eFrom || undefined} toast={toast} onChange={setETo} />
               </div>
               {(() => { const er = rows.find(x => x.id === editId); const locked = !!(er?.hasOrder || (er as any)?.manualNumber); return (
                 <MorePeriods list={eExtra} onChange={setEExtra} disabled={multiOpen} locked={locked && eExtra.length > 0}

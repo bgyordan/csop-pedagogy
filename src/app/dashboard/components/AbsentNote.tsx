@@ -8,6 +8,7 @@
 // • compact — за картата на управата: само карфица в заглавието (картата си показва списъка).
 // Стил: едно мастило (тъмносиньо), датите в сиво, „ново“ — единственият червен акцент; всеки колега на два реда
 // (име · до кога / под него „замества: …“); бледи редове на тетрадката, без червено поле.
+import { isOpenEnd } from '@/lib/open-end'
 import '@fontsource/caveat/500.css'
 import '@fontsource/caveat/700.css'
 import { useEffect, useState } from 'react'
@@ -43,7 +44,7 @@ export default function AbsentNote({ rows, today, compact = false }: { rows: Tod
   const isNew = (r: TodayAbsence) => !!seen && !seen.has(keyOf(r))
   const newCount = seen ? rows.filter(isNew).length : 0
   const subs = (r: TodayAbsence) => r.by.split(', ').map(short)
-  const until = (r: TodayAbsence) => `${r.from === today ? 'от днес, ' : ''}до ${dm(r.to)}`
+  const until = (r: TodayAbsence) => isOpenEnd(r.to) ? (r.from === today ? 'от днес' : '') : `${r.from === today ? 'от днес, ' : ''}до ${dm(r.to)}`
 
   // малката бележка: най-много 4 реда — първо заместванията, после отсъстващите
   const preview = [...subRows, ...awayRows].slice(0, 4)
@@ -72,7 +73,7 @@ export default function AbsentNote({ rows, today, compact = false }: { rows: Tod
                   <span className="text-[#0f2240]">{short(r.absent)}</span>
                   {r.by && <span className="text-slate-400 text-[17px]"> · замества {subs(r).join(', ')}</span>}
                 </span>
-                <span className="text-slate-400 text-[17px] tabular-nums shrink-0">до {dm(r.to)}</span>
+                <span className="text-slate-400 text-[17px] tabular-nums shrink-0">{isOpenEnd(r.to) ? '' : `до ${dm(r.to)}`}</span>
               </div>
             ))}
           </div>
