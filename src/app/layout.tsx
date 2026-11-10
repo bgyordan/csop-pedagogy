@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 // Шрифтът е в самия проект (@fontsource) — build-ът вече не тегли нищо от Google Fonts
 import '@fontsource/montserrat/300.css'
 import '@fontsource/montserrat/400.css'
@@ -21,7 +21,10 @@ import ImpersonationBar from '@/components/ImpersonationBar'
 export const metadata: Metadata = {
   title: 'Единна информационна система — ЦСОП Варна',
   description: 'Единна информационна система за управление на ЕПЛР и деловодство в ЦСОП Варна',
+  applicationName: 'ЕИС ЦСОП',
+  appleWebApp: { capable: true, title: 'ЕИС ЦСОП', statusBarStyle: 'default' },
 }
+export const viewport: Viewport = { themeColor: '#ffffff' }
 
 // Шрифт на цялата система. За връщане към стария: APP_FONT = "'Montserrat', system-ui, sans-serif"
 const APP_FONT = "'Inter', 'Montserrat', system-ui, sans-serif"

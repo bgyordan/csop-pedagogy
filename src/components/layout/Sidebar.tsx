@@ -13,6 +13,7 @@ import WhatsNewModal from './WhatsNewModal'
 import CommandPalette from './CommandPalette'
 import NavProgress from './NavProgress'
 import NotificationBell from './NotificationBell'
+import InstallApp from './InstallApp'
 import { useFavorites, rememberVisit, type NavEntry } from './nav-memory'
 import { cn } from '@/lib/utils'
 const SIDEBAR_BG = '#f0f7ff'
@@ -542,6 +543,8 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
                 className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs hover:bg-slate-50" style={{ color: TEXT_SECONDARY }}>
                 <Settings size={14} /> Вход и парола
               </Link>
+              <InstallApp onDone={() => setUserMenuOpen(false)}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs hover:bg-slate-50" style={{ color: TEXT_SECONDARY }} />
               <button onClick={handleLogout}
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs hover:bg-rose-50 hover:text-rose-700" style={{ color: TEXT_SECONDARY }}>
                 <LogOut size={14} /> Изход

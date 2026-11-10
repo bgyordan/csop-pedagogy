@@ -6,6 +6,8 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // /room/<token> — онлайн стаята за родителя: без вход, достъпът е самият личен линк
+  // файловете на приложението (описание, помощник, страница „няма връзка“) — без вход, в тях няма данни
+  if (pathname === '/manifest.webmanifest' || pathname === '/sw.js' || pathname === '/offline.html') return NextResponse.next()
   if (pathname.startsWith('/auth') || pathname.startsWith('/impersonate/stop') || pathname.startsWith('/room/')) {
     return NextResponse.next()
   }
