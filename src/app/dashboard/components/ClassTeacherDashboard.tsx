@@ -35,7 +35,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
       supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
     ])
     return (
-      <div className="animate-in fade-in duration-500 space-y-6">
+      <div className="animate-in fade-in duration-500 space-y-4">
         <div className="flex flex-wrap gap-3">
           <Link href="/my-schedule" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm text-sm text-slate-700 hover:border-slate-300 transition-colors">
             <CalendarClock size={16} className="text-slate-400" /> Разписание
@@ -182,11 +182,11 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
     }
   }).sort((a: any, b: any) => a.name.localeCompare(b.name, 'bg'))
   return (
-    <div className="animate-in fade-in duration-500">
+    <div className="animate-in fade-in duration-500 space-y-4">
       {/* Кампания ИУП: докато въвеждането е отворено и има неподадена паралелка */}
       {iupDue && (
         <Link href="/absences"
-          className="group mb-6 flex flex-wrap items-center gap-4 px-5 py-4 rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 ring-4 ring-amber-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition">
+          className="group flex flex-wrap items-center gap-4 px-5 py-4 rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 ring-4 ring-amber-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition">
           <span className="relative flex w-11 h-11 items-center justify-center rounded-xl bg-white border border-amber-200">
             <ClipboardList size={22} className="text-amber-600" />
             <span className="absolute -top-1 -right-1 flex h-3 w-3">
@@ -205,11 +205,11 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
       )}
 
       {/* Изтичащи документи (по срок, от student_documents) */}
-      <div className="mb-6">
+      <div>
         <ExpiringDocsCard studentIds={studentIds} />
       </div>
       {/* Лента на паралелката: коя е, колко деца + разписание и реализация на ИУП */}
-      <div className="flex flex-wrap items-center gap-3 mb-6 px-5 py-3.5 rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center gap-3 px-5 py-3.5 rounded-2xl border border-slate-200/70 bg-white shadow-sm">
         <div className="flex items-center gap-2.5 mr-auto">
           <Users size={18} className="text-sky-500" />
           <span className="text-base font-medium text-[#0f2240]">{myClasses.map((c: any) => paralelkaTitle(c.name)).join(', ')}</span>
@@ -231,9 +231,9 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
           </span>
         </Link>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* лявата част: децата (учебните планове са до календара най-горе) */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4">
           <ClassTeacherTabs paralelkaRows={paralelkaRows} eplrRows={eplrRows} therapyRows={therapyRows} className={myClasses[0].name} classId={myClasses[0].id} />
         </div>
         {/* дясната колона: съобщенията и споделеното от колегите */}

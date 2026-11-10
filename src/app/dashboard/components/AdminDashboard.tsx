@@ -113,9 +113,9 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
     })
   })
   return (
-    <div className="animate-in fade-in duration-500">
+    <div className="animate-in fade-in duration-500 space-y-4">
       {/* ── КЛЮЧОВИ ЧИСЛА ── */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         <Link href="/students" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all group col-span-2 md:col-span-1">
           <div className="flex items-center gap-2 mb-2">
             <Users size={15} className="text-blue-500" />
@@ -165,19 +165,19 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
       {/* ── ОПЕРАТИВНО: днес · реализация на ИУП · ЕПЛР ── */}
       <OpsPanel currentYearId={currentYearId} />
       {/* ── ИЗИСКВА ВНИМАНИЕ (сбито, вляво) + Срокове/Съобщения/Файлове (по-широко, вдясно) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6 items-start">
-      <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+      <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden flex flex-col">
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-100">
           <AlertTriangle size={14} className="text-slate-400" />
-          <h2 className="text-[13px] text-slate-700">Изисква внимание</h2>
+          <h2 className="dash-title">Изисква внимание</h2>
           {alerts.length > 0 && <span className="ml-auto text-[11px] text-slate-400 tabular-nums">{alerts.length}</span>}
         </div>
         {alerts.length === 0 ? (
-          <div className="px-4 py-4 text-[13px] text-slate-400 flex items-center gap-2">
+          <div className="dash-empty">
             <ShieldAlert size={14} className="text-emerald-400" /> Всичко е наред
           </div>
         ) : (
-          <div className="divide-y divide-slate-50">
+          <div className="divide-y divide-slate-50 dash-scroll">
             {alerts.map((a, i) => {
               // цветна точка вместо голяма икона: червена — просрочено/изтекло, жълта — скоро, синя — за сведение
               const dot = <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${a.type === 'error' ? 'bg-rose-400' : a.type === 'warning' ? 'bg-amber-400' : 'bg-sky-400'}`} />
@@ -210,7 +210,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
           </div>
         )}
       </div>
-      <div className="lg:col-span-3">
+      <div className="lg:col-span-3 grid">
         <ClassTeacherSide
           announcements={(announcements || []) as any}
           newsHref="/admin/announcements"
@@ -220,7 +220,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
       </div>
       </div>
       {/* Изтичащи документи */}
-      <div className="mb-6">
+      <div>
         <ExpiringDocsCard />
       </div>
     </div>

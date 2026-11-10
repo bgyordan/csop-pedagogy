@@ -152,9 +152,9 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
   const today = PERIOD_ORDER.filter(p => byPeriod[p]?.length).map(p => ({ time: PERIOD_START[p], kids: byPeriod[p] }))
 
   return (
-    <div className="animate-in fade-in duration-300">
+    <div className="animate-in fade-in duration-300 space-y-4">
       {/* Лента „Днес“: часовете ми за деня + бутоните към списъка и графика */}
-      <div className="flex flex-wrap items-center gap-3 mb-6 px-5 py-3.5 rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center gap-3 px-5 py-3.5 rounded-2xl border border-slate-200/70 bg-white shadow-sm">
         <div className="flex items-center gap-2 shrink-0">
           <CalendarClock size={18} className="text-teal-600" />
           <span className="text-base font-medium text-[#0f2240]">Днес</span>
@@ -183,7 +183,7 @@ export default async function SpecialistDashboard({ profile, currentYearId }: an
           </Link>
         </div>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <SpecialistTabs therapyRows={therapyRows} eplrRows={eplrRows} />
         </div>

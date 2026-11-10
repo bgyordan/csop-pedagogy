@@ -33,7 +33,7 @@ export default async function StudentAbsentStrip({ profile, currentYearId }: { p
     <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm px-5 py-3">
       <div className={`flex items-center gap-2 ${empty ? '' : 'mb-2'}`}>
         <CalendarX2 size={15} className="text-blue-600" />
-        <h2 className="text-sm text-slate-800">Отсъстващи деца</h2>
+        <h2 className="dash-title">Отсъстващи деца</h2>
         <span className="text-xs text-slate-400" title="Класният отразява семейни причини / медицинска бележка, за да знаят терапевтите и учителите">{empty ? 'няма отразени за 7 дни' : 'днес и следващите 7 дни'}</span>
         <span className="flex-1" />
         {mine.length > 0 && <AddStudentAbsence students={mine} />}

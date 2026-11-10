@@ -80,7 +80,7 @@ export default async function SecretaryDashboard({ profile, showShared = true }:
   const coudN = new Set((couds || []).map((c: any) => c.student_id)).size
 
   return (
-    <div className="animate-in fade-in duration-500 space-y-5">
+    <div className="animate-in fade-in duration-500 space-y-4">
 
       {/* Бързи бутони — най-честите действия с един клик */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -121,7 +121,7 @@ export default async function SecretaryDashboard({ profile, showShared = true }:
       </div>
 
       {/* Споделено от колеги (голяма карта) · вдясно: замествания, заявления, резерв, изтичащи договори */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* от портфолиото — само публикациите, чакащи за сайта (това е работата на деловодството там) */}
         {showShared && <div className="lg:col-span-2">
           <SharedFiles limit={5} portfolio="site" />
@@ -149,10 +149,10 @@ export default async function SecretaryDashboard({ profile, showShared = true }:
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
               <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
                 <AlertTriangle size={14} className="text-amber-600" />
-                <span className="text-[11px] font-semibold text-[#0f2240] uppercase tracking-widest flex-1">Изтичащи договори</span>
+                <span className="dash-title flex-1">Изтичащи договори</span>
                 <Link href="/contracts" className="text-xs text-slate-500 hover:text-[#0f2240] inline-flex items-center gap-1">Всички <ArrowRight size={13} /></Link>
               </div>
-              <div className="p-2">
+              <div className="p-2 dash-scroll">
                 {expiringContracts.map((c, idx) => {
                   const days = Math.ceil((new Date(c.end_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
                   return (

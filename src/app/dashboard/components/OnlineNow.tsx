@@ -9,7 +9,7 @@ export default async function OnlineNow() {
   if (error) return null   // колоната още не е добавена
   const people = data || []
   return (
-    <div className="flex flex-wrap items-center gap-2 mb-6 px-5 py-3 rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+    <div className="flex flex-wrap items-center gap-2 px-5 py-3 rounded-2xl border border-slate-200/70 bg-white shadow-sm">
       <span className="inline-flex items-center gap-2 text-sm text-slate-700 mr-1">
         <span className="relative flex w-2.5 h-2.5">
           <span className="absolute inline-flex w-full h-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
