@@ -14,7 +14,7 @@ type Decl = { id: string; periodFrom: string; periodTo: string; totalHours: numb
 const DAY_L = ['', 'понеделник', 'вторник', 'сряда', 'четвъртък', 'петък']
 function fmt(d: string) { return d ? d.split('-').reverse().join('.') : '' }
 // дати на заместването: при няколко заместника — само моите дни
-const datesOf = (r: MySubRow) => r.myDays || (r.dateFrom === r.dateTo ? fmt(r.dateFrom) : r.dateTo >= '2099-01-01' ? `от ${fmt(r.dateFrom)}, до второ нареждане` : `${fmt(r.dateFrom)} – ${fmt(r.dateTo)}`)
+const datesOf = (r: MySubRow) => r.myDays || (r.dateFrom === r.dateTo ? fmt(r.dateFrom) : r.dateTo >= '2099-01-01' ? `от ${fmt(r.dateFrom)}` : `${fmt(r.dateFrom)} – ${fmt(r.dateTo)}`)
 const STATUS: Record<string, { l: string; c: string }> = {
   submitted: { l: 'Подадена', c: 'bg-blue-50 text-blue-600' },
   verified: { l: 'Проверена', c: 'bg-emerald-50 text-emerald-600' },

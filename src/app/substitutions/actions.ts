@@ -397,7 +397,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   if (!sub) return { error: 'Заместването не е намерено' }
   if (!sub.substitute_staff_id) return { error: 'Няма избран заместник' }
 
-  if (isOpenEnd(sub.date_to)) return { error: 'Отсъствието е „до второ нареждане“ — заповед се издава за известен период. Въведете крайна дата (напр. края на болничния лист) и опитайте пак.' }
+  if (isOpenEnd(sub.date_to)) return { error: 'Отсъствието още няма крайна дата, а заповедта се издава за точен период. Въведете докога е и опитайте пак.' }
   // Отпуск в няколко периода по едно заявление (leave_group) → ЕДНА заповед за всички периоди,
   // когато са с един и същ заместник, без разпределение по дни, без части с друг член и без отделни заповеди.
   const group = await leaveGroupOf(supabase, sub)
@@ -592,7 +592,7 @@ export async function generatePartOrder(substitutionId: string, staffId: string)
        absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, position)`)
     .eq('id', substitutionId).single()
   if (!sub) return { error: 'Заместването не е намерено' }
-  if (isOpenEnd(sub.date_to)) return { error: 'Отсъствието е „до второ нареждане“ — заповед се издава за известен период. Въведете крайна дата (напр. края на болничния лист) и опитайте пак.' }
+  if (isOpenEnd(sub.date_to)) return { error: 'Отсъствието още няма крайна дата, а заповедта се издава за точен период. Въведете докога е и опитайте пак.' }
   const res = await supabase.from('substitution_assignments')
     .select('id, date_from, date_to, periods, order_id').eq('substitution_id', substitutionId).eq('substitute_staff_id', staffId).order('date_from')
   if (res.error) return { error: 'Пуснете SQL файла 2026-10-30_substitution_part_orders.sql (заместник на заместника)' }

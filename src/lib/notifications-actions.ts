@@ -4,7 +4,7 @@
 // или човекът няма достъп, просто не дава нищо, без да събаря останалите.
 import { createClient } from '@/lib/supabase/server'
 import { canSubstitute } from '@/lib/pedagogues'
-import { isOpenEnd, OPEN_END_TEXT } from '@/lib/open-end'
+import { isOpenEnd } from '@/lib/open-end'
 
 export type Notice = {
   key: string                       // устойчив ключ — по него се помни „видяно“
@@ -17,7 +17,7 @@ export type Notice = {
 const sofiaToday = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })
 const addDays = (iso: string, n: number) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
 const dm = (iso: string) => iso.slice(5, 10).split('-').reverse().join('.')
-const span = (a: string, b: string) => a === b ? dm(a) : isOpenEnd(b) ? `от ${dm(a)}, ${OPEN_END_TEXT}` : `${dm(a)} – ${dm(b)}`
+const span = (a: string, b: string) => a === b ? dm(a) : isOpenEnd(b) ? `от ${dm(a)}` : `${dm(a)} – ${dm(b)}`
 const dueTone = (due: string | null, today: string): Notice['tone'] => due && due < today ? 'rose' : 'amber'
 
 export async function getNotifications(): Promise<Notice[]> {

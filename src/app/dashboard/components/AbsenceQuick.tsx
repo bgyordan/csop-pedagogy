@@ -8,12 +8,12 @@ import { useRouter } from 'next/navigation'
 import { Plus, Pencil, Trash2, X, Loader2, UserX } from 'lucide-react'
 import { smartMatch } from '@/lib/search'
 import { useToast, confirmDialog } from '@/components/ui/Toast'
-import { OPEN_END, isOpenEnd, OPEN_END_TEXT } from '@/lib/open-end'
+import { OPEN_END, isOpenEnd } from '@/lib/open-end'
 import { saveQuickAbsence, deleteQuickAbsence, type QuickAbsence, type AbsenceKind } from '../absence-actions'
 
 type Person = { id: string; first_name: string; last_name: string; role?: string | null }
 const dm = (iso: string) => iso.split('-').reverse().slice(0, 2).join('.')
-const period = (a: string, b: string) => (a === b ? dm(a) : isOpenEnd(b) ? `от ${dm(a)}, ${OPEN_END_TEXT}` : `${dm(a)} – ${dm(b)}`)
+const period = (a: string, b: string) => (a === b ? dm(a) : isOpenEnd(b) ? `от ${dm(a)}` : `${dm(a)} – ${dm(b)}`)
 const KINDS: { v: AbsenceKind; l: string }[] = [{ v: 'sick', l: 'Болничен' }, { v: 'vacation', l: 'Отпуск' }, { v: 'other', l: 'Друго' }]
 const KIND_LABEL: Record<string, string> = { sick: 'болничен', vacation: 'отпуск', other: 'друго' }
 const todayIso = () => {
