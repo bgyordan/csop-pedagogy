@@ -152,7 +152,7 @@ export default async function SecretaryDashboard({ profile, showShared = true }:
                 <span className="dash-title flex-1">Изтичащи договори</span>
                 <Link href="/contracts" className="text-xs text-slate-500 hover:text-[#0f2240] inline-flex items-center gap-1">Всички <ArrowRight size={13} /></Link>
               </div>
-              <div className="p-2">
+              <div className="p-2 dash-scroll">
                 {expiringContracts.map((c, idx) => {
                   const days = Math.ceil((new Date(c.end_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
                   return (

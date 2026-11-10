@@ -13,15 +13,17 @@ export const isFreshFile = (iso?: string | null) => !!iso && Date.now() - new Da
 // Обща карта за дясната колона и файловете: заглавие + съдържание; празната е само един ред
 export function SideCard({ icon, title, right, empty, children }: { icon: ReactNode; title: string; right?: ReactNode; empty?: string; children?: ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm h-full">
-      <div className={`flex items-center gap-2 px-4 py-2.5 ${empty ? '' : 'border-b border-slate-100'}`}>
+    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm h-full flex flex-col">
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-100">
         <span className="text-slate-400">{icon}</span>
         <h2 className="dash-title">{title}</h2>
-        {empty && <span className="text-[12px] text-slate-400 font-light">· {empty}</span>}
         <span className="flex-1" />
         {right}
       </div>
-      {!empty && <div className="px-3 py-2">{children}</div>}
+      {/* празната карта казва, че е празна, по средата — не остава бяло поле, когато се изравни със съседната */}
+      {empty
+        ? <div className="dash-empty">{empty}</div>
+        : <div className="px-3 py-2 dash-scroll">{children}</div>}
     </div>
   )
 }

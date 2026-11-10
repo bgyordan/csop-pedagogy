@@ -217,3 +217,11 @@ table { font-variant-numeric: tabular-nums; }
 @media (min-width: 768px) {
   .dash-odd-wide > :last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
+/* Дълъг списък в карта не разтяга реда: над ~10 реда се превърта вътре в картата.
+   Така картите в един ред са еднакво високи, без някоя да стане много висока. */
+.dash-scroll { max-height: 16rem; overflow-y: auto; overscroll-behavior: contain; }
+/* Празна карта: краткият текст стои по средата на свободното място */
+.dash-empty {
+  flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+  padding: 0.875rem 1rem; font-size: 13px; color: #64748b; text-align: center;
+}
