@@ -87,8 +87,15 @@ export async function saveQuickAbsence(input: { id?: string; staffId: string; fr
       const { error } = await supabase.from('substitutions').update({ acting_staff_id: acting }).eq('id', input.id)
       if (error) return { error: /acting_staff_id/.test(error.message) ? SQL_HINT : error.message }
     } else {
-      // причината/членът от КТ не се пипат при редакция (може да са сложени в „Отсъствия и замествания“)
+      // видът се сменя и оттук; членът от КТ — само ако не е уточняван в „Отсъствия и замествания“
+      // (т.е. още е този по подразбиране за стария вид)
       const upd: any = { date_from: input.from, date_to: input.to }
+      if (input.kind && input.kind !== row.reason) {
+        const { data: cur } = await supabase.from('substitutions').select('reason, kt_article').eq('id', input.id).single()
+        upd.reason = input.kind
+        const oldDefault = KT[(cur?.reason as AbsenceKind) || 'other'] ?? null
+        if ((cur?.kt_article ?? null) === oldDefault) upd.kt_article = KT[input.kind]
+      }
       if (isDirector) upd.acting_staff_id = acting
       const { error } = await supabase.from('substitutions').update(upd).eq('id', input.id)
       if (error) return { error: /acting_staff_id/.test(error.message) ? SQL_HINT : error.message }

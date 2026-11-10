@@ -6,6 +6,7 @@ import { X, Plus } from 'lucide-react'
 import { smartMatch } from '@/lib/search'
 import { hourKey } from './SubstituteDayCanvas'
 import type { SubRow } from './page'
+import { OPEN_END, isOpenEnd } from '@/lib/open-end'
 export type Staff = { id: string; first_name: string; last_name: string; role?: string | null; teaching?: boolean }
 export const REASONS: Record<string, string> = { sick: 'Болничен', vacation: 'Отпуск', other: 'Друго' }
 export function reasonFromKt(kt: string): string { return kt === '162' ? 'sick' : (kt === '160' || kt === '161' || kt === '176' ? 'other' : 'vacation') }
@@ -20,7 +21,7 @@ export const KT_ARTICLES: { v: string; l: string }[] = [
   { v: '170', l: 'чл. 170 – отпуск за изпълнение на граждански/обществени задължения' },
   { v: '176', l: 'чл. 176 – отпуск по други причини' },
 ]
-export function fmt(d: string) { return d ? d.split('-').reverse().join('.') : '—' }
+export function fmt(d: string) { return !d ? '—' : isOpenEnd(d) ? 'не се знае' : d.split('-').reverse().join('.') }
 // Номерът на заповедта за колоната: „041/12.10.2026г.“ → { n: '041', d: '12.10' }; ръчен номер → с неговата дата
 export function orderRef(r: SubRow): { n: string; d: string; full: string } | null {
   const raw = (r.orderNumber || r.manualNumber || '').trim()
@@ -151,6 +152,29 @@ export function DateField({ value, onChange, min, toast }: { value: string; onCh
       }}
       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400" />
   )
+}
+
+// „До“ с възможност за „не се знае до кога“ (болничен без крайна дата) — пази условната далечна дата
+export function EndDateField({ value, onChange, min, toast, disabled }: { value: string; onChange: (v: string) => void; min?: string; toast: (m: string, t?: any) => void; disabled?: boolean }) {
+  if (isOpenEnd(value)) return (
+    <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900">
+      <span className="flex-1">не се знае до кога</span>
+      {!disabled && <button type="button" onClick={() => onChange('')} title="Въведи крайна дата" className="p-0.5 rounded text-amber-700 hover:bg-amber-100"><X size={14} /></button>}
+    </div>
+  )
+  return (
+    <div>
+      <DateField value={value} min={min} toast={toast} onChange={onChange} />
+      {!disabled && <button type="button" onClick={() => onChange(OPEN_END)} className="mt-1 text-[11px] text-slate-500 hover:text-[#0f2240] underline decoration-dotted underline-offset-2">не се знае до кога</button>}
+    </div>
+  )
+}
+
+// Вид на отсъствието — малък цветен етикет в списъка
+export const REASON_BADGE: Record<string, { label: string; cls: string }> = {
+  sick: { label: 'болничен', cls: 'bg-rose-50 text-rose-700 border-rose-200' },
+  vacation: { label: 'отпуск', cls: 'bg-sky-50 text-sky-700 border-sky-200' },
+  other: { label: 'друго', cls: 'bg-slate-50 text-slate-600 border-slate-200' },
 }
 
 // Месеците на избраната учебна година (без избрана — на текущата по календар)

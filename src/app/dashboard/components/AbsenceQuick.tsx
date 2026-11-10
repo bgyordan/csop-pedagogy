@@ -8,11 +8,14 @@ import { useRouter } from 'next/navigation'
 import { Plus, Pencil, Trash2, X, Loader2, UserX } from 'lucide-react'
 import { smartMatch } from '@/lib/search'
 import { useToast, confirmDialog } from '@/components/ui/Toast'
+import { OPEN_END, isOpenEnd, OPEN_END_TEXT } from '@/lib/open-end'
 import { saveQuickAbsence, deleteQuickAbsence, type QuickAbsence, type AbsenceKind } from '../absence-actions'
 
 type Person = { id: string; first_name: string; last_name: string; role?: string | null }
 const dm = (iso: string) => iso.split('-').reverse().slice(0, 2).join('.')
-const period = (a: string, b: string) => (a === b ? dm(a) : `${dm(a)} – ${dm(b)}`)
+const period = (a: string, b: string) => (a === b ? dm(a) : isOpenEnd(b) ? `от ${dm(a)}, ${OPEN_END_TEXT}` : `${dm(a)} – ${dm(b)}`)
+const KINDS: { v: AbsenceKind; l: string }[] = [{ v: 'sick', l: 'Болничен' }, { v: 'vacation', l: 'Отпуск' }, { v: 'other', l: 'Друго' }]
+const KIND_LABEL: Record<string, string> = { sick: 'болничен', vacation: 'отпуск', other: 'друго' }
 const todayIso = () => {
   const n = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Sofia' }))
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
@@ -61,8 +64,8 @@ export default function AbsenceQuick({ mode, me, people, rows }: {
   const [staffId, setStaffId] = useState(mode === 'self' ? me.id : '')
   const [from, setFrom] = useState(todayIso())
   const [to, setTo] = useState(todayIso())
-  // причината не се показва никъде — записва се като „Друго“ (член от КТ, ако трябва — в „Отсъствия и замествания“)
-  const kind: AbsenceKind = 'other'
+  // видът (болничен / отпуск / друго) го виждат само управата и деловодството — на листчето за колегите го няма)
+  const [kind, setKind] = useState<AbsenceKind>(mode === 'desk' ? 'sick' : 'other')
   const [acting, setActing] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -73,10 +76,10 @@ export default function AbsenceQuick({ mode, me, people, rows }: {
 
   function reset() {
     setOpen(false); setEditId(null); setStaffId(mode === 'self' ? me.id : ''); setFrom(todayIso()); setTo(todayIso())
-    setActing('')
+    setActing(''); setKind(mode === 'desk' ? 'sick' : 'other')
   }
   function startEdit(r: QuickAbsence) {
-    setEditId(r.id); setStaffId(r.staffId); setFrom(r.from); setTo(r.to); setActing(r.actingId || ''); setOpen(true)
+    setEditId(r.id); setStaffId(r.staffId); setFrom(r.from); setTo(r.to); setActing(r.actingId || ''); setKind((['sick', 'vacation', 'other'].includes(r.reason) ? r.reason : 'other') as AbsenceKind); setOpen(true)
   }
   async function save() {
     setBusy(true)
@@ -107,8 +110,25 @@ export default function AbsenceQuick({ mode, me, people, rows }: {
         <div><label className="block text-[11px] text-slate-500 mb-1">От</label>
           <input type="date" value={from} disabled={locked} onChange={e => { setFrom(e.target.value); if (to < e.target.value) setTo(e.target.value) }} className={inp} /></div>
         <div><label className="block text-[11px] text-slate-500 mb-1">До</label>
-          <input type="date" value={to} min={from} disabled={locked} onChange={e => setTo(e.target.value)} className={inp} /></div>
+          {isOpenEnd(to)
+            ? <div className={`${inp} !bg-amber-50 !border-amber-200 text-amber-900`}>не се знае</div>
+            : <input type="date" value={to} min={from} disabled={locked} onChange={e => setTo(e.target.value)} className={inp} />}</div>
       </div>
+      {!locked && (
+        <label className="flex items-center gap-2 text-[12.5px] text-slate-600 cursor-pointer">
+          <input type="checkbox" checked={isOpenEnd(to)} onChange={e => setTo(e.target.checked ? OPEN_END : (from > todayIso() ? from : todayIso()))} />
+          Не се знае до кога (напр. болничен) — крайната дата се слага, когато стане ясна
+        </label>
+      )}
+      {!locked && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] text-slate-500 mr-1">Вид</span>
+          {KINDS.map(k => (
+            <button key={k.v} type="button" onClick={() => setKind(k.v)}
+              className={`text-[12px] px-2.5 py-1 rounded-full border transition-colors ${kind === k.v ? 'bg-[#0f2240] border-[#0f2240] text-white' : 'bg-white border-slate-300 text-slate-600 hover:border-slate-500'}`}>{k.l}</button>
+          ))}
+        </div>
+      )}
       {isDirector && (
         <div>
           <label className="block text-[11px] text-slate-500 mb-1">Замества ме като директор (по заповедта за ролята)</label>
@@ -133,7 +153,7 @@ export default function AbsenceQuick({ mode, me, people, rows }: {
           <div className="min-w-0 flex-1">
             <div className="text-[13px] text-slate-800 truncate">
               {mode === 'desk' ? r.name : 'Отсъствам'}
-              <span className="text-slate-400"> · {period(r.from, r.to)}</span>
+              <span className="text-slate-400"> · {period(r.from, r.to)}{KIND_LABEL[r.reason] ? ` · ${KIND_LABEL[r.reason]}` : ''}</span>
             </div>
             <div className="text-[11.5px] text-slate-400 truncate">
               {r.actingName && <>замества като директор: {r.actingName}</>}
