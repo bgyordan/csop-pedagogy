@@ -6,6 +6,7 @@ import { checkDeclarablePeriod } from '@/lib/declaration-periods'
 import { loadLecturerRates, effectiveRates } from '@/lib/lecturer-rates'
 import { coudPeriod, periodsOverlap, PERIOD_LABEL, PERIOD_TIMES } from '@/lib/periods'
 import { NP_KT, ktOn, type KtPart } from '@/lib/kt'
+import { nextOrderSeq, orderNumberText, insertNumberedOrder } from '@/lib/delo-seq'
 
 // Днешна дата по българско време (сървърът е в UTC — след полунощ даваше вчерашна дата)
 function sofiaToday() {
@@ -183,17 +184,10 @@ async function partOrdersBySub(supabase: any, subs: { id: string; substitution_o
   return out
 }
 
-// Следващ номер на заповед — max seq +1 в текущата деловодна година (15.09–14.09)
-async function nextOrderNo(supabase: any) {
+// Номер за Word, когато заповедта НЕ се завежда (само преглед) — същото броене като в регистъра (src/lib/delo-seq.ts)
+async function previewOrderNo(supabase: any) {
   const orderDate = sofiaToday()
-  const _p = orderDate.split('-').map(Number)
-  const _startYear = (_p[1] > 9 || (_p[1] === 9 && _p[2] >= 15)) ? _p[0] : _p[0] - 1
-  const dStart = `${_startYear}-09-15`, dEnd = `${_startYear + 1}-09-14`
-  const { data: maxRow } = await supabase
-    .from('orders').select('seq').gte('date', dStart).lte('date', dEnd)
-    .order('seq', { ascending: false, nullsFirst: false }).limit(1).maybeSingle()
-  const nextSeq = ((maxRow?.seq as number) || 0) + 1
-  return { orderDate, nextSeq, orderNumber: `${String(nextSeq).padStart(3, '0')}/${orderDate.split('-').reverse().join('.')}г.` }
+  return { orderDate, orderNumber: orderNumberText(await nextOrderSeq(supabase, orderDate), orderDate) }
 }
 
 async function coudLabel(supabase: any, staffId: string): Promise<string> {
@@ -473,26 +467,24 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
     orderNumber = (sub as any).manual_order_number
     orderDate = (sub as any).manual_order_date || sofiaToday()
   } else {
-    // 4. Номер от общия брояч — max seq +1 САМО в текущата деловодна година (15.09–14.09)
-    const no = await nextOrderNo(supabase)
-    orderDate = no.orderDate; orderNumber = no.orderNumber
-    const nextSeq = no.nextSeq
-
-    // 5. Създаваме заповедта в orders (РД-08)
+    // 4–5. Номер от общия брояч на регистъра (деловодна година 15.09–14.09) и запис в orders (РД-08)
     if (register) {
-      const { data: order, error: oErr } = await supabase.from('orders').insert({
-        number: orderNumber, date: orderDate,
+      const order = await insertNumberedOrder(supabase, sofiaToday(), {
         title: `Заповед за заместване на ${absentName}`,
         nomenclature_item: 'РД-08',
         description: `Заместник: ${subName}, ${group ? 'периоди ' + group.map(g => `${g.date_from.split('-').reverse().join('.')}–${g.date_to.split('-').reverse().join('.')}`).join(', ') : `период ${sub.date_from.split('-').reverse().join('.')}–${sub.date_to.split('-').reverse().join('.')}`}`,
-        created_by: me?.id || null, seq: nextSeq,
+        created_by: me?.id || null,
         without_hours: noHours,
-      }).select('id').single()
-      if (oErr) return { error: 'Грешка при създаване на заповедта: ' + oErr.message }
+      })
+      if ('error' in order) return { error: 'Грешка при създаване на заповедта: ' + order.error }
+      orderDate = sofiaToday(); orderNumber = order.number
       // 6. Връзваме заповедта към заместването (+ към редовете на разпределението — те са покрити от нея)
       await supabase.from('substitutions').update({ substitution_order_id: order.id }).in('id', group ? group.map(g => g.id) : [substitutionId])
       await supabase.from('substitution_assignments').update({ order_id: order.id }).eq('substitution_id', substitutionId).is('order_id', null)
       ;(sub as any).substitution_order_id = order.id
+    } else {
+      const no = await previewOrderNo(supabase)
+      orderDate = no.orderDate; orderNumber = no.orderNumber
     }
   }
 
@@ -651,18 +643,16 @@ export async function generatePartOrder(substitutionId: string, staffId: string)
     orderNumber = o?.number || '…………'; orderDate = o?.date || sofiaToday()
     if (!noHours) await supabase.from('orders').update({ without_hours: false }).eq('id', existingId)
   } else {
-    const no = await nextOrderNo(supabase)
-    orderNumber = no.orderNumber; orderDate = no.orderDate
     const fmtD = (d: string) => d.split('-').reverse().join('.')
-    const { data: order, error: oErr } = await supabase.from('orders').insert({
-      number: orderNumber, date: orderDate,
+    const order = await insertNumberedOrder(supabase, sofiaToday(), {
       title: `Заповед за заместване на ${absentName}`,
       nomenclature_item: 'РД-08',
       description: `Заместник: ${subName}, период ${fmtD(from)}–${fmtD(to)} (поема дните на друг заместник)`,
-      created_by: me?.id || null, seq: no.nextSeq,
+      created_by: me?.id || null,
       without_hours: noHours,
-    }).select('id').single()
-    if (oErr) return { error: 'Грешка при създаване на заповедта: ' + oErr.message }
+    })
+    if ('error' in order) return { error: 'Грешка при създаване на заповедта: ' + order.error }
+    orderNumber = order.number; orderDate = sofiaToday()
     await supabase.from('substitution_assignments').update({ order_id: order.id }).in('id', parts.map(a => a.id))
   }
 

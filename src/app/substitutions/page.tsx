@@ -31,7 +31,7 @@ export interface SubRow {
   // заместник, който отсъства в дни, в които замества тук → кой поема
   conflicts: { staffId: string; name: string; from: string; to: string; suggestedId?: string | null }[]
 }
-export default async function SubstitutionsPage() {
+export default async function SubstitutionsPage({ searchParams }: { searchParams: Promise<{ y?: string }> }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
@@ -40,20 +40,38 @@ export default async function SubstitutionsPage() {
   const canManage = ['admin', 'zdud', 'director', 'secretary'].includes(profile?.role || '')
   if (!canManage) redirect('/dashboard')
 
+  // Учебна година: по подразбиране текущата — списъкът не тегли всички години наведнъж.
+  // Прозорецът е от началото на годината до деня преди следващата (лятото остава към своята година);
+  // най-новата е без горна граница, най-старата — без долна. „y=all“ показва всичко.
+  const { y } = await searchParams
+  const { data: yearsRaw } = await supabase.from('academic_years').select('id, name, start_date, is_current').order('start_date')
+  const years = (yearsRaw || []) as { id: string; name: string; start_date: string; is_current: boolean }[]
+  const curYear = y === 'all' ? null : (years.find(v => v.id === y) || years.find(v => v.is_current) || years[years.length - 1] || null)
+  const idx = curYear ? years.indexOf(curYear) : -1
+  const dayBefore = (iso: string) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10) }
+  const winFrom = curYear && idx > 0 ? curYear.start_date : null
+  const winTo = curYear && idx < years.length - 1 ? dayBefore(years[idx + 1].start_date) : null
+  const inWindow = <T extends { gte: any; lte: any }>(q: T): T => {
+    let r: any = q
+    if (winFrom) r = r.gte('date_to', winFrom)
+    if (winTo) r = r.lte('date_from', winTo)
+    return r
+  }
+
   // Всичко за списъка се чете наведнъж (успоредно), а не едно след друго
   const [mainRes, grpRes, asgRes, staffRes, teaching] = await Promise.all([
-    supabase
+    inWindow(supabase
       .from('substitutions')
       .select(`id, date_from, date_to, reason, absent_staff_id, substitute_staff_id, substitution_order_id, manual_order_number, manual_order_date, no_order_needed, bsch_eligible, over_norm,
         absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, role),
-        sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name)`)
+        sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name)`))
       .order('date_from', { ascending: false }),
     // отпуск в няколко периода (leave_group) — „период 1 от 2“; преди SQL файла — без него
-    supabase.from('substitutions').select('id, leave_group, date_from').not('leave_group', 'is', null).order('date_from'),
+    inWindow(supabase.from('substitutions').select('id, leave_group, date_from').not('leave_group', 'is', null)).order('date_from'),
     // разпределение при няколко заместника — зарежда се заедно със списъка (без да се отваря редакция)
-    supabase
+    inWindow(supabase
       .from('substitution_assignments')
-      .select('*, sub:staff_profiles!substitution_assignments_substitute_staff_id_fkey(first_name, last_name)')
+      .select('*, sub:staff_profiles!substitution_assignments_substitute_staff_id_fkey(first_name, last_name)'))
       .order('date_from'),
     supabase.from('staff_profiles').select('id, first_name, last_name, role').eq('is_active', true),
     // с преподавателска заетост (разписание / ИЧ / учебен план) — заместват се, независимо от ролята
@@ -159,10 +177,13 @@ export default async function SubstitutionsPage() {
           <h1 className="text-2xl font-light text-[#0f2240] leading-tight mt-0.5">Отсъствия и замествания</h1>
         </div>
         <div className="text-sm text-slate-500 tabular-nums">
-          {rows.length} записа
+          {rows.length} записа{curYear ? ` · ${curYear.name}` : ''}
         </div>
       </header>
-      <SubstitutionsClient rows={rows} staff={staff || []} />
+      <SubstitutionsClient rows={rows} staff={staff || []}
+        years={[...years].reverse().map(v => ({ id: v.id, name: v.name }))}
+        yearId={curYear?.id || 'all'}
+        schoolYearStart={curYear ? Number(curYear.start_date.slice(0, 4)) : null} />
     </div>
   )
 }
