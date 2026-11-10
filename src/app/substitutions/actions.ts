@@ -168,12 +168,16 @@ const isAbsentOn = (abs: Record<string, { from: string; to: string }[]>, staffId
 
 // Собствени заповеди на части от разпределението (заместник на заместника): subId -> staffId -> order_id.
 // Само тези, различни от основната заповед на заместването. Без миграцията 2026-10-30 — празно.
-async function partOrdersBySub(supabase: any, subs: { id: string; substitution_order_id?: string | null }[]): Promise<Record<string, Record<string, { number: string; date: string }>>> {
-  const out: Record<string, Record<string, { number: string; date: string }>> = {}
+// Заместник на заместника — заповедите са ПО ДНИ: един и същ колега може да е заместник по основната заповед
+// в едни дни и по своя (отделна) заповед в други. Връща за всеки ред от разпределението с ОТДЕЛНА заповед
+// неговия период + номера, за да се избира заповедта за всяка дата поотделно.
+type PartRange = { from: string; to: string; number: string; date: string }
+async function partOrderRangesBySub(supabase: any, subs: { id: string; substitution_order_id?: string | null }[]): Promise<Record<string, Record<string, PartRange[]>>> {
+  const out: Record<string, Record<string, PartRange[]>> = {}
   if (subs.length === 0) return out
   const main: Record<string, string | null> = Object.fromEntries(subs.map(x => [x.id, x.substitution_order_id || null]))
   const { data, error } = await supabase.from('substitution_assignments')
-    .select('substitution_id, substitute_staff_id, order_id').in('substitution_id', subs.map(x => x.id)).not('order_id', 'is', null)
+    .select('substitution_id, substitute_staff_id, date_from, date_to, order_id').in('substitution_id', subs.map(x => x.id)).not('order_id', 'is', null)
   if (error || !data?.length) return out
   const own = (data as any[]).filter(a => a.order_id !== main[a.substitution_id])
   const ids = Array.from(new Set(own.map(a => a.order_id)))
@@ -181,9 +185,11 @@ async function partOrdersBySub(supabase: any, subs: { id: string; substitution_o
   const { data: os } = await supabase.from('orders').select('id, number, date').in('id', ids)
   const byId: Record<string, { number: string; date: string }> = {}
   ;(os || []).forEach((o: any) => { byId[o.id] = { number: o.number || '', date: o.date || '' } })
-  own.forEach(a => { if (byId[a.order_id]) ((out[a.substitution_id] ||= {})[a.substitute_staff_id] ||= byId[a.order_id]) })
+  own.forEach(a => { const o = byId[a.order_id]; if (o) ((out[a.substitution_id] ||= {})[a.substitute_staff_id] ||= []).push({ from: a.date_from, to: a.date_to, ...o }) })
   return out
 }
+const partOrderOn = (m: Record<string, Record<string, PartRange[]>>, subId: string, staffId: string, iso: string) =>
+  (m[subId]?.[staffId] || []).find(r => r.from <= iso && r.to >= iso) || null
 
 // Номер за Word, когато заповедта НЕ се завежда (само преглед) — същото броене като в регистъра (src/lib/delo-seq.ts)
 async function previewOrderNo(supabase: any) {
@@ -866,7 +872,7 @@ async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_na
   }
   const assignMap = await assignmentsBySub(supabase, subs.map((x: any) => x.id))
   const ktMap = await ktPartsBySub(supabase, subs.map((x: any) => x.id))
-  const partOrders = await partOrdersBySub(supabase, subs as any[])
+  const partOrders = await partOrderRangesBySub(supabase, subs as any[])
   const absMap = await absenceRanges(supabase, first, last)
 
 
@@ -884,9 +890,7 @@ async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_na
     } else if (sub.manual_order_number) {
       orderRef = orderRefText(sub.manual_order_number, sub.manual_order_date)
     }
-    // заместник на заместника — моите дни са по моя (отделна) заповед
-    const myOwn = partOrders[sub.id]?.[me.id]
-    if (myOwn?.number) orderRef = orderRefText(myOwn.number, myOwn.date)
+    // заместник на заместника — дните по моя (отделна) заповед получават нейния номер; останалите — основната
     // часовете на отсъстващия — по срокове
     const byTerm = await slotsByTerm(supabase, sub.absent_staff_id, cy?.id)
 
@@ -912,8 +916,10 @@ async function buildMonthlyDeclaration(supabase: any, me: { id: string; first_na
         byCls[it.cls].hours++
         byCls[it.cls].items.push({ period: it.period, subject: it.subject || '' })   // по час — за НП декларацията (тема на всеки час)
       })
+      const own = partOrderOn(partOrders, sub.id, me.id, w.iso)
+      const dayRef = own?.number ? orderRefText(own.number, own.date) : orderRef
       Object.entries(byCls).forEach(([cls, v]) => rows.push({
-        subId: sub.id, date: dateStr, orderRef, cls,
+        subId: sub.id, date: dateStr, orderRef: dayRef, cls,
         subject: Object.keys(v.subjects).length > 1 ? Object.entries(v.subjects).map(([n, c]) => `${n} (${c})`).join('; ') : Object.keys(v.subjects).join(''),
         hours: v.hours, items: v.items,
                bsch: isNp, kt: ktOn(ktMap[sub.id], sub.kt_article, w.iso),
@@ -965,7 +971,7 @@ export async function getMonExport(first: string, last: string) {
   // разпределения по дни + имената/длъжностите на всички заместници в тях
   const assignMap = await assignmentsBySub(supabase, subs.map((x: any) => x.id))
   const ktMap = await ktPartsBySub(supabase, subs.map((x: any) => x.id))
-  const partOrders = await partOrdersBySub(supabase, subs as any[])
+  const partOrders = await partOrderRangesBySub(supabase, subs as any[])
   const absMap = await absenceRanges(supabase, first, last)
   const extraIds = Array.from(new Set(Object.values(assignMap).flat().map(a => a.staffId)))
   const people: Record<string, { name: string; position: string; role: string }> = {}
@@ -998,18 +1004,20 @@ export async function getMonExport(first: string, last: string) {
     // по един ред за всеки заместник (и член от КТ) — само неговите дни
     const cov = coverageOf(sub as any, assignMap[sub.id])
     for (const [staffId, ranges] of Object.entries(cov)) {
-      const byKt: Record<string, number> = {}
+      // по член от КТ И по заповед (заместник на заместника — дните по отделната заповед са отделен ред)
+      const byKt: Record<string, { kt: string; num: string; date: string; hours: number }> = {}
       wds.forEach(w => {
         if ((npSet === null || npSet.has(w.iso)) && inRanges(w.iso, ranges) && !isAbsentOn(absMap, staffId, w.iso)) {
           const kt = ktOn(parts, sub.kt_article, w.iso) || '155'
-          byKt[kt] = (byKt[kt] || 0) + coveredItems(w.iso, dayItems(w.term, w.dow), ranges).length
+          const own = partOrderOn(partOrders, sub.id, staffId, w.iso)
+          const num = own?.number || orderNumber, date = own?.date || orderDate
+          const k = `${kt}|${num}|${date}`
+          ;(byKt[k] ||= { kt, num, date, hours: 0 }).hours += coveredItems(w.iso, dayItems(w.term, w.dow), ranges).length
         }
       })
-      for (const [kt, hours] of Object.entries(byKt)) {
+      for (const { kt, num: oNum, date: oDate, hours } of Object.values(byKt)) {
       if (hours === 0) continue
       const person = people[staffId] || { name: '', position: '', role: '' }
-      const ownO = partOrders[sub.id]?.[staffId]   // заместник на заместника — по неговата заповед
-      const oNum = ownO?.number || orderNumber, oDate = ownO?.date || orderDate
       // непедагогически = не е педагогически специалист по ЗПУО (по роля)
       const isNonSpec = !isPedagogical(person.role)
       rows.push({
