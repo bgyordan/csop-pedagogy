@@ -208,11 +208,8 @@ table { font-variant-numeric: tabular-nums; }
   text-transform: uppercase; color: #0f2240;
 }
 /* Кратките ленти (посещение, контрол, дежурни, съгласуване…): по две на ред, еднакво високи.
-   Ако са нечетен брой, последната заема целия ред — не остава празна дупка до нея. */
-.dash-strips > * { min-height: 4rem; border-radius: 1rem; align-content: center; }
-@media (min-width: 1024px) {
-  .dash-strips > :last-child:nth-child(odd) { grid-column: 1 / -1; }
-}
+   Всяка лента е в своя обвивка .dash-strips в общата решетка на таблото (ред по избор на човека). */
+.dash-strips > * { min-height: 4rem; height: 100%; border-radius: 1rem; align-content: center; }
 /* Същото за двойките карти „Съобщения / Споделено“: сама карта заема целия ред */
 @media (min-width: 768px) {
   .dash-odd-wide > :last-child:nth-child(odd) { grid-column: 1 / -1; }
