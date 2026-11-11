@@ -17,7 +17,7 @@ import {
   CAMPAIGN_STATUS_LABEL, P_STATUS_LABEL, P_STATUS_TONE, GRP_LABEL, KIND_LABEL, pname, dmy, isoOf, num, money, daysLeft, addDays,
   sumScores, groupSum, scoresComplete, averageScores, eligibility, distribute, defaultTemplate, grpForRole, addWorkdays, maxTotal,
   scaleOf, gradeOf, stepOf, attestResult, finalGrade, employerOptions, addYears, items as itemsOf, ATTEST_ROLES, DEFAULT_SCALE,
-  attestCandidates, attestWindowYear, attestWindowLabel, todayIso, type AttestCandidate,
+  attestCandidates, attestWindowYear, attestWindowLabel, todayIso, campaignHref, type AttestCandidate,
   type Campaign, type EvalTemplate, type Member, type Participant, type ScoreRow, type Pay, type Person, type Grp, type Scores,
   type EvalGroup, type External, type EvalFile, type Support, type Evidence, type Kind, type ScaleStep,
 } from '@/lib/evaluation'
@@ -59,7 +59,7 @@ export default function CampaignClient(p: Props) {
     ...(p.isLead || p.isFinance || p.isSecretary ? [{ k: 'docs', l: 'Документи', i: <FileText size={14} /> }] : []),
   ]
   const tab = tabs.some(t => t.k === p.tab) ? p.tab : (c.status === 'setup' && p.isLead ? 'setup' : 'board')
-  const go = (k: string) => router.push(`/evaluation/${c.id}?tab=${k}`)
+  const go = (k: string) => router.push(`${campaignHref(c.id, c.kind)}?tab=${k}`)
   const ctx = { campaign: c, yearName: c.year?.name, members: p.members, externals: p.externals }
 
   return (
@@ -791,7 +791,7 @@ function Setup(p: Props) {
     const { error } = await supabase.rpc('eval_start', { p_campaign: c.id })
     setBusy(false)
     if (error) { toast(error.message, 'error'); return }
-    toast('Оценяването започна'); router.push(`/evaluation/${c.id}?tab=board`); router.refresh()
+    toast('Оценяването започна'); router.push(`${campaignHref(c.id, c.kind)}?tab=board`); router.refresh()
   }
   async function del() {
     if (!(await confirmDialog('Да се изтрие ли кампанията с комисията и оценяваните?'))) return
@@ -1385,12 +1385,12 @@ function Docs(p: Props & { ctx: Ctx }) {
         </DocCard>
         {p.isFinance && kind === 'dtv' && (
           <DocCard title="Заповед и суми" text="Заповедта за размерите (без номер — номерът се поставя при регистрирането) и таблицата за счетоводството са в „Суми“.">
-            <Link href={`/evaluation/${c.id}?tab=money`} className={btnLine}><Calculator size={15} /> Към „Суми“</Link>
+            <Link href={`${campaignHref(c.id, c.kind)}?tab=money`} className={btnLine}><Calculator size={15} /> Към „Суми“</Link>
           </DocCard>
         )}
         {kind === 'attest' && p.isLead && (
           <DocCard title="Планове за подкрепа" text="За атестираните с двете най-ниски оценки — анализ, мерки, наставник, повторно атестиране.">
-            <Link href={`/evaluation/${c.id}?tab=support`} className={btnLine}><LifeBuoy size={15} /> Към „Подкрепа“</Link>
+            <Link href={`${campaignHref(c.id, c.kind)}?tab=support`} className={btnLine}><LifeBuoy size={15} /> Към „Подкрепа“</Link>
           </DocCard>
         )}
         {p.isLead && c.status === 'scoring' && (

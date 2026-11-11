@@ -15,7 +15,7 @@ import { Modal } from '@/components/ui/Modal'
 import {
   CAMPAIGN_STATUS_LABEL, P_STATUS_LABEL, P_STATUS_TONE, GRP_LABEL, KIND_LABEL, KIND_SHORT, addWorkdays, isoOf, dmy, num, pname, groupSum, maxTotal,
   validateTemplate, campaignName, todayIso, sumScores, scoresComplete, finalGrade, daysLeft, ATTEST_ROLES, ATTEST_YEARS,
-  attestWindowYear, attestWindowLabel, attestCandidates,
+  attestWindowYear, attestWindowLabel, attestCandidates, campaignHref,
   EDU_LEVELS, PKS_LEVELS, DEFAULT_SCALE,
   type EvalTemplate, type EvalGroup, type Participant, type Grp, type Person, type Kind, type Scores, type SectionA, type ScaleStep,
   type EvalFile, type History, type AttestDefer, type AttestState,
@@ -508,7 +508,7 @@ function Campaigns(p: Props) {
         const obj = c.participants.filter(x => x.status === 'objected').length
         const r = roleIn(c.id)
         return (
-          <Link key={c.id} href={`/evaluation/${c.id}`} className="flex flex-wrap items-center gap-3 px-5 py-4 hover:bg-slate-50">
+          <Link key={c.id} href={campaignHref(c.id, c.kind)} className="flex flex-wrap items-center gap-3 px-5 py-4 hover:bg-slate-50">
             <span className="flex-1 min-w-0">
               <span className="block text-[15px] text-slate-800">{c.name} <span className="ml-1 text-[11.5px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 align-middle">{KIND_SHORT[(c.kind || 'dtv') as Kind]}</span></span>
               <span className="block text-[12.5px] text-slate-500">
@@ -559,7 +559,7 @@ function NewCampaign({ years, kinds, onClose }: { years: Year[]; kinds: Kind[]; 
     const { data, error } = await createClient().from('eval_campaigns').insert(row).select('id').single()
     setBusy(false)
     if (error) { toast(error.message, 'error'); return }
-    router.push(`/evaluation/${data.id}?tab=setup`)
+    router.push(`${campaignHref(data.id, kind)}?tab=setup`)
   }
   const hint: Record<Kind, string> = {
     dtv: 'Сроковете се попълват по вътрешните правила (оценяване до 1 октомври, заповед до 30 октомври) и се променят в следващата стъпка.',
@@ -975,7 +975,7 @@ function Registry(p: Props) {
         <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
           {!camps.length ? <p className="p-6 text-sm text-slate-400 text-center">Още няма утвърдени оценки.</p> : (
             <table className="w-full text-[13px]">
-              <thead className="bg-slate-50 text-slate-500 text-[12px]"><tr><th className="px-3 py-2 text-left">Служител</th>{camps.map(c => <th key={c.id} className="px-2 py-2 font-normal" title={c.name}><Link href={`/evaluation/${c.id}`} className="hover:underline">{KIND_SHORT[c.kind || 'dtv']}<br />{c.name.replace(/^(ДТВ за постигнати резултати|Атестиране|Оценяване)\s*/, '') || c.name}</Link></th>)}</tr></thead>
+              <thead className="bg-slate-50 text-slate-500 text-[12px]"><tr><th className="px-3 py-2 text-left">Служител</th>{camps.map(c => <th key={c.id} className="px-2 py-2 font-normal" title={c.name}><Link href={campaignHref(c.id, c.kind)} className="hover:underline">{KIND_SHORT[c.kind || 'dtv']}<br />{c.name.replace(/^(ДТВ за постигнати резултати|Атестиране|Оценяване)\s*/, '') || c.name}</Link></th>)}</tr></thead>
               <tbody>
                 {p.people.filter(x => !q.trim() || pname(x).toLowerCase().includes(q.trim().toLowerCase())).filter(x => p.results.some(r => r.staff_id === x.id && r.campaign?.kind === 'attest')).map(x => (
                   <tr key={x.id} className="border-t border-slate-100">

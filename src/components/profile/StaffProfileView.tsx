@@ -234,7 +234,7 @@ export default async function StaffProfileView({ supabase, me, tab: askedTab, se
     const [{ data: unacked }, { data: recs }, { data: commission }, { data: decisions }] = await Promise.all([
       supabase.from('control_check_staff').select('check:control_checks!inner(id, book_no, subject, status, check_date)').eq('staff_id', me.id).is('acked_at', null).eq('check.status', 'signed'),
       supabase.from('control_recommendations').select('id, text, due_date, status, check:control_checks!control_recommendations_check_id_fkey!inner(id, book_no, status)').eq('responsible_id', me.id).eq('check.status', 'signed').in('status', ['open', 'not_done']),
-      supabase.from('eval_commission').select('campaign:eval_campaigns!inner(id, name, status, score_by)').eq('staff_id', me.id).eq('campaign.status', 'scoring'),
+      supabase.from('eval_commission').select('campaign:eval_campaigns!inner(id, name, kind, status, score_by)').eq('staff_id', me.id).eq('campaign.status', 'scoring'),
       supabase.from('mtg_decisions').select('id, text, due_date, task_status, meeting_id').eq('responsible_id', me.id).eq('outcome', 'adopted').eq('task_status', 'open'),
     ])
     const out: Task[] = []
@@ -247,7 +247,7 @@ export default async function StaffProfileView({ supabase, me, tab: askedTab, se
       title: my('Запознайте се с оценъчната си карта', 'Не е запознат(а) с оценъчната си карта'), meta: r.campaign?.name,
     }))
     ;((commission || []) as any[]).forEach(r => out.push({
-      key: 'k' + r.campaign.id, href: `/evaluation/${r.campaign.id}`, tone: 'sky', icon: <Users size={15} />,
+      key: 'k' + r.campaign.id, href: `${r.campaign.kind === 'attest' ? '/attestation' : '/evaluation'}/${r.campaign.id}`, tone: 'sky', icon: <Users size={15} />,
       title: 'Оценяване в комисия', meta: r.campaign.name, due: r.campaign.score_by,
     }))
     ;((recs || []) as any[]).forEach(r => out.push({

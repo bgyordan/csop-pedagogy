@@ -157,7 +157,7 @@ const loadEval: Loader = async (sb, me, from, to) => {
     const kind = c.kind === 'attest' ? 'Атестиране' : c.kind === 'dtv' ? 'ДТВ' : 'Оценяване'
     const add = (date: string, label: string, red = false) => out.push({
       key: `ev-${label}:${c.id}`, layer: 'eval', title: `${label} — ${c.name}`, start: parseYmd(date), end: parseYmd(date), allDay: true,
-      color: red ? '#c026d3' : color('eval'), subtitle: kind, href: `/evaluation/${c.id}`, sourceLabel: 'Оценяване', done: c.status === 'closed',
+      color: red ? '#c026d3' : color('eval'), subtitle: kind, href: `${c.kind === 'attest' ? '/attestation' : '/evaluation'}/${c.id}`, sourceLabel: c.kind === 'attest' ? 'Атестиране' : 'Оценяване', done: c.status === 'closed',
     })
     if (inRange(c.self_by)) add(c.self_by, 'Самооценка до', true)
     if (inRange(c.score_by)) add(c.score_by, 'Оценяване до', true)
@@ -169,7 +169,7 @@ const loadEval: Loader = async (sb, me, from, to) => {
       .gte('reattest_by', ymd(from)).lt('reattest_by', ymd(to)).eq('status', 'open')
     for (const s of (sup || []) as any[]) out.push({
       key: `reatt:${s.participant_id}`, layer: 'eval', title: `Повторно атестиране: ${name(s.p?.staff)}`, start: parseYmd(s.reattest_by), end: parseYmd(s.reattest_by), allDay: true,
-      color: color('eval'), subtitle: 'Година след началото на мерките за подкрепа', href: s.p?.campaign_id ? `/evaluation/${s.p.campaign_id}` : '/evaluation', sourceLabel: 'Оценяване',
+      color: color('eval'), subtitle: 'Година след началото на мерките за подкрепа', href: s.p?.campaign_id ? `/attestation/${s.p.campaign_id}` : '/attestation', sourceLabel: 'Оценяване',
     })
   }
   return out

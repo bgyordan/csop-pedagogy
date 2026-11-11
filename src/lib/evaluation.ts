@@ -211,6 +211,8 @@ export function employerOptions(scale: ScaleStep[], grade: string | null | undef
   if (i < 0) return scale.map(s => s.l)
   return objected ? scale.filter((_, j) => Math.abs(j - i) <= 1).map(s => s.l) : [scale[i].l]
 }
+/** Адресът на кампания — атестирането е в своя раздел (/attestation/…), останалите — в „ДТВ и оценки“ */
+export const campaignHref = (id: string, kind?: string | null) => `${kind === 'attest' ? '/attestation' : '/evaluation'}/${id}`
 export const ATTEST_YEARS = 4
 export const addYears = (iso: string, n: number) => { const [y, m, d] = iso.slice(0, 10).split('-').map(Number); return `${y + n}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` }
 
