@@ -861,7 +861,9 @@ function Registry(p: Props) {
                         <span className="flex-1">{r.support}</span>
                         {r.state === 'deferred'
                           ? <button type="button" onClick={() => removeDefer(r.id)} className="shrink-0 text-[12px] text-indigo-700 hover:underline">махни отлагането</button>
-                          : <button type="button" onClick={() => { setDeferring(r.id); setReason('') }} className="shrink-0 text-[12px] text-slate-400 hover:text-indigo-700">Отложи</button>}
+                          // „Отложи“ — само при тези, които иначе биха подлежали (атестираните наскоро и новите не)
+                          : (r.state === 'due' || r.state === 'new' || r.state === 'unknown') &&
+                            <button type="button" onClick={() => { setDeferring(r.id); setReason('') }} className="shrink-0 text-[12px] text-slate-400 hover:text-indigo-700">Отложи</button>}
                       </div>
                     )}
                   </td>
