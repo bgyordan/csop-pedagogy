@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3, FileSpreadsheet,
-  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare, Calculator, ShieldAlert, MonitorSmartphone, Bell, CalendarCheck, Award, BookUser, Landmark, Search } from 'lucide-react'
+  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare, Calculator, ShieldAlert, MonitorSmartphone, Bell, CalendarCheck, Award, BookMarked, BookUser, Landmark, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
 import WhatsNewModal from './WhatsNewModal'
@@ -64,8 +64,10 @@ const navItems: NavItem[] = [
       // заседания на педагогическия съвет и общото събрание — дневен ред, кворум, решения, Книга с протоколи
       { href: '/meetings', label: 'ПС и Общо събрание', icon: <Landmark size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/facilities', label: 'Материална база', icon: <Wrench size={14} />, roles: ['admin', 'zdud', 'director'] },
-      // оценяване на персонала — ДТВ за постигнати резултати (карти, комисия, протоколи, суми)
-      { href: '/evaluation', label: 'Оценяване', icon: <Award size={14} />, roles: ['admin', 'zdud', 'director'] },
+      // оценяване на персонала — ДТВ за постигнати резултати и други оценки (карти, комисия, протоколи, суми)
+      { href: '/evaluation', label: 'ДТВ и оценки', icon: <Award size={14} />, roles: ['admin', 'zdud', 'director'] },
+      // атестиране по Наредба № 15 — кой подлежи (регистър), атестационна комисия, самооценка, карти
+      { href: '/attestation', label: 'Атестиране', icon: <BookMarked size={14} />, roles: ['admin', 'zdud', 'director'] },
       // професионално портфолио на служителите (обобщение, квалификация) и моето
       { href: '/pro-portfolio', label: 'Проф. портфолио', icon: <BookUser size={14} />, roles: ['admin', 'zdud', 'director'] },
     ],
@@ -221,7 +223,8 @@ const navItems: NavItem[] = [
   { href: '/reports/hub', label: 'Справки', icon: <BarChart3 size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/admin/tasks', label: 'График срокове', icon: <CalendarClock size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/control', label: 'Констативни протоколи', icon: <ClipboardCheck size={16} />, roles: ['secretary'], section: 'settings' },
-  { href: '/evaluation', label: 'Оценяване', icon: <Award size={16} />, roles: ['secretary'], section: 'delo' },
+  { href: '/evaluation', label: 'ДТВ и оценки', icon: <Award size={16} />, roles: ['secretary'], section: 'delo' },
+  { href: '/attestation', label: 'Атестиране', icon: <BookMarked size={16} />, roles: ['secretary'], section: 'delo' },
   { href: '/gym-schedule', label: 'Физк. салон', icon: <Dumbbell size={16} />, roles: ['secretary'], section: 'settings' },
 ]
 interface SidebarProps {

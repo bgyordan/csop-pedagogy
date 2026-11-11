@@ -214,6 +214,52 @@ export function employerOptions(scale: ScaleStep[], grade: string | null | undef
 export const ATTEST_YEARS = 4
 export const addYears = (iso: string, n: number) => { const [y, m, d] = iso.slice(0, 10).split('-').map(Number); return `${y + n}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` }
 
+// ── Кой подлежи на атестиране ─────────────────────────────────────────────
+// Чл. 77, ал. 2 от Наредба № 15 (ред. ДВ бр. 113/2025): атестирането започва през юни – юли на учебната година,
+// в която изтича 4-годишният период. Атестиран през октомври 2022 → изтича 10.2026 (уч. 2026/27) → юни – юли 2027;
+// атестиран юни – юли 2026 → изтича 2030 → юни – юли 2030.
+/** Годината, в чието лято (юни – юли) е учебната година на датата: от 1 септември — следващата. */
+export const attestWindowYear = (iso: string) => { const [y, m] = iso.slice(0, 10).split('-').map(Number); return m >= 9 ? y + 1 : y }
+export const attestWindowLabel = (year: number) => `юни – юли ${year}`
+/** Следващото атестиране след последното — 1 юни на годината на прозореца. */
+export const attestDue = (lastIso: string) => `${attestWindowYear(addYears(lastIso, ATTEST_YEARS))}-06-01`
+
+/** Отложено атестиране — напр. дълъг болничен или отпуск над 1 година (чл. 78, ал. 1). */
+export type AttestDefer = { staff_id: string; reason: string; created_at?: string }
+export type AttestState = 'due' | 'new' | 'later' | 'young' | 'unknown' | 'deferred'
+export type AttestCandidate = { person: Person; state: AttestState; last: string | null; next: string | null; sinceYear: number | null; why: string }
+export const ATTEST_STATE_LABEL: Record<AttestState, string> = {
+  due: 'Изтича 4-годишният период', new: 'Без атестиране — поне 2 години в ЦСОП', later: 'Още не', young: 'Под 2 години в ЦСОП',
+  unknown: 'Няма данни', deferred: 'Отложено',
+}
+/**
+ * Кой подлежи в прозореца юни – юли на годината `year`.
+ * last — последното атестиране (от ЕИС или въведено ръчно; при план за подкрепа — по-ранната дата за повторно);
+ * sinceYear — годината на постъпване от НЕИСПУО (за лицата без атестиране: чл. 78, ал. 4–5 — поне 2 години в институцията).
+ */
+export function attestCandidates(
+  people: Person[], year: number,
+  lastOf: (id: string) => string | null, sinceOf: (id: string) => number | null, deferOf: (id: string) => string | null,
+  reattestOf: (id: string) => string | null = () => null,
+): AttestCandidate[] {
+  return people.filter(x => ATTEST_ROLES.includes(x.role)).map(person => {
+    const last = lastOf(person.id), sinceYear = sinceOf(person.id), defer = deferOf(person.id), re = reattestOf(person.id)
+    let next = last ? attestDue(last) : null
+    if (re && (!next || re < next)) next = re
+    let state: AttestState, why: string
+    if (defer) { state = 'deferred'; why = `отложено: ${defer}` }
+    else if (next) {
+      const wy = attestWindowYear(next)
+      state = wy <= year ? 'due' : 'later'
+      why = `${last ? `последно ${dmy(last)} · ` : ''}${re && re === next ? `повторно до ${dmy(re)}` : `следващо ${attestWindowLabel(wy)}`}`
+    } else if (sinceYear) {
+      state = year - sinceYear >= 2 ? 'new' : 'young'
+      why = `без атестиране · в ЦСОП от ${sinceYear} г.`
+    } else { state = 'unknown'; why = 'няма данни за атестиране и за постъпване' }
+    return { person, state, last, next, sinceYear, why }
+  })
+}
+
 /** Раздел А „Съответствие с изискванията на длъжността“ (прил. № 20) — попълва атестираният. */
 export type SectionA = {
   edu1?: string; edu2?: string; specialty?: string; teacher_q?: 'yes' | 'no'; other_q?: 'yes' | 'no'; other_q_text?: string

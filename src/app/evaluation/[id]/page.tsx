@@ -59,6 +59,32 @@ export default async function CampaignPage({ params, searchParams }: { params: P
       ])
     : [{ data: [] as any[] }, { data: [] as any[] }]
 
+  // Атестиране: кой подлежи — последното атестиране (ЕИС или въведено ръчно), повторно при план за подкрепа,
+  // годината на постъпване (НЕИСПУО) и отложените. Без SQL файла 2026-11-11_attest_due.sql последните две ги няма.
+  let attestInfo: { last: Record<string, string>; reattest: Record<string, string>; since: Record<string, number>; defer: Record<string, string> } | null = null
+  if (campaign.kind === 'attest' && isLead) {
+    const [{ data: hist }, { data: done }, { data: sup }, sinceRes, deferRes] = await Promise.all([
+      supabase.from('eval_attest_history').select('staff_id, attested_on'),
+      fetchAll(() => supabase.from('eval_participants').select('id, staff_id, grade, employer_at, acked_at, finalized_at, campaign:eval_campaigns(kind)').neq('campaign_id', id).not('grade', 'is', null).order('id')),
+      supabase.from('eval_support').select('participant_id, status, reattest_by'),
+      supabase.rpc('eval_staff_since'),
+      supabase.from('eval_attest_defer').select('staff_id, reason'),
+    ])
+    const last: Record<string, string> = {}, reattest: Record<string, string> = {}, lastPid: Record<string, string> = {}
+    const put = (sid: string, iso: string | null, pid = '') => { if (iso && (!last[sid] || iso > last[sid])) { last[sid] = iso; lastPid[sid] = pid } }
+    ;(hist || []).forEach((h: any) => put(h.staff_id, h.attested_on))
+    ;(done || []).filter((r: any) => r.campaign?.kind === 'attest').forEach((r: any) => put(r.staff_id, (r.employer_at || r.acked_at || r.finalized_at || '').slice(0, 10) || null, r.id))
+    Object.entries(lastPid).forEach(([sid, pid]) => {
+      const s = pid && (sup || []).find((x: any) => x.participant_id === pid && x.status !== 'done' && x.reattest_by)
+      if (s) reattest[sid] = (s as any).reattest_by
+    })
+    const since: Record<string, number> = {}
+    ;(((sinceRes as any).data || []) as any[]).forEach(r => { since[r.staff_id] = r.since_year })
+    const defer: Record<string, string> = {}
+    ;(((deferRes as any).data || []) as any[]).forEach(r => { defer[r.staff_id] = r.reason })
+    attestInfo = { last, reattest, since, defer }
+  }
+
   let scanUrl: string | null = null
   if (campaign.scan_path) {
     const { data } = await supabase.storage.from('evaluation').createSignedUrl(campaign.scan_path, 60 * 30)
@@ -84,6 +110,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
       supports={(supports || []) as any}
       others={(others || []) as any}
       prev={{ name: prevC?.name || null, rows: (prev || []) as any }}
+      attestInfo={attestInfo}
     />
   )
 }
