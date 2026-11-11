@@ -30,7 +30,7 @@ import ClassRoomStrip from './components/ClassRoomStrip'
 import IfoTodayCard from './components/IfoTodayCard'
 import { heroCookie, heroTheme } from './hero-themes'
 import DashboardCustomize from './DashboardCustomize'
-import { dashCookie, hiddenWidgets, widgetsFor } from '@/lib/dashboard-prefs'
+import { dashCookie, hiddenWidgets, orderCookie, widgetOrder, widgetsFor } from '@/lib/dashboard-prefs'
 export const dynamic = 'force-dynamic'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -94,6 +94,10 @@ export default async function DashboardPage() {
   const cookieStore = await cookies()
   const hidden = hiddenWidgets(profile.role, cookieStore.get(dashKey)?.value != null ? decodeURIComponent(cookieStore.get(dashKey)!.value) : null)
   const show = (k: string) => !hidden.has(k)
+  // ред на картите (стрелките ↑↓ в „Подреди таблото“) — CSS order в общата решетка
+  const orderKey = orderCookie(profile.id)
+  const order = widgetOrder(cookieStore.get(orderKey)?.value ? decodeURIComponent(cookieStore.get(orderKey)!.value) : null)
+  const ord = (k: string) => ({ order: order.indexOf(k) })
   // цвят на хедъра — по избор на човека (по подразбиране синьо-зеленият преливащ)
   const heroKey = heroCookie(profile.id)
   const hero = heroTheme(cookieStore.get(heroKey)?.value)
@@ -119,7 +123,7 @@ export default async function DashboardPage() {
             )}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {real?.role === 'admin' && !viewing && <ViewAsPicker people={people} onDark={d} />}
-              {!viewing && <DashboardCustomize heroCookieName={heroKey} heroKey={hero.key} onDark={d} cookieName={dashKey} widgets={widgetsFor(profile.role)} hidden={Array.from(hidden)} />}
+              {!viewing && <DashboardCustomize heroCookieName={heroKey} heroKey={hero.key} onDark={d} cookieName={dashKey} orderCookieName={orderKey} order={order} widgets={widgetsFor(profile.role)} hidden={Array.from(hidden)} />}
             </div>
           </div>
           <div className="flex-shrink-0 text-right">
@@ -142,60 +146,62 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Спонтанен неучебен ден — днес или в следващите дни */}
-      {show('nonschool') && <NonSchoolDayStrip />}
+      {/* Картите на таблото — в реда, избран от човека в „Подреди таблото“ (стрелки ↑↓).
+          Кратките ленти са по две на ред, широките (неучебен ден, ИФО, календар) — на цял ред.
+          Празна карта (компонентът не връща нищо) не заема място — empty:hidden. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 grid-flow-row-dense gap-4 empty:hidden">
+        {/* Спонтанен неучебен ден — днес или в следващите дни */}
+        {show('nonschool') && <div style={ord('nonschool')} className="lg:col-span-2 empty:hidden"><NonSchoolDayStrip /></div>}
 
-      {/* ИФО децата днес: какво имат, при кого, кой замества.
-          Помощници и управа — всички; останалите — само своите (класен / ИФО час / терапия), иначе нищо. */}
-      {!isSecretary && show('ifoToday') && (
-        ['support', 'admin', 'zdud', 'director'].includes(profile.role)
-          ? <IfoTodayCard currentYearId={currentYear.id} />
-          : <IfoTodayCard currentYearId={currentYear.id} staffId={profile.id} />
-      )}
+        {/* ИФО децата днес: какво имат, при кого, кой замества.
+            Помощници и управа — всички; останалите — само своите (класен / ИФО час / терапия), иначе нищо. */}
+        {!isSecretary && show('ifoToday') && (
+          <div style={ord('ifoToday')} className="lg:col-span-2 empty:hidden">
+            {['support', 'admin', 'zdud', 'director'].includes(profile.role)
+              ? <IfoTodayCard currentYearId={currentYear.id} />
+              : <IfoTodayCard currentYearId={currentYear.id} staffId={profile.id} />}
+          </div>
+        )}
 
-
-      {/* Кратките ленти — по две на ред, за да не са дълги през целия екран */}
-      <div className="dash-strips grid grid-cols-1 lg:grid-cols-2 gap-4 empty:hidden">
         {/* Посещение на час — избор на ден (учителите в отворена проверка) */}
-        {!viewing && show('visit') && <VisitStrip profile={profile} />}
+        {!viewing && show('visit') && <div style={ord('visit')} className="dash-strips empty:hidden"><VisitStrip profile={profile} /></div>}
 
         {/* Контролна дейност — протокол за запознаване / черновите изтичат */}
-        {!viewing && show('control') && <ControlStrip profile={profile} />}
+        {!viewing && show('control') && <div style={ord('control')} className="dash-strips empty:hidden"><ControlStrip profile={profile} /></div>}
 
         {/* Дежурни тази седмица */}
-        {!viewing && show('duty') && <DutyStrip staffId={profile.id} />}
+        {!viewing && show('duty') && <div style={ord('duty')} className="dash-strips empty:hidden"><DutyStrip staffId={profile.id} /></div>}
 
         {/* За съгласуване — материали за предстоящ съвет, с които още не съм се запознал */}
-        {!viewing && show('council') && <CouncilStrip staffId={profile.id} />}
+        {!viewing && show('council') && <div style={ord('council')} className="dash-strips empty:hidden"><CouncilStrip staffId={profile.id} /></div>}
 
         {/* Материална база — нови сигнали (управа/деловодство) или отговори по моите сигнали */}
-        {!viewing && show('facilities') && <FacilitiesStrip profile={profile} />}
+        {!viewing && show('facilities') && <div style={ord('facilities')} className="dash-strips empty:hidden"><FacilitiesStrip profile={profile} /></div>}
 
         {/* Онлайн стаи — децата на ОРЕС, с които работя */}
-        {show('ores') && <OnlineRoomStrip profile={profile} currentYearId={currentYear.id} />}
+        {show('ores') && <div style={ord('ores')} className="dash-strips empty:hidden"><OnlineRoomStrip profile={profile} currentYearId={currentYear.id} /></div>}
 
         {/* Онлайн стаи на паралелките (грипна ваканция) — отворените стаи и въпросите от родители */}
-        {show('classroom') && <ClassRoomStrip profile={profile} currentYearId={currentYear.id} />}
+        {show('classroom') && <div style={ord('classroom')} className="dash-strips empty:hidden"><ClassRoomStrip profile={profile} currentYearId={currentYear.id} /></div>}
 
         {/* Отсъстващи деца — класният отразява, терапевтите и учителите на детето виждат */}
-        {!isSecretary && profile.role !== 'support' && show('absent') && <StudentAbsentStrip profile={profile} currentYearId={currentYear.id} />}
+        {!isSecretary && profile.role !== 'support' && show('absent') && <div style={ord('absent')} className="dash-strips empty:hidden"><StudentAbsentStrip profile={profile} currentYearId={currentYear.id} /></div>}
 
         {/* Днес отсъстват — за всички колеги (управата го има в оперативния панел) */}
-        {!isAdmin && !isDirector && show('todayAbsent') && <TodayAbsentStrip />}
+        {!isAdmin && !isDirector && show('todayAbsent') && <div style={ord('todayAbsent')} className="dash-strips empty:hidden"><TodayAbsentStrip /></div>}
 
+        {/* Календар — моята седмица (по-компактен); до него за класните — учебните планове от училищата */}
+        {((!viewing && show('calendar')) || schoolGroups) && (
+          <div style={ord('calendar')} className={`lg:col-span-2 ${!viewing && show('calendar') && schoolGroups ? 'grid grid-cols-1 lg:grid-cols-3 gap-4' : ''}`}>
+            {!viewing && show('calendar') && (
+              <div className={schoolGroups ? 'lg:col-span-2 min-w-0' : ''}>
+                <CalendarWidget me={{ id: profile.id, role: profile.role, isCoordinator: profile.is_coordinator === true }} />
+              </div>
+            )}
+            {schoolGroups && <SchoolFilesCardClient groups={schoolGroups} />}
+          </div>
+        )}
       </div>
-
-      {/* Календар — моята седмица (по-компактен); до него за класните — учебните планове от училищата */}
-      {((!viewing && show('calendar')) || schoolGroups) && (
-        <div className={!viewing && show('calendar') && schoolGroups ? 'grid grid-cols-1 lg:grid-cols-3 gap-4' : ''}>
-          {!viewing && show('calendar') && (
-            <div className={schoolGroups ? 'lg:col-span-2 min-w-0' : ''}>
-              <CalendarWidget me={{ id: profile.id, role: profile.role, isCoordinator: profile.is_coordinator === true }} />
-            </div>
-          )}
-          {schoolGroups && <SchoolFilesCardClient groups={schoolGroups} />}
-        </div>
-      )}
 
       {/* Dashboard по роля */}
       <div className="transition-all duration-500">
