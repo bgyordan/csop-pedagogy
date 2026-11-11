@@ -16,6 +16,8 @@ export default async function StudentsLayout({ children }: { children: React.Rea
     .single()
 
   if (!profile) redirect('/auth/login')
+  // помощниците нямат достъп до списъка и досиетата — техният изглед е „Децата днес“ на таблото
+  if (profile.role === 'support') redirect('/dashboard')
 
   return (
     <div className="flex min-h-screen">

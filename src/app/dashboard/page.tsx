@@ -154,12 +154,14 @@ export default async function DashboardPage() {
         {show('nonschool') && <div style={ord('nonschool')} className="lg:col-span-2 empty:hidden"><NonSchoolDayStrip /></div>}
 
         {/* ИФО децата днес: какво имат, при кого, кой замества.
-            Помощници и управа — всички; останалите — само своите (класен / ИФО час / терапия), иначе нищо. */}
+            Помощници — търсене сред всички деца + ИФО децата; управа — всички ИФО; останалите — само своите, иначе нищо. */}
         {!isSecretary && show('ifoToday') && (
           <div style={ord('ifoToday')} className="lg:col-span-2 empty:hidden">
-            {['support', 'admin', 'zdud', 'director'].includes(profile.role)
-              ? <IfoTodayCard currentYearId={currentYear.id} />
-              : <IfoTodayCard currentYearId={currentYear.id} staffId={profile.id} />}
+            {profile.role === 'support'
+              ? <IfoTodayCard currentYearId={currentYear.id} search />
+              : ['admin', 'zdud', 'director'].includes(profile.role)
+                ? <IfoTodayCard currentYearId={currentYear.id} />
+                : <IfoTodayCard currentYearId={currentYear.id} staffId={profile.id} />}
           </div>
         )}
 

@@ -77,7 +77,7 @@ const navItems: NavItem[] = [
     label: 'Децата',
     icon: <Users size={16} />,
     children: [
-      { href: '/students', label: 'Ученици', icon: <Users size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'support'] },
+      { href: '/students', label: 'Ученици', icon: <Users size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator'] },
       // паспортите на децата, с които работя — за печат
       { href: '/passports', label: 'Паспорти', icon: <IdCard size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
       { href: '/development', label: 'Развитие', icon: <Sprout size={14} />, roles: ['psychologist'] },
@@ -127,7 +127,7 @@ const navItems: NavItem[] = [
       { href: '/normative-docs', label: 'Документи в ЦСОП', icon: <ScrollText size={14} /> },
       { href: '/council', label: 'За съгласуване', icon: <ClipboardCheck size={14} /> },
       // дневен ред на предстоящите заседания, протоколите и моите решения за изпълнение
-      { href: '/meetings', label: 'ПС и Общо събрание', icon: <Landmark size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'support', 'secretary'] },
+      { href: '/meetings', label: 'ПС и Общо събрание', icon: <Landmark size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'secretary'] },
       // Констативните протоколи, Оценяването (ДТВ, атестиране) и Професионалното портфолио на колегите са в „Моят профил“
       { href: '/portfolio', label: 'Портфолио', icon: <Images size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
       // Старият генератор — временно (колегите го търсят). Новото: досие → „Документи“ → „Нов документ“. Да се махне, щом всички минат на бланките.
