@@ -137,7 +137,7 @@ export default async function StaffProfileView({ supabase, me, tab: askedTab, se
       { show: self, href: '/control', label: 'Констативни протоколи', hint: 'проверки и препоръки', icon: <ClipboardCheck size={18} />, tone: 'bg-orange-50 text-orange-700' },
       { show: self, href: '/meetings', label: 'ПС и Общо събрание', hint: 'дневен ред, решения', icon: <Landmark size={18} />, tone: 'bg-slate-100 text-slate-700' },
       { show: isPed, href: ppHref(), label: 'Професионално портфолио', hint: `${items.length} записа`, icon: <BookUser size={18} />, tone: 'bg-violet-50 text-violet-700' },
-      { show: self && role !== 'support', href: '/portfolio', label: 'Портфолио (стена)', hint: 'снимки и публикации', icon: <Images size={18} />, tone: 'bg-fuchsia-50 text-fuchsia-700' },
+      { show: self && role !== 'support', href: '/portfolio', label: 'Кабинети и дейности', hint: 'кабинет, проекти, събития, снимки', icon: <Images size={18} />, tone: 'bg-fuchsia-50 text-fuchsia-700' },
       { show: self, href: '/my-files', label: 'Моите документи', hint: 'личната ми папка', icon: <FolderOpen size={18} />, tone: 'bg-emerald-50 text-emerald-700' },
     ].filter(t => t.show)
 

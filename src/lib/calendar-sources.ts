@@ -209,8 +209,8 @@ const loadProjects: Loader = async (sb, _me, from, to) => {
     out.push({
       key: `pfd:${d.id}`, layer: 'projects', title: d.title, start, end, allDay: !timed, color: color('projects'),
       location: d.place || undefined, description: d.note || undefined,
-      subtitle: `${KIND[d.post.kind] || 'Портфолио'}: ${d.post.title}${d.post.author ? ' · ' + name(d.post.author) : ''}${d.post.is_shared === false ? ' · само за мен' : ''}`,
-      href: `/portfolio?open=${d.post.id}`, sourceLabel: 'Портфолио',
+      subtitle: `${KIND[d.post.kind] || 'Кабинети и дейности'}: ${d.post.title}${d.post.author ? ' · ' + name(d.post.author) : ''}${d.post.is_shared === false ? ' · само за мен' : ''}`,
+      href: `/portfolio?open=${d.post.id}`, sourceLabel: 'Кабинети и дейности',
     })
   }
   for (const p of (events.data || []) as any[]) {
@@ -218,7 +218,7 @@ const loadProjects: Loader = async (sb, _me, from, to) => {
     out.push({
       key: `pfe:${p.id}`, layer: 'projects', title: p.title, start: parseYmd(p.event_date), end: parseYmd(p.event_date), allDay: true,
       color: color('projects'), subtitle: `Събитие${p.author ? ' · ' + name(p.author) : ''}${p.is_shared === false ? ' · само за мен' : ''}`,
-      href: `/portfolio?open=${p.id}`, sourceLabel: 'Портфолио',
+      href: `/portfolio?open=${p.id}`, sourceLabel: 'Кабинети и дейности',
     })
   }
   return out

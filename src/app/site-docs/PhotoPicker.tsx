@@ -179,7 +179,7 @@ export default function PhotoPicker({
     { id: 'library', label: 'Снимки за сайта', icon: <FolderOpen size={13} />, count: library.items?.length },
     { id: 'gallery', label: 'Галерия', icon: <Images size={13} />, count: galleryGroups.reduce((s, g) => s + g.items.length, 0) },
     { id: 'news', label: 'От новините', icon: <Newspaper size={13} /> },
-    { id: 'portfolio', label: 'Портфолио на колегите', icon: <BookHeart size={13} /> },
+    { id: 'portfolio', label: 'Кабинети и дейности', icon: <BookHeart size={13} /> },
   ]
 
   return (

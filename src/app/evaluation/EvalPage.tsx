@@ -52,6 +52,11 @@ export default async function EvalPage({ scope, tab }: { scope: 'attest' | 'dtv'
     ? await Promise.all([supabase.rpc('eval_staff_since'), supabase.from('eval_attest_defer').select('staff_id, reason, created_at')])
     : [{ data: [] as any[] }, { data: [] as any[] }]
 
+  // Моето атестиране — собствените записи от регистъра (атестиране преди ЕИС)
+  const { data: myHistory } = scope === 'attest'
+    ? await supabase.from('eval_attest_history').select('*').eq('staff_id', me.id)
+    : { data: [] as any[] }
+
   // Професионално портфолио — за доказателствата при самооценката (ако таблиците ги има)
   const [ppItems, ppProfile, ppLinks] = await Promise.all([
     supabase.from('pp_items').select('*, files:pp_files(*)').eq('staff_id', me.id).order('date_from', { ascending: false, nullsFirst: false }),
@@ -69,6 +74,7 @@ export default async function EvalPage({ scope, tab }: { scope: 'attest' | 'dtv'
       scope={scope}
       since={((sinceRes as any).data || []) as any}
       defers={((defersRes as any).data || []) as any}
+      myHistory={(myHistory || []) as any}
       campaigns={(campaigns || []) as any}
       myCommission={(myCommission || []) as any}
       isSecretaryAny={(secretaryOf || []).length > 0}

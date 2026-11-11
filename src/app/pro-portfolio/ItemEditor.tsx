@@ -97,7 +97,7 @@ export default function ItemEditor({ staffId, item, section, posts, onClose, onS
             {meta && <span className="block mt-1 text-[12px] text-slate-500">{meta.hint}</span>}
           </label>
 
-          {posts.length > 0 && !isQ && (
+          {false && posts.length > 0 && !isQ && (
             <label className="block"><span className="label">От стената „Портфолио“ (по желание)</span>
               <select value={d.post_id || ''} onChange={e => fromPost(e.target.value)} className="input">
                 <option value="">— без връзка —</option>

@@ -65,5 +65,5 @@ export async function exportPortfolio(opts: { name: string; label: string; posts
     if (files.length) kids.push(new Paragraph({ children: [t('Приложения: ', { bold: true }), t(files.map(f => f.name || 'файл').join(', '))] }))
   }
   const doc = new Document({ sections: [{ properties: { page: { margin: { top: 1134, bottom: 1134, left: 1134, right: 1134 } } }, children: kids }] })
-  saveAs(await Packer.toBlob(doc), `Портфолио_${name.replace(/\s+/g, '_')}.docx`)
+  saveAs(await Packer.toBlob(doc), `Кабинети_и_дейности_${name.replace(/\s+/g, '_')}.docx`)
 }
