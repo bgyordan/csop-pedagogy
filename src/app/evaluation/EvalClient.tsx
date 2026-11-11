@@ -21,7 +21,7 @@ import {
   type EvalFile, type History, type AttestDefer, type AttestState,
 } from '@/lib/evaluation'
 import { generateCards, exportRegistryExcel, type RegistryRow } from '@/lib/docx-evaluation'
-import { sectionAFromPortfolio, type PPItem, type PPProfile, type PPLink } from '@/lib/pro-portfolio'
+import { sectionAFromPortfolio, qualificationTotals, fmtNum, SECTIONS, type PPItem, type PPProfile, type PPLink } from '@/lib/pro-portfolio'
 import { PortfolioPicker } from './PortfolioEvidence'
 
 type CampaignRow = {
@@ -50,6 +50,8 @@ type Props = {
   scope: Scope
   since: { staff_id: string; since_year: number }[]
   defers: AttestDefer[]
+  /** собствените записи от регистъра — за „Моето атестиране“ */
+  myHistory: History[]
 }
 type Scope = 'attest' | 'dtv'
 const inScope = (scope: Scope, kind?: string | null) => (scope === 'attest' ? kind === 'attest' : kind !== 'attest')
@@ -112,6 +114,7 @@ export default function EvalClient(raw: Props) {
         </nav>
       )}
 
+      {tab === 'mine' && scope === 'attest' && <MyAttest {...p} />}
       {tab === 'mine' && <MyCards {...p} />}
       {tab === 'mine' && otherCards > 0 && (
         <Link href={`${baseOf(scope === 'attest' ? 'dtv' : 'attest')}?tab=mine`} className="mt-3 inline-flex items-center gap-1 text-[13px] text-indigo-700 hover:underline">
@@ -128,6 +131,87 @@ export default function EvalClient(raw: Props) {
 }
 
 // ── Моите карти ───────────────────────────────────────────────────────────
+/** Моето атестиране — винаги видимо за педагогическите специалисти: къде съм, кога предстои, как върви портфолиото. */
+function MyAttest(p: Props) {
+  const own = [
+    ...p.cards.filter(c => c.campaign?.kind === 'attest' && finalGrade(c) && (c.employer_at || c.acked_at || c.finalized_at))
+      .map(c => ({ date: isoOf(c.employer_at || c.acked_at || c.finalized_at), grade: finalGrade(c) })),
+    ...p.myHistory.map(h => ({ date: h.attested_on, grade: h.grade })),
+  ].filter(x => x.date).sort((a, b) => b.date.localeCompare(a.date))
+  const last = own[0] || null
+  const since = p.pp?.profile?.neispuo?.since_year ?? null
+  const year = attestWindowYear(todayIso())
+  const me: Person = { id: p.me.id, first_name: '', last_name: '', role: p.me.role, position: null }
+  const [c] = attestCandidates([me], year, () => last?.date || null, () => since, () => null)
+  if (!c) return null
+  const nextYear = c.next ? attestWindowYear(c.next) : null
+  const soon = c.state === 'due' || c.state === 'new'
+  const items = p.pp?.items || []
+  const secs = SECTIONS.map(s => ({ ...s, n: items.filter(i => i.section === s.key).length }))
+  const filled = secs.filter(s => s.n > 0).length
+  const from = last?.date || (since ? `${since}-09-15` : null)
+  const q = qualificationTotals(items, from, todayIso())
+  const prof = p.pp?.profile
+  const basics = [
+    { l: 'Образование', ok: !!prof?.education?.length },
+    { l: 'Педагогическа философия', ok: !!prof?.philosophy?.trim() },
+    { l: 'Силни страни и области за развитие', ok: !!(prof?.strengths?.trim() || prof?.growth?.trim()) },
+  ]
+  const steps = [
+    'През годините добавяте в професионалното портфолио — обучения, добри практики, постижения, работа с родители.',
+    'През юни на годината на атестирането получавате тук карта за самооценка по 25 критерия.',
+    'Към самооценката прикачвате доказателства от портфолиото — по желание към конкретен критерий.',
+    'Атестационната комисия оценява; запознавате се с резултата тук или подавате възражение до 5 работни дни.',
+  ]
+  return (
+    <div className="mb-5 space-y-3">
+      {soon && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13.5px] text-amber-900">
+          Атестирането ви е през <b>{attestWindowLabel(nextYear && nextYear > year ? nextYear : year)}</b>. Подгответе професионалното портфолио до май — от него ще прикачите доказателствата.
+        </div>
+      )}
+      <div className="grid gap-3 lg:grid-cols-[1fr_1.4fr]">
+        <section className="bg-white rounded-2xl border border-slate-200 p-5">
+          <h2 className="text-[15px] font-semibold text-slate-800 mb-3">Моето атестиране</h2>
+          <dl className="space-y-2.5 text-[13.5px]">
+            <div><dt className="text-[12px] text-slate-500">Последно атестиране</dt>
+              <dd className="text-slate-800">{last ? <>{dmy(last.date)}{last.grade ? <span className="text-slate-500"> · {last.grade}</span> : ''}</> : <span className="text-slate-400">няма данни в ЕИС</span>}</dd></div>
+            <div><dt className="text-[12px] text-slate-500">Следващо</dt>
+              <dd className={`text-[17px] font-semibold ${soon ? 'text-amber-700' : 'text-slate-800'}`}>
+                {nextYear ? attestWindowLabel(nextYear) : c.state === 'new' ? `${attestWindowLabel(year)} (без предишно атестиране)` : c.state === 'young' ? 'след 2 години в ЦСОП' : '—'}
+              </dd></div>
+            {since && <div><dt className="text-[12px] text-slate-500">В ЦСОП от</dt><dd className="text-slate-800">{since} г.</dd></div>}
+          </dl>
+          {(!last || c.state === 'unknown') && (
+            <p className="mt-3 text-[12.5px] text-slate-500">Ако сте атестирани и преди — в ЦСОП или в друга институция — кажете на заместник-директора, за да го впише в регистъра.</p>
+          )}
+        </section>
+        <section className="bg-white rounded-2xl border border-slate-200 p-5">
+          <div className="flex items-start gap-2 mb-3">
+            <h2 className="text-[15px] font-semibold text-slate-800 flex-1">Професионално портфолио</h2>
+            <Link href="/pro-portfolio?tab=sections" className="text-[12.5px] px-3 py-1.5 rounded-lg text-white" style={{ backgroundColor: ACCENT }}>Добави материал</Link>
+            <Link href="/pro-portfolio" className="text-[12.5px] px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50">Отвори</Link>
+          </div>
+          <p className="text-[13px] text-slate-600 mb-2">{items.length} материала в {filled} от {secs.length} раздела{q.count ? ` · квалификация от ${from ? dmy(from) : 'началото'}: вътрешна ${fmtNum(q.internal)} ч., ${fmtNum(q.credits)} кредита` : ''}</p>
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {secs.map(s => (
+              <span key={s.key} title={s.hint} className={`text-[11.5px] px-2 py-0.5 rounded-full border ${s.n ? s.tone : 'bg-white text-slate-400 border-slate-200'}`}>{s.label}{s.n ? ` · ${s.n}` : ''}</span>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12.5px]">
+            {basics.map(b => <span key={b.l} className={b.ok ? 'text-emerald-700' : 'text-slate-400'}>{b.ok ? '✓' : '○'} {b.l}</span>)}
+          </div>
+        </section>
+      </div>
+      <details className="bg-white rounded-2xl border border-slate-200 px-5 py-3 text-[13px] text-slate-600">
+        <summary className="cursor-pointer text-slate-700">Как протича атестирането</summary>
+        <ol className="mt-2 space-y-1.5 list-decimal pl-5">{steps.map(s => <li key={s}>{s}</li>)}</ol>
+        <p className="mt-2 text-[12px] text-slate-500">Атестирането е на всеки 4 години, през юни – юли (Наредба № 15/2019, чл. 77). Окончателен резултат: 25% самооценка и 75% оценка на комисията.</p>
+      </details>
+    </div>
+  )
+}
+
 function MyCards(p: Props) {
   // карти в подготовка (утвърдени, но неизпратени) не се показват — лицето вижда само самооценката си
   const cards = p.cards.filter(c => c.campaign && (c.sent_at || (c.campaign.self_assess && c.campaign.status !== 'setup')))

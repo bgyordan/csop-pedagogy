@@ -54,6 +54,11 @@ export const SECTIONS: { key: SectionKey; label: string; hint: string; tone: str
   { key: 'feedback', label: 'Отзиви и обратна връзка', hint: 'Мнения на родители, колеги, ръководство, партньори; благодарности', tone: 'bg-orange-50 text-orange-800 border-orange-200' },
   { key: 'other', label: 'Други материали', hint: 'Всичко друго, което показва професионалното ми развитие', tone: 'bg-zinc-50 text-zinc-700 border-zinc-200' },
 ]
+/** Бившето „Портфолио“ (публикации) вече е „Кабинети и дейности“ — етикетът идва от SQL функциите, поправяме го тук */
+export function fixEvidence<T extends { counts?: { k: string; l: string; n: number | null }[] } | null>(ev: T): T {
+  if (ev?.counts) ev.counts = ev.counts.map(c => c.k === 'portfolio' ? { ...c, l: 'Публикации в „Кабинети и дейности“' } : c)
+  return ev
+}
 export const sectionMeta = (k: string) => SECTIONS.find(s => s.key === k) || SECTIONS[SECTIONS.length - 1]
 
 /** Видове квалификация (за раздел А на атестационната карта) */

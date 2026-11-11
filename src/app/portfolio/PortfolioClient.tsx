@@ -126,7 +126,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
   }
 
   const tabs: { key: Tab; label: string; icon: typeof LayoutGrid; count: number | null; show: boolean }[] = [
-    { key: 'wall', label: 'Портфолио на ЦСОП', icon: LayoutGrid, count: wall.length, show: true },
+    { key: 'wall', label: 'Всички в ЦСОП', icon: LayoutGrid, count: wall.length, show: true },
     { key: 'mine', label: 'Моето портфолио', icon: UserRound, count: mine.length, show: canPost },
     { key: 'files', label: 'Споделени файлове', icon: Share2, count: files ? files.length : null, show: true },
     { key: 'site', label: 'За сайта', icon: Globe, count: siteQueue.length, show: siteDesk },
@@ -137,7 +137,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
       {/* Заглавие */}
       <div className="flex flex-wrap items-end gap-4 mb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">Портфолио</h1>
+          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">Кабинети и дейности</h1>
           <p className="text-sm text-slate-500 mt-1">Кабинети, проекти, събития, материали и споделени файлове на колегите</p>
         </div>
         {canPost && (
@@ -182,10 +182,6 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
               <div className="text-[11px] text-white/70 mt-1">Снимки</div>
             </div>
           </div>
-          <a href="/pro-portfolio" className="ml-auto inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white text-sm font-medium hover:bg-white/20"
-            title="Професионалното портфолио по Наредба № 15 — материали, квалификация, цели, доказателства за атестирането">
-            Професионално портфолио →
-          </a>
           <button type="button" onClick={exportWord} disabled={!mine.length || exporting}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-[#0f2240] text-sm font-medium hover:bg-slate-100 disabled:opacity-50"
             title="Word документ с всички мои публикации — за атестацията">

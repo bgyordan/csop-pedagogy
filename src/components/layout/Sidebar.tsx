@@ -108,6 +108,17 @@ const navItems: NavItem[] = [
       { href: '/reports', label: 'Справки', icon: <BarChart3 size={14} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
     ],
   },
+  // Атестиране и развитие — професионалното портфолио (трупа се през годините) и атестирането (моите карти,
+  // кога ми предстои). Управата ги има в „Управление“ (портфолиата на всички, регистър, кампании).
+  {
+    href: '#growth',
+    label: 'Атестиране и развитие',
+    icon: <BookUser size={16} />,
+    children: [
+      { href: '/pro-portfolio', label: 'Професионално портфолио', icon: <BookUser size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator'] },
+      { href: '/attestation', label: 'Атестиране', icon: <BookMarked size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator'] },
+    ],
+  },
   // Лекторски: всичко за заплащането — замествания, над норматив и отпуск по НП (както при управата)
   {
     href: '#lecturer',
@@ -131,7 +142,8 @@ const navItems: NavItem[] = [
       // дневен ред на предстоящите заседания, протоколите и моите решения за изпълнение
       { href: '/meetings', label: 'ПС и Общо събрание', icon: <Landmark size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'secretary'] },
       // Констативните протоколи, Оценяването (ДТВ, атестиране) и Професионалното портфолио на колегите са в „Моят профил“
-      { href: '/portfolio', label: 'Портфолио', icon: <Images size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
+      // кабинети, проекти, събития и материали със снимки (бившето „Портфолио“; професионалното е в „Атестиране и развитие“)
+      { href: '/portfolio', label: 'Кабинети и дейности', icon: <Images size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
       // Старият генератор — временно (колегите го търсят). Новото: досие → „Документи“ → „Нов документ“. Да се махне, щом всички минат на бланките.
       { href: '/generator', label: 'Генератор (стар)', icon: <FileText size={14} />, roles: ['class_teacher', 'teacher', 'educator', 'psychologist', 'speech_therapist', 'rehabilitator'] },
     ],
@@ -209,7 +221,7 @@ const navItems: NavItem[] = [
   { href: '/site-docs', label: 'Сайт', icon: <Globe size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   // съобщения до колегите (изскачат веднъж като листче) — деловодството ги пише; управата ги има в „Администрация“
   { href: '/admin/announcements', label: 'Съобщения', icon: <Bell size={16} />, roles: ['secretary'], section: 'delo' },
-  { href: '/portfolio', label: 'Портфолио', icon: <Images size={16} />, roles: ['secretary'], section: 'delo' },
+  { href: '/portfolio', label: 'Кабинети и дейности', icon: <Images size={16} />, roles: ['secretary'], section: 'delo' },
   { href: '/facilities', label: 'Материална база', icon: <Wrench size={16} />, roles: ['secretary'], section: 'delo' },
   // Секретар: „Още“ (под Деловодство, свито по подразбиране) — подредено по смисъл
   { href: '/students', label: 'Ученици', icon: <Users size={16} />, roles: ['secretary'], section: 'settings' },
@@ -448,7 +460,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
     setUserMenuOpen(false)
   }, [pathname])
   function NavLink({ item }: { item: NavItem }) {
-    const also = item.href === '/profile' && !isMgmt ? [...(item.also || []), '/pro-portfolio'] : (item.also || [])
+    const also = item.also || []
     const active = [item.href, ...also].some(h => pathname === h || pathname.startsWith(h + '/'))
     return (
       <Link href={item.href} onClick={() => setMobileOpen(false)} title={isMini ? item.label : undefined} className={itemCls(active)}>

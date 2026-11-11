@@ -17,6 +17,7 @@ import {
   SECTIONS, VIS, GOAL_STATUS, Q_KINDS, INTERNAL_MIN_YEAR, EXTERNAL_MIN_PERIOD, sectionMeta, qKindLabel, levelLabel,
   qualificationTotals, yearsSince, inPeriod, fmtNum, dateRange,
   type PPProfile, type PPItem, type PPGoal, type PPFile, type PPEvidence, type SectionKey, type Visibility, type Edu, type GoalStatus,
+  fixEvidence,
 } from '@/lib/pro-portfolio'
 import ItemEditor, { type WallPost } from './ItemEditor'
 
@@ -66,7 +67,7 @@ export default function ProPortfolioClient(p: Props) {
       let evidence: PPEvidence | null = null
       if (p.isOwn || p.isManager) {
         const { data } = await createClient().rpc('pp_evidence', { p_staff: p.staff.id, p_from: range.from || '2000-01-01', p_to: range.to || todayIso() })
-        evidence = (data || null) as PPEvidence | null
+        evidence = fixEvidence((data || null) as PPEvidence | null)
       }
       const { generatePortfolio } = await import('@/lib/docx-pro-portfolio')
       await generatePortfolio({ staff: { name: fullName(p.staff), position: p.staff.position || p.staff.roleLabel }, profile: p.profile, items, goals: p.goals, classes: p.classes, periodLabel: range.label, evidence })
@@ -264,13 +265,7 @@ function Overview(p: Props & { items: PPItem[]; rangeLabel: string; onAdd: (s: S
           <section className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-5 text-[13px] text-indigo-900 space-y-2">
             <div className="flex items-center gap-1.5 font-medium"><Award size={15} /> За атестирането</div>
             <p>Когато започне атестиране, в „Оценяване → Моите карти“ изберете записи оттук като доказателства — и към конкретен критерий. Раздел А на картата се попълва с един бутон от общите данни и квалификацията.</p>
-            <Link href="/evaluation?tab=mine" className="inline-flex items-center gap-1 text-indigo-700 font-medium">Към моите карти →</Link>
-          </section>
-        )}
-        {p.isOwn && p.posts.length > 0 && (
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 text-[13px] text-slate-700 space-y-1.5">
-            <div className="flex items-center gap-1.5 font-medium text-slate-800"><Images size={15} /> Стената „Портфолио“</div>
-            <p>Имате {p.posts.length} публикации. При нов запис можете да изберете публикация оттам — текстът и датата се пренасят.</p>
+            <Link href="/attestation?tab=mine" className="inline-flex items-center gap-1 text-indigo-700 font-medium">Към моите карти →</Link>
           </section>
         )}
       </aside>
@@ -533,7 +528,7 @@ function Eis({ staffId, range }: { staffId: string; range: { from: string | null
   useEffect(() => {
     setEv(null); setErr('')
     createClient().rpc('pp_evidence', { p_staff: staffId, p_from: range.from || '2000-01-01', p_to: range.to || todayIso() })
-      .then(({ data, error }) => { if (error) setErr(error.message); else setEv(data as PPEvidence) })
+      .then(({ data, error }) => { if (error) setErr(error.message); else setEv(fixEvidence(data as PPEvidence)) })
   }, [staffId, range.from, range.to])
   if (err) return <p className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-2xl px-4 py-3">Данните от ЕИС не могат да се заредят: {err}</p>
   if (!ev) return <p className="text-sm text-slate-400"><Loader2 size={14} className="inline animate-spin mr-1" />Зареждане…</p>

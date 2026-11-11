@@ -21,6 +21,7 @@ import {
   type Campaign, type EvalTemplate, type Member, type Participant, type ScoreRow, type Pay, type Person, type Grp, type Scores,
   type EvalGroup, type External, type EvalFile, type Support, type Evidence, type Kind, type ScaleStep,
 } from '@/lib/evaluation'
+import { fixEvidence } from '@/lib/pro-portfolio'
 import {
   generateCards, generateProtocol, generateOrder, exportPayExcel, generateCommissionOrder, generateSupportPlan, exportAnalysisExcel,
   type PayRow,
@@ -564,7 +565,7 @@ function EvidencePanel(p: Props & { x: Participant }) {
   useEffect(() => {
     if (!open || ev || err) return
     const supabase = createClient()
-    supabase.rpc('eval_evidence', { p_participant: x.id }).then(({ data, error }) => { if (error) setErr(error.message); else setEv(data as Evidence) })
+    supabase.rpc('eval_evidence', { p_participant: x.id }).then(({ data, error }) => { if (error) setErr(error.message); else setEv(fixEvidence(data as Evidence)) })
     supabase.from('eval_participants').select('final_total, result, grade, employer_grade, status, campaign:eval_campaigns(id, name, kind, created_at)')
       .eq('staff_id', x.staff_id).neq('campaign_id', c.id).not('final_total', 'is', null)
       .then(({ data }) => setHist(((data || []) as any[]).sort((a, b) => (b.campaign?.created_at || '').localeCompare(a.campaign?.created_at || ''))))

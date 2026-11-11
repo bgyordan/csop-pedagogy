@@ -47,7 +47,7 @@ export default async function PortfolioPage() {
     return (
       <div className="max-w-3xl mx-auto p-8">
         <div className="rounded-2xl border border-amber-300 bg-amber-50 p-6 text-amber-900">
-          <h1 className="text-lg font-semibold mb-1">Портфолио</h1>
+          <h1 className="text-lg font-semibold mb-1">Кабинети и дейности</h1>
           <p className="text-sm">Разделът е готов, но базата още не е подготвена — пуснете SQL файла <code>2026-10-03_portfolio.sql</code>.</p>
         </div>
       </div>

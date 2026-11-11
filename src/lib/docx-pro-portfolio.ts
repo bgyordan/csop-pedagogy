@@ -147,9 +147,9 @@ export async function generatePortfolio(o: {
     styles: { default: { document: { run: { font: F, size: 22 } } } },
     sections: [{
       properties: { page: { margin: { top: 900, bottom: 900, left: 1134, right: 1000 } } },
-      footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ font: F, size: 18, children: [`Портфолио — ${staff.name} · стр. `, PageNumber.CURRENT] })] })] }) },
+      footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ font: F, size: 18, children: [`Професионално портфолио — ${staff.name} · стр. `, PageNumber.CURRENT] })] })] }) },
       children: out,
     }],
   })
-  saveAs(await Packer.toBlob(doc), `Портфолио_${staff.name.replace(/\s+/g, '_')}_${today}.docx`)
+  saveAs(await Packer.toBlob(doc), `Професионално_портфолио_${staff.name.replace(/\s+/g, '_')}_${today}.docx`)
 }
