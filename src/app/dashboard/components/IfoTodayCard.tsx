@@ -2,9 +2,12 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { PERIOD_BY_N, byStartTime } from '@/lib/periods'
 import { Clock3, UserRound } from 'lucide-react'
 
-// „Деца в ИФО — днес“ — за помощник на учителя (роля support).
-// Само преглед: кое ИФО дете какво има днес, при кого и кога; кой учител отсъства и кой го замества.
-// Чете със service-role (на сървъра), защото помощниците нямат права по таблиците с разписанията —
+// „Деца в ИФО — днес“ — общ изглед за всички роли, само за четене:
+// кое ИФО дете какво има днес, при кого и кога; кой учител отсъства и кой го замества.
+//  • all (помощници, управа) — всички ИФО деца;
+//  • staffId (останалите) — само „моите“: от паралелката, на която съм класен, или с които имам ИФО час / терапия.
+//    Ако нямам такива деца — картата не се показва.
+// Чете със service-role (на сървъра), защото не всички роли имат права по таблиците с разписанията —
 // и показва само това, нищо от досието.
 
 const ROLE_LABEL: Record<string, string> = { psychologist: 'Психолог', speech_therapist: 'Логопед', rehabilitator: 'Рехабилитатор' }
@@ -12,7 +15,7 @@ const nm = (p: any) => (p ? `${p.first_name} ${p.last_name}` : '')
 
 type Row = { period: number; what: string; who: string; note: string }
 
-export default async function IfoTodayCard({ currentYearId }: { currentYearId: string }) {
+export default async function IfoTodayCard({ currentYearId, staffId }: { currentYearId: string; staffId?: string }) {
   const db = createAdminClient()
   const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Sofia' }))
   const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -24,24 +27,39 @@ export default async function IfoTodayCard({ currentYearId }: { currentYearId: s
   const term = calDay?.term ?? (mo >= 2 && mo <= 8 ? 2 : 1)
   const schoolDay = calDay ? !!calDay.is_school_day : dow >= 1 && dow <= 5
 
+  const mine = !!staffId
   const shell = (body: React.ReactNode, count?: number) => (
     <div className="rounded-2xl border border-slate-200/70 bg-white shadow-sm">
       <div className="flex items-center gap-2 px-5 py-3.5 border-b border-slate-100">
         <Clock3 size={18} className="text-teal-600" />
-        <span className="text-base font-medium text-[#0f2240]">Деца в ИФО — днес</span>
+        <span className="text-base font-medium text-[#0f2240]">{mine ? 'Моите деца в ИФО — днес' : 'Деца в ИФО — днес'}</span>
         {count != null && <span className="ml-auto text-xs text-slate-400">{count} {count === 1 ? 'дете' : 'деца'}</span>}
       </div>
       {body}
     </div>
   )
 
-  if (!schoolDay || dow < 1 || dow > 5) return shell(<p className="px-5 py-6 text-sm text-slate-400">Днес не е учебен ден.</p>)
+  if (!schoolDay || dow < 1 || dow > 5) return mine ? null : shell(<p className="px-5 py-6 text-sm text-slate-400">Днес не е учебен ден.</p>)
 
   // ИФО децата (активни) за годината
   const { data: enr } = await db.from('student_enrollments')
-    .select('student_id, class:classes(name), student:students(id, first_name, last_name, status)')
+    .select('student_id, class_id, class:classes(name), student:students(id, first_name, last_name, status)')
     .eq('academic_year_id', currentYearId).eq('education_form', 'ifo')
-  const kids = (enr || []).filter((e: any) => e.student?.status === 'active')
+  let kids = (enr || []).filter((e: any) => e.student?.status === 'active')
+
+  // „моите“ ИФО деца: класен на паралелката ∪ мой ИФО час ∪ моя терапия (текущия срок)
+  if (mine) {
+    const [{ data: cta }, { data: myIfo }, { data: myTher }] = await Promise.all([
+      db.from('class_teacher_assignments').select('class_id').eq('staff_id', staffId).eq('academic_year_id', currentYearId),
+      db.from('teacher_ifo_slots').select('student_id').eq('teacher_id', staffId).eq('academic_year_id', currentYearId).eq('term', term),
+      db.from('therapist_slots').select('student_id, schedule:therapist_schedules!inner(staff_id, term, academic_year_id)')
+        .eq('schedule.staff_id', staffId).eq('schedule.term', term).eq('schedule.academic_year_id', currentYearId),
+    ])
+    const myClasses = new Set((cta || []).map((c: any) => c.class_id))
+    const myKids = new Set([...(myIfo || []), ...(myTher || [])].map((x: any) => x.student_id))
+    kids = kids.filter((e: any) => myClasses.has(e.class_id) || myKids.has(e.student_id))
+    if (kids.length === 0) return null
+  }
   const ids = kids.map((e: any) => e.student_id)
   if (ids.length === 0) return shell(<p className="px-5 py-6 text-sm text-slate-400">Няма деца в ИФО.</p>, 0)
 
@@ -103,7 +121,7 @@ export default async function IfoTodayCard({ currentYearId }: { currentYearId: s
     .filter(k => k.rows.length > 0)
     .sort((a, b) => (a.absent === b.absent ? a.name.localeCompare(b.name, 'bg') : a.absent ? 1 : -1))
 
-  if (list.length === 0) return shell(<p className="px-5 py-6 text-sm text-slate-400">Днес няма ИФО часове.</p>, 0)
+  if (list.length === 0) return mine ? null : shell(<p className="px-5 py-6 text-sm text-slate-400">Днес няма ИФО часове.</p>, 0)
 
   return shell(
     <div className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">

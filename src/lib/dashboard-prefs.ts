@@ -13,7 +13,7 @@ export const DASH_WIDGETS: DashWidget[] = [
   { key: 'ores', label: 'Онлайн стаи (ОРЕС)', notRoles: ['secretary', 'support'] },
   { key: 'classroom', label: 'Онлайн стаи на паралелките', notRoles: ['secretary', 'support'] },
   { key: 'absent', label: 'Отсъстващи деца', notRoles: ['secretary', 'support'] },
-  { key: 'ifoToday', label: 'Деца в ИФО — днес', hint: 'какво имат и при кого', roles: ['support'] },
+  { key: 'ifoToday', label: 'Деца в ИФО — днес', hint: 'какво имат и при кого', notRoles: ['secretary'] },
   { key: 'todayAbsent', label: 'Днес отсъстват (колеги)', notRoles: ['admin', 'zdud', 'director'] },
   { key: 'shared', label: 'Споделено от колеги', hint: 'файлове и публикации за сайта', roles: ['secretary'] },
 ]

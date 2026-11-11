@@ -145,8 +145,13 @@ export default async function DashboardPage() {
       {/* Спонтанен неучебен ден — днес или в следващите дни */}
       {show('nonschool') && <NonSchoolDayStrip />}
 
-      {/* Помощник на учителя — ИФО децата днес: какво имат, при кого, кой замества */}
-      {profile.role === 'support' && show('ifoToday') && <IfoTodayCard currentYearId={currentYear.id} />}
+      {/* ИФО децата днес: какво имат, при кого, кой замества.
+          Помощници и управа — всички; останалите — само своите (класен / ИФО час / терапия), иначе нищо. */}
+      {!isSecretary && show('ifoToday') && (
+        ['support', 'admin', 'zdud', 'director'].includes(profile.role)
+          ? <IfoTodayCard currentYearId={currentYear.id} />
+          : <IfoTodayCard currentYearId={currentYear.id} staffId={profile.id} />
+      )}
 
 
       {/* Кратките ленти — по две на ред, за да не са дълги през целия екран */}
