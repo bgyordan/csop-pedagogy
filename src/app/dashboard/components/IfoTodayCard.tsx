@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PERIOD_BY_N, byStartTime } from '@/lib/periods'
-import { Clock3, UserRound } from 'lucide-react'
+import Link from 'next/link'
+import { ChevronRight, Clock3 } from 'lucide-react'
 
 // „Деца в ИФО — днес“ — общ изглед за всички роли, само за четене:
 // кое ИФО дете какво има днес, при кого и кога; кой учител отсъства и кой го замества.
@@ -15,7 +16,7 @@ const nm = (p: any) => (p ? `${p.first_name} ${p.last_name}` : '')
 
 type Row = { period: number; what: string; who: string; note: string }
 
-export default async function IfoTodayCard({ currentYearId, staffId }: { currentYearId: string; staffId?: string }) {
+export default async function IfoTodayCard({ currentYearId, staffId, full }: { currentYearId: string; staffId?: string; full?: boolean }) {
   const db = createAdminClient()
   const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Sofia' }))
   const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -34,6 +35,7 @@ export default async function IfoTodayCard({ currentYearId, staffId }: { current
         <Clock3 size={18} className="text-teal-600" />
         <span className="text-base font-medium text-[#0f2240]">{mine ? 'Моите деца в ИФО — днес' : 'Деца в ИФО — днес'}</span>
         {count != null && <span className="ml-auto text-xs text-slate-400">{count} {count === 1 ? 'дете' : 'деца'}</span>}
+        {!full && count != null && count > 0 && <Link href="/ifo-today" className="text-xs text-teal-700 hover:underline">целият ден</Link>}
       </div>
       {body}
     </div>
@@ -123,38 +125,68 @@ export default async function IfoTodayCard({ currentYearId, staffId }: { current
 
   if (list.length === 0) return mine ? null : shell(<p className="px-5 py-6 text-sm text-slate-400">Днес няма ИФО часове.</p>, 0)
 
+  // какво има детето СЕГА, а ако няма — СЛЕДВАЩОТО (за реда в сгънат вид)
+  const focus = (rs: Row[]) => {
+    const cur = rs.find(r => { const p = PERIOD_BY_N[r.period]; return !!p && nowMin >= p.start && nowMin < p.end })
+    if (cur) return { r: cur, tag: 'сега' }
+    const next = rs.find(r => { const p = PERIOD_BY_N[r.period]; return !!p && nowMin < p.start })
+    return next ? { r: next, tag: 'следва' } : null
+  }
+
   return shell(
-    <div className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-      {list.map(k => (
-        <div key={k.id} className={`rounded-xl border px-4 py-3 ${k.absent ? 'border-slate-100 bg-slate-50/60' : 'border-slate-200/70 bg-white'}`}>
-          <div className="flex items-center gap-2 mb-2">
-            <UserRound size={15} className={k.absent ? 'text-slate-400' : 'text-teal-600'} />
-            <span className={`font-medium ${k.absent ? 'text-slate-500' : 'text-[#0f2240]'}`}>{k.name}</span>
-            {k.cls && <span className="text-xs text-slate-400">{k.cls}</span>}
-            {k.absent && <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">отсъства днес</span>}
-          </div>
-          {!k.absent && (
-            <ul className="space-y-1">
-              {k.rows.map((r, i) => {
-                const p = PERIOD_BY_N[r.period]
-                const nowHere = !!p && nowMin >= p.start && nowMin < p.end
-                const past = !!p && nowMin >= p.end
-                return (
-                  <li key={i} className={`flex items-baseline gap-3 text-sm rounded-lg px-2 py-1 ${nowHere ? 'bg-teal-50 ring-1 ring-teal-200' : ''} ${past ? 'opacity-45' : ''}`}>
-                    <span className="w-24 shrink-0 tabular-nums text-slate-500">{p?.time || r.period}</span>
-                    <span className="min-w-0">
-                      <span className="text-slate-700">{r.what}</span>
-                      {r.who && <span className="text-slate-500"> · {r.who}</span>}
-                      {r.note && <span className="block text-xs text-amber-700">{r.note}</span>}
-                    </span>
-                    {nowHere && <span className="ml-auto text-[11px] text-teal-700 shrink-0">сега</span>}
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </div>
-      ))}
+    <div className={full ? '' : 'max-h-[22rem] overflow-y-auto'}>
+      <ul className="divide-y divide-slate-100">
+        {list.map(k => {
+          const f = focus(k.rows)
+          const fp = f ? PERIOD_BY_N[f.r.period] : null
+          const warn = k.rows.some(r => r.note)
+          return (
+            <li key={k.id}>
+              <details className="group" open={full && !k.absent}>
+                <summary className={`flex items-center gap-3 px-5 py-2 cursor-pointer list-none hover:bg-slate-50 ${k.absent ? 'opacity-60' : ''}`}>
+                  <ChevronRight size={14} className="text-slate-300 shrink-0 transition-transform group-open:rotate-90" />
+                  <span className="min-w-0 truncate">
+                    <span className="text-[#0f2240]">{k.name}</span>
+                    {k.cls && <span className="text-xs text-slate-400 ml-1.5">{k.cls}</span>}
+                  </span>
+                  <span className="ml-auto flex items-center gap-2 text-sm min-w-0 shrink">
+                    {k.absent ? (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 shrink-0">отсъства днес</span>
+                    ) : f ? (
+                      <span className="truncate text-slate-600">
+                        <span className={`text-[11px] mr-1.5 ${f.tag === 'сега' ? 'text-teal-700' : 'text-slate-400'}`}>{f.tag}</span>
+                        <span className="tabular-nums text-slate-500">{fp?.time.split('–')[0]}</span> · {f.r.what}{f.r.who ? ` · ${f.r.who}` : ''}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-400">приключи за днес</span>
+                    )}
+                    {!k.absent && warn && <span title="промяна за деня" className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />}
+                  </span>
+                </summary>
+                {!k.absent && (
+                  <ul className="pl-12 pr-5 pb-2 space-y-0.5">
+                    {k.rows.map((r, i) => {
+                      const p = PERIOD_BY_N[r.period]
+                      const nowHere = !!p && nowMin >= p.start && nowMin < p.end
+                      const past = !!p && nowMin >= p.end
+                      return (
+                        <li key={i} className={`flex items-baseline gap-3 text-sm rounded-lg px-2 py-0.5 ${nowHere ? 'bg-teal-50' : ''} ${past ? 'opacity-45' : ''}`}>
+                          <span className="w-24 shrink-0 tabular-nums text-slate-500">{p?.time || r.period}</span>
+                          <span className="min-w-0">
+                            <span className="text-slate-700">{r.what}</span>
+                            {r.who && <span className="text-slate-500"> · {r.who}</span>}
+                            {r.note && <span className="block text-xs text-amber-700">{r.note}</span>}
+                          </span>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </details>
+            </li>
+          )
+        })}
+      </ul>
     </div>,
     list.length,
   )

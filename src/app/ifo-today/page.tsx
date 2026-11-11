@@ -19,8 +19,8 @@ export default async function IfoTodayPage() {
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto">
       {all
-        ? <IfoTodayCard currentYearId={year.id} />
-        : (await IfoTodayCard({ currentYearId: year.id, staffId: profile.id })) ?? (
+        ? <IfoTodayCard currentYearId={year.id} full />
+        : (await IfoTodayCard({ currentYearId: year.id, staffId: profile.id, full: true })) ?? (
             <p className="text-sm text-slate-400">Днес нямате деца в ИФО.</p>
           )}
     </div>
