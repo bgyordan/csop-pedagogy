@@ -28,7 +28,7 @@ export default async function StaffEvalSection({ supabase, staffId }: { supabase
       </div>
       <div className="divide-y divide-slate-50">
         {list.map(r => (
-          <Link key={r.id} href={`/evaluation/${r.campaign?.id}?p=${r.id}`} className="flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50">
+          <Link key={r.id} href={`${r.campaign?.kind === 'attest' ? '/attestation' : '/evaluation'}/${r.campaign?.id}?p=${r.id}`} className="flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50">
             <span className="w-24 text-[12px] text-slate-500">{KIND_SHORT[(r.campaign?.kind || 'dtv') as Kind]}</span>
             <span className="flex-1 min-w-0 text-sm text-slate-700 truncate">{r.campaign?.name}</span>
             <span className="text-sm font-medium tabular-nums text-slate-800">
