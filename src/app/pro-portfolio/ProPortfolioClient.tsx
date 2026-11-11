@@ -19,7 +19,7 @@ import {
   qualificationTotals, yearsSince, inPeriod, fmtNum, dateRange,
   type PPProfile, type PPItem, type PPGoal, type PPFile, type PPEvidence, type SectionKey, type Visibility, type Edu, type GoalStatus,
   fixEvidence, fillSteps, ymRange,
-  type WorkYear, type Career, type Membership, type FillStep,
+  type WorkYear, type Career, type Membership, type FillStep, type PPTraining,
 } from '@/lib/pro-portfolio'
 import ItemEditor, { type WallPost } from './ItemEditor'
 
@@ -32,8 +32,11 @@ type Props = {
   years: Year[]; lastAttest: string | null; overview: OverviewRow[]
   /** работа в ЦСОП по години — от ЕИС */
   workYears: WorkYear[]
+  /** регистър „Вътрешни обучения“ — само за управата в таба; null — SQL файлът не е пуснат */
+  trainings: PPTraining[] | null
+  people: { id: string; first_name: string; last_name: string; role: string; position: string | null }[]
 }
-type Tab = 'overview' | 'sections' | 'qual' | 'goals' | 'eis' | 'staff'
+type Tab = 'overview' | 'sections' | 'qual' | 'goals' | 'eis' | 'staff' | 'trainings'
 
 const ACCENT = '#0f2240'
 const fullName = (s: { first_name: string; middle_name?: string | null; last_name: string }) => [s.first_name, s.middle_name, s.last_name].filter(Boolean).join(' ')
@@ -48,6 +51,7 @@ export default function ProPortfolioClient(p: Props) {
     { k: 'goals', l: 'Цели за развитие', i: Target, show: p.isOwn || p.isManager },
     { k: 'eis', l: 'От ЕИС', i: Database, show: p.isOwn || p.isManager },
     { k: 'staff', l: 'Служители', i: Users, show: p.isManager },
+    { k: 'trainings', l: 'Вътрешни обучения', i: GraduationCap, show: p.isManager },
   ]
   const tab: Tab = (tabs.find(t => t.k === p.tab && t.show)?.k) || 'overview'
   const go = (t: Tab) => router.push(`/pro-portfolio?${p.isOwn ? '' : `staff=${p.staff.id}&`}tab=${t}`)
@@ -119,6 +123,7 @@ export default function ProPortfolioClient(p: Props) {
       {tab === 'goals' && <Goals {...p} />}
       {tab === 'eis' && <Eis staffId={p.staff.id} range={range} />}
       {tab === 'staff' && <StaffOverview rows={p.overview} years={p.years} />}
+      {tab === 'trainings' && <Trainings rows={p.trainings} people={p.people} years={p.years} />}
 
       {editor && <ItemEditor staffId={p.staff.id} item={editor.item} section={editor.section} posts={p.posts}
         onClose={() => setEditor(null)} onSaved={() => { setEditor(null); router.refresh() }} />}
@@ -592,7 +597,7 @@ function Qualification(p: Props & { all: PPItem[]; items: PPItem[]; range: { fro
               {list.map(i => (
                 <tr key={i.id} className="border-t border-slate-100 align-top">
                   <td className="px-4 py-2 tabular-nums text-slate-500 whitespace-nowrap">{dateRange(i.date_from, i.date_to)}</td>
-                  <td className="px-4 py-2 text-slate-800">{i.title}</td>
+                  <td className="px-4 py-2 text-slate-800">{i.title}{i.training_id && <span className="ml-1.5 text-[11px] px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700" title="Вписано от ЦСОП в регистъра „Вътрешни обучения“">вписано от ЦСОП</span>}</td>
                   <td className="px-4 py-2 text-slate-600">{qKindLabel(i.kind)}</td>
                   <td className="px-4 py-2 text-slate-600">{i.provider}</td>
                   <td className="px-4 py-2 text-right tabular-nums">{fmtNum(i.hours)}</td>
@@ -732,7 +737,6 @@ function StaffOverview({ rows, years }: { rows: OverviewRow[]; years: Year[] }) 
   const router = useRouter()
   const cur = years.find(y => y.is_current)
   const from4 = addYears(todayIso(), -ATTEST_YEARS)
-  const [bulk, setBulk] = useState(false)
   const data = rows.map(r => {
     const y = cur ? qualificationTotals(r.items, cur.start_date, cur.end_date) : { internal: 0 }
     const a = qualificationTotals(r.items, from4, todayIso())
@@ -753,7 +757,7 @@ function StaffOverview({ rows, years }: { rows: OverviewRow[]; years: Year[] }) 
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 items-center">
         <span className="text-[13px] text-slate-500 flex-1">Педагогическите специалисти и докъде са с портфолиото и квалификацията. Записите „само за мен“ не се виждат.</span>
-        <button type="button" onClick={() => setBulk(true)} className="btn-secondary inline-flex items-center gap-1.5"><GraduationCap size={15} /> Вътрешна квалификация за група</button>
+        <button type="button" onClick={() => router.push('/pro-portfolio?tab=trainings')} className="btn-secondary inline-flex items-center gap-1.5"><GraduationCap size={15} /> Вътрешни обучения</button>
         <button type="button" onClick={excel} className="btn-secondary inline-flex items-center gap-1.5"><FileSpreadsheet size={15} /> Excel</button>
       </div>
       <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
@@ -779,53 +783,137 @@ function StaffOverview({ rows, years }: { rows: OverviewRow[]; years: Year[] }) 
           </tbody>
         </table>
       </div>
-      {bulk && <BulkQualification rows={rows} onClose={() => setBulk(false)} />}
     </div>
   )
 }
 
 /** Управата вписва една вътрешноинституционална квалификация на много служители наведнъж. */
-function BulkQualification({ rows, onClose }: { rows: OverviewRow[]; onClose: () => void }) {
+
+// ── Вътрешни обучения (управата) ─────────────────────────────────────────
+type TPerson = Props['people'][number]
+const tName = (x: TPerson) => `${x.first_name} ${x.last_name}`
+/** Регистър на вътрешните обучения: вписва се веднъж — появява се в портфолиото на всеки участник. */
+function Trainings({ rows, people, years }: { rows: PPTraining[] | null; people: TPerson[]; years: Year[] }) {
   const router = useRouter()
   const { toast } = useToast()
-  const [f, setF] = useState({ title: '', date: todayIso(), hours: '', provider: 'ЦСОП – Варна', kind: 'internal' })
-  const [sel, setSel] = useState<Set<string>>(new Set())
+  const cur = years.find(y => y.is_current)
+  const [yearId, setYearId] = useState(cur?.id || '')
+  const [edit, setEdit] = useState<PPTraining | 'new' | null>(null)
+  if (!rows) return <p className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-2xl px-4 py-3">Пуснете SQL файла 2026-11-12_portfolio_trainings.sql — тогава тук ще е регистърът на вътрешните обучения.</p>
+  const y = years.find(x => x.id === yearId)
+  const list = rows.filter(t => !y || ((!y.start_date || t.date_from >= y.start_date) && (!y.end_date || t.date_from <= y.end_date)))
+  const hours = list.reduce((s, t) => s + Number(t.hours || 0), 0)
+  async function del(t: PPTraining) {
+    if (!(await confirmDialog(`Да се изтрие ли „${t.title}“? Ще изчезне и от портфолиата на ${t.staff.length} участници.`))) return
+    const { error } = await createClient().from('pp_trainings').delete().eq('id', t.id)
+    if (error) { toast(error.message, 'error'); return }
+    toast('Изтрито'); router.refresh()
+  }
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2 items-center">
+        <span className="text-[13px] text-slate-500 flex-1 min-w-[240px]">Вписвате обучението веднъж — с часовете и участниците — и то се появява в професионалното портфолио на всеки участник (раздел „Квалификация“). Промяната обновява всички.</span>
+        <select value={yearId} onChange={e => setYearId(e.target.value)} className="input w-auto">
+          <option value="">Всички години</option>{years.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
+        </select>
+        <button type="button" onClick={() => setEdit('new')} className="btn-primary inline-flex items-center gap-1.5" style={{ backgroundColor: ACCENT }}><Plus size={15} /> Ново обучение</button>
+      </div>
+      <p className="text-[13px] text-slate-600">{list.length} обучения · {fmtNum(hours)} академични часа{y ? ` през ${y.name}` : ''}</p>
+      <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100">
+        {list.map(t => (
+          <div key={t.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-[13px]">
+            <span className="w-28 tabular-nums text-slate-600">{dateRange(t.date_from, t.date_to)}</span>
+            <span className="flex-1 min-w-[200px]"><span className="block text-slate-800">{t.title}</span>
+              <span className="block text-[12px] text-slate-500">{[t.lecturer, t.provider].filter(Boolean).join(' · ')}</span></span>
+            <span className="tabular-nums text-slate-700">{t.hours != null ? `${fmtNum(t.hours)} ч.` : ''}</span>
+            <span className="text-[12px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">{t.staff.length} участници</span>
+            <button type="button" onClick={() => setEdit(t)} className="p-1 text-slate-400 hover:text-indigo-700" aria-label="Редактирай"><Pencil size={14} /></button>
+            <button type="button" onClick={() => del(t)} className="p-1 text-slate-400 hover:text-rose-600" aria-label="Изтрий"><Trash2 size={14} /></button>
+          </div>
+        ))}
+        {!list.length && <p className="p-6 text-sm text-slate-400 text-center">Няма вписани обучения{y ? ` за ${y.name}` : ''}.</p>}
+      </div>
+      {edit && <TrainingEditor t={edit === 'new' ? null : edit} people={people} onClose={() => setEdit(null)} />}
+    </div>
+  )
+}
+
+function TrainingEditor({ t, people, onClose }: { t: PPTraining | null; people: TPerson[]; onClose: () => void }) {
+  const router = useRouter()
+  const { toast } = useToast()
+  const [f, setF] = useState({
+    title: t?.title || '', date_from: t?.date_from || todayIso(), date_to: t?.date_to || '', hours: t?.hours != null ? String(t.hours) : '',
+    lecturer: t?.lecturer || '', provider: t?.provider || 'ЦСОП – Варна', kind: t?.kind || 'internal',
+  })
+  const [sel, setSel] = useState<Set<string>>(new Set(t?.staff || []))
+  const [q, setQ] = useState('')
   const [busy, setBusy] = useState(false)
   const toggle = (id: string) => setSel(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const shown = people.filter(x => !q.trim() || tName(x).toLowerCase().includes(q.trim().toLowerCase()))
   async function save() {
-    if (!f.title.trim() || !sel.size) { toast('Напишете тема и изберете служители', 'error'); return }
+    if (!f.title.trim() || !f.date_from) { toast('Напишете тема и дата', 'error'); return }
+    if (!sel.size) { toast('Изберете участниците', 'error'); return }
     setBusy(true)
-    const { error } = await createClient().from('pp_items').insert(Array.from(sel).map(staff_id => ({
-      staff_id, section: 'qualification', kind: f.kind, title: f.title.trim(), date_from: f.date || null, hours: f.hours ? Number(f.hours) : null,
-      provider: f.provider || null, visibility: 'managers',
-    })))
+    const sb = createClient()
+    const row = {
+      title: f.title.trim(), date_from: f.date_from, date_to: f.date_to || null, hours: f.hours ? Number(f.hours.replace(',', '.')) : null,
+      lecturer: f.lecturer.trim() || null, provider: f.provider.trim() || null, kind: f.kind, updated_at: new Date().toISOString(),
+    }
+    const res = t ? await sb.from('pp_trainings').update(row).eq('id', t.id).select('id').single() : await sb.from('pp_trainings').insert(row).select('id').single()
+    if (res.error || !res.data) { setBusy(false); toast(res.error?.message || 'Грешка', 'error'); return }
+    const id = res.data.id as string
+    // записите в портфолиата: нови участници — добавят се; махнатите — изтриват се; останалите — обновяват се
+    const item = { section: 'qualification', kind: f.kind, title: row.title, date_from: row.date_from, date_to: row.date_to, hours: row.hours,
+      provider: [row.lecturer, row.provider].filter(Boolean).join(', ') || null }
+    const before = new Set(t?.staff || [])
+    const add = Array.from(sel).filter(s => !before.has(s)), remove = Array.from(before).filter(s => !sel.has(s))
+    const ops = [
+      add.length ? sb.from('pp_items').insert(add.map(staff_id => ({ ...item, staff_id, training_id: id, visibility: 'managers' }))) : null,
+      remove.length ? sb.from('pp_items').delete().eq('training_id', id).in('staff_id', remove) : null,
+      t ? sb.from('pp_items').update(item).eq('training_id', id) : null,
+    ].filter(Boolean)
+    const results = await Promise.all(ops as any[])
     setBusy(false)
-    if (error) { toast(error.message, 'error'); return }
-    toast(`Вписано на ${sel.size} служители`); onClose(); router.refresh()
+    const err = results.find((r: any) => r?.error)?.error
+    if (err) { toast(err.message, 'error'); return }
+    toast(t ? 'Обновено' : `Вписано на ${sel.size} участници`); onClose(); router.refresh()
   }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[90vh] overflow-y-auto p-5 space-y-3 text-[13px]">
-        <h2 className="text-base font-semibold text-slate-800">Квалификация за група</h2>
-        <label className="block"><span className="label">Тема</span><input value={f.title} onChange={e => setF({ ...f, title: e.target.value })} className="input" /></label>
-        <div className="grid grid-cols-3 gap-3">
-          <label className="block"><span className="label">Дата</span><DateInput value={f.date} onChange={v => setF({ ...f, date: v })} /></label>
-          <label className="block"><span className="label">Акад. часа</span><input type="number" value={f.hours} onChange={e => setF({ ...f, hours: e.target.value })} className="input" /></label>
-          <label className="block"><span className="label">Вид</span><select value={f.kind} onChange={e => setF({ ...f, kind: e.target.value })} className="input">{Q_KINDS.map(k => <option key={k.key} value={k.key}>{k.label}</option>)}</select></label>
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[92vh] overflow-y-auto p-5 space-y-3 text-[13px]">
+        <h2 className="text-base font-semibold text-slate-800">{t ? 'Обучение' : 'Ново вътрешно обучение'}</h2>
+        <label className="block"><span className="label">Тема</span><input autoFocus value={f.title} onChange={e => setF({ ...f, title: e.target.value })} className="input" placeholder="напр. Приложен поведенчески анализ — 1-ва част" /></label>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <label className="block"><span className="label">От</span><DateInput value={f.date_from} onChange={v => setF({ ...f, date_from: v })} /></label>
+          <label className="block"><span className="label">До (по желание)</span><DateInput value={f.date_to} onChange={v => setF({ ...f, date_to: v })} /></label>
+          <label className="block"><span className="label">Акад. часа</span><input inputMode="decimal" value={f.hours} onChange={e => setF({ ...f, hours: e.target.value })} className="input" /></label>
+          <label className="block"><span className="label">Вид</span><select value={f.kind} onChange={e => setF({ ...f, kind: e.target.value })} className="input">
+            {Q_KINDS.filter(k => ['internal', 'external', 'self'].includes(k.key)).map(k => <option key={k.key} value={k.key}>{k.label}</option>)}</select></label>
         </div>
-        <label className="block"><span className="label">Организатор / лектор</span><input value={f.provider} onChange={e => setF({ ...f, provider: e.target.value })} className="input" /></label>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <label className="block"><span className="label">Лектор / водещ</span><input value={f.lecturer} onChange={e => setF({ ...f, lecturer: e.target.value })} className="input" /></label>
+          <label className="block"><span className="label">Организатор</span><input value={f.provider} onChange={e => setF({ ...f, provider: e.target.value })} className="input" /></label>
+        </div>
         <div>
-          <div className="flex items-center gap-2 mb-1"><span className="label flex-1 mb-0">Участници ({sel.size})</span>
-            <button type="button" onClick={() => setSel(new Set(rows.map(r => r.id)))} className="text-indigo-700">всички</button>
-            <button type="button" onClick={() => setSel(new Set())} className="text-slate-500">никой</button></div>
-          <div className="max-h-56 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-50">
-            {rows.map(r => <label key={r.id} className="flex items-center gap-2 px-3 py-1.5"><input type="checkbox" checked={sel.has(r.id)} onChange={() => toggle(r.id)} />{r.first_name} {r.last_name}<span className="text-slate-400 text-[12px]">{r.position || r.roleLabel}</span></label>)}
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <span className="label flex-1 mb-0">Участници ({sel.size})</span>
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Търси" className="input w-40 py-1" />
+            <button type="button" onClick={() => setSel(new Set(people.map(x => x.id)))} className="text-indigo-700">всички</button>
+            <button type="button" onClick={() => setSel(new Set())} className="text-slate-500">никой</button>
+          </div>
+          <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-200 grid sm:grid-cols-2">
+            {shown.map(x => (
+              <label key={x.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50 cursor-pointer">
+                <input type="checkbox" checked={sel.has(x.id)} onChange={() => toggle(x.id)} />
+                <span className="truncate">{tName(x)} <span className="text-[11.5px] text-slate-400">{x.position || ''}</span></span>
+              </label>
+            ))}
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="btn-secondary">Отказ</button>
-          <button type="button" disabled={busy} onClick={save} className="btn-primary inline-flex items-center gap-1.5" style={{ backgroundColor: ACCENT }}>{busy && <Loader2 size={14} className="animate-spin" />} Впиши</button>
+          <button type="button" disabled={busy} onClick={save} className="btn-primary inline-flex items-center gap-1.5" style={{ backgroundColor: ACCENT }}>{busy && <Loader2 size={14} className="animate-spin" />} Запази</button>
         </div>
       </div>
     </div>

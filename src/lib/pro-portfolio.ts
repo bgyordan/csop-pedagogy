@@ -33,12 +33,19 @@ export const ym = (v: string | null | undefined) => {
   return m ? `${MONTHS[m - 1]} ${y}` : String(y)
 }
 export const ymRange = (from?: string | null, to?: string | null) => `${ym(from) || '…'} – ${to ? ym(to) : 'до сега'}`
+/** Вътрешно обучение от регистъра; staff — участниците (от записите в портфолиата) */
+export type PPTraining = {
+  id: string; title: string; date_from: string; date_to: string | null; hours: number | null; provider: string | null
+  lecturer: string | null; kind: string; note: string | null; created_at: string; staff: string[]
+}
 export type PPFile = { id: string; item_id: string; staff_id: string; name: string; path: string; mime: string | null; size: number | null; created_at: string }
 export type PPItem = {
   id: string; staff_id: string; section: SectionKey; title: string; body: string | null; reflection: string | null
   date_from: string | null; date_to: string | null; kind: string | null; level: string | null; part_role: string | null
   provider: string | null; doc_no: string | null; hours: number | null; credits: number | null; url: string | null
   post_id: string | null; visibility: Visibility; featured: boolean; created_by: string | null
+  /** вписано от регистъра „Вътрешни обучения“ (2026-11-12_portfolio_trainings.sql) */
+  training_id?: string | null
   created_at: string; updated_at: string; files?: PPFile[]
 }
 export type GoalStatus = 'planned' | 'in_progress' | 'done' | 'dropped'

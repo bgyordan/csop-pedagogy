@@ -80,6 +80,21 @@ export default async function ProPortfolioPage({ searchParams }: { searchParams:
     }))
   }
 
+  // Регистър „Вътрешни обучения“ (управата) — обученията и участниците им (от записите в портфолиата)
+  let trainings: any[] | null = null
+  let people: any[] = []
+  if (isManager && tab === 'trainings') {
+    const [tr, links, ppl] = await Promise.all([
+      supabase.from('pp_trainings').select('*').order('date_from', { ascending: false }),
+      fetchAll(() => supabase.from('pp_items').select('id, staff_id, training_id').not('training_id', 'is', null).order('id')),
+      supabase.from('staff_profiles').select('id, first_name, last_name, role, position').eq('is_active', true).in('role', PP_ROLES).order('first_name'),
+    ])
+    trainings = tr.error ? null : ((tr.data || []) as any[]).map(t => ({
+      ...t, staff: ((links.data || []) as any[]).filter(l => l.training_id === t.id).map(l => l.staff_id),
+    }))
+    people = (ppl.data || []) as any[]
+  }
+
   // Моето портфолио е таб от „Моят профил“ — над него стоят табовете на профила
   const client = (
     <ProPortfolioClient
@@ -97,10 +112,12 @@ export default async function ProPortfolioPage({ searchParams }: { searchParams:
       years={(years || []) as any}
       lastAttest={lastDates[0] || null}
       workYears={workYears}
+      trainings={trainings}
+      people={people}
       overview={overview}
     />
   )
-  if (!isOwn || tab === 'staff') return client
+  if (!isOwn || tab === 'staff' || tab === 'trainings') return client
   return (
     <>
       <div className="max-w-6xl mx-auto px-4 md:px-8 pt-4 md:pt-8 -mb-2 md:-mb-4"><ProfileNav active="portfolio" role={me.role} /></div>
