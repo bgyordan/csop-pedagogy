@@ -151,6 +151,8 @@ const navItems: NavItem[] = [
     roles: ['admin', 'zdud', 'director'],
     children: [
       { href: '/schedules', label: 'Разписания', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'] },
+      // ИФО децата днес — какво имат, при кого, кой замества (само преглед)
+      { href: '/ifo-today', label: 'ИФО днес', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'] },
       // нареждане по учебния план (НЕИСПУО): по паралелки, колко остава, утвърждаване, копиране I → II срок
       { href: '/schedule-plan', label: 'Разписание по план', icon: <CalendarClock size={14} />, roles: ['admin', 'zdud', 'director'] },
       // „Моето разписание“ на управата е в „Моят профил“ → Бърз достъп
