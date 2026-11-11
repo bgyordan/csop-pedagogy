@@ -364,13 +364,13 @@ export function exportAnalysisExcel(ctx: DocCtx, parts: Participant[], byGroup: 
   XLSX.writeFile(wb, `Анализ_${short(k)}_${safe(yearLabel(ctx.yearName).replace('/', '-'))}.xlsx`)
 }
 
-export type RegistryRow = { name: string; position: string; last: string | null; grade: string | null; result: number | null; next: string | null; support: string; source: string }
-/** Регистър на атестирането (4-годишен цикъл). */
+export type RegistryRow = { name: string; position: string; last: string | null; grade: string | null; result: number | null; next: string | null; nextLabel?: string; support: string; source: string }
+/** Регистър на атестирането (кой кога подлежи). */
 export function exportRegistryExcel(rows: RegistryRow[]) {
   const wb = XLSX.utils.book_new()
-  const ws = XLSX.utils.aoa_to_sheet([['№', 'Име и фамилия', 'Длъжност', 'Последно атестиране', 'Крайна оценка', 'ОР', 'Следващо атестиране', 'План за подкрепа', 'Източник'],
-    ...rows.map((r, i) => [i + 1, r.name, r.position, r.last ? dmy(r.last) : '', r.grade || '', r.result ?? '', r.next ? dmy(r.next) : '', r.support, r.source])])
-  ws['!cols'] = [{ wch: 4 }, { wch: 28 }, { wch: 28 }, { wch: 12 }, { wch: 32 }, { wch: 7 }, { wch: 12 }, { wch: 24 }, { wch: 20 }]
+  const ws = XLSX.utils.aoa_to_sheet([['№', 'Име и фамилия', 'Длъжност', 'Последно атестиране', 'Крайна оценка', 'ОР', 'Следващо атестиране', 'Бележка', 'Източник'],
+    ...rows.map((r, i) => [i + 1, r.name, r.position, r.last ? dmy(r.last) : '', r.grade || '', r.result ?? '', r.nextLabel ?? (r.next ? dmy(r.next) : ''), r.support, r.last ? r.source : ''])])
+  ws['!cols'] = [{ wch: 4 }, { wch: 28 }, { wch: 28 }, { wch: 12 }, { wch: 32 }, { wch: 7 }, { wch: 18 }, { wch: 48 }, { wch: 24 }]
   XLSX.utils.book_append_sheet(wb, ws, 'Атестиране')
   XLSX.writeFile(wb, `Регистър_атестиране.xlsx`)
 }

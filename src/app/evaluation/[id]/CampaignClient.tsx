@@ -12,10 +12,12 @@ import { createClient } from '@/lib/supabase/client'
 import { useToast, confirmDialog } from '@/components/ui/Toast'
 import DateInput from '@/components/ui/DateInput'
 import { PortfolioLinked } from '../PortfolioEvidence'
+import { Modal } from '@/components/ui/Modal'
 import {
   CAMPAIGN_STATUS_LABEL, P_STATUS_LABEL, P_STATUS_TONE, GRP_LABEL, KIND_LABEL, pname, dmy, isoOf, num, money, daysLeft, addDays,
   sumScores, groupSum, scoresComplete, averageScores, eligibility, distribute, defaultTemplate, grpForRole, addWorkdays, maxTotal,
   scaleOf, gradeOf, stepOf, attestResult, finalGrade, employerOptions, addYears, items as itemsOf, ATTEST_ROLES, DEFAULT_SCALE,
+  attestCandidates, attestWindowYear, attestWindowLabel, todayIso, type AttestCandidate,
   type Campaign, type EvalTemplate, type Member, type Participant, type ScoreRow, type Pay, type Person, type Grp, type Scores,
   type EvalGroup, type External, type EvalFile, type Support, type Evidence, type Kind, type ScaleStep,
 } from '@/lib/evaluation'
@@ -34,6 +36,8 @@ type Props = {
   externals: External[]; files: EvalFile[]; supports: Support[]
   others: { id: string; name: string; kind: Kind; created_at: string }[]
   prev: { name: string | null; rows: { staff_id: string; final_total: number | null; result: number | null; grade: string | null; employer_grade: string | null }[] }
+  /** Атестиране: данни за „Добави подлежащите“ (само за водещите кампанията) */
+  attestInfo: { last: Record<string, string>; reattest: Record<string, string>; since: Record<string, number>; defer: Record<string, string> } | null
 }
 const ACCENT = '#0f2240'
 const btn = 'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm'
@@ -60,7 +64,7 @@ export default function CampaignClient(p: Props) {
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto animate-in fade-in duration-500">
       <header className="flex flex-wrap items-center gap-4 mb-5 pb-5 border-b border-slate-100">
-        <Link href="/evaluation?tab=campaigns" className="p-2 rounded-xl hover:bg-slate-100 text-slate-500"><ArrowLeft size={18} /></Link>
+        <Link href={`${(p.campaign.kind || 'dtv') === 'attest' ? '/attestation' : '/evaluation'}?tab=campaigns`} className="p-2 rounded-xl hover:bg-slate-100 text-slate-500"><ArrowLeft size={18} /></Link>
         <div className="flex-1 min-w-[220px]">
           <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">{c.name}</h1>
           <p className="text-sm text-slate-500 mt-0.5">
@@ -669,6 +673,7 @@ function Setup(p: Props) {
   const [addPerson, setAddPerson] = useState('')
   const [ext, setExt] = useState({ name: '', org: '' })
   const [copyFrom, setCopyFrom] = useState('')
+  const [pickDue, setPickDue] = useState(false)
   const editable = c.status === 'setup'
   const supabase = createClient()
   const templates = p.templates.filter(t => t.kind === kind && t.is_active)
@@ -791,7 +796,7 @@ function Setup(p: Props) {
     if (!(await confirmDialog('Да се изтрие ли кампанията с комисията и оценяваните?'))) return
     const { error } = await supabase.from('eval_campaigns').delete().eq('id', c.id)
     if (error) { toast(error.message, 'error'); return }
-    router.push('/evaluation?tab=campaigns')
+    router.push(`${kind === 'attest' ? '/attestation' : '/evaluation'}?tab=campaigns`)
   }
 
   const noTpl = p.participants.filter(x => !x.template_id).length
@@ -925,7 +930,9 @@ function Setup(p: Props) {
       <section className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-[15px] font-semibold text-slate-800 flex-1">{kind === 'attest' ? 'Атестирани' : 'Оценявани'} ({p.participants.length})</h2>
-          <button type="button" disabled={busy} onClick={addAll} className={btnLine}><Users size={15} /> {kind === 'attest' ? 'Добави педагогическите специалисти' : 'Добави всички активни'}</button>
+          {kind === 'attest'
+            ? <button type="button" disabled={busy || !editable} onClick={() => setPickDue(true)} className={btnLine}><Users size={15} /> Добави подлежащите</button>
+            : <button type="button" disabled={busy} onClick={addAll} className={btnLine}><Users size={15} /> Добави всички активни</button>}
         </div>
         {noTpl > 0 && <p className="text-[12.5px] text-amber-700"><AlertTriangle size={13} className="inline mr-1" />{noTpl} без карта — изберете карта (нови карти се въвеждат от „Оценяване → Карти“).</p>}
         <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
@@ -959,7 +966,67 @@ function Setup(p: Props) {
         </div>
       </section>
       {editable && p.isManager && <button type="button" onClick={del} className="text-[13px] text-rose-700 hover:underline">Изтрий кампанията</button>}
+      {pickDue && (
+        <AddDue campaign={c} people={p.people.filter(x => x.role !== 'director' && !inIds.has(x.id))} info={p.attestInfo}
+          onClose={() => setPickDue(false)}
+          onAdd={async ids => {
+            const add = p.people.filter(x => ids.includes(x.id))
+            if (!add.length) return
+            setBusy(true)
+            const { error } = await supabase.from('eval_participants').insert(add.map(x => rowFor(x)))
+            setBusy(false)
+            if (error) { toast(error.message, 'error'); return }
+            toast(`Добавени: ${add.length}`); setPickDue(false); router.refresh()
+          }} />
+      )}
     </div>
+  )
+}
+
+/** Атестиране: кой се пада в прозореца юни – юли на кампанията — предварително отметнати; махате отметката на когото не трябва. */
+function AddDue({ campaign, people, info, onClose, onAdd }: {
+  campaign: Campaign; people: Person[]; info: Props['attestInfo']; onClose: () => void; onAdd: (ids: string[]) => void
+}) {
+  const year = attestWindowYear(campaign.period_to || campaign.period_from || todayIso())
+  const cands = useMemo(() => attestCandidates(people, year,
+    id => info?.last[id] || null, id => info?.since[id] ?? null, id => info?.defer[id] ?? null, id => info?.reattest[id] || null,
+  ).sort((a, b) => pname(a.person).localeCompare(pname(b.person), 'bg')), [people, info, year])
+  const [sel, setSel] = useState<Set<string>>(() => new Set(cands.filter(c => c.state === 'due' || c.state === 'new').map(c => c.person.id)))
+  const toggle = (id: string) => setSel(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const groups: { t: string; hint?: string; rows: AttestCandidate[]; open: boolean }[] = [
+    { t: `Подлежат — изтича 4-годишният период`, rows: cands.filter(c => c.state === 'due'), open: true },
+    { t: 'Без атестиране — поне 2 години в ЦСОП', hint: 'Подлежат, ако са дошли от друга институция (чл. 78, ал. 4). При първо назначение като педагогически специалист — 4 години след назначаването; махнете отметката.', rows: cands.filter(c => c.state === 'new'), open: true },
+    { t: 'Няма данни', hint: 'Няма въведено атестиране и година на постъпване (импорт от НЕИСПУО) — проверете ги.', rows: cands.filter(c => c.state === 'unknown'), open: true },
+    { t: 'Не се падат', hint: 'Следващото им атестиране е по-късно, имат под 2 години в ЦСОП или са отложени (регистър → „Отложи“).', rows: cands.filter(c => ['later', 'young', 'deferred'].includes(c.state)), open: false },
+  ]
+  return (
+    <Modal open onClose={onClose} title={`Кой подлежи — ${attestWindowLabel(year)}`} size="lg">
+      <div className="space-y-3 text-[13.5px]">
+        <p className="text-[12.5px] text-slate-500">Годината е по периода на кампанията. Датите на предишните атестирания са от регистъра (ЕИС и въведените ръчно) — ако някой липсва, впишете го в „Атестиране → Регистър → Атестиране преди ЕИС“.</p>
+        {groups.filter(g => g.rows.length).map(g => (
+          <details key={g.t} open={g.open} className="rounded-xl border border-slate-200">
+            <summary className="cursor-pointer px-3 py-2 bg-slate-50 rounded-t-xl text-slate-700">{g.t} <span className="text-slate-400">({g.rows.length})</span></summary>
+            {g.hint && <p className="px-3 pt-2 text-[12px] text-slate-500">{g.hint}</p>}
+            <div className="divide-y divide-slate-100">
+              {g.rows.map(c => (
+                <label key={c.person.id} className="flex items-start gap-2.5 px-3 py-2 hover:bg-slate-50 cursor-pointer">
+                  <input type="checkbox" className="mt-1" checked={sel.has(c.person.id)} onChange={() => toggle(c.person.id)} />
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-slate-800">{pname(c.person)} <span className="text-[12px] text-slate-500">{c.person.position || ''}</span></span>
+                    <span className="block text-[12px] text-slate-500">{c.why}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </details>
+        ))}
+        {!cands.length && <p className="text-slate-400">Всички педагогически специалисти вече са в кампанията.</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="btn-secondary">Отказ</button>
+          <button type="button" disabled={!sel.size} onClick={() => onAdd(Array.from(sel))} className="btn-primary">Добави отметнатите ({sel.size})</button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 function Step({ ok, t }: { ok: boolean; t: string }) {

@@ -1,6 +1,7 @@
 'use client'
-// Оценяване — начален екран: моите карти (самооценка, портфолио, запознаване, възражение), кампаниите,
-// картите (шаблоните), регистърът (атестиране на 4 години, история по служители) и достъпът.
+// Оценяване — начален екран в два отделни раздела: „ДТВ и оценки“ (/evaluation) и „Атестиране“ (/attestation).
+// Всеки раздел показва само своите карти за самооценка, кампании и шаблони; атестирането има и регистър
+// (кой кога подлежи по чл. 77–78 от Наредба № 15), а достъпът (организатори, суми) е общ.
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -13,10 +14,11 @@ import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import {
   CAMPAIGN_STATUS_LABEL, P_STATUS_LABEL, P_STATUS_TONE, GRP_LABEL, KIND_LABEL, KIND_SHORT, addWorkdays, isoOf, dmy, num, pname, groupSum, maxTotal,
-  validateTemplate, campaignName, todayIso, sumScores, scoresComplete, finalGrade, addYears, daysLeft, ATTEST_ROLES, ATTEST_YEARS,
+  validateTemplate, campaignName, todayIso, sumScores, scoresComplete, finalGrade, daysLeft, ATTEST_ROLES, ATTEST_YEARS,
+  attestWindowYear, attestWindowLabel, attestCandidates,
   EDU_LEVELS, PKS_LEVELS, DEFAULT_SCALE,
   type EvalTemplate, type EvalGroup, type Participant, type Grp, type Person, type Kind, type Scores, type SectionA, type ScaleStep,
-  type EvalFile, type History,
+  type EvalFile, type History, type AttestDefer, type AttestState,
 } from '@/lib/evaluation'
 import { generateCards, exportRegistryExcel, type RegistryRow } from '@/lib/docx-evaluation'
 import { sectionAFromPortfolio, type PPItem, type PPProfile, type PPLink } from '@/lib/pro-portfolio'
@@ -44,21 +46,38 @@ type Props = {
   templates: EvalTemplate[]; people: Person[]; access: { staff_id: string; kind: string }[]
   pp: PP | null
   myFiles: EvalFile[]; results: Result[]; history: History[]; supports: { participant_id: string; status: string; reattest_by: string | null }[]
+  /** „attest“ — разделът „Атестиране“; „dtv“ — „ДТВ и оценки“ (ДТВ и други оценки) */
+  scope: Scope
+  since: { staff_id: string; since_year: number }[]
+  defers: AttestDefer[]
 }
+type Scope = 'attest' | 'dtv'
+const inScope = (scope: Scope, kind?: string | null) => (scope === 'attest' ? kind === 'attest' : kind !== 'attest')
+const baseOf = (scope: Scope) => (scope === 'attest' ? '/attestation' : '/evaluation')
 
 type PP = { items: PPItem[]; profile: PPProfile | null; links: PPLink[] }
 
 const ACCENT = '#0f2240'
 
-export default function EvalClient(p: Props) {
+export default function EvalClient(raw: Props) {
   const router = useRouter()
+  const scope = raw.scope
+  const base = baseOf(scope)
+  // само своя вид: картите, кампаниите и шаблоните на другия раздел не се показват тук
+  const p: Props = {
+    ...raw,
+    cards: raw.cards.filter(c => inScope(scope, c.campaign?.kind)),
+    campaigns: raw.campaigns.filter(c => inScope(scope, c.kind)),
+    templates: raw.templates.filter(t => inScope(scope, t.kind)),
+  }
+  const otherCards = raw.cards.filter(c => !inScope(scope, c.campaign?.kind) && c.campaign && (c.sent_at || (c.campaign.self_assess && c.campaign.status !== 'setup'))).length
   const seesCampaigns = p.isManager || p.isFinance || p.myCommission.length > 0 || p.isSecretaryAny
   const todo = p.cards.filter(c => c.status === 'sent' || (c.campaign?.self_assess && c.campaign.status === 'scoring' && c.status === 'pending' && !c.self_at)).length
   const tabs = [
     { k: 'mine', l: 'Моите карти', i: <Award size={14} />, n: todo },
     ...(seesCampaigns ? [{ k: 'campaigns', l: 'Кампании', i: <LayoutList size={14} />, n: 0 }] : []),
     ...(p.isManager ? [{ k: 'cards', l: 'Карти', i: <FileText size={14} />, n: 0 }] : []),
-    ...(p.isManager ? [{ k: 'registry', l: 'Регистър', i: <BookMarked size={14} />, n: 0 }] : []),
+    ...(p.isManager && scope === 'attest' ? [{ k: 'registry', l: 'Регистър', i: <BookMarked size={14} />, n: 0 }] : []),
     ...(p.isDirector ? [{ k: 'access', l: 'Достъп', i: <Settings size={14} />, n: 0 }] : []),
   ]
   const tab = tabs.some(t => t.k === p.tab) ? p.tab : (seesCampaigns ? 'campaigns' : 'mine')
@@ -69,8 +88,10 @@ export default function EvalClient(p: Props) {
       <header className="flex flex-wrap items-center gap-4 mb-6 pb-5 border-b border-slate-100">
         <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center shrink-0"><Award size={22} /></div>
         <div className="flex-1 min-w-[220px]">
-          <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">Оценяване</h1>
-          <p className="text-sm text-slate-500 mt-0.5">ДТВ, атестиране и други оценки — карти, самооценка, комисия, протоколи, суми и регистър</p>
+          <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">{scope === 'attest' ? 'Атестиране' : 'ДТВ и оценки'}</h1>
+          <p className="text-sm text-slate-500 mt-0.5">{scope === 'attest'
+            ? 'По Наредба № 15 — кой подлежи (регистър), атестационна комисия, самооценка и портфолио, карти, възражения, план за подкрепа'
+            : 'ДТВ за постигнати резултати и други оценки — карти, комисия, протоколи и суми'}</p>
         </div>
         {p.isManager && (
           <button type="button" onClick={() => setCreating(true)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm text-white" style={{ backgroundColor: ACCENT }}>
@@ -82,7 +103,7 @@ export default function EvalClient(p: Props) {
       {tabs.length > 1 && (
         <nav className="flex gap-1.5 mb-5 overflow-x-auto pb-1">
           {tabs.map(t => (
-            <button key={t.k} type="button" onClick={() => router.push(`/evaluation?tab=${t.k}`)}
+            <button key={t.k} type="button" onClick={() => router.push(`${base}?tab=${t.k}`)}
               className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm ${tab === t.k ? 'bg-[#0f2240] text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
               {t.i} {t.l}
               {!!t.n && <span className={`ml-0.5 text-[11px] min-w-5 px-1.5 rounded-full ${tab === t.k ? 'bg-white/20' : 'bg-rose-100 text-rose-700'}`}>{t.n}</span>}
@@ -92,11 +113,16 @@ export default function EvalClient(p: Props) {
       )}
 
       {tab === 'mine' && <MyCards {...p} />}
+      {tab === 'mine' && otherCards > 0 && (
+        <Link href={`${baseOf(scope === 'attest' ? 'dtv' : 'attest')}?tab=mine`} className="mt-3 inline-flex items-center gap-1 text-[13px] text-indigo-700 hover:underline">
+          Имате {otherCards === 1 ? 'карта' : `${otherCards} карти`} и в „{scope === 'attest' ? 'ДТВ и оценки' : 'Атестиране'}“ <ChevronRight size={14} />
+        </Link>
+      )}
       {tab === 'campaigns' && <Campaigns {...p} />}
       {tab === 'cards' && <Templates {...p} />}
       {tab === 'registry' && <Registry {...p} />}
       {tab === 'access' && <Access {...p} />}
-      {creating && <NewCampaign years={p.years} onClose={() => setCreating(false)} />}
+      {creating && <NewCampaign years={p.years} kinds={scope === 'attest' ? ['attest'] : ['dtv', 'other']} onClose={() => setCreating(false)} />}
     </div>
   )
 }
@@ -377,13 +403,14 @@ function Campaigns(p: Props) {
   const roleIn = (id: string) => p.myCommission.find(m => m.campaign_id === id)?.role
   const [kind, setKind] = useState<'all' | Kind>('all')
   const [archive, setArchive] = useState(false)
-  if (!p.campaigns.length) return <p className="bg-white rounded-2xl border border-slate-200 p-6 text-sm text-slate-400 text-center">Няма кампании.{p.isManager ? ' Натиснете „Нова кампания“ — например „ДТВ за постигнати резултати 2025/2026“ или „Атестиране“.' : ''}</p>
+  const attest = p.scope === 'attest'
+  if (!p.campaigns.length) return <p className="bg-white rounded-2xl border border-slate-200 p-6 text-sm text-slate-400 text-center">Няма кампании.{p.isManager ? (attest ? ' Кампанията се създава, когато има заповед и график, съгласуван с РУО; кой подлежи — вижте „Регистър“.' : ' Натиснете „Нова кампания“ — например „ДТВ за постигнати резултати 2025/2026“.') : ''}</p>
   const list = p.campaigns.filter(c => (kind === 'all' || (c.kind || 'dtv') === kind) && (archive ? c.status === 'closed' : c.status !== 'closed'))
   const closedN = p.campaigns.filter(c => c.status === 'closed').length
   return (
     <div className="space-y-3">
     <div className="flex flex-wrap gap-2 items-center">
-      {(['all', 'dtv', 'attest', 'other'] as const).map(k => (
+      {!attest && (['all', 'dtv', 'other'] as const).map(k => (
         <button key={k} type="button" onClick={() => setKind(k)} className={`px-3 py-1.5 rounded-lg text-[13px] border ${kind === k ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'border-slate-200 bg-white text-slate-600'}`}>{k === 'all' ? 'Всички' : KIND_SHORT[k]}</button>
       ))}
       <label className="ml-auto flex items-center gap-1.5 text-[13px] text-slate-600"><input type="checkbox" checked={archive} onChange={e => setArchive(e.target.checked)} /> Архив — приключени ({closedN})</label>
@@ -416,16 +443,16 @@ function Campaigns(p: Props) {
   )
 }
 
-function NewCampaign({ years, onClose }: { years: Year[]; onClose: () => void }) {
+function NewCampaign({ years, kinds, onClose }: { years: Year[]; kinds: Kind[]; onClose: () => void }) {
   const router = useRouter()
   const { toast } = useToast()
-  const [kind, setKind] = useState<Kind>('dtv')
+  const [kind, setKind] = useState<Kind>(kinds[0])
   // ДТВ се дава за изминалата учебна година — по подразбиране предходната; атестирането — текущата
   const cur = Math.max(0, years.findIndex(y => y.is_current))
   const defFor = (k: Kind) => (k === 'dtv' ? years[cur + 1] || years[cur] : years[cur]) || years[0]
-  const [yearId, setYearId] = useState(defFor('dtv')?.id || '')
+  const [yearId, setYearId] = useState(defFor(kinds[0])?.id || '')
   const year = years.find(y => y.id === yearId)
-  const [name, setName] = useState(campaignName(defFor('dtv')?.name, 'dtv'))
+  const [name, setName] = useState(campaignName(defFor(kinds[0])?.name, kinds[0]))
   const [busy, setBusy] = useState(false)
   function pickKind(k: Kind) {
     setKind(k)
@@ -452,17 +479,17 @@ function NewCampaign({ years, onClose }: { years: Year[]; onClose: () => void })
   }
   const hint: Record<Kind, string> = {
     dtv: 'Сроковете се попълват по вътрешните правила (оценяване до 1 октомври, заповед до 30 октомври) и се променят в следващата стъпка.',
-    attest: 'Атестиране по Наредба № 15: самооценка и портфолио от атестирания, оценка на атестационната комисия (с външни членове, напр. РУО), ОР = 0,25·СО + 0,75·ОАК, възражение до 5 работни дни към работодателя. Периодът (4 години) се проверява в следващата стъпка.',
+    attest: 'Атестиране по Наредба № 15: самооценка и портфолио от атестирания, оценка на атестационната комисия (с външни членове, напр. РУО), ОР = 0,25·СО + 0,75·ОАК, възражение до 5 работни дни към работодателя. Процедурата е през юни – юли (чл. 77, ал. 2); кой подлежи — с „Добави подлежащите“ в следващата стъпка.',
     other: 'Друга оценка по ваша карта (напр. при изтичане на изпитателния срок, годишна оценка): комисия, средно или обща оценка, по желание самооценка. Без суми.',
   }
   return (
-    <Modal open onClose={onClose} title="Нова кампания">
+    <Modal open onClose={onClose} title={kinds.length === 1 && kinds[0] === 'attest' ? 'Ново атестиране' : 'Нова кампания'}>
       <div className="space-y-3">
-        <div className="grid grid-cols-3 gap-2">
-          {(['dtv', 'attest', 'other'] as Kind[]).map(k => (
+        {kinds.length > 1 && <div className={`grid gap-2 ${kinds.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          {kinds.map(k => (
             <button key={k} type="button" onClick={() => pickKind(k)} className={`px-3 py-2.5 rounded-xl text-[13px] border text-left ${kind === k ? 'bg-indigo-50 border-indigo-300 text-indigo-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{KIND_LABEL[k]}</button>
           ))}
-        </div>
+        </div>}
         <label className="block"><span className="label">Учебна година</span>
           <select value={yearId} onChange={e => { setYearId(e.target.value); setName(campaignName(years.find(y => y.id === e.target.value)?.name, kind)) }} className="input w-full">
             {years.map(y => <option key={y.id} value={y.id}>{y.name.replace('-', '/')}{y.is_current ? ' (текуща)' : ''}</option>)}
@@ -501,7 +528,7 @@ function Templates(p: Props) {
         adopted: 'Приета с решение на Педагогическия съвет, Протокол № ……… от ……………… г.', roles: ['class_teacher', 'teacher', 'educator', 'speech_therapist', 'psychologist'],
         criteria: [], base: null, total: 100, is_active: true, sort: 10,
       }
-  const hasPed = p.templates.some(t => t.kind === 'dtv' && t.grp === 'ped' && t.is_active)
+  const hasPed = p.scope === 'attest' || p.templates.some(t => t.kind === 'dtv' && t.grp === 'ped' && t.is_active)
   return (
     <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
       <div className="space-y-2">
@@ -522,7 +549,9 @@ function Templates(p: Props) {
         <div className="flex gap-2">
           <select value="" onChange={e => e.target.value && setDraft(blank(e.target.value as Kind))} className="flex-1 px-3 py-2 rounded-xl text-sm border border-slate-200 bg-white">
             <option value="">+ Нова карта…</option>
-            <option value="dtv">за ДТВ</option><option value="attest">за атестиране</option><option value="other">за друга оценка</option>
+            {p.scope === 'attest'
+              ? <option value="attest">за атестиране</option>
+              : <><option value="dtv">за ДТВ</option><option value="other">за друга оценка</option></>}
           </select>
           {current && current.id && (
             <button type="button" onClick={() => setDraft({ ...current, id: '', code: null, name: `${current.name} (копие)` })} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border border-slate-200 bg-white hover:bg-slate-50" title="Копие"><Copy size={14} /></button>
@@ -689,34 +718,55 @@ function TemplateEditor({ t, onSaved }: { t: EvalTemplate; onSaved: (id: string)
   )
 }
 
-// ── Регистър: атестиране (4 години) и история по служители ───────────────
+// ── Регистър: кой кога подлежи на атестиране и история по служители ─────
+const STATE_ORDER: Record<AttestState, number> = { due: 0, new: 1, unknown: 2, deferred: 3, later: 4, young: 5 }
 function Registry(p: Props) {
   const router = useRouter()
   const { toast } = useToast()
   const [view, setView] = useState<'attest' | 'history'>('attest')
   const [q, setQ] = useState('')
+  const [onlyDue, setOnlyDue] = useState(false)
   const [adding, setAdding] = useState(false)
   const [h, setH] = useState({ staff_id: '', attested_on: '', grade: DEFAULT_SCALE[2].l, result: '', note: '' })
+  const [deferring, setDeferring] = useState<string | null>(null)
+  const [reason, setReason] = useState('')
   const attDate = (r: Result) => isoOf(r.employer_at || r.acked_at || r.finalized_at)
+  // прозорецът юни – юли на текущата учебна година
+  const year = attestWindowYear(todayIso())
 
-  const rows: (RegistryRow & { id: string; due: number | null; open: boolean })[] = useMemo(() => p.people.filter(x => ATTEST_ROLES.includes(x.role)).map(x => {
-    const fromSys = p.results.filter(r => r.staff_id === x.id && r.campaign?.kind === 'attest' && r.grade)
-      .map(r => ({ date: attDate(r), grade: finalGrade(r), result: r.result, source: r.campaign?.name || 'ЕИС', pid: r.id }))
-    const fromHist = p.history.filter(r => r.staff_id === x.id).map(r => ({ date: r.attested_on, grade: r.grade, result: r.result, source: 'въведено ръчно', pid: '' }))
-    const last = [...fromSys, ...fromHist].sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0]
-    const sup = last?.pid ? p.supports.find(s => s.participant_id === last.pid) : undefined
-    let next = last?.date ? addYears(last.date, ATTEST_YEARS) : null
-    if (sup?.reattest_by && sup.status !== 'done' && (!next || sup.reattest_by < next)) next = sup.reattest_by
-    return {
-      id: x.id, name: pname(x), position: x.position || '', last: last?.date || null, grade: last?.grade || null, result: last?.result ?? null, next,
-      support: sup ? `${sup.status === 'done' ? 'изпълнен' : 'в изпълнение'}${sup.reattest_by ? `, повторно до ${dmy(sup.reattest_by)}` : ''}` : '',
-      source: last?.source || '', due: next ? daysLeft(next) : null, open: !!sup && sup.status !== 'done',
-    }
-  }).sort((a, b) => (a.next || '0000').localeCompare(b.next || '0000')), [p.people, p.results, p.history, p.supports])
+  const rows: (RegistryRow & { id: string; state: AttestState; why: string; open: boolean })[] = useMemo(() => {
+    const lastRec = (id: string) => [
+      ...p.results.filter(r => r.staff_id === id && r.campaign?.kind === 'attest' && r.grade)
+        .map(r => ({ date: attDate(r), grade: finalGrade(r), result: r.result, source: r.campaign?.name || 'ЕИС', pid: r.id })),
+      ...p.history.filter(r => r.staff_id === id).map(r => ({ date: r.attested_on, grade: r.grade, result: r.result, source: r.note || 'въведено ръчно', pid: '' })),
+    ].sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0]
+    const supOf = (id: string) => { const l = lastRec(id); return l?.pid ? p.supports.find(s => s.participant_id === l.pid) : undefined }
+    return attestCandidates(p.people, year,
+      id => lastRec(id)?.date || null,
+      id => p.since.find(s => s.staff_id === id)?.since_year ?? null,
+      id => p.defers.find(d => d.staff_id === id)?.reason ?? null,
+      id => { const s = supOf(id); return s?.reattest_by && s.status !== 'done' ? s.reattest_by : null },
+    ).map(c => {
+      const l = lastRec(c.person.id), sup = supOf(c.person.id)
+      const isRe = !!(sup?.reattest_by && c.next === sup.reattest_by)
+      const nextLabel = c.state === 'due' || c.state === 'later'
+        ? (isRe ? `до ${dmy(c.next)}` : attestWindowLabel(attestWindowYear(c.next!)))
+        : c.state === 'new' ? 'подлежи (без атестиране)'
+          : c.state === 'young' ? `след 2 г. в ЦСОП (${(c.sinceYear || 0) + 2})`
+            : c.state === 'deferred' ? 'отложено' : 'няма данни'
+      const supText = sup ? `план за подкрепа ${sup.status === 'done' ? 'изпълнен' : 'в изпълнение'}${sup.reattest_by ? `, повторно до ${dmy(sup.reattest_by)}` : ''}` : ''
+      const note = c.state === 'deferred' ? c.why
+        : c.state === 'new' ? `${c.why} — подлежи, ако е дошъл от друга институция (чл. 78, ал. 4); при първо назначение — 4 г. след него`
+          : c.state === 'young' || c.state === 'unknown' ? c.why : supText
+      return {
+        id: c.person.id, name: pname(c.person), position: c.person.position || '', last: l?.date || null, grade: l?.grade || null, result: l?.result ?? null,
+        next: c.next, nextLabel, support: note, source: l?.source || '', state: c.state, why: c.why, open: !!sup && sup.status !== 'done',
+      }
+    }).sort((a, b) => STATE_ORDER[a.state] - STATE_ORDER[b.state] || (a.next || '9999').localeCompare(b.next || '9999') || a.name.localeCompare(b.name, 'bg'))
+  }, [p.people, p.results, p.history, p.supports, p.since, p.defers, year])
 
-  const list = rows.filter(r => !q.trim() || r.name.toLowerCase().includes(q.trim().toLowerCase()))
-  const never = rows.filter(r => !r.last).length
-  const dueSoon = rows.filter(r => r.due != null && r.due <= 365).length
+  const list = rows.filter(r => (!onlyDue || r.state === 'due' || r.state === 'new') && (!q.trim() || r.name.toLowerCase().includes(q.trim().toLowerCase())))
+  const count = (st: AttestState) => rows.filter(r => r.state === st).length
 
   async function addHistory() {
     if (!h.staff_id || !h.attested_on) { toast('Изберете служител и дата', 'error'); return }
@@ -732,11 +782,23 @@ function Registry(p: Props) {
     if (error) { toast(error.message, 'error'); return }
     router.refresh()
   }
+  async function saveDefer(staffId: string) {
+    if (!reason.trim()) { toast('Напишете причината', 'error'); return }
+    const { error } = await createClient().from('eval_attest_defer').upsert({ staff_id: staffId, reason: reason.trim(), created_by: p.me.id })
+    if (error) { toast(error.message.includes('eval_attest_defer') ? 'Пуснете SQL файла 2026-11-11_attest_due.sql' : error.message, 'error'); return }
+    setDeferring(null); setReason(''); router.refresh()
+  }
+  async function removeDefer(staffId: string) {
+    if (!(await confirmDialog('Да се махне ли отлагането? Лицето отново ще се предлага за атестиране.'))) return
+    const { error } = await createClient().from('eval_attest_defer').delete().eq('staff_id', staffId)
+    if (error) { toast(error.message, 'error'); return }
+    router.refresh()
+  }
 
   // история по служители — последните 6 кампании с резултати
   const camps = useMemo(() => {
     const m = new Map<string, NonNullable<Result['campaign']>>()
-    p.results.forEach(r => r.campaign && m.set(r.campaign.id, r.campaign))
+    p.results.forEach(r => r.campaign?.kind === 'attest' && m.set(r.campaign.id, r.campaign))
     return Array.from(m.values()).sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 6)
   }, [p.results])
   const cellOf = (staff: string, cid: string) => {
@@ -744,18 +806,24 @@ function Registry(p: Props) {
     if (!r) return ''
     return r.campaign?.kind === 'attest' ? `${num(r.result)}` : num(r.final_total)
   }
+  const nextTone = (st: AttestState) => st === 'due' ? 'text-rose-700 font-medium' : st === 'new' ? 'text-amber-700 font-medium' : st === 'later' ? 'text-slate-700' : 'text-slate-400'
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2 items-center">
-        <button type="button" onClick={() => setView('attest')} className={`px-3 py-1.5 rounded-lg text-[13px] border ${view === 'attest' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'border-slate-200 bg-white text-slate-600'}`}>Атестиране (на {ATTEST_YEARS} години)</button>
+        <button type="button" onClick={() => setView('attest')} className={`px-3 py-1.5 rounded-lg text-[13px] border ${view === 'attest' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'border-slate-200 bg-white text-slate-600'}`}>Кой подлежи (на {ATTEST_YEARS} години)</button>
         <button type="button" onClick={() => setView('history')} className={`px-3 py-1.5 rounded-lg text-[13px] border ${view === 'history' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'border-slate-200 bg-white text-slate-600'}`}>История по служители</button>
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Търси служител" className="input w-56 ml-auto" />
       </div>
 
       {view === 'attest' && <>
-        <div className="flex flex-wrap gap-2 items-center text-[13px] text-slate-600">
-          <span>{rows.length} педагогически специалисти · <b className={dueSoon ? 'text-amber-700' : ''}>{dueSoon}</b> за атестиране до година · <b>{never}</b> без данни за атестиране</span>
+        <div className="bg-white rounded-2xl border border-slate-200 px-4 py-3 text-[13px] text-slate-600 space-y-1">
+          <p>Атестирането започва през <b>юни – юли</b> на учебната година, в която изтича 4-годишният период (чл. 77, ал. 2, ред. ДВ бр. 113/2025) — атестираните през октомври 2022 г. се падат през юни – юли 2027 г., а през 2023 г. — през юни – юли 2028 г.
+            Лицата без атестиране се атестират от ЦСОП, ако имат поне 2 години в него (чл. 78, ал. 4–5; годината на постъпване е от импорта от НЕИСПУО). При отсъствие над 1 година периодът се удължава (чл. 78, ал. 1) — отбележете го с „Отложи“.</p>
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 items-center text-[13px] text-slate-600">
+          <span>{rows.length} педагогически специалисти · <b className="text-rose-700">{count('due')}</b> подлежат през {attestWindowLabel(year)} · <b className="text-amber-700">{count('new')}</b> без атестиране · <b>{count('unknown')}</b> без данни · <b>{count('deferred')}</b> отложени</span>
+          <label className="flex items-center gap-1.5"><input type="checkbox" checked={onlyDue} onChange={e => setOnlyDue(e.target.checked)} /> само подлежащите</label>
           <button type="button" onClick={() => exportRegistryExcel(list)} className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50"><FileSpreadsheet size={14} /> Excel</button>
           <button type="button" onClick={() => setAdding(a => !a)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50"><Plus size={14} /> Атестиране преди ЕИС</button>
         </div>
@@ -766,22 +834,37 @@ function Registry(p: Props) {
             <label className="block"><span className="label">Дата</span><input type="date" value={h.attested_on} onChange={e => setH({ ...h, attested_on: e.target.value })} className="input w-full" /></label>
             <label className="block"><span className="label">ОР</span><input value={h.result} onChange={e => setH({ ...h, result: e.target.value })} className="input w-full" /></label>
             <label className="block"><span className="label">Крайна оценка</span>
-              <select value={h.grade} onChange={e => setH({ ...h, grade: e.target.value })} className="input w-full">{DEFAULT_SCALE.map(x => <option key={x.l}>{x.l}</option>)}</select></label>
-            <label className="block md:col-span-4"><span className="label">Бележка</span><input value={h.note} onChange={e => setH({ ...h, note: e.target.value })} className="input w-full" /></label>
+              <select value={h.grade} onChange={e => setH({ ...h, grade: e.target.value })} className="input w-full"><option value="">— няма —</option>{DEFAULT_SCALE.map(x => <option key={x.l}>{x.l}</option>)}</select></label>
+            <label className="block md:col-span-4"><span className="label">Бележка</span><input value={h.note} onChange={e => setH({ ...h, note: e.target.value })} className="input w-full" placeholder="напр. Заповед № … ; ако е известна само годината — дата 1 октомври" /></label>
             <button type="button" onClick={addHistory} className="btn-primary">Запиши</button>
           </div>
         )}
         <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
           <table className="w-full text-[13px]">
-            <thead className="bg-slate-50 text-slate-500 text-[12px]"><tr><th className="px-3 py-2 text-left">Служител</th><th className="px-2 py-2">Последно</th><th className="px-2 py-2 text-left">Крайна оценка</th><th className="px-2 py-2">Следващо</th><th className="px-2 py-2 text-left">План за подкрепа</th></tr></thead>
+            <thead className="bg-slate-50 text-slate-500 text-[12px]"><tr><th className="px-3 py-2 text-left">Служител</th><th className="px-2 py-2">Последно</th><th className="px-2 py-2 text-left">Крайна оценка</th><th className="px-2 py-2">Следващо</th><th className="px-2 py-2 text-left">Бележка</th></tr></thead>
             <tbody>
               {list.map(r => (
-                <tr key={r.id} className="border-t border-slate-100">
+                <tr key={r.id} className="border-t border-slate-100 align-top">
                   <td className="px-3 py-1.5"><div className="text-slate-800">{r.name}</div><div className="text-[11.5px] text-slate-500">{r.position}</div></td>
-                  <td className="px-2 py-1.5 text-center tabular-nums">{r.last ? dmy(r.last) : <span className="text-slate-400">няма данни</span>}</td>
-                  <td className="px-2 py-1.5">{r.grade || ''}{r.result != null ? <span className="text-slate-500 tabular-nums"> · {num(r.result)}</span> : ''}<div className="text-[11px] text-slate-400">{r.source}</div></td>
-                  <td className={`px-2 py-1.5 text-center tabular-nums ${r.due != null && r.due < 0 ? 'text-rose-700 font-medium' : r.due != null && r.due <= 365 ? 'text-amber-700' : ''}`}>{r.next ? dmy(r.next) : ''}</td>
-                  <td className={`px-2 py-1.5 text-[12.5px] ${r.open ? 'text-amber-800' : 'text-slate-600'}`}>{r.support}</td>
+                  <td className="px-2 py-1.5 text-center tabular-nums">{r.last ? dmy(r.last) : <span className="text-slate-400">—</span>}</td>
+                  <td className="px-2 py-1.5">{r.grade || ''}{r.result != null ? <span className="text-slate-500 tabular-nums"> · {num(r.result)}</span> : ''}<div className="text-[11px] text-slate-400">{r.last ? r.source : ''}</div></td>
+                  <td className={`px-2 py-1.5 text-center whitespace-nowrap ${nextTone(r.state)}`}>{r.nextLabel}</td>
+                  <td className={`px-2 py-1.5 text-[12.5px] ${r.open ? 'text-amber-800' : 'text-slate-600'}`}>
+                    {deferring === r.id ? (
+                      <div className="flex flex-wrap gap-1.5 items-center">
+                        <input autoFocus value={reason} onChange={e => setReason(e.target.value)} onKeyDown={e => e.key === 'Enter' && saveDefer(r.id)} placeholder="причина, напр. дълъг болничен (чл. 78, ал. 1)" className="input flex-1 min-w-[220px] py-1" />
+                        <button type="button" onClick={() => saveDefer(r.id)} className="px-2.5 py-1 rounded-lg text-white text-[12.5px]" style={{ backgroundColor: ACCENT }}>Запиши</button>
+                        <button type="button" onClick={() => setDeferring(null)} className="px-2 py-1 text-slate-500">Отказ</button>
+                      </div>
+                    ) : (
+                      <div className="flex items-start gap-2">
+                        <span className="flex-1">{r.support}</span>
+                        {r.state === 'deferred'
+                          ? <button type="button" onClick={() => removeDefer(r.id)} className="shrink-0 text-[12px] text-indigo-700 hover:underline">махни отлагането</button>
+                          : <button type="button" onClick={() => { setDeferring(r.id); setReason('') }} className="shrink-0 text-[12px] text-slate-400 hover:text-indigo-700">Отложи</button>}
+                      </div>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -793,7 +876,7 @@ function Registry(p: Props) {
             <div className="mt-2 divide-y divide-slate-100">
               {p.history.map(x => (
                 <div key={x.id} className="flex items-center gap-2 py-1.5">
-                  <span className="flex-1">{pname(p.people.find(y => y.id === x.staff_id))} · {dmy(x.attested_on)} · {x.grade}{x.result != null ? ` · ${num(x.result)}` : ''}{x.note ? ` · ${x.note}` : ''}</span>
+                  <span className="flex-1">{pname(p.people.find(y => y.id === x.staff_id))} · {dmy(x.attested_on)}{x.grade ? ` · ${x.grade}` : ''}{x.result != null ? ` · ${num(x.result)}` : ''}{x.note ? ` · ${x.note}` : ''}</span>
                   <button type="button" onClick={() => delHistory(x.id)} className="p-1 text-slate-400 hover:text-rose-600"><Trash2 size={13} /></button>
                 </div>
               ))}
@@ -808,7 +891,7 @@ function Registry(p: Props) {
             <table className="w-full text-[13px]">
               <thead className="bg-slate-50 text-slate-500 text-[12px]"><tr><th className="px-3 py-2 text-left">Служител</th>{camps.map(c => <th key={c.id} className="px-2 py-2 font-normal" title={c.name}><Link href={`/evaluation/${c.id}`} className="hover:underline">{KIND_SHORT[c.kind || 'dtv']}<br />{c.name.replace(/^(ДТВ за постигнати резултати|Атестиране|Оценяване)\s*/, '') || c.name}</Link></th>)}</tr></thead>
               <tbody>
-                {p.people.filter(x => !q.trim() || pname(x).toLowerCase().includes(q.trim().toLowerCase())).filter(x => p.results.some(r => r.staff_id === x.id)).map(x => (
+                {p.people.filter(x => !q.trim() || pname(x).toLowerCase().includes(q.trim().toLowerCase())).filter(x => p.results.some(r => r.staff_id === x.id && r.campaign?.kind === 'attest')).map(x => (
                   <tr key={x.id} className="border-t border-slate-100">
                     <td className="px-3 py-1.5"><div className="text-slate-800">{pname(x)}</div><div className="text-[11.5px] text-slate-500">{x.position || ''}</div></td>
                     {camps.map(c => <td key={c.id} className="px-2 py-1.5 text-center tabular-nums">{cellOf(x.id, c.id)}</td>)}

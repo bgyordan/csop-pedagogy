@@ -7,7 +7,7 @@ import Link from 'next/link'
 import {
   BookOpen, Users, HeartPulse, CalendarDays, CalendarClock, GraduationCap, Award, ClipboardCheck, Landmark,
   BookUser, Images, FolderOpen, Pencil, AlertTriangle, CheckCircle2, Clock, Briefcase, School, Building2,
-  ListTodo, Star, Shield, Sparkles, ArrowRight,
+  ListTodo, Star, Shield, Sparkles, ArrowRight, BookMarked,
 } from 'lucide-react'
 import { ROLE_LABELS, type UserRole } from '@/types'
 import { getFullName } from '@/lib/utils'
@@ -132,7 +132,8 @@ export default async function StaffProfileView({ supabase, me, tab: askedTab, se
       { show: self && (THER.includes(role) || THER.includes(therapyRole || '')), href: '/my-activities', label: 'Списък за терапия', hint: 'деца и сесии', icon: <HeartPulse size={18} />, tone: 'bg-rose-50 text-rose-700' },
       { show: self && (TEACH.includes(role) || role === 'speech_therapist'), href: '/my-lecturer', label: 'Моите лекторски', hint: 'замествания, над норматив', icon: <GraduationCap size={18} />, tone: 'bg-indigo-50 text-indigo-700' },
       { show: self, href: '/calendar', label: 'Календар', hint: 'срокове, заседания, събития', icon: <CalendarDays size={18} />, tone: 'bg-teal-50 text-teal-700' },
-      { show: self, href: '/evaluation', label: 'Оценяване', hint: 'ДТВ, атестиране, комисии', icon: <Award size={18} />, tone: 'bg-amber-50 text-amber-700' },
+      { show: self, href: '/evaluation', label: 'ДТВ и оценки', hint: 'оценъчни карти, комисии', icon: <Award size={18} />, tone: 'bg-amber-50 text-amber-700' },
+      { show: self && isPed, href: '/attestation', label: 'Атестиране', hint: 'самооценка, портфолио, карта', icon: <BookMarked size={18} />, tone: 'bg-indigo-50 text-indigo-700' },
       { show: self, href: '/control', label: 'Констативни протоколи', hint: 'проверки и препоръки', icon: <ClipboardCheck size={18} />, tone: 'bg-orange-50 text-orange-700' },
       { show: self, href: '/meetings', label: 'ПС и Общо събрание', hint: 'дневен ред, решения', icon: <Landmark size={18} />, tone: 'bg-slate-100 text-slate-700' },
       { show: isPed, href: ppHref(), label: 'Професионално портфолио', hint: `${items.length} записа`, icon: <BookUser size={18} />, tone: 'bg-violet-50 text-violet-700' },
@@ -242,7 +243,7 @@ export default async function StaffProfileView({ supabase, me, tab: askedTab, se
       title: `${my('Запознайте се', 'Не е запознат(а)')} с констативен протокол № ${r.check.book_no}`, meta: [dmy(r.check.check_date), r.check.subject].filter(Boolean).join(' · '),
     }))
     evals.filter(r => r.status === 'sent').forEach(r => out.push({
-      key: 'e' + r.id, href: '/evaluation', tone: 'violet', icon: <Award size={15} />,
+      key: 'e' + r.id, href: r.campaign?.kind === 'attest' ? '/attestation' : '/evaluation', tone: 'violet', icon: <Award size={15} />,
       title: my('Запознайте се с оценъчната си карта', 'Не е запознат(а) с оценъчната си карта'), meta: r.campaign?.name,
     }))
     ;((commission || []) as any[]).forEach(r => out.push({
