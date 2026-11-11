@@ -15,8 +15,28 @@ export type PPProfile = {
   specialty: string | null; teacher_q: boolean | null; other_q: string | null; pks: string | null; pks_year: number | null
   work_since: string | null; teacher_since: string | null; years_extra: { total?: number; teacher?: number } | null
   strengths: string | null; growth: string | null; visibility: Visibility; updated_at?: string
+  /** 2026-11-12_portfolio_career.sql — може да ги няма, ако SQL файлът не е пуснат */
+  career?: Career[]; memberships?: Membership[]; motto?: string | null
   /** последен импорт от НЕИСПУО (справка) — src/lib/neispuo-staff.ts */
   neispuo?: NeispuoSnapshot | null
+}
+/** Длъжност в професионалния път; from/to — „ГГГГ-ММ“, to = null — до сега */
+export type Career = { from?: string | null; to?: string | null; institution: string; position: string }
+export type Membership = { org: string; from?: string | null; to?: string | null; role?: string | null }
+/** Работа в ЦСОП за една учебна година — от ЕИС (паралелки като класен, ЦОУД групи, деца в ЕПЛР екипи) */
+export type WorkYear = { year: string; classes: string[]; coud: string[]; eplr: number }
+const MONTHS = ['януари', 'февруари', 'март', 'април', 'май', 'юни', 'юли', 'август', 'септември', 'октомври', 'ноември', 'декември']
+/** „2019-01“ → „януари 2019“ */
+export const ym = (v: string | null | undefined) => {
+  if (!v) return ''
+  const [y, m] = v.split('-').map(Number)
+  return m ? `${MONTHS[m - 1]} ${y}` : String(y)
+}
+export const ymRange = (from?: string | null, to?: string | null) => `${ym(from) || '…'} – ${to ? ym(to) : 'до сега'}`
+/** Вътрешно обучение от регистъра; staff — участниците (от записите в портфолиата) */
+export type PPTraining = {
+  id: string; title: string; date_from: string; date_to: string | null; hours: number | null; provider: string | null
+  lecturer: string | null; kind: string; note: string | null; created_at: string; staff: string[]
 }
 export type PPFile = { id: string; item_id: string; staff_id: string; name: string; path: string; mime: string | null; size: number | null; created_at: string }
 export type PPItem = {
@@ -24,6 +44,8 @@ export type PPItem = {
   date_from: string | null; date_to: string | null; kind: string | null; level: string | null; part_role: string | null
   provider: string | null; doc_no: string | null; hours: number | null; credits: number | null; url: string | null
   post_id: string | null; visibility: Visibility; featured: boolean; created_by: string | null
+  /** вписано от регистъра „Вътрешни обучения“ (2026-11-12_portfolio_trainings.sql) */
+  training_id?: string | null
   created_at: string; updated_at: string; files?: PPFile[]
 }
 export type GoalStatus = 'planned' | 'in_progress' | 'done' | 'dropped'
@@ -154,4 +176,23 @@ export const dateRange = (a: string | null, b: string | null) => {
   const d = (x: string) => x.slice(0, 10).split('-').reverse().join('.')
   if (a && b && a !== b) return `${d(a)} – ${d(b)}`
   return a ? d(a) : b ? d(b) : ''
+}
+
+/** Колко е попълнено портфолиото — стъпки с действие („edit“ — общите данни, „career“, раздел, таб) */
+export type FillStep = { k: string; l: string; ok: boolean; hint: string; action: 'edit' | 'career' | 'qual' | 'sections' | 'goals' }
+export function fillSteps(profile: PPProfile | null, items: PPItem[], goals: { id: string }[], attestFrom: string | null): FillStep[] {
+  const pr = profile
+  const nonQ = new Set(items.filter(i => i.section !== 'qualification').map(i => i.section))
+  const qRecent = items.filter(i => i.section === 'qualification' && inPeriod(i, attestFrom, null)).length
+  return [
+    { k: 'edu', l: 'Образование', ok: !!pr?.education?.length, hint: 'степен, специалност, висше училище', action: 'edit' },
+    { k: 'q', l: 'Квалификация „учител“ и ПКС', ok: pr?.teacher_q != null, hint: 'отговаря на раздел А от атестационната карта', action: 'edit' },
+    { k: 'exp', l: 'Стаж', ok: !!(pr?.work_since || pr?.teacher_since || pr?.years_extra), hint: 'начало на общия и учителския стаж', action: 'edit' },
+    { k: 'career', l: 'Професионален път', ok: !!pr?.career?.length, hint: 'къде и на каква длъжност сте работили', action: 'career' },
+    { k: 'phil', l: 'Педагогическа философия', ok: !!pr?.philosophy?.trim(), hint: 'в какво вярвам, как работя — няколко изречения', action: 'edit' },
+    { k: 'self', l: 'Самоанализ', ok: !!(pr?.strengths?.trim() && pr?.growth?.trim()), hint: 'силни страни и области за развитие', action: 'edit' },
+    { k: 'qual', l: 'Квалификация в атестационния период', ok: qRecent > 0, hint: 'обучения, кредити, вътрешни обучения', action: 'qual' },
+    { k: 'mat', l: 'Материали в поне 3 раздела', ok: nonQ.size >= 3, hint: 'добри практики, постижения, работа с родители …', action: 'sections' },
+    { k: 'goal', l: 'Цел за развитие', ok: goals.length > 0, hint: 'какво искам да постигна тази година', action: 'goals' },
+  ]
 }
