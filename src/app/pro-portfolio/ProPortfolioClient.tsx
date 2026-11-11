@@ -78,7 +78,7 @@ export default function ProPortfolioClient(p: Props) {
         evidence = fixEvidence((data || null) as PPEvidence | null)
       }
       const { generatePortfolio } = await import('@/lib/docx-pro-portfolio')
-      await generatePortfolio({ staff: { name: fullName(p.staff), position: p.staff.position || p.staff.roleLabel }, profile: p.profile, items, goals: p.goals, classes: p.classes, periodLabel: range.label, evidence })
+      await generatePortfolio({ staff: { name: fullName(p.staff), position: p.staff.position || p.staff.roleLabel }, profile: p.profile, items, goals: p.goals, classes: p.classes, periodLabel: range.label, evidence, workYears: p.workYears })
     } finally { setExporting(false) }
   }
 
