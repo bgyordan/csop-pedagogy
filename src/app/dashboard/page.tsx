@@ -27,6 +27,7 @@ import SchoolFilesCardClient from './components/SchoolFilesCardClient'
 import FacilitiesStrip from './components/FacilitiesStrip'
 import OnlineRoomStrip from './components/OnlineRoomStrip'
 import ClassRoomStrip from './components/ClassRoomStrip'
+import IfoTodayCard from './components/IfoTodayCard'
 import { heroCookie, heroTheme } from './hero-themes'
 import DashboardCustomize from './DashboardCustomize'
 import { dashCookie, hiddenWidgets, widgetsFor } from '@/lib/dashboard-prefs'
@@ -143,6 +144,9 @@ export default async function DashboardPage() {
 
       {/* Спонтанен неучебен ден — днес или в следващите дни */}
       {show('nonschool') && <NonSchoolDayStrip />}
+
+      {/* Помощник на учителя — ИФО децата днес: какво имат, при кого, кой замества */}
+      {profile.role === 'support' && show('ifoToday') && <IfoTodayCard currentYearId={currentYear.id} />}
 
 
       {/* Кратките ленти — по две на ред, за да не са дълги през целия екран */}
