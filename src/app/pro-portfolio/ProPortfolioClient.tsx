@@ -8,6 +8,7 @@ import Link from 'next/link'
 import {
   BookUser, Plus, Pencil, Trash2, Paperclip, ExternalLink, Star, Lock, Users, ShieldCheck, FileDown, Loader2,
   GraduationCap, Target, Database, LayoutList, UserRound, Save, ArrowLeft, Images, FileSpreadsheet, Award,
+  Briefcase, CheckCircle2, Circle, School,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useToast, confirmDialog } from '@/components/ui/Toast'
@@ -17,7 +18,8 @@ import {
   SECTIONS, VIS, GOAL_STATUS, Q_KINDS, INTERNAL_MIN_YEAR, EXTERNAL_MIN_PERIOD, sectionMeta, qKindLabel, levelLabel,
   qualificationTotals, yearsSince, inPeriod, fmtNum, dateRange,
   type PPProfile, type PPItem, type PPGoal, type PPFile, type PPEvidence, type SectionKey, type Visibility, type Edu, type GoalStatus,
-  fixEvidence,
+  fixEvidence, fillSteps, ymRange,
+  type WorkYear, type Career, type Membership, type FillStep,
 } from '@/lib/pro-portfolio'
 import ItemEditor, { type WallPost } from './ItemEditor'
 
@@ -28,6 +30,8 @@ type Props = {
   me: { id: string; role: string }; isManager: boolean; isOwn: boolean; canEdit: boolean; tab: string
   staff: Staff; profile: PPProfile | null; items: PPItem[]; goals: PPGoal[]; posts: WallPost[]; classes: string[]
   years: Year[]; lastAttest: string | null; overview: OverviewRow[]
+  /** работа в ЦСОП по години — от ЕИС */
+  workYears: WorkYear[]
 }
 type Tab = 'overview' | 'sections' | 'qual' | 'goals' | 'eis' | 'staff'
 
@@ -109,7 +113,7 @@ export default function ProPortfolioClient(p: Props) {
         })}
       </nav>
 
-      {tab === 'overview' && <Overview {...p} items={items} rangeLabel={range.label} onAdd={s => setEditor({ item: null, section: s })} onOpen={() => go('sections')} />}
+      {tab === 'overview' && <Overview {...p} items={items} rangeLabel={range.label} attestFrom={attestFrom} onAdd={s => setEditor({ item: null, section: s })} onOpen={() => go('sections')} onGo={go} />}
       {tab === 'sections' && <Sections {...p} items={items} onEdit={it => setEditor({ item: it })} onAdd={s => setEditor({ item: null, section: s })} />}
       {tab === 'qual' && <Qualification {...p} all={p.items} items={items} range={range} attestFrom={attestFrom} onEdit={it => setEditor({ item: it })} onAdd={() => setEditor({ item: null, section: 'qualification' })} />}
       {tab === 'goals' && <Goals {...p} />}
@@ -123,7 +127,7 @@ export default function ProPortfolioClient(p: Props) {
 }
 
 // ── Представяне ───────────────────────────────────────────────────────────
-function Overview(p: Props & { items: PPItem[]; rangeLabel: string; onAdd: (s: SectionKey) => void; onOpen: () => void }) {
+function Overview(p: Props & { items: PPItem[]; rangeLabel: string; attestFrom: string; onAdd: (s: SectionKey) => void; onOpen: () => void; onGo: (t: Tab) => void }) {
   const router = useRouter()
   const { toast } = useToast()
   const empty: PPProfile = {
@@ -137,7 +141,8 @@ function Overview(p: Props & { items: PPItem[]; rangeLabel: string; onAdd: (s: S
   const setEdu = (i: number, patch: Partial<Edu>) => set({ education: f.education.map((e, j) => (j === i ? { ...e, ...patch } : e)) })
   async function save() {
     setBusy(true)
-    const { updated_at: _u, ...row } = f as any
+    // професионалният път, членството и мотото се записват отделно (CareerCard) — тук не ги пипаме
+    const { updated_at: _u, career: _c, memberships: _m, motto: _mo, ...row } = f as any
     const { error } = await createClient().from('pp_profile').upsert({ ...row, staff_id: p.staff.id, updated_at: new Date().toISOString() })
     setBusy(false)
     if (error) { toast(error.message, 'error'); return }
@@ -149,10 +154,20 @@ function Overview(p: Props & { items: PPItem[]; rangeLabel: string; onAdd: (s: S
   const t = qualificationTotals(p.items)
   const featured = p.items.filter(i => i.featured)
   const bySection = SECTIONS.map(s => ({ ...s, n: p.items.filter(i => i.section === s.key).length }))
+  const [careerOpen, setCareerOpen] = useState(false)
+  const steps = fillSteps(p.profile, p.items, p.goals, p.attestFrom)
+  function doStep(s: FillStep) {
+    if (s.action === 'edit') { setEditing(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+    else if (s.action === 'career') { setCareerOpen(true); document.getElementById('pp-career')?.scrollIntoView({ behavior: 'smooth' }) }
+    else if (s.action === 'qual') p.onAdd('qualification')
+    else if (s.action === 'sections') p.onOpen()
+    else p.onGo('goals')
+  }
 
   return (
     <div className="grid lg:grid-cols-3 gap-5">
       <div className="lg:col-span-2 space-y-5">
+        {p.canEdit && <FillProgress steps={steps} onStep={doStep} own={p.isOwn} />}
         <section className="bg-white rounded-2xl border border-slate-200 p-5">
           <div className="flex items-center gap-2 mb-3">
             <h2 className="text-[15px] font-semibold text-slate-800 flex-1">Общи данни</h2>
@@ -205,6 +220,9 @@ function Overview(p: Props & { items: PPItem[]; rangeLabel: string; onAdd: (s: S
             </div>
           )}
         </section>
+
+        <CareerCard {...p} open={careerOpen} setOpen={setCareerOpen} />
+        {p.workYears.length > 0 && <WorkYears rows={p.workYears} />}
 
         <section className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
           <h2 className="text-[15px] font-semibold text-slate-800">Представяне и самоанализ</h2>
@@ -270,6 +288,155 @@ function Overview(p: Props & { items: PPItem[]; rangeLabel: string; onAdd: (s: S
         )}
       </aside>
     </div>
+  )
+}
+
+/** Колко е попълнено портфолиото — стъпки с бутон, който води направо до мястото */
+function FillProgress({ steps, onStep, own }: { steps: FillStep[]; onStep: (s: FillStep) => void; own: boolean }) {
+  const done = steps.filter(s => s.ok).length
+  const pct = Math.round((done / steps.length) * 100)
+  const [open, setOpen] = useState(pct < 100)
+  return (
+    <section className="bg-white rounded-2xl border border-slate-200 p-5">
+      <button type="button" onClick={() => setOpen(o => !o)} className="w-full flex items-center gap-3 text-left">
+        <span className="flex-1">
+          <span className="block text-[15px] font-semibold text-slate-800">{pct === 100 ? 'Портфолиото е попълнено' : own ? 'Попълнете портфолиото си' : 'Попълване на портфолиото'}</span>
+          <span className="block text-[12.5px] text-slate-500">{done} от {steps.length} стъпки · {own ? 'отнема около 15 минути, после само добавяте' : 'какво остава'}</span>
+        </span>
+        <span className="text-xl font-semibold tabular-nums" style={{ color: pct === 100 ? '#047857' : ACCENT }}>{pct}%</span>
+      </button>
+      <div className="mt-3 h-2 rounded-full bg-slate-100 overflow-hidden"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} /></div>
+      {open && (
+        <ul className="mt-3 grid sm:grid-cols-2 gap-x-4 gap-y-1.5 text-[13px]">
+          {steps.map(s => (
+            <li key={s.k} className="flex items-start gap-2">
+              {s.ok ? <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" /> : <Circle size={16} className="text-slate-300 shrink-0 mt-0.5" />}
+              <span className="flex-1 min-w-0">
+                {s.ok ? <span className="text-slate-500">{s.l}</span>
+                  : <button type="button" onClick={() => onStep(s)} className="text-left text-slate-800 hover:text-indigo-700">{s.l} <span className="text-indigo-700">→</span></button>}
+                {!s.ok && <span className="block text-[11.5px] text-slate-400">{s.hint}</span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+/** Професионален път (история на длъжностите), членство в организации и мото — записват се отделно от общите данни */
+function CareerCard(p: Props & { open: boolean; setOpen: (v: boolean) => void }) {
+  const router = useRouter()
+  const { toast } = useToast()
+  const init = () => ({ career: (p.profile?.career || []) as Career[], memberships: (p.profile?.memberships || []) as Membership[], motto: p.profile?.motto || '' })
+  const [d, setD] = useState(init)
+  const [busy, setBusy] = useState(false)
+  const since = p.profile?.neispuo?.since_year
+  const setC = (i: number, patch: Partial<Career>) => setD(x => ({ ...x, career: x.career.map((c, j) => (j === i ? { ...c, ...patch } : c)) }))
+  const setM = (i: number, patch: Partial<Membership>) => setD(x => ({ ...x, memberships: x.memberships.map((c, j) => (j === i ? { ...c, ...patch } : c)) }))
+  function startEdit() {
+    const fresh = init()
+    // първия път — предложи реда за ЦСОП от НЕИСПУО
+    if (!fresh.career.length) fresh.career = [{ from: since ? `${since}-09` : '', to: null, institution: 'ЦСОП – Варна', position: p.staff.position || p.staff.roleLabel }]
+    setD(fresh); p.setOpen(true)
+  }
+  async function save() {
+    const clean = {
+      career: d.career.filter(c => c.institution.trim() || c.position.trim()).sort((a, b) => (b.from || '').localeCompare(a.from || '')),
+      memberships: d.memberships.filter(m => m.org.trim()),
+      motto: d.motto.trim() || null,
+    }
+    setBusy(true)
+    const { error } = await createClient().from('pp_profile').upsert({ staff_id: p.staff.id, ...clean, updated_at: new Date().toISOString() })
+    setBusy(false)
+    if (error) { toast(/career|memberships|motto/.test(error.message) ? 'Пуснете SQL файла 2026-11-12_portfolio_career.sql' : error.message, 'error'); return }
+    toast('Записано'); p.setOpen(false); router.refresh()
+  }
+  const career = p.profile?.career || [], memberships = p.profile?.memberships || []
+  return (
+    <section id="pp-career" className="bg-white rounded-2xl border border-slate-200 p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <h2 className="text-[15px] font-semibold text-slate-800 flex-1 flex items-center gap-1.5"><Briefcase size={15} className="text-slate-400" /> Професионален път</h2>
+        {p.canEdit && !p.open && <button type="button" onClick={startEdit} className="inline-flex items-center gap-1 text-[13px] text-indigo-700"><Pencil size={13} /> {career.length ? 'Редактирай' : 'Попълни'}</button>}
+      </div>
+      {!p.open ? (
+        <div className="space-y-3 text-[13.5px]">
+          {career.length ? (
+            <ol className="relative border-l border-slate-200 ml-1.5 space-y-3">
+              {career.map((c, i) => (
+                <li key={i} className="ml-4">
+                  <span className={`absolute -left-[5px] mt-1.5 w-2.5 h-2.5 rounded-full ${!c.to ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                  <div className="text-slate-800">{c.position}</div>
+                  <div className="text-[12.5px] text-slate-500">{c.institution} · {ymRange(c.from, c.to)}</div>
+                </li>
+              ))}
+            </ol>
+          ) : <p className="text-slate-400">Още не е попълнен.{p.canEdit ? ' Натиснете „Попълни“ — редът за ЦСОП е подготвен.' : ''}</p>}
+          {memberships.length > 0 && (
+            <div><div className="text-[12px] text-slate-500 mb-1">Членство в организации</div>
+              <ul className="space-y-0.5">{memberships.map((m, i) => <li key={i}>{m.org}{m.role ? ` — ${m.role}` : ''} <span className="text-[12.5px] text-slate-500">({ymRange(m.from, m.to)})</span></li>)}</ul></div>
+          )}
+          {p.profile?.motto && <blockquote className="border-l-2 border-indigo-200 pl-3 italic text-slate-600">{p.profile.motto}</blockquote>}
+        </div>
+      ) : (
+        <div className="space-y-4 text-[13px]">
+          <div>
+            <span className="label">Длъжности — от последната към първата</span>
+            {d.career.map((c, i) => (
+              <div key={i} className="grid grid-cols-12 gap-2 mb-2 items-center">
+                <input value={c.position} onChange={e => setC(i, { position: e.target.value })} placeholder="длъжност" className="input col-span-12 sm:col-span-4" />
+                <input value={c.institution} onChange={e => setC(i, { institution: e.target.value })} placeholder="училище / детска градина / център" className="input col-span-12 sm:col-span-4" />
+                <input type="month" value={c.from || ''} onChange={e => setC(i, { from: e.target.value || null })} className="input col-span-5 sm:col-span-2 px-2" title="от" />
+                <input type="month" value={c.to || ''} onChange={e => setC(i, { to: e.target.value || null })} className="input col-span-5 sm:col-span-1 px-1" title="до (празно — до сега)" />
+                <button type="button" onClick={() => setD(x => ({ ...x, career: x.career.filter((_, j) => j !== i) }))} className="col-span-2 sm:col-span-1 text-slate-400 hover:text-rose-600 justify-self-center" aria-label="Махни"><Trash2 size={14} /></button>
+              </div>
+            ))}
+            <button type="button" onClick={() => setD(x => ({ ...x, career: [...x.career, { from: '', to: '', institution: '', position: '' }] }))} className="text-indigo-700 inline-flex items-center gap-1"><Plus size={13} /> Добави длъжност</button>
+            <p className="text-[11.5px] text-slate-400 mt-1">„до“ оставете празно за настоящата длъжност.</p>
+          </div>
+          <div>
+            <span className="label">Членство в организации (синдикат, сдружения, асоциации)</span>
+            {d.memberships.map((m, i) => (
+              <div key={i} className="grid grid-cols-12 gap-2 mb-2 items-center">
+                <input value={m.org} onChange={e => setM(i, { org: e.target.value })} placeholder="организация, напр. СБУ" className="input col-span-12 sm:col-span-5" />
+                <input value={m.role || ''} onChange={e => setM(i, { role: e.target.value })} placeholder="роля (член, председател…)" className="input col-span-12 sm:col-span-3" />
+                <input type="month" value={m.from || ''} onChange={e => setM(i, { from: e.target.value || null })} className="input col-span-5 sm:col-span-2 px-2" title="от" />
+                <input type="month" value={m.to || ''} onChange={e => setM(i, { to: e.target.value || null })} className="input col-span-5 sm:col-span-1 px-1" title="до" />
+                <button type="button" onClick={() => setD(x => ({ ...x, memberships: x.memberships.filter((_, j) => j !== i) }))} className="col-span-2 sm:col-span-1 text-slate-400 hover:text-rose-600 justify-self-center" aria-label="Махни"><Trash2 size={14} /></button>
+              </div>
+            ))}
+            <button type="button" onClick={() => setD(x => ({ ...x, memberships: [...x.memberships, { org: '', role: 'член', from: '', to: '' }] }))} className="text-indigo-700 inline-flex items-center gap-1"><Plus size={13} /> Добави организация</button>
+          </div>
+          <label className="block"><span className="label">Любим цитат или мото (по желание)</span><input value={d.motto} onChange={e => setD(x => ({ ...x, motto: e.target.value }))} className="input" /></label>
+          <div className="flex gap-2">
+            <button type="button" disabled={busy} onClick={save} className="btn-primary inline-flex items-center gap-1.5">{busy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Запази</button>
+            <button type="button" onClick={() => p.setOpen(false)} className="btn-secondary">Отказ</button>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+/** Работа в ЦСОП по години — само от ЕИС, без писане */
+function WorkYears({ rows }: { rows: WorkYear[] }) {
+  return (
+    <section className="bg-white rounded-2xl border border-slate-200 p-5">
+      <h2 className="text-[15px] font-semibold text-slate-800 mb-1 flex items-center gap-1.5"><School size={15} className="text-slate-400" /> Работа в ЦСОП по години</h2>
+      <p className="text-[12px] text-slate-500 mb-3">От ЕИС — паралелки като класен ръководител, групи ЦОУД и деца в ЕПЛР екипите.</p>
+      <table className="w-full text-[13px]">
+        <thead className="text-[12px] text-slate-500"><tr><th className="text-left font-normal py-1">Учебна година</th><th className="text-left font-normal py-1">Паралелки / групи</th><th className="text-right font-normal py-1">Деца в ЕПЛР</th></tr></thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.year} className="border-t border-slate-100">
+              <td className="py-1.5 pr-2 whitespace-nowrap text-slate-700">{r.year}</td>
+              <td className="py-1.5 pr-2 text-slate-700">{[...r.classes.map(c => `паралелка ${c}`), ...r.coud.map(c => `ЦОУД ${c}`)].join(', ') || <span className="text-slate-400">—</span>}</td>
+              <td className="py-1.5 text-right tabular-nums">{r.eplr || ''}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
   )
 }
 

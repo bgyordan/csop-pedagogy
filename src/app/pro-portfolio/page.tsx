@@ -43,6 +43,20 @@ export default async function ProPortfolioPage({ searchParams }: { searchParams:
   ])
   if (!staff) redirect('/pro-portfolio')
 
+  // Работа в ЦСОП по години — от ЕИС: паралелки (класен), ЦОУД групи, деца в ЕПЛР екипи (ако някоя таблица не се чете — пропуска се)
+  const [ctaAll, coudAll, eplrAll] = await Promise.all([
+    supabase.from('class_teacher_assignments').select('academic_year_id, class:classes(name)').eq('staff_id', targetId),
+    supabase.from('coud_groups').select('academic_year_id, name').eq('teacher_id', targetId),
+    supabase.from('eplr_teams').select('academic_year_id')
+      .or(`psychologist_id.eq.${targetId},speech_therapist_id.eq.${targetId},rehabilitator_id.eq.${targetId},class_teacher_id.eq.${targetId}`),
+  ])
+  const workYears = ((years || []) as any[]).map(y => ({
+    year: y.name as string,
+    classes: (((ctaAll.data || []) as any[]).filter(r => r.academic_year_id === y.id).map(r => r.class?.name).filter(Boolean)) as string[],
+    coud: (((coudAll.data || []) as any[]).filter(r => r.academic_year_id === y.id).map(r => r.name).filter(Boolean)) as string[],
+    eplr: ((eplrAll.data || []) as any[]).filter(r => r.academic_year_id === y.id).length,
+  })).filter(w => w.classes.length || w.coud.length || w.eplr)
+
   // последно атестиране → началото на атестационния период (4 години)
   const lastDates = [
     ...((history || []) as any[]).map(h => h.attested_on as string),
@@ -82,6 +96,7 @@ export default async function ProPortfolioPage({ searchParams }: { searchParams:
       classes={((classes || []) as any[]).map(c => c.class?.name).filter(Boolean)}
       years={(years || []) as any}
       lastAttest={lastDates[0] || null}
+      workYears={workYears}
       overview={overview}
     />
   )
