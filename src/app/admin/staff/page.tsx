@@ -111,7 +111,7 @@ export default function AdminStaffPage() {
     const res = await createQrLogin(s.id)
     setQrBusy(null)
     if (res.error || !res.url) { notify(res.error || 'Неуспешно'); return }
-    const img = await QRCode.toDataURL(res.url, { width: 560, margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0f2240', light: '#ffffff' } })
+    const img = await QRCode.toDataURL(res.url, { width: 560, margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0f3d4a', light: '#ffffff' } })
     setQr({ name: res.name || getFullName(s), img })
   }
 
@@ -290,16 +290,25 @@ export default function AdminStaffPage() {
     <div className="p-4 md:p-8">
       {qr && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm qr-print" onClick={() => { setQr(null); window.location.reload() }}>
-          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 text-center" onClick={e => e.stopPropagation()}>
-            <div className="text-[11px] uppercase tracking-widest text-slate-400">Вход в EIS · ЦСОП Варна</div>
-            <h3 className="text-lg text-[#0f2240] mt-1">{qr.name}</h3>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={qr.img} alt="QR за вход" className="w-64 h-64 mx-auto my-4" />
-            <p className="text-sm text-slate-600">Сканирай с камерата на телефона и натисни „Влез“.</p>
-            <p className="text-xs text-slate-400 mt-1">Важи еднократно и за кратко. Нов QR обезсилва този. Не го изпращай по Viber/имейл.</p>
-            <div className="flex gap-2 mt-5 no-print">
-              <button onClick={() => window.print()} className="flex-1 py-2 rounded-xl text-sm border border-slate-200 hover:bg-slate-50">Печат</button>
-              <button onClick={() => { setQr(null); window.location.reload() }} className="flex-1 py-2 rounded-xl text-sm text-white" style={{ backgroundColor: '#0f2240' }}>Готово</button>
+          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden text-center" onClick={e => e.stopPropagation()}>
+            {/* лента в цвета на системата (като хедъра на таблото) */}
+            <div className="bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-6 py-4 print:bg-none print:text-[#0f2240] print:border-b print:border-slate-200">
+              <div className="text-[11px] uppercase tracking-widest text-white/80 print:text-slate-500">ЦСОП Варна · Вход в EIS</div>
+              <h3 className="text-lg mt-0.5">{qr.name}</h3>
+            </div>
+            <div className="px-6 pb-6">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={qr.img} alt="QR за вход" className="w-64 h-64 mx-auto my-4 rounded-xl ring-1 ring-teal-100 p-2" />
+              <ol className="text-sm text-slate-600 text-left space-y-1 max-w-[16rem] mx-auto">
+                <li>1. Насочи камерата на телефона към кода.</li>
+                <li>2. Отвори връзката и натисни „Влез“.</li>
+                <li>3. Готово — оставаш влязъл на телефона.</li>
+              </ol>
+              <p className="text-xs text-slate-400 mt-3">Важи еднократно и за кратко. Нов QR обезсилва този. Не го изпращай по Viber/имейл.</p>
+              <div className="flex gap-2 mt-5 no-print">
+                <button onClick={() => window.print()} className="flex-1 py-2 rounded-xl text-sm border border-slate-200 hover:bg-slate-50">Печат</button>
+                <button onClick={() => { setQr(null); window.location.reload() }} className="flex-1 py-2 rounded-xl text-sm text-white bg-gradient-to-r from-teal-600 to-cyan-600 hover:opacity-90">Готово</button>
+              </div>
             </div>
           </div>
         </div>

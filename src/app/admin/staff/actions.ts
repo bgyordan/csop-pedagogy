@@ -122,7 +122,7 @@ export async function changeLoginEmail(staffId: string, newEmailRaw: string): Pr
 }
 
 // ── QR за вход (само помощници на учителя) ────────────────────────────
-// Само админ. Ако помощникът още няма акаунт — създава го (без парола за раздаване).
+// Само админ и ЗДУД. Ако помощникът още няма акаунт — създава го (без парола за раздаване).
 // Връща еднократен адрес за вход: сканира се с камерата на телефона → „Влез“ → сесия на колегата.
 // Важи веднъж и за кратко (по настройката на сървъра); нов QR обезсилва предишния.
 export async function createQrLogin(staffId: string): Promise<{ url?: string; name?: string; error?: string }> {
@@ -130,7 +130,7 @@ export async function createQrLogin(staffId: string): Promise<{ url?: string; na
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли' }
   const { data: me } = await supabase.from('staff_profiles').select('role').eq('user_id', user.id).single()
-  if (me?.role !== 'admin') return { error: 'Само администратор може да прави QR за вход' }
+  if (!me || !['admin', 'zdud'].includes(me.role)) return { error: 'Само администратор или ЗДУД може да прави QR за вход' }
 
   const admin = createAdminClient()
   const { data: target } = await admin.from('staff_profiles')
