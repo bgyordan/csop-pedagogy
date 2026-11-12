@@ -222,3 +222,11 @@ table { font-variant-numeric: tabular-nums; }
   flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
   padding: 0.875rem 1rem; font-size: 13px; color: #64748b; text-align: center;
 }
+
+/* QR за вход — при печат само картата с кода */
+@media print {
+  body:has(.qr-print) * { visibility: hidden; }
+  body:has(.qr-print) .qr-print, body:has(.qr-print) .qr-print * { visibility: visible; }
+  body:has(.qr-print) .qr-print { position: absolute; inset: 0; background: none; backdrop-filter: none; }
+  body:has(.qr-print) .qr-print .no-print { display: none; }
+}

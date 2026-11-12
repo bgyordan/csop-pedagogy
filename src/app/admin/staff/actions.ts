@@ -1,4 +1,5 @@
 'use server'
+import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { syncYearFolderAccess, removeStaffAccess } from '@/lib/drive-access'
@@ -118,4 +119,47 @@ export async function changeLoginEmail(staffId: string, newEmailRaw: string): Pr
   } catch { /* */ }
 
   return { ok: true, authChanged }
+}
+
+// ── QR за вход (само помощници на учителя) ────────────────────────────
+// Само админ. Ако помощникът още няма акаунт — създава го (без парола за раздаване).
+// Връща еднократен адрес за вход: сканира се с камерата на телефона → „Влез“ → сесия на колегата.
+// Важи веднъж и за кратко (по настройката на сървъра); нов QR обезсилва предишния.
+export async function createQrLogin(staffId: string): Promise<{ url?: string; name?: string; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не сте влезли' }
+  const { data: me } = await supabase.from('staff_profiles').select('role').eq('user_id', user.id).single()
+  if (me?.role !== 'admin') return { error: 'Само администратор може да прави QR за вход' }
+
+  const admin = createAdminClient()
+  const { data: target } = await admin.from('staff_profiles')
+    .select('id, first_name, last_name, email, user_id, role, is_active').eq('id', staffId).maybeSingle()
+  if (!target) return { error: 'Няма такъв профил' }
+  if (target.role !== 'support') return { error: 'QR за вход е само за помощниците на учителя' }
+  if (target.is_active === false) return { error: 'Служителят е неактивен' }
+  if (!target.email || !EMAIL_RE.test(target.email)) return { error: 'Профилът няма валиден имейл (нужен е само като идентификатор)' }
+
+  let email = target.email.trim().toLowerCase()
+  if (!target.user_id) {
+    // акаунт без парола за раздаване — влиза се само с QR
+    const pw = Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(16).padStart(2, '0')).join('')
+    const { data: created, error } = await admin.auth.admin.createUser({ email, password: pw, email_confirm: true })
+    if (error || !created?.user) return { error: 'Грешка при създаване на акаунт: ' + (error?.message || 'няма данни') }
+    const { error: linkErr } = await admin.from('staff_profiles').update({ user_id: created.user.id }).eq('id', staffId)
+    if (linkErr) return { error: 'Акаунтът е създаден, но връзката не мина: ' + linkErr.message }
+  } else {
+    const { data: au } = await admin.auth.admin.getUserById(target.user_id)
+    if (!au?.user?.email) return { error: 'Акаунтът на служителя няма имейл' }
+    email = au.user.email
+  }
+
+  const { data: link, error: linkErr } = await admin.auth.admin.generateLink({ type: 'magiclink', email })
+  const hash = link?.properties?.hashed_token
+  if (!hash) return { error: 'Неуспешно: ' + (linkErr?.message || 'няма линк') }
+
+  const h = await headers()
+  const host = h.get('x-forwarded-host') || h.get('host') || 'is.csop-varna.bg'
+  const proto = h.get('x-forwarded-proto') || 'https'
+  return { url: `${proto}://${host}/auth/qr?t=${encodeURIComponent(hash)}`, name: `${target.first_name} ${target.last_name}` }
 }
