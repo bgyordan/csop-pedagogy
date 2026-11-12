@@ -5,8 +5,9 @@ import { smartMatch } from '@/lib/search'
 import { loginTime } from '@/lib/login-time'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { createStaffAccount, syncDriveAccess, removeDriveAccess, changeLoginEmail } from './actions'
-import { Plus, Pencil, ExternalLink, FolderSync } from 'lucide-react'
+import { createStaffAccount, syncDriveAccess, removeDriveAccess, changeLoginEmail, createQrLogin } from './actions'
+import QRCode from 'qrcode'
+import { Plus, Pencil, ExternalLink, FolderSync, QrCode } from 'lucide-react'
 import { useToast, notify, confirmDialog } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { getFullName } from '@/lib/utils'
@@ -40,6 +41,9 @@ export default function AdminStaffPage() {
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<StaffProfile | null>(null)
   const [cred, setCred] = useState<{ email: string; password: string } | null>(null)
+  // QR за вход (само помощници, само админ — сървърът проверява)
+  const [qr, setQr] = useState<{ name: string; img: string } | null>(null)
+  const [qrBusy, setQrBusy] = useState<string | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
@@ -100,6 +104,15 @@ export default function AdminStaffPage() {
     setEditing(null)
     setForm(EMPTY_FORM)
     setOpen(true)
+  }
+
+  async function makeQr(s: any) {
+    setQrBusy(s.id)
+    const res = await createQrLogin(s.id)
+    setQrBusy(null)
+    if (res.error || !res.url) { notify(res.error || 'Неуспешно'); return }
+    const img = await QRCode.toDataURL(res.url, { width: 560, margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0f2240', light: '#ffffff' } })
+    setQr({ name: res.name || getFullName(s), img })
   }
 
   async function createAccess(s: any) {
@@ -275,6 +288,22 @@ export default function AdminStaffPage() {
 
   return (
     <div className="p-4 md:p-8">
+      {qr && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm qr-print" onClick={() => { setQr(null); window.location.reload() }}>
+          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 text-center" onClick={e => e.stopPropagation()}>
+            <div className="text-[11px] uppercase tracking-widest text-slate-400">Вход в EIS · ЦСОП Варна</div>
+            <h3 className="text-lg text-[#0f2240] mt-1">{qr.name}</h3>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={qr.img} alt="QR за вход" className="w-64 h-64 mx-auto my-4" />
+            <p className="text-sm text-slate-600">Сканирай с камерата на телефона и натисни „Влез“.</p>
+            <p className="text-xs text-slate-400 mt-1">Важи еднократно и за кратко. Нов QR обезсилва този. Не го изпращай по Viber/имейл.</p>
+            <div className="flex gap-2 mt-5 no-print">
+              <button onClick={() => window.print()} className="flex-1 py-2 rounded-xl text-sm border border-slate-200 hover:bg-slate-50">Печат</button>
+              <button onClick={() => { setQr(null); window.location.reload() }} className="flex-1 py-2 rounded-xl text-sm text-white" style={{ backgroundColor: '#0f2240' }}>Готово</button>
+            </div>
+          </div>
+        </div>
+      )}
       {cred && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => { setCred(null); window.location.reload() }}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5" onClick={e => e.stopPropagation()}>
@@ -391,7 +420,15 @@ export default function AdminStaffPage() {
                           <Pencil size={12} />
                           Редактирай
                         </button>
-                        {!s.user_id && (
+                        {s.role === 'support' && s.is_active && (
+                          <button onClick={() => makeQr(s)} disabled={qrBusy === s.id}
+                            title={s.user_id ? 'Еднократен QR за вход от телефона' : 'Създава акаунт и еднократен QR за вход'}
+                            className="text-xs font-medium px-2.5 py-1 rounded-lg border border-teal-200 text-teal-800 bg-teal-50 hover:bg-teal-100 whitespace-nowrap flex items-center gap-1 disabled:opacity-50">
+                            <QrCode size={12} />
+                            {qrBusy === s.id ? '…' : 'QR за вход'}
+                          </button>
+                        )}
+                        {!s.user_id && s.role !== 'support' && (
                           <button onClick={() => createAccess(s)} className="text-xs font-medium px-2.5 py-1 rounded-lg text-white hover:opacity-90 whitespace-nowrap" style={{ backgroundColor: '#0f2240' }}>
                             Създай достъп
                           </button>
