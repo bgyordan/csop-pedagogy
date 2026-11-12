@@ -1363,20 +1363,25 @@ function Docs(p: Props & { ctx: Ctx }) {
     if (error) { toast(error.message, 'error'); return }
     toast('Кампанията е приключена'); router.refresh()
   }
-  const blank = (x: Participant): Participant => ({ ...x, final_scores: null, final_total: null, finalized_at: null, acked_at: null, objection: null, self_scores: null, self_total: null, result: null, grade: null, employer_grade: null, employer_note: null, employer_at: null, commission_comment: null })
+  const blank = (x: Participant): Participant => ({ ...x, final_scores: null, final_total: null, finalized_at: null, acked_at: null, objection: null, self_scores: null, self_total: null, result: null, grade: null, employer_grade: null, employer_note: null, employer_at: null, commission_comment: null, section_a: null })
+  // празни карти: за всеки добавен човек (с името му) — или, ако още няма никой, по една бланка от всеки вид карта
+  const blankTemplates = p.templates.filter(t => (t.kind || 'dtv') === kind && t.is_active !== false)
+  const blankCards = p.participants.length
+    ? p.participants.map(x => ({ p: blank(x), template: tpl(x) }))
+    : blankTemplates.map(t => ({ p: blank({ id: `blank-${t.id}`, template_id: t.id, criteria: t.criteria, position: '……………………………………………', staff: { first_name: '……………………………………………', last_name: '' } } as any), template: t }))
   return (
     <div className="space-y-4">
       {lateCards.length > 0 && <div className="rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-[13px] px-4 py-3"><AlertTriangle size={14} className="inline mr-1" />{lateCards.length} утвърдени карти не са изпратени до {c.card_days} дни от подписването.</div>}
       <div className="grid gap-3 md:grid-cols-2">
-        <DocCard title="Заповед за комисията" text={`Съставът на комисията${kind === 'attest' ? ', техническият секретар, сроковете за самооценка и портфолио, редът за възражение' : ' и сроковете'} — без номер, за регистриране.`}>
-          <button type="button" disabled={!p.members.length} onClick={() => generateCommissionOrder(p.ctx, p.participants.length, c.secretary_id ? pname(p.people.find(x => x.id === c.secretary_id)) : null)} className={btnLine}><FileDown size={15} /> Заповед (Word)</button>
+        <DocCard title="Заповед за комисията" text={`Съставът на комисията${kind === 'attest' ? ', техническият секретар, сроковете за самооценка и портфолио, редът за възражение' : ' и сроковете'} — без номер, за регистриране.${p.members.length ? '' : ' Комисията още не е определена в „Подготовка“ — в заповедта ще има празни редове за попълване.'}`}>
+          <button type="button" onClick={() => generateCommissionOrder(p.ctx, p.participants.length, c.secretary_id ? pname(p.people.find(x => x.id === c.secretary_id)) : null)} className={btnLine}><FileDown size={15} /> Заповед (Word)</button>
         </DocCard>
         <DocCard title={label} text={`Всички утвърдени карти (${done.length}) в един файл — всяка на отделна страница, за подпис от комисията и лицето.`}>
           <button type="button" disabled={!done.length} onClick={() => generateCards(p.ctx, done.map(x => ({ p: x, template: tpl(x) })))} className={btnLine}><FileDown size={15} /> Всички карти</button>
           {kind === 'dtv' && (['ped', 'nonped'] as Grp[]).map(g => done.some(x => x.grp === g) && (
             <button key={g} type="button" onClick={() => generateCards(p.ctx, done.filter(x => x.grp === g).map(x => ({ p: x, template: tpl(x) })), `Карти_ДТВ_${g === 'ped' ? 'педагогически' : 'непедагогически'}.docx`)} className={btnLine}>{g === 'ped' ? 'Педагогически' : 'Непедагогически'}</button>
           ))}
-          <button type="button" onClick={() => generateCards(p.ctx, p.participants.map(x => ({ p: blank(x), template: tpl(x) })), `Карти_${short}_празни.docx`)} className={btnLine}>Празни (за ръчно попълване)</button>
+          <button type="button" disabled={!blankCards.length} onClick={() => generateCards(p.ctx, blankCards, `Карти_${short}_празни.docx`)} className={btnLine}>Празни (за ръчно попълване){p.participants.length ? '' : ` — ${blankCards.length} бланки`}</button>
         </DocCard>
         <DocCard title="Протокол на комисията" text={`Резултатите${kind === 'dtv' ? ' по групи' : kind === 'attest' ? ' (СО, ОАК, ОР, крайна оценка)' : ''}, възраженията и решенията. Номер и дата: ${c.protocol_no ? `№ ${c.protocol_no}` : 'не са въведени'}${c.protocol_date ? ` / ${dmy(c.protocol_date)}` : ''} (в „Подготовка“).`}>
           <button type="button" disabled={!done.length} onClick={() => generateProtocol(p.ctx, done)} className={btnLine}><FileDown size={15} /> Протокол (Word)</button>

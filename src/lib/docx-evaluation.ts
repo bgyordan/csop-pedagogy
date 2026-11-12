@@ -302,22 +302,24 @@ export async function generateCommissionOrder(ctx: DocCtx, count: number, secret
   out.push(P([t(`1. ${k === 'attest' ? 'Атестационна комисия' : 'Комисия'} за ${k === 'attest' ? `атестиране на педагогическите специалисти за периода ${c.period_from ? dmy(c.period_from) : '…………'} – ${c.period_to ? dmy(c.period_to) : '…………'}` : k === 'dtv' ? `оценяване на постигнатите резултати от труда през учебната ${yearLabel(ctx.yearName)} година` : `„${c.name}“`} в състав:`)], { alignment: AlignmentType.JUSTIFIED }))
   out.push(P([t(`Председател: ${chair ? pname(chair.staff) + (chair.staff?.position ? ` — ${chair.staff.position}` : '') : '……………………'}`)], { indent: { left: 500 } }))
   out.push(P([t('Членове:')], { indent: { left: 500 } }))
-  memberNames(ctx).forEach((n, i) => out.push(P([t(`${i + 1}. ${n}`)], { indent: { left: 900 } })))
+  const names = memberNames(ctx)
+  ;(names.length ? names : ['……………………………………………', '……………………………………………', '……………………………………………']).forEach((x, i) => out.push(P([t(`${i + 1}. ${x}`)], { indent: { left: 900 } })))
   let n = 2
   if (k === 'attest') {
     out.push(P([t(`${n++}. Технически секретар: ${secretary || '……………………'} — обработва картите, въвежда точките и предоставя достъп до електронните карти на членовете.`)], { alignment: AlignmentType.JUSTIFIED }))
-    out.push(P([t(`${n++}. Атестираните (${count} лица) да попълнят самооценката в атестационната карта и да подадат професионалното си портфолио ${c.self_by ? `до ${dmy(c.self_by)} г.` : 'в срок до 10 работни дни'} — в ЕИС („Оценяване → Моите карти“) или на хартия на техническия секретар.`)], { alignment: AlignmentType.JUSTIFIED }))
+    out.push(P([t(`${n++}. Атестираните${count ? ` (${count} лица)` : ''} да попълнят самооценката в атестационната карта и да подадат професионалното си портфолио ${c.self_by ? `до ${dmy(c.self_by)} г.` : 'в срок до 10 работни дни'} — в ЕИС („Атестиране → Моите карти“) или на хартия на техническия секретар.`)], { alignment: AlignmentType.JUSTIFIED }))
     out.push(P([t(`${n++}. Всеки член на комисията оценява самостоятелно и независимо от останалите членове, като вписва точките по всеки критерий в атестационната карта. Окончателният резултат е ОР = 0,25.СО + 0,75.ОАК.`)], { alignment: AlignmentType.JUSTIFIED }))
     out.push(P([t(`${n++}. Атестираният може да подаде писмено възражение до работодателя в срок до ${c.objection_days} работни дни от запознаването с оценката. Работодателят се произнася в срок до ${c.decide_days ?? 5} работни дни, като може да потвърди или да промени с една степен крайната оценка.`)], { alignment: AlignmentType.JUSTIFIED }))
   } else {
-    out.push(P([t(`${n++}. Комисията да извърши оценяването ${c.score_by ? `до ${dmy(c.score_by)} г.` : 'в определения срок'} чрез попълване на карта за всяко лице (${count} лица) и да изготви протокол.`)], { alignment: AlignmentType.JUSTIFIED }))
+    out.push(P([t(`${n++}. Комисията да извърши оценяването ${c.score_by ? `до ${dmy(c.score_by)} г.` : 'в определения срок'} чрез попълване на карта за всяко лице${count ? ` (${count} лица)` : ''} и да изготви протокол.`)], { alignment: AlignmentType.JUSTIFIED }))
     out.push(P([t(`${n++}. Картата се предоставя на лицето в срок до ${c.card_days} дни; възражение — до ${c.objection_days} работни дни от запознаването, до председателя на комисията.`)], { alignment: AlignmentType.JUSTIFIED }))
   }
   out.push(P([t(`${n++}. Заповедта да се доведе до знанието на посочените лица за сведение и изпълнение.`)]))
   out.push(P([t(`${n}. Контрол по изпълнението на заповедта ще упражнявам лично.`)]))
   out.push(P([t('Директор: ……………………')], { spacing: { before: 400 } }))
   out.push(P([t('Запознати със заповедта:', { bold: true })], { spacing: { before: 300 } }))
-  ;[chair ? pname(chair.staff) : '', ...memberNames(ctx)].filter(Boolean).forEach((x, i) => out.push(P([t(`${i + 1}. ${x}   ……………………   …………`)])))
+  const ack = [chair ? pname(chair.staff) : '', ...names].filter(Boolean)
+  ;(ack.length ? ack : Array(4).fill('……………………………………………')).forEach((x, i) => out.push(P([t(`${i + 1}. ${x}   ……………………   …………`)])))
   const doc = new Document({ sections: [{ properties: PAGE, footers: footer(), children: out }] })
   await save(doc, `Заповед_комисия_${short(k)}_${safe(yearLabel(ctx.yearName).replace('/', '-'))}.docx`)
 }
