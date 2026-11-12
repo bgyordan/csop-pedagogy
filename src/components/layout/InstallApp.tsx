@@ -16,6 +16,18 @@ if (typeof window !== 'undefined') {
   window.addEventListener('appinstalled', () => { saved = null; listeners.forEach(f => f()) })
 }
 
+// за други компоненти (напр. картата на таблото): може ли сега да се инсталира с готовия прозорец на браузъра
+export function useCanInstall() {
+  const [can, setCan] = useState(false)
+  useEffect(() => {
+    const sync = () => setCan(!!saved)
+    sync()
+    listeners.add(sync)
+    return () => { listeners.delete(sync) }
+  }, [])
+  return can
+}
+
 export default function InstallApp({ className, style, onDone }: { className?: string; style?: React.CSSProperties; onDone?: () => void }) {
   const { toast } = useToast()
   const [can, setCan] = useState(false)

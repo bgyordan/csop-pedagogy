@@ -28,6 +28,7 @@ import FacilitiesStrip from './components/FacilitiesStrip'
 import OnlineRoomStrip from './components/OnlineRoomStrip'
 import ClassRoomStrip from './components/ClassRoomStrip'
 import IfoTodayCard from './components/IfoTodayCard'
+import InstallCard from './components/InstallCard'
 import { heroCookie, heroTheme } from './hero-themes'
 import DashboardCustomize from './DashboardCustomize'
 import { dashCookie, hiddenWidgets, orderCookie, widgetOrder, widgetsFor } from '@/lib/dashboard-prefs'
@@ -160,6 +161,9 @@ export default async function DashboardPage() {
         </div>
       </div>
       )}
+
+      {/* Помощници: „Сложи EIS на телефона“ — докато не е инсталирана като приложение */}
+      {profile.role === 'support' && !viewing && <InstallCard />}
 
       {/* Картите на таблото — в реда, избран от човека в „Подреди таблото“ (стрелки ↑↓).
           Кратките ленти са по две на ред, широките (неучебен ден, ИФО, календар) — на цял ред.
