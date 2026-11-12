@@ -23,6 +23,7 @@ export const DASH_WIDGETS: DashWidget[] = [
 // по подразбиране скрито (докато човек сам не избере)
 const DEFAULT_HIDDEN: Record<string, string[]> = {
   secretary: ['calendar'],
+  support: ['calendar'], // помощниците са на крак, с телефона — оперативното отгоре, календарът по желание
 }
 
 export const dashCookie = (staffId: string) => `eis_dash_${staffId}`
