@@ -39,7 +39,6 @@ interface NavItem {
 }
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Начало', icon: <LayoutDashboard size={16} /> },
-  { href: '/calendar', label: 'Календар', icon: <CalendarDays size={16} /> },
   // Моят профил — всичко лично на едно място: данни, класове, оценяване, контролна дейност, проф. портфолио, документи
   { href: '/profile', label: 'Моят профил', icon: <IdCard size={16} />, also: ['/my-files'] },
   // ── УПРАВАТА: основните регистри в една група, отворена по подразбиране ──
@@ -212,7 +211,6 @@ const navItems: NavItem[] = [
   },
   // Администрация (рядко: структура, предмети, училища, съобщения, нова година…) — един ред най-долу
   { href: '/admin', label: 'Администрация', icon: <Settings size={16} />, roles: ['admin', 'zdud'] },
-  { href: '/calendar', label: 'Календар', icon: <CalendarDays size={16} />, roles: ['secretary'], section: 'delo' },
   { href: '/correspondence', label: 'Регистър', icon: <Inbox size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/orders', label: 'Заповеди', icon: <ClipboardList size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/contracts', label: 'Договори', icon: <FileSignature size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
@@ -387,6 +385,8 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
       if (it.children) it.children.forEach(k => add(k.href, k.label, it.label))
       else add(it.href, it.label, it.section === 'delo' ? 'Деловодство' : undefined)
     }
+    // Календарът не е ред в менюто — иконка до профила долу; в търсенето остава
+    add('/calendar', 'Календар')
     add('/profile', 'Моят профил'); add('/my-files', 'Моите документи'); add('/profile?tab=security', 'Вход и парола', 'Моят профил')
     return out
   })()
@@ -569,8 +569,9 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
             </div>
           </>
         )}
+        <div className={cn('flex items-center gap-1', isMini && 'flex-col-reverse')}>
         <button type="button" onClick={() => setUserMenuOpen(o => !o)}
-          className={cn('w-full flex items-center gap-2.5 rounded-xl px-1.5 py-1.5 transition-colors hover:bg-[rgba(15,34,64,0.05)]', isMini && 'justify-center')}
+          className={cn('flex-1 min-w-0 flex items-center gap-2.5 rounded-xl px-1.5 py-1.5 transition-colors hover:bg-[rgba(15,34,64,0.05)]', isMini && 'w-full justify-center')}
           title={isMini ? userName : 'Профил, документи, изход'}>
           <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0"
             style={{ backgroundColor: 'rgba(15,34,64,0.12)', color: TEXT_PRIMARY }}>
@@ -579,6 +580,15 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
           {!isMini && <span className="flex-1 min-w-0 text-left text-xs font-medium truncate" style={{ color: TEXT_PRIMARY }}>{userName}</span>}
           {!isMini && <ChevronDown size={13} style={{ color: TEXT_MUTED, transform: userMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />}
         </button>
+        {/* Календар — иконка до профила, за да не е още един ред в менюто */}
+        <Link href="/calendar" onClick={() => setMobileOpen(false)} title="Календар" aria-label="Календар"
+          className={cn('flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl border transition-colors',
+            pathname.startsWith('/calendar')
+              ? 'bg-[rgba(15,34,64,0.08)] border-[rgba(15,34,64,0.28)] text-[#0f2240]'
+              : 'border-transparent text-[#6b8db0] hover:border-[rgba(15,34,64,0.30)] hover:text-[#0f2240]')}>
+          <CalendarDays size={17} />
+        </Link>
+        </div>
       </div>
     </aside>
   )
