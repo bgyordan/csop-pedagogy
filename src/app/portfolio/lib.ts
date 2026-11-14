@@ -1,4 +1,4 @@
-// Портфолио — общи типове, видове публикации и помощници за снимките.
+// „Кабинети и дейности“ (бившето „Портфолио“) — общи типове, видове публикации и помощници за снимките.
 
 import { DoorOpen, Lightbulb, PartyPopper, BookOpen } from 'lucide-react'
 
@@ -30,11 +30,11 @@ export interface Person { id: string; name: string; short: string; label: string
 // паралелка или група ЦОУД (group: true) — за съвместна дейност между тях
 export interface Cls { id: string; name: string; group?: boolean }
 
-export const KINDS: { key: Kind; label: string; plural: string; hint: string; icon: typeof DoorOpen; tone: string; soft: string; grad: string }[] = [
-  { key: 'cabinet', label: 'Кабинет', plural: 'Кабинети', hint: 'Моят кабинет / работно място — как работим, с какво', icon: DoorOpen, tone: 'text-teal-700', soft: 'bg-teal-50 text-teal-800 border-teal-200', grad: 'from-teal-500 to-cyan-600' },
-  { key: 'project', label: 'Проект', plural: 'Проекти', hint: 'Проект на паралелка или група — идеи, дейности, цели', icon: Lightbulb, tone: 'text-amber-700', soft: 'bg-amber-50 text-amber-800 border-amber-200', grad: 'from-amber-400 to-orange-500' },
-  { key: 'event', label: 'Събитие', plural: 'Събития', hint: 'Празник, изява, посещение, открит урок…', icon: PartyPopper, tone: 'text-rose-700', soft: 'bg-rose-50 text-rose-800 border-rose-200', grad: 'from-rose-400 to-pink-600' },
-  { key: 'material', label: 'Материал', plural: 'Материали', hint: 'Разработка, табло, игра, работен лист — за колегите', icon: BookOpen, tone: 'text-violet-700', soft: 'bg-violet-50 text-violet-800 border-violet-200', grad: 'from-violet-500 to-indigo-600' },
+export const KINDS: { key: Kind; label: string; plural: string; add: string; hint: string; icon: typeof DoorOpen; tone: string; soft: string; grad: string }[] = [
+  { key: 'cabinet', label: 'Кабинет', plural: 'Кабинети', add: 'Нов кабинет', hint: 'Моят кабинет / работно място — как работим, с какво', icon: DoorOpen, tone: 'text-teal-700', soft: 'bg-teal-50 text-teal-800 border-teal-200', grad: 'from-teal-500 to-cyan-600' },
+  { key: 'project', label: 'Проект', plural: 'Проекти', add: 'Нов проект', hint: 'Проект на паралелка или група — идеи, дейности, цели', icon: Lightbulb, tone: 'text-amber-700', soft: 'bg-amber-50 text-amber-800 border-amber-200', grad: 'from-amber-400 to-orange-500' },
+  { key: 'event', label: 'Събитие', plural: 'Събития', add: 'Ново събитие', hint: 'Празник, изява, посещение, открит урок…', icon: PartyPopper, tone: 'text-rose-700', soft: 'bg-rose-50 text-rose-800 border-rose-200', grad: 'from-rose-400 to-pink-600' },
+  { key: 'material', label: 'Материал', plural: 'Материали', add: 'Нов материал', hint: 'Разработка, табло, игра, работен лист — за колегите', icon: BookOpen, tone: 'text-violet-700', soft: 'bg-violet-50 text-violet-800 border-violet-200', grad: 'from-violet-500 to-indigo-600' },
 ]
 export const kindMeta = (k: string) => KINDS.find(x => x.key === k) || KINDS[0]
 

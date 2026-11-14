@@ -1,7 +1,7 @@
 'use client'
 
 // „Споделени файлове“ — файловете, които колегите са споделили от „Моите документи“ (Drive).
-// Преди беше отделна страница /shared; сега е таб в Портфолио.
+// Преди беше отделна страница /shared; сега е раздел „Файлове“ в „Кабинети и дейности“.
 
 import { useMemo, useState } from 'react'
 import { smartMatch } from '@/lib/search'
@@ -70,7 +70,7 @@ export default function SharedFilesTab({ canShare, rows, err }: { canShare: bool
       <div className="flex flex-wrap items-center gap-2 mb-6">
         {CHIPS.map(c => (
           <button key={c.key} type="button" onClick={() => setType(c.key)}
-            className={`px-3.5 py-2 rounded-full text-[13px] border transition-colors ${type === c.key ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-300 text-slate-700 hover:border-slate-500'}`}>{c.label}</button>
+            className={`px-3.5 py-2 rounded-full text-[13px] border transition-colors ${type === c.key ? 'bg-[#0f2240]/[0.07] border-[#0f2240]/50 text-[#0f2240] font-medium' : 'bg-white border-slate-300 text-slate-700 hover:border-slate-500'}`}>{c.label}</button>
         ))}
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {people.length > 1 && (

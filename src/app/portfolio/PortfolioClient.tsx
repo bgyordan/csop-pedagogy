@@ -1,22 +1,38 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+// „Кабинети и дейности“ — колегите показват накратко кабинета си и споделят проекти, събития и материали.
+// Подредба на екрана:
+//   1) раздели по съдържание (Всичко · Кабинети · Проекти · Събития · Материали · Файлове);
+//   2) един ред филтри: „Всички колеги / Моите“, „Предстоящи“, „За сайта“ (деловодство и управа), колега, търсене;
+//   3) във всеки раздел — ред „+ Нов …“ и подредба според смисъла (кабинетите по азбучен ред,
+//      събитията — предстоящи/минали, проектите — по етап).
+// Няма връзка с професионалното портфолио и атестирането (/pro-portfolio).
+
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { smartMatch } from '@/lib/search'
 import { useRouter } from 'next/navigation'
-import { Plus, Search, LayoutGrid, UserRound, Globe, Share2, FileDown, Loader2, Sparkles, X, CalendarClock, ArrowRight } from 'lucide-react'
+import { Plus, Search, LayoutGrid, Globe, Share2, FileDown, Loader2, Sparkles, X, CalendarClock, ArrowRight, ChevronDown, Check } from 'lucide-react'
 import PostCard, { Avatar } from './PostCard'
 import PostReader from './PostReader'
 import PostEditor from './PostEditor'
 import SharedFilesTab, { loadSharedFiles } from './SharedFilesTab'
 import type { FileRow } from './SharedFilesTab'
-import { KINDS, MANAGERS, isImage, isDraft, isDrive, trashVideos, keyDates, nextKeyDate, todayYmd, relDays, dateTone, kindMeta } from './lib'
+import { KINDS, MANAGERS, isDraft, isDrive, trashVideos, keyDates, nextKeyDate, todayYmd, relDays, dateTone, kindMeta } from './lib'
 import { createClient } from '@/lib/supabase/client'
 import type { Post, Person, Cls, Kind, KeyDate } from './lib'
 import { confirmDialog } from '@/components/ui/Toast'
 
-type Tab = 'wall' | 'mine' | 'files' | 'site'
+type Section = 'all' | Kind | 'files'
+type Scope = 'all' | 'mine'
+type Group = { key: string; label: string; items: Post[] }
+
 const plusDays = (ymd: string, n: number) => { const d = new Date(ymd + 'T00:00'); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 const PER_PAGE = 24
+const isKind = (s: Section): s is Kind => s !== 'all' && s !== 'files'
+// Етапите на проектите — в реда, в който са интересни: текущите първи
+const PROJECT_GROUPS: { key: string; label: string }[] = [
+  { key: 'in_progress', label: 'В ход' }, { key: 'idea', label: 'Идеи' }, { key: 'done', label: 'Завършени' },
+]
 
 export default function PortfolioClient({ meId, role, posts, thumbs, people, classes, myClassIds, academicYearId, datesReady }: {
   meId: string; role: string; posts: Post[]; thumbs: Record<string, string>; people: Person[]
@@ -26,45 +42,61 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
 }) {
   const router = useRouter()
   const isManager = MANAGERS.includes(role)
+  // „За сайта“ — опашката на деловодството и управата
   const siteDesk = isManager || role === 'secretary'
-  const canPost = role !== 'secretary'
 
-  const [tab, setTab] = useState<Tab>(canPost ? 'wall' : 'site')
-  const [kind, setKind] = useState<Kind | 'all'>('all')
+  const [section, setSection] = useState<Section>('all')
+  const [scope, setScope] = useState<Scope>('all')
+  const [siteOnly, setSiteOnly] = useState(false)
   const [upcoming, setUpcoming] = useState(false)
   const [author, setAuthor] = useState('')
   const [q, setQ] = useState('')
   const [limit, setLimit] = useState(PER_PAGE)
   const [openId, setOpenId] = useState<string | null>(null)
   const [editor, setEditor] = useState<{ post: Post | null; kind?: Kind } | null>(null)
+  const [addOpen, setAddOpen] = useState(false)
+  const addRef = useRef<HTMLDivElement>(null)
   const [toast, setToast] = useState('')
   const [exporting, setExporting] = useState(false)
   const [files, setFiles] = useState<FileRow[] | null>(null)
   const [filesErr, setFilesErr] = useState('')
   useEffect(() => { loadSharedFiles().then(r => { setFiles(r.rows); setFilesErr(r.err) }) }, [])
 
-  // ?kind=project · ?tab=site · ?open=<id> · ?new=1
+  // Адреси от таблото, календара и старите страници: ?kind=project · ?tab=files|mine|site · ?upcoming=1 · ?open=<id> · ?new=1
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search)
     const k = sp.get('kind') as Kind | null
-    if (k && KINDS.some(x => x.key === k)) setKind(k)
-    const t = sp.get('tab') as Tab | null
-    if (t === 'mine' || t === 'files' || (t === 'site' && siteDesk) || t === 'wall') setTab(t)
+    const hasKind = !!k && KINDS.some(x => x.key === k)
+    if (hasKind) setSection(k as Kind)
+    const t = sp.get('tab')
+    if (t === 'files') setSection('files')
+    if (t === 'mine') setScope('mine')
+    if (t === 'site' && siteDesk) setSiteOnly(true)
     if (sp.get('upcoming')) setUpcoming(true)
     if (sp.get('open')) setOpenId(sp.get('open'))
-    if (sp.get('new') && canPost) setEditor({ post: null, kind: k || undefined })
+    if (sp.get('new')) setEditor({ post: null, kind: hasKind ? (k as Kind) : undefined })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Менюто „Добави“ се затваря при клик встрани и с Esc
+  useEffect(() => {
+    if (!addOpen) return
+    const onDown = (e: MouseEvent) => { if (addRef.current && !addRef.current.contains(e.target as Node)) setAddOpen(false) }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setAddOpen(false) }
+    document.addEventListener('mousedown', onDown); document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [addOpen])
 
   const personBy = useMemo(() => Object.fromEntries(people.map(p => [p.id, p])), [people])
   const classNames = useMemo(() => Object.fromEntries(classes.map(c => [c.id, c.name])), [classes])
   const me = personBy[meId]
 
   const mine = posts.filter(p => p.author_id === meId)
-  const wall = posts.filter(p => !isDraft(p))
+  // Общата стена: споделеното от всички + моите „само за мен“ (със знак на картата), за да не се „губят“ след запис
+  const wall = posts.filter(p => !isDraft(p) || p.author_id === meId)
   const siteQueue = posts.filter(p => p.site_status === 'requested' && !isDraft(p))
-  const base = tab === 'mine' ? mine : tab === 'site' ? siteQueue : wall
+  // Откъде се чете: чакащите за сайта → моите → всичко споделено
+  const pool = siteOnly ? siteQueue : scope === 'mine' ? mine : wall
 
-  const countBy = (k: Kind) => base.filter(p => p.kind === k).length
   const authors = useMemo(() => {
     const ids = new Set(wall.map(p => p.author_id).filter(Boolean) as string[])
     return people.filter(p => ids.has(p.id)).sort((a, b) => a.short.localeCompare(b.short, 'bg'))
@@ -72,19 +104,48 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
 
   const today = todayYmd()
   const nextOf = useMemo(() => Object.fromEntries(posts.map(p => [p.id, nextKeyDate(p, today)])), [posts, today])
-  const upcomingCount = base.filter(p => nextOf[p.id]).length
-
   const needle = q.trim().toLowerCase()
-  const filtered = base
-    .filter(p => kind === 'all' || p.kind === kind)
-    .filter(p => tab !== 'wall' || !author || p.author_id === author)
+  const kind: Kind | null = isKind(section) ? section : null
+  // броят е за текущия раздел — за да не води филтърът към празен списък
+  const upcomingCount = pool.filter(p => (!kind || p.kind === kind) && nextOf[p.id]).length
+  const byAuthor = scope === 'all' && !siteOnly ? author : ''
+  const filtered = pool
+    .filter(p => !kind || p.kind === kind)
+    .filter(p => !byAuthor || p.author_id === byAuthor)
     .filter(p => !upcoming || nextOf[p.id])
     .filter(p => !needle || smartMatch([p.title, p.body, p.ideas, p.activities, p.goals, personBy[p.author_id || '']?.name, ...(p.dates || []).map(d => d.title)].join(' '), needle))
-  // „Предстоящи“ — подредени по най-близката дата
-  const shown = upcoming ? [...filtered].sort((a, b) => nextOf[a.id]!.date.localeCompare(nextOf[b.id]!.date)) : filtered
 
-  // Лентата „Предстоящи събития“ — следващите 60 дни от публикациите в текущия изглед
-  const agenda: (KeyDate & { post: Post })[] = (tab === 'site' ? [] : base)
+  // Подредба според раздела
+  const byNext = (a: Post, b: Post) => nextOf[a.id]!.date.localeCompare(nextOf[b.id]!.date)
+  const groups: Group[] = (() => {
+    if (!filtered.length) return []
+    // „Предстоящи“ — най-близките първи
+    if (upcoming) return [{ key: 'up', label: '', items: [...filtered].sort(byNext) }]
+    if (section === 'event') {
+      const when = (p: Post) => p.event_date || p.created_at.slice(0, 10)
+      return [
+        { key: 'next', label: 'Предстоящи', items: filtered.filter(p => nextOf[p.id]).sort(byNext) },
+        { key: 'past', label: 'Минали', items: filtered.filter(p => !nextOf[p.id]).sort((a, b) => when(b).localeCompare(when(a))) },
+      ].filter(g => g.items.length)
+    }
+    if (section === 'project') {
+      const known = new Set(PROJECT_GROUPS.map(g => g.key))
+      return [
+        ...PROJECT_GROUPS.map(g => ({ ...g, items: filtered.filter(p => p.status === g.key) })),
+        { key: 'other', label: 'Без посочен етап', items: filtered.filter(p => !p.status || !known.has(p.status)) },
+      ].filter(g => g.items.length)
+    }
+    // Кабинетите са „указател“, не новини — по азбучен ред
+    if (section === 'cabinet') return [{ key: 'az', label: '', items: [...filtered].sort((a, b) => a.title.localeCompare(b.title, 'bg')) }]
+    return [{ key: 'new', label: '', items: filtered }]
+  })()
+  // „Покажи още“ важи общо за всички групи
+  let room = limit
+  const shownGroups = groups.map(g => { const items = g.items.slice(0, Math.max(0, room)); room -= items.length; return { ...g, total: g.items.length, items } }).filter(g => g.items.length)
+  const total = filtered.length
+
+  // Лентата „Предстоящи събития“ — следващите 60 дни (само в „Всичко“)
+  const agenda: (KeyDate & { post: Post })[] = (section === 'all' && !siteOnly && !upcoming && !needle ? pool : [])
     .flatMap(p => keyDates(p).filter(d => d.highlight && d.date >= today && d.date <= plusDays(today, 60)).map(d => ({ ...d, post: p })))
     .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
 
@@ -94,8 +155,11 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
 
   function flash(m: string) { setToast(m); setTimeout(() => setToast(''), 3500) }
   function refresh(msg: string) { flash(msg); router.refresh() }
+  function go(s: Section) { setSection(s); setLimit(PER_PAGE) }
+  function startNew(k?: Kind) { setAddOpen(false); setEditor({ post: null, kind: k }) }
+  const filtersOn = !!needle || !!byAuthor || upcoming || siteOnly
+  function clearFilters() { setQ(''); setAuthor(''); setUpcoming(false); setSiteOnly(false) }
 
-  // „Сподели“ / „Само за мен“ — като при файловете
   // Изтриване направо от картата (с потвърждение) — заедно със снимките и файловете
   async function removePost(p: Post) {
     if (!await confirmDialog(`Да изтрия ли „${p.title}“ заедно със снимките?`)) return
@@ -108,6 +172,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
     refresh('Публикацията е изтрита.')
   }
 
+  // „Само за мен“ / „С колегите“ — като при файловете
   async function toggleShare(p: Post) {
     const share = isDraft(p)
     const patch: Record<string, unknown> = { is_shared: share }
@@ -125,82 +190,142 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
     } finally { setExporting(false) }
   }
 
-  const tabs: { key: Tab; label: string; icon: typeof LayoutGrid; count: number | null; show: boolean }[] = [
-    { key: 'wall', label: 'Всички в ЦСОП', icon: LayoutGrid, count: wall.length, show: true },
-    { key: 'mine', label: 'Моето портфолио', icon: UserRound, count: mine.length, show: canPost },
-    { key: 'files', label: 'Споделени файлове', icon: Share2, count: files ? files.length : null, show: true },
-    { key: 'site', label: 'За сайта', icon: Globe, count: siteQueue.length, show: siteDesk },
+  const sections: { key: Section; label: string; icon: typeof LayoutGrid; tone: string; count: number | null }[] = [
+    { key: 'all', label: 'Всичко', icon: LayoutGrid, tone: 'text-[#0f2240]', count: pool.length },
+    ...KINDS.map(x => ({ key: x.key as Section, label: x.plural, icon: x.icon, tone: x.tone, count: pool.filter(p => p.kind === x.key).length })),
+    { key: 'files', label: 'Файлове', icon: Share2, tone: 'text-[#0f2240]', count: files ? files.length : null },
   ]
+  const km = kind ? kindMeta(kind) : null
+  const myDrafts = mine.filter(isDraft).length
+  // Ред „+ Нов …“ в раздела — когато се разглежда, а не се търси
+  const showAddRow = !!km && !filtersOn
+  const hasOwnCabinet = mine.some(p => p.kind === 'cabinet')
+  // Покана с четирите вида — докато е още празно
+  const showInvite = section === 'all' && !filtersOn && (scope === 'mine' ? mine.length === 0 : wall.length < 4)
+  const chip = (on: boolean, tone: 'rose' | 'sky') => `inline-flex items-center gap-1.5 px-3 py-[7px] rounded-full text-[13px] whitespace-nowrap border transition-colors ${on
+    ? (tone === 'rose' ? 'bg-rose-50 border-rose-400 text-rose-800 font-medium' : 'bg-sky-50 border-sky-400 text-sky-800 font-medium')
+    : (tone === 'rose' ? 'bg-white border-slate-300 text-slate-700 hover:border-rose-300' : 'bg-white border-slate-300 text-slate-700 hover:border-sky-300')}`
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8">
-      {/* Заглавие */}
+      {/* Заглавие + „Добави“ */}
       <div className="flex flex-wrap items-end gap-4 mb-6">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">Кабинети и дейности</h1>
-          <p className="text-sm text-slate-500 mt-1">Кабинети, проекти, събития, материали и споделени файлове на колегите</p>
+          <p className="text-sm text-slate-600 mt-1">Покажи кабинета си и сподели проект, събитие или материал — няколко снимки и няколко изречения стигат.</p>
         </div>
-        {canPost && (
-          <button type="button" onClick={() => setEditor({ post: null, kind: kind === 'all' ? undefined : kind })}
-            className="ml-auto inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0f2240] text-white text-sm font-medium shadow-sm hover:bg-[#1a3560] hover:shadow-md transition-all">
-            <Plus size={17} /> Нова публикация
+        <div ref={addRef} className="relative ml-auto">
+          <button type="button" onClick={() => setAddOpen(o => !o)} aria-haspopup="menu" aria-expanded={addOpen}
+            className="inline-flex items-center gap-2 pl-4 pr-3.5 py-2.5 rounded-xl bg-[#0f2240] text-white text-sm font-medium shadow-sm hover:bg-[#1a3560] hover:shadow-md transition-all">
+            <Plus size={17} /> Добави <ChevronDown size={15} className={`opacity-80 transition-transform ${addOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {addOpen && (
+            <div role="menu" className="absolute right-0 top-full mt-2 z-30 w-[19rem] max-w-[calc(100vw-2rem)] p-1.5 rounded-2xl bg-white border border-slate-200 shadow-xl">
+              <div className="px-3 pt-2 pb-1.5 text-[11px] uppercase tracking-widest text-slate-500">Какво споделяш?</div>
+              {KINDS.map(x => {
+                const I = x.icon
+                return (
+                  <button key={x.key} type="button" role="menuitem" onClick={() => startNew(x.key)}
+                    className="w-full text-left flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors">
+                    <span className={`shrink-0 w-9 h-9 rounded-xl border flex items-center justify-center ${x.soft}`}><I size={18} /></span>
+                    <span className="min-w-0">
+                      <span className="block text-[14px] text-slate-900">{x.label}</span>
+                      <span className="block text-[12px] text-slate-600 leading-snug">{x.hint}</span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Раздели по съдържание */}
+      <div className="-mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto mb-4">
+        <div className="inline-flex items-center gap-1 p-1 rounded-2xl bg-slate-100">
+          {sections.map(s => {
+            const on = section === s.key; const I = s.icon
+            return (
+              <button key={s.key} type="button" onClick={() => go(s.key)} aria-pressed={on}
+                className={`shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm whitespace-nowrap transition-all ${on ? 'bg-white shadow-sm text-slate-900 font-medium' : 'text-slate-600 hover:text-slate-900'}`}>
+                <I size={15} className={on ? s.tone : 'text-slate-500'} /> {s.label}
+                {s.count !== null && <span className={`text-[11px] min-w-5 px-1.5 py-0.5 rounded-full text-center tabular-nums ${on ? 'bg-slate-100 text-slate-700' : 'bg-white/70 text-slate-500'}`}>{s.count}</span>}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {section === 'files' && <SharedFilesTab canShare rows={files} err={filesErr} />}
+
+      {section !== 'files' && (<>
+      {/* Филтри: чии · предстоящи · за сайта · колега · търсене */}
+      <div className="flex flex-wrap items-center gap-2 mb-5">
+        <div role="group" aria-label="Чии публикации" className="inline-flex p-0.5 rounded-full bg-slate-100 text-[13px]">
+          {([['all', 'Всички колеги', null], ['mine', 'Моите', mine.length]] as const).map(([k, l, n]) => {
+            const on = scope === k && !siteOnly
+            return (
+              <button key={k} type="button" aria-pressed={on} onClick={() => { setScope(k); setSiteOnly(false); setLimit(PER_PAGE) }}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-[7px] rounded-full whitespace-nowrap transition-all ${on ? 'bg-white shadow-sm text-slate-900 font-medium' : 'text-slate-600 hover:text-slate-900'}`}>
+                {l}{n !== null && <span className="text-[11px] text-slate-500 tabular-nums">{n}</span>}
+              </button>
+            )
+          })}
+        </div>
+        {(upcomingCount > 0 || upcoming) && (
+          <button type="button" aria-pressed={upcoming} onClick={() => { setUpcoming(u => !u); setLimit(PER_PAGE) }}
+            title="Само публикациите с предстояща дата — най-близките първи" className={chip(upcoming, 'rose')}>
+            {upcoming ? <Check size={14} /> : <CalendarClock size={14} className="text-rose-600" />} Предстоящи <span className="text-[11px] opacity-70 tabular-nums">{upcomingCount}</span>
           </button>
         )}
-      </div>
-
-      {/* Табове */}
-      <div className="flex flex-wrap items-center gap-1 p-1 rounded-2xl bg-slate-100 w-fit mb-5">
-        {tabs.filter(t => t.show).map(t => {
-          const on = tab === t.key; const I = t.icon
-          return (
-            <button key={t.key} type="button" onClick={() => { setTab(t.key); setLimit(PER_PAGE) }}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-all ${on ? 'bg-white shadow-sm text-slate-900 font-medium' : 'text-slate-600 hover:text-slate-900'}`}>
-              <I size={15} /> {t.label}
-              {t.count !== null && <span className={`text-[11px] min-w-5 px-1.5 py-0.5 rounded-full ${on ? (t.key === 'site' && t.count ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-600') : 'bg-white/70 text-slate-500'}`}>{t.count}</span>}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Моето портфолио — горна карта */}
-      {tab === 'mine' && me && (
-        <div className="rounded-3xl bg-gradient-to-br from-[#0f2240] to-[#24497a] text-white p-6 md:p-7 mb-6 flex flex-wrap items-center gap-5">
-          <Avatar name={me.name} size={56} light />
-          <div className="min-w-0">
-            <div className="text-xl font-semibold">{me.name}</div>
-            <div className="text-sm text-white/70">{me.label}</div>
+        {siteDesk && (
+          <button type="button" aria-pressed={siteOnly} onClick={() => { setSiteOnly(v => !v); setLimit(PER_PAGE) }}
+            title="Публикациите, които колегите са предложили за сайта на ЦСОП" className={chip(siteOnly, 'sky')}>
+            {siteOnly ? <Check size={14} /> : <Globe size={14} className="text-sky-600" />} Чакат за сайта
+            <span className={`text-[11px] min-w-5 px-1.5 py-0.5 rounded-full text-center tabular-nums ${siteQueue.length ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-500'}`}>{siteQueue.length}</span>
+          </button>
+        )}
+        <div className="sm:ml-auto flex flex-wrap items-center gap-2">
+          {scope === 'all' && !siteOnly && authors.length > 1 && (
+            <select value={author} onChange={e => { setAuthor(e.target.value); setLimit(PER_PAGE) }} aria-label="Колега"
+              className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-[13px] text-slate-700 focus:outline-none focus:border-[#0f2240]">
+              <option value="">Всички колеги</option>
+              {authors.map(a => <option key={a.id} value={a.id}>{a.short}</option>)}
+            </select>
+          )}
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={q} onChange={e => { setQ(e.target.value); setLimit(PER_PAGE) }} placeholder="Търси…" aria-label="Търсене"
+              className="pl-8 pr-7 py-2 w-48 rounded-xl border border-slate-300 bg-white text-[13px] focus:outline-none focus:border-[#0f2240] focus:w-60 transition-all" />
+            {q && <button type="button" onClick={() => setQ('')} title="Изчисти" className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"><X size={13} /></button>}
           </div>
-          <div className="flex flex-wrap gap-2 md:ml-6">
-            {KINDS.map(x => (
-              <div key={x.key} className="px-3.5 py-2 rounded-2xl bg-white/10 border border-white/10">
-                <div className="text-lg font-semibold leading-none">{mine.filter(p => p.kind === x.key).length}</div>
-                <div className="text-[11px] text-white/70 mt-1">{x.plural}</div>
-              </div>
-            ))}
-            <div className="px-3.5 py-2 rounded-2xl bg-white/10 border border-white/10">
-              <div className="text-lg font-semibold leading-none">{mine.reduce((s, p) => s + p.media.filter(isImage).length, 0)}</div>
-              <div className="text-[11px] text-white/70 mt-1">Снимки</div>
+        </div>
+      </div>
+
+      {/* „Моите“ — кратка лента: колко са споделени, колко виждам само аз */}
+      {scope === 'mine' && !siteOnly && me && mine.length > 0 && (
+        <div className="rounded-2xl bg-white border border-slate-200 shadow-sm px-4 py-3 mb-5 flex flex-wrap items-center gap-3">
+          <Avatar name={me.name} size={36} />
+          <div className="min-w-0">
+            <div className="text-[14.5px] text-slate-900 truncate">{me.name}</div>
+            <div className="text-[12.5px] text-slate-600">
+              {mine.length - myDrafts} споделени с колегите{myDrafts > 0 && <> · <span className="text-slate-900">{myDrafts} само за теб</span> — сподели ги от плъзгача под картата</>}
             </div>
           </div>
-          <button type="button" onClick={exportWord} disabled={!mine.length || exporting}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-[#0f2240] text-sm font-medium hover:bg-slate-100 disabled:opacity-50"
-            title="Word документ с всички мои публикации — за атестацията">
-            {exporting ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />} Изтегли за атестация
+          <button type="button" onClick={exportWord} disabled={exporting} title="Word документ с всички твои публикации"
+            className="ml-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-[13px] text-slate-700 hover:border-[#0f2240] hover:text-[#0f2240] disabled:opacity-50 transition-colors">
+            {exporting ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} Изтегли в Word
           </button>
         </div>
       )}
 
-
-      {tab === 'files' && <SharedFilesTab canShare={canPost} rows={files} err={filesErr} />}
-
-      {tab !== 'files' && (<>
       {/* Предстоящи събития от проектите, кабинетите и т.н. */}
-      {agenda.length > 0 && !needle && (
+      {agenda.length > 0 && (
         <div className="mb-6 rounded-3xl border border-rose-200 bg-gradient-to-br from-rose-50 to-white p-4 md:p-5">
           <div className="flex flex-wrap items-center gap-2 mb-3">
             <CalendarClock size={18} className="text-rose-600" />
-            <span className="font-semibold text-slate-900">Предстоящи събития</span>
-            <span className="text-[12px] text-slate-500">следващите 60 дни · {agenda.length}</span>
+            <span className="font-medium text-slate-900">Предстоящи събития</span>
+            <span className="text-[12px] text-slate-600">следващите 60 дни · {agenda.length}</span>
             <a href="/calendar?view=agenda" className="ml-auto inline-flex items-center gap-1 text-[13px] text-rose-700 hover:underline">
               В календара <ArrowRight size={14} />
             </a>
@@ -213,13 +338,13 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
                 <button key={d.id} type="button" onClick={() => setOpenId(d.post.id)}
                   className="snap-start shrink-0 w-64 text-left flex gap-3 p-3 rounded-2xl bg-white border border-slate-200 hover:border-rose-300 hover:shadow-md transition-all">
                   <div className={`shrink-0 w-12 h-14 rounded-xl flex flex-col items-center justify-center leading-none ${t.tile}`}>
-                    <span className="text-[18px] font-bold">{dt.getDate()}</span>
+                    <span className="text-[18px] font-semibold">{dt.getDate()}</span>
                     <span className="text-[10px] uppercase mt-1">{dt.toLocaleDateString('bg-BG', { month: 'short' }).replace('.', '')}</span>
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[13.5px] font-semibold text-slate-900 leading-snug line-clamp-2">{d.title}</div>
+                    <div className="text-[13.5px] font-medium text-slate-900 leading-snug line-clamp-2">{d.title}</div>
                     {!d.main && <div className={`mt-0.5 flex items-center gap-1 text-[11.5px] truncate ${k.tone}`}><I size={11} className="shrink-0" /><span className="truncate">{d.post.title}</span></div>}
-                    <div className="mt-0.5 text-[11.5px] text-slate-500 truncate">{relDays(d.date, today)}{d.time ? ` · ${d.time}` : ''}{d.place ? ` · ${d.place}` : ''}</div>
+                    <div className="mt-0.5 text-[11.5px] text-slate-600 truncate">{relDays(d.date, today)}{d.time ? ` · ${d.time}` : ''}{d.place ? ` · ${d.place}` : ''}</div>
                   </div>
                 </button>
               )
@@ -228,58 +353,20 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
         </div>
       )}
 
-      {/* Филтри */}
-      <div className="flex flex-wrap items-center gap-2 mb-6">
-        <button type="button" onClick={() => setKind('all')}
-          className={`px-3.5 py-2 rounded-full text-[13px] border transition-colors ${kind === 'all' ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-300 text-slate-700 hover:border-slate-500'}`}>
-          Всички <span className="opacity-60">{base.length}</span>
-        </button>
-        {KINDS.map(x => {
-          const on = kind === x.key; const I = x.icon
-          return (
-            <button key={x.key} type="button" onClick={() => setKind(on ? 'all' : x.key)}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] border transition-colors ${on ? `bg-gradient-to-r ${x.grad} border-transparent text-white shadow-sm` : 'bg-white border-slate-300 text-slate-700 hover:border-slate-500'}`}>
-              <I size={14} className={on ? 'text-white' : x.tone} /> {x.plural} <span className="opacity-60">{countBy(x.key)}</span>
-            </button>
-          )
-        })}
-        {upcomingCount > 0 && (
-          <button type="button" onClick={() => setUpcoming(u => !u)} title="Само публикациите с предстояща дата — най-близките първи"
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] border transition-colors ${upcoming ? 'bg-rose-600 border-rose-600 text-white shadow-sm' : 'bg-white border-rose-200 text-rose-700 hover:border-rose-400'}`}>
-            <CalendarClock size={14} /> Предстоящи <span className="opacity-70">{upcomingCount}</span>
-          </button>
-        )}
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          {tab === 'wall' && authors.length > 1 && (
-            <select value={author} onChange={e => setAuthor(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-[13px] text-slate-700 focus:outline-none focus:border-[#0f2240]">
-              <option value="">Всички колеги</option>
-              {authors.map(a => <option key={a.id} value={a.id}>{a.short}</option>)}
-            </select>
-          )}
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Търси…"
-              className="pl-8 pr-7 py-2 w-48 rounded-xl border border-slate-300 bg-white text-[13px] focus:outline-none focus:border-[#0f2240] focus:w-60 transition-all" />
-            {q && <button type="button" onClick={() => setQ('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"><X size={13} /></button>}
-          </div>
-        </div>
-      </div>
-
-      {/* Покана за публикуване */}
-      {canPost && tab !== 'site' && (tab === 'mine' ? mine.length === 0 : wall.length < 4) && !needle && (
-        <div className="rounded-3xl border-2 border-dashed border-slate-300 bg-white p-6 md:p-8 mb-6">
-          <div className="flex items-center gap-2 text-slate-900 font-semibold"><Sparkles size={18} className="text-amber-500" /> {tab === 'mine' ? 'Твоето портфолио още е празно' : 'Сподели с колегите'}</div>
-          <p className="text-sm text-slate-500 mt-1 mb-4">Няколко снимки и няколко изречения стигат. Избери с какво да започнеш:</p>
+      {/* Покана — докато е още празно: четирите вида, с по едно изречение */}
+      {showInvite && (
+        <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-5 md:p-7 mb-6">
+          <div className="flex items-center gap-2 text-slate-900 font-medium"><Sparkles size={18} className="text-amber-500" /> {scope === 'mine' ? 'Още нямаш публикации' : 'Сподели с колегите'}</div>
+          <p className="text-sm text-slate-600 mt-1 mb-4">Избери с какво да започнеш — после можеш да допълваш и да добавяш снимки.</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {KINDS.map(x => {
               const I = x.icon
               return (
-                <button key={x.key} type="button" onClick={() => setEditor({ post: null, kind: x.key })}
-                  className={`text-left rounded-2xl p-4 bg-gradient-to-br ${x.grad} text-white hover:shadow-lg hover:-translate-y-0.5 transition-all`}>
-                  <I size={22} />
-                  <div className="mt-2 font-semibold text-sm">{x.label}</div>
-                  <div className="text-[11.5px] text-white/85 leading-snug mt-0.5">{x.hint}</div>
+                <button key={x.key} type="button" onClick={() => startNew(x.key)}
+                  className="text-left rounded-2xl p-4 bg-white border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-slate-400 transition-all">
+                  <span className={`inline-flex w-10 h-10 rounded-xl border items-center justify-center ${x.soft}`}><I size={20} /></span>
+                  <div className="mt-2.5 text-sm font-medium text-slate-900">{x.label}</div>
+                  <div className="text-[12px] text-slate-600 leading-snug mt-0.5">{x.hint}</div>
                 </button>
               )
             })}
@@ -287,26 +374,56 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
         </div>
       )}
 
-      {/* Стена */}
-      {shown.length === 0 ? (
-        (tab === 'site' || needle || kind !== 'all' || author || upcoming) && (
-          <div className="text-center py-16 text-slate-500 text-sm">
-            {tab === 'site' && !needle ? 'Няма публикации, които чакат за сайта.' : 'Нищо не отговаря на филтъра.'}
+      {/* Ред „+ Нов …“ за избрания раздел */}
+      {showAddRow && km && (
+        <button type="button" onClick={() => startNew(km.key)}
+          className="group w-full text-left flex items-center gap-3 px-4 py-3 mb-5 rounded-2xl border border-dashed border-slate-300 bg-white hover:border-[#0f2240] hover:shadow-sm transition-all">
+          <span className={`shrink-0 w-10 h-10 rounded-xl border flex items-center justify-center ${km.soft}`}><km.icon size={20} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14.5px] text-slate-900">{km.key === 'cabinet' && !hasOwnCabinet ? 'Представи своя кабинет' : km.add}</span>
+            <span className="block text-[12.5px] text-slate-600 leading-snug">{km.hint}</span>
+          </span>
+          <span className="shrink-0 inline-flex items-center gap-1 text-[13px] text-[#0f2240] opacity-70 group-hover:opacity-100"><Plus size={16} /> <span className="hidden sm:inline">Добави</span></span>
+        </button>
+      )}
+
+      {/* Публикациите */}
+      {total === 0 ? (
+        !showInvite && (
+          <div className="text-center py-14 text-sm text-slate-600">
+            {siteOnly && !needle ? 'Няма публикации, които чакат за сайта.'
+              : filtersOn ? 'Нищо не отговаря на филтъра.'
+              : scope === 'mine' ? `Още нямаш ${km ? km.plural.toLowerCase() : 'публикации'}.`
+              : `Още няма ${km ? km.plural.toLowerCase() : 'публикации'}.`}
+            {filtersOn && (
+              <div className="mt-3">
+                <button type="button" onClick={clearFilters} className="px-4 py-2 rounded-xl border border-slate-300 bg-white text-[13px] text-slate-700 hover:border-[#0f2240]">Изчисти филтрите</button>
+              </div>
+            )}
           </div>
         )
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4">
-          {shown.slice(0, limit).map(p => (
-            <PostCard key={p.id} post={p} author={personBy[p.author_id || '']} thumbs={thumbs} classNames={classNames} onOpen={() => setOpenId(p.id)}
-              onToggleShare={tab === 'mine' && p.author_id === meId ? () => toggleShare(p) : undefined}
-              onDelete={canDelete(p) ? () => removePost(p) : undefined} />
-          ))}
-        </div>
-      )}
-      {shown.length > limit && (
+      ) : shownGroups.map(g => (
+        <section key={g.key} className="mb-8 last:mb-0">
+          {g.label && (
+            <div className="flex items-center gap-3 mb-3">
+              <h2 className="text-[12px] uppercase tracking-widest text-slate-700">{g.label}</h2>
+              <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 tabular-nums">{g.total}</span>
+              <span className="flex-1 h-px bg-slate-200" />
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4">
+            {g.items.map(p => (
+              <PostCard key={p.id} post={p} author={personBy[p.author_id || '']} thumbs={thumbs} classNames={classNames} onOpen={() => setOpenId(p.id)}
+                onToggleShare={scope === 'mine' && !siteOnly && p.author_id === meId ? () => toggleShare(p) : undefined}
+                onDelete={canDelete(p) ? () => removePost(p) : undefined} />
+            ))}
+          </div>
+        </section>
+      ))}
+      {total > limit && (
         <div className="text-center mt-8">
           <button type="button" onClick={() => setLimit(l => l + PER_PAGE)} className="px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm text-slate-700 hover:border-[#0f2240]">
-            Покажи още ({shown.length - limit})
+            Покажи още ({total - limit})
           </button>
         </div>
       )}

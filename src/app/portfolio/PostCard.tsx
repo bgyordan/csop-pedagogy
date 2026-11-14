@@ -1,6 +1,6 @@
 'use client'
 
-import { Images, Paperclip, Globe, Share2, Lock, Trash2, Film, CalendarClock } from 'lucide-react'
+import { Images, Paperclip, Globe, Users, Lock, Trash2, Film, CalendarClock } from 'lucide-react'
 import { kindMeta, plain, fmtShort, fmtPeriod, STATUS, SITE, isImage, isVideo, nextKeyDate, relDays, dateTone, daysUntil } from './lib'
 import type { Post, Person } from './lib'
 
@@ -25,7 +25,7 @@ export function coverThumb(p: Post, thumbs: Record<string, string>) {
 
 export default function PostCard({ post, author, thumbs, classNames, onOpen, onToggleShare, onDelete }: {
   post: Post; author?: Person; thumbs: Record<string, string>; classNames: Record<string, string>; onOpen: () => void
-  /** „Сподели“ върху картата (в „Моето портфолио“) */
+  /** Превключвател „Само за мен / С колегите“ върху картата (в „Моите“) */
   onToggleShare?: () => void
   /** Кошче върху картата (автор или управа) */
   onDelete?: () => void
@@ -56,7 +56,7 @@ export default function PostCard({ post, author, thumbs, classNames, onOpen, onT
           <Icon size={12} /> {k.label}
         </span>
         {!shared && (
-          <span className="absolute top-3 right-3 inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-1 rounded-full shadow-sm bg-slate-800/85 text-white">
+          <span className="absolute top-3 right-3 inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-1 rounded-full shadow-sm bg-white/95 text-slate-700 border border-slate-200">
             <Lock size={11} /> Само за мен
           </span>
         )}
@@ -81,7 +81,7 @@ export default function PostCard({ post, author, thumbs, classNames, onOpen, onT
         )}
       </div>
       <div className="p-4 flex flex-col flex-1">
-        <h3 className="font-semibold text-[15px] leading-snug text-slate-900 line-clamp-2">{post.title}</h3>
+        <h3 className="font-medium text-[15px] leading-snug text-slate-900 line-clamp-2">{post.title}</h3>
         {post.kind === 'project' && (post.status || post.period_from) && (
           <div className="flex items-center gap-1.5 mt-1.5 text-[11px]">
             {post.status && STATUS[post.status] && <span className={`px-1.5 py-0.5 rounded ${STATUS[post.status].cls}`}>{STATUS[post.status].label}</span>}
@@ -107,10 +107,19 @@ export default function PostCard({ post, author, thumbs, classNames, onOpen, onT
           )}
         </div>
         {onToggleShare && (
-          <button type="button" onClick={e => { e.stopPropagation(); onToggleShare() }}
-            className={`mt-3 w-full inline-flex items-center justify-center gap-1.5 py-2 rounded-xl text-[13px] font-medium border transition-colors ${shared ? 'bg-[#0f2240] border-[#0f2240] text-white hover:bg-[#1a3560]' : 'bg-white border-slate-300 text-slate-700 hover:border-[#0f2240]'}`}>
-            <Share2 size={14} /> {shared ? 'Споделено' : 'Сподели'}
-          </button>
+          // плъзгач с два надписа: ясно е и какво е сега, и какво става при клик
+          <div role="group" aria-label="Кой го вижда" onClick={e => e.stopPropagation()} className="mt-3 grid grid-cols-2 p-0.5 rounded-xl bg-slate-100 text-[12.5px]">
+            <button type="button" aria-pressed={!shared} title="Вижда го само авторът"
+              onClick={e => { e.stopPropagation(); if (shared) onToggleShare() }}
+              className={`inline-flex items-center justify-center gap-1.5 py-1.5 rounded-[10px] transition-all ${!shared ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-800'}`}>
+              <Lock size={13} /> Само за мен
+            </button>
+            <button type="button" aria-pressed={shared} title="Виждат го всички колеги"
+              onClick={e => { e.stopPropagation(); if (!shared) onToggleShare() }}
+              className={`inline-flex items-center justify-center gap-1.5 py-1.5 rounded-[10px] transition-all ${shared ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500 hover:text-slate-800'}`}>
+              <Users size={13} /> С колегите
+            </button>
+          </div>
         )}
       </div>
     </div>
