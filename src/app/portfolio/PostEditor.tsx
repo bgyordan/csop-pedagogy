@@ -269,7 +269,7 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, dat
       }
 
       dirty.current = false
-      onSaved(id, !share ? 'Записано — вижда го само ти.' : post && !wasDraft ? 'Промените са записани.' : siteWant ? 'Публикувано и предложено за сайта.' : 'Публикувано в портфолиото.')
+      onSaved(id, !share ? 'Записано — вижда го само ти.' : post && !wasDraft ? 'Промените са записани.' : siteWant ? 'Публикувано и предложено за сайта.' : 'Споделено с колегите.')
     } catch (e: any) {
       setErr(e?.message || 'Грешка при запис.')
     } finally { setBusy(null) }

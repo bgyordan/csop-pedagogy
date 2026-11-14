@@ -1,4 +1,5 @@
-// „Моето портфолио“ като Word документ — за атестацията (професионално портфолио).
+// „Моите публикации“ от „Кабинети и дейности“ като Word документ.
+// (Няма връзка с професионалното портфолио и атестирането — то е в /pro-portfolio.)
 // Текстът е черен, 12 pt; към всяка публикация — до 4 миниатюри.
 
 import { Document, Packer, Paragraph, TextRun, ImageRun, HeadingLevel, AlignmentType } from 'docx'
@@ -21,7 +22,7 @@ async function imageRun(url: string): Promise<ImageRun | null> {
 export async function exportPortfolio(opts: { name: string; label: string; posts: Post[]; thumbs: Record<string, string>; classNames: Record<string, string> }) {
   const { name, label, posts, thumbs, classNames } = opts
   const kids: Paragraph[] = [
-    new Paragraph({ alignment: AlignmentType.CENTER, children: [t('ПРОФЕСИОНАЛНО ПОРТФОЛИО', { bold: true, size: 32 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, children: [t('КАБИНЕТИ И ДЕЙНОСТИ', { bold: true, size: 32 })] }),
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 120 }, children: [t(name, { bold: true, size: 28 })] }),
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 400 }, children: [t(`${label ? label + ', ' : ''}ЦСОП – Варна · ${new Date().toLocaleDateString('bg-BG')}`)] }),
   ]
