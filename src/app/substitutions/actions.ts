@@ -211,6 +211,16 @@ const slotWeight = (name: string, pullout: boolean) => (!pullout || (name || '')
 const WEEK_NORM = 20
 // Часове седмично по учебния план (НЕИСПУО) на служителя за срока — редовете, които се нареждат в разписанието:
 // паралелка, ИЧ или ЦОУД (без терапиите на специалистите — редове без паралелка/група)
+// Пълно ли е разписанието на отсъстващия (иначе заповедта излиза „без часове“).
+// С учебен план (НЕИСПУО) — поне толкова наредени часа, колкото са по плана.
+// Без план: учител/възпитател — поне WEEK_NORM седмично; управата (директор, ЗДУД, ЗДАСД) има по 2–4 часа —
+// пълно е при поне един час. Особени случаи (часове, поделени с колега и т.н.) — ръчно: force = „разписанието е пълно“.
+function scheduleIncomplete(role: string | null | undefined, planH: number, placedCount: number, weekHours: number, force = false) {
+  if (force) return false
+  if (planH > 0) return placedCount < Math.floor(planH)
+  if (['admin', 'zdud', 'director'].includes(role || '')) return placedCount === 0
+  return weekHours < WEEK_NORM
+}
 async function planWeekHours(_supabase: any, yearId: string | undefined, staffId: string, term: number) {
   if (!yearId) return 0
   const supabase = createAdminClient() // учебният план на отсъстващия — и за деловодството
@@ -393,7 +403,7 @@ export async function syncLeaveGroupSubstitute(substitutionId: string) {
   return { success: true, n: free.length }
 }
 
-export async function generateSubstitution(substitutionId: string, overNorm: boolean = true, register: boolean = true) {
+export async function generateSubstitution(substitutionId: string, overNorm: boolean = true, register: boolean = true, forceHours: boolean = false) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли' }
@@ -403,7 +413,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   const { data: sub } = await supabase
     .from('substitutions')
     .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, reason, leave_order_number, leave_order_date, bsch_eligible, kt_article, substitution_order_id, manual_order_number, manual_order_date,
-       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, position),
+       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, position, role),
       sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name, position)`)
     .eq('id', substitutionId).single()
   if (!sub) return { error: 'Заместването не е намерено' }
@@ -463,9 +473,9 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   const weekHours = Math.round(byTerm[normTerm].reduce((a, s) => a + (s.w ?? 1), 0) * 10) / 10
   const placedCount = byTerm[normTerm].length
   const planH = await planWeekHours(supabase, cy?.id, sub.absent_staff_id, normTerm)
-  const noHours = planH > 0 ? placedCount < Math.floor(planH) : weekHours < WEEK_NORM
+  const noHours = scheduleIncomplete((sub.absent as any)?.role, planH, placedCount, weekHours, forceHours)
   // целта, спрямо която се мери (за съобщението)
-  const targetHours = planH > 0 ? Math.round(planH * 10) / 10 : WEEK_NORM
+  const targetHours = planH > 0 ? Math.round(planH * 10) / 10 : ['admin', 'zdud', 'director'].includes((sub.absent as any)?.role || '') ? 1 : WEEK_NORM
   const placedHours = planH > 0 ? placedCount : weekHours
 
   let orderNumber = '', orderDate = ''
@@ -593,7 +603,7 @@ export async function reassignCoverage(substitutionId: string, fromStaffId: stri
 
 // Отделна заповед за част от заместването (заместник на заместника): само дните/часовете на този колега,
 // които не са в издадената заповед. Ако вече има своя заповед — изтегля се пак, със същия номер.
-export async function generatePartOrder(substitutionId: string, staffId: string) {
+export async function generatePartOrder(substitutionId: string, staffId: string, forceHours: boolean = false) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не сте влезли' }
@@ -601,7 +611,7 @@ export async function generatePartOrder(substitutionId: string, staffId: string)
   const { data: sub } = await supabase
     .from('substitutions')
     .select(`id, absent_staff_id, date_from, date_to, reason, leave_order_number, bsch_eligible, kt_article, over_norm, substitution_order_id,
-       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, position)`)
+       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, position, role)`)
     .eq('id', substitutionId).single()
   if (!sub) return { error: 'Заместването не е намерено' }
   if (isOpenEnd(sub.date_to)) return { error: 'Отсъствието още няма крайна дата, а заповедта се издава за точен период. Въведете докога е и опитайте пак.' }
@@ -650,7 +660,7 @@ export async function generatePartOrder(substitutionId: string, staffId: string)
   const normTerm = wds.length ? wds[0].term : 1
   const weekHours = Math.round(byTerm[normTerm].reduce((a, s) => a + (s.w ?? 1), 0) * 10) / 10
   const planH = await planWeekHours(supabase, cy?.id, sub.absent_staff_id, normTerm)
-  const noHours = planH > 0 ? byTerm[normTerm].length < Math.floor(planH) : weekHours < WEEK_NORM
+  const noHours = scheduleIncomplete((sub.absent as any)?.role, planH, byTerm[normTerm].length, weekHours, forceHours)
 
   let orderNumber = '', orderDate = ''
   if (existingId) {
