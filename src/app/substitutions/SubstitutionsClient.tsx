@@ -86,6 +86,11 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
   const [todo, setTodo] = useState<null | 'nosub' | 'noorder'>(null)
   // вид: болничен / отпуск / друго
   const [kind, setKind] = useState('')
+  // Табове: „За действие“ (без заместник / без заповед / без часове) · „Текущи и предстоящи“ · „Архив“
+  const [tab, setTab] = useState<'todo' | 'active' | 'archive'>('active')
+  // Подредба: по дата (ранните първо / новите първо), по № на заповедта, по име на отсъстващия
+  const [sortBy, setSortBy] = useState<'date_asc' | 'date_desc' | 'order' | 'name'>('date_asc')
+  const [moreOpen, setMoreOpen] = useState(false)
   // отпуск в няколко периода: „Създай заповед“ само на период 1 — заповедта е обща (същият заместник, без разпределение по дни)
   const sharedOrderWithFirst = (r: SubRow) => {
     if (!r.group || r.group.i === 1 || !r.substituteId || r.assigns?.length) return false
@@ -98,6 +103,8 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
   // има заместник, но заповедта още не е издадена (нито е отбелязана ръчна / „без заповед“ / обща с период 1)
   const needsOrder = (r: SubRow) => (!!r.substituteName || !!r.assigns?.length)
     && !r.hasOrder && !r.manualNumber && !r.noOrder && !sharedOrderWithFirst(r)
+  // „За действие“: няма заместник, няма заповед или заповедта е „без часове“
+  const isTodo = (r: SubRow) => needsSub(r) || needsOrder(r) || (r.hasOrder && !!r.noHours)
   const isAbsentOnly = (r: any) => !r.substituteName && !(r.assigns?.length) && !canSubstitute(r.absentRole) && !staff.find(s => s.id === r.absentStaffId)?.teaching
   const [genId, setGenId] = useState<string | null>(null)
   const [overNormMap, setOverNormMap] = useState<Record<string, boolean>>(() => Object.fromEntries(initial.map(r => [r.id, r.overNorm !== false])))
@@ -264,7 +271,11 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     const per = periodIdx >= 0 ? SCHOOL_MONTHS_FILTER[periodIdx] : null
+    const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })
     return rows.filter(r => {
+      if (tab === 'todo' && !isTodo(r)) return false
+      if (tab === 'active' && r.dateTo < today) return false
+      if (tab === 'archive' && r.dateTo >= today) return false
       if (npOnly && !r.bsch) return false
       if (!showAbsentOnly && isAbsentOnly(r)) return false
       if (kind && r.reason !== kind) return false
@@ -274,10 +285,21 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
       if (q && !(smartMatch(r.absentName, q) || smartMatch(r.substituteName || '', q))) return false
       return true
     })
-  }, [rows, search, npOnly, periodIdx, showAbsentOnly, todo, kind]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rows, search, npOnly, periodIdx, showAbsentOnly, todo, kind, tab]) // eslint-disable-line react-hooks/exhaustive-deps
   const todoCount = useMemo(() => ({ nosub: rows.filter(needsSub).length, noorder: rows.filter(needsOrder).length }), [rows]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (todo && todoCount[todo] === 0) setTodo(null) }, [todo, todoCount])
   const absentOnlyCount = useMemo(() => rows.filter(isAbsentOnly).length, [rows]) // eslint-disable-line react-hooks/exhaustive-deps
+  const tabCount = useMemo(() => {
+    const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })
+    const vis = rows.filter(r => (showAbsentOnly || !isAbsentOnly(r)) && (!r.group || r.group.i === 1))
+    return {
+      todo: vis.filter(isTodo).length,
+      active: vis.filter(r => r.dateTo >= today).length,
+      archive: vis.filter(r => r.dateTo < today).length,
+    }
+  }, [rows, showAbsentOnly]) // eslint-disable-line react-hooks/exhaustive-deps
+  // първо отваряне: ако има нещо за действие — там
+  useEffect(() => { if (tabCount.todo > 0) setTab('todo') }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // отпуск в няколко периода (едно заявление, една заповед) — в списъка е ЕДИН ред, както всички други:
   // показва се период 1, а датите са от първия до последния ден, с периодите дребно отдолу
@@ -299,31 +321,20 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
     return out
   }, [filtered, rows])
 
-  // Подредба: „Текущи“ (днес е в периода) → „Предстоящи“ (най-близките отгоре) → минали по месеци (най-новият отгоре).
-  // Така заместване за декември, въведено още през октомври, не стои над текущите.
+  // Една плоска подредба (без групи по месеци) — по избор в „Подреди“.
+  const orderNo = (r: SubRow) => {
+    const m = String(r.orderNumber || r.manualNumber || '').match(/\d+/)
+    return m ? Number(m[0]) : Number.POSITIVE_INFINITY // без заповед — накрая
+  }
   const groups = useMemo(() => {
-    const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' }) // YYYY-MM-DD
-    const current = collapsed.filter(r => r.dateFrom <= today && r.dateTo >= today)
-      .sort((a, b) => a.dateTo.localeCompare(b.dateTo) || a.absentName.localeCompare(b.absentName, 'bg'))
-    const upcoming = collapsed.filter(r => r.dateFrom > today)
-      .sort((a, b) => a.dateFrom.localeCompare(b.dateFrom) || a.absentName.localeCompare(b.absentName, 'bg'))
-    const past = collapsed.filter(r => r.dateTo < today)
-      .sort((a, b) => b.dateFrom.localeCompare(a.dateFrom))
-    const out: { key: string; label: string; items: SubRow[] }[] = []
-    if (current.length) out.push({ key: 'now', label: 'Текущи — днес', items: current })
-    if (upcoming.length) out.push({ key: 'next', label: 'Предстоящи', items: upcoming })
-    past.forEach(r => {
-      const key = r.dateFrom.slice(0, 7)
-      let g = out[out.length - 1]
-      if (!g || g.key !== key) {
-        const [y, m] = key.split('-').map(Number)
-        g = { key, label: `${MONTHS_BG[m - 1]} ${y}`, items: [] }
-        out.push(g)
-      }
-      g.items.push(r)
+    const items = [...collapsed].sort((a, b) => {
+      if (sortBy === 'date_desc') return b.dateFrom.localeCompare(a.dateFrom) || a.absentName.localeCompare(b.absentName, 'bg')
+      if (sortBy === 'order') return orderNo(a) - orderNo(b) || a.dateFrom.localeCompare(b.dateFrom)
+      if (sortBy === 'name') return a.absentName.localeCompare(b.absentName, 'bg') || a.dateFrom.localeCompare(b.dateFrom)
+      return a.dateFrom.localeCompare(b.dateFrom) || a.absentName.localeCompare(b.absentName, 'bg')
     })
-    return out
-  }, [collapsed])
+    return items.length ? [{ key: 'all', label: '', items }] : []
+  }, [collapsed, sortBy]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function mapRow(r: any): SubRow {
     return {
@@ -538,18 +549,6 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
               <option value="all">Всички години</option>
             </select>
           )}
-          <select value={periodIdx} onChange={e => setPeriodIdx(Number(e.target.value))}
-            className="text-xs font-medium border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-[#0f2240] focus:outline-none focus:border-slate-400 flex-shrink-0 cursor-pointer">
-            <option value={-1}>Всички периоди</option>
-            {SCHOOL_MONTHS_FILTER.map((m, i) => <option key={i} value={i}>{m.label}</option>)}
-          </select>
-          <select value={kind} onChange={e => setKind(e.target.value)} title="Вид на отсъствието"
-            className="text-xs font-medium border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-[#0f2240] focus:outline-none focus:border-slate-400 flex-shrink-0 cursor-pointer">
-            <option value="">Всички видове</option>
-            <option value="sick">Болнични</option>
-            <option value="vacation">Отпуски</option>
-            <option value="other">Други</option>
-          </select>
           <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Търсене по име…"
@@ -561,40 +560,72 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
               </button>
             )}
           </div>
-          <button onClick={() => setNpOnly(v => !v)}
-            className={`inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border transition-colors whitespace-nowrap flex-shrink-0 ${
-              npOnly ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-medium' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}>
-            само НП
-          </button>
-          {todoCount.nosub > 0 && (
-            <button onClick={() => setTodo(t => t === 'nosub' ? null : 'nosub')} title="Отсъствия, за които още не е избран заместник"
-              className={`inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border transition-colors whitespace-nowrap flex-shrink-0 ${
-                todo === 'nosub' ? 'bg-amber-50 border-amber-300 text-amber-800 font-medium' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+          <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} title="Подредба"
+            className="text-xs font-medium border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-[#0f2240] focus:outline-none focus:border-slate-400 flex-shrink-0 cursor-pointer">
+            <option value="date_asc">Подреди: по дата ↑ (най-ранните първо)</option>
+            <option value="date_desc">Подреди: по дата ↓ (най-новите първо)</option>
+            <option value="order">Подреди: по № на заповедта</option>
+            <option value="name">Подреди: по име (А–Я)</option>
+          </select>
+          <div className="relative flex-shrink-0">
+            <button type="button" onClick={() => setMoreOpen(v => !v)}
+              className={`inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border transition-colors whitespace-nowrap ${
+                (npOnly || kind || periodIdx >= 0 || showAbsentOnly) ? 'bg-slate-100 border-slate-300 text-slate-800 font-medium' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}>
-              <UserX size={13} className="text-amber-500" /> без заместник <span className="tabular-nums font-semibold">{todoCount.nosub}</span>
+              Още <ChevronDown size={12} className={moreOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
             </button>
-          )}
-          {todoCount.noorder > 0 && (
-            <button onClick={() => setTodo(t => t === 'noorder' ? null : 'noorder')} title="Има заместник, но заповедта още не е издадена"
-              className={`inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border transition-colors whitespace-nowrap flex-shrink-0 ${
-                todo === 'noorder' ? 'bg-violet-50 border-violet-300 text-violet-800 font-medium' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}>
-              без заповед <span className="tabular-nums font-semibold">{todoCount.noorder}</span>
-            </button>
-          )}
-          {absentOnlyCount > 0 && (
-            <button onClick={() => setShowAbsentOnly(v => !v)} title="Колеги в отпуск, които не се заместват (специалисти, помощници) — за „Днес отсъстват“"
-              className={`inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border transition-colors whitespace-nowrap flex-shrink-0 ${
-                showAbsentOnly ? 'bg-slate-100 border-slate-300 text-slate-800 font-medium' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
-              }`}>
-              <span className={`w-3 h-3 rounded-[4px] border flex items-center justify-center ${showAbsentOnly ? 'bg-[#0f2240] border-[#0f2240]' : 'border-slate-300'}`}>
-                {showAbsentOnly && <Check size={9} className="text-white" />}
-              </span>
-              и само отсъстващи <span className="text-slate-400">{absentOnlyCount}</span>
-            </button>
-          )}
+            {moreOpen && (
+              <div className="absolute right-0 mt-1.5 z-30 w-64 bg-white border border-slate-200 rounded-2xl shadow-[0_8px_24px_rgba(15,34,64,0.14)] p-3 space-y-2.5">
+                <label className="block">
+                  <span className="text-[11px] text-slate-500">Месец</span>
+                  <select value={periodIdx} onChange={e => setPeriodIdx(Number(e.target.value))}
+                    className="mt-0.5 w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50">
+                    <option value={-1}>Всички месеци</option>
+                    {SCHOOL_MONTHS_FILTER.map((m, i) => <option key={i} value={i}>{m.label}</option>)}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-[11px] text-slate-500">Вид отсъствие</span>
+                  <select value={kind} onChange={e => setKind(e.target.value)}
+                    className="mt-0.5 w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50">
+                    <option value="">Всички видове</option>
+                    <option value="sick">Болнични</option>
+                    <option value="vacation">Отпуски</option>
+                    <option value="other">Други</option>
+                  </select>
+                </label>
+                <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                  <input type="checkbox" checked={npOnly} onChange={e => setNpOnly(e.target.checked)} /> само по НП
+                </label>
+                {absentOnlyCount > 0 && (
+                  <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer" title="Колеги в отпуск, които не се заместват (специалисти, помощници)">
+                    <input type="checkbox" checked={showAbsentOnly} onChange={e => setShowAbsentOnly(e.target.checked)} /> и само отсъстващи ({absentOnlyCount})
+                  </label>
+                )}
+                {(npOnly || kind || periodIdx >= 0 || showAbsentOnly) && (
+                  <button type="button" onClick={() => { setNpOnly(false); setKind(''); setPeriodIdx(-1); setShowAbsentOnly(false) }}
+                    className="text-[11px] text-slate-500 hover:text-slate-800 underline">изчисти</button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
+      </div>
+
+      {/* Табове */}
+      <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl w-fit max-w-full overflow-x-auto">
+        {([
+          ['todo', 'За действие', tabCount.todo],
+          ['active', 'Текущи и предстоящи', tabCount.active],
+          ['archive', 'Архив', tabCount.archive],
+        ] as const).map(([k, label, n]) => (
+          <button key={k} type="button"
+            onClick={() => { setTab(k); setTodo(null); setSortBy(k === 'archive' ? 'date_desc' : 'date_asc') }}
+            className={`px-3.5 py-1.5 rounded-lg text-xs whitespace-nowrap transition ${tab === k ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+            style={tab === k ? { backgroundColor: '#0f2240' } : {}}>
+            {label} <span className={`tabular-nums ml-1 ${tab === k ? 'text-white/70' : k === 'todo' && n > 0 ? 'text-amber-600 font-semibold' : 'text-slate-400'}`}>{n}</span>
+          </button>
+        ))}
       </div>
 
       {showNew && (
@@ -728,11 +759,11 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
           </div>
         ) : groups.map(g => (
           <Fragment key={g.key}>
-          <div className="flex items-center gap-3 px-1 pt-3 pb-0.5">
+          {g.label && <div className="flex items-center gap-3 px-1 pt-3 pb-0.5">
             <span className="text-[11px] uppercase tracking-widest text-slate-500">{g.label}</span>
             <span className="text-[11px] text-slate-400 tabular-nums">· {g.items.length} {g.items.length === 1 ? 'заместване' : 'замествания'}</span>
             <span className="flex-1 h-px bg-slate-200" />
-          </div>
+          </div>}
           <div className="space-y-1.5 zebra">
           {g.items.map((r, idx) => {
           const multi = r.assigns.length > 0
