@@ -7,6 +7,7 @@ import { Search, Plus, X, Loader2, Check, ArrowRight, CalendarClock, UserX, Penc
 import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { saveLeavePeriods, generateSubstitution, generatePartOrder, reassignCoverage, getAssignments, saveAssignments, checkSubstituteOverlap, deleteSubstitution, getAbsentHours, getKtParts, saveKtParts, getSubstitutionOrder, type RegistryOrder } from './actions'
 import RegistryOrderPick from './RegistryOrderPick'
+import { SortHeader } from '@/components/registry/RegistryParts'
 import KtPartsEditor, { ktPartsError } from '@/components/KtPartsEditor'
 import type { KtPart } from '@/lib/kt'
 import { generateSubstitutionOrder } from '@/lib/docx-substitution'
@@ -88,8 +89,9 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
   const [kind, setKind] = useState('')
   // Табове: „Всички“ (по подразбиране) · „За действие“ (без заместник / без заповед / без часове) · „Текущи и предстоящи“ · „Архив“
   const [tab, setTab] = useState<'all' | 'todo' | 'active' | 'archive'>('all')
-  // Подредба: по дата (ранните първо / новите първо), по № на заповедта, по име на отсъстващия
-  const [sortBy, setSortBy] = useState<'date_asc' | 'date_desc' | 'order' | 'name'>('date_asc')
+  // Подредба с клик върху заглавието на колоната (като в регистъра „Заповеди“): <колона>_asc / _desc,
+  // '' = по подразбиране (по дата „от“ — най-ранните първо; в Архив — най-новите първо)
+  const [sort, setSort] = useState('')
   const [moreOpen, setMoreOpen] = useState(false)
   // отпуск в няколко периода: „Създай заповед“ само на период 1 — заповедта е обща (същият заместник, без разпределение по дни)
   const sharedOrderWithFirst = (r: SubRow) => {
@@ -327,14 +329,31 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
     return m ? Number(m[0]) : Number.POSITIVE_INFINITY // без заповед — накрая
   }
   const groups = useMemo(() => {
-    const items = [...collapsed].sort((a, b) => {
-      if (sortBy === 'date_desc') return b.dateFrom.localeCompare(a.dateFrom) || a.absentName.localeCompare(b.absentName, 'bg')
-      if (sortBy === 'order') return orderNo(a) - orderNo(b) || a.dateFrom.localeCompare(b.dateFrom)
-      if (sortBy === 'name') return a.absentName.localeCompare(b.absentName, 'bg') || a.dateFrom.localeCompare(b.dateFrom)
-      return a.dateFrom.localeCompare(b.dateFrom) || a.absentName.localeCompare(b.absentName, 'bg')
-    })
+    const [key, dir] = sort ? sort.split('_') : ['from', tab === 'archive' ? 'desc' : 'asc']
+    const k = dir === 'desc' ? -1 : 1
+    const bg = (x: string, y: string) => x.localeCompare(y, 'bg')
+    const cmp = (a: SubRow, b: SubRow): number => {
+      switch (key) {
+        case 'order': {
+          const x = orderNo(a), y = orderNo(b)
+          if (x === y) return 0
+          if (x === Number.POSITIVE_INFINITY) return 1   // без заповед — винаги накрая
+          if (y === Number.POSITIVE_INFINITY) return -1
+          return (x - y) * k
+        }
+        case 'absent': return bg(a.absentName, b.absentName) * k
+        case 'sub': {
+          const x = a.substituteName || '', y = b.substituteName || ''
+          if (!x !== !y) return x ? -1 : 1               // без заместник — накрая
+          return bg(x, y) * k
+        }
+        case 'to': return a.dateTo.localeCompare(b.dateTo) * k
+        default: return a.dateFrom.localeCompare(b.dateFrom) * k
+      }
+    }
+    const items = [...collapsed].sort((a, b) => cmp(a, b) || a.dateFrom.localeCompare(b.dateFrom) || bg(a.absentName, b.absentName))
     return items.length ? [{ key: 'all', label: '', items }] : []
-  }, [collapsed, sortBy]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [collapsed, sort, tab]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function mapRow(r: any): SubRow {
     return {
@@ -560,12 +579,14 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
               </button>
             )}
           </div>
-          <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} title="Подредба"
-            className="text-xs font-medium border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-[#0f2240] focus:outline-none focus:border-slate-400 flex-shrink-0 cursor-pointer">
-            <option value="date_asc">Подреди: по дата ↑ (най-ранните първо)</option>
-            <option value="date_desc">Подреди: по дата ↓ (най-новите първо)</option>
-            <option value="order">Подреди: по № на заповедта</option>
-            <option value="name">Подреди: по име (А–Я)</option>
+          {/* на телефон заглавният ред е скрит — там подредбата е от това меню */}
+          <select value={sort} onChange={e => setSort(e.target.value)} title="Подредба"
+            className="md:hidden text-xs font-medium border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-[#0f2240] focus:outline-none focus:border-slate-400 flex-shrink-0 cursor-pointer">
+            <option value="">По дата ↑</option>
+            <option value="from_desc">По дата ↓</option>
+            <option value="order_asc">По № заповед</option>
+            <option value="absent_asc">По отсъстващ А–Я</option>
+            <option value="absent_desc">По отсъстващ Я–А</option>
           </select>
           <div className="relative flex-shrink-0">
             <button type="button" onClick={() => setMoreOpen(v => !v)}
@@ -621,7 +642,7 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
           ['archive', 'Архив', tabCount.archive],
         ] as const).map(([k, label, n]) => (
           <button key={k} type="button"
-            onClick={() => { setTab(k); setTodo(null); setSortBy(k === 'archive' ? 'date_desc' : 'date_asc') }}
+            onClick={() => { setTab(k); setTodo(null); setSort('') }}
             className={`px-3.5 py-1.5 rounded-lg text-xs whitespace-nowrap transition ${tab === k ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
             style={tab === k ? { backgroundColor: '#0f2240' } : {}}>
             {label} <span className={`tabular-nums ml-1 ${tab === k ? 'text-white/70' : k === 'todo' && n > 0 ? 'text-amber-600 font-semibold' : 'text-slate-400'}`}>{n}</span>
@@ -738,8 +759,9 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
 
       {/* Заглавен ред */}
       <div className="hidden md:grid grid-cols-[88px_minmax(0,1.3fr)_minmax(0,1.3fr)_76px_76px_262px] gap-3 px-4 py-2.5 rounded-xl bg-slate-100 border-b border-slate-200">
-        {['Заповед', 'Отсъстващ', 'Заместник', 'От', 'До', ''].map((h, i) => (
-          <span key={i} className="text-[11px] font-medium uppercase tracking-wider text-slate-500">{h}</span>
+        {/* клик върху заглавие = А–Я / най-ранните първо; пак клик = обратно; трети — по подразбиране */}
+        {([['Заповед', 'order'], ['Отсъстващ', 'absent'], ['Заместник', 'sub'], ['От', 'from'], ['До', 'to'], ['', undefined]] as const).map(([h, key], i) => (
+          <SortHeader key={i} label={h} sortKey={key} sort={sort} onSort={() => setSort(sort === `${key}_asc` ? `${key}_desc` : sort === `${key}_desc` ? '' : `${key}_asc`)} />
         ))}
       </div>
 
