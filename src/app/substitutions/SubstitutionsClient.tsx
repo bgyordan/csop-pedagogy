@@ -86,8 +86,8 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
   const [todo, setTodo] = useState<null | 'nosub' | 'noorder'>(null)
   // вид: болничен / отпуск / друго
   const [kind, setKind] = useState('')
-  // Табове: „За действие“ (без заместник / без заповед / без часове) · „Текущи и предстоящи“ · „Архив“
-  const [tab, setTab] = useState<'todo' | 'active' | 'archive'>('active')
+  // Табове: „Всички“ (по подразбиране) · „За действие“ (без заместник / без заповед / без часове) · „Текущи и предстоящи“ · „Архив“
+  const [tab, setTab] = useState<'all' | 'todo' | 'active' | 'archive'>('all')
   // Подредба: по дата (ранните първо / новите първо), по № на заповедта, по име на отсъстващия
   const [sortBy, setSortBy] = useState<'date_asc' | 'date_desc' | 'order' | 'name'>('date_asc')
   const [moreOpen, setMoreOpen] = useState(false)
@@ -293,13 +293,13 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
     const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })
     const vis = rows.filter(r => (showAbsentOnly || !isAbsentOnly(r)) && (!r.group || r.group.i === 1))
     return {
+      all: vis.length,
       todo: vis.filter(isTodo).length,
       active: vis.filter(r => r.dateTo >= today).length,
       archive: vis.filter(r => r.dateTo < today).length,
     }
   }, [rows, showAbsentOnly]) // eslint-disable-line react-hooks/exhaustive-deps
-  // първо отваряне: ако има нещо за действие — там
-  useEffect(() => { if (tabCount.todo > 0) setTab('todo') }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
 
   // отпуск в няколко периода (едно заявление, една заповед) — в списъка е ЕДИН ред, както всички други:
   // показва се период 1, а датите са от първия до последния ден, с периодите дребно отдолу
@@ -615,6 +615,7 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
       {/* Табове */}
       <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-xl w-fit max-w-full overflow-x-auto">
         {([
+          ['all', 'Всички', tabCount.all],
           ['todo', 'За действие', tabCount.todo],
           ['active', 'Текущи и предстоящи', tabCount.active],
           ['archive', 'Архив', tabCount.archive],
