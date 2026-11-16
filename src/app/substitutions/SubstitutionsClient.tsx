@@ -58,7 +58,7 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
   // кой може да замества: учители/възпитатели, всеки с часове по разписание,
   // и управата (директор, ЗДУД, ЗДАСД) — те също са педагогически специалисти и понякога поемат часове
   const pedStaff = (...keep: string[]) => staff.filter(s =>
-    canSubstitute(s.role) || !!(s as any).teaching || ['admin', 'zdud', 'director'].includes(s.role) || keep.includes(s.id))
+    canSubstitute(s.role) || !!(s as any).teaching || ['admin', 'zdud', 'director'].includes(s.role || '') || keep.includes(s.id))
   // отсъстващ: учители и възпитатели + всеки с часове (напр. управата с преподавателска заетост)
   const absentStaff = (...keep: string[]) => staff.filter(s => canBeSubstituted(s) || keep.includes(s.id))
   // кой се замества (учител/възпитател или с часове) — за останалите (логопед, психолог, помощник) е само отсъствие
