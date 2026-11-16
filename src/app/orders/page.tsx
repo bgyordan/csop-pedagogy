@@ -20,7 +20,8 @@ export default async function OrdersPage({
   const canAccess = ['admin', 'zdud', 'director', 'secretary'].includes(profile?.role || '')
   if (!canAccess) redirect('/dashboard')
   const canEdit = ['admin', 'zdud', 'director', 'secretary'].includes(profile?.role || '')
-    const canDelete = profile?.role === 'admin'
+  // трие: админ и деловодство (Ванина вече знае процеса)
+  const canDelete = ['admin', 'secretary'].includes(profile?.role || '')
   const page = Math.max(1, parseInt(params.page || '1'))
   const q = params.q || ''
   const idx = params.idx || ''

@@ -8,6 +8,7 @@ import { Plus, Search, ChevronLeft, ChevronRight, ClipboardList, X, Sparkles } f
 import Link from 'next/link'
 import ViewOrderModal from './ViewOrderModal'
 import EditOrderModal from './EditOrderModal'
+import { deleteOrder } from './actions'
 import { Hl, SortHeader, FileAndActions, FilterChips, EmptyState } from '@/components/registry/RegistryParts'
 import { PANEL_WIDTH_CLS } from '@/components/registry/SidePanel'
 import { notify, confirmDialog } from '@/components/ui/Toast'
@@ -51,8 +52,8 @@ export default function OrdersClient({
   async function handleDelete(id: string, e: React.MouseEvent) {
     e.stopPropagation()
     if (!await confirmDialog('Изтрий тази заповед? Действието е необратимо.')) return
-    const { error } = await supabase.from('orders').delete().eq('id', id)
-    if (error) { notify('Грешка при изтриване'); return }
+    const res = await deleteOrder(id)
+    if (res.error) { notify(res.error); return }
     router.refresh()
   }
 
