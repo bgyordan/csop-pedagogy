@@ -279,11 +279,20 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
     return out
   }, [filtered, rows])
 
-  // групи по месец на началото, най-новият месец отгоре
+  // Подредба: „Текущи“ (днес е в периода) → „Предстоящи“ (най-близките отгоре) → минали по месеци (най-новият отгоре).
+  // Така заместване за декември, въведено още през октомври, не стои над текущите.
   const groups = useMemo(() => {
-    const sorted = [...collapsed].sort((a, b) => b.dateFrom.localeCompare(a.dateFrom))
+    const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' }) // YYYY-MM-DD
+    const current = collapsed.filter(r => r.dateFrom <= today && r.dateTo >= today)
+      .sort((a, b) => a.dateTo.localeCompare(b.dateTo) || a.absentName.localeCompare(b.absentName, 'bg'))
+    const upcoming = collapsed.filter(r => r.dateFrom > today)
+      .sort((a, b) => a.dateFrom.localeCompare(b.dateFrom) || a.absentName.localeCompare(b.absentName, 'bg'))
+    const past = collapsed.filter(r => r.dateTo < today)
+      .sort((a, b) => b.dateFrom.localeCompare(a.dateFrom))
     const out: { key: string; label: string; items: SubRow[] }[] = []
-    sorted.forEach(r => {
+    if (current.length) out.push({ key: 'now', label: 'Текущи — днес', items: current })
+    if (upcoming.length) out.push({ key: 'next', label: 'Предстоящи', items: upcoming })
+    past.forEach(r => {
       const key = r.dateFrom.slice(0, 7)
       let g = out[out.length - 1]
       if (!g || g.key !== key) {
