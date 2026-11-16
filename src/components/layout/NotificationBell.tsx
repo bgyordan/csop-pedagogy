@@ -3,6 +3,7 @@
 // „Видяно“ се помни в браузъра — броячът показва само новите; самите задачи стоят, докато не се свършат.
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { createPortal } from 'react-dom'
 import { usePathname } from 'next/navigation'
 import { Bell, CheckCheck, ChevronRight } from 'lucide-react'
 import { getNotifications, type Notice } from '@/lib/notifications-actions'
@@ -79,7 +80,8 @@ export default function NotificationBell({ mini, variant = 'sidebar' }: { mini?:
         <Bell size={variant === 'mobile' ? 20 : 15} />
         {badge}
       </button>
-      {open && (<>
+      {/* През портал в <body> — иначе панелът на менюто (sticky) го държи под картите на таблото */}
+      {open && typeof document !== 'undefined' && createPortal(<>
         <div className="fixed inset-0 z-[60]" onClick={() => setOpen(false)} />
         <div role="dialog" aria-label="Известия"
           className={cn('z-[61] w-[min(92vw,360px)] rounded-2xl bg-white ring-1 ring-[#0f2240]/10 shadow-[0_18px_48px_rgba(15,34,64,0.24)] overflow-hidden animate-[popIn_.14s_ease-out]',
@@ -117,7 +119,7 @@ export default function NotificationBell({ mini, variant = 'sidebar' }: { mini?:
             </div>
           )}
         </div>
-      </>)}
+      </>, document.body)}
     </div>
   )
 }
