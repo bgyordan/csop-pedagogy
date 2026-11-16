@@ -44,11 +44,25 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
     toast(r.hasOrder ? 'Дните са прехвърлени — издай заповедта за новия заместник' : 'Дните са прехвърлени')
     router.refresh()
   }
+  // „Разписанието е пълно“ — ръчно потвърждение, когато системата смята, че часовете не стигат
+  function confirmHours(name: string, d: any) {
+    const placed = String(d.placedHours ?? d.weekHours ?? 0).replace('.', ',')
+    const target = String(d.targetHours ?? 20).replace('.', ',')
+    return confirmDialog(
+      `В разписанието на ${name || 'отсъстващия'} има ${placed} ч., а се очакват ${target} ч. — затова заповедта е БЕЗ часове.\n\n` +
+      `Ако разписанието всъщност е пълно (напр. часове, поделени с колега), издай я с наличните часове? Номерът остава същият.`,
+      { title: 'Разписанието изглежда непълно', confirmLabel: 'Пълно е — с часовете' },
+    )
+  }
   async function genPart(r: SubRow, p: SubRow['partOrders'][number]) {
     const k = `part|${r.id}|${p.staffId}`
     setBusyKey(k)
-    const res: any = await generatePartOrder(r.id, p.staffId)
+    let res: any = await generatePartOrder(r.id, p.staffId)
     if (res?.error) { toast(res.error, 'error'); setBusyKey(null); return }
+    if (res.data?.noHours && await confirmHours(r.absentName, res.data)) {
+      const again: any = await generatePartOrder(r.id, p.staffId, true)
+      if (!again?.error) res = again
+    }
     try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ }
     setBusyKey(null)
     toast(p.orderNumber ? 'Заповедта е изтеглена отново (същият номер)' : `Заповед № ${res.data.orderNumber} за ${p.name} — създадена и изтеглена`)
@@ -230,8 +244,14 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
     const row = rows.find(r => r.id === id)
     const overNorm = row?.bsch ? true : (overNormMap[id] !== false)
     const register = true // заповедта винаги се завежда (регистрация = има номер)
-    const res: any = await generateSubstitution(id, overNorm, register)
+    let res: any = await generateSubstitution(id, overNorm, register)
     if (res.error) { toast(res.error, 'error'); setGenId(null); return }
+    // Системата смята разписанието за непълно → човекът може да потвърди, че е пълно (особени случаи:
+    // часове, поделени с колега, различен учебен план…). Тогава същата заповед излиза с наличните часове.
+    if (res.data?.noHours && await confirmHours(row?.absentName || '', res.data)) {
+      const again: any = await generateSubstitution(id, overNorm, register, true)
+      if (!again.error) res = again
+    }
     try { await generateSubstitutionOrder(res.data) } catch (e) { /* noop */ }
     const wasIssued = !!row?.hasOrder || !!(row as any)?.manualNumber
     if (!(row as any)?.manualNumber) setRows(prev => prev.map(r => r.id === id ? { ...r, hasOrder: true, noHours: !!res.data?.noHours, orderNumber: res.data?.orderNumber || r.orderNumber } : r))
