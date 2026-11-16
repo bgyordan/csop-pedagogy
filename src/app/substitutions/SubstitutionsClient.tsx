@@ -324,9 +324,20 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
   }, [filtered, rows])
 
   // Една плоска подредба (без групи по месеци) — по избор в „Подреди“.
+  // Ключ за подредба по № на заповед: номерата почват от 1 всяка деловодна година (15.09–14.09),
+  // затова първо годината (от датата в номера „041/12.10.2026г.“), после поредният номер.
+  // Иначе стара заповед с голям номер от миналата година излиза „най-нова“.
   const orderNo = (r: SubRow) => {
-    const m = String(r.orderNumber || r.manualNumber || '').match(/\d+/)
-    return m ? Number(m[0]) : Number.POSITIVE_INFINITY // без заповед — накрая
+    const txt = String(r.orderNumber || r.manualNumber || '')
+    const m = txt.match(/\d+/)
+    if (!m) return Number.POSITIVE_INFINITY // без заповед — накрая
+    const d = txt.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/) || (r.manualDate || '').match(/^(\d{4})-(\d{2})-(\d{2})/)
+    let y: number, mo: number, day: number
+    if (d && d[0].includes('.')) { day = Number(d[1]); mo = Number(d[2]); y = Number(d[3]) }
+    else if (d) { y = Number(d[1]); mo = Number(d[2]); day = Number(d[3]) }
+    else { const [yy, mm, dd] = r.dateFrom.split('-').map(Number); y = yy; mo = mm; day = dd }
+    const deloYear = mo > 9 || (mo === 9 && day >= 15) ? y : y - 1
+    return deloYear * 100000 + Number(m[0])
   }
   const groups = useMemo(() => {
     const [key, dir] = sort ? sort.split('_') : ['from', tab === 'archive' ? 'desc' : 'asc']
