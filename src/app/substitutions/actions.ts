@@ -1,5 +1,6 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { isPedagogical } from '@/lib/pedagogues'
 import { checkDeclarablePeriod } from '@/lib/declaration-periods'
@@ -210,8 +211,9 @@ const slotWeight = (name: string, pullout: boolean) => (!pullout || (name || '')
 const WEEK_NORM = 20
 // Часове седмично по учебния план (НЕИСПУО) на служителя за срока — редовете, които се нареждат в разписанието:
 // паралелка, ИЧ или ЦОУД (без терапиите на специалистите — редове без паралелка/група)
-async function planWeekHours(supabase: any, yearId: string | undefined, staffId: string, term: number) {
+async function planWeekHours(_supabase: any, yearId: string | undefined, staffId: string, term: number) {
   if (!yearId) return 0
+  const supabase = createAdminClient() // учебният план на отсъстващия — и за деловодството
   const { data } = await supabase.from('curriculum_lines').select('hours_t1, hours_t2, class_id, coud_group_id, individual')
     .eq('academic_year_id', yearId).eq('staff_id', staffId)
   return (data || []).filter((l: any) => l.class_id || l.coud_group_id || l.individual)
@@ -242,7 +244,11 @@ function slotsByTerm(supabase: any, staffId: string, yearId: string | undefined)
   if (!p) { p = loadSlotsByTerm(supabase, staffId, yearId); c.slots.set(k, p) }
   return p
 }
-async function loadSlotsByTerm(supabase: any, staffId: string, yearId: string | undefined): Promise<Record<number, Slot[]>> {
+// Разписанието на отсъстващия се чете със service-role: деловодството (а и заместникът при декларациите)
+// няма право да чете чуждите ИФО / ЦОУД часове → без тях разписанието изглеждаше непълно („без часове“).
+// Само четене на часове; кой може да вика действията се проверява в самите действия.
+async function loadSlotsByTerm(_supabase: any, staffId: string, yearId: string | undefined): Promise<Record<number, Slot[]>> {
+  const supabase = createAdminClient()
   const out: Record<number, Slot[]> = { 1: [], 2: [] }
   const info = await schedulesOf(supabase, yearId)
   const ids = Object.keys(info)
