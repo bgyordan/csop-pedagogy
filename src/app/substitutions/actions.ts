@@ -210,6 +210,15 @@ const slotWeight = (name: string, pullout: boolean) => (!pullout || (name || '')
 const WEEK_NORM = 20
 // Часове седмично по учебния план (НЕИСПУО) на служителя за срока — редовете, които се нареждат в разписанието:
 // паралелка, ИЧ или ЦОУД (без терапиите на специалистите — редове без паралелка/група)
+// Пълно ли е разписанието на отсъстващия (иначе заповедта излиза „без часове“).
+// С учебен план (НЕИСПУО) — поне толкова наредени часа, колкото са по плана.
+// Без план: учител/възпитател — поне WEEK_NORM седмично; управата (директор, ЗДУД, ЗДАСД) има малко часове
+// (напр. 2 или 4) — пълно е, щом има поне един час в разписанието.
+function scheduleIncomplete(role: string | null | undefined, planH: number, placedCount: number, weekHours: number) {
+  if (planH > 0) return placedCount < Math.floor(planH)
+  if (['admin', 'zdud', 'director'].includes(role || '')) return placedCount === 0
+  return weekHours < WEEK_NORM
+}
 async function planWeekHours(supabase: any, yearId: string | undefined, staffId: string, term: number) {
   if (!yearId) return 0
   const { data } = await supabase.from('curriculum_lines').select('hours_t1, hours_t2, class_id, coud_group_id, individual')
@@ -397,7 +406,7 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   const { data: sub } = await supabase
     .from('substitutions')
     .select(`id, absent_staff_id, substitute_staff_id, date_from, date_to, reason, leave_order_number, leave_order_date, bsch_eligible, kt_article, substitution_order_id, manual_order_number, manual_order_date,
-       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, position),
+       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, position, role),
       sub:staff_profiles!substitutions_substitute_staff_id_fkey(first_name, last_name, position)`)
     .eq('id', substitutionId).single()
   if (!sub) return { error: 'Заместването не е намерено' }
@@ -451,13 +460,13 @@ export async function generateSubstitution(substitutionId: string, overNorm: boo
   const subName = sub.sub ? `${(sub.sub as any).first_name} ${(sub.sub as any).last_name}` : ''
   // Разписанието е ПЪЛНО, когато са наредени поне толкова часа, колкото са по учебния план (НЕИСПУО)
   // на човека за срока — независимо от нормата (21 седмично за учител, 144 / 72 годишно за управата).
-  // Без учебен план — по старото правило: поне 20 седмични часа (с тежест 0,7 за „вземане“).
+  // Без учебен план — учител: поне 20 седмични часа (с тежест 0,7 за „вземане“); управата: поне 1 час.
   // Непълно (учителят още не е въвел разписанието си) → заповед БЕЗ часове; декларациите после четат готовото разписание.
   const normTerm = wds.length ? wds[0].term : 1
   const weekHours = Math.round(byTerm[normTerm].reduce((a, s) => a + (s.w ?? 1), 0) * 10) / 10
   const placedCount = byTerm[normTerm].length
   const planH = await planWeekHours(supabase, cy?.id, sub.absent_staff_id, normTerm)
-  const noHours = planH > 0 ? placedCount < Math.floor(planH) : weekHours < WEEK_NORM
+  const noHours = scheduleIncomplete((sub.absent as any)?.role, planH, placedCount, weekHours)
   // целта, спрямо която се мери (за съобщението)
   const targetHours = planH > 0 ? Math.round(planH * 10) / 10 : WEEK_NORM
   const placedHours = planH > 0 ? placedCount : weekHours
@@ -595,7 +604,7 @@ export async function generatePartOrder(substitutionId: string, staffId: string)
   const { data: sub } = await supabase
     .from('substitutions')
     .select(`id, absent_staff_id, date_from, date_to, reason, leave_order_number, bsch_eligible, kt_article, over_norm, substitution_order_id,
-       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, position)`)
+       absent:staff_profiles!substitutions_absent_staff_id_fkey(first_name, last_name, position, role)`)
     .eq('id', substitutionId).single()
   if (!sub) return { error: 'Заместването не е намерено' }
   if (isOpenEnd(sub.date_to)) return { error: 'Отсъствието още няма крайна дата, а заповедта се издава за точен период. Въведете докога е и опитайте пак.' }
@@ -644,7 +653,7 @@ export async function generatePartOrder(substitutionId: string, staffId: string)
   const normTerm = wds.length ? wds[0].term : 1
   const weekHours = Math.round(byTerm[normTerm].reduce((a, s) => a + (s.w ?? 1), 0) * 10) / 10
   const planH = await planWeekHours(supabase, cy?.id, sub.absent_staff_id, normTerm)
-  const noHours = planH > 0 ? byTerm[normTerm].length < Math.floor(planH) : weekHours < WEEK_NORM
+  const noHours = scheduleIncomplete((sub.absent as any)?.role, planH, byTerm[normTerm].length, weekHours)
 
   let orderNumber = '', orderDate = ''
   if (existingId) {
