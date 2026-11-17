@@ -10,7 +10,7 @@ import KtPartsEditor, { ktPartsError } from '@/components/KtPartsEditor'
 import { ktLabel, type KtPart } from '@/lib/kt'
 import { FileDrop, useFormKeys, KeysHint } from '@/components/registry/FormParts'
 import { X, Loader2, User, GraduationCap, ChevronDown, ArrowDownLeft, ArrowUpRight, Zap, ClipboardList, FileText } from 'lucide-react'
-import { notify } from '@/components/ui/Toast'
+import { notify, confirmDialog } from '@/components/ui/Toast'
 // Деловодна година: 15.09 – 14.09 следващата
 function deloYearBounds(ref: Date): { start: string; end: string } {
   const y = ref.getFullYear()
@@ -154,6 +154,42 @@ export default function NewCorrespondenceForm({
   const [showNewStud, setShowNewStud] = useState(false)
   const [ns, setNs] = useState({ first: '', middle: '', last: '', birth: '', parent: '', relation: 'майка', phone: '' })
   const [nsSaving, setNsSaving] = useState(false)
+  // Защита от двойно добавяне: докато се пишат име и фамилия — търсим вече съществуващи деца
+  // (всички години, вкл. архивирани). Съвпадение по име+фамилия+дата на раждане → не се създава ново.
+  type Dup = { id: string; first_name: string; middle_name: string | null; last_name: string; birth_date: string | null; status: string | null; cls: string }
+  const [dups, setDups] = useState<Dup[]>([])
+  const normName = (x: string) => x.trim().replace(/\s+/g, ' ').toLowerCase()
+  useEffect(() => {
+    const f = normName(ns.first), l = normName(ns.last)
+    if (!showNewStud || f.length < 2 || l.length < 2) { setDups([]); return }
+    const esc = (x: string) => x.replace(/[%_\\]/g, m => '\\' + m)
+    const t = setTimeout(async () => {
+      const sel = 'id, first_name, middle_name, last_name, birth_date, status, student_enrollments(academic_year_id, class:classes(name))'
+      const qs = [supabase.from('students').select(sel).ilike('first_name', esc(f)).ilike('last_name', esc(l)).limit(10)]
+      // и същата фамилия + същата дата (напр. „Ники“ / „Николай“)
+      if (ns.birth) qs.push(supabase.from('students').select(sel).ilike('last_name', esc(l)).eq('birth_date', ns.birth).limit(10))
+      const res = await Promise.all(qs)
+      const seen = new Set<string>()
+      const out: Dup[] = []
+      res.forEach(r => (r.data || []).forEach((x: any) => {
+        if (seen.has(x.id)) return
+        seen.add(x.id)
+        const enr = (x.student_enrollments || []).slice(-1)[0]
+        out.push({ id: x.id, first_name: x.first_name, middle_name: x.middle_name, last_name: x.last_name, birth_date: x.birth_date, status: x.status, cls: enr?.class?.name || '' })
+      }))
+      setDups(out)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [ns.first, ns.last, ns.birth, showNewStud]) // eslint-disable-line react-hooks/exhaustive-deps
+  const exactDup = dups.find(d => normName(d.first_name) === normName(ns.first) && normName(d.last_name) === normName(ns.last) && !!ns.birth && d.birth_date === ns.birth)
+  function pickExisting(d: Dup) {
+    const st = { id: d.id, first_name: d.first_name, last_name: d.last_name }
+    if (!allStudents.some(x => x.id === d.id)) setExtraStudents(prev => [...prev, st])
+    setShowNewStud(false)
+    setDups([])
+    setNs({ first: '', middle: '', last: '', birth: '', parent: '', relation: 'майка', phone: '' })
+    handleStudentSelect(d.id, st)
+  }
   const [staffId, setStaffId] = useState('')
   const [guardians, setGuardians] = useState<{ full_name: string; relation: string }[]>([])
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
@@ -267,6 +303,13 @@ export default function NewCorrespondenceForm({
   }
   async function createIntakeStudent() {
     if (!ns.first.trim() || !ns.last.trim() || !ns.birth) return
+    if (nsSaving) return
+    // същото име, фамилия и дата на раждане → това е същото дете, не се създава ново
+    if (exactDup) { notify('Това дете вече е в системата — изберете го от списъка „Вече има…“.'); return }
+    if (dups.length > 0 && !(await confirmDialog(
+      `В системата вече има ${dups.length === 1 ? 'дете' : 'деца'} с това име (с друга дата на раждане). Сигурни ли сте, че е друго дете?`,
+      { title: 'Възможно е детето вече да е въведено', confirmLabel: 'Да, друго дете е' },
+    ))) return
     setNsSaving(true)
     const { data: year } = await supabase.from('academic_years').select('id').eq('is_current', true).single()
     const { data: st, error } = await supabase.from('students').insert({
@@ -667,10 +710,28 @@ export default function NewCorrespondenceForm({
                       </select>
                     </div>
                     <input value={ns.phone} onChange={e => setNs({ ...ns, phone: e.target.value })} placeholder="Телефон на родителя" className="input text-xs w-full" />
+                    {dups.length > 0 && (
+                      <div className={`rounded-lg border px-2.5 py-2 space-y-1 ${exactDup ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-slate-50'}`}>
+                        <div className={`text-[11px] font-medium ${exactDup ? 'text-amber-800' : 'text-slate-600'}`}>
+                          {exactDup ? 'Това дете вече е в системата — изберете го:' : 'Вече има дете с това име — не е ли то?'}
+                        </div>
+                        {dups.map(d => (
+                          <div key={d.id} className="flex items-center gap-2 text-[11px]">
+                            <span className="min-w-0 truncate text-slate-800">{d.first_name}{d.middle_name ? ` ${d.middle_name}` : ''} {d.last_name}</span>
+                            <span className="text-slate-500 shrink-0">{d.birth_date ? d.birth_date.split('-').reverse().join('.') : '—'}</span>
+                            {d.cls && <span className="text-slate-400 shrink-0">{d.cls}</span>}
+                            {d.status === 'archived' && <span className="text-[10px] px-1.5 rounded-full border border-slate-300 text-slate-500 shrink-0">архив</span>}
+                            <button type="button" onClick={() => pickExisting(d)}
+                              className="ml-auto shrink-0 px-2 py-0.5 rounded-md border border-[#0f2240]/30 text-[#0f2240] bg-white hover:bg-slate-50">Това е — избери</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <p className="text-[10px] text-slate-400">Детето влиза като „ново“ в Служебна паралелка. Останалото (паралелка, форма, училище, ЕПЛР) се попълва после.</p>
                     <div className="flex justify-end gap-1.5">
                       <button type="button" onClick={() => setShowNewStud(false)} className="px-2.5 py-1 rounded-lg text-[11px] border border-slate-200 text-slate-600 hover:bg-slate-50">Отказ</button>
-                      <button type="button" onClick={createIntakeStudent} disabled={nsSaving || !ns.first.trim() || !ns.last.trim() || !ns.birth}
+                      <button type="button" onClick={createIntakeStudent} disabled={nsSaving || !!exactDup || !ns.first.trim() || !ns.last.trim() || !ns.birth}
+                        title={exactDup ? 'Детето вече е в системата — изберете го отгоре' : undefined}
                         className="px-3 py-1 rounded-lg text-[11px] text-white disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>
                         {nsSaving ? 'Добавяне…' : 'Добави ученика'}
                       </button>
