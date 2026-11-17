@@ -172,9 +172,10 @@ export function EndDateField({ value, onChange, min, toast, disabled }: { value:
 
 // Вид на отсъствието — малък цветен етикет в списъка
 export const REASON_BADGE: Record<string, { label: string; cls: string }> = {
-  sick: { label: 'болничен', cls: 'bg-rose-50 text-rose-700 border-rose-200' },
-  vacation: { label: 'отпуск', cls: 'bg-sky-50 text-sky-700 border-sky-200' },
-  other: { label: 'друго', cls: 'bg-slate-50 text-slate-600 border-slate-200' },
+  // делово: само тънка сива рамка, видът се чете от думата
+  sick: { label: 'болничен', cls: 'bg-white text-slate-600 border-slate-300' },
+  vacation: { label: 'отпуск', cls: 'bg-white text-slate-500 border-slate-200' },
+  other: { label: 'друго', cls: 'bg-white text-slate-500 border-slate-200' },
 }
 
 // Месеците на избраната учебна година (без избрана — на текущата по календар)
