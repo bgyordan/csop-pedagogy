@@ -701,7 +701,7 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
             </div>
           </div>
           {newSubstitutable && (<>
-          <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm cursor-pointer transition-all ${bsch ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+          <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm cursor-pointer transition-all ${bsch ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
             <input type="checkbox" checked={bsch} onChange={e => setBsch(e.target.checked)} className="sr-only" />
             По НП „Без свободен час"
           </label>
@@ -804,14 +804,14 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
           const subs = multi ? uniqueSubs(r.assigns) : []
           const isOpen = openId === r.id
           return (
-            <div key={r.id} className={`bg-white border rounded-2xl transition-all group shadow-[0_1px_4px_rgba(15,34,64,0.06)] ${isOpen ? 'border-slate-400 shadow-[0_2px_8px_rgba(15,34,64,0.10)]' : 'border-slate-200 hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)]'} ${idx % 2 === 1 && !isOpen ? 'bg-slate-50/40' : ''}`}>
+            <div key={r.id} className={`bg-white border rounded-2xl transition-all group shadow-[0_1px_4px_rgba(15,34,64,0.06)] ${isTodo(r) ? 'border-l-[3px] border-l-amber-400' : ''} ${isOpen ? 'border-slate-400 shadow-[0_2px_8px_rgba(15,34,64,0.10)]' : 'border-slate-200 hover:border-slate-400 hover:shadow-[0_2px_8px_rgba(15,34,64,0.10)]'} ${idx % 2 === 1 && !isOpen ? 'bg-slate-50/40' : ''}`}>
             <div onClick={multi ? () => toggleOpen(r) : undefined}
               title={multi ? 'Покажи кой кои дни замества' : undefined}
               className={`px-4 py-2 grid grid-cols-1 md:grid-cols-[88px_minmax(0,1.3fr)_minmax(0,1.3fr)_76px_76px_262px] gap-2 md:gap-3 md:items-center ${multi ? 'cursor-pointer' : ''}`}>
               {(() => { const o = orderRef(r); return o
                 ? <span className="text-xs tabular-nums whitespace-nowrap" title={`Заповед № ${o.full}`}><span className="text-slate-700">№ {o.n}</span>{o.d && <span className="text-slate-400"> / {o.d}</span>}</span>
                 : <span className="text-xs text-slate-300" title={r.noOrder ? 'Без заповед' : 'Заповедта не е издадена'}>—</span> })()}
-              <span className="text-sm text-slate-800 bg-rose-50/50 rounded-md px-2 py-1 flex items-center gap-1.5 min-w-0">
+              <span className="text-sm text-slate-800 rounded-md px-2 py-1 flex items-center gap-1.5 min-w-0">
                 <span className="truncate">{r.absentName}</span>
                 {REASON_BADGE[r.reason] && <span className={`shrink-0 text-[10px] px-1.5 py-px rounded-full border ${REASON_BADGE[r.reason].cls}`}>{REASON_BADGE[r.reason].label}</span>}
               </span>
@@ -824,9 +824,9 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
                   <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                 </span>
               ) : (
-              <span className={`text-sm text-slate-600 rounded-md px-2 py-1 ${r.substituteName ? 'bg-emerald-50/60' : ''}`}>
+              <span className="text-sm text-slate-600 rounded-md px-2 py-1">
                 {r.substituteName || (canSubstitute(r.absentRole) || staff.find(s => s.id === r.absentStaffId)?.teaching
-                  ? <span className="inline-flex items-center gap-1 text-amber-500 text-xs"><UserX size={13} /> няма</span>
+                  ? <span className="inline-flex items-center gap-1 text-amber-700 text-xs"><UserX size={13} /> няма</span>
                   : <span className="text-xs text-slate-400">не се замества</span>)}
               </span>
               )}
@@ -842,21 +842,21 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
                   : fmt(r.dateTo)}
               </span>
               <div className="flex items-center justify-end gap-1.5 flex-nowrap" onClick={e => e.stopPropagation()}>
-                {(r as any).bsch && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0" title="По национална програма">НП</span>}
+                {(r as any).bsch && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-white text-[#0f2240] border border-slate-300 shrink-0" title="По национална програма">НП</span>}
                 {!r.bsch && overNormMap[r.id] === false && (r.hasOrder || (r as any).manualNumber || (r as any).noOrder) && <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 shrink-0" title="В рамките на нормата — без заплащане">вътр.</span>}
                 {(r as any).manualNumber ? (
                   <button onClick={() => genOrder(r.id)} disabled={genId === r.id} title="Генерирай заповедта в Word с този номер (нищо ново не се завежда)"
-                    className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0 hover:bg-emerald-100 transition-colors disabled:opacity-50">
+                    className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-white text-slate-600 border border-slate-200 shrink-0 hover:bg-slate-50 hover:text-[#0f2240] transition-colors disabled:opacity-50">
                     {genId === r.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} {`Заповед № ${(r as any).manualNumber}`} <Download size={12} className="opacity-60" />
                   </button>
                 ) : r.hasOrder && r.noHours ? (
                   <button onClick={() => genOrder(r.id)} disabled={genId === r.id} title="Издадена без часове — разписанието на отсъстващия беше непълно. Когато е готово, натисни: същият номер, вече с часовете."
-                    className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 shrink-0 hover:bg-violet-100 transition-colors disabled:opacity-50">
+                    className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-white text-amber-700 border border-amber-300 shrink-0 hover:bg-amber-50 transition-colors disabled:opacity-50">
                     {genId === r.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Без часове <Download size={12} className="opacity-60" />
                   </button>
                 ) : r.hasOrder ? (
                   <button onClick={() => genOrder(r.id)} disabled={genId === r.id} title="Изтегли заповедта пак (същият номер)"
-                    className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0 hover:bg-emerald-100 transition-colors disabled:opacity-50">
+                    className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-white text-slate-600 border border-slate-200 shrink-0 hover:bg-slate-50 hover:text-[#0f2240] transition-colors disabled:opacity-50">
                     {genId === r.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Заповед издадена <Download size={12} className="opacity-60" />
                   </button>
                 ) : (r as any).noOrder ? (
@@ -910,7 +910,7 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
                     <span>Поема дни: <b className="font-medium text-slate-800">{p.name}</b> · {p.from === p.to ? fmt(p.from) : `${fmt(p.from)} – ${fmt(p.to)}`}</span>
                     {p.orderNumber ? (
                       <button onClick={() => genPart(r, p)} disabled={busyKey === k} title="Изтегли заповедта пак (същият номер)"
-                        className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 disabled:opacity-50">
+                        className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-[#0f2240] disabled:opacity-50">
                         {busyKey === k ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Заповед № {p.orderNumber.split('/')[0]} <Download size={12} className="opacity-60" />
                       </button>
                     ) : (
@@ -983,7 +983,7 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
               </div>
               {eExtra.length === 0 && <div className="md:col-span-2"><KtPartsEditor parts={eKtParts} onChange={setEKtParts} from={eFrom} to={eTo} base={eKtArticle} /></div>}
               <div className="md:col-span-2">
-                <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm cursor-pointer transition-all ${eBsch ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+                <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm cursor-pointer transition-all ${eBsch ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
                   <input type="checkbox" checked={eBsch} onChange={e => setEBsch(e.target.checked)} className="sr-only" />
                   По НП „Без свободен час"
                 </label>

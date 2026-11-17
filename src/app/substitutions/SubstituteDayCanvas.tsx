@@ -22,15 +22,16 @@ export const hourKey = (iso: string, period: number) => `${iso}|${period}`
 const isSplit = (value: Record<string, string>, iso: string) => Object.keys(value).some(k => k.startsWith(iso + '|'))
 
 // Меки фонове + четлив тъмен текст (без плътни тъмни запълвания)
+// Различаваме заместниците по дни — но с бледи, приглушени тонове (делово, не пъстро)
 export const PALETTE = [
-  { bg: '#e0edff', bd: '#93b4f5', tx: '#1e3a8a' },
-  { bg: '#dcfce7', bd: '#86d5a3', tx: '#166534' },
-  { bg: '#fef3c7', bd: '#e6c260', tx: '#92400e' },
-  { bg: '#fae8ff', bd: '#d9a6e8', tx: '#86198f' },
-  { bg: '#ccfbf1', bd: '#7fd9c9', tx: '#115e59' },
-  { bg: '#ffe4e6', bd: '#f3a6b0', tx: '#9f1239' },
-  { bg: '#ede9fe', bd: '#b9a7ef', tx: '#5b21b6' },
-  { bg: '#e2e8f0', bd: '#aab6c6', tx: '#334155' },
+  { bg: '#eef2f8', bd: '#b8c4d6', tx: '#1e2f4d' },
+  { bg: '#eef5f1', bd: '#b7cdbf', tx: '#24443a' },
+  { bg: '#f6f2ea', bd: '#d6c9ae', tx: '#5a4524' },
+  { bg: '#f3eff6', bd: '#c9bcd6', tx: '#47345c' },
+  { bg: '#edf4f5', bd: '#b4cbcf', tx: '#1f4248' },
+  { bg: '#f6eff0', bd: '#d4b9bd', tx: '#5a2e35' },
+  { bg: '#f1f1f4', bd: '#c3c3cf', tx: '#3a3a4d' },
+  { bg: '#f1f5f9', bd: '#cbd5e1', tx: '#334155' },
 ]
 const WD = ['Нед', 'Пон', 'Вто', 'Сря', 'Чет', 'Пет', 'Съб']
 
