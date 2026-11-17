@@ -38,7 +38,7 @@ export default function PostCard({ post, author, thumbs, classNames, onOpen, onT
   const files = post.media.length - photos - videos
   const site = SITE[post.site_status]
   const text = plain(post.body || post.ideas || post.activities || post.goals, 150)
-  const cls = post.classIds.map(id => classNames[id]).filter(Boolean)
+  const cls = [...post.classIds, ...(post.staffIds || [])].map(id => classNames[id]).filter(Boolean)
   // Акцент: най-близката предстояща дата на събитие
   const next = nextKeyDate(post)
   const tone = next ? dateTone(next.date) : null

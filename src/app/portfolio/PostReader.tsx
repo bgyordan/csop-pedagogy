@@ -41,7 +41,7 @@ export default function PostReader({ post, author, thumbs, classNames, canEdit, 
   const today = todayYmd()
   const allDates = keyDates(post).filter(d => !d.main)
   const next = nextKeyDate(post, today)
-  const cls = post.classIds.map(id => classNames[id]).filter(Boolean)
+  const cls = [...post.classIds, ...(post.staffIds || [])].map(id => classNames[id]).filter(Boolean)
 
   useEffect(() => {
     if (!images.length) return

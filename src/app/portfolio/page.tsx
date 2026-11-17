@@ -25,7 +25,7 @@ export default async function PortfolioPage() {
     supabase.from('portfolio_posts').select('*').order('created_at', { ascending: false }).limit(1000),
     supabase.from('portfolio_media').select('id, post_id, path, thumb_path, name, mime, size, caption, sort').order('sort'),
     supabase.from('portfolio_post_classes').select('post_id, class_id'),
-    supabase.from('staff_profiles').select('id, first_name, middle_name, last_name, role, position').order('first_name'),
+    supabase.from('staff_profiles').select('id, first_name, middle_name, last_name, role, therapy_role, position, is_active').order('first_name'),
     supabase.from('classes').select('id, name').eq('academic_year_id', year?.id).order('name'),
     supabase.from('class_teacher_assignments').select('class_id').eq('staff_id', me.id).eq('academic_year_id', year?.id),
     // Дати и събития (2026-11-03_portfolio_dates.sql) — ако таблицата я няма, разделът просто не се показва
@@ -33,10 +33,15 @@ export default async function PortfolioPage() {
   ])
 
   // Групи ЦОУД — за съвместна дейност с паралелки (2026-11-06_portfolio_groups.sql; без него — само паралелки)
-  const [coudRes, grpLinksRes] = await Promise.all([
+  const [coudRes, grpLinksRes, staffLinksRes] = await Promise.all([
     supabase.from('coud_groups').select('id, name, teacher_id').eq('academic_year_id', year?.id).order('name'),
     supabase.from('portfolio_post_groups').select('post_id, group_id'),
+    // колеги-участници (2026-11-17_portfolio_staff.sql; без него — изборът на специалисти не се показва)
+    supabase.from('portfolio_post_staff').select('post_id, staff_id'),
   ])
+  const staffReady = !staffLinksRes.error
+  const staffBy: Record<string, string[]> = {}
+  ;(staffReady ? staffLinksRes.data || [] : []).forEach((l: any) => { (staffBy[l.post_id] ||= []).push(l.staff_id) })
   const groupsReady = !grpLinksRes.error
   const coudLabel = (n: string) => /цоуд|група/i.test(n || '') ? n : `ЦОУД ${n}`
   const groups = groupsReady ? (coudRes.data || []).map((g: any) => ({ id: g.id, name: coudLabel(g.name), group: true })) : []
@@ -64,7 +69,7 @@ export default async function PortfolioPage() {
   const datesBy: Record<string, any[]> = {}
   ;(datesRes.data || []).forEach((d: any) => { (datesBy[d.post_id] ||= []).push(d) })
 
-  const posts: Post[] = (postsRes.data || []).map((p: any) => ({ ...p, media: mediaBy[p.id] || [], classIds: clsBy[p.id] || [], dates: datesBy[p.id] || [] }))
+  const posts: Post[] = (postsRes.data || []).map((p: any) => ({ ...p, media: mediaBy[p.id] || [], classIds: clsBy[p.id] || [], staffIds: staffBy[p.id] || [], dates: datesBy[p.id] || [] }))
 
   // Подписани адреси за миниатюрите (хранилището е частно)
   const thumbPaths = Array.from(new Set((mediaRes.data || []).map((m: any) => m.thumb_path).filter(Boolean))) as string[]
@@ -79,6 +84,11 @@ export default async function PortfolioPage() {
     label: s.position || ROLE_LABELS[s.role] || '',
   }))
 
+  // специалистите (логопед, психолог, рехабилитатор — и с двойна роля) — първи в избора на участници
+  const SPEC = ['speech_therapist', 'psychologist', 'rehabilitator']
+  const specialistIds = (staffRes.data || []).filter((s: any) => SPEC.includes(s.role) || SPEC.includes(s.therapy_role)).map((s: any) => s.id)
+  const activeIds = (staffRes.data || []).filter((s: any) => s.is_active !== false && s.role !== 'support').map((s: any) => s.id)
+
   return (
     <PortfolioClient
       meId={me.id}
@@ -90,6 +100,9 @@ export default async function PortfolioPage() {
       myClassIds={[...(ctaRes.data || []).map((c: any) => c.class_id), ...myGroupIds]}
       academicYearId={year?.id || null}
       datesReady={!datesRes.error}
+      staffReady={staffReady}
+      specialistIds={specialistIds}
+      activeIds={activeIds}
     />
   )
 }

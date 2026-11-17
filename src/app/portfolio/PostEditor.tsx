@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { renderRich, slugName } from '@/app/site-docs/shared'
 import { KINDS, kindMeta, isImage, isVideo, isVideoFile, isDrive, uploadVideo, trashVideos, VIDEO_MAX_MB, resizeImage, uid, STATUS } from './lib'
-import type { Post, Kind, Media, Cls } from './lib'
+import type { Post, Kind, Media, Cls, Person } from './lib'
 import { confirmDialog } from '@/components/ui/Toast'
 
 type DateRow = { key: string; id?: string; date: string; time_from: string; time_to: string; title: string; place: string; note: string; highlight: boolean }
@@ -34,9 +34,11 @@ function monthOptions() {
 }
 const lastDay = (ym: string) => { const [y, m] = ym.split('-').map(Number); return `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}` }
 
-export default function PostEditor({ post, presetKind, meId, academicYearId, datesReady = true, classes, myClassIds, thumbs, onClose, onSaved }: {
+export default function PostEditor({ post, presetKind, meId, academicYearId, datesReady = true, classes, myClassIds, thumbs, people = [], specialistIds = [], onClose, onSaved }: {
   post: Post | null; presetKind?: Kind; meId: string; academicYearId: string | null; datesReady?: boolean
   classes: Cls[]; myClassIds: string[]; thumbs: Record<string, string>
+  /** колеги за „Специалисти / участници“ (празно — таблицата още я няма) */
+  people?: Person[]; specialistIds?: string[]
   onClose: () => void; onSaved: (id: string, msg: string) => void
 }) {
   const supabase = createClient()
@@ -57,6 +59,7 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, dat
   const setDate = (key: string, patch: Partial<DateRow>) => setDates(p => p.map(d => d.key === key ? { ...d, ...patch } : d))
   const addDate = () => setDates(p => [...p, { key: uid(), date: '', time_from: '', time_to: '', title: '', place: '', note: '', highlight: true }])
   const [classIds, setClassIds] = useState<string[]>(post ? post.classIds : (presetKind === 'project' ? myClassIds : []))
+  const [staffIds, setStaffIds] = useState<string[]>(post?.staffIds || [])
   const [items, setItems] = useState<Item[]>(() => (post?.media || []).map(m => ({
     key: m.id, media: m, caption: m.caption || '', image: isImage(m), video: isVideo(m), preview: m.thumb_path ? thumbs[m.thumb_path] : undefined,
   })))
@@ -248,6 +251,15 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, dat
       if (addC.length) await supabase.from('portfolio_post_classes').insert(addC.map(c => ({ post_id: id, class_id: c })))
       if (delG.length) await supabase.from('portfolio_post_groups').delete().eq('post_id', id).in('group_id', delG)
       if (addG.length) { const { error } = await supabase.from('portfolio_post_groups').insert(addG.map(g => ({ post_id: id, group_id: g }))); if (error) throw error }
+
+      // Колеги-участници (логопед, психолог, рехабилитатор…)
+      if (people.length) {
+        const prevS = post?.staffIds || []
+        const wantS = kind === 'project' || kind === 'event' ? staffIds : []
+        const addS = wantS.filter(x => !prevS.includes(x)), delS = prevS.filter(x => !wantS.includes(x))
+        if (delS.length) await supabase.from('portfolio_post_staff').delete().eq('post_id', id).in('staff_id', delS)
+        if (addS.length) { const { error } = await supabase.from('portfolio_post_staff').insert(addS.map(x => ({ post_id: id, staff_id: x }))); if (error) throw error }
+      }
 
       // Дати и събития
       if (datesReady) {
@@ -490,6 +502,30 @@ export default function PostEditor({ post, presetKind, meId, academicYearId, dat
                   ))}
                 </div>
               )}
+              {(kind === 'project' || kind === 'event') && people.length > 0 && (() => {
+                const specs = people.filter(p => specialistIds.includes(p.id) && p.id !== meId)
+                const others = people.filter(p => !specialistIds.includes(p.id) && p.id !== meId)
+                const chosen = staffIds.map(id => people.find(p => p.id === id)).filter(Boolean) as Person[]
+                return (
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-2">Специалисти / участници <span className="normal-case tracking-normal font-normal text-slate-400">— по желание; напр. логопед, психолог, рехабилитатор. Добавените също могат да редактират.</span></div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {chosen.map(p => (
+                        <span key={p.id} className="inline-flex items-center gap-1 pl-3 pr-1.5 py-1 rounded-full text-[13px] bg-[#0f2240] text-white">
+                          {p.short}{p.label && <span className="text-white/60 text-[11px]">· {p.label}</span>}
+                          <button type="button" onClick={() => setStaffIds(x => x.filter(i => i !== p.id))} className="ml-0.5 p-0.5 rounded-full hover:bg-white/20" aria-label="Махни"><X size={12} /></button>
+                        </span>
+                      ))}
+                      <select value="" onChange={e => { const v = e.target.value; if (v) setStaffIds(x => x.includes(v) ? x : [...x, v]) }}
+                        className="px-3 py-1.5 rounded-full text-[13px] border border-dashed border-slate-300 bg-white text-slate-600 hover:border-slate-500 cursor-pointer">
+                        <option value="">+ Добави колега</option>
+                        {specs.length > 0 && <optgroup label="Специалисти">{specs.filter(p => !staffIds.includes(p.id)).map(p => <option key={p.id} value={p.id}>{p.short}{p.label ? ` — ${p.label}` : ''}</option>)}</optgroup>}
+                        <optgroup label="Други колеги">{others.filter(p => !staffIds.includes(p.id)).map(p => <option key={p.id} value={p.id}>{p.short}{p.label ? ` — ${p.label}` : ''}</option>)}</optgroup>
+                      </select>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
 
             {/* ДЯСНО — снимки, файлове, сайт */}
