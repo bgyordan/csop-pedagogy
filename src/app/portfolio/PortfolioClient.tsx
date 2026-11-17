@@ -34,9 +34,10 @@ const PROJECT_GROUPS: { key: string; label: string }[] = [
   { key: 'in_progress', label: 'В ход' }, { key: 'idea', label: 'Идеи' }, { key: 'done', label: 'Завършени' },
 ]
 
-export default function PortfolioClient({ meId, role, posts, thumbs, people, classes, myClassIds, academicYearId, datesReady }: {
+export default function PortfolioClient({ meId, role, posts, thumbs, people, classes, myClassIds, academicYearId, datesReady, staffReady = false, specialistIds = [], activeIds = [] }: {
   meId: string; role: string; posts: Post[]; thumbs: Record<string, string>; people: Person[]
   classes: Cls[]; myClassIds: string[]; academicYearId: string | null
+  staffReady?: boolean; specialistIds?: string[]; activeIds?: string[]
   /** Има ли таблица за датите (миграция 2026-11-03_portfolio_dates.sql) */
   datesReady: boolean
 }) {
@@ -87,10 +88,12 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
   }, [addOpen])
 
   const personBy = useMemo(() => Object.fromEntries(people.map(p => [p.id, p])), [people])
-  const classNames = useMemo(() => Object.fromEntries(classes.map(c => [c.id, c.name])), [classes])
+  // имената на паралелките/групите + на колегите-участници (за картите и четенето)
+  const classNames = useMemo(() => Object.fromEntries([...classes.map(c => [c.id, c.name]), ...people.map(p => [p.id, p.short])]), [classes, people])
   const me = personBy[meId]
 
-  const mine = posts.filter(p => p.author_id === meId)
+  // „мои“ — моите и тези, в които съм добавен като участник
+  const mine = posts.filter(p => p.author_id === meId || (p.staffIds || []).includes(meId))
   // Общата стена: споделеното от всички + моите „само за мен“ (със знак на картата), за да не се „губят“ след запис
   const wall = posts.filter(p => !isDraft(p) || p.author_id === meId)
   const siteQueue = posts.filter(p => p.site_status === 'requested' && !isDraft(p))
@@ -151,6 +154,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
 
   const open = posts.find(p => p.id === openId) || null
   const canEdit = (p: Post) => p.author_id === meId || isManager || (p.kind === 'project' && p.classIds.some(c => myClassIds.includes(c)))
+    || ((p.kind === 'project' || p.kind === 'event') && (p.staffIds || []).includes(meId))
   const canDelete = (p: Post) => p.author_id === meId || isManager
 
   function flash(m: string) { setToast(m); setTimeout(() => setToast(''), 3500) }
@@ -441,6 +445,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
       {editor && (
         <PostEditor post={editor.post} presetKind={editor.kind} meId={meId} academicYearId={academicYearId} datesReady={datesReady}
           classes={classes} myClassIds={myClassIds} thumbs={thumbs}
+          people={staffReady ? people.filter(p => activeIds.includes(p.id)) : []} specialistIds={specialistIds}
           onClose={() => setEditor(null)}
           onSaved={(id, msg) => { setEditor(null); setOpenId(id); refresh(msg) }} />
       )}

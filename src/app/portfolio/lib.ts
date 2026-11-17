@@ -19,6 +19,8 @@ export interface Post {
   site_news_id: string | null; site_requested_at: string | null
   created_at: string; updated_at: string
   media: Media[]; classIds: string[]
+  /** Колеги-участници (логопед, психолог, рехабилитатор…) — таблица portfolio_post_staff */
+  staffIds?: string[]
   /** Дати и събития към публикацията (таблица portfolio_dates) */
   dates: PDate[]
 }
