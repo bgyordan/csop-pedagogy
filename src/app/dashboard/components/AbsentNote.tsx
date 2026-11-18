@@ -2,7 +2,7 @@
 // Листчето „Днес отсъстват“ — като бележка, залепена с тиксо: ръкописен шрифт, редове от тетрадка.
 // Две части: „заместват ги“ (Петър П. ← Иван Г.) и „отсъстват“ (помощници, специалисти и др., които не се заместват —
 // за да не ги търсят колегите). Показват се през целия период на отсъствието.
-// • Изскача само когато има нещо НОВО за този колега: ново отсъствие или сменен/нов заместник.
+// • Изскача само когато има нещо НОВО за този колега: ново (или удължено) отсъствие от последната седмица.
 // • „Видях“ го прибира; видяното се помни в браузъра.
 // • Остава малка бележка в таблото — клик я отваря отново.
 // • compact — за картата на управата: само карфица в заглавието (картата си показва списъка).
@@ -19,8 +19,15 @@ const KEY = 'eis-absent-seen'
 const HAND = "'Caveat', cursive"
 const short = (n: string) => { const [f, l] = n.trim().split(/\s+/); return l ? `${f} ${l[0]}.` : f }
 const dm = (iso: string) => iso.split('-').reverse().slice(0, 2).join('.')
-// ключ: отсъствието + кой го замества → нов заместник = ново за колегите
-const keyOf = (r: TodayAbsence) => `${r.id}|${r.by}`
+// ключ: самото отсъствие и до кога е (удължаване = ново). Без „кой замества“ — при заместници по дни
+// той се сменя всеки ден и старите отсъствия излизаха като „ново“.
+const keyOf = (r: TodayAbsence) => `${r.id}|${r.to}`
+// „ново“ е само отсъствие, започнало в последната седмица (на ново устройство старите не крещят „ново“)
+const recent = (r: TodayAbsence, today: string) => {
+  if (!r.from) return true
+  const d = new Date(today + 'T00:00:00'); d.setDate(d.getDate() - 7)
+  return r.from >= d.toISOString().slice(0, 10)
+}
 
 export default function AbsentNote({ rows, today, compact = false }: { rows: TodayAbsence[]; today: string; compact?: boolean }) {
   const [seen, setSeen] = useState<Set<string> | null>(null)
@@ -32,16 +39,19 @@ export default function AbsentNote({ rows, today, compact = false }: { rows: Tod
     let s = new Set<string>()
     try { s = new Set(JSON.parse(localStorage.getItem(KEY) || '[]')) } catch {}
     setSeen(s)
-    if (rows.some(r => !s.has(keyOf(r)))) setOpen(true)
+    if (rows.some(r => !s.has(keyOf(r)) && recent(r, today))) setOpen(true)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function ack() {
-    const keys = rows.map(keyOf)   // пазим само текущите — старите отпадат сами
+    // добавяме към видяното (не заместваме) — различните изгледи (управа / колеги / „Виж като“) не се „бият“;
+    // пазим последните 400 ключа
+    const prev = seen ? Array.from(seen) : []
+    const keys = Array.from(new Set([...prev, ...rows.map(keyOf)])).slice(-400)
     try { localStorage.setItem(KEY, JSON.stringify(keys)) } catch {}
     setSeen(new Set(keys)); setOpen(false)
   }
 
-  const isNew = (r: TodayAbsence) => !!seen && !seen.has(keyOf(r))
+  const isNew = (r: TodayAbsence) => !!seen && !seen.has(keyOf(r)) && recent(r, today)
   const newCount = seen ? rows.filter(isNew).length : 0
   const subs = (r: TodayAbsence) => r.by.split(', ').map(short)
   const until = (r: TodayAbsence) => isOpenEnd(r.to) ? (r.from === today ? 'от днес' : '') : `${r.from === today ? 'от днес, ' : ''}до ${dm(r.to)}`
