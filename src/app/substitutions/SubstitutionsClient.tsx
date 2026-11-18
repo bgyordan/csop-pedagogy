@@ -90,8 +90,8 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
   // Табове: „Всички“ (по подразбиране) · „За действие“ (без заместник / без заповед / без часове) · „Текущи и предстоящи“ · „Архив“
   const [tab, setTab] = useState<'all' | 'todo' | 'active' | 'archive'>('all')
   // Подредба с клик върху заглавието на колоната (като в регистъра „Заповеди“): <колона>_asc / _desc,
-  // '' = по подразбиране (по дата „от“ — най-ранните първо; в Архив — най-новите първо)
-  const [sort, setSort] = useState('')
+  // по подразбиране — по № на заповедта, най-новите първо (с деловодната година)
+  const [sort, setSort] = useState('order_desc')
   const [moreOpen, setMoreOpen] = useState(false)
   // отпуск в няколко периода: „Създай заповед“ само на период 1 — заповедта е обща (същият заместник, без разпределение по дни)
   const sharedOrderWithFirst = (r: SubRow) => {
@@ -349,7 +349,7 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
     return deloYear * 100000 + Number(m[0])
   }
   const groups = useMemo(() => {
-    const [key, dir] = sort ? sort.split('_') : ['from', tab === 'archive' ? 'desc' : 'asc']
+    const [key, dir] = (sort || 'order_desc').split('_')
     const k = dir === 'desc' ? -1 : 1
     const bg = (x: string, y: string) => x.localeCompare(y, 'bg')
     const cmp = (a: SubRow, b: SubRow): number => {
@@ -607,9 +607,10 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
           {/* на телефон заглавният ред е скрит — там подредбата е от това меню */}
           <select value={sort} onChange={e => setSort(e.target.value)} title="Подредба"
             className="md:hidden text-xs font-medium border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-[#0f2240] focus:outline-none focus:border-slate-400 flex-shrink-0 cursor-pointer">
-            <option value="">По дата ↑</option>
+            <option value="order_desc">По № заповед (най-новите)</option>
+            <option value="order_asc">По № заповед (най-старите)</option>
+            <option value="from_asc">По дата ↑</option>
             <option value="from_desc">По дата ↓</option>
-            <option value="order_asc">По № заповед</option>
             <option value="absent_asc">По отсъстващ А–Я</option>
             <option value="absent_desc">По отсъстващ Я–А</option>
           </select>
@@ -667,7 +668,7 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
           ['archive', 'Архив', tabCount.archive],
         ] as const).map(([k, label, n]) => (
           <button key={k} type="button"
-            onClick={() => { setTab(k); setTodo(null); setSort('') }}
+            onClick={() => { setTab(k); setTodo(null); setSort('order_desc') }}
             className={`px-3.5 py-1.5 rounded-lg text-xs whitespace-nowrap transition ${tab === k ? 'text-white' : 'text-slate-600 hover:bg-slate-50'}`}
             style={tab === k ? { backgroundColor: '#0f2240' } : {}}>
             {label} <span className={`tabular-nums ml-1 ${tab === k ? 'text-white/70' : k === 'todo' && n > 0 ? 'text-amber-600 font-semibold' : 'text-slate-400'}`}>{n}</span>
@@ -791,9 +792,9 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
 
       {/* Заглавен ред */}
       <div className="hidden md:grid grid-cols-[88px_minmax(0,1.3fr)_minmax(0,1.3fr)_76px_76px_262px] gap-3 px-4 py-2.5 rounded-xl bg-slate-100 border-b border-slate-200">
-        {/* клик върху заглавие = А–Я / най-ранните първо; пак клик = обратно; трети — по подразбиране */}
+        {/* клик върху заглавие = А–Я / най-ранните първо; пак клик = обратно (по подразбиране: № заповед, най-новите) */}
         {([['Заповед', 'order'], ['Отсъстващ', 'absent'], ['Заместник', 'sub'], ['От', 'from'], ['До', 'to'], ['', undefined]] as const).map(([h, key], i) => (
-          <SortHeader key={i} label={h} sortKey={key} sort={sort} onSort={() => setSort(sort === `${key}_asc` ? `${key}_desc` : sort === `${key}_desc` ? '' : `${key}_asc`)} />
+          <SortHeader key={i} label={h} sortKey={key} sort={sort} onSort={() => setSort(sort === `${key}_asc` ? `${key}_desc` : `${key}_asc`)} />
         ))}
       </div>
 
