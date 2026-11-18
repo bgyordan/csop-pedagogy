@@ -1,7 +1,7 @@
 'use client'
-// Образци на документи — подредени „по ситуация“ (колекции), не по тип документ.
-// Горе: голямо търсене и филтри · „Моите“ (любими) · „Най-теглени“ · колекциите като плочки → клик показва образците.
-// Един образец може да е в няколко колекции. Колекциите се редактират оттук (управата, деловодството, координаторът).
+// Образци на документи — ПРОСТО: търсене + един ред филтри (Всички · ★ Моите · ПГ · колекциите, които имат образци)
+// и един списък А–Я. Без раздели „за дейността/административни“, без плочки и „най-теглени“.
+// Празните колекции не се показват; в „Колекции“ (зъбчето) се виждат с брой и се трият с един бутон.
 import { useState, useMemo, useRef } from 'react'
 import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
@@ -115,11 +115,9 @@ export default function TemplatesClient({ templates: initial, collections: initi
   const [templates, setTemplates] = useState<Template[]>(initial)
   const [collections, setCollections] = useState<Collection[]>(initialCols)
   const [favs, setFavs] = useState<Set<string>>(new Set(initialFavs))
-  const [scope, setScope] = useState<'all' | 'activity' | 'admin'>('all')
-  const [pgOnly, setPgOnly] = useState(false)
-  const [favOnly, setFavOnly] = useState(false)
+  // един филтър: 'all' · 'fav' · 'pg' · id на колекция
+  const [filter, setFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
-  const [openCol, setOpenCol] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
 
   // качване
@@ -149,28 +147,25 @@ export default function TemplatesClient({ templates: initial, collections: initi
   const colIds = useMemo(() => new Set(collections.map(c => c.id)), [collections])
   const colsOf = (t: Template) => (t.collection_ids || []).filter(id => colIds.has(id))
 
-  // базата след филтрите горе (раздел, ПГ)
-  const base = useMemo(() => templates.filter(t =>
-    (scope === 'all' || t.is_administrative === (scope === 'admin')) && (!pgOnly || t.is_pg)
-  ), [templates, scope, pgOnly])
   const byTitle = (a: Template, b: Template) => a.title.localeCompare(b.title, 'bg', { numeric: true })
+  const colCount = (id: string) => templates.filter(t => colsOf(t).includes(id)).length
+  // в реда с филтри — само колекциите, в които има образци (най-пълните първи)
+  const usedCols = useMemo(() => collections.map(c => ({ ...c, n: colCount(c.id) })).filter(c => c.n > 0)
+    .sort((a, b) => b.n - a.n || a.name.localeCompare(b.name, 'bg')), [collections, templates]) // eslint-disable-line react-hooks/exhaustive-deps
+  const pgCount = templates.filter(t => t.is_pg).length
 
-  const searched = useMemo(() => {
+  const list = useMemo(() => {
     const q = search.trim()
-    let list = base
-    if (favOnly) list = list.filter(t => favs.has(t.id))
+    let l = templates
+    if (filter === 'fav') l = l.filter(t => favs.has(t.id))
+    else if (filter === 'pg') l = l.filter(t => t.is_pg)
+    else if (filter !== 'all') l = l.filter(t => colsOf(t).includes(filter))
     if (q) {
       const colName = (t: Template) => colsOf(t).map(id => collections.find(c => c.id === id)?.name || '').join(' ')
-      list = list.filter(t => smartMatch(t.title, q) || smartMatch(t.description || '', q) || smartMatch(colName(t), q))
+      l = l.filter(t => smartMatch(t.title, q) || smartMatch(t.description || '', q) || smartMatch(colName(t), q))
     }
-    return [...list].sort(byTitle)
-  }, [base, search, favOnly, favs, collections]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const myFavs = useMemo(() => base.filter(t => favs.has(t.id)).sort(byTitle), [base, favs])
-  const popular = useMemo(() => base.filter(t => (t.download_count || 0) > 0)
-    .sort((a, b) => (b.download_count || 0) - (a.download_count || 0)).slice(0, 6), [base])
-  const inCol = (id: string) => (id === NONE ? base.filter(t => colsOf(t).length === 0) : base.filter(t => colsOf(t).includes(id))).sort(byTitle)
-  const noneCount = base.filter(t => colsOf(t).length === 0).length
+    return [...l].sort(byTitle)
+  }, [templates, filter, search, favs, collections]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── действия ──
   async function download(t: Template) {
@@ -226,13 +221,13 @@ export default function TemplatesClient({ templates: initial, collections: initi
     if (!title.trim() || !pendingFile) return
     setUploading(true)
     const safeName = pendingFile.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_')
-    const filePath = `${uMacro === 'admin' ? 'admin' : 'activity'}/${Date.now()}_${safeName}`
+    const filePath = `activity/${Date.now()}_${safeName}`
     const { error: upErr } = await supabase.storage.from('templates').upload(filePath, pendingFile)
     if (upErr) { toast('Грешка при качване', 'error'); setUploading(false); return }
     const row: any = {
       title: title.trim(), category: 'Други', file_name: pendingFile.name, file_path: filePath,
       file_size: pendingFile.size, description: description.trim() || null, uploaded_by: staffId,
-      is_pg: isPg, is_administrative: uMacro === 'admin',
+      is_pg: isPg, is_administrative: false,
     }
     if (ready) row.collection_ids = uCols
     const { data: newT, error } = await supabase.from('document_templates').insert(row).select().single()
@@ -240,7 +235,6 @@ export default function TemplatesClient({ templates: initial, collections: initi
     if (error || !newT) { toast('Грешка при запис', 'error'); return }
     toast('Образецът е качен')
     setTemplates(prev => [newT, ...prev])
-    if (uCols[0]) setOpenCol(uCols[0])
     resetUpload()
   }
   function startEdit(t: Template) {
@@ -250,7 +244,7 @@ export default function TemplatesClient({ templates: initial, collections: initi
   async function saveEdit() {
     if (!edit || !eTitle.trim()) return
     setSavingEdit(true)
-    const patch: any = { title: eTitle.trim(), description: eDesc.trim() || null, is_pg: ePg, is_administrative: eMacro === 'admin' }
+    const patch: any = { title: eTitle.trim(), description: eDesc.trim() || null, is_pg: ePg }
     if (ready) patch.collection_ids = eCols
     const { error } = await supabase.from('document_templates').update(patch).eq('id', edit.id)
     setSavingEdit(false)
@@ -270,9 +264,8 @@ export default function TemplatesClient({ templates: initial, collections: initi
         <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[11px] text-slate-400">
           {busyId === t.id ? <span className="inline-flex items-center gap-1 text-[#0f2240]"><Loader2 size={11} className="animate-spin" /> тегли се…</span>
             : <span className="inline-flex items-center gap-1"><Download size={11} /> {formatSize(t.file_size) || getExt(t.file_name).toUpperCase()}</span>}
-          {t.is_pg && <span className="px-1.5 rounded-full bg-violet-50 text-violet-700">ПГ</span>}
+          {t.is_pg && <span className="px-1.5 rounded-full border border-slate-200 text-slate-500">ПГ</span>}
           {isNew(t) && <span className="px-1.5 rounded-full bg-emerald-50 text-emerald-700">ново</span>}
-          {scope === 'all' && t.is_administrative && <span className="px-1.5 rounded-full bg-slate-100 text-slate-500">адм.</span>}
         </div>
       </div>
       <div className="absolute top-2.5 right-2.5 flex flex-col items-center gap-0.5" onClick={e => e.stopPropagation()}>
@@ -297,21 +290,6 @@ export default function TemplatesClient({ templates: initial, collections: initi
   const grid = (list: Template[], compact = false) => (
     <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">{list.map(t => card(t, compact))}</div>
   )
-  const SectionHead = ({ icon: I, label, extra }: { icon: any; label: string; extra?: React.ReactNode }) => (
-    <div className="flex items-center gap-2 mb-2.5">
-      <I size={15} className="text-slate-400" />
-      <h2 className="text-[13px] font-medium text-slate-600 uppercase tracking-wide">{label}</h2>
-      {extra}
-    </div>
-  )
-
-  const searching = !!search.trim() || favOnly
-  const tiles = [
-    ...collections.map((c, i) => ({ id: c.id, name: c.name, icon: ICONS[c.icon] || FolderOpen, tint: TINTS[i % TINTS.length], count: inCol(c.id).length })),
-    ...(noneCount ? [{ id: NONE, name: collections.length ? 'Други' : 'Всички образци', icon: FolderOpen, tint: { bg: '#f1f5f9', fg: '#475569' }, count: noneCount }] : []),
-  ].filter(t => t.count > 0 || canManage)
-  const open = tiles.find(t => t.id === openCol)
-
   return (
     <div className="space-y-6">
       {!ready && canManage && (
@@ -334,27 +312,30 @@ export default function TemplatesClient({ templates: initial, collections: initi
             <>
               <button type="button" onClick={() => setManage(true)} disabled={!ready} title="Колекции"
                 className="p-3 rounded-2xl border border-slate-200 bg-white text-slate-500 hover:text-[#0f2240] hover:bg-slate-50 disabled:opacity-40"><Settings2 size={18} /></button>
-              <button type="button" onClick={() => { setUCols(openCol && openCol !== NONE ? [openCol] : []); setShowUpload(true) }}
+              <button type="button" onClick={() => { setUCols(collections.some(c => c.id === filter) ? [filter] : []); setIsPg(filter === 'pg'); setShowUpload(true) }}
                 className="inline-flex items-center gap-1.5 px-4 py-3 rounded-2xl text-white text-sm hover:opacity-90 shrink-0" style={{ backgroundColor: '#0f2240' }}>
                 <Plus size={16} /> <span className="hidden sm:inline">Качи образец</span>
               </button>
             </>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Segmented value={scope} onChange={setScope} options={[
-            { v: 'all', label: 'Всички' }, { v: 'activity', label: 'За дейността', icon: ClipboardList }, { v: 'admin', label: 'Административни', icon: Briefcase },
-          ]} />
-          <button type="button" onClick={() => setPgOnly(v => !v)}
-            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] border transition-colors ${pgOnly ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
-            <Baby size={14} /> само ПГ
-          </button>
-          {ready && (
-            <button type="button" onClick={() => setFavOnly(v => !v)}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] border transition-colors ${favOnly ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
-              <Star size={14} fill={favOnly ? 'currentColor' : 'none'} /> Моите {favs.size > 0 && <span className="text-slate-400">{myFavs.length}</span>}
-            </button>
-          )}
+        {/* един ред филтри — само това, което има смисъл */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {([
+            { id: 'all', label: 'Всички', n: templates.length, icon: null as any },
+            ...(ready ? [{ id: 'fav', label: 'Моите', n: favs.size, icon: Star }] : []),
+            ...(pgCount ? [{ id: 'pg', label: 'ПГ', n: pgCount, icon: Baby }] : []),
+            ...usedCols.map(c => ({ id: c.id, label: c.name, n: c.n, icon: null as any })),
+          ]).map(f => {
+            const on = filter === f.id
+            return (
+              <button key={f.id} type="button" onClick={() => setFilter(on && f.id !== 'all' ? 'all' : f.id)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] border transition-colors ${on ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+                {f.icon && <f.icon size={13} fill={f.id === 'fav' && on ? 'currentColor' : 'none'} />} {f.label}
+                <span className={on ? 'text-white/60' : 'text-slate-400'}>{f.n}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -391,12 +372,11 @@ export default function TemplatesClient({ templates: initial, collections: initi
           </div>
           {ready && (
             <div>
-              <label className="block text-xs text-slate-500 mb-1.5">Колекции — кога трябва (може няколко)</label>
+              <label className="block text-xs text-slate-500 mb-1.5">Колекция — по желание</label>
               <CollectionPicker collections={collections} value={uCols} onChange={setUCols} />
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            <Segmented value={uMacro} onChange={setUMacro} options={[{ v: 'activity', label: 'За дейността', icon: ClipboardList }, { v: 'admin', label: 'Административни', icon: Briefcase }]} />
             <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm cursor-pointer ${isPg ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
               <input type="checkbox" checked={isPg} onChange={e => setIsPg(e.target.checked)} className="sr-only" /><Baby size={14} /> За ПГ
             </label>
@@ -411,64 +391,15 @@ export default function TemplatesClient({ templates: initial, collections: initi
         </div>
       )}
 
-      {searching ? (
-        <section>
-          <SectionHead icon={favOnly && !search.trim() ? Star : Search} label={favOnly && !search.trim() ? 'Моите образци' : 'Резултати'} extra={<span className="text-xs text-slate-400">{searched.length}</span>} />
-          {searched.length ? grid(searched) : (
-            <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-slate-300 text-sm text-slate-500">
-              {favOnly && !search.trim() ? 'Още нямате любими — натиснете звездата на образец.' : 'Нищо не е намерено.'}
-            </div>
-          )}
-        </section>
-      ) : (
-        <>
-          {myFavs.length > 0 && (
-            <section><SectionHead icon={Star} label="Моите" />{grid(myFavs, true)}</section>
-          )}
-          {popular.length > 0 && (
-            <section><SectionHead icon={Flame} label="Най-теглени" />{grid(popular, true)}</section>
-          )}
-
-          <section>
-            <SectionHead icon={FolderOpen} label="По ситуация" />
-            {tiles.length === 0 ? (
-              <div className="text-center py-14 bg-white rounded-2xl border border-dashed border-slate-300">
-                <FolderOpen size={34} className="mx-auto mb-3 text-slate-300" />
-                <p className="text-sm text-slate-500">Няма образци{canManage ? ' — качете с „Качи образец“' : ''}.</p>
-              </div>
-            ) : (
-              <div className="grid gap-2.5 grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-                {tiles.map(t => {
-                  const active = openCol === t.id
-                  return (
-                    <button key={t.id} type="button" onClick={() => setOpenCol(active ? null : t.id)}
-                      className={`flex items-center gap-3 p-3.5 rounded-2xl border text-left transition-all ${active ? 'bg-white shadow-md border-transparent' : 'bg-white/70 border-slate-200/80 hover:bg-white hover:shadow-sm hover:-translate-y-0.5'} ${t.count === 0 ? 'opacity-50' : ''}`}
-                      style={active ? { boxShadow: `0 0 0 2px ${t.tint.fg}66, 0 6px 16px rgba(15,34,64,0.08)` } : {}}>
-                      <span className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: t.tint.bg, color: t.tint.fg }}><t.icon size={19} /></span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[13.5px] text-slate-800 leading-tight">{t.name}</span>
-                        <span className="block text-[11.5px] text-slate-400 mt-0.5">{t.count} {t.count === 1 ? 'образец' : 'образеца'}</span>
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </section>
-
-          {open && (
-            <section className="animate-in fade-in slide-in-from-top-1 duration-300">
-              <div className="flex items-center gap-2 mb-2.5">
-                <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: open.tint.bg, color: open.tint.fg }}><open.icon size={15} /></span>
-                <h2 className="text-[15px] text-slate-800">{open.name}</h2>
-                <span className="text-xs text-slate-400">{open.count}</span>
-                <button type="button" onClick={() => setOpenCol(null)} className="ml-auto p-1 rounded-lg text-slate-400 hover:text-slate-700"><X size={16} /></button>
-              </div>
-              {open.count ? grid(inCol(open.id)) : <p className="text-sm text-slate-400">В тази колекция още няма образци.</p>}
-            </section>
-          )}
-        </>
-      )}
+      {/* един списък А–Я */}
+      <section>
+        {list.length ? grid(list) : (
+          <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-slate-300 text-sm text-slate-500">
+            {filter === 'fav' && !search.trim() ? 'Още нямате любими — натиснете звездата на образец.'
+              : templates.length === 0 ? `Няма образци${canManage ? ' — качете с „Качи образец“' : ''}.` : 'Нищо не е намерено.'}
+          </div>
+        )}
+      </section>
 
       {/* редакция */}
       {edit && (
@@ -494,7 +425,6 @@ export default function TemplatesClient({ templates: initial, collections: initi
                 </div>
               )}
               <div className="flex flex-wrap items-center gap-2">
-                <Segmented value={eMacro} onChange={setEMacro} options={[{ v: 'activity', label: 'За дейността', icon: ClipboardList }, { v: 'admin', label: 'Административни', icon: Briefcase }]} />
                 <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm cursor-pointer ${ePg ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-600 border-slate-200'}`}>
                   <input type="checkbox" checked={ePg} onChange={e => setEPg(e.target.checked)} className="sr-only" /><Baby size={14} /> За ПГ
                 </label>
@@ -511,14 +441,14 @@ export default function TemplatesClient({ templates: initial, collections: initi
         </div>
       )}
 
-      {manage && <ManageCollections collections={collections} setCollections={setCollections} onClose={() => setManage(false)} />}
+      {manage && <ManageCollections collections={collections} setCollections={setCollections} counts={Object.fromEntries(collections.map(c => [c.id, colCount(c.id)]))} onClose={() => setManage(false)} />}
     </div>
   )
 }
 
 // ── настройка на колекциите: име, иконка, ред, нова, изтриване ──
-function ManageCollections({ collections, setCollections, onClose }: {
-  collections: Collection[]; setCollections: (c: Collection[]) => void; onClose: () => void
+function ManageCollections({ collections, setCollections, counts = {}, onClose }: {
+  collections: Collection[]; setCollections: (c: Collection[]) => void; counts?: Record<string, number>; onClose: () => void
 }) {
   const supabase = createClient()
   const { toast } = useToast()
@@ -551,6 +481,16 @@ function ManageCollections({ collections, setCollections, onClose }: {
     const next = [...rows, data as Collection]
     setRows(next); setCollections(next); setNewName('')
   }
+  // всички празни колекции наведнъж — образците не се пипат
+  const empty = rows.filter(r => !counts[r.id])
+  async function delEmpty() {
+    if (!empty.length) return
+    if (!await confirmDialog(`Да се изтрият ли ${empty.length} празни колекции? В тях няма образци.`)) return
+    const { error } = await supabase.from('template_collections').delete().in('id', empty.map(r => r.id))
+    if (error) { toast('Грешка при изтриване', 'error'); return }
+    const next = rows.filter(r => counts[r.id])
+    setRows(next); setCollections(next)
+  }
   async function del(c: Collection) {
     if (!await confirmDialog(`Да се изтрие ли колекцията „${c.name}“? Образците остават — само излизат от нея.`)) return
     const { error } = await supabase.from('template_collections').delete().eq('id', c.id)
@@ -566,6 +506,14 @@ function ManageCollections({ collections, setCollections, onClose }: {
           <h3 className="text-sm font-medium text-slate-800 flex items-center gap-2"><Settings2 size={15} style={{ color: '#0f2240' }} /> Колекции</h3>
           <button type="button" onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600"><X size={18} /></button>
         </div>
+        <div className="px-5 pt-3 text-[12px] text-slate-500 flex items-center gap-2">
+          <span>По-малко колекции = по-лесно. Празните не се виждат от колегите.</span>
+          {empty.length > 0 && (
+            <button type="button" onClick={delEmpty} className="ml-auto shrink-0 px-2.5 py-1 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50">
+              Изтрий празните ({empty.length})
+            </button>
+          )}
+        </div>
         <div className="px-5 py-3 overflow-y-auto space-y-1.5">
           {rows.map((c, i) => {
             const I = ICONS[c.icon] || FolderOpen
@@ -577,6 +525,7 @@ function ManageCollections({ collections, setCollections, onClose }: {
                     className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: tint.bg, color: tint.fg }}><I size={17} /></button>
                   <input defaultValue={c.name} onBlur={e => { const v = e.target.value.trim(); if (v && v !== c.name) patch(c.id, { name: v }) }}
                     className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-slate-400" />
+                  <span className={`text-[11px] tabular-nums w-14 text-right shrink-0 ${counts[c.id] ? 'text-slate-500' : 'text-amber-600'}`}>{counts[c.id] ? `${counts[c.id]} обр.` : 'празна'}</span>
                   <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 disabled:opacity-30"><ArrowUp size={14} /></button>
                   <button type="button" onClick={() => move(i, 1)} disabled={i === rows.length - 1} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 disabled:opacity-30"><ArrowDown size={14} /></button>
                   <button type="button" onClick={() => del(c)} className="p-1.5 rounded-lg text-slate-300 hover:text-rose-600"><Trash2 size={14} /></button>
