@@ -146,30 +146,33 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
             </div>
           )
           // НП не се показва — тук е важно кой го няма и кой поема, не как се плаща
-          const Row = ({ name, right, by }: { name: string; right: string; by?: string }) => (
+          const Row = ({ name, right, by, acting }: { name: string; right: string; by?: string; acting?: string }) => (
             <div className="text-[13px] leading-snug">
               <div className="flex items-baseline gap-2">
                 <span className="text-slate-800 truncate">{name}</span>
                 <span className="ml-auto text-[11px] text-slate-400 tabular-nums shrink-0">до {right}</span>
               </div>
-              {by && <div className="text-[12px] text-slate-500 truncate">замества: {by}</div>}
+              {/* при директор е важно само кой изпълнява функциите ѝ — не кой поема часовете */}
+              {acting
+                ? <div className="text-[12px] text-[#0f2240] truncate">{acting === '—' ? 'не е посочено кой изпълнява функциите на директор' : `изпълнява функциите на директор: ${acting}`}</div>
+                : by && <div className="text-[12px] text-slate-500 truncate">замества: {by}</div>}
             </div>
           )
           return (
             <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
               {waitingRows.length > 0 && (
                 <Group label="Чакат заместник" dot="bg-amber-400">
-                  {waitingRows.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)} />)}
+                  {waitingRows.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)} acting={r.acting && r.acting !== '—' ? sn(r.acting) : r.acting || ''} />)}
                 </Group>
               )}
               {subbed.length > 0 && (
                 <Group label="Заместват се">
-                  {subbed.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)} by={r.by.split(', ').map(sn).join(', ')} />)}
+                  {subbed.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)} by={r.by.split(', ').map(sn).join(', ')} acting={r.acting && r.acting !== '—' ? sn(r.acting) : r.acting || ''} />)}
                 </Group>
               )}
               {away.length > 0 && (
                 <Group label="Отсъстват">
-                  {away.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)} />)}
+                  {away.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)} acting={r.acting && r.acting !== '—' ? sn(r.acting) : r.acting || ''} />)}
                 </Group>
               )}
             </div>

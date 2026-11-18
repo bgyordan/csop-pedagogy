@@ -14,6 +14,7 @@ export type TodayAbsence = {
   substitutable: boolean  // учител / възпитател или с часове (разписание / ИЧ / учебен план)
   by: string              // заместник(ци) за днес, „“ ако няма
   np: boolean
+  acting?: string         // при директор — кой изпълнява функциите на директор
   to: string              // ISO — до кога отсъства
   from?: string           // ISO — от кога (само при { all: true })
 }
@@ -87,6 +88,7 @@ export async function getTodayAbsences(supabase: any, opts: { all?: boolean; hid
         ? (s.absent?.role === 'director' && s.acting ? full(s.acting) : '')   // колегите: функциите на директор, не часовете
         : extra[s.id]?.length ? extra[s.id].join(', ') : nm(s.substitute_staff_id, s.sub),
       np: !!s.bsch_eligible,
+      acting: s.absent?.role === 'director' ? (s.acting ? full(s.acting) : '—') : '',
       to: s.date_to,
       from: s.date_from as string,
     }))
