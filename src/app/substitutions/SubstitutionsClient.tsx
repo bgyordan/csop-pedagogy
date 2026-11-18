@@ -168,6 +168,15 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
   const [eLinkedTouched, setELinkedTouched] = useState(false)
   const [eOverNorm, setEOverNorm] = useState(true)
   const [eSaving, setESaving] = useState(false)
+  // Когато отсъства директорът: кой изпълнява функциите на директор (отделно от кой води часовете ѝ).
+  // Колегите в „Днес отсъстват“ виждат само него, не учителя, който поема часовете.
+  const [nActing, setNActing] = useState('')
+  const [eActing, setEActing] = useState('')
+  const isDirectorId = (id: string) => staff.find(x => x.id === id)?.role === 'director'
+  async function saveActing(id: string, actingId: string) {
+    const { error } = await supabase.from('substitutions').update({ acting_staff_id: actingId || null }).eq('id', id)
+    if (error) toast(/acting_staff_id/.test(error.message) ? 'Пуснете SQL файла 2026-11-05_substitutions_acting.sql' : 'Грешка: ' + error.message, 'error')
+  }
 
   // Няколко заместника — единен модел: карта „ден → заместник"
   const [multiOpen, setMultiOpen] = useState(false)
@@ -420,6 +429,7 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
       over_norm: bsch ? true : nOverNorm,
     }).select(selectCols).single()
     if (error || !data) { toast('Грешка при запис', 'error'); setSaving(false); return }
+    if (isDirectorId(absentId) && nActing) await saveActing(data.id, nActing)
     if (ktParts.length > 0) {
       const kr: any = await saveKtParts(data.id, ktParts)
       if (kr?.error) toast(kr.error, 'error')
@@ -472,7 +482,7 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
     }
     router.refresh()   // части/конфликти (заместник на заместника) се смятат на сървъра
     setAbsentId(''); setSubId(''); setFrom(''); setTo(''); setReason('sick'); setBsch(false); setKtArticle('155'); setKtParts([]); setOrderMode('create'); setNManualNumber(''); setNManualDate(''); setNLinked(null); setNOverNorm(true); setShowNew(false); setSaving(false)
-    setNExtra([])
+    setNExtra([]); setNActing('')
     resetMulti()
   }
 
@@ -495,6 +505,9 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
     setELinked(null); setELinkedTouched(false)
     if (r.hasOrder) getSubstitutionOrder(r.id).then(x => setELinked(x.order))
     setEOverNorm(overNormMap[r.id] !== false)
+    setEActing('')
+    supabase.from('substitutions').select('acting_staff_id').eq('id', r.id).maybeSingle()
+      .then(({ data }: any) => setEActing(data?.acting_staff_id || ''))
   }
   // за редакция трябва absent_staff_id — карта id->absentId от initial (page подава absentStaffId в SubRow)
   const absentIdByRow: Record<string, string> = useMemo(() => {
@@ -527,6 +540,7 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
     if (error || !data) { toast('Грешка при запис', 'error'); setESaving(false); return }
     const kr: any = await saveKtParts(editId, eKtParts)
     if (kr?.error) { toast(kr.error, 'error'); setESaving(false); return }
+    if (isDirectorId(eAbsent)) await saveActing(editId, eActing)
     const mapped: any = mapRow(data); mapped.absentStaffId = eAbsent
     mapped.orderNumber = (data as any).substitution_order_id ? (eLinked?.number || rows.find(x => x.id === editId)?.orderNumber || null) : null
     const eRanges = multiOpen ? mapToRows(dayMap, schoolDays) : []
@@ -672,6 +686,13 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
               <label className="block text-xs text-slate-500 mb-1">Отсъстващ *</label>
               {/* всеки служител — и логопед, психолог, помощник (те само отсъстват, без заместник) */}
               <PersonCombo people={staff} value={absentId} onChange={setAbsentId} placeholder="Търси по име…" excludeId={subId} />
+              {isDirectorId(absentId) && (
+                <div className="mt-2">
+                  <label className="block text-xs text-slate-500 mb-1">Изпълнява функциите на директор</label>
+                  <PersonCombo people={staff} value={nActing} onChange={setNActing} placeholder="Търси по име…" excludeId={absentId} />
+                  <p className="text-[10px] text-slate-400 mt-0.5">Колегите виждат него в „Днес отсъстват“. Часовете ѝ — в „Заместник“.</p>
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Заместник</label>
@@ -955,6 +976,13 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
               <div>
                 <label className="block text-xs text-slate-500 mb-1">Отсъстващ *</label>
                 <PersonCombo people={absentStaff(eAbsent)} value={eAbsent} onChange={setEAbsent} placeholder="Търси по име…" excludeId={eSub} />
+                {isDirectorId(eAbsent) && (
+                  <div className="mt-2">
+                    <label className="block text-xs text-slate-500 mb-1">Изпълнява функциите на директор</label>
+                    <PersonCombo people={staff} value={eActing} onChange={setEActing} placeholder="Търси по име…" excludeId={eAbsent} />
+                    <p className="text-[10px] text-slate-400 mt-0.5">Колегите виждат него в „Днес отсъстват“. Часовете ѝ — в „Заместник“.</p>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-xs text-slate-500 mb-1">Заместник</label>
