@@ -690,7 +690,7 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
                 <div className="mt-2">
                   <label className="block text-xs text-slate-500 mb-1">Изпълнява функциите на директор</label>
                   <PersonCombo people={staff} value={nActing} onChange={setNActing} placeholder="Търси по име…" excludeId={absentId} />
-                  <p className="text-[10px] text-slate-400 mt-0.5">Колегите виждат него в „Днес отсъстват“. Часовете ѝ — в „Заместник“.</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Напр. ЗДУД. Колегите и таблото показват него, не кой поема часовете.</p>
                 </div>
               )}
             </div>
@@ -980,7 +980,7 @@ export default function SubstitutionsClient({ rows: initial, staff, years = [], 
                   <div className="mt-2">
                     <label className="block text-xs text-slate-500 mb-1">Изпълнява функциите на директор</label>
                     <PersonCombo people={staff} value={eActing} onChange={setEActing} placeholder="Търси по име…" excludeId={eAbsent} />
-                    <p className="text-[10px] text-slate-400 mt-0.5">Колегите виждат него в „Днес отсъстват“. Часовете ѝ — в „Заместник“.</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Напр. ЗДУД. Колегите и таблото показват него, не кой поема часовете.</p>
                   </div>
                 )}
               </div>

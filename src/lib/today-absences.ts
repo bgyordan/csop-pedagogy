@@ -88,7 +88,7 @@ export async function getTodayAbsences(supabase: any, opts: { all?: boolean; hid
         ? (s.absent?.role === 'director' && s.acting ? full(s.acting) : '')   // колегите: функциите на директор, не часовете
         : extra[s.id]?.length ? extra[s.id].join(', ') : nm(s.substitute_staff_id, s.sub),
       np: !!s.bsch_eligible,
-      acting: s.absent?.role === 'director' && s.acting ? full(s.acting) : '',
+      acting: s.absent?.role === 'director' ? (s.acting ? full(s.acting) : '—') : '',
       to: s.date_to,
       from: s.date_from as string,
     }))
