@@ -1,7 +1,7 @@
 'use client'
-// Образци на документи — ПРОСТО: търсене + един ред филтри (Всички · ★ Моите · ПГ · колекциите, които имат образци)
-// и един списък А–Я. Без раздели „за дейността/административни“, без плочки и „най-теглени“.
-// Празните колекции не се показват; в „Колекции“ (зъбчето) се виждат с брой и се трият с един бутон.
+// Образци на документи — няколко ясни ГРУПИ: Декларации · Административни · За дейността · За родители.
+// Групата се пази в полето category; за старите образци се познава (по заглавието и по „административен“).
+// Горе: търсене + филтри (Всички · ★ Моите · Нови · ПГ · групите). Отдолу — по групи, в групата А–Я; „ново“ — 21 дни.
 import { useState, useMemo, useRef } from 'react'
 import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
@@ -50,6 +50,16 @@ const TINTS = [
 ]
 const NONE = '__none'
 const NEW_DAYS = 21
+// групите — в този ред и на екрана
+const GROUPS = ['Декларации', 'Административни', 'За дейността', 'За родители'] as const
+type Group = typeof GROUPS[number]
+function groupOf(t: { category?: string | null; title: string; description?: string | null; is_administrative?: boolean }): Group {
+  if (GROUPS.includes(t.category as Group)) return t.category as Group
+  const txt = `${t.title} ${t.description || ''}`.toLowerCase()
+  if (/деклар/.test(txt)) return 'Декларации'
+  if (/родител|съглас|информирано/.test(txt)) return 'За родители'
+  return t.is_administrative ? 'Административни' : 'За дейността'
+}
 
 function formatSize(bytes: number | null) {
   if (!bytes) return ''
@@ -72,6 +82,20 @@ function FileBadge({ fileName, size = 'md' }: { fileName: string; size?: 'sm' | 
       {size === 'md' && <span className="absolute top-0 right-0 w-3 h-3 rounded-bl-md" style={{ background: 'rgba(255,255,255,0.35)' }} />}
       {label}
     </span>
+  )
+}
+
+// избор на група — чипове (една)
+function GroupPicker({ value, onChange }: { value: Group; onChange: (g: Group) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {GROUPS.map(g => (
+        <button key={g} type="button" onClick={() => onChange(g)}
+          className={`px-3 py-1.5 rounded-full text-[13px] border transition-colors ${value === g ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+          {g}
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -124,8 +148,7 @@ export default function TemplatesClient({ templates: initial, collections: initi
   const [showUpload, setShowUpload] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [title, setTitle] = useState('')
-  const [uMacro, setUMacro] = useState<'activity' | 'admin'>('activity')
-  const [uCols, setUCols] = useState<string[]>([])
+  const [uGroup, setUGroup] = useState<Group>('За дейността')
   const [description, setDescription] = useState('')
   const [isPg, setIsPg] = useState(false)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
@@ -135,8 +158,7 @@ export default function TemplatesClient({ templates: initial, collections: initi
   // редакция
   const [edit, setEdit] = useState<Template | null>(null)
   const [eTitle, setETitle] = useState('')
-  const [eMacro, setEMacro] = useState<'activity' | 'admin'>('activity')
-  const [eCols, setECols] = useState<string[]>([])
+  const [eGroup, setEGroup] = useState<Group>('За дейността')
   const [eDesc, setEDesc] = useState('')
   const [ePg, setEPg] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
@@ -144,28 +166,21 @@ export default function TemplatesClient({ templates: initial, collections: initi
   // колекции — настройка
   const [manage, setManage] = useState(false)
 
-  const colIds = useMemo(() => new Set(collections.map(c => c.id)), [collections])
-  const colsOf = (t: Template) => (t.collection_ids || []).filter(id => colIds.has(id))
-
   const byTitle = (a: Template, b: Template) => a.title.localeCompare(b.title, 'bg', { numeric: true })
-  const colCount = (id: string) => templates.filter(t => colsOf(t).includes(id)).length
-  // в реда с филтри — само колекциите, в които има образци (най-пълните първи)
-  const usedCols = useMemo(() => collections.map(c => ({ ...c, n: colCount(c.id) })).filter(c => c.n > 0)
-    .sort((a, b) => b.n - a.n || a.name.localeCompare(b.name, 'bg')), [collections, templates]) // eslint-disable-line react-hooks/exhaustive-deps
   const pgCount = templates.filter(t => t.is_pg).length
+  const newCount = templates.filter(isNew).length
+  const groupCount = (g: Group) => templates.filter(t => groupOf(t) === g).length
 
   const list = useMemo(() => {
     const q = search.trim()
     let l = templates
     if (filter === 'fav') l = l.filter(t => favs.has(t.id))
     else if (filter === 'pg') l = l.filter(t => t.is_pg)
-    else if (filter !== 'all') l = l.filter(t => colsOf(t).includes(filter))
-    if (q) {
-      const colName = (t: Template) => colsOf(t).map(id => collections.find(c => c.id === id)?.name || '').join(' ')
-      l = l.filter(t => smartMatch(t.title, q) || smartMatch(t.description || '', q) || smartMatch(colName(t), q))
-    }
+    else if (filter === 'new') l = l.filter(isNew)
+    else if (filter !== 'all') l = l.filter(t => groupOf(t) === filter)
+    if (q) l = l.filter(t => smartMatch(t.title, q) || smartMatch(t.description || '', q) || smartMatch(groupOf(t), q))
     return [...l].sort(byTitle)
-  }, [templates, filter, search, favs, collections]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [templates, filter, search, favs]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── действия ──
   async function download(t: Template) {
@@ -206,7 +221,7 @@ export default function TemplatesClient({ templates: initial, collections: initi
   }
 
   function resetUpload() {
-    setTitle(''); setDescription(''); setPendingFile(null); setIsPg(false); setUCols([]); setShowUpload(false)
+    setTitle(''); setDescription(''); setPendingFile(null); setIsPg(false); setShowUpload(false)
   }
   function pickFile(file: File) {
     if (!ACCEPTED.includes(getExt(file.name))) { toast('Позволени: Word, Excel, PDF', 'error'); return }
@@ -225,30 +240,28 @@ export default function TemplatesClient({ templates: initial, collections: initi
     const { error: upErr } = await supabase.storage.from('templates').upload(filePath, pendingFile)
     if (upErr) { toast('Грешка при качване', 'error'); setUploading(false); return }
     const row: any = {
-      title: title.trim(), category: 'Други', file_name: pendingFile.name, file_path: filePath,
+      title: title.trim(), category: uGroup, file_name: pendingFile.name, file_path: filePath,
       file_size: pendingFile.size, description: description.trim() || null, uploaded_by: staffId,
-      is_pg: isPg, is_administrative: false,
+      is_pg: isPg, is_administrative: uGroup === 'Административни',
     }
-    if (ready) row.collection_ids = uCols
     const { data: newT, error } = await supabase.from('document_templates').insert(row).select().single()
     setUploading(false)
-    if (error || !newT) { toast('Грешка при запис', 'error'); return }
+    if (error || !newT) { toast(/category/.test(error?.message || '') ? 'Пуснете SQL файла 2026-11-18_templates_groups.sql' : 'Грешка при запис', 'error'); return }
     toast('Образецът е качен')
     setTemplates(prev => [newT, ...prev])
     resetUpload()
   }
   function startEdit(t: Template) {
-    setEdit(t); setETitle(t.title); setEMacro(t.is_administrative ? 'admin' : 'activity')
-    setECols(colsOf(t)); setEDesc(t.description || ''); setEPg(t.is_pg)
+    setEdit(t); setETitle(t.title); setEGroup(groupOf(t))
+    setEDesc(t.description || ''); setEPg(t.is_pg)
   }
   async function saveEdit() {
     if (!edit || !eTitle.trim()) return
     setSavingEdit(true)
-    const patch: any = { title: eTitle.trim(), description: eDesc.trim() || null, is_pg: ePg }
-    if (ready) patch.collection_ids = eCols
+    const patch: any = { title: eTitle.trim(), description: eDesc.trim() || null, is_pg: ePg, category: eGroup, is_administrative: eGroup === 'Административни' }
     const { error } = await supabase.from('document_templates').update(patch).eq('id', edit.id)
     setSavingEdit(false)
-    if (error) { toast('Грешка при запис', 'error'); return }
+    if (error) { toast(/category/.test(error.message) ? 'Пуснете SQL файла 2026-11-18_templates_groups.sql' : 'Грешка при запис', 'error'); return }
     setTemplates(prev => prev.map(t => t.id === edit.id ? { ...t, ...patch } : t))
     toast('Образецът е обновен'); setEdit(null)
   }
@@ -265,7 +278,7 @@ export default function TemplatesClient({ templates: initial, collections: initi
           {busyId === t.id ? <span className="inline-flex items-center gap-1 text-[#0f2240]"><Loader2 size={11} className="animate-spin" /> тегли се…</span>
             : <span className="inline-flex items-center gap-1"><Download size={11} /> {formatSize(t.file_size) || getExt(t.file_name).toUpperCase()}</span>}
           {t.is_pg && <span className="px-1.5 rounded-full border border-slate-200 text-slate-500">ПГ</span>}
-          {isNew(t) && <span className="px-1.5 rounded-full bg-emerald-50 text-emerald-700">ново</span>}
+          {isNew(t) && <span className="px-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium">НОВО</span>}
         </div>
       </div>
       <div className="absolute top-2.5 right-2.5 flex flex-col items-center gap-0.5" onClick={e => e.stopPropagation()}>
@@ -310,22 +323,21 @@ export default function TemplatesClient({ templates: initial, collections: initi
           </div>
           {canManage && (
             <>
-              <button type="button" onClick={() => setManage(true)} disabled={!ready} title="Колекции"
-                className="p-3 rounded-2xl border border-slate-200 bg-white text-slate-500 hover:text-[#0f2240] hover:bg-slate-50 disabled:opacity-40"><Settings2 size={18} /></button>
-              <button type="button" onClick={() => { setUCols(collections.some(c => c.id === filter) ? [filter] : []); setIsPg(filter === 'pg'); setShowUpload(true) }}
+              <button type="button" onClick={() => { setUGroup(GROUPS.includes(filter as Group) ? filter as Group : 'За дейността'); setIsPg(filter === 'pg'); setShowUpload(true) }}
                 className="inline-flex items-center gap-1.5 px-4 py-3 rounded-2xl text-white text-sm hover:opacity-90 shrink-0" style={{ backgroundColor: '#0f2240' }}>
                 <Plus size={16} /> <span className="hidden sm:inline">Качи образец</span>
               </button>
             </>
           )}
         </div>
-        {/* един ред филтри — само това, което има смисъл */}
+        {/* един ред филтри */}
         <div className="flex flex-wrap items-center gap-1.5">
           {([
             { id: 'all', label: 'Всички', n: templates.length, icon: null as any },
             ...(ready ? [{ id: 'fav', label: 'Моите', n: favs.size, icon: Star }] : []),
+            ...(newCount ? [{ id: 'new', label: 'Нови', n: newCount, icon: null as any }] : []),
             ...(pgCount ? [{ id: 'pg', label: 'ПГ', n: pgCount, icon: Baby }] : []),
-            ...usedCols.map(c => ({ id: c.id, label: c.name, n: c.n, icon: null as any })),
+            ...GROUPS.filter(g => groupCount(g) > 0).map(g => ({ id: g as string, label: g as string, n: groupCount(g), icon: null as any })),
           ]).map(f => {
             const on = filter === f.id
             return (
@@ -370,12 +382,10 @@ export default function TemplatesClient({ templates: initial, collections: initi
                 className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-300 focus:outline-none" />
             </div>
           </div>
-          {ready && (
-            <div>
-              <label className="block text-xs text-slate-500 mb-1.5">Колекция — по желание</label>
-              <CollectionPicker collections={collections} value={uCols} onChange={setUCols} />
-            </div>
-          )}
+          <div>
+            <label className="block text-xs text-slate-500 mb-1.5">Група</label>
+            <GroupPicker value={uGroup} onChange={setUGroup} />
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm cursor-pointer ${isPg ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
               <input type="checkbox" checked={isPg} onChange={e => setIsPg(e.target.checked)} className="sr-only" /><Baby size={14} /> За ПГ
@@ -392,8 +402,21 @@ export default function TemplatesClient({ templates: initial, collections: initi
       )}
 
       {/* един списък А–Я */}
-      <section>
-        {list.length ? grid(list) : (
+      <section className="space-y-6">
+        {list.length ? (GROUPS.includes(filter as Group) ? grid(list) : GROUPS.map(g => {
+          const items = list.filter(t => groupOf(t) === g)
+          if (!items.length) return null
+          return (
+            <div key={g}>
+              <div className="flex items-center gap-2 mb-2.5">
+                <h2 className="text-[13px] font-medium text-slate-600 uppercase tracking-wide">{g}</h2>
+                <span className="text-xs text-slate-400">{items.length}</span>
+                <span className="flex-1 h-px bg-slate-200" />
+              </div>
+              {grid(items)}
+            </div>
+          )
+        })) : (
           <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-slate-300 text-sm text-slate-500">
             {filter === 'fav' && !search.trim() ? 'Още нямате любими — натиснете звездата на образец.'
               : templates.length === 0 ? `Няма образци${canManage ? ' — качете с „Качи образец“' : ''}.` : 'Нищо не е намерено.'}
@@ -418,12 +441,10 @@ export default function TemplatesClient({ templates: initial, collections: initi
                 <label className="block text-xs text-slate-500 mb-1">Пояснение — за какво е</label>
                 <input type="text" value={eDesc} onChange={e => setEDesc(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
               </div>
-              {ready && (
-                <div>
-                  <label className="block text-xs text-slate-500 mb-1.5">Колекции</label>
-                  <CollectionPicker collections={collections} value={eCols} onChange={setECols} />
-                </div>
-              )}
+              <div>
+                <label className="block text-xs text-slate-500 mb-1.5">Група</label>
+                <GroupPicker value={eGroup} onChange={setEGroup} />
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm cursor-pointer ${ePg ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-600 border-slate-200'}`}>
                   <input type="checkbox" checked={ePg} onChange={e => setEPg(e.target.checked)} className="sr-only" /><Baby size={14} /> За ПГ
@@ -441,7 +462,7 @@ export default function TemplatesClient({ templates: initial, collections: initi
         </div>
       )}
 
-      {manage && <ManageCollections collections={collections} setCollections={setCollections} counts={Object.fromEntries(collections.map(c => [c.id, colCount(c.id)]))} onClose={() => setManage(false)} />}
+      
     </div>
   )
 }
