@@ -71,7 +71,7 @@ export default function AbsentNote({ rows, today, compact = false }: { rows: Tod
               <div key={r.id} className="flex items-baseline gap-3 text-[19px] leading-[24px]">
                 <span className="min-w-0 flex-1 truncate">
                   <span className="text-[#0f2240]">{short(r.absent)}</span>
-                  {r.by && <span className="text-slate-400 text-[17px]"> · замества {subs(r).join(', ')}</span>}
+                  {r.by && <span className="text-slate-400 text-[17px]"> · {r.acting ? 'изпълнява функциите' : 'замества'} {subs(r).join(', ')}</span>}
                 </span>
                 <span className="text-slate-400 text-[17px] tabular-nums shrink-0">{isOpenEnd(r.to) ? '' : `до ${dm(r.to)}`}</span>
               </div>
@@ -112,7 +112,7 @@ export default function AbsentNote({ rows, today, compact = false }: { rows: Tod
                           </span>
                           <span className="leading-[34px] text-[20px] text-slate-400 tabular-nums whitespace-nowrap">{until(r)}</span>
                         </div>
-                        <div className="leading-[34px] text-[20px] text-slate-500 pl-5 truncate">замества: {subs(r).join(', ')}</div>
+                        <div className="leading-[34px] text-[20px] text-slate-500 pl-5 truncate">{r.acting ? 'изпълнява функциите на директор' : 'замества'}: {subs(r).join(', ')}</div>
                       </div>
                     ))}
                   </>

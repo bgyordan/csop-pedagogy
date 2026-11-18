@@ -84,9 +84,12 @@ export async function getTodayAbsences(supabase: any, opts: { all?: boolean; hid
       absent: full(s.absent),
       position: s.absent?.position || '',
       substitutable: opts.hideMgmt && isMgmt(s) ? false : canBeSubstituted({ role: s.absent?.role, teaching: teaching.has(s.absent_staff_id) }),
-      by: opts.hideMgmt && isMgmt(s)
-        ? (s.absent?.role === 'director' && s.acting ? full(s.acting) : '')   // колегите: функциите на директор, не часовете
-        : extra[s.id]?.length ? extra[s.id].join(', ') : nm(s.substitute_staff_id, s.sub),
+      // директорът — навсякъде (и за управата) само кой изпълнява функциите ѝ; кой поема часовете не е важно тук
+      by: s.absent?.role === 'director'
+        ? (s.acting ? full(s.acting) : '')
+        : opts.hideMgmt && isMgmt(s)
+          ? ''   // ЗДУД / ЗДАСД — за колегите без кой води часовете
+          : extra[s.id]?.length ? extra[s.id].join(', ') : nm(s.substitute_staff_id, s.sub),
       np: !!s.bsch_eligible,
       acting: s.absent?.role === 'director' ? (s.acting ? full(s.acting) : '—') : '',
       to: s.date_to,
