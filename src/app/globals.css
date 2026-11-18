@@ -166,8 +166,7 @@
 .zebra > :nth-child(even):not([class*="bg-amber"]):not([class*="bg-violet"]):not([class*="bg-rose"]):not([class*="bg-emerald"]):hover { background-color: #ebf1f8; }
 
 /* Сайдбар: деловоден тесен шрифт — нормален, активният пункт малко по-плътен */
-/* Менюто — същият спокоен шрифт като системата (Inter), нормални букви, без удебеляване; активното — 500 */
-.sb-font { font-family: inherit; font-weight: 400; letter-spacing: -0.003em; }
+.sb-font { font-family: 'Roboto Condensed', 'Montserrat', system-ui, sans-serif; font-weight: 400; }
 .sb-font.sb-active { font-weight: 500; }
 
 /* ───────────────────────────────────────────────────────────────
