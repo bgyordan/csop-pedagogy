@@ -25,7 +25,7 @@ export default async function TemplatesPage() {
         </div>
         <div>
           <h1 className="text-xl md:text-2xl font-semibold text-slate-800 tracking-tight">Образци на документи</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Търси по име · ★ отделя твоите образци</p>
+          <p className="text-sm text-slate-500 mt-0.5">Групите вляво · търси по име · ★ отделя твоите образци</p>
         </div>
       </header>
       <TemplatesClient

@@ -1,14 +1,17 @@
 'use client'
-// Образци на документи — няколко ясни ГРУПИ: Декларации · Административни · За дейността · За родители.
-// Групата се пази в полето category; за старите образци се познава (по заглавието и по „административен“).
-// Горе: търсене + филтри (Всички · ★ Моите · Нови · ПГ · групите). Отдолу — по групи, в групата А–Я; „ново“ — 21 дни.
+// Образци на документи — групите вляво (като в първата версия), образците вдясно.
+// Групите се подреждат изцяло в EIS от деловодството/управата („Подреди“): име, иконка, ред, нова група,
+// изтриване, местене на образец в група (влачене върху групата или избор от падащото меню).
+// Един образец — една група (collection_ids[0]); без група → „Без група“.
+// Горе: търсене + „Качи образец“; вляво и Всички · ★ Моите · Нови · ПГ. В групата — А–Я; „НОВО“ — 21 дни.
 import { useState, useMemo, useRef } from 'react'
 import { smartMatch } from '@/lib/search'
 import { createClient } from '@/lib/supabase/client'
 import {
   Upload, Download, Trash2, Loader2, FolderOpen, Plus, X, Search, Baby, Pencil, Check, UploadCloud,
   Briefcase, ClipboardList, Star, Eye, Settings2, Plane, Repeat, UserPlus, HeartHandshake, Users, Bus,
-  ShieldCheck, Wallet, BookOpen, GraduationCap, Stethoscope, CalendarDays, ArrowUp, ArrowDown, Flame,
+  ShieldCheck, Wallet, BookOpen, GraduationCap, Stethoscope, CalendarDays, ArrowUp, ArrowDown, FileSignature,
+  Sparkles, Layers, GripVertical,
 } from 'lucide-react'
 import { useToast, confirmDialog } from '@/components/ui/Toast'
 
@@ -26,40 +29,24 @@ interface Template {
   collection_ids?: string[] | null
   download_count?: number | null
 }
-interface Collection { id: string; name: string; icon: string; sort: number }
+interface Group { id: string; name: string; icon: string; sort: number }
 interface Props {
   templates: Template[]
-  collections: Collection[]
+  collections: Group[]
   favorites: string[]
-  ready: boolean          // пуснат ли е SQL файлът за колекциите
+  ready: boolean          // пуснат ли е SQL файлът за групите (template_collections)
   canManage: boolean
   staffId: string
 }
 
 const ACCEPTED = ['pdf', 'doc', 'docx', 'dot', 'dotx', 'xls', 'xlsx']
 const ICONS: Record<string, any> = {
-  plane: Plane, repeat: Repeat, 'user-plus': UserPlus, heart: HeartHandshake, users: Users, clipboard: ClipboardList,
-  bus: Bus, shield: ShieldCheck, briefcase: Briefcase, wallet: Wallet, book: BookOpen, cap: GraduationCap,
-  health: Stethoscope, calendar: CalendarDays, baby: Baby, folder: FolderOpen,
+  folder: FolderOpen, sign: FileSignature, briefcase: Briefcase, clipboard: ClipboardList, users: Users,
+  heart: HeartHandshake, 'user-plus': UserPlus, plane: Plane, repeat: Repeat, bus: Bus, shield: ShieldCheck,
+  wallet: Wallet, book: BookOpen, cap: GraduationCap, health: Stethoscope, calendar: CalendarDays, baby: Baby,
 }
-// меки цветове за плочките — само иконата е оцветена
-const TINTS = [
-  { bg: '#eff6ff', fg: '#1d4ed8' }, { bg: '#ecfdf5', fg: '#047857' }, { bg: '#f5f3ff', fg: '#6d28d9' },
-  { bg: '#fff7ed', fg: '#c2410c' }, { bg: '#fdf2f8', fg: '#be185d' }, { bg: '#f0fdfa', fg: '#0f766e' },
-  { bg: '#eef2ff', fg: '#4338ca' }, { bg: '#fefce8', fg: '#a16207' },
-]
 const NONE = '__none'
 const NEW_DAYS = 21
-// групите — в този ред и на екрана
-const GROUPS = ['Декларации', 'Административни', 'За дейността', 'За родители'] as const
-type Group = typeof GROUPS[number]
-function groupOf(t: { category?: string | null; title: string; description?: string | null; is_administrative?: boolean }): Group {
-  if (GROUPS.includes(t.category as Group)) return t.category as Group
-  const txt = `${t.title} ${t.description || ''}`.toLowerCase()
-  if (/деклар/.test(txt)) return 'Декларации'
-  if (/родител|съглас|информирано/.test(txt)) return 'За родители'
-  return t.is_administrative ? 'Административни' : 'За дейността'
-}
 
 function formatSize(bytes: number | null) {
   if (!bytes) return ''
@@ -70,85 +57,39 @@ function formatSize(bytes: number | null) {
 const getExt = (fileName: string) => fileName.split('.').pop()?.toLowerCase() || ''
 const isPdf = (t: Template) => getExt(t.file_name) === 'pdf'
 const isNew = (t: Template) => Date.now() - new Date(t.created_at).getTime() < NEW_DAYS * 864e5
+const byTitle = (a: Template, b: Template) => a.title.localeCompare(b.title, 'bg', { numeric: true })
 
-function FileBadge({ fileName, size = 'md' }: { fileName: string; size?: 'sm' | 'md' }) {
+function FileBadge({ fileName }: { fileName: string }) {
   const ext = getExt(fileName)
   let label = 'W', bg = '#2563eb'
   if (ext === 'pdf') { label = 'PDF'; bg = '#dc2626' }
   else if (ext === 'xls' || ext === 'xlsx') { label = 'XLS'; bg = '#16a34a' }
-  const cls = size === 'sm' ? 'w-8 h-8 text-[10px] rounded-lg' : 'w-10 h-12 text-[11px] rounded-lg'
   return (
-    <span className={`relative inline-flex items-end justify-center pb-1.5 text-white font-bold shrink-0 ${cls}`} style={{ backgroundColor: bg }}>
-      {size === 'md' && <span className="absolute top-0 right-0 w-3 h-3 rounded-bl-md" style={{ background: 'rgba(255,255,255,0.35)' }} />}
+    <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-white text-[10px] font-bold shrink-0" style={{ backgroundColor: bg }}>
       {label}
     </span>
   )
 }
 
-// избор на група — чипове (една)
-function GroupPicker({ value, onChange }: { value: Group; onChange: (g: Group) => void }) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {GROUPS.map(g => (
-        <button key={g} type="button" onClick={() => onChange(g)}
-          className={`px-3 py-1.5 rounded-full text-[13px] border transition-colors ${value === g ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
-          {g}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-// избор на колекции — чипове
-function CollectionPicker({ collections, value, onChange }: { collections: Collection[]; value: string[]; onChange: (v: string[]) => void }) {
-  if (!collections.length) return <p className="text-xs text-slate-400">Още няма колекции.</p>
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {collections.map((c, i) => {
-        const on = value.includes(c.id)
-        const I = ICONS[c.icon] || FolderOpen
-        const tint = TINTS[i % TINTS.length]
-        return (
-          <button key={c.id} type="button" onClick={() => onChange(on ? value.filter(x => x !== c.id) : [...value, c.id])}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12.5px] border transition-colors ${on ? 'border-transparent' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'}`}
-            style={on ? { background: tint.bg, color: tint.fg, boxShadow: `inset 0 0 0 1px ${tint.fg}55` } : {}}>
-            <I size={13} /> {c.name}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-function Segmented<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { v: T; label: string; icon?: any }[] }) {
-  return (
-    <div className="inline-flex p-1 rounded-xl bg-slate-100">
-      {options.map(o => (
-        <button key={o.v} type="button" onClick={() => onChange(o.v)}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] transition-all ${value === o.v ? 'bg-white text-[#0f2240] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-          {o.icon && <o.icon size={14} />} {o.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-export default function TemplatesClient({ templates: initial, collections: initialCols, favorites: initialFavs, ready, canManage, staffId }: Props) {
+export default function TemplatesClient({ templates: initial, collections: initialGroups, favorites: initialFavs, ready, canManage, staffId }: Props) {
   const supabase = createClient()
   const { toast } = useToast()
   const [templates, setTemplates] = useState<Template[]>(initial)
-  const [collections, setCollections] = useState<Collection[]>(initialCols)
+  const [groups, setGroups] = useState<Group[]>([...initialGroups].sort((a, b) => a.sort - b.sort))
   const [favs, setFavs] = useState<Set<string>>(new Set(initialFavs))
-  // един филтър: 'all' · 'fav' · 'pg' · id на колекция
-  const [filter, setFilter] = useState<string>('all')
+  // избраното вляво: 'all' · 'fav' · 'new' · 'pg' · id на група · NONE
+  const [sel, setSel] = useState<string>('all')
   const [search, setSearch] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [arrange, setArrange] = useState(false)          // режим „Подреди“ (групи + местене)
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [dropOn, setDropOn] = useState<string | null>(null)
 
   // качване
   const [showUpload, setShowUpload] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [title, setTitle] = useState('')
-  const [uGroup, setUGroup] = useState<Group>('За дейността')
+  const [uGroup, setUGroup] = useState<string>('')
   const [description, setDescription] = useState('')
   const [isPg, setIsPg] = useState(false)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
@@ -158,31 +99,31 @@ export default function TemplatesClient({ templates: initial, collections: initi
   // редакция
   const [edit, setEdit] = useState<Template | null>(null)
   const [eTitle, setETitle] = useState('')
-  const [eGroup, setEGroup] = useState<Group>('За дейността')
+  const [eGroup, setEGroup] = useState<string>('')
   const [eDesc, setEDesc] = useState('')
   const [ePg, setEPg] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
 
-  // колекции — настройка
-  const [manage, setManage] = useState(false)
-
-  const byTitle = (a: Template, b: Template) => a.title.localeCompare(b.title, 'bg', { numeric: true })
-  const pgCount = templates.filter(t => t.is_pg).length
+  const groupIds = useMemo(() => new Set(groups.map(g => g.id)), [groups])
+  const groupOf = (t: Template) => (t.collection_ids || []).find(id => groupIds.has(id)) || NONE
+  const countIn = (id: string) => templates.filter(t => groupOf(t) === id).length
+  const noneCount = templates.filter(t => groupOf(t) === NONE).length
   const newCount = templates.filter(isNew).length
-  const groupCount = (g: Group) => templates.filter(t => groupOf(t) === g).length
+  const pgCount = templates.filter(t => t.is_pg).length
+  const groupName = (id: string) => id === NONE ? 'Без група' : groups.find(g => g.id === id)?.name || ''
 
   const list = useMemo(() => {
     const q = search.trim()
     let l = templates
-    if (filter === 'fav') l = l.filter(t => favs.has(t.id))
-    else if (filter === 'pg') l = l.filter(t => t.is_pg)
-    else if (filter === 'new') l = l.filter(isNew)
-    else if (filter !== 'all') l = l.filter(t => groupOf(t) === filter)
-    if (q) l = l.filter(t => smartMatch(t.title, q) || smartMatch(t.description || '', q) || smartMatch(groupOf(t), q))
+    if (sel === 'fav') l = l.filter(t => favs.has(t.id))
+    else if (sel === 'new') l = l.filter(isNew)
+    else if (sel === 'pg') l = l.filter(t => t.is_pg)
+    else if (sel !== 'all') l = l.filter(t => groupOf(t) === sel)
+    if (q) l = l.filter(t => smartMatch(t.title, q) || smartMatch(t.description || '', q) || smartMatch(groupName(groupOf(t)), q))
     return [...l].sort(byTitle)
-  }, [templates, filter, search, favs]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [templates, sel, search, favs, groups]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── действия ──
+  // ── образци ──
   async function download(t: Template) {
     setBusyId(t.id)
     const { data, error } = await supabase.storage.from('templates').download(t.file_path)
@@ -194,7 +135,6 @@ export default function TemplatesClient({ templates: initial, collections: initi
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
     URL.revokeObjectURL(url)
     supabase.rpc('template_downloaded', { p_id: t.id }).then(() => {})
-    setTemplates(x => x.map(i => i.id === t.id ? { ...i, download_count: (i.download_count || 0) + 1 } : i))
   }
   async function preview(t: Template) {
     const w = window.open('', '_blank')
@@ -219,6 +159,15 @@ export default function TemplatesClient({ templates: initial, collections: initi
     toast('Образецът е изтрит')
     setTemplates(prev => prev.filter(x => x.id !== t.id))
   }
+  // местене в група (падащо меню или влачене)
+  async function moveTo(t: Template, gid: string) {
+    if (groupOf(t) === gid) return
+    const ids = gid === NONE ? [] : [gid]
+    const { error } = await supabase.from('document_templates').update({ collection_ids: ids }).eq('id', t.id)
+    if (error) { toast('Грешка при местене', 'error'); return }
+    setTemplates(prev => prev.map(x => x.id === t.id ? { ...x, collection_ids: ids } : x))
+    toast(`„${t.title}“ → ${groupName(gid)}`)
+  }
 
   function resetUpload() {
     setTitle(''); setDescription(''); setPendingFile(null); setIsPg(false); setShowUpload(false)
@@ -240,116 +189,222 @@ export default function TemplatesClient({ templates: initial, collections: initi
     const { error: upErr } = await supabase.storage.from('templates').upload(filePath, pendingFile)
     if (upErr) { toast('Грешка при качване', 'error'); setUploading(false); return }
     const row: any = {
-      title: title.trim(), category: uGroup, file_name: pendingFile.name, file_path: filePath,
+      title: title.trim(), category: 'Други', file_name: pendingFile.name, file_path: filePath,
       file_size: pendingFile.size, description: description.trim() || null, uploaded_by: staffId,
-      is_pg: isPg, is_administrative: uGroup === 'Административни',
+      is_pg: isPg, is_administrative: false,
     }
+    if (ready) row.collection_ids = uGroup && uGroup !== NONE ? [uGroup] : []
     const { data: newT, error } = await supabase.from('document_templates').insert(row).select().single()
     setUploading(false)
-    if (error || !newT) { toast(/category/.test(error?.message || '') ? 'Пуснете SQL файла 2026-11-18_templates_groups.sql' : 'Грешка при запис', 'error'); return }
+    if (error || !newT) { toast('Грешка при запис', 'error'); return }
     toast('Образецът е качен')
     setTemplates(prev => [newT, ...prev])
     resetUpload()
   }
   function startEdit(t: Template) {
-    setEdit(t); setETitle(t.title); setEGroup(groupOf(t))
-    setEDesc(t.description || ''); setEPg(t.is_pg)
+    setEdit(t); setETitle(t.title); setEGroup(groupOf(t)); setEDesc(t.description || ''); setEPg(t.is_pg)
   }
   async function saveEdit() {
     if (!edit || !eTitle.trim()) return
     setSavingEdit(true)
-    const patch: any = { title: eTitle.trim(), description: eDesc.trim() || null, is_pg: ePg, category: eGroup, is_administrative: eGroup === 'Административни' }
+    const patch: any = { title: eTitle.trim(), description: eDesc.trim() || null, is_pg: ePg }
+    if (ready) patch.collection_ids = eGroup && eGroup !== NONE ? [eGroup] : []
     const { error } = await supabase.from('document_templates').update(patch).eq('id', edit.id)
     setSavingEdit(false)
-    if (error) { toast(/category/.test(error.message) ? 'Пуснете SQL файла 2026-11-18_templates_groups.sql' : 'Грешка при запис', 'error'); return }
+    if (error) { toast('Грешка при запис', 'error'); return }
     setTemplates(prev => prev.map(t => t.id === edit.id ? { ...t, ...patch } : t))
     toast('Образецът е обновен'); setEdit(null)
   }
 
-  // ── карта на образец ──
-  const card = (t: Template, compact = false) => (
-    <div key={t.id} onClick={() => download(t)} title="Изтегли"
-      className="group relative flex gap-3 p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-[0_1px_2px_rgba(15,34,64,0.04)] hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300 transition-all cursor-pointer">
-      <FileBadge fileName={t.file_name} size={compact ? 'sm' : 'md'} />
-      <div className="min-w-0 flex-1 pr-6">
-        <div className={`text-[13.5px] text-slate-800 leading-snug ${compact ? 'line-clamp-1' : 'line-clamp-2'} group-hover:text-[#0f2240]`}>{t.title}</div>
-        {t.description && !compact && <div className="text-[12px] text-slate-400 line-clamp-1 mt-0.5">{t.description}</div>}
-        <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[11px] text-slate-400">
-          {busyId === t.id ? <span className="inline-flex items-center gap-1 text-[#0f2240]"><Loader2 size={11} className="animate-spin" /> тегли се…</span>
-            : <span className="inline-flex items-center gap-1"><Download size={11} /> {formatSize(t.file_size) || getExt(t.file_name).toUpperCase()}</span>}
-          {t.is_pg && <span className="px-1.5 rounded-full border border-slate-200 text-slate-500">ПГ</span>}
-          {isNew(t) && <span className="px-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium">НОВО</span>}
-        </div>
-      </div>
-      <div className="absolute top-2.5 right-2.5 flex flex-col items-center gap-0.5" onClick={e => e.stopPropagation()}>
-        <button type="button" onClick={() => toggleFav(t)} title={favs.has(t.id) ? 'Махни от моите' : 'Към моите'}
-          className={`p-1 rounded-lg transition-colors ${favs.has(t.id) ? 'text-amber-500' : 'text-slate-300 hover:text-amber-500 opacity-0 group-hover:opacity-100'}`}>
-          <Star size={15} fill={favs.has(t.id) ? 'currentColor' : 'none'} />
-        </button>
-        {isPdf(t) && (
-          <button type="button" onClick={() => preview(t)} title="Преглед" className="p-1 rounded-lg text-slate-300 hover:text-[#0f2240] opacity-0 group-hover:opacity-100">
-            <Eye size={15} />
+  // ── групи (режим „Подреди“) ──
+  async function patchGroup(id: string, p: Partial<Group>) {
+    const { error } = await supabase.from('template_collections').update(p).eq('id', id)
+    if (error) { toast(error.message.includes('unique') ? 'Такава група вече има' : 'Грешка при запис', 'error'); return false }
+    setGroups(prev => prev.map(g => g.id === id ? { ...g, ...p } : g)); return true
+  }
+  async function moveGroup(i: number, d: -1 | 1) {
+    const j = i + d
+    if (j < 0 || j >= groups.length) return
+    const next = [...groups];[next[i], next[j]] = [next[j], next[i]]
+    const withSort = next.map((g, k) => ({ ...g, sort: (k + 1) * 10 }))
+    setGroups(withSort)
+    await Promise.all(withSort.map(g => supabase.from('template_collections').update({ sort: g.sort }).eq('id', g.id)))
+  }
+  const [newGroup, setNewGroup] = useState('')
+  async function addGroup() {
+    const name = newGroup.trim()
+    if (!name) return
+    const { data, error } = await supabase.from('template_collections')
+      .insert({ name, icon: 'folder', sort: (groups.length + 1) * 10 }).select('id, name, icon, sort').single()
+    if (error || !data) { toast(error?.message.includes('unique') ? 'Такава група вече има' : 'Грешка при запис', 'error'); return }
+    setGroups(prev => [...prev, data as Group]); setNewGroup('')
+  }
+  async function delGroup(g: Group) {
+    const n = countIn(g.id)
+    if (!await confirmDialog(n
+      ? `Да се изтрие ли групата „${g.name}“? ${n} образеца в нея отиват в „Без група“ (не се трият).`
+      : `Да се изтрие ли празната група „${g.name}“?`)) return
+    if (n) {
+      const ids = templates.filter(t => groupOf(t) === g.id).map(t => t.id)
+      await supabase.from('document_templates').update({ collection_ids: [] }).in('id', ids)
+      setTemplates(prev => prev.map(t => ids.includes(t.id) ? { ...t, collection_ids: [] } : t))
+    }
+    const { error } = await supabase.from('template_collections').delete().eq('id', g.id)
+    if (error) { toast('Грешка при изтриване', 'error'); return }
+    setGroups(prev => prev.filter(x => x.id !== g.id))
+    if (sel === g.id) setSel('all')
+  }
+  const emptyGroups = groups.filter(g => countIn(g.id) === 0)
+  async function delEmpty() {
+    if (!emptyGroups.length) return
+    if (!await confirmDialog(`Да се изтрият ли ${emptyGroups.length} празни групи?`)) return
+    const { error } = await supabase.from('template_collections').delete().in('id', emptyGroups.map(g => g.id))
+    if (error) { toast('Грешка при изтриване', 'error'); return }
+    const gone = new Set(emptyGroups.map(g => g.id))
+    setGroups(prev => prev.filter(g => !gone.has(g.id)))
+  }
+  const [iconFor, setIconFor] = useState<string | null>(null)
+
+  // ── лява колона ──
+  const sideItem = (id: string, label: string, n: number, I?: any, gi?: number) => {
+    const on = sel === id
+    const isGroup = gi !== undefined || id === NONE
+    const droppable = arrange && isGroup
+    return (
+      <div key={id}
+        onDragOver={droppable ? e => { e.preventDefault(); setDropOn(id) } : undefined}
+        onDragLeave={droppable ? () => setDropOn(d => d === id ? null : d) : undefined}
+        onDrop={droppable ? e => { e.preventDefault(); setDropOn(null); const t = templates.find(x => x.id === dragId); if (t) moveTo(t, id); setDragId(null) } : undefined}
+        className={`rounded-xl transition-colors ${dropOn === id ? 'ring-2 ring-[#0f2240]/40 bg-slate-50' : ''}`}>
+        {arrange && gi !== undefined ? (
+          <div className="flex items-center gap-1 px-1.5 py-1">
+            <button type="button" onClick={() => setIconFor(iconFor === id ? null : id)} title="Иконка"
+              className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 shrink-0">{I ? <I size={15} /> : <FolderOpen size={15} />}</button>
+            <input defaultValue={label} onBlur={e => { const v = e.target.value.trim(); if (v && v !== label) patchGroup(id, { name: v }) }}
+              className="flex-1 min-w-0 px-2 py-1 rounded-lg border border-slate-200 text-[13px] focus:outline-none focus:border-slate-400" />
+            <span className="text-[11px] text-slate-400 w-5 text-right tabular-nums">{n}</span>
+            <button type="button" onClick={() => moveGroup(gi, -1)} disabled={gi === 0} className="p-0.5 text-slate-400 hover:text-slate-700 disabled:opacity-25"><ArrowUp size={13} /></button>
+            <button type="button" onClick={() => moveGroup(gi, 1)} disabled={gi === groups.length - 1} className="p-0.5 text-slate-400 hover:text-slate-700 disabled:opacity-25"><ArrowDown size={13} /></button>
+            <button type="button" onClick={() => delGroup(groups[gi])} title="Изтрий групата" className="p-0.5 text-slate-300 hover:text-rose-600"><Trash2 size={13} /></button>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setSel(id)}
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-[13.5px] transition-colors ${on ? 'bg-[#0f2240] text-white' : 'text-slate-700 hover:bg-slate-100'}`}>
+            {I && <I size={15} className={on ? 'text-white/80' : 'text-slate-400'} />}
+            <span className="flex-1 min-w-0 truncate">{label}</span>
+            <span className={`text-[11.5px] tabular-nums ${on ? 'text-white/60' : 'text-slate-400'}`}>{n}</span>
           </button>
         )}
-        {canManage && (
+        {arrange && iconFor === id && (
+          <div className="flex flex-wrap gap-1 mx-1.5 mb-1.5 p-1.5 rounded-xl bg-slate-50">
+            {Object.entries(ICONS).map(([k, Ic]) => (
+              <button key={k} type="button" onClick={async () => { if (await patchGroup(id, { icon: k })) setIconFor(null) }}
+                className="p-1.5 rounded-lg text-slate-500 hover:bg-white hover:text-[#0f2240]"><Ic size={15} /></button>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── ред на образец ──
+  const row = (t: Template) => (
+    <div key={t.id} draggable={arrange} onDragStart={() => setDragId(t.id)} onDragEnd={() => { setDragId(null); setDropOn(null) }}
+      onClick={() => !arrange && download(t)} title={arrange ? 'Влачи върху група вляво' : 'Изтегли'}
+      className={`group flex items-center gap-3 px-3.5 py-2.5 bg-white rounded-xl border border-slate-200/80 hover:border-slate-300 hover:shadow-sm transition-all ${arrange ? 'cursor-grab' : 'cursor-pointer'} ${dragId === t.id ? 'opacity-50' : ''}`}>
+      {arrange && <GripVertical size={14} className="text-slate-300 shrink-0" />}
+      <FileBadge fileName={t.file_name} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[14px] text-slate-800 truncate group-hover:text-[#0f2240]">{t.title}</span>
+          {isNew(t) && <span className="shrink-0 px-1.5 rounded-full text-[10.5px] font-medium bg-amber-50 text-amber-700 border border-amber-200">НОВО</span>}
+          {t.is_pg && <span className="shrink-0 px-1.5 rounded-full text-[10.5px] border border-slate-200 text-slate-500">ПГ</span>}
+        </div>
+        <div className="text-[12px] text-slate-400 truncate">
+          {busyId === t.id ? <span className="inline-flex items-center gap-1 text-[#0f2240]"><Loader2 size={11} className="animate-spin" /> тегли се…</span>
+            : <>{t.description || getExt(t.file_name).toUpperCase()}{t.file_size ? ` · ${formatSize(t.file_size)}` : ''}</>}
+        </div>
+      </div>
+      <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
+        {arrange ? (
+          <select value={groupOf(t)} onChange={e => moveTo(t, e.target.value)} title="Група"
+            className="text-[12px] border border-slate-200 rounded-lg px-2 py-1 bg-slate-50 max-w-[11rem]">
+            {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+            <option value={NONE}>Без група</option>
+          </select>
+        ) : (
           <>
-            <button type="button" onClick={() => startEdit(t)} title="Редакция" className="p-1 rounded-lg text-slate-300 hover:text-slate-700 opacity-0 group-hover:opacity-100"><Pencil size={14} /></button>
-            <button type="button" onClick={() => remove(t)} title="Изтрий" className="p-1 rounded-lg text-slate-300 hover:text-rose-600 opacity-0 group-hover:opacity-100"><Trash2 size={14} /></button>
+            <button type="button" onClick={() => toggleFav(t)} title={favs.has(t.id) ? 'Махни от моите' : 'Към моите'}
+              className={`p-1.5 rounded-lg ${favs.has(t.id) ? 'text-amber-500' : 'text-slate-300 hover:text-amber-500'}`}>
+              <Star size={15} fill={favs.has(t.id) ? 'currentColor' : 'none'} />
+            </button>
+            {isPdf(t) && <button type="button" onClick={() => preview(t)} title="Преглед" className="p-1.5 rounded-lg text-slate-300 hover:text-[#0f2240]"><Eye size={15} /></button>}
+            <button type="button" onClick={() => download(t)} title="Изтегли" className="p-1.5 rounded-lg text-slate-300 hover:text-[#0f2240]"><Download size={15} /></button>
+            {canManage && (
+              <>
+                <button type="button" onClick={() => startEdit(t)} title="Редакция" className="p-1.5 rounded-lg text-slate-300 hover:text-slate-700"><Pencil size={14} /></button>
+                <button type="button" onClick={() => remove(t)} title="Изтрий" className="p-1.5 rounded-lg text-slate-300 hover:text-rose-600"><Trash2 size={14} /></button>
+              </>
+            )}
           </>
         )}
       </div>
     </div>
   )
-  const grid = (list: Template[], compact = false) => (
-    <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">{list.map(t => card(t, compact))}</div>
+
+  const searching = !!search.trim()
+  // в „Всички“ (без търсене) — по групи с заглавия; другаде — един списък
+  const sections = sel === 'all' && !searching
+    ? [...groups.map(g => ({ id: g.id, name: g.name })), { id: NONE, name: 'Без група' }]
+        .map(s => ({ ...s, items: list.filter(t => groupOf(t) === s.id) })).filter(s => s.items.length)
+    : null
+  const selLabel = sel === 'all' ? 'Всички образци' : sel === 'fav' ? 'Моите' : sel === 'new' ? 'Нови' : sel === 'pg' ? 'За ПГ' : groupName(sel)
+
+  const groupSelect = (value: string, onChange: (v: string) => void) => (
+    <select value={value} onChange={e => onChange(e.target.value)}
+      className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300">
+      <option value={NONE}>Без група</option>
+      {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+    </select>
   )
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {!ready && canManage && (
         <div className="px-4 py-2.5 rounded-xl text-sm bg-amber-50 border border-amber-200 text-amber-800">
-          Колекциите и любимите още не са включени — пуснете SQL файла 2026-10-20_template_collections.sql.
+          Групите още не са включени — пуснете SQL файла 2026-10-20_template_collections.sql.
         </div>
       )}
 
       {/* търсене + действия */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input type="text" value={search} onChange={e => setSearch(e.target.value)} 
-              placeholder="Какво търсиш? — напр. отпуск, протокол, съгласие…"
-              className="w-full pl-11 pr-10 py-3 bg-white border border-slate-200 rounded-2xl text-[15px] shadow-sm focus:outline-none focus:border-slate-400" />
-            {search && <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"><X size={16} /></button>}
-          </div>
-          {canManage && (
-            <>
-              <button type="button" onClick={() => { setUGroup(GROUPS.includes(filter as Group) ? filter as Group : 'За дейността'); setIsPg(filter === 'pg'); setShowUpload(true) }}
-                className="inline-flex items-center gap-1.5 px-4 py-3 rounded-2xl text-white text-sm hover:opacity-90 shrink-0" style={{ backgroundColor: '#0f2240' }}>
-                <Plus size={16} /> <span className="hidden sm:inline">Качи образец</span>
-              </button>
-            </>
-          )}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Какво търсиш? — напр. отпуск, протокол, съгласие…"
+            className="w-full pl-11 pr-10 py-3 bg-white border border-slate-200 rounded-2xl text-[15px] shadow-sm focus:outline-none focus:border-slate-400" />
+          {search && <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"><X size={16} /></button>}
         </div>
-        {/* един ред филтри */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          {([
-            { id: 'all', label: 'Всички', n: templates.length, icon: null as any },
-            ...(ready ? [{ id: 'fav', label: 'Моите', n: favs.size, icon: Star }] : []),
-            ...(newCount ? [{ id: 'new', label: 'Нови', n: newCount, icon: null as any }] : []),
-            ...(pgCount ? [{ id: 'pg', label: 'ПГ', n: pgCount, icon: Baby }] : []),
-            ...GROUPS.filter(g => groupCount(g) > 0).map(g => ({ id: g as string, label: g as string, n: groupCount(g), icon: null as any })),
-          ]).map(f => {
-            const on = filter === f.id
-            return (
-              <button key={f.id} type="button" onClick={() => setFilter(on && f.id !== 'all' ? 'all' : f.id)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] border transition-colors ${on ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
-                {f.icon && <f.icon size={13} fill={f.id === 'fav' && on ? 'currentColor' : 'none'} />} {f.label}
-                <span className={on ? 'text-white/60' : 'text-slate-400'}>{f.n}</span>
-              </button>
-            )
-          })}
-        </div>
+        {canManage && ready && (
+          <button type="button" onClick={() => { setArrange(v => !v); setIconFor(null) }} title="Подреди групите и образците"
+            className={`inline-flex items-center gap-1.5 px-4 py-3 rounded-2xl text-sm border shrink-0 ${arrange ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+            {arrange ? <Check size={16} /> : <Settings2 size={16} />} <span className="hidden sm:inline">{arrange ? 'Готово' : 'Подреди'}</span>
+          </button>
+        )}
+        {canManage && (
+          <button type="button" onClick={() => { setUGroup(groupIds.has(sel) ? sel : NONE); setIsPg(sel === 'pg'); setShowUpload(true) }}
+            className="inline-flex items-center gap-1.5 px-4 py-3 rounded-2xl text-white text-sm hover:opacity-90 shrink-0" style={{ backgroundColor: '#0f2240' }}>
+            <Plus size={16} /> <span className="hidden sm:inline">Качи образец</span>
+          </button>
+        )}
       </div>
+
+      {arrange && (
+        <div className="px-4 py-2.5 rounded-xl text-[13px] bg-amber-50/60 border border-amber-200 text-amber-900">
+          <b>Подреждане:</b> вляво — преименувай групите (пиши в полето), смени иконка, мести ↑↓, изтрий, добави нова.
+          Образец се мести в група с <b>влачене върху групата вляво</b> или от менюто до него. Накрая — „Готово“.
+        </div>
+      )}
 
       {/* качване */}
       {canManage && showUpload && (
@@ -370,7 +425,7 @@ export default function TemplatesClient({ templates: initial, collections: initi
             <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.dot,.dotx,.xls,.xlsx" className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) pickFile(f); e.target.value = '' }} />
           </div>
-          <div className="grid md:grid-cols-2 gap-3">
+          <div className="grid md:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs text-slate-500 mb-1">Заглавие *</label>
               <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="напр. Заявление за отпуск"
@@ -381,17 +436,18 @@ export default function TemplatesClient({ templates: initial, collections: initi
               <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="напр. Подава се 3 дни предварително"
                 className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-300 focus:outline-none" />
             </div>
-          </div>
-          <div>
-            <label className="block text-xs text-slate-500 mb-1.5">Група</label>
-            <GroupPicker value={uGroup} onChange={setUGroup} />
+            {ready && (
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Група</label>
+                {groupSelect(uGroup, setUGroup)}
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm cursor-pointer ${isPg ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+            <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm cursor-pointer ${isPg ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
               <input type="checkbox" checked={isPg} onChange={e => setIsPg(e.target.checked)} className="sr-only" /><Baby size={14} /> За ПГ
             </label>
-          </div>
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="flex-1" />
             <button type="button" onClick={resetUpload} className="px-4 py-2 rounded-xl text-sm bg-white border border-slate-200 hover:bg-slate-100 text-slate-700">Отказ</button>
             <button type="button" onClick={doUpload} disabled={uploading || !title.trim() || !pendingFile}
               className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm text-white disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
@@ -401,28 +457,63 @@ export default function TemplatesClient({ templates: initial, collections: initi
         </div>
       )}
 
-      {/* един списък А–Я */}
-      <section className="space-y-6">
-        {list.length ? (GROUPS.includes(filter as Group) ? grid(list) : GROUPS.map(g => {
-          const items = list.filter(t => groupOf(t) === g)
-          if (!items.length) return null
-          return (
-            <div key={g}>
-              <div className="flex items-center gap-2 mb-2.5">
-                <h2 className="text-[13px] font-medium text-slate-600 uppercase tracking-wide">{g}</h2>
-                <span className="text-xs text-slate-400">{items.length}</span>
+      <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
+        {/* лява колона — групи */}
+        <aside className="space-y-0.5 lg:sticky lg:top-4 self-start bg-white/60 rounded-2xl border border-slate-200/70 p-2">
+          {sideItem('all', 'Всички', templates.length, Layers)}
+          {ready && sideItem('fav', 'Моите', favs.size, Star)}
+          {newCount > 0 && sideItem('new', 'Нови', newCount, Sparkles)}
+          {pgCount > 0 && sideItem('pg', 'За ПГ', pgCount, Baby)}
+          {ready && (
+            <>
+              <div className="h-px bg-slate-200 my-2 mx-2" />
+              <div className="px-3 pb-1 text-[10.5px] uppercase tracking-widest text-slate-400">Групи</div>
+              {groups.filter(g => arrange || countIn(g.id) > 0).map((g, i) => sideItem(g.id, g.name, countIn(g.id), ICONS[g.icon] || FolderOpen, groups.indexOf(g)))}
+              {(noneCount > 0 || arrange) && sideItem(NONE, 'Без група', noneCount, FolderOpen)}
+              {arrange && (
+                <div className="pt-2 space-y-1.5 px-1.5">
+                  <div className="flex gap-1">
+                    <input value={newGroup} onChange={e => setNewGroup(e.target.value)} onKeyDown={e => e.key === 'Enter' && addGroup()}
+                      placeholder="Нова група…" className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg border border-slate-200 text-[13px] focus:outline-none focus:border-slate-400" />
+                    <button type="button" onClick={addGroup} disabled={!newGroup.trim()}
+                      className="px-2.5 rounded-lg text-white disabled:opacity-40" style={{ backgroundColor: '#0f2240' }}><Plus size={14} /></button>
+                  </div>
+                  {emptyGroups.length > 0 && (
+                    <button type="button" onClick={delEmpty} className="w-full text-[12px] px-2.5 py-1.5 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50">
+                      Изтрий празните групи ({emptyGroups.length})
+                    </button>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </aside>
+
+        {/* дясно — образците */}
+        <section className="min-w-0 space-y-5">
+          <div className="flex items-baseline gap-2">
+            <h2 className="text-[15px] font-medium text-slate-800">{searching ? 'Резултати' : selLabel}</h2>
+            <span className="text-xs text-slate-400">{list.length}</span>
+          </div>
+          {list.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-slate-300 text-sm text-slate-500">
+              {sel === 'fav' && !searching ? 'Още нямате любими — натиснете звездата на образец.'
+                : templates.length === 0 ? `Няма образци${canManage ? ' — качете с „Качи образец“' : ''}.` : 'Нищо не е намерено.'}
+            </div>
+          ) : sections ? sections.map(s => (
+            <div key={s.id}>
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="text-[12px] font-medium text-slate-500 uppercase tracking-wide">{s.name}</h3>
+                <span className="text-[11px] text-slate-400">{s.items.length}</span>
                 <span className="flex-1 h-px bg-slate-200" />
               </div>
-              {grid(items)}
+              <div className="space-y-1.5">{s.items.map(row)}</div>
             </div>
-          )
-        })) : (
-          <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-slate-300 text-sm text-slate-500">
-            {filter === 'fav' && !search.trim() ? 'Още нямате любими — натиснете звездата на образец.'
-              : templates.length === 0 ? `Няма образци${canManage ? ' — качете с „Качи образец“' : ''}.` : 'Нищо не е намерено.'}
-          </div>
-        )}
-      </section>
+          )) : (
+            <div className="space-y-1.5">{list.map(row)}</div>
+          )}
+        </section>
+      </div>
 
       {/* редакция */}
       {edit && (
@@ -441,15 +532,15 @@ export default function TemplatesClient({ templates: initial, collections: initi
                 <label className="block text-xs text-slate-500 mb-1">Пояснение — за какво е</label>
                 <input type="text" value={eDesc} onChange={e => setEDesc(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
               </div>
-              <div>
-                <label className="block text-xs text-slate-500 mb-1.5">Група</label>
-                <GroupPicker value={eGroup} onChange={setEGroup} />
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm cursor-pointer ${ePg ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-600 border-slate-200'}`}>
-                  <input type="checkbox" checked={ePg} onChange={e => setEPg(e.target.checked)} className="sr-only" /><Baby size={14} /> За ПГ
-                </label>
-              </div>
+              {ready && (
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Група</label>
+                  {groupSelect(eGroup, setEGroup)}
+                </div>
+              )}
+              <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm cursor-pointer ${ePg ? 'bg-[#0f2240] text-white border-[#0f2240]' : 'bg-white text-slate-600 border-slate-200'}`}>
+                <input type="checkbox" checked={ePg} onChange={e => setEPg(e.target.checked)} className="sr-only" /><Baby size={14} /> За ПГ
+              </label>
             </div>
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
               <button type="button" onClick={() => setEdit(null)} className="px-4 py-2 rounded-xl text-sm bg-slate-100 hover:bg-slate-200 text-slate-700">Отказ</button>
@@ -461,117 +552,6 @@ export default function TemplatesClient({ templates: initial, collections: initi
           </div>
         </div>
       )}
-
-      
-    </div>
-  )
-}
-
-// ── настройка на колекциите: име, иконка, ред, нова, изтриване ──
-function ManageCollections({ collections, setCollections, counts = {}, onClose }: {
-  collections: Collection[]; setCollections: (c: Collection[]) => void; counts?: Record<string, number>; onClose: () => void
-}) {
-  const supabase = createClient()
-  const { toast } = useToast()
-  const [rows, setRows] = useState(collections)
-  const [iconFor, setIconFor] = useState<string | null>(null)
-  const [newName, setNewName] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  async function patch(id: string, p: Partial<Collection>) {
-    const { error } = await supabase.from('template_collections').update(p).eq('id', id)
-    if (error) { toast(error.message.includes('unique') ? 'Такава колекция вече има' : 'Грешка при запис', 'error'); return false }
-    const next = rows.map(r => r.id === id ? { ...r, ...p } : r)
-    setRows(next); setCollections(next); return true
-  }
-  async function move(i: number, d: -1 | 1) {
-    const j = i + d
-    if (j < 0 || j >= rows.length) return
-    const next = [...rows];[next[i], next[j]] = [next[j], next[i]]
-    const withSort = next.map((r, k) => ({ ...r, sort: (k + 1) * 10 }))
-    setRows(withSort); setCollections(withSort)
-    await Promise.all(withSort.map(r => supabase.from('template_collections').update({ sort: r.sort }).eq('id', r.id)))
-  }
-  async function add() {
-    const name = newName.trim()
-    if (!name) return
-    setBusy(true)
-    const { data, error } = await supabase.from('template_collections').insert({ name, icon: 'folder', sort: (rows.length + 1) * 10 }).select('id, name, icon, sort').single()
-    setBusy(false)
-    if (error || !data) { toast(error?.message.includes('unique') ? 'Такава колекция вече има' : 'Грешка при запис', 'error'); return }
-    const next = [...rows, data as Collection]
-    setRows(next); setCollections(next); setNewName('')
-  }
-  // всички празни колекции наведнъж — образците не се пипат
-  const empty = rows.filter(r => !counts[r.id])
-  async function delEmpty() {
-    if (!empty.length) return
-    if (!await confirmDialog(`Да се изтрият ли ${empty.length} празни колекции? В тях няма образци.`)) return
-    const { error } = await supabase.from('template_collections').delete().in('id', empty.map(r => r.id))
-    if (error) { toast('Грешка при изтриване', 'error'); return }
-    const next = rows.filter(r => counts[r.id])
-    setRows(next); setCollections(next)
-  }
-  async function del(c: Collection) {
-    if (!await confirmDialog(`Да се изтрие ли колекцията „${c.name}“? Образците остават — само излизат от нея.`)) return
-    const { error } = await supabase.from('template_collections').delete().eq('id', c.id)
-    if (error) { toast('Грешка при изтриване', 'error'); return }
-    const next = rows.filter(r => r.id !== c.id)
-    setRows(next); setCollections(next)
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <h3 className="text-sm font-medium text-slate-800 flex items-center gap-2"><Settings2 size={15} style={{ color: '#0f2240' }} /> Колекции</h3>
-          <button type="button" onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600"><X size={18} /></button>
-        </div>
-        <div className="px-5 pt-3 text-[12px] text-slate-500 flex items-center gap-2">
-          <span>По-малко колекции = по-лесно. Празните не се виждат от колегите.</span>
-          {empty.length > 0 && (
-            <button type="button" onClick={delEmpty} className="ml-auto shrink-0 px-2.5 py-1 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50">
-              Изтрий празните ({empty.length})
-            </button>
-          )}
-        </div>
-        <div className="px-5 py-3 overflow-y-auto space-y-1.5">
-          {rows.map((c, i) => {
-            const I = ICONS[c.icon] || FolderOpen
-            const tint = TINTS[i % TINTS.length]
-            return (
-              <div key={c.id}>
-                <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => setIconFor(iconFor === c.id ? null : c.id)} title="Иконка"
-                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: tint.bg, color: tint.fg }}><I size={17} /></button>
-                  <input defaultValue={c.name} onBlur={e => { const v = e.target.value.trim(); if (v && v !== c.name) patch(c.id, { name: v }) }}
-                    className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-slate-400" />
-                  <span className={`text-[11px] tabular-nums w-14 text-right shrink-0 ${counts[c.id] ? 'text-slate-500' : 'text-amber-600'}`}>{counts[c.id] ? `${counts[c.id]} обр.` : 'празна'}</span>
-                  <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 disabled:opacity-30"><ArrowUp size={14} /></button>
-                  <button type="button" onClick={() => move(i, 1)} disabled={i === rows.length - 1} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 disabled:opacity-30"><ArrowDown size={14} /></button>
-                  <button type="button" onClick={() => del(c)} className="p-1.5 rounded-lg text-slate-300 hover:text-rose-600"><Trash2 size={14} /></button>
-                </div>
-                {iconFor === c.id && (
-                  <div className="flex flex-wrap gap-1 mt-1.5 ml-11 p-2 rounded-xl bg-slate-50">
-                    {Object.entries(ICONS).map(([k, Ic]) => (
-                      <button key={k} type="button" onClick={async () => { if (await patch(c.id, { icon: k })) setIconFor(null) }}
-                        className={`p-1.5 rounded-lg ${c.icon === k ? 'bg-white shadow-sm text-[#0f2240]' : 'text-slate-500 hover:bg-white'}`}><Ic size={16} /></button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-        <div className="flex items-center gap-2 px-5 py-3 border-t border-slate-100">
-          <input value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()} placeholder="Нова колекция — напр. Край на срока"
-            className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-slate-400" />
-          <button type="button" onClick={add} disabled={busy || !newName.trim()}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm text-white disabled:opacity-50" style={{ backgroundColor: '#0f2240' }}>
-            {busy ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Добави
-          </button>
-        </div>
-      </div>
     </div>
   )
 }
