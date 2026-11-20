@@ -212,8 +212,6 @@ const navItems: NavItem[] = [
   // Администрация (рядко: структура, предмети, училища, съобщения, нова година…) — един ред най-долу
   { href: '/admin', label: 'Администрация', icon: <Settings size={16} />, roles: ['admin', 'zdud'] },
   { href: '/correspondence', label: 'Регистър', icon: <Inbox size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
-  // документите от училищата (имейл) → кутия → училище или досие на дете
-  { href: '/exchange', label: 'Обмен с училища', icon: <ArrowLeftRight size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/orders', label: 'Заповеди', icon: <ClipboardList size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   { href: '/contracts', label: 'Договори', icon: <FileSignature size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   // „Обществени поръчки“ — скрито: поръчките се водят в АОП (страницата /procurements и данните остават)
@@ -223,6 +221,8 @@ const navItems: NavItem[] = [
   { href: '/admin/announcements', label: 'Съобщения', icon: <Bell size={16} />, roles: ['secretary'], section: 'delo' },
   { href: '/portfolio', label: 'Кабинети и дейности', icon: <Images size={16} />, roles: ['secretary'], section: 'delo' },
   { href: '/facilities', label: 'Материална база', icon: <Wrench size={16} />, roles: ['secretary'], section: 'delo' },
+  // документите от училищата (имейл) → кутия → училище или досие на дете
+  { href: '/exchange', label: 'Обмен с училища', icon: <ArrowLeftRight size={16} />, roles: ['admin', 'director', 'zdud', 'secretary'], section: 'delo' },
   // Секретар: „Още“ (под Деловодство, свито по подразбиране) — подредено по смисъл
   { href: '/students', label: 'Ученици', icon: <Users size={16} />, roles: ['secretary'], section: 'settings' },
   { href: '/students/documents', label: 'Досиета', icon: <FileText size={16} />, roles: ['secretary'], section: 'settings' },
