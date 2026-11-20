@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getMonthName, getFullName } from '@/lib/utils'
 import OutreachBadge from '@/components/OutreachBadge'
-import { iupPeriod, inIup, iupMonthStart, leftDuringIup, IUP_OPEN_DAY, IUP_CLOSE_DAY } from '@/lib/iup-period'
+import { iupPeriod, iupPrevious, iupOwes, inIup, iupMonthStart, leftDuringIup, IUP_OPEN_DAY, IUP_CLOSE_DAY } from '@/lib/iup-period'
 
 export default async function AbsencesPage() {
   const supabase = await createClient()
@@ -23,12 +23,13 @@ export default async function AbsencesPage() {
   const P = iupPeriod()
   const isSummer = P.offSeason
   const isActivePeriod = P.open
-  const deadlinePassed = P.overdue
+  const upcoming = P.upcoming                                   // 9-ти – 26-ти: отчетът предстои (просрочване няма)
+  const prev = iupPrevious(P)                                   // приключилият прозорец — Excel след 8-ми
   const months = P.months                                       // [септември, октомври] или [ноември]…
   const nextMonth = P.month === 12 ? 1 : P.month + 1            // месецът на срока (8-ми)
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
-  // следващият прозорец (за съобщението към класните извън периода)
-  const nextReport = P.offSeason ? P.month : (P.month === 6 ? 10 : P.month === 12 ? 1 : P.month + 1)
+  // следващият прозорец (за съобщението към класните извън периода) — извън прозореца P вече Е следващият
+  const nextReport = P.month
   const nextWindow = `${IUP_OPEN_DAY} ${getMonthName(nextReport)} до ${IUP_CLOSE_DAY} ${getMonthName(nextReport === 12 ? 1 : nextReport + 1)}`
 
   const isAdmin = ['admin', 'zdud', 'director'].includes(profile?.role || '')
@@ -131,13 +132,16 @@ export default async function AbsencesPage() {
     )
   }
 
+  const pill = (small?: boolean) => `inline-flex items-center gap-1 rounded-full font-medium ${small ? 'px-2.5 py-1 text-xs' : 'px-3 py-1 text-xs'}`
   const Badge = ({ ok, small }: { ok: boolean; small?: boolean }) => ok ? (
-    <span className={`inline-flex items-center gap-1 rounded-full font-medium bg-green-100 text-green-700 ${small ? 'px-2.5 py-1 text-xs' : 'px-3 py-1 text-xs'}`}>✓ Въведено</span>
+    <span className={`${pill(small)} bg-green-100 text-green-700`}>✓ Въведено</span>
+  ) : upcoming ? (
+    <span className={`${pill(small)} bg-slate-100 text-slate-500`}>Предстои</span>
   ) : (
-    <span className={`inline-flex items-center gap-1 rounded-full font-medium ${small ? 'px-2.5 py-1 text-xs' : 'px-3 py-1 text-xs'} ${
-      deadlinePassed ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
-    }`}>{deadlinePassed ? '⚠ Просрочено' : '— Невъведено'}</span>
+    <span className={`${pill(small)} bg-amber-100 text-amber-700`}>— Невъведено</span>
   )
+  // паралелката е създадена след края на месеца → не дължи отчет за него
+  const NotOwed = () => <span className="text-slate-300" title="Паралелката още не е съществувала през този месец">—</span>
 
   return (
     <div className="p-4 md:p-8">
@@ -147,15 +151,19 @@ export default async function AbsencesPage() {
           <p className="text-slate-500 text-sm mt-1 flex flex-wrap gap-x-2">
             <span>{currentYear?.name}</span>
             <span>· {months.length > 1 ? 'Отчети' : 'Месец'}: <strong>{cap(P.label)}</strong></span>
-            <span>· Срок: <strong className={deadlinePassed ? 'text-red-600' : 'text-green-600'}>
-              до {IUP_CLOSE_DAY} {getMonthName(nextMonth)}
-            </strong></span>
+            {upcoming ? (
+              <span>· Въвеждане: <strong className="text-slate-600">от {IUP_OPEN_DAY} {getMonthName(P.month)} до {IUP_CLOSE_DAY} {getMonthName(nextMonth)}</strong></span>
+            ) : (
+              <span>· Срок: <strong className="text-green-600">до {IUP_CLOSE_DAY} {getMonthName(nextMonth)}</strong></span>
+            )}
           </p>
         </div>
         {isAdmin && (
-          <div className="flex flex-wrap gap-2">
-            {months.map(m => (
-              <a key={m.month} href={`/absences/export/${m.month}/${m.year}`}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* извън прозореца — файловете на приключилия период (теглят се след 8-ми) */}
+            {upcoming && <span className="text-xs text-slate-400">Приключил период:</span>}
+            {(upcoming ? prev.months : months).map(m => (
+              <a key={`${m.year}-${m.month}`} href={`/absences/export/${m.month}/${m.year}`}
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-white flex-shrink-0 transition-opacity hover:opacity-90"
                 style={{ backgroundColor: '#0f6e56' }}>
                 📊 Excel — {m.label}
@@ -193,6 +201,7 @@ export default async function AbsencesPage() {
                     {months.map(m => {
                       const info = subInfo(cls.id, m.month)
                       const n = expected(cls.id, m.month)
+                      if (!info && !iupOwes(m, cls.created_at)) return <td key={m.month} className="px-4 py-2.5 text-center"><NotOwed /></td>
                       return (
                         <td key={m.month} className="px-4 py-2.5 text-center">
                           <Link href={`/absences/${cls.id}/${m.month}`} className="inline-flex flex-col items-center hover:opacity-80" title={`Преглед — ${m.label}`}>
@@ -222,7 +231,7 @@ export default async function AbsencesPage() {
                   {cls.outreach_location && <OutreachBadge location={cls.outreach_location} size="xs" />}
                   <span className="ml-auto text-xs text-slate-400 font-light truncate">{(teachers.get(cls.id) || []).join(', ')} · {kids.get(cls.id) || 0} деца</span>
                 </div>
-                {months.map(m => (
+                {months.filter(m => isDone(cls.id, m.month) || iupOwes(m, cls.created_at)).map(m => (
                   <Link key={m.month} href={`/absences/${cls.id}/${m.month}`}
                     className="flex items-center justify-between gap-3 text-sm text-slate-600 hover:text-[#0f2240]">
                     <span>{cap(m.label)}</span>
@@ -240,7 +249,7 @@ export default async function AbsencesPage() {
             <div key={cls.id} className="card">
               <h2 className="font-medium text-slate-700 mb-4">Паралелка {cls.name}</h2>
               <div className="space-y-2">
-                {months.map(m => (
+                {months.filter(m => isDone(cls.id, m.month) || iupOwes(m, cls.created_at)).map(m => (
                   <Link key={m.month}
                     href={`/absences/${cls.id}/${m.month}`}
                     className="flex items-center justify-between p-4 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
