@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { smartMatch } from '@/lib/search'
 import { notify, confirmDialog } from '@/components/ui/Toast'
-import { Upload, Loader2, Trash2, FileText, School, User, Check, Download, ArrowRight, Inbox, X } from 'lucide-react'
+import { Upload, Loader2, Trash2, FileText, School, User, Check, Download, ArrowRight, Inbox, X, AlertTriangle, Eye } from 'lucide-react'
 
 // ─── типове ───
 type Row = { id: string; name: string; original_name: string | null; path: string; size: number | null; mime_type: string | null; created_at: string }
@@ -12,15 +12,33 @@ type Recent = { id: string; name: string; path: string; status: string; docType:
 type SchoolOpt = { id: string; name: string; city: string | null }
 type Kid = { id: string; name: string; schoolId: string | null }
 type Dest = 'school' | 'student'
+// вече качен документ от същия вид за същата учебна година (заповед ЕПЛР на детето / учебен план на училището)
+type Dup = { id: string; name: string; path: string; created_at: string; bucket: 'student-dossiers' | 'school-files' }
 
 const BUCKET = 'school-files'
 const ACCENT = '#0f2240'
 // видовете — за училището в school_files.doc_type, за детето = student_attachments.doc_type (същите като в досието)
-const TYPES: Record<Dest, { key: string; label: string }[]> = {
+// short — за предложеното име („Заповед РЦПППО – Иван Петров“)
+const TYPES: Record<Dest, { key: string; label: string; short?: string }[]> = {
   school: [{ key: 'plan', label: 'Учебен план' }, { key: 'other', label: 'Друго (писмо, график…)' }],
-  student: [{ key: 'eplr_order', label: 'Заповед ЕПЛР (от училището)' }, { key: 'other', label: 'Друг документ' }],
+  student: [
+    { key: 'eplr_order', label: 'Заповед ЕПЛР (от училището)', short: 'Заповед ЕПЛР екип' },
+    { key: 'referral_order', label: 'Заповед РЦПППО', short: 'Заповед РЦПППО' },
+    { key: 'medical_expertise', label: 'ТЕЛК / ЛКК', short: 'ТЕЛК-ЛКК' },
+    { key: 'rcpppo_assessment', label: 'Оценка от РЦПППО', short: 'Оценка РЦПППО' },
+    { key: 'enrollment_application', label: 'Заявление за прием', short: 'Заявление за прием' },
+    { key: 'coud_application', label: 'Заявление за ЦОУД', short: 'Заявление за ЦОУД' },
+    { key: 'other', label: 'Друг документ' },
+  ],
 }
-const TYPE_LABEL: Record<string, string> = { plan: 'Учебен план', eplr_order: 'Заповед ЕПЛР', other: 'Друго' }
+// годишни — важат за учебната година (останалите са без срок или срокът им е в „Документи със срок“)
+const YEARLY = ['eplr_order', 'enrollment_application', 'coud_application']
+// ТЕЛК и заповедта РЦПППО: сканът отива в „Документи със срок“, а срокът се попълва там
+const DATED = ['referral_order', 'medical_expertise']
+const TYPE_LABEL: Record<string, string> = {
+  plan: 'Учебен план', eplr_order: 'Заповед ЕПЛР', referral_order: 'Заповед РЦПППО', medical_expertise: 'ТЕЛК / ЛКК',
+  rcpppo_assessment: 'Оценка РЦПППО', enrollment_application: 'Заявление', coud_application: 'Заявление ЦОУД', other: 'Друго',
+}
 
 const kindOf = (r: { mime_type: string | null; name: string; original_name?: string | null }) => {
   const n = (r.original_name || r.name || '').toLowerCase()
@@ -33,8 +51,8 @@ const safeName = (n: string) => n.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g
 const fmtSize = (b: number | null) => !b ? '' : b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`
 const ddmm = (iso: string) => new Date(iso).toLocaleDateString('bg-BG', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Sofia' })
 
-export default function ExchangeClient({ staffId, yearId, yearName, schools, kids, initialInbox, initialRecent }: {
-  staffId: string; yearId: string | null; yearName: string
+export default function ExchangeClient({ staffId, yearId, yearName, yearStart, schools, kids, initialInbox, initialRecent }: {
+  staffId: string; yearId: string | null; yearName: string; yearStart: string | null
   schools: SchoolOpt[]; kids: Kid[]; initialInbox: Row[]; initialRecent: Recent[]
 }) {
   const supabase = createClient()
@@ -55,6 +73,9 @@ export default function ExchangeClient({ staffId, yearId, yearName, schools, kid
   const [name, setName] = useState('')
   const [nameTouched, setNameTouched] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [dups, setDups] = useState<Dup[]>([])
+  const [dupChoice, setDupChoice] = useState<'replace' | 'keep' | null>(null)
+  const dupReq = useRef(0)
 
   const current = inbox.find(r => r.id === sel) || null
   const schoolById = useMemo(() => new Map(schools.map(s => [s.id, s])), [schools])
@@ -82,14 +103,55 @@ export default function ExchangeClient({ staffId, yearId, yearName, schools, kid
       if (!sch) return ''
       return docType === 'plan' ? `Учебен план – ${sch.name}${yearName ? ` – ${yearName}` : ''}` : `${sch.name} – ${ddmm(new Date().toISOString())}`
     }
-    if (!kid) return ''
-    return docType === 'eplr_order' ? `Заповед ЕПЛР екип – ${kid.name}` : `${kid.name} – документ${sch ? ` от ${sch.name}` : ''}`
+    if (!kid || !docType) return ''
+    const t = TYPES.student.find(x => x.key === docType)
+    return t?.short ? `${t.short} – ${kid.name}` : `${kid.name} – документ${sch ? ` от ${sch.name}` : ''}`
   }, [dest, schoolId, studentId, docType, yearName])
   useEffect(() => { if (!nameTouched) setName(suggested) }, [suggested, nameTouched])
 
   // нов избран файл → чисто дете и име; „Къде“, училището и видът остават
   useEffect(() => { setStudentId(''); setNameTouched(false); setName('') }, [sel])
-  useEffect(() => { setDocType(TYPES[dest][0].key) }, [dest])
+  // за училище — учебен план (най-честото); за дете — нищо предварително, видът се избира съзнателно
+  useEffect(() => { setDocType(dest === 'school' ? 'plan' : '') }, [dest])
+
+  // ─── има ли вече такъв документ за тази учебна година ───
+  useEffect(() => {
+    const req = ++dupReq.current
+    setDups([]); setDupChoice(null)
+    if (!current) return
+    ;(async () => {
+      let found: Dup[] = []
+      if (dest === 'student' && studentId && docType && docType !== 'other') {
+        const { data } = await supabase.from('student_attachments')
+          .select('id, file_name, file_path, created_at, valid_until_year').eq('student_id', studentId).eq('doc_type', docType)
+        found = (data || [])
+          // годишните — само за тази година (с година = текущата, или без година, но качени от началото ѝ насам);
+          // останалите (заповед РЦПППО, ТЕЛК, оценка) — всеки вече качен от същия вид
+          .filter((a: any) => !YEARLY.includes(docType) || a.valid_until_year === yearName || (!a.valid_until_year && (!yearStart || a.created_at >= yearStart)))
+          .map((a: any) => ({ id: a.id, name: a.file_name, path: a.file_path, created_at: a.created_at, bucket: 'student-dossiers' as const }))
+      } else if (dest === 'school' && schoolId && docType === 'plan' && yearId) {
+        const { data } = await supabase.from('school_files')
+          .select('id, name, path, created_at').eq('school_id', schoolId).eq('status', 'filed').eq('doc_type', 'plan').eq('academic_year_id', yearId)
+        found = (data || []).map((f: any) => ({ id: f.id, name: f.name, path: f.path, created_at: f.created_at, bucket: 'school-files' as const }))
+      }
+      if (req === dupReq.current) setDups(found)
+    })()
+  }, [dest, schoolId, studentId, docType, sel])
+
+  async function viewDup(d: Dup) {
+    const { data } = await supabase.storage.from(d.bucket).createSignedUrl(d.path, 120)
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+    else notify('Файлът не може да се отвори')
+  }
+
+  // „Замени“ — старите се махат едва СЛЕД като новият е записан
+  async function removeDups(list: Dup[]) {
+    for (const d of list) {
+      await supabase.storage.from(d.bucket).remove([d.path])
+      if (d.bucket === 'student-dossiers') await supabase.from('student_attachments').delete().eq('id', d.id)
+      else await supabase.from('school_files').delete().eq('id', d.id)
+    }
+  }
 
   // ─── качване в кутията ───
   async function upload(list: FileList | File[]) {
@@ -138,6 +200,8 @@ export default function ExchangeClient({ staffId, yearId, yearName, schools, kid
     if (!base) { notify('Напиши име на документа'); return }
     const finalName = ext && !base.toLowerCase().endsWith(ext) ? base + ext : base
     const now = new Date().toISOString()
+    if (dups.length && !dupChoice) { notify('Избери „Замени“ или „Запази и двата“'); return }
+    const toReplace = dupChoice === 'replace' ? dups : []
     setBusy(true)
     try {
       if (dest === 'school') {
@@ -146,9 +210,11 @@ export default function ExchangeClient({ staffId, yearId, yearName, schools, kid
           status: 'filed', school_id: schoolId, doc_type: docType, name: finalName, academic_year_id: yearId, filed_at: now,
         }).eq('id', current.id)
         if (error) throw error
+        await removeDups(toReplace)
         setRecent(p => [{ id: current.id, name: finalName, path: current.path, status: 'filed', docType, filedAt: now, schoolId, studentId: null, where: schoolById.get(schoolId)?.name || '' }, ...p].slice(0, 20))
       } else {
         if (!studentId) { notify('Избери дете'); return }
+        if (!docType) { notify('Избери вида на документа'); return }
         // файлът се мести в досието: student-dossiers + „Външни документи“ (student_attachments)
         let blob: Blob | undefined = blobs.current[current.id]
         if (!blob || blob.size === 0) {
@@ -160,10 +226,13 @@ export default function ExchangeClient({ staffId, yearId, yearName, schools, kid
         const { error: upErr } = await supabase.storage.from('student-dossiers').upload(newPath, blob, { contentType: current.mime_type || undefined })
         if (upErr) throw upErr
         const { data: att, error: attErr } = await supabase.from('student_attachments').insert({
-          student_id: studentId, file_name: finalName, file_path: newPath, file_size: current.size, doc_type: docType, uploaded_by: staffId, valid_until_year: null,
+          student_id: studentId, file_name: finalName, file_path: newPath, file_size: current.size, doc_type: docType, uploaded_by: staffId,
+          // годишните (заповед ЕПЛР, заявления) важат за учебната година; останалите — без срок тук
+          valid_until_year: YEARLY.includes(docType) ? (yearName || null) : null,
         }).select('id').single()
         if (attErr || !att) { await supabase.storage.from('student-dossiers').remove([newPath]); throw attErr || new Error('Грешка при запис в досието') }
         await supabase.storage.from(BUCKET).remove([current.path])
+        await removeDups(toReplace)
         // редът остава като следа „какво е разнесено“ (school_id празно — не излиза при училището)
         await supabase.from('school_files').update({
           status: 'to_student', school_id: null, student_id: studentId, doc_type: docType, name: finalName, path: newPath,
@@ -314,14 +383,40 @@ export default function ExchangeClient({ staffId, yearId, yearName, schools, kid
           <div>
             <div className="text-[11px] uppercase tracking-wide text-slate-400 mb-1.5">Име на документа</div>
             <input value={name} onChange={e => { setName(e.target.value); setNameTouched(true) }}
-              placeholder={dest === 'school' ? 'избери училище — името се попълва само' : 'избери дете — името се попълва само'}
+              placeholder={dest === 'school' ? 'избери училище — името се попълва само' : 'избери дете и вид — името се попълва само'}
               className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-slate-400" />
             {nameTouched && suggested && name !== suggested && (
               <button onClick={() => { setNameTouched(false) }} className="text-[11px] text-sky-600 hover:underline mt-1">върни предложеното</button>
             )}
           </div>
 
-          <button onClick={file} disabled={busy || !current || (dest === 'school' ? !schoolId : !studentId) || !name.trim()}
+          {dups.length > 0 && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 space-y-2.5">
+              <div className="flex items-start gap-2 text-[12.5px] text-amber-800">
+                <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+                <span>{dest === 'student'
+                  ? <>За това дете вече има „{TYPES.student.find(t => t.key === docType)?.label}“{YEARLY.includes(docType) ? <> за {yearName}</> : null}:</>
+                  : <>За това училище вече има учебен план за {yearName}:</>}</span>
+              </div>
+              {dups.map(d => (
+                <div key={d.id} className="flex items-center gap-2 text-[12px] bg-white rounded-lg border border-amber-100 px-2.5 py-1.5">
+                  <span className="min-w-0 flex-1 truncate text-slate-700" title={d.name}>{d.name}</span>
+                  <span className="text-slate-400 shrink-0">{ddmm(d.created_at)}</span>
+                  <button onClick={() => viewDup(d)} className="p-1 rounded text-slate-400 hover:text-[#0f2240]" title="Виж"><Eye size={13} /></button>
+                </div>
+              ))}
+              <div className="grid grid-cols-2 gap-1.5">
+                {([['replace', dups.length > 1 ? 'Замени старите' : 'Замени стария'], ['keep', 'Запази и двата']] as const).map(([k, lbl]) => (
+                  <button key={k} onClick={() => setDupChoice(k)}
+                    className={`py-1.5 rounded-lg text-[12.5px] border transition-colors ${dupChoice === k ? 'border-[#0f2240] bg-[#0f2240] text-white' : 'border-amber-200 bg-white text-slate-600 hover:border-amber-300'}`}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button onClick={file} disabled={busy || !current || (dest === 'school' ? !schoolId : !studentId) || !name.trim() || !docType || (dups.length > 0 && !dupChoice)}
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition-opacity"
             style={{ backgroundColor: ACCENT }}>
             {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Отнеси
@@ -329,7 +424,9 @@ export default function ExchangeClient({ staffId, yearId, yearName, schools, kid
           <p className="text-[11.5px] text-slate-400 font-light leading-relaxed">
             {dest === 'school'
               ? 'Отива при училището (Администрация → Училища) и в „Училищни учебни планове“ на класните.'
-              : 'Отива в досието на детето → „Външни документи“.'}
+              : DATED.includes(docType)
+                ? 'Отива в досието → „Документи със срок“ като скан. Срокът се попълва там.'
+                : 'Отива в досието на детето → „Външни документи“.'}
           </p>
         </aside>
       </div>

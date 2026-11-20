@@ -205,7 +205,7 @@ function CellModal({ cell, yearOptions, currentYearName, staffId, onClose, onUpd
 }) {
   const supabase = createClient()
   const [uploading, setUploading] = useState(false)
-   const isYearlyDoc = ['enrollment_application', 'coud_application'].includes(cell.docType.key)
+   const isYearlyDoc = ['enrollment_application', 'coud_application', 'eplr_order'].includes(cell.docType.key)
   const [validUntil, setValidUntil] = useState(cell.doc?.valid_until_year || (isYearlyDoc ? currentYearName : ''))
   const [saving, setSaving] = useState(false)
 
@@ -233,7 +233,7 @@ function CellModal({ cell, yearOptions, currentYearName, staffId, onClose, onUpd
       file_size: file.size,
       doc_type: cell.docType.key,
       uploaded_by: staffId,
-            valid_until_year: validUntil || (['enrollment_application', 'coud_application'].includes(cell.docType.key) ? currentYearName : null),
+            valid_until_year: validUntil || (['enrollment_application', 'coud_application', 'eplr_order'].includes(cell.docType.key) ? currentYearName : null),
     }).select().single()
 
     if (error) { notify('Грешка при запис'); setUploading(false); return }

@@ -16,7 +16,7 @@ export default async function ExchangePage() {
   if (!['admin', 'zdud', 'director', 'secretary'].includes(me?.role || '')) redirect('/dashboard')
 
   const [{ data: year }, { data: schools }, { data: kids }, { data: inbox }, { data: recent }] = await Promise.all([
-    supabase.from('academic_years').select('id, name').eq('is_current', true).single(),
+    supabase.from('academic_years').select('id, name, start_date').eq('is_current', true).single(),
     supabase.from('sending_schools').select('id, name, city').eq('is_active', true).order('name'),
     supabase.from('students').select('id, first_name, middle_name, last_name, sending_school_id').eq('status', 'active').order('first_name'),
     supabase.from('school_files').select('id, name, original_name, path, size, mime_type, created_at')
@@ -47,7 +47,7 @@ export default async function ExchangePage() {
         </div>
       </header>
       <ExchangeClient
-        staffId={me!.id} yearId={year?.id || null} yearName={year?.name || ''}
+        staffId={me!.id} yearId={year?.id || null} yearName={year?.name || ''} yearStart={year?.start_date || null}
         schools={(schools || []).map((s: any) => ({ id: s.id, name: s.name, city: s.city }))}
         kids={kidList} initialInbox={inbox || []} initialRecent={recentList}
       />
