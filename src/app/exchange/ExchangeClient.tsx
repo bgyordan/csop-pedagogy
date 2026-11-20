@@ -69,6 +69,7 @@ export default function ExchangeClient({ staffId, yearId, yearName, yearStart, s
   const [dest, setDest] = useState<Dest>('school')
   const [schoolId, setSchoolId] = useState<string>('')
   const [studentIds, setStudentIds] = useState<string[]>([])   // един документ може да е за няколко деца (обща заповед)
+  const [multiKids, setMultiKids] = useState(false)               // по подразбиране — едно дете; няколко само по избор
   const [docType, setDocType] = useState<string>('plan')
   const [name, setName] = useState('')
   const [nameTouched, setNameTouched] = useState(false)
@@ -114,7 +115,7 @@ export default function ExchangeClient({ staffId, yearId, yearName, yearStart, s
   useEffect(() => { if (!nameTouched) setName(suggested) }, [suggested, nameTouched])
 
   // нов избран файл → чисто дете и име; „Къде“, училището и видът остават
-  useEffect(() => { setStudentIds([]); setNameTouched(false); setName('') }, [sel])
+  useEffect(() => { setStudentIds([]); setMultiKids(false); setNameTouched(false); setName('') }, [sel])
   // от едно към няколко деца (и обратно) името сменя формата си → пак предложеното
   useEffect(() => { setNameTouched(false) }, [many])
   // за училище — учебен план (най-честото); за дете — нищо предварително, видът се избира съзнателно
@@ -395,7 +396,8 @@ export default function ExchangeClient({ staffId, yearId, yearName, yearStart, s
               options={schools.map(s => ({ id: s.id, label: s.name, hint: s.city || '' }))} />
           ) : (
             <>
-              <MultiPicker label={many ? `Деца · ${chosenKids.length}` : 'Дете'} values={studentIds} onChange={setStudentIds}
+              <MultiPicker label={many ? `Деца · ${chosenKids.length}` : 'Дете'} values={studentIds} onChange={v => { setStudentIds(v); if (!v.length) setMultiKids(false) }}
+                multi={multiKids} onMulti={() => setMultiKids(true)}
                 // след първото дете — най-отгоре децата от същото училище (обща заповед)
                 preferHint={kidSchool?.name || ''}
                 options={kids.map(k => ({ id: k.id, label: k.name, hint: k.schoolId ? schoolById.get(k.schoolId)?.name || '' : '' }))} />
@@ -519,9 +521,10 @@ function Picker({ label, placeholder, value, onChange, options }: {
 }
 
 // ─── избор на едно или няколко деца ───
-function MultiPicker({ label, values, onChange, options, preferHint }: {
+function MultiPicker({ label, values, onChange, options, preferHint, multi, onMulti }: {
   label: string; values: string[]; onChange: (v: string[]) => void
   options: { id: string; label: string; hint: string }[]; preferHint: string
+  multi: boolean; onMulti: () => void   // няколко деца — само след „+ още дете“ (обща заповед е рядкост)
 }) {
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
@@ -546,13 +549,18 @@ function MultiPicker({ label, values, onChange, options, preferHint }: {
           ))}
         </div>
       )}
-      <input value={q} onChange={e => { setQ(e.target.value); setOpen(true) }} onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)} placeholder={chosen.length ? '+ още дете (обща заповед)…' : 'Пиши име…'}
-        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-slate-400" />
-      {open && (
+      {/* едно дете е избрано и не сме в „обща заповед“ — без поле, за да не закрива „Вид“ */}
+      {chosen.length > 0 && !multi ? (
+        <button onClick={onMulti} className="text-[11.5px] text-sky-600 hover:underline">+ още дете (обща заповед)</button>
+      ) : (
+        <input autoFocus={multi && chosen.length > 0} value={q} onChange={e => { setQ(e.target.value); setOpen(true) }} onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)} placeholder={chosen.length ? 'още дете…' : 'Пиши име…'}
+          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-slate-400" />
+      )}
+      {open && (chosen.length === 0 || multi) && (
         <div className="absolute z-20 mt-1 w-full max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
           {list.length === 0 ? <div className="px-3 py-3 text-xs text-slate-400">Няма съвпадение</div> : list.map(o => (
-            <button key={o.id} onMouseDown={e => e.preventDefault()} onClick={() => { onChange([...values, o.id]); setQ('') }}
+            <button key={o.id} onMouseDown={e => e.preventDefault()} onClick={() => { onChange([...values, o.id]); setQ(''); setOpen(false) }}
               className="w-full text-left px-3 py-2 hover:bg-sky-50">
               <div className="text-sm text-slate-700">{o.label}</div>
               {o.hint && <div className={`text-[11px] ${preferHint && o.hint === preferHint ? 'text-sky-600' : 'text-slate-400'}`}>{o.hint}</div>}
