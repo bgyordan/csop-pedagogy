@@ -98,7 +98,7 @@ export default async function ClassesPage({
     : { data: [] as any[] }
   const filledSched = new Set((filled || []).map((x: any) => x.schedule_id))
   const hasSchedule = new Set((scheds || []).filter((x: any) => filledSched.has(x.id)).map((x: any) => x.class_id))
-  const iupSet = iupDoneClasses(iupDone as any, P)
+  const iupSet = iupDoneClasses(iupDone as any, P, new Map((classes || []).map((c: any) => [c.id, c.created_at])))   // нова паралелка — само месеците, в които е съществувала
     const teachersByClass = new Map<string, string[]>()
   const teacherIdByClass = new Map<string, string>()
   assignments?.forEach((a: any) => {
@@ -122,7 +122,7 @@ export default async function ClassesPage({
   const oresSet = new Set((oresRows || []).filter((o: any) => isOresActive(o, today)).map((o: any) => o.student_id))
   const absSet = new Set((absRows || []).map((r: any) => r.student_id))
   const newSet = new Set(enrollments.filter((e: any) => e.student?.is_new).map((e: any) => e.student_id))
-  const iupState = (id: string, name?: string): ClassRow['iup'] => P.offSeason || !inIup(name) ? 'off' : iupSet.has(id) ? 'done' : (P.open || P.overdue) ? 'due' : 'later'
+  const iupState = (id: string, name?: string): ClassRow['iup'] => P.offSeason || !inIup(name) ? 'off' : iupSet.has(id) ? 'done' : P.open ? 'due' : 'later'
   const classRows: ClassRow[] = (classes || []).map((c: any) => {
     const ids = idsByClass.get(c.id) || []
     const n = (set: Set<string>) => ids.filter(i => set.has(i)).length

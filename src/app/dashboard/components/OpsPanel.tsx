@@ -40,7 +40,7 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
     countWaiting(supabase),
     getReturningSoon(supabase),
     supabase.from('class_teacher_assignments')
-      .select('class_id, class:classes(name), staff:staff_profiles(first_name, last_name)').eq('academic_year_id', currentYearId),
+      .select('class_id, class:classes(name, created_at), staff:staff_profiles(first_name, last_name)').eq('academic_year_id', currentYearId),
     isSummer ? Promise.resolve({ data: [] as any[] })
       : supabase.from('monthly_absences').select('class_id, month, year').eq('year', P.year).in('month', P.months.map(x => x.month)),
     supabase.from('student_enrollments')
@@ -49,10 +49,11 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
     supabase.from('students').select('id').eq('is_new', true).eq('status', 'active'),
   ])
 
-  // РЕАЛИЗАЦИЯ НА ИУП — кои паралелки не са подали за миналия месец
-  const done = iupDoneClasses(iup as any, P)   // подали ВСИЧКИ отчети на прозореца (септ.+окт. са два)
+  // РЕАЛИЗАЦИЯ НА ИУП — кои паралелки не са подали (само докато прозорецът е отворен; просрочване няма)
   const iupClasses = (cta || []).filter((c: any) => inIup(c.class?.name))
-  const missingIup = isSummer ? [] : iupClasses
+  // подали ВСИЧКИ дължими отчети на прозореца (септ.+окт. са два; новата паралелка — само месеците, в които я има)
+  const done = iupDoneClasses(iup as any, P, new Map(iupClasses.map((c: any) => [c.class_id, c.class?.created_at])))
+  const missingIup = !P.open ? [] : iupClasses
     .filter((c: any) => !done.has(c.class_id))
     .map((c: any) => ({ cls: roman(c.class?.name || ''), who: short(c.staff), raw: c.class?.name || '' }))
     .sort((a: any, b: any) => a.raw.localeCompare(b.raw, 'bg', { numeric: true }))
@@ -200,15 +201,15 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
         <div className={head}>
           <ClipboardList size={16} className="text-amber-500" />
           <h2 className="dash-title">Реализация на ИУП</h2>
-          {!isSummer && <span className="ml-auto text-xs text-slate-400">{P.label} · {P.overdue ? 'срокът изтече' : `до ${P.window.split('– ')[1]}`}</span>}
+          {P.open && <span className="ml-auto text-xs text-slate-400">{P.label} · до {P.window.split('– ')[1]}</span>}
         </div>
-        {isSummer ? (
-          <p className="text-sm text-slate-400 font-light">Сега няма отчет. Следват: {P.label} — {P.window}.</p>
+        {!P.open ? (
+          <p className="text-sm text-slate-400 font-light">Сега няма отворен отчет. Следва: {P.label} — {P.window}.</p>
         ) : missingIup.length === 0 ? (
           <p className="text-sm text-emerald-700">✓ Всички паралелки са подали.</p>
         ) : (
           <>
-            <p className={`text-xs mb-2 ${P.overdue ? 'text-rose-600' : 'text-slate-500'}`}>{P.overdue ? 'Просрочени' : 'Не са подали'}: {missingIup.length} от {iupClasses.length}</p>
+            <p className="text-xs mb-2 text-slate-500">Не са подали: {missingIup.length} от {iupClasses.length}</p>
             <div className="space-y-1">
               {missingIup.slice(0, 8).map((m: any, i: number) => (
                 <div key={i} className="flex items-center gap-2 text-sm">

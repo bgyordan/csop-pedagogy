@@ -64,7 +64,7 @@ export default async function ClassTeacherDashboard({ profile, currentYearId }: 
     supabase.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(3),
   ])
   const activeEnrollments = (allEnrollments || []).filter((e: any) => e.student?.status === 'active')
-  const submittedIds = iupDoneClasses(iupSubmissions as any, iup)   // ✓ = подадени всички отчети на прозореца
+  const submittedIds = iupDoneClasses(iupSubmissions as any, iup, new Map(myClasses.map((c: any) => [c.id, c.created_at])))   // ✓ = подадени всички отчети на прозореца
   const iupClasses = myClasses.filter((c: any) => inIup(c.name))
   const iupDue = !isSummer && iup.open && iupClasses.some((c: any) => !submittedIds.has(c.id))
   const studentIds = activeEnrollments.map((e: any) => e.student_id)
