@@ -27,7 +27,8 @@ interface Props {
 }
 
 // Документи, които важат 1 учебна година (винаги текущата)
-const YEARLY_DOCS = ['enrollment_application', 'coud_application']
+// годишни: важат за текущата учебна година (заповедта ЕПЛР от училището — също, всяка година е нова)
+const YEARLY_DOCS = ['enrollment_application', 'coud_application', 'eplr_order']
 
 function formatSize(bytes: number | null) {
   if (!bytes) return ''
