@@ -11,6 +11,14 @@ import type { Ev, Album, Photo, Job, Subscriber } from './shared'
 import { confirmDialog } from '@/components/ui/Toast'
 
 /* ═══════════════ СЪБИТИЯ ═══════════════ */
+// старите часове са свободен текст („8:30“, „18:00 ч.“, „08:30-13:00“) → ЧЧ:ММ за полетата за час
+const hhmm = (t?: string | null, nth = 0) => {
+  const all = Array.from((t || '').matchAll(/(\d{1,2})[:.](\d{2})/g))
+  const m = all[nth]; return m ? `${m[1].padStart(2, '0')}:${m[2]}` : ''
+}
+const lastDay = (e: Ev) => e.event_end_date || e.event_date   // събитие с период е „предстои“ до последния си ден
+const timeText = (e: Ev) => [e.event_time, e.event_end_time].filter(Boolean).join('–')
+
 export function EventsManager({ initial }: { initial: Ev[] }) {
   const supabase = createClient(); const router = useRouter()
   const [list, setList] = useState<Ev[]>(initial)
@@ -18,23 +26,35 @@ export function EventsManager({ initial }: { initial: Ev[] }) {
   const [drawer, setDrawer] = useState(false); const [busy, setBusy] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [title, setTitle] = useState(''); const [date, setDate] = useState(''); const [time, setTime] = useState('')
+  const [endDate, setEndDate] = useState(''); const [endTime, setEndTime] = useState('')
   const [location, setLocation] = useState(''); const [description, setDescription] = useState('')
   const [notice, setNotice] = useState<{ msg: string; err?: boolean } | null>(null)
   const flash = (msg: string, err = false) => { setNotice({ msg, err }); setTimeout(() => setNotice((p) => (p?.msg === msg ? null : p)), 3500) }
   const today = new Date().toISOString().split('T')[0]
 
   const shown = useMemo(() => list
-    .filter((e) => (when === 'all' ? true : when === 'upcoming' ? e.event_date >= today : e.event_date < today))
+    .filter((e) => (when === 'all' ? true : when === 'upcoming' ? lastDay(e) >= today : lastDay(e) < today))
     .filter((e) => (q.trim() ? smartMatch(e.title, q) : true))
     .sort((a, b) => b.event_date.localeCompare(a.event_date)), [list, when, q, today])
 
-  function openNew() { setEditId(null); setTitle(''); setDate(''); setTime(''); setLocation(''); setDescription(''); setDrawer(true) }
-  function openEdit(e: Ev) { setEditId(e.id); setTitle(e.title); setDate(e.event_date); setTime(e.event_time || ''); setLocation(e.location || ''); setDescription(e.description || ''); setDrawer(true) }
+  function openNew() { setEditId(null); setTitle(''); setDate(''); setEndDate(''); setTime(''); setEndTime(''); setLocation(''); setDescription(''); setDrawer(true) }
+  function openEdit(e: Ev) {
+    setEditId(e.id); setTitle(e.title); setDate(e.event_date); setEndDate(e.event_end_date || '')
+    setTime(hhmm(e.event_time)); setEndTime(hhmm(e.event_end_time) || hhmm(e.event_time, 1))   // „08:30-13:00“ в старото поле → начало + край
+    setLocation(e.location || ''); setDescription(e.description || ''); setDrawer(true)
+  }
   async function save() {
     if (!title.trim() || !date) { flash('Попълнете заглавие и дата.', true); return }
+    if (endDate && endDate < date) { flash('„До дата“ е преди „От дата“.', true); return }
+    if (endTime && !time) { flash('Попълнете и началния час.', true); return }
+    if (endTime && time && endTime <= time && (!endDate || endDate === date)) { flash('Часът на край е преди началото.', true); return }
     try {
       setBusy(true)
-      const payload = { title: title.trim(), event_date: date, event_time: time.trim() || null, location: location.trim() || null, description: description.trim() || null }
+      const payload = {
+        title: title.trim(), event_date: date, event_end_date: endDate && endDate !== date ? endDate : null,
+        event_time: time || null, event_end_time: endTime || null,
+        location: location.trim() || null, description: description.trim() || null,
+      }
       if (editId) { const { data, error } = await supabase.from('site_events').update(payload).eq('id', editId).select('*').single(); if (error) throw error; setList((p) => p.map((x) => x.id === editId ? (data as Ev) : x)) }
       else { const { data, error } = await supabase.from('site_events').insert(payload).select('*').single(); if (error) throw error; setList((p) => [data as Ev, ...p]) }
       setDrawer(false); flash('Записано.'); router.refresh()
@@ -69,17 +89,19 @@ export function EventsManager({ initial }: { initial: Ev[] }) {
       ) : (
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
           {shown.map((e) => {
-            const d = new Date(e.event_date + 'T00:00'); const past = e.event_date < today
+            const d = new Date(e.event_date + 'T00:00'); const past = lastDay(e) < today
+            const end = e.event_end_date ? new Date(e.event_end_date + 'T00:00') : null
+            const sameMonth = !!end && end.getMonth() === d.getMonth()
             return (
               <div key={e.id} className="group flex gap-4 items-center px-5 py-4 border-b border-slate-50 last:border-0 hover:bg-blue-50/40">
                 <div className="w-14 text-center shrink-0">
-                  <div className={`text-[22px] font-bold leading-none ${past ? 'text-slate-300' : ''}`} style={past ? {} : { color: ACCENT }}>{d.getDate()}</div>
-                  <div className="text-[11px] text-slate-500">{MONTHS_SHORT[d.getMonth()]}</div>
+                  <div className={`${end ? 'text-[17px]' : 'text-[22px]'} font-bold leading-none whitespace-nowrap ${past ? 'text-slate-300' : ''}`} style={past ? {} : { color: ACCENT }}>{d.getDate()}{sameMonth && <>–{end!.getDate()}</>}</div>
+                  <div className="text-[11px] text-slate-500">{MONTHS_SHORT[d.getMonth()]}{end && !sameMonth && <> – {end.getDate()} {MONTHS_SHORT[end.getMonth()]}</>}</div>
                 </div>
                 <div className="flex-1 min-w-0">
                   <b className="text-[14.5px] font-medium text-slate-800">{e.title}</b>
                   <div className="text-[12px] text-slate-500 mt-0.5 flex gap-3 flex-wrap">
-                    {e.event_time && <span className="inline-flex items-center gap-1"><Clock size={12} /> {e.event_time}</span>}
+                    {e.event_time && <span className="inline-flex items-center gap-1"><Clock size={12} /> {timeText(e)}</span>}
                     {e.location && <span className="inline-flex items-center gap-1"><MapPin size={12} /> {e.location}</span>}
                   </div>
                 </div>
@@ -102,9 +124,14 @@ export function EventsManager({ initial }: { initial: Ev[] }) {
         </>}>
         <Field label="Заглавие"><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="напр. Родителска среща" className={INPUT} /></Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Дата"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={INPUT} /></Field>
-          <Field label="Час (по избор)"><input value={time} onChange={(e) => setTime(e.target.value)} placeholder="18:00" className={INPUT} /></Field>
+          <Field label="От дата"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={INPUT} /></Field>
+          <Field label="До дата (по избор)"><input type="date" value={endDate} min={date || undefined} onChange={(e) => setEndDate(e.target.value)} className={INPUT} /></Field>
         </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Начало (по избор)"><input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={INPUT} /></Field>
+          <Field label="Край (по избор)"><input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className={INPUT} /></Field>
+        </div>
+        <p className="text-[11.5px] text-slate-400 -mt-1">„До дата“ — само за събития с период (напр. седмица). Часовете важат за всеки ден.</p>
         <Field label="Място (по избор)"><input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Актова зала" className={INPUT} /></Field>
         <Field label="Описание (по избор)"><textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} className={INPUT + ' resize-y'} /></Field>
       </Drawer>

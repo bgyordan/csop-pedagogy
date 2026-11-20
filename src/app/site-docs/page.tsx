@@ -20,7 +20,7 @@ export default async function SiteDocsPage() {
     .order('created_at', { ascending: false })
 
   const { data: events } = await supabase.from('site_events')
-    .select('id, title, event_date, event_time, location, description')
+    .select('id, title, event_date, event_end_date, event_time, event_end_time, location, description')
     .order('event_date', { ascending: false })
 
   const { data: albums } = await supabase.from('gallery_albums')

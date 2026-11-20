@@ -12,7 +12,7 @@ export const MONTHS_SHORT = ['яну', 'фев', 'мар', 'апр', 'май', '
 /* ═══════════════ типове ═══════════════ */
 export interface Doc { id: string; name: string; file_url: string; academic_year: string | null; section: string; category: string | null; on_site: boolean; sort_order: number; created_at?: string }
 export interface News { id: string; title: string; excerpt: string | null; content: string | null; cover_url: string | null; gallery_images?: string[] | null; category: string; status: string; published_at: string | null; created_at: string }
-export interface Ev { id: string; title: string; event_date: string; event_time: string | null; location: string | null; description: string | null }
+export interface Ev { id: string; title: string; event_date: string; event_end_date?: string | null; event_time: string | null; event_end_time?: string | null; location: string | null; description: string | null }
 export interface Album { id: string; title: string; cover_url: string | null; event_date: string | null; sort_order: number }
 export interface Photo { id: string; album_id: string; photo_url: string; caption: string | null; sort_order: number }
 export interface Job { id: string; title: string; employment: string | null; description: string | null; requirements: string | null; location: string | null; status: string; sort_order: number }

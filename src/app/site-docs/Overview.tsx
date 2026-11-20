@@ -72,7 +72,7 @@ export default function Overview({
   const s = useMemo(() => {
     const live = news.filter(isLive), sched = news.filter(isScheduled), drafts = news.filter((n) => n.status !== 'published')
     const siteDocs = docs.filter((d) => d.section !== 'eis')
-    const upcoming = events.filter((e) => e.event_date >= today).sort((a, b) => a.event_date.localeCompare(b.event_date))
+    const upcoming = events.filter((e) => (e.event_end_date || e.event_date) >= today)   // с период — до последния ден.sort((a, b) => a.event_date.localeCompare(b.event_date))
     const lastLive = live.map((n) => n.published_at || n.created_at).sort().pop() || null
     return {
       live, sched, drafts, upcoming, lastLive,
