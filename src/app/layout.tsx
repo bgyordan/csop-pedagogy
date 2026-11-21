@@ -17,6 +17,7 @@ import '@fontsource/roboto-condensed/500.css'
 import './globals.css'
 import { ToastProvider } from '@/components/ui/Toast'
 import ImpersonationBar from '@/components/ImpersonationBar'
+import { VIEW_BOOT_SCRIPT } from '@/lib/view-prefs'
 
 export const metadata: Metadata = {
   title: 'Единна информационна система — ЦСОП Варна',
@@ -31,7 +32,11 @@ const APP_FONT = "'Inter', 'Montserrat', system-ui, sans-serif"
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="bg">
+    // suppressHydrationWarning: „Изглед“ (data-ui, data-text…) се слага от скрипта още преди React
+    <html lang="bg" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: VIEW_BOOT_SCRIPT }} />
+      </head>
       <body style={{ fontFamily: APP_FONT }}>
         <ToastProvider>
           {children}
