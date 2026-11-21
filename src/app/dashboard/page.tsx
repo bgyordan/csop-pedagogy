@@ -165,6 +165,9 @@ export default async function DashboardPage() {
       {/* Помощници: „Сложи EIS на телефона“ — докато не е инсталирана като приложение */}
       {profile.role === 'support' && !viewing && <InstallCard />}
 
+      {/* Управата: първо това, което чака решение („Изисква внимание“, днес, ИУП), после лентите */}
+      {isAdmin && <AdminDashboard profile={profile} currentYearId={currentYear.id} />}
+
       {/* Картите на таблото — в реда, избран от човека в „Подреди таблото“ (стрелки ↑↓).
           Кратките ленти са по две на ред, широките (неучебен ден, ИФО, календар) — на цял ред.
           Празна карта (компонентът не връща нищо) не заема място — empty:hidden. */}
@@ -226,7 +229,6 @@ export default async function DashboardPage() {
 
       {/* Dashboard по роля */}
       <div className="transition-all duration-500">
-        {isAdmin && <AdminDashboard profile={profile} currentYearId={currentYear.id} />}
         {isDirector && <DirectorDashboard profile={profile} currentYearId={currentYear.id} />}
         {isSpecialist && <SpecialistDashboard profile={profile} currentYearId={currentYear.id} />}
         {(profile.role === 'class_teacher' || profile.role === 'teacher') && <ClassTeacherDashboard profile={profile} currentYearId={currentYear.id} />}
