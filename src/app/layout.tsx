@@ -10,6 +10,8 @@ import '@fontsource/inter/400.css'
 import '@fontsource/inter/500.css'
 import '@fontsource/inter/600.css'
 import '@fontsource/inter/700.css'
+// Manrope — само за стъкления изглед (Изглед → Стъклен)
+import '@fontsource-variable/manrope'
 // Roboto Condensed — деловодният шрифт на менюто (сайдбара)
 import '@fontsource/roboto-condensed/300.css'
 import '@fontsource/roboto-condensed/400.css'
