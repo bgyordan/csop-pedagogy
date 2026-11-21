@@ -272,7 +272,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
-  const { favorites } = useFavorites()
+  const { favorites, isFav, toggle: toggleFav } = useFavorites()
   // Свит сайдбар (само иконки) — помни се в браузъра
   const [mini, setMini] = useState(false)
   useEffect(() => { try { setMini(localStorage.getItem('sb-mini') === '1') } catch {} }, [])
@@ -396,6 +396,26 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
     const hit = pageEntries.find(p => p.href === pathname)
     if (hit && hit.href !== '/dashboard') rememberVisit({ href: hit.href, label: hit.label })
   }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Иконата на всяка страница — за „Любими“ (по-лесно се разпознават от еднаквите звездички)
+  const iconByHref = new Map<string, React.ReactNode>()
+  for (const it of visibleItems) {
+    if (it.children) it.children.forEach(k => iconByHref.set(k.href, k.icon))
+    else iconByHref.set(it.href, it.icon)
+  }
+  const smallIcon = (n: React.ReactNode) => isValidElement(n) ? cloneElement(n as React.ReactElement<any>, { size: 14 }) : n
+  // Звездичка до реда — добавя/маха от „Любими“ направо от менюто (досега — само от търсенето)
+  function FavStar({ href, label }: { href: string; label: string }) {
+    if (isMini || href.startsWith('#')) return null
+    const on = isFav(href)
+    return (
+      <button type="button" onClick={e => { e.preventDefault(); e.stopPropagation(); toggleFav({ href, label }) }}
+        aria-label={on ? `Махни „${label}“ от Любими` : `Добави „${label}“ в Любими`} title={on ? 'Махни от Любими' : 'Добави в Любими'}
+        className={cn('absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 grid place-items-center rounded-full transition-opacity hover:bg-[rgba(15,34,64,0.06)]',
+          on ? 'text-amber-500 opacity-100' : 'text-[#6b8db0] opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100')}>
+        <Star size={13} fill={on ? 'currentColor' : 'none'} />
+      </button>
+    )
+  }
   // Общ вид на пункт: активният е с лек тъмносин фон и черта отляво; посочване — само лек фон
   // Деловоден шрифт (тесен, без удебеляване), главни букви; при посочване се изчертава овал
   const itemCls = (active: boolean, size: 'main' | 'sub' = 'main') => cn(
@@ -432,10 +452,13 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
             {kids.map(kid => {
               const active = pathname === kid.href || pathname.startsWith(kid.href + '/')
               return (
-                <Link key={kid.href} href={kid.href} onClick={() => setMobileOpen(false)} className={itemCls(active, 'sub')}>
-                  <span className={iconCls(active)}>{kid.icon}</span>
-                  <span className="flex-1">{kid.label}</span>
-                </Link>
+                <div key={kid.href} className="relative group/row">
+                  <Link href={kid.href} onClick={() => setMobileOpen(false)} className={cn(itemCls(active, 'sub'), 'pr-9')}>
+                    <span className={iconCls(active)}>{kid.icon}</span>
+                    <span className="flex-1">{kid.label}</span>
+                  </Link>
+                  <FavStar href={kid.href} label={kid.label} />
+                </div>
               )
             })}
           </div>
@@ -465,10 +488,13 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
     const also = item.also || []
     const active = [item.href, ...also].some(h => pathname === h || pathname.startsWith(h + '/'))
     return (
-      <Link href={item.href} onClick={() => setMobileOpen(false)} title={isMini ? item.label : undefined} className={itemCls(active)}>
-        <span className={iconCls(active)}>{item.icon}</span>
-        {!isMini && <span className="flex-1">{item.label}</span>}
-      </Link>
+      <div className="relative group/row">
+        <Link href={item.href} onClick={() => setMobileOpen(false)} title={isMini ? item.label : undefined} className={cn(itemCls(active), !isMini && item.href !== '/dashboard' && 'pr-9')}>
+          <span className={iconCls(active)}>{item.icon}</span>
+          {!isMini && <span className="flex-1">{item.label}</span>}
+        </Link>
+        {item.href !== '/dashboard' && <FavStar href={item.href} label={item.label} />}
+      </div>
     )
   }
   const divider = <div className="my-3 mx-2.5 border-t border-[rgba(15,34,64,0.10)]" />
@@ -505,15 +531,24 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
             {favorites.map(f => {
               const active = pathname === f.href
               return (
-                <Link key={f.href} href={f.href} onClick={() => setMobileOpen(false)} title={isMini ? f.label : undefined} className={itemCls(active, isMini ? 'main' : 'sub')}>
-                  <span className={iconCls(active)}><Star size={14} /></span>
-                  {!isMini && <span className="flex-1 truncate">{f.label}</span>}
-                </Link>
+                <div key={f.href} className="relative group/row">
+                  <Link href={f.href} onClick={() => setMobileOpen(false)} title={isMini ? f.label : undefined} className={cn(itemCls(active, isMini ? 'main' : 'sub'), !isMini && 'pr-9')}>
+                    {/* иконата на самата страница, ако я има в менюто; иначе — звездичка */}
+                    <span className={iconCls(active)}>{iconByHref.has(f.href) ? smallIcon(iconByHref.get(f.href)) : <Star size={14} />}</span>
+                    {!isMini && <span className="flex-1 truncate">{f.label}</span>}
+                  </Link>
+                  <FavStar href={f.href} label={f.label} />
+                </div>
               )
             })}
           </div>
           {divider}
         </>)}
+        {favorites.length === 0 && !isMini && (
+          <div className="mx-3 mb-2 text-[11px] leading-snug text-[#6b8db0] flex items-start gap-1.5">
+            <Star size={11} className="mt-[2px] flex-shrink-0" /> Звездичката до ред го слага в „Любими“ — най-горе тук.
+          </div>
+        )}
         <div className="space-y-0.5">
           {mainItems.map(item =>
             item.children
