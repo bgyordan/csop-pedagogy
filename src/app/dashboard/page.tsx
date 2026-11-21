@@ -110,7 +110,7 @@ export default async function DashboardPage() {
 
       {/* Помощници (телефон, на крак): тънка лента вместо големия хедър */}
       {profile.role === 'support' && !viewing ? (
-        <div className={`${hero.bg} ${d ? 'text-white' : 'text-slate-800'} px-4 py-2.5 rounded-2xl shadow-sm flex items-center gap-3`}>
+        <div className={`eis-hero ${hero.bg} ${d ? 'text-white' : 'text-slate-800'} px-4 py-2.5 rounded-2xl shadow-sm flex items-center gap-3`}>
           <div className="min-w-0">
             <div className={`text-[15px] truncate ${d ? '' : 'text-[#0f2240]'}`}>{profile.first_name} {profile.last_name}</div>
             <div className={`text-xs ${d ? 'text-white/80' : 'text-slate-500'}`}>
@@ -123,7 +123,7 @@ export default async function DashboardPage() {
         </div>
       ) : (
       /* Хедър — преливащ цвят по избор (по подразбиране синьо-зелен) */
-      <div className={`${hero.bg} ${d ? 'text-white' : 'text-slate-800'} p-6 md:p-8 rounded-3xl shadow-sm relative`}>
+      <div className={`eis-hero ${hero.bg} ${d ? 'text-white' : 'text-slate-800'} p-6 md:p-8 rounded-3xl shadow-sm relative`}>
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className={`text-xl md:text-2xl font-semibold tracking-tight ${d ? '' : 'text-[#0f2240]'}`}>

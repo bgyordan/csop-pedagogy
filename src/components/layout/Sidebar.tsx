@@ -546,11 +546,6 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
           </div>
           {divider}
         </>)}
-        {favorites.length === 0 && !isMini && (
-          <div className="mx-3 mb-2 text-[11px] leading-snug text-[#6b8db0] flex items-start gap-1.5">
-            <Star size={11} className="mt-[2px] flex-shrink-0" /> Звездичката до ред го слага в „Любими“ — най-горе тук.
-          </div>
-        )}
         <div className="space-y-0.5">
           {mainItems.map(item =>
             item.children
