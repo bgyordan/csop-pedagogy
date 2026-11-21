@@ -147,10 +147,12 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
             </div>
           )
           // НП не се показва — тук е важно кой го няма и кой поема, не как се плаща
-          const Row = ({ name, right, by, acting }: { name: string; right: string; by?: string; acting?: string }) => (
+          const Row = ({ name, right, by, acting, fix }: { name: string; right: string; by?: string; acting?: string; fix?: boolean }) => (
             <div className="text-[13px] leading-snug">
               <div className="flex items-baseline gap-2">
                 <span className="text-slate-800 truncate">{name}</span>
+                {/* действието е на самия ред — без да се търси в „Отсъствия и замествания“ */}
+                {fix && <Link href="/substitutions" className="shrink-0 text-[11.5px] font-medium text-amber-700 hover:underline">Определи →</Link>}
                 <span className="ml-auto text-[11px] text-slate-400 tabular-nums shrink-0">до {right}</span>
               </div>
               {/* при директор е важно само кой изпълнява функциите ѝ — не кой поема часовете */}
@@ -163,7 +165,7 @@ export default async function OpsPanel({ currentYearId }: { currentYearId: strin
             <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
               {waitingRows.length > 0 && (
                 <Group label="Чакат заместник" dot="bg-amber-400">
-                  {waitingRows.map(r => <Row key={r.id} name={sn(r.absent)} right={until(r.to)} acting={r.acting && r.acting !== '—' ? sn(r.acting) : r.acting || ''} />)}
+                  {waitingRows.map(r => <Row key={r.id} fix name={sn(r.absent)} right={until(r.to)} acting={r.acting && r.acting !== '—' ? sn(r.acting) : r.acting || ''} />)}
                 </Group>
               )}
               {subbed.length > 0 && (

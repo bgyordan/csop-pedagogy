@@ -114,57 +114,7 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
   })
   return (
     <div className="animate-in fade-in duration-500 space-y-4">
-      {/* ── КЛЮЧОВИ ЧИСЛА ── */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-        <Link href="/students" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all group col-span-2 md:col-span-1">
-          <div className="flex items-center gap-2 mb-2">
-            <Users size={15} className="text-blue-500" />
-            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Ученици</div>
-          </div>
-          <div className="text-2xl font-semibold text-slate-800">{totalStudents || 0}</div>
-        </Link>
-        <Link href="/classes" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all col-span-2 md:col-span-1">
-          <div className="flex items-center gap-2 mb-2">
-            <BookOpen size={15} className="text-purple-500" />
-            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Паралелки</div>
-          </div>
-          <div className="text-2xl font-semibold text-slate-800">{totalClasses || 0}</div>
-        </Link>
-        <Link href="/students?form=daily" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
-          <div className="flex items-center gap-2 mb-2">
-            <GraduationCap size={15} className="text-slate-400" />
-            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Дневна</div>
-          </div>
-          <div className="text-2xl font-semibold text-slate-800">{dailyCount}</div>
-        </Link>
-        <Link href="/students?form=ifo" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
-          <div className="flex items-center gap-2 mb-2">
-            <Home size={15} className="text-slate-400" />
-            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ИФО</div>
-          </div>
-          <div className="text-2xl font-semibold text-slate-800">{ifoCount}</div>
-        </Link>
-        <Link href="/classes?tab=coud" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
-          <div className="flex items-center gap-2 mb-2">
-            <Coffee size={15} className="text-slate-400" />
-            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ЦОУД</div>
-          </div>
-          <div className="text-2xl font-semibold text-slate-800">{coudGroups || 0} <span className="text-sm font-normal text-slate-500">групи</span></div>
-          <div className="text-xs text-slate-500 mt-0.5">{coudCount || 0} ученика</div>
-        </Link>
-        <Link href="/students?ores=1" className={`bg-white p-4 rounded-2xl border shadow-sm hover:border-slate-300 transition-all ${oresCount > 0 ? 'border-amber-200' : 'border-slate-200/70'}`}>
-          <div className="flex items-center gap-2 mb-2">
-            <Wifi size={15} className={oresCount > 0 ? 'text-amber-500' : 'text-slate-400'} />
-            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ОРЕС</div>
-          </div>
-          <div className={`text-2xl font-semibold ${oresCount > 0 ? 'text-amber-600' : 'text-slate-800'}`}>{oresCount}</div>
-        </Link>
-      </div>
-      {/* ── На линия сега ── */}
-      <OnlineNow />
-      {/* ── ОПЕРАТИВНО: днес · реализация на ИУП · ЕПЛР ── */}
-      <OpsPanel currentYearId={currentYearId} />
-      {/* ── ИЗИСКВА ВНИМАНИЕ (сбито, вляво) + Срокове/Съобщения/Файлове (по-широко, вдясно) ── */}
+      {/* ── ИЗИСКВА ВНИМАНИЕ — най-отгоре: първо какво чака решение (сбито, вляво) + Срокове/Съобщения/Файлове (по-широко, вдясно) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
       <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden flex flex-col">
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-100">
@@ -219,6 +169,56 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
         />
       </div>
       </div>
+      {/* ── ОПЕРАТИВНО: днес · реализация на ИУП · ЕПЛР ── */}
+      <OpsPanel currentYearId={currentYearId} />
+      {/* ── КЛЮЧОВИ ЧИСЛА ── */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+        <Link href="/students" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all group col-span-2 md:col-span-1">
+          <div className="flex items-center gap-2 mb-2">
+            <Users size={15} className="text-blue-500" />
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Ученици</div>
+          </div>
+          <div className="text-2xl font-semibold text-slate-800">{totalStudents || 0}</div>
+        </Link>
+        <Link href="/classes" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all col-span-2 md:col-span-1">
+          <div className="flex items-center gap-2 mb-2">
+            <BookOpen size={15} className="text-purple-500" />
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Паралелки</div>
+          </div>
+          <div className="text-2xl font-semibold text-slate-800">{totalClasses || 0}</div>
+        </Link>
+        <Link href="/students?form=daily" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
+          <div className="flex items-center gap-2 mb-2">
+            <GraduationCap size={15} className="text-slate-400" />
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Дневна</div>
+          </div>
+          <div className="text-2xl font-semibold text-slate-800">{dailyCount}</div>
+        </Link>
+        <Link href="/students?form=ifo" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
+          <div className="flex items-center gap-2 mb-2">
+            <Home size={15} className="text-slate-400" />
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ИФО</div>
+          </div>
+          <div className="text-2xl font-semibold text-slate-800">{ifoCount}</div>
+        </Link>
+        <Link href="/classes?tab=coud" className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-sm hover:border-slate-300 transition-all">
+          <div className="flex items-center gap-2 mb-2">
+            <Coffee size={15} className="text-slate-400" />
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ЦОУД</div>
+          </div>
+          <div className="text-2xl font-semibold text-slate-800">{coudGroups || 0} <span className="text-sm font-normal text-slate-500">групи</span></div>
+          <div className="text-xs text-slate-500 mt-0.5">{coudCount || 0} ученика</div>
+        </Link>
+        <Link href="/students?ores=1" className={`bg-white p-4 rounded-2xl border shadow-sm hover:border-slate-300 transition-all ${oresCount > 0 ? 'border-amber-200' : 'border-slate-200/70'}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <Wifi size={15} className={oresCount > 0 ? 'text-amber-500' : 'text-slate-400'} />
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ОРЕС</div>
+          </div>
+          <div className={`text-2xl font-semibold ${oresCount > 0 ? 'text-amber-600' : 'text-slate-800'}`}>{oresCount}</div>
+        </Link>
+      </div>
+      {/* ── На линия сега ── */}
+      <OnlineNow />
       {/* Изтичащи документи */}
       <div>
         <ExpiringDocsCard />
