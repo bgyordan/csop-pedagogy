@@ -232,117 +232,82 @@ table { font-variant-numeric: tabular-nums; }
 }
 
 /* ═══════════════ ИЗГЛЕД: „Стъклен“ (по желание, от менюто на профила → Изглед) ═══════════════
-   По образеца „Glassy Dashboard“: топъл кремав матов кристал над топъл фон, тънък светъл ръб,
-   светлина отгоре и тъмна линия отдолу (inset сенки), мека сянка, Manrope с плътни заглавия.
+   Леден кристал: прозрачни бели панели с бяла светла рамка и отблясък, силно замъгляване
+   с наситеност, а отзад — цветен фон с ясни петна (без тях стъклото изглежда като боя).
    Само цветове/фон/шрифт — логиката и подредбата не се пипат. Атрибутите на <html> са от src/lib/view-prefs.ts. */
 html[data-ui="glass"] {
-  --g-ink: rgb(37, 32, 30);
-  --g-ink-2: #4a403a;
-  --g-muted: #6b5f56;
-  --g-card: rgba(250, 242, 232, 0.46);
-  --g-card-sheen: linear-gradient(144deg, rgba(255, 251, 245, 0.34), rgba(0, 0, 0, 0) 66%);
-  --g-pill: rgba(241, 222, 206, 0.48);
-  --g-pill-sheen: linear-gradient(165deg, rgba(255, 251, 242, 0.45), rgba(0, 0, 0, 0) 32%, rgba(0, 0, 0, 0) 73%, rgba(255, 251, 242, 0.45));
-  --g-edge: rgba(255, 253, 246, 0.51);
-  --g-line: rgba(57, 40, 28, 0.10);
-  --g-tint: rgba(57, 40, 28, 0.045);
-  --g-field: rgba(255, 250, 244, 0.6);
-  --g-dark: rgb(38, 30, 27);
-  --g-card-shadow: inset 0 1px 1px rgba(255, 254, 247, 0.84), inset 0 -1px 1px rgba(57, 40, 28, 0.19), 0 6px 18px rgba(35, 21, 14, 0.09);
-  --g-pill-shadow: inset 1px 1px 1px rgba(255, 254, 247, 0.84), inset -1px -1px 1px rgba(57, 40, 28, 0.19), inset 0 -2px 5px rgba(255, 251, 242, 0.45), 0 10px 30px rgba(35, 21, 14, 0.14);
+  --g-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.30));
+  --g-glass-strong: linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.40));
+  --g-edge: rgba(255, 255, 255, 0.7);
+  --g-line: rgba(15, 34, 64, 0.09);
+  --g-tint: rgba(255, 255, 255, 0.38);
+  --g-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(255, 255, 255, 0.25), 0 10px 34px rgba(28, 56, 112, 0.14);
 }
-html[data-ui="glass"][data-solid="1"] { --g-card: rgba(250, 244, 236, 0.97); --g-pill: rgba(244, 234, 222, 0.97); --frost: 0px; }
-
-/* шрифт и основен цвят */
-html[data-ui="glass"] body {
-  font-family: 'Manrope Variable', 'Manrope', 'Inter', system-ui, sans-serif !important;
-  color: var(--g-ink);
-  background: #c9b8a5;
+html[data-ui="glass"][data-solid="1"] {
+  --g-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.97), rgba(250, 252, 255, 0.95));
+  --g-glass-strong: var(--g-glass);
+  --frost: 0px;
 }
-/* топъл фон: светъл „прозорец“ горе вдясно, по-тъмни ъгли — като размита снимка на стая */
+html[data-ui="glass"] body { font-family: 'Manrope Variable', 'Manrope', 'Inter', system-ui, sans-serif !important; background: #dfe9f6; }
+/* цветният фон зад стъклото */
 html[data-ui="glass"] body::before {
-  content: ''; position: fixed; inset: -10%; z-index: -1; pointer-events: none;
+  content: ''; position: fixed; inset: -6%; z-index: -1; pointer-events: none;
   background:
-    radial-gradient(38% 46% at 74% 14%, rgba(253, 248, 240, 0.95), transparent 70%),
-    radial-gradient(30% 60% at 2% 60%, rgba(110, 92, 74, 0.55), transparent 70%),
-    radial-gradient(26% 50% at 100% 82%, rgba(110, 92, 74, 0.45), transparent 70%),
-    radial-gradient(50% 30% at 52% 104%, rgba(140, 118, 96, 0.6), transparent 70%),
-    linear-gradient(180deg, #ddd0c1 0%, #cbbaa7 55%, #b9a48e 100%);
-  filter: blur(30px);
+    radial-gradient(circle at 10% 16%, #5f9bff 0 11%, transparent 27%),
+    radial-gradient(circle at 90% 10%, #9d8bff 0 10%, transparent 25%),
+    radial-gradient(circle at 76% 74%, #36c9d6 0 12%, transparent 29%),
+    radial-gradient(circle at 28% 90%, #b9a2ff 0 9%, transparent 24%),
+    radial-gradient(circle at 54% 42%, #9ccfff 0 13%, transparent 31%),
+    radial-gradient(circle at 98% 48%, #ffc2dc 0 5%, transparent 16%),
+    linear-gradient(140deg, #edf4fd 0%, #d6e5f7 48%, #e6e8fb 100%);
+  filter: blur(28px);
+  animation: eis-float 40s ease-in-out infinite alternate;
 }
+@keyframes eis-float { from { transform: translate(0, 0) scale(1); } to { transform: translate(-1.5%, 1.5%) scale(1.04); } }
 html[data-ui="glass"] .min-h-screen.bg-slate-50 { background: transparent; }
 
-/* заглавия — плътни, сбити (както в образеца) */
-html[data-ui="glass"] main h1 { font-weight: 780; letter-spacing: -0.045em; color: var(--g-ink); }
-html[data-ui="glass"] main :is(h2, h3, .dash-title) { font-weight: 800; letter-spacing: -0.02em; color: var(--g-ink); }
-
-/* неутралните текстове — в топлата гама (цветните — червено, зелено и т.н. — остават каквито са) */
-html[data-ui="glass"] main :is(.text-slate-900, .text-slate-800) { color: var(--g-ink); }
-html[data-ui="glass"] main .text-slate-700 { color: var(--g-ink-2); }
-html[data-ui="glass"] main :is(.text-slate-600, .text-slate-500) { color: var(--g-muted); }
-html[data-ui="glass"] main .text-slate-400 { color: #7d7065; }
-
-/* менюто — плаваща стъклена колона */
-html[data-ui="glass"] .eis-sidebar {
-  background: var(--g-pill) var(--g-pill-sheen) !important;
-  backdrop-filter: blur(calc(var(--frost) + 3px)) saturate(135%); -webkit-backdrop-filter: blur(calc(var(--frost) + 3px)) saturate(135%);
-  border: 0.7px solid var(--g-edge); box-shadow: var(--g-pill-shadow);
-  margin: 12px 0 12px 12px; width: calc(100% - 12px) !important; height: calc(100% - 24px) !important; border-radius: 28px;
+/* стъклото — менюто, горната лента, хедърът и картите */
+html[data-ui="glass"] :is(.eis-sidebar, header.sticky, .eis-hero, :is(.card, .rounded-xl.bg-white, .rounded-2xl.bg-white, .rounded-3xl.bg-white):not(.absolute, .fixed, .shadow-lg, .shadow-xl, .shadow-2xl)) {
+  background: var(--g-glass) !important;
+  backdrop-filter: blur(var(--frost)) saturate(180%); -webkit-backdrop-filter: blur(var(--frost)) saturate(180%);
+  border: 1px solid var(--g-edge) !important;
+  box-shadow: var(--g-shadow) !important;
 }
+html[data-ui="glass"] :is(.card, .rounded-xl.bg-white, .rounded-2xl.bg-white, .rounded-3xl.bg-white):not(.absolute, .fixed, .shadow-lg, .shadow-xl, .shadow-2xl) { border-radius: 20px; }
+/* падащи менюта и прозорци — плътни, за да се четат */
+html[data-ui="glass"] .fixed :is(.card, .rounded-xl.bg-white, .rounded-2xl.bg-white, .rounded-3xl.bg-white) { background: #ffffff !important; backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+/* менюто — плаваща колона */
+html[data-ui="glass"] .eis-sidebar { margin: 12px 0 12px 12px; width: calc(100% - 12px) !important; height: calc(100% - 24px) !important; border-radius: 26px; }
 html[data-ui="glass"] .eis-sidebar .sb-font { font-family: inherit; text-transform: none; letter-spacing: -0.005em; font-weight: 600; }
-html[data-ui="glass"] .eis-sidebar :is(.text-\[\#0f2240\], .text-\[\#1f3d63\]) { color: var(--g-ink); }
-html[data-ui="glass"] .eis-sidebar .text-\[\#6b8db0\] { color: var(--g-muted); }
-html[data-ui="glass"] .eis-sidebar .sb-active { background: rgba(255, 251, 245, 0.82); border-color: var(--g-edge); box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.9), 0 2px 6px rgba(35, 21, 14, 0.10); font-weight: 750; }
-html[data-ui="glass"] .eis-sidebar [style*="border-bottom"], html[data-ui="glass"] .eis-sidebar [style*="border-top"] { border-color: var(--g-line) !important; }
+html[data-ui="glass"] .eis-sidebar .sb-active { background: rgba(255, 255, 255, 0.85); border-color: rgba(255, 255, 255, 0.95); box-shadow: 0 2px 10px rgba(28, 56, 112, 0.12); font-weight: 750; }
+html[data-ui="glass"] .eis-sidebar [style*="border"] { border-color: var(--g-line) !important; }
 
-/* горната лента — стъклена */
-html[data-ui="glass"] header.sticky {
-  background: var(--g-pill) var(--g-pill-sheen); border-color: var(--g-edge);
-  backdrop-filter: blur(calc(var(--frost) + 3px)) saturate(135%); -webkit-backdrop-filter: blur(calc(var(--frost) + 3px)) saturate(135%);
-}
+/* горната лента */
+html[data-ui="glass"] header.sticky { border-width: 0 0 1px 0 !important; border-radius: 0; }
 
-/* хедърът на таблото („Добре дошли…“) — без синьо-зелената преливка: същият кристал като картите */
-html[data-ui="glass"] .eis-hero {
-  background: var(--g-card) var(--g-card-sheen) !important;
-  backdrop-filter: blur(var(--frost)) saturate(124%); -webkit-backdrop-filter: blur(var(--frost)) saturate(124%);
-  border: 0.7px solid var(--g-edge); box-shadow: var(--g-card-shadow); color: var(--g-ink) !important;
-}
-html[data-ui="glass"] .eis-hero h1 { color: var(--g-ink) !important; font-weight: 780; letter-spacing: -0.04em; }
-html[data-ui="glass"] .eis-hero :is(.text-white, [class*="text-white/"], .text-slate-500, .text-slate-600, .text-slate-400, [class*="text-teal"]) { color: var(--g-muted) !important; }
-html[data-ui="glass"] .eis-hero .font-semibold { color: var(--g-ink); }
-html[data-ui="glass"] .eis-hero :is([class*="bg-white/"], .bg-white) {
-  background: rgba(255, 251, 245, 0.82) !important; border-color: var(--g-edge) !important; color: var(--g-ink) !important;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.9), 0 2px 6px rgba(35, 21, 14, 0.10);
-}
-html[data-ui="glass"] .eis-hero [class*="border-teal"] { border-color: var(--g-edge) !important; }
-html[data-ui="glass"] .eis-hero .rotate-12 { color: var(--g-ink); opacity: 0.6; }
+/* хедърът на таблото — по-плътно стъкло, тъмносин текст вместо бял върху преливка */
+html[data-ui="glass"] .eis-hero { background: var(--g-glass-strong) !important; color: #0f2240 !important; }
+html[data-ui="glass"] .eis-hero :is(h1, .font-semibold) { color: #0f2240 !important; }
+html[data-ui="glass"] .eis-hero :is(.text-white, [class*="text-white/"], [class*="text-teal"]) { color: #45556e !important; }
+html[data-ui="glass"] .eis-hero :is([class*="bg-white/"], .bg-white) { background: rgba(255, 255, 255, 0.75) !important; border-color: rgba(255, 255, 255, 0.95) !important; color: #0f2240 !important; }
+html[data-ui="glass"] .eis-hero .rotate-12 { color: #0f2240; opacity: 0.6; }
 
-/* картите — матов кристал (падащите менюта, модалите и полетата остават плътни и четливи) */
-html[data-ui="glass"] :is(.card, .rounded-xl.bg-white, .rounded-2xl.bg-white, .rounded-3xl.bg-white):not(.absolute, .fixed, .shadow-lg, .shadow-xl, .shadow-2xl) {
-  background: var(--g-card) var(--g-card-sheen);
-  backdrop-filter: blur(var(--frost)) saturate(124%); -webkit-backdrop-filter: blur(var(--frost)) saturate(124%);
-  border: 0.7px solid var(--g-edge); box-shadow: var(--g-card-shadow); border-radius: 20px;
-}
-html[data-ui="glass"] .fixed :is(.card, .rounded-xl.bg-white, .rounded-2xl.bg-white, .rounded-3xl.bg-white) {
-  background: #fbf6ef; backdrop-filter: none; -webkit-backdrop-filter: none;
-}
-/* вътре в картите: линии и светли фонове — в топлата гама */
+/* заглавия — по-плътни */
+html[data-ui="glass"] main h1 { font-weight: 780; letter-spacing: -0.035em; }
+html[data-ui="glass"] main :is(h2, h3, .dash-title) { font-weight: 750; letter-spacing: -0.015em; }
+
+/* вътре в картите: линии и светли фонове — прозрачни */
 html[data-ui="glass"] main :is(.border-slate-100, .border-slate-200, .border-slate-200\/70, .divide-slate-50 > *, .divide-slate-100 > *) { border-color: var(--g-line); }
 html[data-ui="glass"] main :is(.bg-slate-50, .bg-slate-100):not(.min-h-screen) { background-color: var(--g-tint); }
-html[data-ui="glass"] main :is(.hover\:bg-slate-50:hover, .hover\:bg-slate-100:hover) { background-color: rgba(57, 40, 28, 0.07); }
-html[data-ui="glass"] main .input { background: var(--g-field); border-color: rgba(57, 40, 28, 0.18); }
-
-/* основните бутони — тъмни хапчета */
-html[data-ui="glass"] :is(.btn-primary, .bg-navy, .bg-\[\#0f2240\]) { background-color: var(--g-dark); border-radius: 999px; }
-html[data-ui="glass"] .btn-secondary { background: rgba(255, 251, 245, 0.82); border-color: var(--g-edge); border-radius: 999px; box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.9), 0 2px 6px rgba(35, 21, 14, 0.10); }
-
-/* картите леко се повдигат при посочване */
-html[data-ui="glass"] main :is(.rounded-xl.bg-white, .rounded-2xl.bg-white):not(.absolute, .fixed) { transition: transform .22s ease, box-shadow .22s ease; }
+html[data-ui="glass"] main .input { background: rgba(255, 255, 255, 0.6); }
 
 /* Размер на съдържанието (и в двата стила) — само дясната част, менюто остава същото */
 html[data-text="s"] main { zoom: 0.92; }
 html[data-text="l"] main { zoom: 1.1; }
 
 /* Намали анимациите */
+html[data-calm="1"] body::before { animation: none; }
 html[data-calm="1"] main * { transition-duration: 0s !important; }
+@media (prefers-reduced-motion: reduce) { html[data-ui="glass"] body::before { animation: none; } }
 @media print { html[data-ui="glass"] body::before { display: none; } }
