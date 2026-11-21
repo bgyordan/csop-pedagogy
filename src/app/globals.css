@@ -230,3 +230,58 @@ table { font-variant-numeric: tabular-nums; }
   body:has(.qr-print) .qr-print { position: absolute; inset: 0; background: none; backdrop-filter: none; }
   body:has(.qr-print) .qr-print .no-print { display: none; }
 }
+
+/* ═══════════════ ИЗГЛЕД: „Стъклен“ (по желание, от менюто на профила → Изглед) ═══════════════
+   Само цветове/фон — логиката и подредбата не се пипат. Атрибутите на <html> идват от src/lib/view-prefs.ts. */
+html[data-ui="glass"] {
+  --glass-panel: rgba(255, 255, 255, 0.62);
+  --glass-line: rgba(255, 255, 255, 0.75);
+  --glass-shadow: 0 10px 30px rgba(15, 34, 64, 0.08);
+}
+html[data-ui="glass"][data-solid="1"] { --glass-panel: rgba(255, 255, 255, 0.97); --frost: 0px; }
+html[data-ui="glass"] body { background: #eef2f8; }
+/* мек цветен фон зад стъклото */
+html[data-ui="glass"] body::before {
+  content: ''; position: fixed; inset: -12%; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(closest-side at 12% 14%, rgba(150, 190, 255, 0.85), transparent),
+    radial-gradient(closest-side at 88% 28%, rgba(160, 230, 218, 0.8), transparent),
+    radial-gradient(closest-side at 46% 96%, rgba(255, 205, 170, 0.75), transparent),
+    radial-gradient(closest-side at 70% 60%, rgba(214, 202, 255, 0.7), transparent);
+  filter: blur(40px);
+  animation: eis-drift 30s ease-in-out infinite alternate;
+}
+@keyframes eis-drift { from { transform: translate(0, 0) scale(1); } to { transform: translate(2%, 1.5%) scale(1.05); } }
+/* обвивката на страниците е прозрачна, за да се вижда фонът */
+html[data-ui="glass"] .min-h-screen.bg-slate-50 { background: transparent; }
+/* менюто — плаващ стъклен панел */
+html[data-ui="glass"] .eis-sidebar {
+  background: var(--glass-panel) !important;
+  backdrop-filter: blur(var(--frost)) saturate(160%); -webkit-backdrop-filter: blur(var(--frost)) saturate(160%);
+  border: 1px solid var(--glass-line); box-shadow: var(--glass-shadow);
+  margin: 10px 0 10px 10px; width: calc(100% - 10px) !important; height: calc(100% - 20px) !important; border-radius: 20px;
+}
+/* картите — стъкло (не и падащите менюта, модалите и полетата: те остават плътни и четливи) */
+html[data-ui="glass"] :is(.card, .rounded-xl.bg-white, .rounded-2xl.bg-white, .rounded-3xl.bg-white):not(.absolute, .fixed, .shadow-lg, .shadow-xl, .shadow-2xl) {
+  background: var(--glass-panel);
+  backdrop-filter: blur(var(--frost)) saturate(160%); -webkit-backdrop-filter: blur(var(--frost)) saturate(160%);
+  border-color: var(--glass-line); box-shadow: var(--glass-shadow);
+}
+html[data-ui="glass"] .fixed :is(.card, .rounded-xl.bg-white, .rounded-2xl.bg-white, .rounded-3xl.bg-white) {
+  background: #ffffff; backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+/* картите на таблото леко се повдигат при посочване */
+html[data-ui="glass"] main :is(.rounded-xl.bg-white, .rounded-2xl.bg-white):not(.absolute, .fixed) { transition: transform .2s ease, box-shadow .2s ease; }
+html[data-ui="glass"] main :is(.rounded-xl.bg-white, .rounded-2xl.bg-white):not(.absolute, .fixed):hover { box-shadow: 0 16px 40px rgba(15, 34, 64, 0.12); }
+/* горната лента */
+html[data-ui="glass"] header.sticky { background: rgba(255, 255, 255, 0.55); border-color: var(--glass-line); }
+
+/* Размер на съдържанието (и в двата стила) — само дясната част, менюто остава същото */
+html[data-text="s"] main { zoom: 0.92; }
+html[data-text="l"] main { zoom: 1.1; }
+
+/* Намали анимациите */
+html[data-calm="1"] body::before { animation: none; }
+html[data-calm="1"] main * { transition-duration: 0s !important; }
+@media (prefers-reduced-motion: reduce) { html[data-ui="glass"] body::before { animation: none; } }
+@media print { html[data-ui="glass"] body::before { display: none; } }

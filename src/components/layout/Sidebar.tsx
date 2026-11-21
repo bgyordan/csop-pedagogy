@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3, FileSpreadsheet,
-  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, ArrowLeftRight, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare, Calculator, ShieldAlert, MonitorSmartphone, Bell, CalendarCheck, Award, BookMarked, BookUser, Landmark, Search } from 'lucide-react'
+  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, ArrowLeftRight, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare, Calculator, ShieldAlert, MonitorSmartphone, Bell, CalendarCheck, Award, BookMarked, BookUser, Landmark, Search, Palette } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
 import WhatsNewModal from './WhatsNewModal'
@@ -14,6 +14,7 @@ import CommandPalette from './CommandPalette'
 import NavProgress from './NavProgress'
 import NotificationBell from './NotificationBell'
 import InstallApp from './InstallApp'
+import ViewSettings from './ViewSettings'
 import { useFavorites, rememberVisit, type NavEntry } from './nav-memory'
 import { cn } from '@/lib/utils'
 const SIDEBAR_BG = '#f0f7ff'
@@ -257,6 +258,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   const [openKey, setOpenKey] = useState<string | null>(null)
   // Групите са свити за всички (акордеон): отворена е само тази на текущата страница, а на таблото — групата по подразбиране
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [viewOpen, setViewOpen] = useState(false)   // „Изглед“ — класически / стъклен, размер, анимации
   // Бързо търсене (Ctrl+K / ⌘K, или „/“ извън поле за писане)
   const [paletteOpen, setPaletteOpen] = useState(false)
   useEffect(() => {
@@ -473,7 +475,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   }
   const divider = <div className="my-3 mx-2.5 border-t border-[rgba(15,34,64,0.10)]" />
   const sidebarContent = (
-    <aside className={cn('h-full flex flex-col transition-[width] duration-200', isMini ? 'w-16' : 'w-56')} style={{ backgroundColor: SIDEBAR_BG }}>
+    <aside className={cn('eis-sidebar h-full flex flex-col transition-[width] duration-200', isMini ? 'w-16' : 'w-56')} style={{ backgroundColor: SIDEBAR_BG }}>
       <div className={cn('flex items-center gap-2.5 py-4', isMini ? 'px-3 justify-center' : 'px-4')} style={{ borderBottom: '1px solid rgba(15,34,64,0.10)' }}>
         <Link href="/dashboard" onClick={() => setMobileOpen(false)} className="flex-shrink-0">
           <img src="/csop-varna-logo.jpg" alt="ЦСОП Варна" className="w-8 h-8 rounded-lg object-cover" />
@@ -562,6 +564,10 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
                 className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs hover:bg-slate-50" style={{ color: TEXT_SECONDARY }}>
                 <Settings size={14} /> Вход и парола
               </Link>
+              <button type="button" onClick={() => { setUserMenuOpen(false); setMobileOpen(false); setViewOpen(true) }}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs hover:bg-slate-50" style={{ color: TEXT_SECONDARY }}>
+                <Palette size={14} /> Изглед
+              </button>
               <InstallApp onDone={() => setUserMenuOpen(false)}
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs hover:bg-slate-50" style={{ color: TEXT_SECONDARY }} />
               <button onClick={handleLogout}
@@ -596,6 +602,7 @@ export function Sidebar({ userRole, userName, userEmail, isCoordinator = false, 
   )
   return (
     <>
+      {viewOpen && <ViewSettings onClose={() => setViewOpen(false)} />}
       <div className={cn('hidden md:flex h-screen sticky top-0 overflow-y-auto flex-shrink-0 transition-[width] duration-200', isMini ? 'w-16' : 'w-56')}>
         {sidebarContent}
       </div>
