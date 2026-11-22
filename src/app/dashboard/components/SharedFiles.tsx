@@ -81,7 +81,7 @@ async function loadPosts(siteOnly = false): Promise<PostRow[]> {
 }
 
 // portfolio: true — и последните публикации; 'site' — само чакащите за сайта (деловодството)
-export default function SharedFiles({ bare = false, limit = 5, portfolio = false }: { bare?: boolean; limit?: number; portfolio?: boolean | 'site' } = {}) {
+export default function SharedFiles({ bare = false, limit = 5, portfolio = false, cols = 1 }: { bare?: boolean; limit?: number; portfolio?: boolean | 'site'; cols?: 1 | 2 | 3 } = {}) {
   const [rows, setRows] = useState<Row[]>([])
   const [posts, setPosts] = useState<PostRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -185,7 +185,8 @@ export default function SharedFiles({ bare = false, limit = 5, portfolio = false
       ) : rows.length === 0 ? (
         <p className="px-1 py-1 text-[12.5px] text-slate-400">Няма споделени файлове</p>
       ) : (
-        <div>
+        // широка карта (сама на реда) → файловете в 2–3 колони, за да е ниска
+        <div className={cols === 3 ? 'grid gap-x-4 sm:grid-cols-2 lg:grid-cols-3' : cols === 2 ? 'grid gap-x-4 sm:grid-cols-2' : ''}>
           {rows.map(r => (
             <div key={r.id} onClick={() => setViewing({ id: r.id, name: r.name })} title="Преглед"
               className="flex items-center gap-2 px-1 py-1.5 rounded-lg cursor-pointer hover:bg-slate-50 group">
