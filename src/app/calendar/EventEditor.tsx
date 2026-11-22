@@ -21,7 +21,7 @@ export interface Draft {
 const ROLE_GROUPS: { label: string; roles: string[] }[] = [
   { label: 'Ръководство', roles: ['director', 'zdud'] },
   { label: 'Учители', roles: ['class_teacher', 'teacher'] },
-  { label: 'Възпитатели', roles: ['educator'] },
+  { label: 'Учители ЦОУД', roles: ['educator'] },
   { label: 'Терапевти', roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
   { label: 'Координатори', roles: ['coordinator'] },
 ]

@@ -592,7 +592,7 @@ function NewCampaign({ years, kinds, onClose }: { years: Year[]; kinds: Kind[]; 
 
 // ── Карти (шаблони) ───────────────────────────────────────────────────────
 const ROLE_OPTIONS: { k: string; l: string }[] = [
-  { k: 'class_teacher', l: 'Учител (класен)' }, { k: 'teacher', l: 'Учител' }, { k: 'educator', l: 'Възпитател' },
+  { k: 'class_teacher', l: 'Учител (класен)' }, { k: 'teacher', l: 'Учител' }, { k: 'educator', l: 'Учител ЦОУД' },
   { k: 'speech_therapist', l: 'Логопед' }, { k: 'psychologist', l: 'Психолог' }, { k: 'rehabilitator', l: 'Рехабилитатор / терапевт' },
   { k: 'zdud', l: 'ЗДУД' }, { k: 'admin', l: 'Администратор' }, { k: 'secretary', l: 'Секретар' }, { k: 'support', l: 'Помощен персонал' },
 ]
