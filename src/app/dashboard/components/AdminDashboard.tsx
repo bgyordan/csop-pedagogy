@@ -3,12 +3,12 @@ import { createClient } from '@/lib/supabase/server'
 import OnlineNow from './OnlineNow'
 import { iupPeriod } from '@/lib/iup-period'
 import { upcomingTasks } from '@/lib/upcoming-tasks'
-import ClassTeacherSide from './ClassTeacherSide'
+import { NewsCard } from './ClassTeacherSide'
 import OpsPanel from './OpsPanel'
 import Link from 'next/link'
 import SharedFiles from './SharedFiles'
 import ExpiringDocsCard from './ExpiringDocsCard'
-import { Users, BookOpen, Calendar, Bell, ArrowRight, GraduationCap, Home, Wifi, Coffee, ShieldX, ShieldAlert, ClipboardList, Clock, AlertTriangle, UserSearch } from 'lucide-react'
+import { Users, BookOpen, Calendar, Bell, ArrowRight, GraduationCap, Home, Wifi, Coffee, ShieldX, ShieldAlert, ClipboardList, Clock, AlertTriangle, UserSearch, CheckCircle2 } from 'lucide-react'
 import { formatDate, getDaysUntil, getMonthName } from '@/lib/utils'
 import { isOresActive, todaySofia, ORES_ACTIVE_COLS } from '@/lib/ores'
 export default async function AdminDashboard({ profile, currentYearId }: any) {
@@ -112,21 +112,39 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
       badge: d.days < 0 ? `просрочено ${-d.days} дни` : d.days === 0 ? 'Днес' : `след ${d.days} дни`,
     })
   })
+  // Автоматична подредба на горния ред: празните карти не заемат място (иначе се разтягат до
+  // височината на най-дългата съседна) — свиват се в една тънка лента; пълните делят реда поравно.
+  const anns = (announcements || []) as any[]
+  const hasAlerts = alerts.length > 0
+  const hasNews = anns.length > 0
+  const bigCards = 1 + (hasAlerts ? 1 : 0) + (hasNews ? 1 : 0)   // „Споделено“ е винаги карта
+  const rowCols = bigCards === 3 ? 'lg:grid-cols-3' : bigCards === 2 ? 'md:grid-cols-2' : ''
   return (
     <div className="animate-in fade-in duration-500 space-y-4">
-      {/* ── ИЗИСКВА ВНИМАНИЕ — най-отгоре: първо какво чака решение (сбито, вляво) + Срокове/Съобщения/Файлове (по-широко, вдясно) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-      <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden flex flex-col">
+      {/* ── Тънка лента за празните: „нищо за внимание“ / „няма съобщения“ ── */}
+      {(!hasAlerts || !hasNews) && (
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 bg-white rounded-2xl border border-slate-200/70 shadow-sm px-4 py-2 text-[12.5px] text-slate-500">
+          {!hasAlerts && (
+            <span className="inline-flex items-center gap-1.5"><CheckCircle2 size={14} className="text-emerald-500" /> Нищо не изисква внимание</span>
+          )}
+          {!hasNews && (
+            <span className="inline-flex items-center gap-1.5">
+              <Bell size={13} className="text-slate-400" /> Няма активни съобщения
+              <Link href="/admin/announcements" className="text-[11px] text-slate-400 hover:text-[#0f2240] ml-1">управление →</Link>
+            </span>
+          )}
+        </div>
+      )}
+      {/* ── ИЗИСКВА ВНИМАНИЕ (ако има) · СЪОБЩЕНИЯ (ако има) · СПОДЕЛЕНО — поравно в един ред ── */}
+      <div className={`grid grid-cols-1 gap-4 ${rowCols}`}>
+      {hasAlerts && (
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden flex flex-col">
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-100">
           <AlertTriangle size={14} className="text-slate-400" />
           <h2 className="dash-title">Изисква внимание</h2>
-          {alerts.length > 0 && <span className="ml-auto text-[11px] text-slate-400 tabular-nums">{alerts.length}</span>}
+          <span className="ml-auto text-[11px] text-slate-400 tabular-nums">{alerts.length}</span>
         </div>
-        {alerts.length === 0 ? (
-          <div className="dash-empty">
-            <ShieldAlert size={14} className="text-emerald-400" /> Всичко е наред
-          </div>
-        ) : (
+        {(
           <div className="divide-y divide-slate-50 dash-scroll">
             {alerts.map((a, i) => {
               // цветна точка вместо голяма икона: червена — просрочено/изтекло, жълта — скоро, синя — за сведение
@@ -160,14 +178,9 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
           </div>
         )}
       </div>
-      <div className="lg:col-span-3 grid">
-        <ClassTeacherSide
-          announcements={(announcements || []) as any}
-          newsHref="/admin/announcements"
-          files={<SharedFiles bare />}
-          layout="row"
-        />
-      </div>
+      )}
+      {hasNews && <NewsCard announcements={anns} newsHref="/admin/announcements" />}
+      <SharedFiles bare />
       </div>
       {/* ── ОПЕРАТИВНО: днес · реализация на ИУП · ЕПЛР ── */}
       <OpsPanel currentYearId={currentYearId} />
