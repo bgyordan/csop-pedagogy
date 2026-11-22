@@ -180,7 +180,8 @@ export default async function AdminDashboard({ profile, currentYearId }: any) {
       </div>
       )}
       {hasNews && <NewsCard announcements={anns} newsHref="/admin/announcements" />}
-      <SharedFiles bare />
+      {/* сама на реда → 3 колони × 2 реда; до други карти → една колона */}
+      {bigCards === 1 ? <SharedFiles bare cols={3} limit={6} /> : <SharedFiles bare />}
       </div>
       {/* ── ОПЕРАТИВНО: днес · реализация на ИУП · ЕПЛР ── */}
       <OpsPanel currentYearId={currentYearId} />
