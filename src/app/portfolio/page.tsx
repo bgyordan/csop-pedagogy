@@ -27,7 +27,8 @@ export default async function PortfolioPage() {
     supabase.from('portfolio_post_classes').select('post_id, class_id'),
     supabase.from('staff_profiles').select('id, first_name, middle_name, last_name, role, therapy_role, position, is_active').order('first_name'),
     supabase.from('classes').select('id, name').eq('academic_year_id', year?.id).order('name'),
-    supabase.from('class_teacher_assignments').select('class_id').eq('staff_id', me.id).eq('academic_year_id', year?.id),
+    // класните на всички паралелки — проект/материал на няколко паралелки е и „техен“ (в „Моите“ и при филтъра по колега)
+    supabase.from('class_teacher_assignments').select('class_id, staff_id').eq('academic_year_id', year?.id),
     // Дати и събития (2026-11-03_portfolio_dates.sql) — ако таблицата я няма, разделът просто не се показва
     supabase.from('portfolio_dates').select('id, post_id, date, time_from, time_to, title, place, note, highlight, sort').order('date').order('sort'),
   ])
@@ -46,6 +47,10 @@ export default async function PortfolioPage() {
   const coudLabel = (n: string) => /цоуд|група/i.test(n || '') ? n : `ЦОУД ${n}`
   const groups = groupsReady ? (coudRes.data || []).map((g: any) => ({ id: g.id, name: coudLabel(g.name), group: true })) : []
   const myGroupIds = groupsReady ? (coudRes.data || []).filter((g: any) => g.teacher_id === me.id).map((g: any) => g.id) : []
+  // паралелка / група ЦОУД → кои колеги я водят (класни + учителят на групата)
+  const classOwners: Record<string, string[]> = {}
+  ;(ctaRes.data || []).forEach((c: any) => { if (c.staff_id) (classOwners[c.class_id] ||= []).push(c.staff_id) })
+  if (groupsReady) (coudRes.data || []).forEach((g: any) => { if (g.teacher_id) (classOwners[g.id] ||= []).push(g.teacher_id) })
 
   // Миграцията още не е пусната
   if (postsRes.error) {
@@ -97,7 +102,8 @@ export default async function PortfolioPage() {
       thumbs={thumbs}
       people={people}
       classes={[...(classesRes.data || []), ...groups]}
-      myClassIds={[...(ctaRes.data || []).map((c: any) => c.class_id), ...myGroupIds]}
+      myClassIds={[...(ctaRes.data || []).filter((c: any) => c.staff_id === me.id).map((c: any) => c.class_id), ...myGroupIds]}
+      classOwners={classOwners}
       academicYearId={year?.id || null}
       datesReady={!datesRes.error}
       staffReady={staffReady}

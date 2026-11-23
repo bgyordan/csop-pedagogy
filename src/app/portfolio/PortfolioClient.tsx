@@ -34,9 +34,9 @@ const PROJECT_GROUPS: { key: string; label: string }[] = [
   { key: 'in_progress', label: 'В ход' }, { key: 'idea', label: 'Идеи' }, { key: 'done', label: 'Завършени' },
 ]
 
-export default function PortfolioClient({ meId, role, posts, thumbs, people, classes, myClassIds, academicYearId, datesReady, staffReady = false, specialistIds = [], activeIds = [] }: {
+export default function PortfolioClient({ meId, role, posts, thumbs, people, classes, myClassIds, classOwners = {}, academicYearId, datesReady, staffReady = false, specialistIds = [], activeIds = [] }: {
   meId: string; role: string; posts: Post[]; thumbs: Record<string, string>; people: Person[]
-  classes: Cls[]; myClassIds: string[]; academicYearId: string | null
+  classes: Cls[]; myClassIds: string[]; classOwners?: Record<string, string[]>; academicYearId: string | null
   staffReady?: boolean; specialistIds?: string[]; activeIds?: string[]
   /** Има ли таблица за датите (миграция 2026-11-03_portfolio_dates.sql) */
   datesReady: boolean
@@ -92,8 +92,12 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
   const classNames = useMemo(() => Object.fromEntries([...classes.map(c => [c.id, c.name]), ...people.map(p => [p.id, p.short])]), [classes, people])
   const me = personBy[meId]
 
-  // „мои“ — моите и тези, в които съм добавен като участник
-  const mine = posts.filter(p => p.author_id === meId || (p.staffIds || []).includes(meId))
+  // Чие е: на автора, на добавените участници и на колегите, чиито паралелки / групи ЦОУД са отбелязани
+  // (проект на няколко паралелки е и на техните класни, не само на този, който го е качил)
+  const involves = (p: Post, id: string) =>
+    p.author_id === id || (p.staffIds || []).includes(id) || p.classIds.some(c => (classOwners[c] || []).includes(id))
+  // „мои“ — моите + споделените, в които участвам (като колега или с моя паралелка / група)
+  const mine = posts.filter(p => p.author_id === meId || (p.staffIds || []).includes(meId) || (!isDraft(p) && (involves(p, meId) || p.classIds.some(c => myClassIds.includes(c)))))
   // Общата стена: споделеното от всички + моите „само за мен“ (със знак на картата), за да не се „губят“ след запис
   const wall = posts.filter(p => !isDraft(p) || p.author_id === meId)
   const siteQueue = posts.filter(p => p.site_status === 'requested' && !isDraft(p))
@@ -101,9 +105,10 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
   const pool = siteOnly ? siteQueue : scope === 'mine' ? mine : wall
 
   const authors = useMemo(() => {
-    const ids = new Set(wall.map(p => p.author_id).filter(Boolean) as string[])
+    // в списъка с колеги — и участниците, не само авторите
+    const ids = new Set(wall.flatMap(p => [p.author_id, ...(p.staffIds || []), ...p.classIds.flatMap(c => classOwners[c] || [])]).filter(Boolean) as string[])
     return people.filter(p => ids.has(p.id)).sort((a, b) => a.short.localeCompare(b.short, 'bg'))
-  }, [wall, people])
+  }, [wall, people, classOwners])
 
   const today = todayYmd()
   const nextOf = useMemo(() => Object.fromEntries(posts.map(p => [p.id, nextKeyDate(p, today)])), [posts, today])
@@ -114,7 +119,7 @@ export default function PortfolioClient({ meId, role, posts, thumbs, people, cla
   const byAuthor = scope === 'all' && !siteOnly ? author : ''
   const filtered = pool
     .filter(p => !kind || p.kind === kind)
-    .filter(p => !byAuthor || p.author_id === byAuthor)
+    .filter(p => !byAuthor || involves(p, byAuthor))
     .filter(p => !upcoming || nextOf[p.id])
     .filter(p => !needle || smartMatch([p.title, p.body, p.ideas, p.activities, p.goals, personBy[p.author_id || '']?.name, ...(p.dates || []).map(d => d.title)].join(' '), needle))
 
