@@ -7,9 +7,9 @@ import * as XLSX from 'xlsx'
 import { Upload, Loader2, Check, AlertTriangle, ChevronDown, ChevronRight, Users, LayoutGrid, X } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { smartMatch } from '@/lib/search'
-import { parseSheet, matchLines } from './parse'
+import { parseSheet, parseHorarium, matchLines } from './parse'
 import type { Ref, NameMap, Matched } from './parse'
-import { importCurriculum } from './actions'
+import { importCurriculum, importCurriculumForStaff } from './actions'
 import { studyKind } from '@/lib/curriculum'
 
 type Line = {
@@ -28,10 +28,13 @@ export default function CurriculumClient({ ready, lines, classes, couds, staff, 
   const { toast } = useToast()
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
+  const oneRef = useRef<HTMLInputElement>(null)
   const [view, setView] = useState<'teachers' | 'classes'>('teachers')
   const [q, setQ] = useState('')
   const [open, setOpen] = useState<Set<string>>(new Set())
-  const [preview, setPreview] = useState<{ file: string; lines: Matched[] } | null>(null)
+  // one = внос за един учител (хорариум на длъжността) — заменя само неговите редове
+  const [preview, setPreview] = useState<{ file: string; lines: Matched[]; one?: boolean } | null>(null)
+  const [oneStaff, setOneStaff] = useState('')
   const [fixStaff, setFixStaff] = useState<Record<string, string>>({})
   const [fixHolder, setFixHolder] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
@@ -50,14 +53,30 @@ export default function CurriculumClient({ ready, lines, classes, couds, staff, 
     finally { if (fileRef.current) fileRef.current.value = '' }
   }
 
+  // Внос за един учител: хорариумът на длъжността от НЕИСПУО (без име вътре — учителят се избира)
+  async function onOneFile(f: File) {
+    try {
+      const wb = XLSX.read(await f.arrayBuffer())
+      const rows = XLSX.utils.sheet_to_json<any[]>(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' })
+      const p = parseHorarium(rows)
+      if (p.isSummary) { toast('Това е обобщената справка за всички — за нея е бутонът „Нов внос от НЕИСПУО“', 'error'); return }
+      if (p.error) { toast(p.error, 'error'); return }
+      if (!p.lines.length) { toast('Във файла няма редове', 'error'); return }
+      setFixStaff({}); setFixHolder({}); setOneStaff('')
+      setPreview({ file: f.name, lines: matchLines(p.lines, classes, couds, staff, map), one: true })
+    } catch { toast('Файлът не може да се прочете', 'error') }
+    finally { if (oneRef.current) oneRef.current.value = '' }
+  }
+
   // ── преглед на вноса: кое не е свързано ──
-  const unmatchedTeachers = useMemo(() => preview
+  const unmatchedTeachers = useMemo(() => preview && !preview.one
     ? Array.from(new Set(preview.lines.filter(l => l.teacher && !l.staffId).map(l => l.teacher))).sort((a, b) => a.localeCompare(b, 'bg')) : [], [preview])
   const unmatchedHolders = useMemo(() => preview
     ? Array.from(new Set(preview.lines.filter(l => (l.kind === 'class' && !l.classId) || (l.kind === 'coud' && !l.coudId)).map(l => l.holder))).sort(holderSort) : [], [preview])
 
   async function save() {
     if (!preview) return
+    if (preview.one && !oneStaff) { toast('Изберете учителя', 'error'); return }
     setSaving(true)
     const out = preview.lines.map(l => ({
       holder: l.holder, subject: l.subject, weeksT1: l.weeksT1, hoursT1: l.hoursT1, weeksT2: l.weeksT2, hoursT2: l.hoursT2,
@@ -70,10 +89,12 @@ export default function CurriculumClient({ ready, lines, classes, couds, staff, 
       ...Object.entries(fixStaff).filter(([, id]) => id).map(([source, id]) => ({ kind: 'staff' as const, source, id })),
       ...Object.entries(fixHolder).filter(([, id]) => id).map(([source, id]) => ({ kind: (/цоуд/i.test(source) ? 'coud' : 'class') as 'coud' | 'class', source, id })),
     ]
-    const res: any = await importCurriculum(out, manual)
+    const res: any = preview.one
+      ? await importCurriculumForStaff(oneStaff, out.map(o => ({ ...o, staffId: oneStaff })), manual.filter(m => m.kind !== 'staff') as any)
+      : await importCurriculum(out, manual)
     setSaving(false)
     if (res.error) { toast(res.error, 'error'); return }
-    toast(`Внесени ${res.count} реда`)
+    toast(preview.one ? `${res.name}: внесени ${res.count} реда` : `Внесени ${res.count} реда`)
     setPreview(null)
     router.refresh()
   }
@@ -107,6 +128,11 @@ export default function CurriculumClient({ ready, lines, classes, couds, staff, 
         className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
         <Upload size={15} /> {lines.length ? 'Нов внос от НЕИСПУО' : 'Внос от НЕИСПУО'}
       </button>
+      <input ref={oneRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) onOneFile(f) }} />
+      <button onClick={() => oneRef.current?.click()} title="Хорариумът на една длъжност от НЕИСПУО — заменя само редовете на този учител"
+        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm text-[#0f2240] border border-slate-200 bg-white hover:bg-slate-50">
+        <Upload size={15} /> Внос за един учител
+      </button>
     </>
   )
 
@@ -114,6 +140,7 @@ export default function CurriculumClient({ ready, lines, classes, couds, staff, 
   if (preview) {
     const L = preview.lines
     const okStaff = L.filter(l => l.staffId || fixStaff[l.teacher]).length
+    const oneName = preview.one && oneStaff ? staffName[oneStaff] : ''
     return (
       <div className="space-y-4">
         <div className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-wrap items-center gap-x-8 gap-y-2">
@@ -123,13 +150,24 @@ export default function CurriculumClient({ ready, lines, classes, couds, staff, 
           </div>
           <Stat label="реда" v={L.length} />
           <Stat label="паралелки / групи" v={new Set(L.map(l => l.holder)).size} />
-          <Stat label="преподаватели" v={new Set(L.map(l => l.teacher)).size} />
-          <Stat label="свързани с EIS" v={`${okStaff} от ${L.length}`} />
+          {preview.one ? (
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-slate-500">Учител (заменят се само неговите редове)</span>
+              <select value={oneStaff} onChange={e => setOneStaff(e.target.value)}
+                className={`text-sm px-3 py-2 rounded-xl border bg-white min-w-[220px] ${oneStaff ? 'border-emerald-300 text-emerald-800' : 'border-amber-300 text-slate-500'}`}>
+                <option value="">— изберете —</option>
+                {staff.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            </label>
+          ) : (<>
+            <Stat label="преподаватели" v={new Set(L.map(l => l.teacher)).size} />
+            <Stat label="свързани с EIS" v={`${okStaff} от ${L.length}`} />
+          </>)}
           <div className="ml-auto flex gap-2">
             <button onClick={() => setPreview(null)} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm text-slate-600 border border-slate-200 hover:bg-slate-50"><X size={14} /> Отказ</button>
             <button onClick={save} disabled={saving}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: '#0f2240' }}>
-              {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Запиши{lines.length ? ' (заменя досегашния внос)' : ''}
+              {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Запиши{preview.one ? (oneName ? ` за ${oneName}` : '') : lines.length ? ' (заменя досегашния внос)' : ''}
             </button>
           </div>
         </div>
@@ -148,7 +186,7 @@ export default function CurriculumClient({ ready, lines, classes, couds, staff, 
             ))}
           </FixBox>
         )}
-        {!unmatchedTeachers.length && !unmatchedHolders.length && (
+        {!preview.one && !unmatchedTeachers.length && !unmatchedHolders.length && (
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-800 inline-flex items-center gap-2"><Check size={15} /> Всички паралелки и преподаватели са разпознати.</div>
         )}
 
@@ -157,7 +195,7 @@ export default function CurriculumClient({ ready, lines, classes, couds, staff, 
           <div className="max-h-[50vh] overflow-y-auto">
             <LinesTable rows={L.map((l, i) => ({
               id: String(i), holder: l.holder, subject: l.subject, w1: l.weeksT1, h1: l.hoursT1, w2: l.weeksT2, h2: l.hoursT2, total: l.total, students: l.students, ich: l.individual, kind: studyKind(l.mode, l.subject),
-              teacher: (fixStaff[l.teacher] || l.staffId) ? staffName[fixStaff[l.teacher] || l.staffId!] : l.teacher, warn: !(fixStaff[l.teacher] || l.staffId),
+              teacher: preview.one ? oneName : (fixStaff[l.teacher] || l.staffId) ? staffName[fixStaff[l.teacher] || l.staffId!] : l.teacher, warn: preview.one ? !oneStaff : !(fixStaff[l.teacher] || l.staffId),
             }))} showHolder />
           </div>
         </div>
@@ -170,7 +208,7 @@ export default function CurriculumClient({ ready, lines, classes, couds, staff, 
     return (
       <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center space-y-4">
         <p className="text-slate-600 text-sm max-w-lg mx-auto">Още няма внесен учебен план. Изтеглете от НЕИСПУО обобщената справка за учебните планове (Excel) и я качете тук.</p>
-        {uploadBtn}
+        <div className="flex flex-wrap justify-center gap-2">{uploadBtn}</div>
       </div>
     )
   }
@@ -187,7 +225,7 @@ export default function CurriculumClient({ ready, lines, classes, couds, staff, 
           <div className="text-sm text-slate-800">{new Date(lines[0].imported_at).toLocaleString('bg-BG', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
         </div>
         {notLinked > 0 && <span className="inline-flex items-center gap-1 text-xs text-amber-700"><AlertTriangle size={13} /> {notLinked} преподавател(и) без връзка с EIS</span>}
-        <div className="ml-auto">{uploadBtn}</div>
+        <div className="ml-auto flex flex-wrap gap-2">{uploadBtn}</div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

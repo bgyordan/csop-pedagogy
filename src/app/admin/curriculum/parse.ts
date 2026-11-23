@@ -59,6 +59,47 @@ export function parseSheet(rows: any[][]): { lines: RawLine[]; error?: string } 
   return { lines }
 }
 
+/**
+ * Хорариум на ЕДНА длъжност от НЕИСПУО (staffPositionHorarium.xlsx) — един учител, без име вътре.
+ * Колони: Дейност · Вид подкрепа · Клас · Група · I срок УС/ЧС · II срок УС/ЧС · Общ бр.ч. · Норма на предмета …
+ */
+export function parseHorarium(rows: any[][]): { lines: RawLine[]; error?: string; isSummary?: boolean } {
+  if (rows.some(r => r.some(c => norm(String(c)) === 'преподавател'))) return { lines: [], isSummary: true }
+  const hi = rows.findIndex(r => r.some(c => norm(String(c)) === 'дейност') && r.some(c => norm(String(c)).startsWith('клас')))
+  if (hi < 0) return { lines: [], error: 'Не намирам заглавния ред (Дейност … Клас). Това ли е хорариумът на длъжността от НЕИСПУО?' }
+  const h = rows[hi].map(c => norm(String(c ?? '')))
+  const col = (test: (x: string) => boolean) => h.findIndex(test)
+  const c = {
+    subject: col(x => x === 'дейност'),
+    holder: col(x => x.startsWith('клас')),
+    w1: col(x => x.startsWith('i срок') && x.includes('ус')),
+    h1: col(x => x.startsWith('i срок') && x.includes('чс')),
+    w2: col(x => x.startsWith('ii срок') && x.includes('ус')),
+    h2: col(x => x.startsWith('ii срок') && x.includes('чс')),
+    total: col(x => x.startsWith('общ')),
+  }
+  const missing = Object.entries(c).filter(([, i]) => i < 0).map(([k]) => k)
+  if (missing.length) return { lines: [], error: `Липсват колони: ${missing.join(', ')}` }
+  const group = col(x => x === 'група'), mode = col(x => x.startsWith('вид подкрепа') || x.includes('начин')), nrm = col(x => x === 'норма на предмета')
+  const lines: RawLine[] = []
+  for (const r of rows.slice(hi + 1)) {
+    const subject = String(r[c.subject] ?? '').trim()
+    const holder = String(r[c.holder] ?? '').trim() || (group >= 0 ? String(r[group] ?? '').trim() : '')
+    if (!holder || !subject) continue
+    const m = mode >= 0 ? String(r[mode] ?? '').trim() : ''
+    const n = nrm >= 0 ? num(r[nrm]) : 0
+    lines.push({
+      holder, subject,
+      weeksT1: num(r[c.w1]), hoursT1: num(r[c.h1]), weeksT2: num(r[c.w2]), hoursT2: num(r[c.h2]),
+      total: num(r[c.total]), students: null, teacher: '',
+      individual: /\(\s*ИЧ\s*\)/i.test(m),
+      norm: n === 30 || n === 21 ? n : (/ДПЛР/i.test(m) || /терапи/i.test(subject) ? 30 : 21),
+      mode: m === '...' ? '' : m,
+    })
+  }
+  return { lines }
+}
+
 const numberIn = (s: string) => { const m = s.match(/\d+/); return m ? Number(m[0]) : null }
 
 /** Свързва редовете с EIS: „10 паралелка“ → паралелка 10, „ЦОУД №3“ → група 3, преподавател → служител */
