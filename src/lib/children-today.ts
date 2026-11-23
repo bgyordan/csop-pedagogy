@@ -114,10 +114,13 @@ export async function getChildrenToday(yearId: string): Promise<ChildrenToday> {
       k.rows = [...(ifoRows[k.id] || []), ...th]
     } else {
       const cells = byClassPeriod[e.class_id] || {}
+      // ИЧ (отделен предмет по плана на масовото училище) — детето е при своя учител, докато класът има друг час
+      const ich = ifoRows[k.id] || []
       const cls = Object.entries(cells)
         .filter(([p]) => !th.some(t => periodsOverlap(t.period, Number(p)))) // в часа на терапия детето е при терапевта
+        .filter(([p]) => !ich.some(t => periodsOverlap(t.period, Number(p))))
         .map(([p, c]) => row(Number(p), c.what, { who: c.whos.join(', '), note: c.notes.join('; ') }, false))
-      k.rows = [...cls, ...th]
+      k.rows = [...cls, ...ich, ...th]
     }
     k.rows.sort((a, b) => byStartTime(a.period, b.period))
     return k

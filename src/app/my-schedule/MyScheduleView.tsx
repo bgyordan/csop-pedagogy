@@ -10,6 +10,8 @@ interface Slot {
   subjectName: string
   allowsPullout: boolean
   label: string
+  /** „ИФО“ или „ИЧ“ (дете в дневна форма с отделен час) */
+  tag?: string
 }
 interface Props {
   term: number
@@ -63,8 +65,8 @@ export function MyScheduleView({ term, classSlots, ifoSlots, hasClasses, staffId
     const isIfo = s.source === 'ifo'
     return (
       <div className={`rounded-lg border px-2 py-1.5 ${isIfo ? 'bg-violet-50/60 border-violet-100' : 'bg-white border-slate-200'}`}>
-        <div title={isIfo ? `ИФО ${s.label}` : s.label} className={`text-[10px] font-medium truncate ${isIfo ? 'text-violet-600' : 'text-blue-600'}`}>
-          {isIfo ? `ИФО ${s.label}` : s.label}
+        <div title={isIfo ? `${s.tag || 'ИФО'} ${s.label}` : s.label} className={`text-[10px] font-medium truncate ${isIfo ? 'text-violet-600' : 'text-blue-600'}`}>
+          {isIfo ? `${s.tag || 'ИФО'} ${s.label}` : s.label}
         </div>
         <div className="flex items-center gap-1">
           <div className="text-xs text-slate-700 leading-snug line-clamp-2 break-words min-w-0" title={s.subjectName}>{s.subjectName}</div>
