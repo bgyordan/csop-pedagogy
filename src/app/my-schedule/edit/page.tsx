@@ -44,14 +44,16 @@ export default async function MyScheduleEditPage({
   const myClassTeacherIds = (myCta || []).map((a: any) => a.class_id)
   const myClassesTabs = (allClasses || []).filter((c: any) => myClassTeacherIds.includes(c.id)) as { id: string; name: string }[]
 
-  // само ИФО ученици (education_form='ifo' за текущата година)
-  const { data: ifoEnroll } = await supabase
+  // учениците за текущата година — ИФО и дневна форма: ИЧ може да е и на дете в дневна форма,
+  // което учи предмет отделно от класа (по плана на масовото училище), докато класът има друг час
+  const { data: enrollAll } = await supabase
     .from('student_enrollments')
-    .select('class_id, student:students(id, first_name, middle_name, last_name, status)')
-    .eq('academic_year_id', currentYear?.id).eq('education_form', 'ifo')
-  const studentOpts = (ifoEnroll || [])
+    .select('class_id, education_form, student:students(id, first_name, middle_name, last_name, status)')
+    .eq('academic_year_id', currentYear?.id)
+  const studentOpts = (enrollAll || [])
     .filter((e: any) => e.student && e.student.status === 'active')
-    .map((e: any) => ({ id: e.student.id, name: getFullName(e.student), classId: e.class_id as string | null }))
+    .map((e: any) => ({ id: e.student.id, name: getFullName(e.student), classId: e.class_id as string | null, ifo: e.education_form === 'ifo' }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'bg'))
 
   // предмети
   const { data: subjects } = await supabase.from('subjects').select('id, name, allows_pullout').order('name')

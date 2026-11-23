@@ -7,7 +7,7 @@ import { PERIOD_TIMES, PERIOD_LABEL, periodsOverlap, AFTERNOON_PERIODS } from '@
 import { settlePlan, subjectCanon, type PlanCard } from '@/lib/curriculum'
 
 type Cls = { id: string; name: string }
-type Stud = { id: string; name: string; classId?: string | null }
+type Stud = { id: string; name: string; classId?: string | null; ifo?: boolean }
 type Subj = { id: string; name: string; allows_pullout?: boolean }
 type Slot = { day: number; period: number; holderType: 'class' | 'ifo'; holderId: string; subjectId: string; group?: boolean }
 
@@ -84,15 +84,17 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
 
   const clsName = (id: string) => classes.find(c => c.id === id)?.name || '?'
   const studName = (id: string) => students.find(s => s.id === id)?.name || '?'
+  // ИФО дете — „ИФО“; дете в дневна форма с отделен час — „ИЧ“
+  const studTag = (id: string) => students.find(s => s.id === id)?.ifo === false ? 'ИЧ' : 'ИФО'
   const subjName = (id: string) => subjectList.find(s => s.id === id)?.name || ''
 
   const availableClasses = classes.filter(c => !myClasses.includes(c.id))
-  const availableStudents = students.filter(s => !myStudents.includes(s.id) &&
+  const availableStudents = students.filter(s => s.ifo !== false && !myStudents.includes(s.id) &&
     s.name.toLowerCase().includes(studSearch.toLowerCase()))
 
   const holders = [
     ...myClasses.map(id => ({ val: `class:${id}`, label: `Паралелка ${clsName(id)}`, kind: 'class' as const })),
-    ...myStudents.map(id => ({ val: `ifo:${id}`, label: `ИФО: ${studName(id)}`, kind: 'ifo' as const })),
+    ...myStudents.map(id => ({ val: `ifo:${id}`, label: `${studTag(id)}: ${studName(id)}`, kind: 'ifo' as const })),
   ]
 
   async function checkCollisionFor(day: number, period: number, holderType: 'class' | 'ifo', holderId: string) {
@@ -337,7 +339,9 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
               const info = c.place === 'info'
               const cs = planCheck.card[c.key]
               const state = info ? '' : cs?.state === 'over' ? 'over' : cs?.state === 'done' ? 'done' : ''
-              const kids = c.place === 'ich' ? (students.filter(st => !c.classId || st.classId === c.classId).length ? students.filter(st => !c.classId || st.classId === c.classId) : students) : []
+              // ИЧ: децата от паралелката на реда (дневна форма и ИФО); ако няма такива — ИФО децата
+              const inCls = c.place === 'ich' ? students.filter(st => !c.classId || st.classId === c.classId) : []
+              const kids = c.place === 'ich' ? (inCls.length ? inCls : students.filter(st => st.ifo !== false)) : []
               return (
                 <div key={c.key}
                   onClick={() => { if (!info && c.subjectId) setActive(isActive ? '' : `plan:${c.key}`) }}
@@ -383,7 +387,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
                         onChange={e => { const v = e.target.value; setIchStudent(p => ({ ...p, [c.key]: v })); if (v) setActive(`plan:${c.key}`) }}
                         className="w-full px-2 py-1 border border-violet-200 rounded-lg text-xs bg-white focus:outline-none">
                         <option value="">— С кое дете е ИЧ? —</option>
-                        {kids.map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
+                        {kids.map(st => <option key={st.id} value={st.id}>{st.name}{st.ifo ? ' (ИФО)' : ''}</option>)}
                       </select>
                     </div>
                   )}
@@ -588,7 +592,7 @@ export default function MyScheduleEditor({ academicYearId, term, classes, studen
                           {cell ? (
                             <>
                               <div className={`text-[11px] font-medium truncate ${cell.holderType === 'ifo' ? 'text-violet-600' : 'text-blue-600'}`}>
-                                {cell.holderType === 'class' ? clsName(cell.holderId) : 'ИФО ' + studName(cell.holderId)}
+                                {cell.holderType === 'class' ? clsName(cell.holderId) : `${studTag(cell.holderId)} ${studName(cell.holderId)}`}
                               </div>
                               <div className="flex items-center gap-1">
                                 <div className="text-xs text-slate-700 leading-snug line-clamp-2 break-words min-w-0" title={subjName(cell.subjectId)}>{subjName(cell.subjectId)}</div>

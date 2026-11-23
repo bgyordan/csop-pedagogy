@@ -64,12 +64,18 @@ export default async function MySchedulePage({
 
   const { data: ifoSlots } = await supabase
     .from('teacher_ifo_slots')
-    .select('day, period, subject:subjects(name, allows_pullout), student:students(first_name, middle_name, last_name)')
+    .select('day, period, student_id, subject:subjects(name, allows_pullout), student:students(first_name, middle_name, last_name)')
     .eq('teacher_id', target.id).eq('academic_year_id', currentYear?.id).eq('term', term)
+  // ИФО дете — „ИФО“; дете в дневна форма с отделен час (ИЧ) — „ИЧ“
+  const ifoKidIds = Array.from(new Set((ifoSlots || []).map((s: any) => s.student_id).filter(Boolean)))
+  const { data: kidForms } = ifoKidIds.length
+    ? await supabase.from('student_enrollments').select('student_id, education_form').eq('academic_year_id', currentYear?.id).in('student_id', ifoKidIds)
+    : { data: [] as any[] }
+  const dailyKid = new Set((kidForms || []).filter((e: any) => e.education_form !== 'ifo').map((e: any) => e.student_id))
   const ifoView = (ifoSlots || []).map((s: any) => ({
     source: 'ifo' as const, day: s.day, period: s.period,
     subjectName: s.subject?.name || '', allowsPullout: s.subject?.allows_pullout || false,
-    label: s.student ? getFullName(s.student) : '',
+    label: s.student ? getFullName(s.student) : '', tag: dailyKid.has(s.student_id) ? 'ИЧ' : 'ИФО',
   }))
 
   const hasClasses = classSlots.length > 0
