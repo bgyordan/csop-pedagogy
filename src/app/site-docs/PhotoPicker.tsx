@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Upload, Check, Images, FolderOpen, Newspaper, BookHeart, Search, ShieldCheck, ShieldAlert } from 'lucide-react'
-import { ACCENT, Drawer, Spinner, shrinkImage, slugName } from './shared'
+import { ACCENT, Drawer, Spinner, shrinkImage, slugName, UnreadableImage, isPhotoFile, skippedNote } from './shared'
 import type { Album, Photo } from './shared'
 import { smartMatch } from '@/lib/search'
 
@@ -23,11 +23,13 @@ export function useLibrary() {
   useEffect(() => { reload() }, [reload])
 
   // качва и връща адресите на качените снимки (по реда на избора)
-  async function upload(files: File[], onProgress?: (done: number, total: number) => void): Promise<string[]> {
-    const taken = new Set((items || []).map((i) => i.name)); const urls: string[] = []
+  // снимка, която браузърът не може да отвори (RAW, HEIC, повредена) — пропуска се и се казва чрез onSkip; останалите се качват
+  async function upload(files: File[], onProgress?: (done: number, total: number) => void, onSkip?: (note: string) => void): Promise<string[]> {
+    const taken = new Set((items || []).map((i) => i.name)); const urls: string[] = []; const bad: File[] = []
     for (let i = 0; i < files.length; i++) {
       const f = files[i]; onProgress?.(i, files.length)
-      const blob = await shrinkImage(f)
+      let blob: Blob
+      try { blob = await shrinkImage(f) } catch (e) { if (e instanceof UnreadableImage && onSkip) { bad.push(f); continue } throw e }
       const ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/jpeg' ? 'jpg' : (f.name.split('.').pop() || 'jpg').toLowerCase()
       const base = slugName(f.name); let name = `${base}.${ext}`; let n = 2
       while (taken.has(name)) name = `${base}-${n++}.${ext}`
@@ -37,6 +39,7 @@ export function useLibrary() {
       urls.push(urlOf(name))
     }
     onProgress?.(files.length, files.length)
+    if (bad.length) onSkip?.(skippedNote(bad))
     await reload()
     return urls
   }
@@ -147,7 +150,7 @@ export default function PhotoPicker({
     if (!files.length) return
     setErr(null)
     try {
-      const urls = await library.upload(files, (done, total) => setProgress({ done, total, label: 'Качване' }))
+      const urls = await library.upload(files, (done, total) => setProgress({ done, total, label: 'Качване' }), (note) => setErr(note))
       setSource('library')
       const items = urls.map((u) => ({ key: u.split('/').pop() || u, preview: u, url: u }))
       setPicked((p) => (max === 1 ? items.slice(-1) : [...p, ...items].slice(0, max || Infinity)))
@@ -199,7 +202,7 @@ export default function PhotoPicker({
       {/* качване */}
       <label
         onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => { e.preventDefault(); upload(Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'))) }}
+        onDrop={(e) => { e.preventDefault(); upload(Array.from(e.dataTransfer.files).filter(isPhotoFile)) }}
         className={`flex items-center gap-3 rounded-xl border-2 border-dashed border-slate-200 px-4 py-3.5 cursor-pointer hover:border-slate-300 hover:bg-slate-50 transition ${progress ? 'pointer-events-none opacity-70' : ''}`}>
         <span className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">{progress ? <Spinner /> : <Upload size={17} />}</span>
         <span className="text-[13px] text-slate-600"><b className="font-medium text-slate-800">Качи нови снимки</b> — или ги пуснете тук. Снимките от телефон се смаляват автоматично.</span>

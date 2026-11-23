@@ -9,7 +9,7 @@ import {
   Bold, List, Link2, Heading2, CalendarClock, Send, Save, GripVertical, FolderOpen,
 } from 'lucide-react'
 import {
-  ACCENT, SITE_URL, NEWS_CATS, Field, INPUT, Toast, Drawer, Spinner, useFlash, fmtDate, fmtDateTime, shrinkImage, moveItem, renderRich,
+  ACCENT, SITE_URL, NEWS_CATS, Field, INPUT, Toast, Drawer, Spinner, useFlash, fmtDate, fmtDateTime, shrinkImage, moveItem, renderRich, isPhotoFile, canDecode, skippedNote,
 } from './shared'
 import type { News, Album, Photo } from './shared'
 import PhotoPicker, { useLibrary } from './PhotoPicker'
@@ -86,8 +86,12 @@ export default function NewsManager({ initial, authorId, openId, openNewSignal, 
   }
 
   /* ---------- снимки ---------- */
-  function addFiles(files: File[]) {
-    const add = files.filter((f) => f.type.startsWith('image/')).map((f) => ({ key: `new-${Date.now()}-${Math.random()}`, file: f, preview: URL.createObjectURL(f) }))
+  // проверка още при избора — RAW / HEIC / повредена снимка не влиза и не спира записа на новината
+  async function addFiles(files: File[]) {
+    const cand = files.filter(isPhotoFile); const ok: File[] = []; const bad: File[] = []
+    for (const f of cand) (await canDecode(f) ? ok : bad).push(f)
+    if (bad.length) flash(skippedNote(bad), true)
+    const add = ok.map((f) => ({ key: `new-${Date.now()}-${Math.random()}`, file: f, preview: URL.createObjectURL(f) }))
     setImgs((p) => [...p, ...add]); if (!coverKey && add[0]) setCoverKey(add[0].key); setDirty(true)
   }
   // снимки, избрани от „Снимки за сайта“, галерията, други новини или портфолиото — вече са с публичен адрес

@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Plus, ArrowLeft, Upload, Star, Trash2, Pencil, Check, X, Images, ExternalLink, GripVertical, MessageSquare, CheckSquare, FolderOpen } from 'lucide-react'
-import { ACCENT, SITE_URL, Field, INPUT, Toast, Drawer, Spinner, useFlash, fmtDate, moveItem, shrinkImage, mediaPath } from './shared'
+import { ACCENT, SITE_URL, Field, INPUT, Toast, Drawer, Spinner, useFlash, fmtDate, moveItem, shrinkImage, mediaPath, UnreadableImage, isPhotoFile, skippedNote } from './shared'
 import type { Album, Photo } from './shared'
 import PhotoPicker, { useLibrary } from './PhotoPicker'
 
@@ -82,9 +82,9 @@ export default function GalleryManager({ initialAlbums, initialPhotos }: { initi
   /* ── снимки ── */
   async function upload(files: File[]) {
     if (!album) return
-    const imgs = files.filter((f) => f.type.startsWith('image/')); if (!imgs.length) return
+    const imgs = files.filter(isPhotoFile); if (!imgs.length) return
     const base = albumPhotos.reduce((m, p) => Math.max(m, p.sort_order || 0), 0)
-    const added: Photo[] = []
+    const added: Photo[] = []; const bad: File[] = []; const errs: string[] = []
     for (let i = 0; i < imgs.length; i++) {
       setProgress({ done: i, total: imgs.length })
       try {
@@ -95,12 +95,17 @@ export default function GalleryManager({ initialAlbums, initialPhotos }: { initi
         const url = supabase.storage.from('public-media').getPublicUrl(path).data.publicUrl
         const { data, error: e2 } = await supabase.from('gallery_photos').insert({ album_id: album.id, photo_url: url, sort_order: base + i + 1 }).select('*').single(); if (e2) throw e2
         added.push(data as Photo)
-      } catch (e: unknown) { flash(`${imgs[i].name}: ${e instanceof Error ? e.message : 'грешка'}`, true) }
+      } catch (e: unknown) {
+        if (e instanceof UnreadableImage) bad.push(imgs[i])
+        else errs.push(`${imgs[i].name}: ${e instanceof Error ? e.message : 'грешка'}`)
+      }
     }
     setProgress(null)
     setPhotos((p) => [...p, ...added])
     if (added.length && !album.cover_url) await setCover(added[0].photo_url)
-    flash(`Качени ${added.length} снимки.`); router.refresh()
+    // едно общо съобщение накрая — иначе „Качени N“ скрива грешките
+    const problems = [skippedNote(bad), ...errs].filter(Boolean).join(' · ')
+    flash(`Качени ${added.length} снимки.${problems ? ' ' + problems : ''}`, !!problems); router.refresh()
   }
   // добавяне на вече качени снимки (снимки за сайта, друг албум, новини, портфолио) — без ново качване
   async function addPicked(urls: string[]) {

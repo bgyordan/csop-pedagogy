@@ -117,7 +117,8 @@ export function Drawer({ open, onClose, title, children, footer, width = 500 }: 
 /* ═══════════════ общи помощници ═══════════════ */
 export function useFlash() {
   const [notice, setNotice] = useState<{ msg: string; err?: boolean } | null>(null)
-  const flash = (msg: string, err = false) => { setNotice({ msg, err }); setTimeout(() => setNotice((p) => (p?.msg === msg ? null : p)), 3500) }
+  // грешките стоят по-дълго — да се прочете кои снимки са пропуснати
+  const flash = (msg: string, err = false) => { setNotice({ msg, err }); setTimeout(() => setNotice((p) => (p?.msg === msg ? null : p)), err ? 10000 : 3500) }
   return { notice, flash }
 }
 
@@ -132,10 +133,43 @@ export function Switch({ on, onClick, label }: { on: boolean; onClick: () => voi
 
 export function Spinner({ size = 15 }: { size?: number }) { return <Loader2 size={size} className="animate-spin" /> }
 
+// Снимки, които браузърът не може да отвори: RAW от фотоапарат (.CR2, .NEF, .ARW…) и HEIC от iPhone
+const RAW_EXT = /\.(cr2|cr3|crw|nef|nrw|arw|srf|sr2|dng|orf|rw2|raf|pef|srw|x3f|3fr|kdc|mrw|erf|rwl|iiq)$/i
+const HEIC = (f: File) => /\.(heic|heif)$/i.test(f.name) || /hei[cf]/i.test(f.type)
+export class UnreadableImage extends Error {}
+function unreadableReason(f: File) {
+  if (RAW_EXT.test(f.name)) return 'raw'
+  if (HEIC(f)) return 'heic'
+  return 'bad'
+}
+/** Снимка ли е изобщо (вкл. RAW без тип в Windows) — за да се каже, че е пропусната, а не да изчезне мълчаливо */
+export const isPhotoFile = (f: File) => f.type.startsWith('image/') || RAW_EXT.test(f.name) || HEIC(f)
+/** Кратко обяснение за пропуснатите снимки — по причини */
+export function skippedNote(bad: File[]): string {
+  if (!bad.length) return ''
+  const LABEL: Record<string, string> = {
+    raw: 'RAW от фотоапарата — качете JPG варианта (фотоапаратът обикновено записва и JPG)',
+    heic: 'HEIC от iPhone — запазете ги като JPG',
+    bad: 'не се отварят — повредени или още не са изтеглени от облака',
+  }
+  const by: Record<string, string[]> = {}
+  bad.forEach((f) => (by[unreadableReason(f)] ||= []).push(f.name))
+  const list = (n: string[]) => n.slice(0, 3).join(', ') + (n.length > 3 ? ` и още ${n.length - 3}` : '')
+  return `Пропуснати ${bad.length}: ` + Object.entries(by).map(([r, n]) => `${list(n)} — ${LABEL[r]}`).join('; ')
+}
+/** Може ли браузърът да отвори снимката (проверка още при избора) */
+export async function canDecode(f: File): Promise<boolean> {
+  if (RAW_EXT.test(f.name)) return false
+  if (f.type === 'image/svg+xml' || f.type === 'image/gif') return true
+  try { (await createImageBitmap(f)).close(); return true } catch { return false }
+}
+
 // Смалява снимка до 2000px по дългата страна (снимките от телефон са по 5–8 MB)
 export async function shrinkImage(file: File, max = 2000): Promise<Blob> {
+  if (RAW_EXT.test(file.name)) throw new UnreadableImage(skippedNote([file]))
   if (!file.type.startsWith('image/') || file.type === 'image/svg+xml' || file.type === 'image/gif') return file
-  const bmp = await createImageBitmap(file)
+  let bmp: ImageBitmap
+  try { bmp = await createImageBitmap(file) } catch { throw new UnreadableImage(skippedNote([file])) }
   const k = Math.min(1, max / Math.max(bmp.width, bmp.height))
   if (k === 1 && file.size < 1_500_000) return file
   const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k)
