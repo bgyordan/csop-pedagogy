@@ -30,6 +30,9 @@ export function studyKind(mode: string | null | undefined, subject = ''): StudyK
   const m = String(mode || '').replace(/\(\s*ИЧ\s*\)/gi, '').trim().toUpperCase()
   if (/ДПЛР/.test(m)) return 'ДПЛР'
   if (/ДЦО/.test(m)) return 'ЦОУД'
+  // професионална подготовка: РПП (разширена) е раздел Б → ИУЧ; ОбПП / ОтПП / СПП / ЗПП са раздел А → ЗП
+  if (/РПП/.test(m)) return 'ИУЧ'
+  if (/ОБПП|ОТПП|СПП|ЗПП/.test(m)) return 'ЗП'
   if (/РП\s*\/?\s*УП|РПУПА|ИУЧ|УИЧ/.test(m)) return 'ИУЧ'
   if (/ОФПВ/.test(m)) return 'ОФПВ'
   if (/ООП/.test(m)) return 'ЗП'

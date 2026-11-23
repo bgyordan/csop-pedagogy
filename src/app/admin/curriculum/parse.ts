@@ -49,7 +49,7 @@ export function parseSheet(rows: any[][]): { lines: RawLine[]; error?: string } 
     lines.push({
       holder, subject,
       weeksT1: num(r[c.w1]), hoursT1: num(r[c.h1]), weeksT2: num(r[c.w2]), hoursT2: num(r[c.h2]),
-      total: num(r[c.total]), students: r[c.students] === '' || r[c.students] == null ? null : num(r[c.students]),
+      total: num(r[c.total]) || num(r[c.h1]) * num(r[c.w1]) + num(r[c.h2]) * num(r[c.w2]), students: r[c.students] === '' || r[c.students] == null ? null : num(r[c.students]),
       teacher: String(r[c.teacher] ?? '').trim(),
       individual: mode >= 0 && /\(\s*ИЧ\s*\)/i.test(String(r[mode] ?? '')),
       norm: (mode >= 0 && /ДПЛР/i.test(String(r[mode] ?? ''))) || /терапи/i.test(subject) ? 30 : 21,
@@ -88,10 +88,12 @@ export function parseHorarium(rows: any[][]): { lines: RawLine[]; error?: string
     if (!holder || !subject) continue
     const m = mode >= 0 ? String(r[mode] ?? '').trim() : ''
     const n = nrm >= 0 ? num(r[nrm]) : 0
+    const w1 = num(r[c.w1]), h1 = num(r[c.h1]), w2 = num(r[c.w2]), h2 = num(r[c.h2])
     lines.push({
       holder, subject,
-      weeksT1: num(r[c.w1]), hoursT1: num(r[c.h1]), weeksT2: num(r[c.w2]), hoursT2: num(r[c.h2]),
-      total: num(r[c.total]), students: null, teacher: '',
+      weeksT1: w1, hoursT1: h1, weeksT2: w2, hoursT2: h2,
+      // „Общ бр.ч.“ понякога е празно в НЕИСПУО (напр. при ИЧ) — смята се от седмиците × часовете
+      total: num(r[c.total]) || h1 * w1 + h2 * w2, students: null, teacher: '',
       individual: /\(\s*ИЧ\s*\)/i.test(m),
       norm: n === 30 || n === 21 ? n : (/ДПЛР/i.test(m) || /терапи/i.test(subject) ? 30 : 21),
       mode: m === '...' ? '' : m,
