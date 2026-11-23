@@ -203,7 +203,7 @@ export default function PagePhotosManager({ albums, photos, initialPages, startP
               {busyLib === '__up' ? <Spinner /> : <Upload size={15} />} Качи снимки
               <input type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
                 const files = Array.from(e.target.files || []); e.currentTarget.value = ''; if (!files.length) return
-                setBusyLib('__up'); try { await library.upload(files); flash(`Качени ${files.length} снимки.`) } catch (er: unknown) { flash(er instanceof Error ? er.message : 'Грешка.', true) } finally { setBusyLib(null) }
+                setBusyLib('__up'); try { let skip = ''; const urls = await library.upload(files, undefined, (n) => { skip = n }); if (skip) flash(`Качени ${urls.length} снимки. ${skip}`, true); else flash(`Качени ${urls.length} снимки.`) } catch (er: unknown) { flash(er instanceof Error ? er.message : 'Грешка.', true) } finally { setBusyLib(null) }
               }} />
             </label>
           </div>
