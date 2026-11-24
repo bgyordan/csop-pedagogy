@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
-import { IMP_COOKIE } from '@/lib/impersonate'
+import { IMP_COOKIE, canViewAs, viewAsBlocked } from '@/lib/impersonate'
 import AdminDashboard from './components/AdminDashboard'
 import SpecialistDashboard from './components/SpecialistDashboard'
 import StudentAbsentStrip from './components/StudentAbsentStrip'
@@ -70,13 +70,15 @@ export default async function DashboardPage() {
     } catch { /* колоните още не са добавени — нищо */ }
   }
 
-  // „Виж като…“ — само за админ: списък на служителите (без помощния персонал)
+  // „Виж като…“ — за админ и ЗДУД: списък на служителите (без помощния персонал);
+  // ЗДУД не вижда в списъка админ, директор и друг ЗДУД
   const labelOf = (p: any) => p.position || ROLE_LABELS[p.role] || p.role
-  const { data: staffList } = real?.role === 'admin'
+  const { data: staffList } = canViewAs(real?.role)
     ? await supabase.from('staff_profiles').select('id, first_name, middle_name, last_name, role, position')
         .not('user_id', 'is', null).neq('id', real.id).order('first_name')
     : { data: null }
-  const people = (staffList || []).map((p: any) => ({ id: p.id, name: getFullName(p), label: labelOf(p), role: p.role }))
+  const people = (staffList || []).filter((p: any) => !viewAsBlocked(real?.role, p.role, 'view'))
+    .map((p: any) => ({ id: p.id, name: getFullName(p), label: labelOf(p), role: p.role }))
   // учебните планове от училищата на децата — за класните (до календара)
   const schoolGroups = (profile.role === 'class_teacher' || profile.role === 'teacher')
     ? await loadSchoolFileGroups(profile.id, currentYear.id) : null
@@ -137,7 +139,7 @@ export default async function DashboardPage() {
               <p className={`text-xs mt-1 font-light ${d ? 'text-white/75' : 'text-slate-400'}`}>Предишно влизане: {loginTime(prevLogin)}</p>
             )}
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              {real?.role === 'admin' && !viewing && <ViewAsPicker people={people} onDark={d} />}
+              {canViewAs(real?.role) && !viewing && <ViewAsPicker people={people} onDark={d} />}
               {!viewing && <DashboardCustomize heroCookieName={heroKey} heroKey={hero.key} onDark={d} cookieName={dashKey} orderCookieName={orderKey} order={order} widgets={widgetsFor(profile.role)} hidden={Array.from(hidden)} />}
             </div>
           </div>
