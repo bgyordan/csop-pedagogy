@@ -7,6 +7,17 @@ export const IMP_COOKIE = 'eis_imp'
 export const IMP_BACK_COOKIE = 'eis_imp_back'
 export const IMP_MINUTES = 60
 
+// Кой може „Виж като / Влез като“ и като кого: админът — като всеки освен друг админ;
+// ЗДУД — като колегите си (не като админ, директор или друг ЗДУД)
+export const VIEW_AS_ROLES = ['admin', 'zdud']
+export const canViewAs = (role?: string | null) => VIEW_AS_ROLES.includes(role || '')
+// mode 'view' = само меню и табло (админът може и като друг админ); 'login' = истинска сесия
+export function viewAsBlocked(myRole?: string | null, targetRole?: string | null, mode: 'view' | 'login' = 'login'): boolean {
+  if (myRole === 'admin') return mode === 'login' && targetRole === 'admin'
+  if (myRole === 'zdud') return ['admin', 'director', 'zdud'].includes(targetRole || '')
+  return true
+}
+
 export function parseImp(v?: string | null): { until: number; targetUserId: string } | null {
   if (!v) return null
   const i = v.indexOf('.')

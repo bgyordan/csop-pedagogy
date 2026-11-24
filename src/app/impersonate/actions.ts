@@ -4,9 +4,9 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { VIEW_AS_COOKIE } from '@/lib/view-as'
-import { IMP_COOKIE, IMP_BACK_COOKIE, IMP_MINUTES } from '@/lib/impersonate'
+import { IMP_COOKIE, IMP_BACK_COOKIE, IMP_MINUTES, canViewAs, viewAsBlocked } from '@/lib/impersonate'
 
-// Само админ. Отваря истинска сесия на избрания служител; админската се пази за „Върни се“.
+// Админ и ЗДУД. Отваря истинска сесия на избрания служител; админската се пази за „Върни се“.
 export async function startImpersonation(staffId: string): Promise<{ ok?: true; error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -15,13 +15,13 @@ export async function startImpersonation(staffId: string): Promise<{ ok?: true; 
   if (jar.get(IMP_COOKIE)) return { error: 'Вече действаш като друг служител — първо се върни.' }
 
   const { data: me } = await supabase.from('staff_profiles').select('id, role').eq('user_id', user.id).maybeSingle()
-  if (me?.role !== 'admin') redirect('/dashboard')
+  if (!canViewAs(me?.role)) redirect('/dashboard')
 
   const admin = createAdminClient()
   const { data: target } = await admin.from('staff_profiles')
     .select('id, user_id, role, is_active').eq('id', staffId).maybeSingle()
   if (!target?.user_id) return { error: 'Този служител няма акаунт в системата.' }
-  if (target.role === 'admin') return { error: 'Не може да се влиза като друг администратор.' }
+  if (viewAsBlocked(me!.role, target.role)) return { error: me!.role === 'admin' ? 'Не може да се влиза като друг администратор.' : 'Не може да се влиза като администратор, директор или ЗДУД.' }
   if (target.is_active === false) return { error: 'Служителят е неактивен.' }
 
   const { data: au } = await admin.auth.admin.getUserById(target.user_id)
@@ -46,7 +46,7 @@ export async function startImpersonation(staffId: string): Promise<{ ok?: true; 
   jar.delete('eis_ok')
 
   // дневник (ако таблицата още не е създадена — нищо)
-  try { await admin.from('impersonation_log').insert({ admin_staff_id: me.id, target_staff_id: target.id }) } catch { /* */ }
+  try { await admin.from('impersonation_log').insert({ admin_staff_id: me!.id, target_staff_id: target.id }) } catch { /* */ }
 
   return { ok: true }
 }
