@@ -43,7 +43,7 @@ const navItems: NavItem[] = [
   // Моят профил — всичко лично на едно място: данни, класове, оценяване, контролна дейност, проф. портфолио, документи
   { href: '/profile', label: 'Моят профил', icon: <IdCard size={16} />, also: ['/my-files'] },
   // ── УПРАВАТА: основните регистри в една група, отворена по подразбиране ──
-  // (инструментите за децата — PECS, РЕМЕЛКА, материали… — са в „Децата“, както при колегите)
+  // (инструментите за децата — PECS, РЕМЕЛКА, материали, банка с уроци… — са в „За часа“, както при колегите)
   {
     href: '#school',
     label: 'Училище',
@@ -57,15 +57,22 @@ const navItems: NavItem[] = [
       { href: '/reports/hub', label: 'Справки', icon: <BarChart3 size={14} />, roles: ['admin', 'zdud', 'director'] },
       // дневник на случаите (тормоз и поведение)
       { href: '/incidents', label: 'Дневник случаи', icon: <ShieldAlert size={14} />, roles: ['admin', 'zdud', 'director'] },
-      // посещения на час (контролна дейност) — учителите избират ден, управата вижда графика
-      { href: '/visits', label: 'Посещения на час', icon: <CalendarCheck size={14} />, roles: ['admin', 'zdud', 'director'] },
-      // банката с уроци — до посещенията, оттам тръгна идеята
-      { href: '/lesson-bank', label: 'Банка с уроци', icon: <Lightbulb size={14} />, roles: ['admin', 'zdud', 'director'] },
-      // контролна дейност — проверки, констативни протоколи, Книга (ЗДАСД вижда, ако директорът го е определил за проверяващ)
-      { href: '/control', label: 'Контролна дейност', icon: <ClipboardCheck size={14} />, roles: ['admin', 'zdud', 'director'] },
       // заседания на педагогическия съвет и общото събрание — дневен ред, кворум, решения, Книга с протоколи
       { href: '/meetings', label: 'ПС и Общо събрание', icon: <Landmark size={14} />, roles: ['admin', 'zdud', 'director'] },
       { href: '/facilities', label: 'Материална база', icon: <Wrench size={14} />, roles: ['admin', 'zdud', 'director'] },
+    ],
+  },
+  // Контрол и развитие на персонала: посещения на час, проверки, ДТВ, атестиране, портфолио
+  {
+    href: '#control',
+    label: 'Контрол и развитие',
+    icon: <ClipboardCheck size={16} />,
+    roles: ['admin', 'zdud', 'director'],
+    children: [
+      // посещения на час (контролна дейност) — учителите избират ден, управата вижда графика
+      { href: '/visits', label: 'Посещения на час', icon: <CalendarCheck size={14} />, roles: ['admin', 'zdud', 'director'] },
+      // контролна дейност — проверки, констативни протоколи, Книга (ЗДАСД вижда, ако директорът го е определил за проверяващ)
+      { href: '/control', label: 'Контролна дейност', icon: <ClipboardCheck size={14} />, roles: ['admin', 'zdud', 'director'] },
       // оценяване на персонала — ДТВ за постигнати резултати и други оценки (карти, комисия, протоколи, суми)
       { href: '/evaluation', label: 'ДТВ и оценки', icon: <Award size={14} />, roles: ['admin', 'zdud', 'director'] },
       // атестиране по Наредба № 15 — кой подлежи (регистър), атестационна комисия, самооценка, карти
@@ -88,10 +95,18 @@ const navItems: NavItem[] = [
       // двигателна оценка (ФВС) — групова карта; индивидуалната е в досието → Развитие
       { href: '/development/motor', label: 'Двигателна оценка', icon: <Activity size={14} />, roles: ['class_teacher', 'teacher', 'educator', 'rehabilitator', 'psychologist', 'speech_therapist', 'admin', 'zdud', 'director'] },
       { href: '/surveys', label: 'Анкети на новите деца', icon: <ClipboardList size={14} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
+    ],
+  },
+  // За часа: инструментите и материалите за работа с децата
+  {
+    href: '#lesson',
+    label: 'За часа',
+    icon: <Lightbulb size={16} />,
+    children: [
       // обща библиотека: работни листове, табла, игри — търсене и печат
       { href: '/materials', label: 'Материали', icon: <Library size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
       // готови уроци от колегите — анонимно, по предмет и възраст
-      { href: '/lesson-bank', label: 'Банка с уроци', icon: <Lightbulb size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator'] },
+      { href: '/lesson-bank', label: 'Банка с уроци', icon: <Lightbulb size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
       { href: '/pecs', label: 'PECS', icon: <MessagesSquare size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
       { href: '/remelka', label: 'РЕМЕЛКА', icon: <Calculator size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
       { href: '/visual-schedule', label: 'Визуален график', icon: <Images size={14} />, roles: ['class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
