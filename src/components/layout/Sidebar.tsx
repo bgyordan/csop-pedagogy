@@ -59,6 +59,8 @@ const navItems: NavItem[] = [
       { href: '/incidents', label: 'Дневник случаи', icon: <ShieldAlert size={14} />, roles: ['admin', 'zdud', 'director'] },
       // посещения на час (контролна дейност) — учителите избират ден, управата вижда графика
       { href: '/visits', label: 'Посещения на час', icon: <CalendarCheck size={14} />, roles: ['admin', 'zdud', 'director'] },
+      // банката с уроци — до посещенията, оттам тръгна идеята
+      { href: '/lesson-bank', label: 'Банка с уроци', icon: <Lightbulb size={14} />, roles: ['admin', 'zdud', 'director'] },
       // контролна дейност — проверки, констативни протоколи, Книга (ЗДАСД вижда, ако директорът го е определил за проверяващ)
       { href: '/control', label: 'Контролна дейност', icon: <ClipboardCheck size={14} />, roles: ['admin', 'zdud', 'director'] },
       // заседания на педагогическия съвет и общото събрание — дневен ред, кворум, решения, Книга с протоколи
@@ -89,7 +91,7 @@ const navItems: NavItem[] = [
       // обща библиотека: работни листове, табла, игри — търсене и печат
       { href: '/materials', label: 'Материали', icon: <Library size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
       // готови уроци от колегите — анонимно, по предмет и възраст
-      { href: '/lesson-bank', label: 'Банка с уроци', icon: <Lightbulb size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
+      { href: '/lesson-bank', label: 'Банка с уроци', icon: <Lightbulb size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator'] },
       { href: '/pecs', label: 'PECS', icon: <MessagesSquare size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
       { href: '/remelka', label: 'РЕМЕЛКА', icon: <Calculator size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
       { href: '/visual-schedule', label: 'Визуален график', icon: <Images size={14} />, roles: ['class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },

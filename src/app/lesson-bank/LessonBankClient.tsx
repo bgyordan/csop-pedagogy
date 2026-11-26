@@ -5,11 +5,11 @@
 
 import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Upload, Eye, Download, Trash2, X, Loader2, FileText, ThumbsUp, Award, Target, UserRound, EyeOff } from 'lucide-react'
+import { Search, Upload, Eye, Download, Trash2, X, Loader2, FileText, ThumbsUp, Target, UserRound, EyeOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useToast, confirmDialog } from '@/components/ui/Toast'
 import { smartMatch } from '@/lib/search'
-import { KINDS, SUBJECTS, LEVELS, CHECKS, isFull, levelLabel } from './lib'
+import { KINDS, SUBJECTS, LEVELS, levelLabel } from './lib'
 import type { BankItem } from './lib'
 import { getUploadUrl, discardUpload, removeItem } from './actions'
 
@@ -28,7 +28,6 @@ export default function LessonBankClient({ items, mine, used, focus, isManager }
   const [subjects, setSubjects] = useState<string[]>([])
   const [levels, setLevels] = useState<string[]>([])
   const [kind, setKind] = useState('')
-  const [onlyFull, setOnlyFull] = useState(false)
   const [onlyMine, setOnlyMine] = useState(false)
   const [sort, setSort] = useState<'new' | 'used'>('new')
   const [upload, setUpload] = useState(false)
@@ -45,12 +44,11 @@ export default function LessonBankClient({ items, mine, used, focus, isManager }
       (!subjects.length || i.subjects.some(s => subjects.includes(s))) &&
       (!levels.length || i.levels.some(l => levels.includes(l))) &&
       (!kind || i.kind === kind) &&
-      (!onlyFull || isFull(i)) &&
       (!onlyMine || mineSet.has(i.id)) &&
-      (!q || smartMatch(`${i.title} ${i.description || ''} ${i.subjects.join(' ')}`, q)))
+      (!q || smartMatch(`${i.title} ${i.file_name} ${i.subjects.join(' ')}`, q)))
     return sort === 'used' ? [...list].sort((a, b) => usesOf(b) - usesOf(a)) : list
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, subjects, levels, kind, onlyFull, onlyMine, q, sort, counts, mineSet])
+  }, [items, subjects, levels, kind, onlyMine, q, sort, counts, mineSet])
 
   async function open(i: BankItem, download: boolean) {
     const { data } = await supabase.storage.from(BUCKET).createSignedUrl(i.file_path, 120, download ? { download: i.file_name } : undefined)
@@ -79,7 +77,7 @@ export default function LessonBankClient({ items, mine, used, focus, isManager }
   }
 
   const chip = (on: boolean) => `px-3 py-1.5 rounded-lg text-[13px] transition-all ${on ? 'bg-white text-[#0f2240] shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`
-  const anyFilter = subjects.length || levels.length || kind || onlyFull || onlyMine || q
+  const anyFilter = subjects.length || levels.length || kind || onlyMine || q
 
   return (
     <div className="space-y-4">
@@ -128,10 +126,6 @@ export default function LessonBankClient({ items, mine, used, focus, isManager }
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
-          <button type="button" onClick={() => setOnlyFull(!onlyFull)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] border transition-colors ${onlyFull ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-slate-200 text-slate-500 hover:border-slate-400'}`}>
-            <Award size={13} /> Само пълни уроци
-          </button>
           {mine.length > 0 && (
             <button type="button" onClick={() => setOnlyMine(!onlyMine)}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] border transition-colors ${onlyMine ? 'border-[#0f2240] bg-slate-50 text-[#0f2240]' : 'border-slate-200 text-slate-500 hover:border-slate-400'}`}>
@@ -143,7 +137,7 @@ export default function LessonBankClient({ items, mine, used, focus, isManager }
             <button type="button" onClick={() => setSort('used')} className={chip(sort === 'used')}>Най-ползвани</button>
           </div>
           {anyFilter ? (
-            <button type="button" onClick={() => { setSubjects([]); setLevels([]); setKind(''); setOnlyFull(false); setOnlyMine(false); setQ('') }}
+            <button type="button" onClick={() => { setSubjects([]); setLevels([]); setKind(''); setOnlyMine(false); setQ('') }}
               className="text-[12.5px] text-slate-400 hover:text-slate-700">изчисти</button>
           ) : null}
         </div>
@@ -160,7 +154,6 @@ export default function LessonBankClient({ items, mine, used, focus, isManager }
           {shown.map(i => {
             const isMine = mineSet.has(i.id)
             const iUsed = myUses.includes(i.id)
-            const full = isFull(i)
             return (
               <div key={i.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all">
                 <div className="px-4 pt-4 pb-3 flex-1 flex flex-col">
@@ -175,9 +168,7 @@ export default function LessonBankClient({ items, mine, used, focus, isManager }
                       <div className="text-[12px] text-slate-500 mt-0.5">{KINDS[i.kind] || i.kind}</div>
                     </div>
                   </div>
-                  {i.description && <p className="text-[12.5px] text-slate-500 mt-2 line-clamp-3">{i.description}</p>}
                   <div className="flex flex-wrap gap-1 mt-2.5">
-                    {full && <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200"><Award size={11} /> Пълен урок</span>}
                     {i.subjects.map(s => <span key={s} className="text-[11px] px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-100">{s}</span>)}
                     {i.levels.map(l => <span key={l} className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{levelLabel(l)}</span>)}
                   </div>
@@ -223,11 +214,9 @@ function UploadModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
   const { toast } = useToast()
   const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
   const [kind, setKind] = useState('lesson')
   const [subjects, setSubjects] = useState<string[]>([])
   const [levels, setLevels] = useState<string[]>([])
-  const [checks, setChecks] = useState<string[]>([])
   const [showName, setShowName] = useState(false)
   const [busy, setBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -243,8 +232,8 @@ function UploadModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
     const up = await supabase.storage.from(BUCKET).uploadToSignedUrl(prep.path, prep.token, file, { contentType: file.type || undefined })
     if (up.error) { setBusy(false); toast('Грешка при качване: ' + up.error.message, 'error'); return }
     const { error } = await supabase.rpc('lesson_bank_add', {
-      p_title: title.trim(), p_description: description.trim() || null, p_kind: kind,
-      p_subjects: subjects, p_levels: levels, p_checks: kind === 'lesson' ? checks : [],
+      p_title: title.trim(), p_description: null, p_kind: kind,
+      p_subjects: subjects, p_levels: levels, p_checks: [],
       p_show_name: showName, p_file_path: prep.path, p_file_name: file.name, p_mime_type: file.type || null, p_size: file.size,
     })
     setBusy(false)
@@ -289,17 +278,6 @@ function UploadModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
           <div>
             <div className="text-sm font-medium text-slate-800 mb-1.5">Възраст <span className="text-[12px] font-normal text-slate-400">може няколко</span></div>
             <div className="flex flex-wrap gap-1.5">{LEVELS.map(l => <button key={l.key} type="button" onClick={() => setLevels(toggleIn(levels, l.key))} className={pill(levels.includes(l.key))}>{l.label}</button>)}</div>
-          </div>
-          {kind === 'lesson' && (
-            <div className="rounded-xl bg-emerald-50/50 border border-emerald-100 px-4 py-3">
-              <div className="text-sm font-medium text-slate-800 mb-1">Какво има в плана? <span className="text-[12px] font-normal text-slate-400">отметнете — с всичките четири става „Пълен урок“</span></div>
-              <div className="flex flex-wrap gap-1.5 mt-2">{CHECKS.map(c => <button key={c.key} type="button" onClick={() => setChecks(toggleIn(checks, c.key))} className={pill(checks.includes(c.key))}>{checks.includes(c.key) ? '✓ ' : ''}{c.label}</button>)}</div>
-            </div>
-          )}
-          <div>
-            <div className="text-sm font-medium text-slate-800 mb-1.5">Няколко думи <span className="text-[12px] font-normal text-slate-400">по желание</span></div>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="как го проведохте, за какви деца е подходящ"
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-[14px] focus:outline-none focus:border-[#0f2240] resize-y" />
           </div>
           {/* Анонимно / С моето име — плъзгач с два етикета */}
           <div className="flex items-center gap-3">
