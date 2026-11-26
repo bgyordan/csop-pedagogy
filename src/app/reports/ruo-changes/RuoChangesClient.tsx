@@ -181,8 +181,8 @@ export default function RuoChangesClient({ yearName, baseId, history, changes, d
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
                               <Field label="Родител" value={d[detailKey(s.id, 'in')]?.parentName} onChange={v => set(s.id, 'in', 'parentName', v)} />
                               <Field label="Вх. № на заявлението" value={d[detailKey(s.id, 'in')]?.applicationNo} onChange={v => set(s.id, 'in', 'applicationNo', v)} placeholder="114/09.10.26г." />
-                              <Field label="№ на становището (РЦПППО)" value={d[detailKey(s.id, 'in')]?.opinionNo} onChange={v => set(s.id, 'in', 'opinionNo', v)} placeholder="УВД 04-317/28.09.2026г." />
-                              <Field label="Вх. № на становището при нас" value={d[detailKey(s.id, 'in')]?.opinionInNo} onChange={v => set(s.id, 'in', 'opinionInNo', v)} placeholder="112/08.10.26г." />
+                              <Field label="№ на заповедта за насочване (РЦПППО)" value={d[detailKey(s.id, 'in')]?.opinionNo} onChange={v => set(s.id, 'in', 'opinionNo', v)} placeholder="РДО07-244/24.09.2026г." />
+                              <Field label="Вх. № на заповедта при нас" value={d[detailKey(s.id, 'in')]?.opinionInNo} onChange={v => set(s.id, 'in', 'opinionInNo', v)} placeholder="55/24.09.26г." />
                             </div>
                           )}
                         </div>

@@ -51,8 +51,8 @@ export type ChangeDetail = {
   kind: 'in' | 'out'
   parentName: string
   applicationNo: string
-  opinionNo: string
-  opinionInNo: string
+  opinionNo: string     // № на заповедта за насочване от РЦПППО (становището е вътрешен документ и не се вписва)
+  opinionInNo: string   // вх. № на заповедта при нас
   orderNo: string
 }
 

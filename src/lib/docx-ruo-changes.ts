@@ -160,7 +160,7 @@ export async function generateRuoChangesReport(opts: {
         } else {
           const d = opts.details[detailKey(s.id, 'in')]
           runs.push(t(' (заявление за записване от родител '), val(d?.parentName), t(' с вх. № '), val(d?.applicationNo),
-            t(' в ЦСОП-Варна и становище за насочване № '), val(d?.opinionNo), t(' от РЦПППО, гр. Варна и вх. № '),
+            t(' в ЦСОП-Варна и заповед за насочване № '), val(d?.opinionNo), t(' от РЦПППО, гр. Варна и вх. № '),
             val(d?.opinionInNo), t(' за ЦСОП-Варна);'))
         }
         children.push(para(runs))

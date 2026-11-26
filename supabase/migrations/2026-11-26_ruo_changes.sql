@@ -23,8 +23,8 @@ create table if not exists public.ruo_change_details (
   kind text not null check (kind in ('in', 'out')),   -- in = постъпва в ЦСОП, out = отписан
   parent_name text,
   application_no text,             -- вх. № на заявлението (за записване / за отписване)
-  opinion_no text,                 -- № на становището на РЦПППО
-  opinion_in_no text,              -- вх. № на становището при нас
+  opinion_no text,                 -- № на заповедта за насочване от РЦПППО
+  opinion_in_no text,              -- вх. № на заповедта за насочване при нас
   order_no text,                   -- заповед за отписване
   updated_at timestamptz not null default now(),
   primary key (snapshot_id, student_id, kind)
