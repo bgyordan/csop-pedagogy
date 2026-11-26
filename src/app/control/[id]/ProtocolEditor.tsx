@@ -1,6 +1,7 @@
 'use client'
 // Констативен протокол.
 // Чернова: проверяващият попълва детайли, констатации по критериите (3/2/1/н/п + бележка), силни страни, изводи, препоръки.
+// Протоколът на директора (скала 4): степени Незадоволителна…Значителна, само Изводи и Препоръки — като нейната бланка.
 // „Подпиши и впиши в Книгата“ дава пореден № за учебната година и заключва протокола.
 // След това: Word за подпис на хартия, прикачване на сканирания подписан протокол, анулиране с мотив.
 // Провереният: „Запознат съм“ и възражение до 7 дни.
@@ -18,7 +19,8 @@ import { useToast } from '@/components/ui/Toast'
 import DateInput from '@/components/ui/DateInput'
 import { Confirm } from '@/components/ui/Confirm'
 import {
-  KIND_LABEL, FORM_LABEL, FOCUS_LABEL, STATUS_LABEL, SCORES, DETAIL_FIELDS, OBJECTION_DAYS, protocolDeadline, dmy, scoreLabel,
+  KIND_LABEL, FORM_LABEL, FOCUS_LABEL, STATUS_LABEL, DETAIL_FIELDS, OBJECTION_DAYS, protocolDeadline, dmy, scoreLabel,
+  scoresFor, scoreTone, itemNumbers, LONG_DETAILS,
   REC_STATUS_LABEL, REC_STATUS_TONE, recOverdue, followUpCriteria, inspectorTitle, defaultBasis,
   type ControlCheck, type CheckStaff, type Recommendation, type Finding,
 } from '@/lib/control'
@@ -56,6 +58,8 @@ export default function ProtocolEditor(p: {
 
   const draft = c.status === 'draft'
   const edit = p.canEdit && draft
+  const sc = c.scale || 3
+  const four = sc === 4   // протоколът на директора
   const mine = p.staff.find(s => s.staff_id === p.me.id)
   const deadline = protocolDeadline(c.check_date)
   const detailKeys = Array.from(new Set([...(p.check.template?.details || []), ...Object.keys(c.details || {}).filter(k => c.details[k])]))
@@ -324,7 +328,11 @@ export default function ProtocolEditor(p: {
           </Field>
           {detailKeys.length > 0 && (
             <div className="grid sm:grid-cols-2 gap-3">
-              {DETAIL_FIELDS.filter(f => detailKeys.includes(f.k)).map(f => (
+              {DETAIL_FIELDS.filter(f => detailKeys.includes(f.k)).map(f => LONG_DETAILS.includes(f.k) ? (
+                <div key={f.k} className="sm:col-span-2"><Field label={f.l}>{edit
+                  ? <textarea className="input w-full" rows={3} value={c.details?.[f.k] || ''} onChange={e => setDetail(f.k, e.target.value)} placeholder={f.k === 'lesson_goals' ? '1. …\n2. …\n3. …' : ''} />
+                  : <Pre s={c.details?.[f.k]} />}</Field></div>
+              ) : (
                 <Field key={f.k} label={f.l}>{edit ? <input className="input w-full" value={c.details?.[f.k] || ''} onChange={e => setDetail(f.k, e.target.value)} placeholder={f.k === 'attendance' ? 'напр. 6 присъстващи, 1 отсъстващ (болест)' : f.k === 'place' ? 'напр. етаж 2, санитарни възли, двор' : f.k === 'period' ? 'напр. 01.09 – 31.10.2026' : ''} /> : c.details?.[f.k]}</Field>
               ))}
             </div>
@@ -359,25 +367,29 @@ export default function ProtocolEditor(p: {
             <div key={g.g} className="mb-4">
               <div className="text-[13px] font-medium text-slate-700 mb-1.5">{g.g}</div>
               <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
-                {g.items.map(it => {
+                {g.items.map((it, idx) => {
                   const f = c.findings?.[it.k] || {}
+                  const no = four ? itemNumbers(g.items)[idx] : ''
+                  if (it.h) return (
+                    <div key={it.k} className="px-3 py-2.5 text-[13.5px] text-slate-800">{no && <span className="text-slate-400 mr-1">{no}.</span>}{it.t}</div>
+                  )
                   return (
                     <div key={it.k} className="px-3 py-2.5">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="flex-1 min-w-[220px] text-[13.5px] text-slate-800">{it.t}</span>
+                        <span className={`flex-1 min-w-[220px] text-[13.5px] text-slate-800 ${it.b ? 'pl-5' : ''}`}>{it.b ? '• ' : no ? <span className="text-slate-400 mr-1">{no}.</span> : null}{it.t}</span>
                         {edit ? (
-                          <div className="flex gap-1">
-                            {SCORES.map(s => (
+                          <div className="flex flex-wrap gap-1">
+                            {scoresFor(sc).map(s => (
                               <button key={s.v} type="button" title={s.l} onClick={() => setFinding(it.k, { s: f.s === s.v ? undefined : s.v })}
-                                className={`h-8 min-w-8 px-2 rounded-lg text-[12.5px] border ${f.s === s.v ? (s.v === 3 ? 'bg-emerald-600 border-emerald-600 text-white' : s.v === 2 ? 'bg-amber-500 border-amber-500 text-white' : s.v === 1 ? 'bg-rose-600 border-rose-600 text-white' : 'bg-slate-500 border-slate-500 text-white') : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>{s.short}</button>
+                                className={`h-8 min-w-8 px-2 rounded-lg ${four ? 'text-[12px]' : 'text-[12.5px]'} border ${f.s === s.v ? scoreTone(s.v, sc) : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>{s.short}</button>
                             ))}
                           </div>
-                        ) : <span className="text-[12.5px] text-slate-600">{scoreLabel(f.s)}</span>}
+                        ) : <span className="text-[12.5px] text-slate-600">{scoreLabel(f.s, sc)}</span>}
                       </div>
                       {selfs.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1.5">
                           {selfs.map(x => { const v = x.self_assessment?.[it.k]?.s; return v === undefined ? null : (
-                            <span key={x.staff_id} className="text-[11.5px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-800">самооценка{selfs.length > 1 ? ` ${pname(x.staff).split(' ')[0]}` : ''}: {scoreLabel(v).toLowerCase()}</span>
+                            <span key={x.staff_id} className="text-[11.5px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-800">самооценка{selfs.length > 1 ? ` ${pname(x.staff).split(' ')[0]}` : ''}: {scoreLabel(v, sc).toLowerCase()}</span>
                           ) })}
                         </div>
                       )}
@@ -392,14 +404,14 @@ export default function ProtocolEditor(p: {
           {selfs.filter(x => x.self_assessment?._note).map(x => (
             <p key={x.staff_id} className="text-[13px] text-indigo-900 bg-indigo-50/60 rounded-xl px-3 py-2 mb-2"><b>Самооценка — коментар ({pname(x.staff)}):</b> {x.self_assessment!._note}</p>
           ))}
-          {edit && (c.criteria || []).length > 0 && <p className="text-[12px] text-slate-400 mb-2">3 — изпълнено · 2 — частично · 1 — не е изпълнено · н/п — неприложимо</p>}
-          <Field label={(c.criteria || []).length ? 'Други констатации' : 'Констатации'}>{edit ? <textarea className="input w-full" rows={4} value={c.findings_text || ''} onChange={e => set({ findings_text: e.target.value })} /> : <Pre s={c.findings_text} />}</Field>
+          {edit && (c.criteria || []).length > 0 && !four && <p className="text-[12px] text-slate-400 mb-2">3 — изпълнено · 2 — частично · 1 — не е изпълнено · н/п — неприложимо</p>}
+          {(!four || c.findings_text) && <Field label={(c.criteria || []).length ? 'Други констатации' : 'Констатации'}>{edit ? <textarea className="input w-full" rows={4} value={c.findings_text || ''} onChange={e => set({ findings_text: e.target.value })} /> : <Pre s={c.findings_text} />}</Field>}
         </Section>
 
-        <Section title="II. Силни страни">{edit ? <textarea className="input w-full" rows={3} value={c.strengths || ''} onChange={e => set({ strengths: e.target.value })} placeholder="Какво се прави добре — постиженията се отбелязват, не само пропуските" /> : <Pre s={c.strengths} />}</Section>
-        <Section title="III. Изводи">{edit ? <textarea className="input w-full" rows={3} value={c.conclusions || ''} onChange={e => set({ conclusions: e.target.value })} /> : <Pre s={c.conclusions} />}</Section>
+        {(!four || c.strengths) && <Section title="II. Силни страни">{edit ? <textarea className="input w-full" rows={3} value={c.strengths || ''} onChange={e => set({ strengths: e.target.value })} placeholder="Какво се прави добре — постиженията се отбелязват, не само пропуските" /> : <Pre s={c.strengths} />}</Section>}
+        <Section title={four ? 'Изводи' : 'III. Изводи'}>{edit ? <textarea className="input w-full" rows={four ? 8 : 3} value={c.conclusions || ''} onChange={e => set({ conclusions: e.target.value })} /> : <Pre s={c.conclusions} />}</Section>
 
-        <Section title="IV. Препоръки">
+        <Section title={four ? 'Препоръки' : 'IV. Препоръки'}>
           {edit ? (
             <div className="space-y-2">
               {recs.map((r, i) => (

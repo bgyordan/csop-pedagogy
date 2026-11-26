@@ -14,6 +14,7 @@ import {
   KIND_LABEL, FORM_LABEL, FOCUS_LABEL, STATUS_LABEL, protocolDeadline, dmy, defaultBasis, inspectorTitle, templatesFor,
   REC_STATUS_LABEL, REC_STATUS_TONE, recOverdue,
   type ControlCheck, type ControlTemplate, type CheckStaff, type CriteriaGroup, type Recommendation,
+  DETAIL_DEFAULTS,
 } from '@/lib/control'
 import { generateControlBook, type ProtocolDoc } from '@/lib/docx-control'
 import { MONTH_LABEL, monthOrder, type ControlPlan, type PlanItem } from '@/lib/control-plan'
@@ -426,7 +427,8 @@ function NewCheck(p: Parameters<typeof ControlClient>[0] & { onClose: () => void
   const myPlan = p.plans.find(x => x.owner_id === p.me.id)
   const myItems = p.planItems.filter(i => i.plan_id === myPlan?.id)
   const startDate = v?.date || todayIso()
-  const visitTpl = v ? active.find(t => t.code === (v.period >= 21 ? 'coud' : 'lesson')) : undefined
+  // посещение на час: сутрин — протоколът на директора (ако го има), иначе общият; следобед — ЦОУД
+  const visitTpl = v ? (v.period >= 21 ? active.find(t => t.code === 'coud') : (active.find(t => t.code === 'director_lesson') || active.find(t => t.code === 'lesson'))) : undefined
   const startItem = (p.itemParam && myItems.find(i => i.id === p.itemParam))
     || (visitTpl ? myItems.find(i => i.template_id === visitTpl.id && i.month === parseInt(startDate.slice(5, 7), 10)) : undefined)
   const initialTpl = (startItem?.template_id && active.find(t => t.id === startItem.template_id)) || visitTpl || active[0]
@@ -445,20 +447,20 @@ function NewCheck(p: Parameters<typeof ControlClient>[0] & { onClose: () => void
     if (!tpl || !p.year) return
     setBusy(true)
     const supabase = createClient()
-    const details: Record<string, string> = {}
+    const details: Record<string, string> = { ...(DETAIL_DEFAULTS[tpl.code || ''] || {}) }
     if (v) {
       if (v.class_name) details.class = v.class_name
       if (v.subject) details.subject = v.subject
       if (v.topic) details.topic = v.topic
     }
     const item = myItems.find(i => i.id === itemId)
-    const subject = tpl.subject ? (v?.subject && tpl.code === 'lesson' ? `${tpl.subject} по ${v.subject}` : tpl.subject) : (item?.subject.toLowerCase() || '')
+    const subject = tpl.subject ? (v?.subject && (tpl.code === 'lesson' || tpl.code === 'director_lesson') ? `${tpl.subject} по ${v.subject}` : tpl.subject) : (item?.subject.toLowerCase() || '')
     const { data, error } = await supabase.from('control_checks').insert({
       academic_year_id: p.year.id, inspector_id: p.me.id, inspector_title: inspectorTitle(p.me.role, p.me.position),
       template_id: tpl.id, visit_booking_id: v?.id || null, plan_item_id: itemId || null,
       kind: tpl.kind, focus: tpl.focus, form: tpl.form, planned, announced, check_date: date,
       subject, purpose: tpl.purpose, method: tpl.method, basis: defaultBasis({ role: p.me.role, planned, yearName: p.year.name }),
-      details, criteria: tpl.criteria,
+      details, criteria: tpl.criteria, scale: tpl.scale || 3,
     }).select('id').single()
     if (error || !data) { toast(error?.message || 'Грешка', 'error'); setBusy(false); return }
     if (staffIds.length) {

@@ -3,11 +3,12 @@
 // Книгата — с номерирани страници, за класьора и за приключване в НЕИСПУО.
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle,
-  PageOrientation, TableLayoutType, VerticalAlign, ShadingType, Footer, PageNumber,
+  PageOrientation, TableLayoutType, VerticalAlign, ShadingType, Footer, PageNumber, ImageRun, TextDirection, VerticalMergeType,
 } from 'docx'
+import { CSOP_LOGO_B64 } from './docx-generator'
 import { saveAs } from 'file-saver'
 import {
-  CENTER_NAME, DETAIL_FIELDS, FORM_LABEL, KIND_LABEL, FOCUS_LABEL, scoreLabel, dmy,
+  CENTER_NAME, DETAIL_FIELDS, FORM_LABEL, KIND_LABEL, FOCUS_LABEL, scoreLabel, dmy, SCORES4, itemNumbers,
   type ControlCheck, type CheckStaff, type Recommendation,
 } from './control'
 import { MONTH_LABEL, PERIOD_LABEL, monthOrder, monthYear, type Analysis, type ControlPlan, type PlanItem, type Period } from './control-plan'
@@ -60,7 +61,8 @@ export async function generateControlProtocol(d: ProtocolDoc) {
   return out(doc, file)
 }
 
-function protocolChildren(d: ProtocolDoc) {
+function protocolChildren(d: ProtocolDoc): (Paragraph | Table)[] {
+  if (d.check.scale === 4) return directorProtocolChildren(d)
   const c = d.check
   const draft = c.status === 'draft'
   const children: (Paragraph | Table)[] = []
@@ -95,12 +97,13 @@ function protocolChildren(d: ProtocolDoc) {
   const groups = (c.criteria || []).filter(g => g.items?.length)
   if (groups.length) {
     const COLS = [5000, 1500, 3138]
+    const sc = c.scale || 3
     const rows: TableRow[] = [new TableRow({ tableHeader: true, children: [cell(COLS[0], 'Критерий', { head: true }), cell(COLS[1], 'Степен', { head: true, center: true }), cell(COLS[2], 'Бележка', { head: true })] })]
     groups.forEach(g => {
       rows.push(new TableRow({ children: [cell(COLS[0] + COLS[1] + COLS[2], g.g, { bold: true, span: 3 })] }))
       g.items.forEach(it => {
         const f = c.findings?.[it.k] || {}
-        rows.push(new TableRow({ cantSplit: true, children: [cell(COLS[0], it.t), cell(COLS[1], scoreLabel(f.s), { center: true }), cell(COLS[2], f.n || '')] }))
+        rows.push(new TableRow({ cantSplit: true, children: [cell(COLS[0], it.t), cell(COLS[1], scoreLabel(f.s, sc), { center: true }), cell(COLS[2], f.n || '')] }))
       })
     })
     children.push(table(COLS, rows))
@@ -136,6 +139,131 @@ function protocolChildren(d: ProtocolDoc) {
   children.push(P([t(`${c.inspector_title || ''}: ........................................   / ${d.inspectorName} /`)]))
   children.push(P([t('Запознат/и с констативния протокол:', { bold: true })], { spacing: { before: 280 } }))
   d.staff.forEach(s => children.push(P([t(`${name(s.staff)}: ........................................   дата: ................`)], { spacing: { before: 160 } })))
+  return children
+}
+
+// ── Протоколът на директора (посещение на час) — като нейната бланка ─────────────
+// Таблица: критерий | 4 колони за степента с „×“; горе — данните за часа и проверката; долу — изводи, препоръки, срок.
+const NO_B = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }
+const NO_BORDERS = { top: NO_B, bottom: NO_B, left: NO_B, right: NO_B }
+
+function directorHeader(): (Paragraph | Table)[] {
+  const logo = new ImageRun({ data: Uint8Array.from(atob(CSOP_LOGO_B64), ch => ch.charCodeAt(0)), transformation: { width: 60, height: 60 }, type: 'jpg' })
+  return [
+    new Table({
+      width: { size: 9638, type: WidthType.DXA }, columnWidths: [1100, 8538], layout: TableLayoutType.FIXED,
+      borders: { ...NO_BORDERS, insideHorizontal: NO_B, insideVertical: NO_B },
+      rows: [new TableRow({ children: [
+        new TableCell({ borders: NO_BORDERS, width: { size: 1100, type: WidthType.DXA }, verticalAlign: VerticalAlign.CENTER, children: [new Paragraph({ children: [logo] })] }),
+        new TableCell({ borders: { ...NO_BORDERS, bottom: { style: BorderStyle.SINGLE, size: 6, color: '000000' } }, width: { size: 8538, type: WidthType.DXA }, verticalAlign: VerticalAlign.CENTER, children: [
+          new Paragraph({ alignment: AlignmentType.CENTER, children: [t(CENTER_NAME, { bold: true, size: 24 })] }),
+          new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 60 }, children: [t('ул. „Петко Стайнов” №7, e-mail: info-400052@edu.mon.bg, тел. 052 619 456, 0878 521 823', { size: 18 })] }),
+        ] }),
+      ] })],
+    }),
+  ]
+}
+
+function directorProtocolChildren(d: ProtocolDoc): (Paragraph | Table)[] {
+  const c = d.check
+  const children: (Paragraph | Table)[] = [...directorHeader()]
+  children.push(P([t('Констативен протокол', { bold: true, size: 28 })], { alignment: AlignmentType.CENTER, spacing: { before: 280, after: 40 } }))
+  children.push(P([t(c.book_no ? `№${c.book_no}` : '№ ........', { bold: true, size: 24 })], { alignment: AlignmentType.CENTER, spacing: { after: 200 } }))
+  if (c.status === 'draft') children.push(P([t('ЧЕРНОВА — без номер, не е вписана в Книгата', { color: 'B91C1C', size: 18 })], { alignment: AlignmentType.CENTER }))
+
+  // колони: етикет | стойност | 4 степени
+  const L = 3000, V = 4338, M = 575
+  const TEXT = L + V
+  const mk = (width: number, text: string, o: { bold?: boolean; center?: boolean; span?: number; vertical?: boolean; merge?: 'restart' | 'continue'; size?: number; italic?: string } = {}) => new TableCell({
+    borders: CELLS, width: { size: width, type: WidthType.DXA }, verticalAlign: VerticalAlign.CENTER, columnSpan: o.span,
+    margins: { top: 40, bottom: 40, left: 80, right: 80 },
+    ...(o.vertical ? { textDirection: TextDirection.BOTTOM_TO_TOP_LEFT_TO_RIGHT } : {}),
+    ...(o.merge ? { verticalMerge: o.merge === 'restart' ? VerticalMergeType.RESTART : VerticalMergeType.CONTINUE } : {}),
+    children: String(text || '').split('\n').map((line, i, all) => new Paragraph({
+      alignment: o.center ? AlignmentType.CENTER : AlignmentType.LEFT,
+      children: [t(line, { size: o.size || 20, bold: o.bold }), ...(o.italic && i === all.length - 1 ? [t(' — ' + o.italic, { size: 18, italics: true })] : [])],
+    })),
+  })
+  const rows: TableRow[] = []
+  // заглавен ред: „Степен“ над четирите колони, отдолу — степените вертикално
+  rows.push(new TableRow({ tableHeader: true, children: [
+    mk(TEXT, 'Професионални качества и умения. Поведение на учителя/Терапевта\nПоведение на децата', { bold: true, span: 2, merge: 'restart' }),
+    mk(M * 4, 'Степен', { bold: true, center: true, span: 4 }),
+  ] }))
+  rows.push(new TableRow({ tableHeader: true, height: { value: 1700, rule: 'atLeast' as any }, children: [
+    mk(TEXT, '', { span: 2, merge: 'continue' }),
+    ...SCORES4.map(s => mk(M, s.l, { vertical: true, size: 18 })),
+  ] }))
+  // данните за часа и проверката
+  const staffLine = d.staff.map(s => `${name(s.staff)}${s.staff?.position ? ` – ${s.staff.position}` : ''}`).join('; ')
+  const det = c.details || {}
+  const info: [string, string][] = [
+    ['Дата, група', `${dmy(c.check_date)} г.${det.class ? ` паралелка ${det.class.replace(/^паралелка\s*/i, '')}` : ''}`],
+    ['Име, длъжност', staffLine],
+    ['Вид на проверката', KIND_LABEL[c.kind]],
+    ['ОН/Учебен предмет/Терапия', det.subject || ''],
+    ['Тема на ситуацията/урока', det.topic || ''],
+    ['Цел и задачи на ситуацията/урока', det.lesson_goals || ''],
+    ['Цел на проверката', c.purpose || ''],
+    ['Задачи на проверката', det.check_tasks || ''],
+    ['Методи на проверката', c.method || ''],
+  ]
+  info.forEach(([l, v]) => rows.push(new TableRow({ cantSplit: true, children: [mk(L, l), mk(V + M * 4, v, { span: 5 })] })))
+  // критериите с „×“ в колоната на степента
+  ;(c.criteria || []).filter(g => g.items?.length).forEach(g => {
+    rows.push(new TableRow({ cantSplit: true, children: [mk(TEXT, g.g, { bold: true, span: 2 }), ...SCORES4.map(() => mk(M, ''))] }))
+    const nums = itemNumbers(g.items)
+    g.items.forEach((it, i) => {
+      const f = c.findings?.[it.k] || {}
+      const text = it.b ? `• ${it.t}` : `${nums[i]}. ${it.t}`
+      rows.push(new TableRow({ cantSplit: true, children: [
+        mk(TEXT, text, { span: 2, italic: f.n || undefined }),
+        ...SCORES4.map(s => mk(M, !it.h && f.s === s.v ? '×' : '', { center: true, bold: true, size: 24 })),
+      ] }))
+    })
+  })
+  children.push(table([L, V, M, M, M, M], rows))
+
+  // изводи, препоръки, срок
+  const R1 = 7838, R2 = 1800
+  const recs = d.recs.filter(r => r.text.trim())
+  const concl = [c.findings_text, c.strengths, c.conclusions].filter(x => x?.trim()).join('\n')
+  const box = (width: number, parts: { text: string; bold?: boolean }[]) => new TableCell({
+    borders: CELLS, width: { size: width, type: WidthType.DXA }, margins: { top: 60, bottom: 60, left: 100, right: 100 },
+    children: parts.flatMap(pt => pt.text.split('\n').map(line => new Paragraph({ alignment: pt.bold ? AlignmentType.LEFT : AlignmentType.JUSTIFIED, spacing: { after: 40 }, children: [t(line, { size: 21, bold: pt.bold })] }))),
+  })
+  const recRows: TableRow[] = [
+    new TableRow({ tableHeader: true, children: [box(R1, [{ text: 'Изводи, препоръки', bold: true }]), box(R2, [{ text: 'Срок', bold: true }])] }),
+    new TableRow({ children: [box(R1, [{ text: 'І. Изводи:', bold: true }, { text: concl || dots }]), box(R2, [{ text: '' }])] }),
+    new TableRow({ children: [box(R1, [{ text: 'ІІ. Препоръки:', bold: true }]), box(R2, [{ text: '' }])] }),
+    ...(recs.length
+      ? recs.map((r, i) => new TableRow({ cantSplit: true, children: [box(R1, [{ text: `${i + 1}. ${r.text}` }]), box(R2, [{ text: r.due_date ? dmy(r.due_date) + ' г.' : '' }])] }))
+      : [new TableRow({ children: [box(R1, [{ text: dots }]), box(R2, [{ text: '' }])] })]),
+  ]
+  children.push(P([t('')], { spacing: { before: 120, after: 0 } }))
+  children.push(table([R1, R2], recRows))
+
+  const objections = d.staff.filter(s => s.objection)
+  if (objections.length) {
+    children.push(P([t('Възражения:', { bold: true })], { spacing: { before: 200 } }))
+    objections.forEach(s => children.push(P([t(`${name(s.staff)} (${dmy(s.objection_at)}): `, { bold: true }), t(s.objection || '')])))
+  }
+
+  // подписи: проверените вляво, проверяващият вдясно
+  const sig = (label: string, who: string) => [
+    new Paragraph({ spacing: { before: 120 }, children: [t(`${label}: ...................................`)] }),
+    new Paragraph({ children: [t(`/ ${who} /`, { size: 20 })], indent: { left: 900 } }),
+  ]
+  const leftSigs = d.staff.length ? d.staff.flatMap(s => sig('Учител', name(s.staff))) : sig('Учител', '')
+  const inspLabel = /директор/i.test(c.inspector_title || '') && !/заместник/i.test(c.inspector_title || '') ? 'Директор' : (c.inspector_title || 'Проверяващ')
+  children.push(new Table({
+    width: { size: 9638, type: WidthType.DXA }, columnWidths: [4819, 4819], layout: TableLayoutType.FIXED,
+    borders: { ...NO_BORDERS, insideHorizontal: NO_B, insideVertical: NO_B },
+    rows: [new TableRow({ children: [
+      new TableCell({ borders: NO_BORDERS, width: { size: 4819, type: WidthType.DXA }, children: [new Paragraph({ spacing: { before: 360 }, children: [] }), ...leftSigs] }),
+      new TableCell({ borders: NO_BORDERS, width: { size: 4819, type: WidthType.DXA }, children: [new Paragraph({ spacing: { before: 360 }, children: [] }), ...sig(inspLabel, d.inspectorName)] }),
+    ] })],
+  }))
   return children
 }
 

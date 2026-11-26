@@ -7,14 +7,15 @@ export type CheckFocus = 'pedagogical' | 'administrative'
 export type CheckForm = 'thematic' | 'current' | 'observation' | 'study'
 export type CheckStatus = 'draft' | 'signed' | 'voided'
 
-export type Criterion = { k: string; t: string }
+/** h — ред-заглавие без оценка; b — подточка (• без собствен номер) */
+export type Criterion = { k: string; t: string; h?: boolean; b?: boolean }
 export type CriteriaGroup = { g: string; items: Criterion[] }
-export type Finding = { s?: number; n?: string }   // s: 3 изпълнено, 2 частично, 1 не, 0 неприложимо
+export type Finding = { s?: number; n?: string }   // скала 3: 3 изпълнено, 2 частично, 1 не, 0 неприложимо · скала 4: 1–4 (виж SCORES4)
 
 export type ControlTemplate = {
   id: string; code: string | null; name: string; kind: CheckKind; focus: CheckFocus; form: CheckForm
   subject: string | null; purpose: string | null; method: string | null; details: string[]
-  criteria: CriteriaGroup[]; is_active: boolean; sort: number
+  criteria: CriteriaGroup[]; is_active: boolean; sort: number; scale?: number
 }
 
 export type CheckStaff = {
@@ -40,7 +41,7 @@ export type ControlCheck = {
   findings_text: string | null; strengths: string | null; conclusions: string | null
   status: CheckStatus; book_no: number | null; signed_at: string | null; scan_path: string | null
   voided_reason: string | null; voided_at: string | null; created_at: string
-  follow_up_of?: string | null; evidence?: Evidence | null; plan_item_id?: string | null
+  follow_up_of?: string | null; evidence?: Evidence | null; plan_item_id?: string | null; scale?: number
   inspector?: { first_name: string; last_name: string; position: string | null } | null
 }
 
@@ -71,7 +72,25 @@ export const SCORES: { v: number; l: string; short: string }[] = [
   { v: 1, l: 'Не е изпълнено', short: '1' },
   { v: 0, l: 'Неприложимо', short: 'н/п' },
 ]
-export const scoreLabel = (s?: number) => SCORES.find(x => x.v === s)?.l || ''
+/** Скалата от протокола на директора — степени по бланката, отляво надясно */
+export const SCORES4: { v: number; l: string; short: string }[] = [
+  { v: 1, l: 'Незадоволителна', short: 'Незадоволителна' },
+  { v: 2, l: 'Задоволителна', short: 'Задоволителна' },
+  { v: 3, l: 'Достатъчна', short: 'Достатъчна' },
+  { v: 4, l: 'Значителна', short: 'Значителна' },
+]
+export const scoresFor = (scale?: number) => (scale === 4 ? SCORES4 : SCORES)
+export const scoreLabel = (s?: number, scale?: number) => scoresFor(scale).find(x => x.v === s)?.l || ''
+/** Цвят на избраната степен: зелено — най-високата, после синьо/жълто/червено */
+export function scoreTone(v: number, scale?: number) {
+  if (scale === 4) return v === 4 ? 'bg-emerald-600 border-emerald-600 text-white' : v === 3 ? 'bg-sky-600 border-sky-600 text-white' : v === 2 ? 'bg-amber-500 border-amber-500 text-white' : 'bg-rose-600 border-rose-600 text-white'
+  return v === 3 ? 'bg-emerald-600 border-emerald-600 text-white' : v === 2 ? 'bg-amber-500 border-amber-500 text-white' : v === 1 ? 'bg-rose-600 border-rose-600 text-white' : 'bg-slate-500 border-slate-500 text-white'
+}
+/** Номерата на критериите в раздела (подточките „•“ не получават номер) */
+export function itemNumbers(items: Criterion[]) {
+  let n = 0
+  return items.map(it => (it.b ? '' : String(++n)))
+}
 
 export const DETAIL_FIELDS: { k: string; l: string }[] = [
   { k: 'class', l: 'Паралелка / група' },
@@ -80,7 +99,17 @@ export const DETAIL_FIELDS: { k: string; l: string }[] = [
   { k: 'attendance', l: 'Присъстващи / отсъстващи ученици' },
   { k: 'place', l: 'Обект / помещения' },
   { k: 'period', l: 'Проверен период' },
+  { k: 'lesson_goals', l: 'Цел и задачи на ситуацията/урока' },
+  { k: 'check_tasks', l: 'Задачи на проверката' },
 ]
+/** Полета с повече текст (textarea) */
+export const LONG_DETAILS = ['lesson_goals', 'check_tasks']
+/** Стойности по подразбиране за полетата при нов протокол — по кода на образеца */
+export const DETAIL_DEFAULTS: Record<string, Record<string, string>> = {
+  director_lesson: {
+    check_tasks: 'Прилагане на съвременни теоретични постановки и педагогически технологии при организацията и провеждане на учебна дейност с деца със СОП',
+  },
+}
 
 export const PROTOCOL_DAYS = 15        // чл. 41, ал. 7 от Наредба № 8
 export const OBJECTION_DAYS = 7
