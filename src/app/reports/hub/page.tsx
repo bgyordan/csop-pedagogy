@@ -50,6 +50,7 @@ const GROUPS: Group[] = [
     title: 'Писма', icon: <Mail size={16} />,
     items: [
       { href: '/reports/letters', title: 'Официални писма — паралелки', desc: 'РУО, РЦПППО, изнесени групи — Word', icon: <FileText size={18} />, roles: M },
+      { href: '/reports/ruo-changes', title: 'Доклад за промени в паралелките', desc: 'РУО — кой постъпва, излиза и се мести спрямо последния подаден доклад — Word', icon: <FileText size={18} />, roles: M },
       { href: '/reports?tab=school', title: 'Писма до училищата', desc: 'ЕПЛР екип и график на срещите по училище — Word', icon: <School size={18} />, roles: M, coordinator: true },
     ],
   },

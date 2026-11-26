@@ -2,6 +2,7 @@
 import RuoLetterButton from '../RuoLetterButton'
 import OutreachLetterButton from '../OutreachLetterButton'
 import { Mail } from 'lucide-react'
+import Link from 'next/link'
 
 interface RuoRow { className: string; students: { name: string; school: string; externalClass: string }[] }
 interface Group { location: string; items: RuoRow[] }
@@ -30,6 +31,11 @@ export default function LettersClient({ yearName, ruoData, outreachGroups }: { y
               intro="Предлагам, да ми бъде разрешено сформиране на {N} групи и паралелки с деца и ученици за учебна {year} г., насочени в ЦСОП –Варна на основание чл.195, ал.1 от ЗПУО и чл.185, ал.1 от Наредба за приобщаващо образование." />
           </div>
         </div>
+
+        <Link href="/reports/ruo-changes" className="block bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-4">
+          <h3 className="text-sm font-semibold text-slate-800 mb-1">Доклад за промени в паралелките</h3>
+          <p className="text-xs text-slate-500">След началния списък — кой постъпва, излиза и се мести спрямо последния подаден доклад до РУО. Номерата се попълват постепенно.</p>
+        </Link>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
           <h3 className="text-sm font-semibold text-slate-800 mb-1">Изнесени групи (до РЦПППО)</h3>

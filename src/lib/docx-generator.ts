@@ -684,19 +684,19 @@ export async function generateCommitteeProtocol(
 
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV']
 
-function toRoman(n: number): string {
+export function toRoman(n: number): string {
   return ROMAN[n] || String(n)
 }
 
 // "4 а" -> 4 ; "ПГ" -> null
-function classNumber(external: string): number | null {
+export function classNumber(external: string): number | null {
   if (!external) return null
   const m = external.trim().match(/^(\d+)/)
   return m ? parseInt(m[1]) : null
 }
 
 // Списък класове -> "V и IV клас" / "VII, VI и V клас" / "IX, VIII клас и ПГ"
-function classesLabel(externals: string[]): string {
+export function classesLabel(externals: string[]): string {
   const clean = externals.map(e => (e || '').trim()).filter(Boolean)
   const nums = [...new Set(clean.map(classNumber).filter((n): n is number => n !== null))]
     .sort((a, b) => b - a)
