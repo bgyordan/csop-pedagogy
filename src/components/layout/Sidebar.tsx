@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BookOpen, ScrollText,
   Calendar, Shield, UserCircle, LogOut,
   Building2, Menu, X, GitBranch, BarChart3, FileSpreadsheet,
-  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, ArrowLeftRight, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare, Calculator, ShieldAlert, MonitorSmartphone, Bell, CalendarCheck, Award, BookMarked, BookUser, Landmark, Search, Palette } from 'lucide-react'
+  Inbox, ClipboardList, ListChecks, FileSignature, Package, Star, Globe, CalendarClock, ChevronDown, Images, Sprout, HeartPulse, Settings, GraduationCap, CalendarDays, School, FolderOpen, UserX, ClipboardCheck, ArrowLeftRight, Dumbbell, Wrench, Activity, IdCard, Library, MessagesSquare, Calculator, ShieldAlert, MonitorSmartphone, Bell, CalendarCheck, Award, BookMarked, BookUser, Landmark, Search, Palette, Lightbulb } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole, ROLE_LABELS } from '@/types'
 import WhatsNewModal from './WhatsNewModal'
@@ -88,6 +88,8 @@ const navItems: NavItem[] = [
       { href: '/surveys', label: 'Анкети на новите деца', icon: <ClipboardList size={14} />, roles: ['psychologist', 'speech_therapist', 'rehabilitator'] },
       // обща библиотека: работни листове, табла, игри — търсене и печат
       { href: '/materials', label: 'Материали', icon: <Library size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
+      // готови уроци от колегите — анонимно, по предмет и възраст
+      { href: '/lesson-bank', label: 'Банка с уроци', icon: <Lightbulb size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
       { href: '/pecs', label: 'PECS', icon: <MessagesSquare size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
       { href: '/remelka', label: 'РЕМЕЛКА', icon: <Calculator size={14} />, roles: ['coordinator', 'psychologist', 'speech_therapist', 'rehabilitator', 'class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
       { href: '/visual-schedule', label: 'Визуален график', icon: <Images size={14} />, roles: ['class_teacher', 'teacher', 'educator', 'admin', 'zdud', 'director'] },
