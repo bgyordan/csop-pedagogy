@@ -6,11 +6,11 @@ import { useRouter } from 'next/navigation'
 import { X, Loader2, ClipboardPen, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
-import { SCORES, dmy, type CriteriaGroup, type Finding } from '@/lib/control'
+import { scoresFor, dmy, type CriteriaGroup, type Finding } from '@/lib/control'
 
 export type SelfRequest = {
   check_id: string; subject: string; check_date: string; inspector: string
-  criteria: CriteriaGroup[]; self_assessment: (Record<string, Finding> & { _note?: string }) | null; self_assessed_at: string | null
+  criteria: CriteriaGroup[]; self_assessment: (Record<string, Finding> & { _note?: string }) | null; self_assessed_at: string | null; scale?: number
 }
 
 export default function SelfAssessments({ requests }: { requests: SelfRequest[] }) {
@@ -71,12 +71,13 @@ function SelfForm({ r, onClose }: { r: SelfRequest; onClose: () => void }) {
               <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
                 {g.items.map(it => {
                   const f = data[it.k] || {}
+                  if (it.h) return <div key={it.k} className="px-3 py-2.5 text-[13.5px] text-slate-800">{it.t}</div>
                   return (
                     <div key={it.k} className="px-3 py-2.5">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="flex-1 min-w-[200px] text-[13.5px] text-slate-800">{it.t}</span>
-                        <div className="flex gap-1">
-                          {SCORES.map(s => (
+                        <span className={`flex-1 min-w-[200px] text-[13.5px] text-slate-800 ${it.b ? 'pl-5' : ''}`}>{it.b ? '• ' : ''}{it.t}</span>
+                        <div className="flex flex-wrap gap-1">
+                          {scoresFor(r.scale).map(s => (
                             <button key={s.v} type="button" title={s.l} onClick={() => setData({ ...data, [it.k]: { ...f, s: f.s === s.v ? undefined : s.v } })}
                               className={`h-8 min-w-8 px-2 rounded-lg text-[12.5px] border ${f.s === s.v ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>{s.short}</button>
                           ))}
@@ -92,7 +93,7 @@ function SelfForm({ r, onClose }: { r: SelfRequest; onClose: () => void }) {
           <label className="block text-[12px] text-slate-500">Коментар (по желание)
             <textarea className="input w-full mt-1" rows={3} value={note} onChange={e => setNote(e.target.value)} placeholder="Какво се получава добре, къде имате нужда от подкрепа" />
           </label>
-          <p className="text-[12px] text-slate-400">3 — изпълнявам · 2 — частично · 1 — не изпълнявам · н/п — неприложимо</p>
+          {r.scale !== 4 && <p className="text-[12px] text-slate-400">3 — изпълнявам · 2 — частично · 1 — не изпълнявам · н/п — неприложимо</p>}
         </div>
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-slate-100">
           <button type="button" onClick={onClose} className="btn-secondary">Отказ</button>

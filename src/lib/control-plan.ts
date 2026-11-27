@@ -169,7 +169,9 @@ export function analyzeControl(o: {
     const s = c.findings?.[it.k]?.s
     if (!s) return
     const x = crit[it.t] ||= { t: it.t, n: 0, low: 0, high: 0 }
-    x.n++; if (s <= 2) x.low++; if (s === 3) x.high++
+    // скала 3: 1–2 слабо, 3 силно · скала 4 (протокол на директора): 1–2 слабо, 4 силно
+    const top = c.scale === 4 ? 4 : 3
+    x.n++; if (s <= 2) x.low++; if (s === top) x.high++
   })))
   const critList = Object.values(crit).filter(x => x.n >= 2)
   const weak = critList.filter(x => x.low > 0).sort((a, b) => b.low / b.n - a.low / a.n || b.n - a.n).slice(0, 8)
